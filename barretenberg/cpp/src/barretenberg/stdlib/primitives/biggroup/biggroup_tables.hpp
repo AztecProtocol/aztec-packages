@@ -2,7 +2,7 @@
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/memory/twin_rom_table.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
-namespace bb::stdlib {
+namespace bb::stdlib::element_default {
 
 using plookup::MultiTableId;
 
@@ -644,4 +644,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_base<length>::get(
     }
     return element::one(bits[0].get_context());
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_default

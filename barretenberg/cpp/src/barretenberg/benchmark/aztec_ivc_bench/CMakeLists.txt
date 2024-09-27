@@ -1,1 +1,0 @@
-barretenberg_module(aztec_ivc_bench aztec_ivc stdlib_honk_verifier stdlib_sha256 crypto_merkle_tree stdlib_primitives)

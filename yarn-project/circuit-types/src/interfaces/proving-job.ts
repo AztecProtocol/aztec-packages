@@ -1,17 +1,22 @@
 import {
   type AvmCircuitInputs,
+  type AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateKernelEmptyInputData,
   type Proof,
+  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
+  type PublicKernelInnerCircuitPrivateInputs,
+  type PublicKernelTailCircuitPrivateInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
@@ -20,14 +25,15 @@ import {
   type RootRollupPublicInputs,
   type TUBE_PROOF_LENGTH,
   type TubeInputs,
+  type VMCircuitPublicInputs,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 
-import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/processed_tx.js';
+import { type CircuitName } from '../stats/index.js';
 
-export type ProofAndVerificationKey = {
+export type AvmProofAndVerificationKey = {
   proof: Proof;
-  verificationKey: VerificationKeyData;
+  verificationKey: AvmVerificationKeyData;
 };
 
 export type PublicInputsAndRecursiveProof<T> = {
@@ -64,12 +70,15 @@ export enum ProvingRequestType {
   PRIVATE_KERNEL_EMPTY,
   PUBLIC_VM,
 
-  PUBLIC_KERNEL_NON_TAIL,
+  PUBLIC_KERNEL_INNER,
+  PUBLIC_KERNEL_MERGE,
   PUBLIC_KERNEL_TAIL,
 
   BASE_ROLLUP,
   MERGE_ROLLUP,
+  EMPTY_BLOCK_ROOT_ROLLUP,
   BLOCK_ROOT_ROLLUP,
+  BLOCK_ROOT_ROLLUP_FINAL,
   BLOCK_MERGE_ROLLUP,
   ROOT_ROLLUP,
 
@@ -79,21 +88,66 @@ export enum ProvingRequestType {
   TUBE_PROOF,
 }
 
+export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): CircuitName {
+  switch (type) {
+    case ProvingRequestType.PRIVATE_KERNEL_EMPTY:
+      return 'private-kernel-empty';
+    case ProvingRequestType.PUBLIC_VM:
+      return 'avm-circuit';
+    case ProvingRequestType.PUBLIC_KERNEL_INNER:
+      return 'public-kernel-inner';
+    case ProvingRequestType.PUBLIC_KERNEL_MERGE:
+      return 'public-kernel-merge';
+    case ProvingRequestType.PUBLIC_KERNEL_TAIL:
+      return 'public-kernel-tail';
+    case ProvingRequestType.BASE_ROLLUP:
+      return 'base-rollup';
+    case ProvingRequestType.MERGE_ROLLUP:
+      return 'merge-rollup';
+    case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
+      return 'empty-block-root-rollup';
+    case ProvingRequestType.BLOCK_ROOT_ROLLUP:
+      return 'block-root-rollup';
+    case ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL:
+      return 'block-root-rollup-final';
+    case ProvingRequestType.BLOCK_MERGE_ROLLUP:
+      return 'block-merge-rollup';
+    case ProvingRequestType.ROOT_ROLLUP:
+      return 'root-rollup';
+    case ProvingRequestType.BASE_PARITY:
+      return 'base-parity';
+    case ProvingRequestType.ROOT_PARITY:
+      return 'root-parity';
+    case ProvingRequestType.TUBE_PROOF:
+      return 'tube-circuit';
+    default:
+      throw new Error(`Cannot find circuit name for proving request type: ${type}`);
+  }
+}
+
+export type PublicKernelInnerRequest = {
+  type: ProvingRequestType.PUBLIC_KERNEL_INNER;
+  inputs: PublicKernelInnerCircuitPrivateInputs;
+};
+
+export type PublicKernelMergeRequest = {
+  type: ProvingRequestType.PUBLIC_KERNEL_MERGE;
+  inputs: PublicKernelCircuitPrivateInputs;
+};
+
+export type PublicKernelTailRequest = {
+  type: ProvingRequestType.PUBLIC_KERNEL_TAIL;
+  inputs: PublicKernelTailCircuitPrivateInputs;
+};
+
 export type ProvingRequest =
   | {
       type: ProvingRequestType.PUBLIC_VM;
       inputs: AvmCircuitInputs;
     }
-  | {
-      type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL;
-      kernelType: PublicKernelNonTailRequest['type'];
-      inputs: PublicKernelNonTailRequest['inputs'];
-    }
-  | {
-      type: ProvingRequestType.PUBLIC_KERNEL_TAIL;
-      kernelType: PublicKernelTailRequest['type'];
-      inputs: PublicKernelTailRequest['inputs'];
-    }
+  | PublicKernelInnerRequest
+  | PublicKernelMergeRequest
+  | PublicKernelTailRequest
   | {
       type: ProvingRequestType.BASE_PARITY;
       inputs: BaseParityInputs;
@@ -115,6 +169,14 @@ export type ProvingRequest =
       inputs: BlockRootRollupInputs;
     }
   | {
+      type: ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP;
+      inputs: EmptyBlockRootRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL;
+      inputs: BlockRootRollupInputs;
+    }
+  | {
       type: ProvingRequestType.BLOCK_MERGE_ROLLUP;
       inputs: BlockMergeRollupInputs;
     }
@@ -133,14 +195,17 @@ export type ProvingRequest =
 
 export type ProvingRequestPublicInputs = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey;
+  [ProvingRequestType.PUBLIC_VM]: AvmProofAndVerificationKey;
 
-  [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>;
+  [ProvingRequestType.PUBLIC_KERNEL_INNER]: PublicInputsAndRecursiveProof<VMCircuitPublicInputs>;
+  [ProvingRequestType.PUBLIC_KERNEL_MERGE]: PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>;
   [ProvingRequestType.PUBLIC_KERNEL_TAIL]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
 
   [ProvingRequestType.BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
+  [ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
 

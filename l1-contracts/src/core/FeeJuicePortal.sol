@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
-// Messaging
-import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
-import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
-import {IFeeJuicePortal} from "./interfaces/IFeeJuicePortal.sol";
-import {DataStructures} from "./libraries/DataStructures.sol";
-import {Errors} from "./libraries/Errors.sol";
-import {Constants} from "./libraries/ConstantsGen.sol";
-import {Hash} from "./libraries/Hash.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+
+import {Ownable} from "@oz/access/Ownable.sol";
 
 contract FeeJuicePortal is IFeeJuicePortal, Ownable {
   using SafeERC20 for IERC20;
@@ -79,7 +79,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", _to, _amount));
+      Hash.sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", _to, _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);

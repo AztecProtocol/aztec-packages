@@ -13,20 +13,6 @@ template <class FF> class GrandProductTests : public testing::Test {
 
   public:
     void SetUp() { srs::init_crs_factory("../srs_db/ignition"); }
-    /**
-     * @brief Get a random polynomial
-     *
-     * @param size
-     * @return Polynomial
-     */
-    static constexpr Polynomial get_random_polynomial(size_t size)
-    {
-        Polynomial random_polynomial{ size };
-        for (auto& coeff : random_polynomial) {
-            coeff = FF::random_element();
-        }
-        return random_polynomial;
-    }
 
     static void populate_span(auto& polynomial_view, const auto& polynomial)
     {
@@ -53,8 +39,13 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         // Construct a ProverPolynomials object with completely random polynomials
         ProverPolynomials prover_polynomials;
+        for (auto& poly : prover_polynomials.get_to_be_shifted()) {
+            poly = Polynomial::random(circuit_size, /*shiftable*/ 1);
+        }
         for (auto& poly : prover_polynomials.get_all()) {
-            poly = get_random_polynomial(circuit_size);
+            if (poly.is_empty()) {
+                poly = Polynomial::random(circuit_size);
+            }
         }
 
         // Get random challenges
@@ -136,10 +127,10 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         // Step (4)
         Polynomial z_permutation_expected(circuit_size);
-        z_permutation_expected[0] = FF::zero(); // Z_0 = 1
+        z_permutation_expected.at(0) = FF::zero(); // Z_0 = 1
         // Note: in practice, we replace this expensive element-wise division with Montgomery batch inversion
         for (size_t i = 0; i < circuit_size - 1; ++i) {
-            z_permutation_expected[i + 1] = numerator_accum[0][i] / denominator_accum[0][i];
+            z_permutation_expected.at(i + 1) = numerator_accum[0][i] / denominator_accum[0][i];
         }
 
         // Check consistency between locally computed z_perm and the one computed by the prover library

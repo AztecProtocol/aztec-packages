@@ -1,6 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 
-import { allSameExcept, anyAvmContextInputs, initContext } from './fixtures/index.js';
+import { allSameExcept, initContext } from './fixtures/index.js';
 
 describe('Avm Context', () => {
   it('New call should fork context correctly', () => {
@@ -17,8 +17,7 @@ describe('Avm Context', () => {
         address: newAddress,
         storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(newCalldata),
+        calldata: newCalldata,
         isStaticCall: false,
       }),
     );
@@ -48,8 +47,7 @@ describe('Avm Context', () => {
         address: newAddress,
         storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(newCalldata),
+        calldata: newCalldata,
         isStaticCall: true,
       }),
     );

@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type P2PConfig } from '../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
@@ -123,6 +123,7 @@ describe('Discv5Service', () => {
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createLibP2PPeerId();
     const config: P2PConfig = {
+      ...getP2PDefaultConfig(),
       ...baseConfig,
       tcpListenAddress: `0.0.0.0:${port}`,
       udpListenAddress: `0.0.0.0:${port}`,
@@ -135,6 +136,7 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
+      l1ChainId: 31337,
     };
     return new DiscV5Service(peerId, config);
   };

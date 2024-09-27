@@ -13,6 +13,7 @@ namespace bb::avm_trace {
 void AvmMemTraceBuilder::reset()
 {
     mem_trace.clear();
+    mem_trace.shrink_to_fit(); // Reclaim memory.
     memory.fill({});
 }
 

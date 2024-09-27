@@ -10,18 +10,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import {
-  MOCK_MAX_COMMITMENTS_PER_TX,
   MockAppCreatorCircuit,
   MockAppReaderCircuit,
   MockPrivateKernelInitCircuit,
   MockPrivateKernelInnerCircuit,
-  MockPrivateKernelResetCircuit,
-  MockPrivateKernelTailCircuit,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
-  witnessGenMockPrivateKernelResetCircuit,
-  witnessGenMockPrivateKernelTailCircuit,
   witnessGenReaderAppMockCircuit,
 } from './index.js';
 
@@ -79,16 +74,22 @@ describe('Client IVC Integration', () => {
       tx,
     });
 
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    });
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): While using auto_veriy_mode, we can only process an even
+    // number of circuits into the IVC. This restriction can be removed once we remove use of auto_verify_mode.
+    // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
+    //   prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+    // });
     // Create client IVC proof
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
       MockPrivateKernelInitCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
+      // MockPrivateKernelTailCircuit.bytecode,
     ];
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+    const witnessStack = [
+      appWitnessGenResult.witness,
+      initWitnessGenResult.witness,
+      // tailWitnessGenResult.witness
+    ];
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await proof.writeToOutputDirectory(bbWorkingDirectory);
@@ -110,7 +111,7 @@ describe('Client IVC Integration', () => {
     };
     // Witness gen app and kernels
     const creatorAppWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    const readerAppWitnessGenRult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
+    const readerAppWitnessGenResult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
@@ -118,22 +119,24 @@ describe('Client IVC Integration', () => {
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-      app_inputs: readerAppWitnessGenRult.publicInputs,
+      app_inputs: readerAppWitnessGenResult.publicInputs,
     });
 
-    const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
-      prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
-      commitment_read_hints: [
-        '0x1', // Reader reads commitment 0x2, which is at index 1 of the created commitments
-        MOCK_MAX_COMMITMENTS_PER_TX.toString(), // Pad with no-ops
-        MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-        MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-      ],
-    });
+    // TODO: https://github.com/AztecProtocol/barretenberg/issues/1111 - Add back reset and tail when this is fixed.
 
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-    });
+    // const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
+    //   prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
+    //   commitment_read_hints: [
+    //     '0x1', // Reader reads commitment 0x2, which is at index 1 of the created commitments
+    //     MOCK_MAX_COMMITMENTS_PER_TX.toString(), // Pad with no-ops
+    //     MOCK_MAX_COMMITMENTS_PER_TX.toString(),
+    //     MOCK_MAX_COMMITMENTS_PER_TX.toString(),
+    //   ],
+    // });
+
+    // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
+    //   prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
+    // });
 
     // Create client IVC proof
     const bytecodes = [
@@ -141,16 +144,16 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockAppReaderCircuit.bytecode,
       MockPrivateKernelInnerCircuit.bytecode,
-      MockPrivateKernelResetCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
+      // MockPrivateKernelResetCircuit.bytecode,
+      // MockPrivateKernelTailCircuit.bytecode,
     ];
     const witnessStack = [
       creatorAppWitnessGenResult.witness,
       initWitnessGenResult.witness,
-      readerAppWitnessGenRult.witness,
+      readerAppWitnessGenResult.witness,
       innerWitnessGenResult.witness,
-      resetWitnessGenResult.witness,
-      tailWitnessGenResult.witness,
+      // resetWitnessGenResult.witness,
+      // tailWitnessGenResult.witness,
     ];
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);

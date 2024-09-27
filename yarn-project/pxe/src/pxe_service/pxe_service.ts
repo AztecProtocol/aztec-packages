@@ -31,6 +31,7 @@ import {
   getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   type CompleteAddress,
@@ -42,20 +43,19 @@ import {
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
+  type AbiDecoded,
   type ContractArtifact,
-  type DecodedReturn,
   EventSelector,
   FunctionSelector,
   encodeArguments,
 } from '@aztec/foundation/abi';
-import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import {
   type AcirSimulator,
@@ -66,6 +66,7 @@ import {
   collectSortedEncryptedLogs,
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
+  resolveAssertionMessage,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -173,10 +174,6 @@ export class PXEService implements PXE {
 
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return this.db.getAuthWitness(messageHash);
-  }
-
-  async rotateNskM(account: AztecAddress, secretKey: Fq): Promise<void> {
-    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
   public addCapsule(capsule: Fr[]) {
@@ -311,8 +308,6 @@ export class PXEService implements PXE {
   public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getIncomingNotes(filter);
 
-    // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -340,8 +335,6 @@ export class PXEService implements PXE {
   public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getOutgoingNotes(filter);
 
-    // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -532,7 +525,7 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
-    skipTxValidation: boolean = true, // TODO(#7956): make the default be false
+    skipTxValidation: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
@@ -542,7 +535,7 @@ export class PXEService implements PXE {
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx.tx))) {
+        if (!(await this.node.isValidTx(simulatedTx.tx, true))) {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
@@ -565,6 +558,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
+    this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
 
@@ -574,7 +568,7 @@ export class PXEService implements PXE {
     to: AztecAddress,
     _from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<DecodedReturn> {
+  ): Promise<AbiDecoded> {
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.
@@ -665,7 +659,6 @@ export class PXEService implements PXE {
         classRegisterer: ClassRegistererAddress,
         feeJuice: getCanonicalFeeJuice().address,
         instanceDeployer: getCanonicalInstanceDeployer().address,
-        keyRegistry: getCanonicalKeyRegistryAddress(),
         multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
       },
     });
@@ -761,19 +754,25 @@ export class PXEService implements PXE {
           originalFailingFunction.functionSelector,
         );
         const noirCallStack = err.getNoirCallStack();
-        if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
-          try {
-            // Public functions are simulated as a single Brillig entry point.
-            // Thus, we can safely assume here that the Brillig function id is `0`.
-            const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
-            err.setNoirCallStack(parsedCallStack);
-          } catch (err) {
-            this.log.warn(
-              `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
-            );
+        if (debugInfo) {
+          if (isNoirCallStackUnresolved(noirCallStack)) {
+            const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
+            if (assertionMessage) {
+              err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
+            }
+            try {
+              // Public functions are simulated as a single Brillig entry point.
+              // Thus, we can safely assume here that the Brillig function id is `0`.
+              const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
+              err.setNoirCallStack(parsedCallStack);
+            } catch (err) {
+              this.log.warn(
+                `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+              );
+            }
           }
+          await this.#enrichSimulationError(err);
         }
-        await this.#enrichSimulationError(err);
       }
 
       throw err;
@@ -880,7 +879,7 @@ export class PXEService implements PXE {
     return Promise.resolve(this.synchronizer.getSyncStatus());
   }
 
-  public getSyncStats() {
+  public getSyncStats(): Promise<{ [address: string]: NoteProcessorStats }> {
     return Promise.resolve(this.synchronizer.getSyncStats());
   }
 
@@ -966,17 +965,11 @@ export class PXEService implements PXE {
         }
         if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
           throw new Error(
-            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.fieldNames.reduce(
-          (acc, curr, i) => ({
-            ...acc,
-            [curr]: visibleEvent.payload.event.items[i],
-          }),
-          {} as T,
-        );
+        return eventMetadata.decode(visibleEvent.payload);
       })
       .filter(visibleEvent => visibleEvent !== undefined) as T[];
 
@@ -1003,17 +996,11 @@ export class PXEService implements PXE {
 
         if (unencryptedLogBuf.byteLength !== eventMetadata.fieldNames.length * 32 + 32) {
           throw new Error(
-            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.fieldNames.reduce(
-          (acc, curr, i) => ({
-            ...acc,
-            [curr]: new Fr(unencryptedLogBuf.subarray(i * 32, i * 32 + 32)),
-          }),
-          {} as T,
-        );
+        return eventMetadata.decode(unencryptedLog.log);
       })
       .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
 

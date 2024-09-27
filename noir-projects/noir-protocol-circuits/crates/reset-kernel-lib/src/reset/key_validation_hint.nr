@@ -4,17 +4,14 @@ use dep::types::{
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
-struct KeyValidationHint {
+pub struct KeyValidationHint {
   sk_m: Scalar,
   request_index: u32,
 }
 
 impl Empty for KeyValidationHint {
     fn empty() -> Self {
-        KeyValidationHint {
-            sk_m: Scalar::empty(),
-            request_index: 0,
-        }
+        KeyValidationHint { sk_m: Scalar::empty(), request_index: 0 }
     }
 }
 
@@ -74,7 +71,9 @@ pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS:
         }
     }
 
-    let hint_indexes: [u32; REQUEST_LEN] = get_hint_indexes(hints);
+    let hint_indexes: [u32; REQUEST_LEN] = unsafe {
+        get_hint_indexes(hints)
+    };
     let mut num_propagated = 0;
     for i in 0..REQUEST_LEN {
         let hint_index = hint_indexes[i];

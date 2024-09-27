@@ -4,7 +4,7 @@ import {
   type FunctionAbi,
   FunctionSelector,
   FunctionType,
-  decodeReturnValues,
+  decodeFromAbi,
   encodeArguments,
 } from '@aztec/foundation/abi';
 
@@ -57,7 +57,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (!this.txRequest) {
       const calls = [this.request()];
       const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
-      this.txRequest = await this.wallet.createTxExecutionRequest({ calls, fee });
+      this.txRequest = await this.wallet.createTxExecutionRequest({
+        calls,
+        fee,
+        nonce: opts?.nonce,
+        cancellable: opts?.cancellable,
+      });
     }
     return this.txRequest;
   }
@@ -105,6 +110,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         ? simulatedTx.privateReturnValues?.nested?.[0].values
         : simulatedTx.publicOutput?.publicReturnValues?.[0].values;
 
-    return rawReturnValues ? decodeReturnValues(this.functionDao.returnTypes, rawReturnValues) : [];
+    return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
   }
 }

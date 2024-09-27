@@ -12,10 +12,11 @@ import {
   type Wallet,
   deriveKeys,
   retryUntil,
+  sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -88,7 +89,35 @@ describe('e2e_block_building', () => {
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
 
-    it.skip('can call public function from different tx in same block', async () => {
+    it('assembles a block with multiple txs with public fns', async () => {
+      // First deploy the contract
+      const ownerAddress = owner.getCompleteAddress().address;
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+
+      // Assemble N contract deployment txs
+      // We need to create them sequentially since we cannot have parallel calls to a circuit
+      const TX_COUNT = 8;
+      await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
+
+      const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
+      for (let i = 0; i < TX_COUNT; i++) {
+        await methods[i].create({});
+        await methods[i].prove({});
+      }
+
+      // Send them simultaneously to be picked up by the sequencer
+      const txs = await Promise.all(methods.map(method => method.send()));
+      logger.info(`Txs sent with hashes: `);
+      for (const tx of txs) {
+        logger.info(` ${await tx.getTxHash()}`);
+      }
+
+      // Await txs to be mined and assert they are all mined on the same block
+      const receipts = await Promise.all(txs.map(tx => tx.wait()));
+      expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
+    });
+
+    it.skip('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
       await aztecNode.setConfig({ minTxsPerBlock: 2 });
 
@@ -333,9 +362,43 @@ describe('e2e_block_building', () => {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
       }));
+      await sleep(1000);
 
       const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();
+    });
+
+    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
+    it('can simulate public txs while building a block', async () => {
+      ({
+        teardown,
+        pxe,
+        logger,
+        aztecNode,
+        wallet: owner,
+      } = await setup(1, {
+        minTxsPerBlock: 1,
+        skipProtocolContracts: true,
+      }));
+
+      logger.info('Deploying token contract');
+      const token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+        .send()
+        .deployed();
+
+      logger.info('Updating min txs per block to 4');
+      await aztecNode.setConfig({ minTxsPerBlock: 4 });
+
+      logger.info('Spamming the network with public txs');
+      const txs = [];
+      for (let i = 0; i < 30; i++) {
+        const tx = token.methods.mint_public(owner.getAddress(), 10n);
+        await tx.create({ skipPublicSimulation: false });
+        txs.push(tx.send());
+      }
+
+      logger.info('Waiting for txs to be mined');
+      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
     });
   });
 });

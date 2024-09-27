@@ -81,7 +81,11 @@ describe('e2e_fees failures', () => {
 
     // if we skip simulation, it includes the failed TX
     const rebateSecret = Fr.random();
+
+    // We wait until the proven chain is caught up so all previous fees are paid out.
+    await t.catchUpProvenChain();
     const currentSequencerL1Gas = await t.getCoinbaseBalance();
+
     const txReceipt = await bananaCoin.methods
       .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
       .send({
@@ -94,9 +98,13 @@ describe('e2e_fees failures', () => {
       .wait({ dontThrowOnRevert: true });
 
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+
+    // We wait until the block is proven since that is when the payout happens.
+    await t.catchUpProvenChain();
+
     const feeAmount = txReceipt.transactionFee!;
-    const newSequencerL1Gas = await t.getCoinbaseBalance();
-    expect(newSequencerL1Gas).toEqual(currentSequencerL1Gas + feeAmount);
+    const newSequencerL1FeeAssetBalance = await t.getCoinbaseBalance();
+    expect(newSequencerL1FeeAssetBalance).toEqual(currentSequencerL1Gas + feeAmount);
 
     // and thus we paid the fee
     await expectMapping(

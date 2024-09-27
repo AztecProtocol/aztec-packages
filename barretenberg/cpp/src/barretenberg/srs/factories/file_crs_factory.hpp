@@ -24,7 +24,8 @@ template <typename Curve> class FileCrsFactory : public CrsFactory<Curve> {
 
   private:
     std::string path_;
-    size_t degree_;
+    size_t prover_degree_;
+    size_t verifier_degree_;
     std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> prover_crs_;
     std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> verifier_crs_;
 };
@@ -50,7 +51,7 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
         scalar_multiplication::generate_pippenger_point_table<Curve>(monomials_.get(), monomials_.get(), num_points);
     };
 
-    typename Curve::AffineElement* get_monomial_points() { return monomials_.get(); }
+    std::span<typename Curve::AffineElement> get_monomial_points() { return { monomials_.get(), num_points * 2 }; }
 
     [[nodiscard]] size_t get_monomial_size() const { return num_points; }
 
@@ -86,7 +87,7 @@ template <> class FileVerifierCrs<curve::Grumpkin> : public VerifierCrs<curve::G
   public:
     FileVerifierCrs(std::string const& path, const size_t num_points);
     virtual ~FileVerifierCrs() = default;
-    Curve::AffineElement* get_monomial_points() const override;
+    std::span<const Curve::AffineElement> get_monomial_points() const override;
     size_t get_monomial_size() const override;
     Curve::AffineElement get_g1_identity() const override { return g1_identity; };
 

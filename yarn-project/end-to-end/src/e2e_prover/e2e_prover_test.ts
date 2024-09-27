@@ -16,8 +16,7 @@ import {
   createDebugLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
-import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { createStore } from '@aztec/kv-store/utils';
+import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
@@ -74,14 +73,14 @@ export class FullProverTest {
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
-  circuitProofVerifier?: BBCircuitVerifier;
+  circuitProofVerifier?: ClientProtocolCircuitVerifier;
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
   private l1Contracts!: DeployL1Contracts;
 
-  constructor(testName: string, private minNumberOfTxsPerBlock: number) {
+  constructor(testName: string, private minNumberOfTxsPerBlock: number, private realProofs = true) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(`full_prover_integration/${testName}`, dataPath);
   }
@@ -134,7 +133,7 @@ export class FullProverTest {
           this.accounts.map(a => a.address),
         );
 
-        expect(await this.fakeProofsAsset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.fakeProofsAsset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
   }
@@ -150,25 +149,31 @@ export class FullProverTest {
 
     // Configure a full prover PXE
 
-    const [acvmConfig, bbConfig] = await Promise.all([getACVMConfig(this.logger), getBBConfig(this.logger)]);
-    if (!acvmConfig || !bbConfig) {
-      throw new Error('Missing ACVM or BB config');
+    let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
+    let bbConfig: Awaited<ReturnType<typeof getBBConfig>> | undefined;
+    if (this.realProofs) {
+      [acvmConfig, bbConfig] = await Promise.all([getACVMConfig(this.logger), getBBConfig(this.logger)]);
+      if (!acvmConfig || !bbConfig) {
+        throw new Error('Missing ACVM or BB config');
+      }
+
+      this.acvmConfigCleanup = acvmConfig.cleanup;
+      this.bbConfigCleanup = bbConfig.cleanup;
+
+      if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
+        throw new Error(`Test must be run with BB native configuration`);
+      }
+
+      this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
+
+      this.logger.debug(`Configuring the node for real proofs...`);
+      await this.aztecNode.setConfig({
+        realProofs: true,
+        minTxsPerBlock: this.minNumberOfTxsPerBlock,
+      });
+    } else {
+      this.circuitProofVerifier = new TestCircuitVerifier();
     }
-
-    this.acvmConfigCleanup = acvmConfig.cleanup;
-    this.bbConfigCleanup = bbConfig.cleanup;
-
-    if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
-      throw new Error(`Test must be run with BB native configuration`);
-    }
-
-    this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
-
-    this.logger.debug(`Configuring the node for real proofs...`);
-    await this.aztecNode.setConfig({
-      realProofs: true,
-      minTxsPerBlock: this.minNumberOfTxsPerBlock,
-    });
 
     this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
 
@@ -176,7 +181,7 @@ export class FullProverTest {
       const result = await setupPXEService(
         this.aztecNode,
         {
-          proverEnabled: true,
+          proverEnabled: this.realProofs,
           bbBinaryPath: bbConfig?.bbBinaryPath,
           bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
         },
@@ -225,11 +230,8 @@ export class FullProverTest {
     // Creating temp store and archiver for fully proven prover node
 
     this.logger.verbose('Starting archiver for new prover node');
-    const store = await createStore({ dataDirectory: undefined }, this.l1Contracts.l1ContractAddresses.rollupAddress);
-
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      store,
       new NoopTelemetryClient(),
       { blockUntilSync: true },
     );
@@ -243,7 +245,7 @@ export class FullProverTest {
       txProviderNodeUrl: undefined,
       dataDirectory: undefined,
       proverId: new Fr(81),
-      realProofs: true,
+      realProofs: this.realProofs,
       proverAgentConcurrency: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
@@ -345,14 +347,18 @@ export class FullProverTest {
   }
 
   async deployVerifier() {
+    if (!this.realProofs) {
+      return;
+    }
+
     if (!this.circuitProofVerifier) {
       throw new Error('No verifier');
     }
 
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
 
-    const contract = await this.circuitProofVerifier.generateSolidityContract(
-      'RootRollupArtifact',
+    const contract = await (this.circuitProofVerifier as BBCircuitVerifier).generateSolidityContract(
+      'BlockRootRollupFinalArtifact',
       'UltraHonkVerifier.sol',
     );
 
@@ -383,7 +389,7 @@ export class FullProverTest {
     const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
     const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
-    const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
 
     this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
 

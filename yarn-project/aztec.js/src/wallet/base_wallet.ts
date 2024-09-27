@@ -24,7 +24,6 @@ import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
   type CompleteAddress,
-  type Fq,
   type Fr,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
@@ -54,10 +53,12 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness>;
 
-  abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
-
   setScopes(scopes: AztecAddress[]) {
     this.scopes = scopes;
+  }
+
+  getScopes() {
+    return this.scopes;
   }
 
   getAddress() {
@@ -77,9 +78,6 @@ export abstract class BaseWallet implements Wallet {
   }
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
-  }
-  rotateNskM(address: AztecAddress, secretKey: Fq) {
-    return this.pxe.rotateNskM(address, secretKey);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);

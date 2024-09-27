@@ -1,0 +1,35 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../telemetry-client"
+    }
+  ],
+  "include": ["src"]
+}

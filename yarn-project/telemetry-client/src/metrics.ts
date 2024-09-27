@@ -29,6 +29,8 @@ export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
+export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
+export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
 
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
@@ -69,3 +71,5 @@ export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
 export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
+
+export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';

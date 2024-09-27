@@ -102,8 +102,8 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
   family                   = "${var.DEPLOY_TAG}-mainnet-fork"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "2048"
-  memory                   = "4096"
+  cpu                      = var.MAINNET_FORK_CPU_UNITS
+  memory                   = var.MAINNET_FORK_MEMORY_UNITS
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
 
   volume {
@@ -119,26 +119,12 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
       image     = "${var.DOCKERHUB_ACCOUNT}/mainnet-fork:${var.DEPLOY_TAG}"
       essential = true
       environment = [
-        {
-          name  = "API_KEY"
-          value = "${var.API_KEY}"
-        },
-        {
-          name  = "MNEMONIC"
-          value = "${var.FORK_MNEMONIC}"
-        },
-        {
-          name  = "INFURA_API_KEY"
-          value = "${var.INFURA_API_KEY}"
-        },
-        {
-          name  = "L1_CHAIN_ID"
-          value = "${var.L1_CHAIN_ID}"
-        },
-        {
-          name  = "SNAPSHOT_FREQUENCY"
-          value = "15"
-        }
+        { name = "API_KEY", value = "${var.API_KEY}" },
+        { name = "FORK_ADMIN_API_KEY", value = "${var.FORK_ADMIN_API_KEY}" },
+        { name = "MNEMONIC", value = "${var.FORK_MNEMONIC}" },
+        { name = "INFURA_API_KEY", value = "${var.INFURA_API_KEY}" },
+        { name = "L1_CHAIN_ID", value = "${var.L1_CHAIN_ID}" },
+        { name = "SNAPSHOT_FREQUENCY", value = "15" }
       ]
       mountPoints = [
         {

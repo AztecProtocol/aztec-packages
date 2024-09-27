@@ -15,15 +15,15 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using FF = typename Flavor::FF;
 
     transcript = std::make_shared<Transcript>(proof);
-    OinkVerifier<Flavor> oink_verifier{ instance, transcript };
+    OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        instance->gate_challenges.emplace_back(
+        verification_key->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
 
-    DeciderVerifier decider_verifier{ instance, transcript };
+    DeciderVerifier decider_verifier{ verification_key, transcript };
 
     return decider_verifier.verify();
 }

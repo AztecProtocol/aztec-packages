@@ -17,6 +17,7 @@ namespace bb::avm_trace {
 void AvmKernelTraceBuilder::reset()
 {
     kernel_trace.clear();
+    kernel_trace.shrink_to_fit(); // Reclaim memory.
     kernel_input_selector_counter.clear();
     kernel_output_selector_counter.clear();
 }
@@ -124,16 +125,6 @@ FF AvmKernelTraceBuilder::op_block_number(uint32_t clk)
     return perform_kernel_input_lookup(BLOCK_NUMBER_SELECTOR);
 }
 
-FF AvmKernelTraceBuilder::op_coinbase(uint32_t clk)
-{
-    KernelTraceEntry entry = {
-        .clk = clk,
-        .operation = KernelTraceOpType::COINBASE,
-    };
-    kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(COINBASE_SELECTOR);
-}
-
 FF AvmKernelTraceBuilder::op_timestamp(uint32_t clk)
 {
     KernelTraceEntry entry = {
@@ -164,6 +155,16 @@ FF AvmKernelTraceBuilder::op_fee_per_l2_gas(uint32_t clk)
     return perform_kernel_input_lookup(FEE_PER_L2_GAS_SELECTOR);
 }
 
+FF AvmKernelTraceBuilder::op_is_static_call(uint32_t clk)
+{
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .operation = KernelTraceOpType::IS_STATIC_CALL,
+    };
+    kernel_trace.push_back(entry);
+    return perform_kernel_input_lookup(IS_STATIC_CALL_SELECTOR);
+}
+
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
 // output should be set to true or not
 void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk,
@@ -173,7 +174,16 @@ void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk,
 {
 
     uint32_t offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + note_hash_exists_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, note_hash, FF(result));
+    // TODO(#8287)Lookups are heavily underconstrained atm
+    if (result == 1) {
+        perform_kernel_output_lookup(offset, side_effect_counter, note_hash, FF(result));
+    } else {
+        // if the note_hash does NOT exist, the public inputs already contains the correct output value (i.e. the
+        // actual value at the index), so we don't try to overwrite the value
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = FF(result);
+        kernel_output_selector_counter[offset]++;
+    }
     note_hash_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -245,7 +255,16 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk,
                                                    uint32_t result)
 {
     uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, message, FF(result));
+    // TODO(#8287)Lookups are heavily underconstrained atm
+    if (result == 1) {
+        perform_kernel_output_lookup(offset, side_effect_counter, message, FF(result));
+    } else {
+        // if the l1_to_l2_msg_exists is false, the public inputs already contains the correct output value (i.e. the
+        // actual value at the index), so we don't try to overwrite the value
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = FF(result);
+        kernel_output_selector_counter[offset]++;
+    }
     l1_to_l2_msg_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -256,10 +275,13 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk,
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash)
+void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk,
+                                                    uint32_t side_effect_counter,
+                                                    const FF& log_hash,
+                                                    const FF& log_length)
 {
     uint32_t offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + emit_unencrypted_log_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, log_hash, FF(0));
+    perform_kernel_output_lookup(offset, side_effect_counter, log_hash, log_length);
     emit_unencrypted_log_offset++;
 
     KernelTraceEntry entry = {
@@ -375,10 +397,6 @@ void AvmKernelTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
                 dest.main_kernel_in_offset = BLOCK_NUMBER_SELECTOR;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
-            case KernelTraceOpType::COINBASE:
-                dest.main_kernel_in_offset = COINBASE_SELECTOR;
-                dest.main_sel_q_kernel_lookup = 1;
-                break;
             case KernelTraceOpType::TIMESTAMP:
                 dest.main_kernel_in_offset = TIMESTAMP_SELECTOR;
                 dest.main_sel_q_kernel_lookup = 1;
@@ -389,6 +407,10 @@ void AvmKernelTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
                 break;
             case KernelTraceOpType::FEE_PER_L2_GAS:
                 dest.main_kernel_in_offset = FEE_PER_L2_GAS_SELECTOR;
+                dest.main_sel_q_kernel_lookup = 1;
+                break;
+            case KernelTraceOpType::IS_STATIC_CALL:
+                dest.main_kernel_in_offset = IS_STATIC_CALL_SELECTOR;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             // OUT
@@ -492,25 +514,11 @@ void AvmKernelTraceBuilder::finalize_columns(std::vector<AvmFullRow<FF>>& main_t
     for (auto const& [selector, count] : kernel_input_selector_counter) {
         main_trace.at(selector).lookup_into_kernel_counts = FF(count);
     }
-    // for (uint32_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
-    //     auto value = kernel_input_selector_counter.find(i);
-    //     if (value != kernel_input_selector_counter.end()) {
-    //         auto& dest = main_trace.at(i);
-    //         dest.lookup_into_kernel_counts = FF(value->second);
-    //     }
-    // }
 
     // Write lookup counts for outputs
     for (auto const& [selector, count] : kernel_output_selector_counter) {
         main_trace.at(selector).kernel_output_lookup_counts = FF(count);
     }
-    // for (uint32_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
-    //     auto value = kernel_output_selector_counter.find(i);
-    //     if (value != kernel_output_selector_counter.end()) {
-    //         auto& dest = main_trace.at(i);
-    //         dest.kernel_output_lookup_counts = FF(value->second);
-    //     }
-    // }
 }
 
 } // namespace bb::avm_trace

@@ -46,8 +46,12 @@ else
   fi
 fi
 
+PIC_PRESET="$PRESET-pic"
+
 # Remove cmake cache files.
 rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
+
+(cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
 
 echo "#################################"
 echo "# Building with preset: $PRESET"
@@ -55,8 +59,14 @@ echo "# When running cmake directly, remember to use: --build --preset $PRESET"
 echo "#################################"
 
 function build_native {
+  # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+  cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --build --preset $PRESET --target bb
+  cmake --build --preset $PIC_PRESET --target world_state_napi
+  # copy the world_state_napi build artifact over to the world state in yarn-project
+  mkdir -p ../../yarn-project/world-state/build/
+  cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 }
 
 function build_wasm {
@@ -106,7 +116,7 @@ fi
 
 if [ ! -d ./srs_db/grumpkin ]; then
   # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
-  # If tests require more points, the parameter can be increased here. Note: IPA requires 
+  # If tests require more points, the parameter can be increased here. Note: IPA requires
   # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
-  cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 8193
+  cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
 fi

@@ -8,6 +8,175 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Removed `SharedMutablePrivateGetter`
+
+This state variable was deleted due to it being difficult to use safely.
+
+### [Aztec.nr] Changes to `NullifiableNote`
+
+The `compute_nullifier_without_context` function is now `unconstrained`. It had always been meant to be called in unconstrained contexts (which is why it did not receive the `context` object), but now that Noir supports trait functions being `unconstrained` this can be implemented properly. Users must add the `unconstrained` keyword to their implementations of the trait:
+
+```diff
+impl NullifiableNote for MyCustomNote {
+-    fn compute_nullifier_without_context(self) -> Field {
++    unconstrained fn compute_nullifier_without_context(self) -> Field {
+```
+
+### [Aztec.nr] Make `TestEnvironment` unconstrained
+
+All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
+
+```diff
+#[test]
+-fn test_my_function() {
++unconstrained fn test_my_function() {
+    let env = TestEnvironment::new();
+```
+
+## 0.56.0
+
+### [Aztec.nr] Changes to contract definition
+
+We've migrated the Aztec macros to use the newly introduce meta programming Noir feature. Due to being Noir-based, the new macros are less obscure and can be more easily modified.
+
+As part of this transition, some changes need to be applied to Aztec contracts:
+
+- The top level `contract` block needs to have the `#[aztec]` macro applied to it.
+- All `#[aztec(name)]` macros are renamed to `#[name]`.
+- The storage struct (the one that gets the `#[storage]` macro applied) but be generic over a `Context` type, and all state variables receive this type as their last generic type parameter.
+
+```diff
++ use dep::aztec::macros::aztec;
+
+#[aztec]
+contract Token {
++    use dep::aztec::macros::{storage::storage, events::event, functions::{initializer, private, view, public}};
+
+-    #[aztec(storage)]
+-    struct Storage {
++    #[storage]
++    struct Storage<Context> {
+-        admin: PublicMutable<AztecAddress>,
++        admin: PublicMutable<AztecAddress, Context>,
+-        minters: Map<AztecAddress, PublicMutable<bool>>,
++        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+    }
+
+-    #[aztec(public)]
+-    #[aztec(initializer)]
++    #[public]
++    #[initializer]
+    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
+        ...
+    }
+
+-    #[aztec(public)]
+-    #[aztec(view)]
+-    fn public_get_name() -> FieldCompressedString {
++    #[public]
++    #[view]
+    fn public_get_name() -> FieldCompressedString {
+        ...
+    }
+```
+
+### [Aztec.nr] Changes to `NoteInterface`
+
+The new macro model prevents partial trait auto-implementation: they either implement the entire trait or none of it. This means users can no longer implement part of `NoteInterface` and have the rest be auto-implemented.
+
+For this reason we've separated the methods which are auto-implemented and those which needs to be implemented manually into two separate traits: the auto-implemented ones stay in the `NoteInterface` trace and the manually implemented ones were moved to `NullifiableNote` (name likely to change):
+
+```diff
+-#[aztec(note)]
++#[note]
+struct AddressNote {
+    ...
+}
+
+-impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
++impl NullifiableNote for AddressNote {
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        ...
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
+        ...
+    }
+}
+```
+
+### [Aztec.nr] Changes to contract interface
+
+The `Contract::storage()` static method has been renamed to `Contract::storage_layout()`.
+
+```diff
+-    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, fee_payer);
+-    let user_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, user);
++    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
++    let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
+```
+
+### Key rotation removed
+
+The ability to rotate incoming, outgoing, nullifying and tagging keys has been removed - this feature was easy to misuse and not worth the complexity and gate count cost. As part of this, the Key Registry contract has also been deleted. The API for fetching public keys has been adjusted accordingly:
+
+```diff
+- let keys = get_current_public_keys(&mut context, account);
++ let keys = get_public_keys(account);
+```
+
+### [Aztec.nr] Rework `NoteGetterOptions::select`
+
+The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no longer takes an `Option` of a comparator, but instead requires an explicit comparator to be passed. Additionally, the order of the parameters has been changed so that they are `(lhs, operator, rhs)`. These two changes should make invocations of the function easier to read:
+
+```diff
+- options.select(ValueNote::properties().value, amount, Option::none())
++ options.select(ValueNote::properties().value, Comparator.EQ, amount)
+```
+
+## 0.53.0
+
+### [Aztec.nr] Remove `OwnedNote` and create `UintNote`
+
+`OwnedNote` allowed having a U128 `value` in the custom note while `ValueNote` restricted to just a Field.
+
+We have removed `OwnedNote` but are introducing a more genric `UintNote` within aztec.nr
+
+```
+#[aztec(note)]
+struct UintNote {
+    // The integer stored by the note
+    value: U128,
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    npk_m_hash: Field,
+    // Randomness of the note to hide its contents
+    randomness: Field,
+}
+```
+
+### [TXE] logging
+
+You can now use `debug_log()` within your contract to print logs when using the TXE
+
+Remember to set the following environment variables to activate debug logging:
+
+```bash
+export DEBUG="aztec:*"
+export LOG_LEVEL="debug"
+```
+
+### [Account] no assert in is_valid_impl
+
+`is_valid_impl` method in account contract asserted if signature was true. Instead now we will return the verification to give flexibility to developers to handle it as they please.
+
+````diff
+- let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
+- assert(verification == true);
+- true
++ std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
+
+## 0.49.0
+
 ### Key Rotation API overhaul
 
 Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `get_[x]pk_m` methods on the `Header` struct, but rather by calling `get_current_public_keys`, which returns a `PublicKeys` struct with all four keys at once:
@@ -21,7 +190,7 @@ Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `ge
 +let owner_keys = get_current_public_keys(&mut context, owner);
 +let owner_ivpk_m = owner_keys.ivpk_m;
 +let owner_ovpk_m = owner_keys.ovpk_m;
-```
+````
 
 If using more than one key per account, this will result in very large circuit gate count reductions.
 
@@ -823,7 +992,7 @@ This change was made to communicate that we do not constrain the value in circui
 Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
 This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
 It is not possible to call `simulate` on any call to get the return values!
-However, beware that it currently always returns a Field array of size 4 for private and public.  
+However, beware that it currently always returns a Field array of size 4 for private and public.
 This will change to become similar to the return values of the `unconstrained` functions with proper return types.
 
 ```diff

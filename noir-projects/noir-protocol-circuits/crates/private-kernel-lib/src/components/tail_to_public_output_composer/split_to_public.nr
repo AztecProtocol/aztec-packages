@@ -6,7 +6,7 @@ use dep::types::abis::{
 }
 };
 
-pub fn split_to_public(
+unconstrained pub fn split_to_public(
     data: PrivateAccumulatedDataBuilder,
     min_revertible_side_effect_counter: u32
 ) -> (PublicAccumulatedData, PublicAccumulatedData) {

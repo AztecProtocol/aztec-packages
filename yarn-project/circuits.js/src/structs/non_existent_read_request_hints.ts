@@ -100,7 +100,7 @@ export class NonExistentReadRequestHints<
 export type NullifierNonExistentReadRequestHints = NonExistentReadRequestHints<
   typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   typeof NULLIFIER_TREE_HEIGHT,
-  IndexedTreeLeafPreimage,
+  NullifierLeafPreimage,
   typeof MAX_NULLIFIERS_PER_TX,
   Nullifier
 >;
@@ -147,7 +147,7 @@ export class NullifierNonExistentReadRequestHintsBuilder {
 
   addHint(
     membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
-    lowLeafPreimage: IndexedTreeLeafPreimage,
+    lowLeafPreimage: NullifierLeafPreimage,
     nextPendingValueIndex: number,
   ) {
     this.hints.nonMembershipHints[this.readRequestIndex] = new NonMembershipHint(membershipWitness, lowLeafPreimage);

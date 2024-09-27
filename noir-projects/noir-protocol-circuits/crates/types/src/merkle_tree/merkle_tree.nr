@@ -1,16 +1,13 @@
 use crate::{traits::Empty, hash::merkle_hash};
 
-struct MerkleTree<let N: u32> {
+pub struct MerkleTree<let N: u32> {
     leaves: [Field; N],
     nodes: [Field; N],
 }
 
 impl<let N: u32> Empty for MerkleTree<N> {
     fn empty() -> Self {
-        MerkleTree {
-            leaves: [0; N],
-            nodes: [0; N]
-        }
+        MerkleTree { leaves: [0; N], nodes: [0; N] }
     }
 }
 
@@ -50,9 +47,9 @@ impl<let N: u32> MerkleTree<N> {
         let mut current_index = leaf_index;
         let mut subtree_width = N;
 
-        let mut sibling_index = MerkleTree::sibling_index(current_index);
+        let mut current_sibling_index = sibling_index(current_index);
 
-        path[0] = self.leaves[sibling_index];
+        path[0] = self.leaves[current_sibling_index];
 
         let mut subtree_offset: u32 = 0;
 
@@ -60,9 +57,9 @@ impl<let N: u32> MerkleTree<N> {
             current_index = current_index / 2;
             subtree_width = subtree_width / 2;
 
-            sibling_index = MerkleTree::sibling_index(current_index);
+            current_sibling_index = sibling_index(current_index);
 
-            path[i] = self.nodes[subtree_offset + sibling_index];
+            path[i] = self.nodes[subtree_offset + current_sibling_index];
 
             subtree_offset += subtree_width;
         }
@@ -71,3 +68,6 @@ impl<let N: u32> MerkleTree<N> {
     }
 }
 
+pub fn sibling_index(index: u32) -> u32 {
+    if index % 2 == 0 { index + 1 } else { index - 1 }
+}

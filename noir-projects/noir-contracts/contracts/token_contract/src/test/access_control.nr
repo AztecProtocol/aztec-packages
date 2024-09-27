@@ -1,5 +1,4 @@
 use crate::test::utils;
-use dep::aztec::test::helpers::cheatcodes;
 use crate::Token;
 
 #[test]
@@ -12,7 +11,7 @@ unconstrained fn access_control() {
     env.call_public(set_admin_call_interface);
 
     // Check it worked
-    let get_admin_call_interface = Token::at(token_contract_address).admin();
+    let get_admin_call_interface = Token::at(token_contract_address).get_admin();
     let admin = env.call_public(get_admin_call_interface);
     assert(admin == recipient.to_field());
 
@@ -42,11 +41,11 @@ unconstrained fn access_control() {
     // Impersonate original admin
     env.impersonate(owner);
 
-    // Try to set ourselves as admin, fail miserably 
+    // Try to set ourselves as admin, fail miserably
     let set_admin_call_interface = Token::at(token_contract_address).set_admin(recipient);
     env.assert_public_call_fails(set_admin_call_interface);
 
-    // Try to revoke minter status to recipient, fail miserably 
+    // Try to revoke minter status to recipient, fail miserably
     let set_minter_call_interface = Token::at(token_contract_address).set_minter(recipient, false);
     env.assert_public_call_fails(set_minter_call_interface);
 }

@@ -67,6 +67,8 @@ Diagnostics:
       - modernize-use-nodiscard
       # Misleading; linker error fixed by adding const in declaration
       - readability-avoid-const-params-in-decls
+      # const size_t circuit_size = static_cast<size_t>(...) is not better as const auto; auto is for clarity or cheap local polymorphism
+      - modernize-use-auto
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench

@@ -4,7 +4,7 @@ use crate::{
     traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
 };
 
-struct PrivateCallStackItem {
+pub struct PrivateCallStackItem {
     // This is the _actual_ contract address relating to where this function's code resides in the
     // contract tree. Regardless of whether this is a call or delegatecall, this
     // `contract_address` _does not change_. Amongst other things, it's used as a lookup for
@@ -17,9 +17,9 @@ struct PrivateCallStackItem {
 
 impl Eq for PrivateCallStackItem {
     fn eq(self, other: Self) -> bool {
-        self.contract_address.eq(other.contract_address) &
-        self.function_data.eq(other.function_data) &
-        self.public_inputs.eq(other.public_inputs)
+        self.contract_address.eq(other.contract_address)
+            & self.function_data.eq(other.function_data)
+            & self.public_inputs.eq(other.public_inputs)
     }
 }
 
@@ -45,7 +45,7 @@ impl Deserialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
         let item = Self {
             contract_address: reader.read_struct(AztecAddress::deserialize),
             function_data: reader.read_struct(FunctionData::deserialize),
-            public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize),
+            public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize)
         };
 
         reader.finish();
@@ -58,7 +58,7 @@ impl Empty for PrivateCallStackItem {
         PrivateCallStackItem {
             contract_address: AztecAddress::empty(),
             function_data: FunctionData::empty(),
-            public_inputs: PrivateCircuitPublicInputs::empty(),
+            public_inputs: PrivateCircuitPublicInputs::empty()
         }
     }
 }

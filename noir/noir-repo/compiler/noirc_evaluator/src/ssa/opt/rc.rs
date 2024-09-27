@@ -2,9 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ssa::{
     ir::{
-        basic_block::BasicBlockId,
         function::Function,
-        instruction::{Instruction, InstructionId, TerminatorInstruction},
+        instruction::{Instruction, InstructionId},
         types::Type,
         value::ValueId,
     },
@@ -107,7 +106,7 @@ impl Context {
     /// Find each dec_rc instruction and if the most recent inc_rc instruction for the same value
     /// is not possibly mutated, then we can remove them both. Returns each such pair.
     fn find_rcs_to_remove(&mut self, function: &Function) -> HashSet<InstructionId> {
-        let last_block = Self::find_last_block(function);
+        let last_block = function.find_last_block();
         let mut to_remove = HashSet::new();
 
         for instruction in function.dfg[last_block].instructions() {
@@ -122,20 +121,6 @@ impl Context {
         }
 
         to_remove
-    }
-
-    /// Finds the block of the function with the Return instruction
-    fn find_last_block(function: &Function) -> BasicBlockId {
-        for block in function.reachable_blocks() {
-            if matches!(
-                function.dfg[block].terminator(),
-                Some(TerminatorInstruction::Return { .. })
-            ) {
-                return block;
-            }
-        }
-
-        unreachable!("SSA Function {} has no reachable return instruction!", function.id())
     }
 
     /// Finds and pops the IncRc for the given array value if possible.
@@ -161,7 +146,7 @@ fn remove_instructions(to_remove: HashSet<InstructionId>, function: &mut Functio
 
 #[cfg(test)]
 mod test {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use crate::ssa::{
         function_builder::FunctionBuilder,
@@ -209,14 +194,14 @@ mod test {
         let mut builder = FunctionBuilder::new("foo".into(), main_id);
         builder.set_runtime(RuntimeType::Brillig);
 
-        let inner_array_type = Type::Array(Rc::new(vec![Type::field()]), 2);
+        let inner_array_type = Type::Array(Arc::new(vec![Type::field()]), 2);
         let v0 = builder.add_parameter(inner_array_type.clone());
 
         builder.insert_inc_rc(v0);
         builder.insert_inc_rc(v0);
         builder.insert_dec_rc(v0);
 
-        let outer_array_type = Type::Array(Rc::new(vec![inner_array_type]), 1);
+        let outer_array_type = Type::Array(Arc::new(vec![inner_array_type]), 1);
         let array = builder.array_constant(vec![v0].into(), outer_array_type);
         builder.terminate_with_return(vec![array]);
 
@@ -248,7 +233,7 @@ mod test {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("mutator".into(), main_id);
 
-        let array_type = Type::Array(Rc::new(vec![Type::field()]), 2);
+        let array_type = Type::Array(Arc::new(vec![Type::field()]), 2);
         let v0 = builder.add_parameter(array_type.clone());
 
         let v1 = builder.insert_allocate(array_type.clone());
@@ -297,8 +282,8 @@ mod test {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("mutator2".into(), main_id);
 
-        let array_type = Type::Array(Rc::new(vec![Type::field()]), 2);
-        let reference_type = Type::Reference(Rc::new(array_type.clone()));
+        let array_type = Type::Array(Arc::new(vec![Type::field()]), 2);
+        let reference_type = Type::Reference(Arc::new(array_type.clone()));
 
         let v0 = builder.add_parameter(reference_type);
 

@@ -7,6 +7,7 @@ import {
   type ProverNodeConfig,
   createProverNode,
   createProverNodeRpcServer,
+  getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
 import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
@@ -29,7 +30,8 @@ export const startProverNode = async (
   }
 
   const proverConfig = {
-    ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'),
+    ...getProverNodeConfigFromEnv(), // get default config from env
+    ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
     l1Contracts: extractL1ContractAddresses(options),
   };
 
@@ -38,7 +40,7 @@ export const startProverNode = async (
     process.exit(1);
   }
 
-  if (options.prover) {
+  if (options.prover || options.proverAgentEnabled) {
     userLog(`Running prover node with local prover agent.`);
     proverConfig.proverAgentEnabled = true;
   } else {

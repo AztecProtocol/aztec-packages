@@ -1,4 +1,3 @@
-import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
 import { FullProverTest } from './e2e_prover_test.js';
@@ -7,18 +6,17 @@ const TIMEOUT = 1_800_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
-// Enable proving the full lookup tables (no truncation).
-process.env.AVM_ENABLE_FULL_PROVING = '1';
 
 describe('full_prover', () => {
-  const t = new FullProverTest('full_prover', 2);
+  const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
+  const t = new FullProverTest('full_prover', 2, realProofs);
   let { provenAssets, accounts, tokenSim, logger } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    // await t.deployVerifier();
+    await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
 
@@ -79,22 +77,18 @@ describe('full_prover', () => {
           // fail the test. User asked for fixtures but we don't have any
           throw new Error('No block result found in test data');
         }
-        // TODO(#6624): Note that with honk proofs the below writes incorrect test data to file.
-        // The serialisation does not account for the prepended fields (circuit size, PI size, PI offset) in new Honk proofs, so the written data is shifted.
-        writeTestData(
-          'yarn-project/end-to-end/src/fixtures/dumps/block_result.json',
-          JSON.stringify({
-            block: blockResult.block.toString(),
-            proof: blockResult.proof.toString(),
-            aggregationObject: blockResult.aggregationObject.map((x: Fr) => x.toString()),
-          }),
-        );
+        writeTestData('yarn-project/end-to-end/src/fixtures/dumps/block_result.json', JSON.stringify(blockResult));
       }
     },
     TIMEOUT,
   );
 
   it('rejects txs with invalid proofs', async () => {
+    if (!realProofs) {
+      t.logger.warn(`Skipping test with fake proofs`);
+      return;
+    }
+
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 

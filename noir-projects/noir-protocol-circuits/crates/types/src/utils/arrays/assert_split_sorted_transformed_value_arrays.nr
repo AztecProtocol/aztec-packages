@@ -1,7 +1,7 @@
 mod get_split_order_hints;
 
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered, traits::Empty,
     utils::arrays::{
     array_length, assert_split_sorted_transformed_value_arrays::get_split_order_hints::SplitOrderHints,
     validate_array
@@ -115,7 +115,7 @@ pub fn assert_split_sorted_transformed_value_arrays_desc<T, S, let N: u32>(
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::types::{combine_two_values, TestCombinedValue, TestTwoValues},
         utils::arrays::{
         assert_split_sorted_transformed_value_arrays::{
         assert_split_sorted_transformed_value_arrays_asc,
@@ -124,80 +124,34 @@ mod tests {
     }
     };
 
-    struct TestItem {
-        name: Field,
-        price: Field,
-        tax: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { name: 0, price: 0, tax: 0, counter: 0 }
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.price == other.price) & (self.tax == other.tax) & (self.counter == other.counter)
-        }
-    }
-
-    struct TestValue {
-        name: Field,
-        total: Field,
-    }
-
-    impl Empty for TestValue {
-        fn empty() -> Self {
-            TestValue { name: 0, total: 0 }
-        }
-    }
-
-    impl Eq for TestValue {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.total == other.total)
-        }
-    }
-
-    fn transform_value(item: TestItem) -> TestValue {
-        TestValue { name: item.name, total: item.price + item.tax }
-    }
-
     global original_array = [
-        TestItem { name: 0, price: 1, tax: 0, counter: 33 },
-        TestItem { name: 1, price: 10, tax: 6, counter: 44 },
-        TestItem { name: 2, price: 20, tax: 7, counter: 11 },
-        TestItem { name: 3, price: 30, tax: 8, counter: 0 },
-        TestItem { name: 4, price: 40, tax: 9, counter: 22 },
-        TestItem::empty(),
-        TestItem::empty(),
-        TestItem::empty()
+        TestTwoValues {  value_1: 1, value_2: 0, counter: 33 },
+        TestTwoValues {  value_1: 10, value_2: 6, counter: 44 },
+        TestTwoValues {  value_1: 20, value_2: 7, counter: 11 },
+        TestTwoValues {  value_1: 30, value_2: 8, counter: 0 },
+        TestTwoValues {  value_1: 40, value_2: 9, counter: 22 },
+        TestTwoValues::empty(),
+        TestTwoValues::empty(),
+        TestTwoValues::empty()
     ];
 
-    struct TestDataBuilder<T, S, let N: u32> {
-        original_array: [T; N],
-        transformed_value_array: [S; N],
-        sorted_transformed_value_array_lt: [S; N],
-        sorted_transformed_value_array_gte: [S; N],
+    struct TestDataBuilder<let N: u32> {
+        original_array: [TestTwoValues; N],
+        transformed_value_array: [TestCombinedValue; N],
+        sorted_transformed_value_array_lt: [TestCombinedValue; N],
+        sorted_transformed_value_array_gte: [TestCombinedValue; N],
         split_counter: u32,
         hints: SplitOrderHints<N>,
         ascending: bool,
     }
 
-    impl TestDataBuilder<TestItem, TestValue, 8> {
+    impl TestDataBuilder<8> {
         pub fn empty() -> Self {
             TestDataBuilder {
-                original_array: [TestItem::empty(); 8],
-                transformed_value_array: [TestValue::empty(); 8],
-                sorted_transformed_value_array_lt: [TestValue::empty(); 8],
-                sorted_transformed_value_array_gte: [TestValue::empty(); 8],
+                original_array: [TestTwoValues::empty(); 8],
+                transformed_value_array: [TestCombinedValue::empty(); 8],
+                sorted_transformed_value_array_lt: [TestCombinedValue::empty(); 8],
+                sorted_transformed_value_array_gte: [TestCombinedValue::empty(); 8],
                 split_counter: 0,
                 hints: SplitOrderHints::empty(),
                 ascending: false
@@ -205,28 +159,28 @@ mod tests {
         }
 
         pub fn new() -> Self {
-            let transformed_value_array = original_array.map(|item: TestItem| transform_value(item));
+            let transformed_value_array = original_array.map(|item: TestTwoValues| combine_two_values(item));
 
             let split_counter = 15;
             let sorted_transformed_value_array_lt = [
-                TestValue { name: 3, total: 38 },
-                TestValue { name: 2, total: 27 },
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty()
+                TestCombinedValue { value: 38 },
+                TestCombinedValue { value: 27 },
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty()
             ];
             let sorted_transformed_value_array_gte = [
-                TestValue { name: 4, total: 49 },
-                TestValue { name: 0, total: 1 },
-                TestValue { name: 1, total: 16 },
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty()
+                TestCombinedValue { value: 49 },
+                TestCombinedValue { value: 1 },
+                TestCombinedValue { value: 16 },
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty()
             ];
             let hints = SplitOrderHints {
                 sorted_counters_lt: [0, 11, 0, 0, 0, 0, 0, 0],
@@ -246,28 +200,28 @@ mod tests {
         }
 
         pub fn new_desc() -> Self {
-            let transformed_value_array = original_array.map(|item: TestItem| transform_value(item));
+            let transformed_value_array = original_array.map(|item: TestTwoValues| combine_two_values(item));
 
             let split_counter = 15;
             let sorted_transformed_value_array_lt = [
-                TestValue { name: 2, total: 27 },
-                TestValue { name: 3, total: 38 },
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty()
+                TestCombinedValue { value: 27 },
+                TestCombinedValue { value: 38 },
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty()
             ];
             let sorted_transformed_value_array_gte = [
-                TestValue { name: 1, total: 16 },
-                TestValue { name: 0, total: 1 },
-                TestValue { name: 4, total: 49 },
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty(),
-                TestValue::empty()
+                TestCombinedValue { value: 16 },
+                TestCombinedValue { value: 1 },
+                TestCombinedValue { value: 49 },
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty()
             ];
             let hints = SplitOrderHints {
                 sorted_counters_lt: [11, 0, 0, 0, 0, 0, 0, 0],
@@ -353,7 +307,7 @@ mod tests {
     fn assert_split_sorted_transformed_value_array_asc_empty_extra_item_fails() {
         let mut builder = TestDataBuilder::empty();
 
-        builder.sorted_transformed_value_array_lt[0].total = 1;
+        builder.sorted_transformed_value_array_lt[0].value = 1;
 
         builder.execute();
     }
@@ -362,7 +316,7 @@ mod tests {
     fn assert_split_sorted_transformed_value_array_asc_lt_wrong_sorted_value_fails() {
         let mut builder = TestDataBuilder::new();
 
-        builder.sorted_transformed_value_array_lt[0].total += 1;
+        builder.sorted_transformed_value_array_lt[0].value += 1;
 
         builder.execute();
     }
@@ -416,7 +370,7 @@ mod tests {
         // Move the item with counter 44 from _gte to _lt.
         builder.sorted_transformed_value_array_lt[2] = builder.sorted_transformed_value_array_gte[2];
         builder.hints.sorted_counters_lt[2] = 44;
-        builder.sorted_transformed_value_array_gte[2] = TestValue::empty();
+        builder.sorted_transformed_value_array_gte[2] = TestCombinedValue::empty();
         builder.hints.sorted_counters_lt[2] = 0;
         builder.update_sorted_index(44, 2); // Item of counter 44 is now at index 2 of the sorted array.
 
@@ -482,7 +436,7 @@ mod tests {
             builder.update_sorted_index(counter, to_index);
         }
         // Empty the values at index 0.
-        builder.sorted_transformed_value_array_lt[0] = TestValue::empty();
+        builder.sorted_transformed_value_array_lt[0] = TestCombinedValue::empty();
         builder.hints.sorted_counters_lt[0] = 0;
 
         builder.execute();
@@ -502,7 +456,7 @@ mod tests {
             builder.update_sorted_index(counter, to_index);
         }
         // Empty the values at index 0.
-        builder.sorted_transformed_value_array_gte[0] = TestValue::empty();
+        builder.sorted_transformed_value_array_gte[0] = TestCombinedValue::empty();
         builder.hints.sorted_counters_gte[0] = 0;
 
         builder.execute();

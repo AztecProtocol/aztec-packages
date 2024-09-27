@@ -183,13 +183,19 @@ export class Return extends Instruction {
 
 export class Revert extends Instruction {
   static type: string = 'REVERT';
-  static readonly opcode: Opcode = Opcode.REVERT;
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
+  static readonly opcode: Opcode = Opcode.REVERT_8;
+
+  static readonly wireFormat8: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT8,
+    OperandType.UINT8,
+  ];
+  static readonly wireFormat16: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(private indirect: number, private returnOffset: number, private retSize: number) {

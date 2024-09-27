@@ -52,7 +52,6 @@ The following table defines an AVM context's world state interface:
 | `noteHashes`     | [`NOTEHASHEXISTS`](./instruction-set#isa-section-notehashexists) (membership-checks (start-of-block)), [`EMITNOTEHASH`](./instruction-set#isa-section-emitnotehash) (appends) |
 | `nullifiers`     | [`NULLIFIERSEXISTS`](./instruction-set#isa-section-nullifierexists) membership-checks (latest), [`EMITNULLIFIER`](./instruction-set#isa-section-emitnullifier) (appends)      |
 | `l1ToL2Messages` | [`L1TOL2MSGEXISTS`](./instruction-set#isa-section-l1tol2msgexists) (membership-checks (start-of-block))                                                                       |
-| `headers`        | [`HEADERMEMBER`](./instruction-set#isa-section-headermember) (membership-checks & leaf-preimage-reads)                                                                        |
 
 > \* `*CALL` is short for `CALL`/`STATICCALL`/`DELEGATECALL`.
 
@@ -81,7 +80,6 @@ Each entry in the world state access trace is listed below along with its type a
 | `nullifierChecks`     | Nullifiers        | `Vector<TracedNullifierCheck>`     | [`NULLIFIERSEXISTS`](./instruction-set#isa-section-nullifierexists) |
 | `nullifiers`       | Nullifiers        | `Vector<TracedNullifier>`          | [`EMITNULLIFIER`](./instruction-set#isa-section-emitnullifier)      |
 | `l1ToL2MessageChecks` | L1-To-L2 Messages | `Vector<TracedL1ToL2MessageCheck>` | [`L1TOL2MSGEXISTS`](./instruction-set#isa-section-l1tol2msgexists)    |
-| `archiveChecks`       | Headers           | `Vector<TracedArchiveLeafCheck>`   | [`HEADERMEMBER`](./instruction-set#isa-section-headermember)        |
 
 > The types tracked in these trace vectors are defined [here](./type-structs).
 

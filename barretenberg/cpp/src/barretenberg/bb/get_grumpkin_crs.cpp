@@ -34,7 +34,7 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
     }
     if (size >= num_points) {
         auto file = path / "grumpkin_g1.dat";
-        vinfo("using cached crs at: ", file);
+        vinfo("using cached grumpkin crs of size ", size, " at: ", file);
         auto data = read_file(file, 28 + num_points * 64);
         auto points = std::vector<curve::Grumpkin::AffineElement>(num_points);
         auto size_of_points_in_bytes = num_points * 64;

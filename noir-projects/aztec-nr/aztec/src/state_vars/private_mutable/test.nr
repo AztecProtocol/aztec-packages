@@ -1,18 +1,17 @@
-use dep::protocol_types::{address::AztecAddress, point::Point};
 use crate::{
     context::PrivateContext, state_vars::private_mutable::PrivateMutable,
     oracle::execution::get_contract_address
 };
-use crate::test::{mocks::mock_note::MockNote, helpers::{cheatcodes, test_environment::TestEnvironment}};
+use crate::test::{mocks::mock_note::MockNote, helpers::{test_environment::TestEnvironment}};
 use std::test::OracleMock;
 
 global storage_slot = 17;
 
-fn setup() -> TestEnvironment {
+unconstrained fn setup() -> TestEnvironment {
     TestEnvironment::new()
 }
 
-fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut PrivateContext> {
     let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
 
     // This oracle is called for its side effects alone - it's always expected to return 0.
@@ -22,7 +21,7 @@ fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut Privat
 }
 
 #[test]
-fn test_initialize_or_replace_without_nullifier() {
+unconstrained fn test_initialize_or_replace_without_nullifier() {
     let mut env = setup();
     let state_var = in_private(&mut env);
 
@@ -48,7 +47,7 @@ fn test_initialize_or_replace_without_nullifier() {
 }
 
 #[test]
-fn test_initialize_or_replace_with_nullifier() {
+unconstrained fn test_initialize_or_replace_with_nullifier() {
     // Here we'd want to test a scenario like the one above with the oracle indicating that the initialization
     // nullifier does exist. Unfortunately that requires us to produce a valid oracle return value for getNotes,
     // which is fairly involved as it deals with serialization of notes, and is relatively complicated to replicate
