@@ -38,6 +38,12 @@ template <typename FF_> class MegaArith {
                              aux,    lookup,     busread,    poseidon2_external, poseidon2_internal };
         }
 
+        auto get_gate_blocks()
+        {
+            return RefArray{ arithmetic, delta_range, elliptic,           aux,
+                             lookup,     busread,     poseidon2_external, poseidon2_internal };
+        }
+
         bool operator==(const MegaTraceBlocks& other) const = default;
     };
 
@@ -153,7 +159,11 @@ template <typename FF_> class MegaArith {
 
     struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
 
-        E2eStructuredBlockSizes fixed_block_sizes;
+        TraceBlocks()
+        {
+            this->aux.has_ram_rom = true;
+            this->pub_inputs.is_pub_inputs = true;
+        }
 
         // Set fixed block sizes for use in structured trace
         void set_fixed_block_sizes(TraceStructure setting)
@@ -178,10 +188,13 @@ template <typename FF_> class MegaArith {
             }
         }
 
-        TraceBlocks()
+        void compute_offsets(bool is_structured)
         {
-            this->aux.has_ram_rom = true;
-            this->pub_inputs.is_pub_inputs = true;
+            uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
+            for (auto& block : this->get()) {
+                block.trace_offset = offset;
+                offset += block.get_fixed_size(is_structured);
+            }
         }
 
         void summarize() const

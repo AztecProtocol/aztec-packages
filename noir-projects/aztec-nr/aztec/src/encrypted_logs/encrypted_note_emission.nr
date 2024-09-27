@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::{getters::{get_public_keys, get_ovsk_app}, public_keys::{OvpkM, IvpkM}},
+    keys::{getters::get_ovsk_app, public_keys::{OvpkM, IvpkM}},
     encrypted_logs::payload::compute_encrypted_log
 };
 use dep::protocol_types::{hash::sha256_to_field, address::AztecAddress, abis::note_hash::NoteHash};
@@ -43,41 +43,6 @@ unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32>(
 
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(AztecAddress, AztecAddress, &mut PrivateContext)](NoteEmission<Note>) -> () where Note: NoteInterface<N> {
-    | e: NoteEmission<Note> | {
-        let ovpk = get_public_keys(ov).ovpk_m;
-        let ivpk = get_public_keys(iv).ivpk_m;
-        let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
-
-        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, iv);
-        context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
-    }
-}
-
-pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
-    context: &mut PrivateContext,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(AztecAddress, AztecAddress, &mut PrivateContext)](NoteEmission<Note>) -> () where Note: NoteInterface<N> {
-    | e: NoteEmission<Note> | {
-        // Note: We could save a lot of gates by obtaining the following keys in an unconstrained context but this
-        // function is currently not used anywhere so we are not optimizing it.
-        let ovpk = get_public_keys(ov).ovpk_m;
-        let ivpk = get_public_keys(iv).ivpk_m;
-
-        // See the comment in `encode_and_encrypt_note_with_keys_unconstrained` for why having note hash counter
-        // and log hash unconstrained here is fine.
-        let (note_hash_counter, encrypted_log, log_hash) = unsafe {
-            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, iv)
-        };
-        context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
-    }
-}
-
-pub fn encode_and_encrypt_note_with_keys<Note, let N: u32>(
-    context: &mut PrivateContext,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
@@ -90,7 +55,7 @@ pub fn encode_and_encrypt_note_with_keys<Note, let N: u32>(
     }
 }
 
-pub fn encode_and_encrypt_note_with_keys_unconstrained<Note, let N: u32>(
+pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     ivpk: IvpkM,

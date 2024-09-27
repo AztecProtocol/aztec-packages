@@ -1,4 +1,4 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 

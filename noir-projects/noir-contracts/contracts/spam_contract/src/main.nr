@@ -8,7 +8,7 @@ contract Spam {
 
     use dep::aztec::{
         prelude::{Map, AztecAddress, PublicMutable},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_with_keys_unconstrained},
+        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_unconstrained},
         keys::getters::get_public_keys,
         protocol_types::{
         hash::poseidon2_hash_with_separator,
@@ -36,7 +36,7 @@ contract Spam {
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-                encode_and_encrypt_note_with_keys_unconstrained(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
+                encode_and_encrypt_note_unconstrained(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
             );
         }
 

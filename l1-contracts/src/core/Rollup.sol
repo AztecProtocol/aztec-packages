@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -25,6 +25,8 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {MockProofCommitmentEscrow} from "@aztec/mock/MockProofCommitmentEscrow.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+
 /**
  * @title Rollup
  * @author Aztec Labs
@@ -34,6 +36,9 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 contract Rollup is Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
 
+  using SlotLib for Slot;
+  using EpochLib for Epoch;
+
   struct ChainTips {
     uint256 pendingBlockNumber;
     uint256 provenBlockNumber;
@@ -42,7 +47,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   struct BlockLog {
     bytes32 archive;
     bytes32 blockHash;
-    uint128 slotNumber;
+    Slot slotNumber;
   }
 
   // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
@@ -96,7 +101,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     blocks[0] = BlockLog({
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(0),
-      slotNumber: 0
+      slotNumber: Slot.wrap(0)
     });
     for (uint256 i = 0; i < _validators.length; i++) {
       _addValidator(_validators[i]);
@@ -573,6 +578,33 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
   }
 
+  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote)
+    public
+    override(IRollup)
+  {
+    validateEpochProofRightClaim(_quote);
+
+    Slot currentSlot = getCurrentSlot();
+    Epoch epochToProve = getEpochToProve();
+
+    // We don't currently unstake,
+    // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
+    // Blocked on submitting epoch proofs to this contract.
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
+
+    proofClaim = DataStructures.EpochProofClaim({
+      epochToProve: epochToProve,
+      basisPointFee: _quote.quote.basisPointFee,
+      bondAmount: _quote.quote.bondAmount,
+      bondProvider: _quote.quote.prover,
+      proposerClaimant: msg.sender
+    });
+
+    emit ProofRightClaimed(
+      epochToProve, _quote.quote.prover, msg.sender, _quote.quote.bondAmount, currentSlot
+    );
+  }
+
   /**
    * @notice Returns the computed public inputs for the given epoch proof.
    *
@@ -743,6 +775,120 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
+   * @notice  Publishes the body and propose the block
+   * @dev     `eth_log_handlers` rely on this function
+   *
+   * @param _header - The L2 block header
+   * @param _archive - A root of the archive tree after the L2 block is applied
+   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
+   * @param _signatures - Signatures from the validators
+   * @param _body - The body of the L2 block
+   */
+  function propose(
+    bytes calldata _header,
+    bytes32 _archive,
+    bytes32 _blockHash,
+    bytes32[] memory _txHashes,
+    SignatureLib.Signature[] memory _signatures,
+    bytes calldata _body
+  ) public override(IRollup) {
+    if (_canPrune()) {
+      _prune();
+    }
+    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
+
+    // Decode and validate header
+    HeaderLib.Header memory header = HeaderLib.decode(_header);
+
+    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
+    setupEpoch();
+    _validateHeader({
+      _header: header,
+      _signatures: _signatures,
+      _digest: digest,
+      _currentTime: Timestamp.wrap(block.timestamp),
+      _txEffectsHash: txsEffectsHash,
+      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+    });
+
+    uint256 blockNumber = ++tips.pendingBlockNumber;
+
+    blocks[blockNumber] = BlockLog({
+      archive: _archive,
+      blockHash: _blockHash,
+      slotNumber: Slot.wrap(header.globalVariables.slotNumber)
+    });
+
+    // @note  The block number here will always be >=1 as the genesis block is at 0
+    bytes32 inHash = INBOX.consume(blockNumber);
+    if (header.contentCommitment.inHash != inHash) {
+      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
+    }
+
+    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
+    // Min size = smallest path of the rollup tree + 1
+    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+    uint256 l2ToL1TreeMinHeight = min + 1;
+    OUTBOX.insert(blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight);
+
+    emit L2BlockProposed(blockNumber, _archive);
+
+    // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
+    if (blockNumber <= assumeProvenThroughBlockNumber) {
+      tips.provenBlockNumber = blockNumber;
+
+      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+
+      emit L2ProofVerified(blockNumber, "CHEAT");
+    }
+  }
+
+  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+    public
+    view
+    override(IRollup)
+  {
+    Slot currentSlot = getCurrentSlot();
+    address currentProposer = getCurrentProposer();
+    Epoch epochToProve = getEpochToProve();
+
+    if (currentProposer != address(0) && currentProposer != msg.sender) {
+      revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
+    }
+
+    if (_quote.quote.epochToProve != epochToProve) {
+      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve);
+    }
+
+    if (currentSlot.positionInEpoch() >= CLAIM_DURATION_IN_L2_SLOTS) {
+      revert Errors.Rollup__NotInClaimPhase(
+        currentSlot.positionInEpoch(), CLAIM_DURATION_IN_L2_SLOTS
+      );
+    }
+
+    // if the epoch to prove is not the one that has been claimed,
+    // then whatever is in the proofClaim is stale
+    if (proofClaim.epochToProve == epochToProve && proofClaim.proposerClaimant != address(0)) {
+      revert Errors.Rollup__ProofRightAlreadyClaimed();
+    }
+
+    if (_quote.quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
+      revert Errors.Rollup__InsufficientBondAmount(
+        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
+      );
+    }
+
+    if (_quote.quote.validUntilSlot < currentSlot) {
+      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot);
+    }
+  }
+
+  /**
    * @notice  Get the current archive root
    *
    * @return bytes32 - The current archive root
@@ -777,7 +923,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @return uint256 - The epoch to prove
    */
-  function getEpochToProve() public view override(IRollup) returns (uint256) {
+  function getEpochToProve() public view override(IRollup) returns (Epoch) {
     if (tips.provenBlockNumber == tips.pendingBlockNumber) {
       revert Errors.Rollup__NoEpochToProve();
     } else {
@@ -822,18 +968,19 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       return false;
     }
 
-    uint256 currentSlot = getCurrentSlot();
-    uint256 oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
-    uint256 startSlotOfPendingEpoch = oldestPendingEpoch * Constants.AZTEC_EPOCH_DURATION;
+    Slot currentSlot = getCurrentSlot();
+    Epoch oldestPendingEpoch =
+      getEpochForBlock(tips.provenBlockNumber + 1);
+    Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
     // we prune the pending chain back to the end of epoch 1 if:
     // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
     // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
     bool inClaimPhase = currentSlot
-      < startSlotOfPendingEpoch + Constants.AZTEC_EPOCH_DURATION + CLAIM_DURATION_IN_L2_SLOTS;
+      < startSlotOfPendingEpoch + Epoch.wrap(1).toSlots() + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
 
-    bool claimExists = currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION
+    bool claimExists = currentSlot < startSlotOfPendingEpoch + Epoch.wrap(2).toSlots()
       && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0);
 
     if (inClaimPhase || claimExists) {
@@ -857,13 +1004,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     HeaderLib.Header memory _header,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
-    uint256 _currentTime,
+    Timestamp _currentTime,
     bytes32 _txEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     _validateHeaderForSubmissionBase(_header, _currentTime, _txEffectsHash, _flags);
     _validateHeaderForSubmissionSequencerSelection(
-      _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
+      Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );
   }
 
@@ -884,14 +1031,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @param _digest - The digest that signatures sign over
    */
   function _validateHeaderForSubmissionSequencerSelection(
-    uint256 _slot,
+    Slot _slot,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
-    uint256 _currentTime,
+    Timestamp _currentTime,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     // Ensure that the slot proposed is NOT in the future
-    uint256 currentSlot = getSlotAt(_currentTime);
+    Slot currentSlot = getSlotAt(_currentTime);
     if (_slot != currentSlot) {
       revert Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot);
     }
@@ -901,8 +1048,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     //        of an entire epoch if no-one from the new epoch committee have seen
     //        those blocks or behaves as if they did not.
 
-    uint256 epochNumber = getEpochAt(getTimestampForSlot(_slot));
-    uint256 currentEpoch = getEpochAt(_currentTime);
+    Epoch epochNumber = getEpochAt(getTimestampForSlot(_slot));
+    Epoch currentEpoch = getEpochAt(_currentTime);
     if (epochNumber != currentEpoch) {
       revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
     }
@@ -929,7 +1076,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    */
   function _validateHeaderForSubmissionBase(
     HeaderLib.Header memory _header,
-    uint256 _currentTime,
+    Timestamp _currentTime,
     bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
@@ -952,19 +1099,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root);
     }
 
-    uint256 slot = _header.globalVariables.slotNumber;
-    if (slot > type(uint128).max) {
-      revert Errors.Rollup__SlotValueTooLarge(slot);
-    }
-
-    uint256 lastSlot = uint256(blocks[tips.pendingBlockNumber].slotNumber);
+    Slot slot = Slot.wrap(_header.globalVariables.slotNumber);
+    Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
     if (slot <= lastSlot) {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }
 
-    uint256 timestamp = getTimestampForSlot(slot);
-    if (_header.globalVariables.timestamp != timestamp) {
-      revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
+    Timestamp timestamp = getTimestampForSlot(slot);
+    if (Timestamp.wrap(_header.globalVariables.timestamp) != timestamp) {
+      revert Errors.Rollup__InvalidTimestamp(
+        timestamp, Timestamp.wrap(_header.globalVariables.timestamp)
+      );
     }
 
     if (timestamp > _currentTime) {

@@ -7,7 +7,7 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
         utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
         macros::{storage::storage, events::event, functions::{public, initializer, private, internal}},
@@ -80,7 +80,7 @@ contract Crowdfunding {
         // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
         // docs:end:valuenote_new
-        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor));
+        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor));
     }
     // docs:end:donate
 
