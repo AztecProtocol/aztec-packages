@@ -387,7 +387,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       uint256 pendingBlockNumber,
       bytes32 pendingArchive,
       bytes32 archiveOfMyBlock,
-      uint256 provenEpochNumber
+      Epoch provenEpochNumber
     )
   {
     return (
@@ -409,15 +409,15 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(uint256 _ts, bytes32 _archive)
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
     external
     view
     override(IRollup)
-    returns (uint256, uint256)
+    returns (Slot, uint256)
   {
-    uint256 slot = getSlotAt(_ts);
+    Slot slot = getSlotAt(_ts);
 
-    uint256 lastSlot = uint256(blocks[tips.pendingBlockNumber].slotNumber);
+    Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
     if (slot <= lastSlot) {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }
@@ -452,7 +452,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _header,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
-    uint256 _currentTime,
+    Timestamp _currentTime,
     bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
@@ -460,12 +460,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     _validateHeader(header, _signatures, _digest, _currentTime, _txsEffectsHash, _flags);
   }
 
-  function nextEpochToClaim() external view override(IRollup) returns (uint256) {
-    uint256 epochClaimed = proofClaim.epochToProve;
-    if (proofClaim.proposerClaimant == address(0) && epochClaimed == 0) {
-      return 0;
+  function nextEpochToClaim() external view override(IRollup) returns (Epoch) {
+    Epoch epochClaimed = proofClaim.epochToProve;
+    if (proofClaim.proposerClaimant == address(0) && epochClaimed == Epoch.wrap(0)) {
+      return Epoch.wrap(0);
     }
-    return 1 + epochClaimed;
+    return Epoch.wrap(1) + epochClaimed;
   }
 
   function computeTxsEffectsHash(bytes calldata _body)
@@ -483,8 +483,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   {
     validateEpochProofRightClaim(_quote);
 
-    uint256 currentSlot = getCurrentSlot();
-    uint256 epochToProve = getEpochToProve();
+    Slot currentSlot = getCurrentSlot();
+    Epoch epochToProve = getEpochToProve();
 
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
@@ -536,7 +536,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       _header: header,
       _signatures: _signatures,
       _digest: digest,
-      _currentTime: block.timestamp,
+      _currentTime: Timestamp.wrap(block.timestamp),
       _txEffectsHash: txsEffectsHash,
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
     });
@@ -546,7 +546,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     blocks[blockNumber] = BlockLog({
       archive: _archive,
       blockHash: _blockHash,
-      slotNumber: header.globalVariables.slotNumber.toUint128()
+      slotNumber: Slot.wrap(header.globalVariables.slotNumber)
     });
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
@@ -576,33 +576,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
       emit L2ProofVerified(blockNumber, "CHEAT");
     }
-  }
-
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote)
-    public
-    override(IRollup)
-  {
-    validateEpochProofRightClaim(_quote);
-
-    Slot currentSlot = getCurrentSlot();
-    Epoch epochToProve = getEpochToProve();
-
-    // We don't currently unstake,
-    // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
-    // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
-
-    proofClaim = DataStructures.EpochProofClaim({
-      epochToProve: epochToProve,
-      basisPointFee: _quote.quote.basisPointFee,
-      bondAmount: _quote.quote.bondAmount,
-      bondProvider: _quote.quote.prover,
-      proposerClaimant: msg.sender
-    });
-
-    emit ProofRightClaimed(
-      epochToProve, _quote.quote.prover, msg.sender, _quote.quote.bondAmount, currentSlot
-    );
   }
 
   /**
@@ -739,120 +712,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     view
     override(IRollup)
   {
-    uint256 currentSlot = getCurrentSlot();
-    address currentProposer = getCurrentProposer();
-    uint256 epochToProve = getEpochToProve();
-
-    if (currentProposer != address(0) && currentProposer != msg.sender) {
-      revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
-    }
-
-    if (_quote.quote.epochToProve != epochToProve) {
-      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve);
-    }
-
-    if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
-      revert Errors.Rollup__NotInClaimPhase(
-        currentSlot % Constants.AZTEC_EPOCH_DURATION, CLAIM_DURATION_IN_L2_SLOTS
-      );
-    }
-
-    // if the epoch to prove is not the one that has been claimed,
-    // then whatever is in the proofClaim is stale
-    if (proofClaim.epochToProve == epochToProve && proofClaim.proposerClaimant != address(0)) {
-      revert Errors.Rollup__ProofRightAlreadyClaimed();
-    }
-
-    if (_quote.quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
-      revert Errors.Rollup__InsufficientBondAmount(
-        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
-      );
-    }
-
-    if (_quote.quote.validUntilSlot < currentSlot) {
-      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot);
-    }
-  }
-
-  /**
-   * @notice  Publishes the body and propose the block
-   * @dev     `eth_log_handlers` rely on this function
-   *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
-   * @param _signatures - Signatures from the validators
-   * @param _body - The body of the L2 block
-   */
-  function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes32[] memory _txHashes,
-    SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body
-  ) public override(IRollup) {
-    if (_canPrune()) {
-      _prune();
-    }
-    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
-
-    // Decode and validate header
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
-
-    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
-    setupEpoch();
-    _validateHeader({
-      _header: header,
-      _signatures: _signatures,
-      _digest: digest,
-      _currentTime: Timestamp.wrap(block.timestamp),
-      _txEffectsHash: txsEffectsHash,
-      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
-    });
-
-    uint256 blockNumber = ++tips.pendingBlockNumber;
-
-    blocks[blockNumber] = BlockLog({
-      archive: _archive,
-      blockHash: _blockHash,
-      slotNumber: Slot.wrap(header.globalVariables.slotNumber)
-    });
-
-    // @note  The block number here will always be >=1 as the genesis block is at 0
-    bytes32 inHash = INBOX.consume(blockNumber);
-    if (header.contentCommitment.inHash != inHash) {
-      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
-    }
-
-    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
-    // Min size = smallest path of the rollup tree + 1
-    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    uint256 l2ToL1TreeMinHeight = min + 1;
-    OUTBOX.insert(blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight);
-
-    emit L2BlockProposed(blockNumber, _archive);
-
-    // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
-    if (blockNumber <= assumeProvenThroughBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
-
-      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-      }
-
-      emit L2ProofVerified(blockNumber, "CHEAT");
-    }
-  }
-
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
-    public
-    view
-    override(IRollup)
-  {
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     Epoch epochToProve = getEpochToProve();
@@ -905,7 +764,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return tips.pendingBlockNumber;
   }
 
-  function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (uint256) {
+  function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (Epoch) {
     if (blockNumber > tips.pendingBlockNumber) {
       revert Errors.Rollup__InvalidBlockNumber(
         tips.pendingBlockNumber, blockNumber
