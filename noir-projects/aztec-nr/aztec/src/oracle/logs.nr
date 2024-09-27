@@ -4,24 +4,38 @@ use dep::protocol_types::{address::AztecAddress, point::Point};
 #[oracle(emitEncryptedNoteLog)]
 unconstrained fn emit_encrypted_note_log_oracle<let M: u32>(_note_hash_counter: u32, _encrypted_note: [u8; M], _counter: u32) {}
 
-unconstrained pub fn emit_encrypted_note_log<let M: u32>(
+pub fn emit_encrypted_note_log<let M: u32>(
     note_hash_counter: u32,
     encrypted_note: [u8; M],
     counter: u32
 ) {
-    emit_encrypted_note_log_oracle(note_hash_counter, encrypted_note, counter)
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        emit_encrypted_note_log_oracle_wrapper(note_hash_counter, encrypted_note, counter)
+    };
+}
+
+unconstrained fn emit_encrypted_note_log_oracle_wrapper<let M: u32>(note_hash_counter: u32, encrypted_note: [u8; M], counter: u32) {
+    emit_encrypted_note_log_oracle(note_hash_counter, encrypted_note, counter);
 }
 
 #[oracle(emitEncryptedEventLog)]
 unconstrained fn emit_encrypted_event_log_oracle<let M: u32>(_contract_address: AztecAddress, _randomness: Field, _encrypted_event: [u8; M], _counter: u32) {}
 
-unconstrained pub fn emit_encrypted_event_log<let M: u32>(
+pub fn emit_encrypted_event_log<let M: u32>(
     contract_address: AztecAddress,
     randomness: Field,
     encrypted_event: [u8; M],
     counter: u32
 ) {
-    emit_encrypted_event_log_oracle(contract_address, randomness, encrypted_event, counter)
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        emit_encrypted_event_log_oracle_wrapper(contract_address, randomness, encrypted_event, counter)
+    };
+}
+
+unconstrained fn emit_encrypted_event_log_oracle_wrapper<let M: u32>(contract_address: AztecAddress, randomness: Field, encrypted_event: [u8; M], counter: u32) {
+    emit_encrypted_event_log_oracle(contract_address, randomness, encrypted_event, counter);
 }
 
 // = 480 + 32 * N bytes
