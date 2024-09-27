@@ -8,6 +8,18 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Renamed `unsafe_rand` to `random`
+
+Since this is an `unconstrained` function, callers are already supposed to include an `unsafe` block, so this function has been renamed for reduced verbosity.
+
+```diff
+-use aztec::oracle::unsafe_rand::unsafe_rand;
++use aztec::oracle::random::random;
+
+-let random_value = unsafe { unsafe_rand() };
++let random_value = unsafe { random() };
+```
+
 ### [Aztec.nr] Removed `SharedMutablePrivateGetter`
 
 This state variable was deleted due to it being difficult to use safely.

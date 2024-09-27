@@ -33,7 +33,7 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, utils::comparison::Comparator,
+        oracle::{encryption::aes128_encrypt, random::random}, utils::comparison::Comparator,
         macros::{storage::storage, events::event, functions::{private, public, internal}}
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
@@ -490,7 +490,7 @@ contract Test {
 
     // Purely exists for testing
     unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * unsafe_rand()
+        kinda_seed * random()
     }
 
     pub struct DummyNote {
