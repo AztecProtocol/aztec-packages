@@ -20,6 +20,4 @@ minio_cache_only ../../barretenberg/cpp/+test-cache-write 2>/dev/null
 minio_cache_only ../../barretenberg/cpp/+test-cache-read 2>/dev/null
 echo "Success!"
 
-# aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME.tar.gz" --quiet
-# AWS_ACCESS_KEY_ID="" "$(git rev-parse --show-toplevel)/scripts/earthly-local" --no-cache ../../barretenberg/cpp/+test-cache
-# #S3_BUILD_CACHE_UPLOAD=true "$(git rev-parse --show-toplevel)/scripts/earthly-local" --no-cache ../../barretenberg/cpp/+test-cache
+# NOTE: Could have S3 tests but not done for brevity
