@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity ^0.8.13;
 
-import {Errors} from "./Errors.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 library SignatureLib {
   struct Signature {

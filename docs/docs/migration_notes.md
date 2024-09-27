@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Removed `SharedMutablePrivateGetter`
+
+This state variable was deleted due to it being difficult to use safely.
+
 ### [Aztec.nr] Changes to `NullifiableNote`
 
 The `compute_nullifier_without_context` function is now `unconstrained`. It had always been meant to be called in unconstrained contexts (which is why it did not receive the `context` object), but now that Noir supports trait functions being `unconstrained` this can be implemented properly. Users must add the `unconstrained` keyword to their implementations of the trait:
@@ -28,6 +32,19 @@ All of `TestEnvironment`'s functions are now `unconstrained`, preventing acciden
 +unconstrained fn test_my_function() {
     let env = TestEnvironment::new();
 ```
+
+### [Aztec.nr] removed `encode_and_encrypt_note` and renamed `encode_and_encrypt_note_with_keys` to `encode_and_encrypt_note`
+
+````diff
+contract XYZ {
+-   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+....
+
+-    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
++    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+
+}
 
 ## 0.56.0
 

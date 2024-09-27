@@ -1,8 +1,5 @@
 import {
   AuthWitness,
-  Event,
-  L1EventPayload,
-  L1NotePayload,
   MerkleTreeId,
   Note,
   type NoteStatus,
@@ -10,7 +7,6 @@ import {
   PublicDataWitness,
   PublicDataWrite,
   PublicExecutionRequest,
-  TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
@@ -34,18 +30,17 @@ import {
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { Aes128, Schnorr } from '@aztec/circuits.js/barretenberg';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type ContractArtifact,
-  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
@@ -543,24 +538,6 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  computeEncryptedNoteLog(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    noteTypeId: NoteSelector,
-    ovKeys: KeyValidationRequest,
-    ivpkM: Point,
-    recipient: AztecAddress,
-    preimage: Fr[],
-  ): Buffer {
-    const note = new Note(preimage);
-    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedLog(l1NotePayload);
-
-    const ephSk = GrumpkinScalar.random();
-
-    return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
-  }
-
   emitUnencryptedLog(_log: UnencryptedL2Log, counter: number): void {
     this.sideEffectsCounter = counter + 1;
     return;
@@ -838,11 +815,6 @@ export class TXE implements TypedOracle {
     this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
-    const aes128 = new Aes128();
-    return aes128.encryptBufferCBC(input, initializationVector, key);
-  }
-
   debugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
   }
@@ -855,23 +827,5 @@ export class TXE implements TypedOracle {
   ): void {
     this.sideEffectsCounter = counter + 1;
     return;
-  }
-
-  computeEncryptedEventLog(
-    contractAddress: AztecAddress,
-    randomness: Fr,
-    eventTypeId: Fr,
-    ovKeys: KeyValidationRequest,
-    ivpkM: Point,
-    recipient: AztecAddress,
-    preimage: Fr[],
-  ): Buffer {
-    const event = new Event(preimage);
-    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, EventSelector.fromField(eventTypeId));
-    const taggedEvent = new TaggedLog(l1EventPayload);
-
-    const ephSk = GrumpkinScalar.random();
-
-    return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
 }

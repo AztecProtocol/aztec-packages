@@ -146,9 +146,17 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     } else {
         parameter_names_list.join(quote {,})
     };
-    let original = quote {
-        | inputs: $input_type  | -> $return_type_hint {
-            $fn_name($parameter_names)
+    let original = if is_fn_private(f) {
+        quote {
+            | inputs: $input_type  | -> $return_type_hint {
+                $fn_name($parameter_names)
+            }
+        }
+    } else {
+        quote {
+            | _: $input_type | -> $return_type_hint {
+                unsafe { $fn_name($parameter_names) }
+            }
         }
     };
 

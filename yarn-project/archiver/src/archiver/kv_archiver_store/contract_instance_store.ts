@@ -19,6 +19,10 @@ export class ContractInstanceStore {
     );
   }
 
+  deleteContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
+    return this.#contractInstances.delete(contractInstance.address.toString());
+  }
+
   getContractInstance(address: AztecAddress): ContractInstanceWithAddress | undefined {
     const contractInstance = this.#contractInstances.get(address.toString());
     return contractInstance && SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
