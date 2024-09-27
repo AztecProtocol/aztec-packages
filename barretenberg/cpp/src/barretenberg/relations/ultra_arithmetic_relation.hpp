@@ -162,7 +162,7 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
     {
         T result{ x };
         for (size_t idx = 1; idx < d; idx++) {
-            result *= idx;
+            result *= x;
         }
         return result;
     };
