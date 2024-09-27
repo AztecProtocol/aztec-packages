@@ -11,6 +11,7 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  EthAddress,
   Fr,
   Header,
   MAX_NOTE_HASHES_PER_TX,
@@ -25,12 +26,15 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import bindings from 'bindings';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
+import { join } from 'path';
 import { isAnyArrayBuffer } from 'util/types';
 
 import { type MerkleTreeAdminDb, type MerkleTreeDb } from '../world-state-db/merkle_tree_db.js';
@@ -58,6 +62,8 @@ addExtension({
   write: fr => fr.toBuffer(),
 });
 
+const ROLLUP_ADDRESS_FILE = 'rollup_address';
+
 export interface NativeInstance {
   call(msg: Buffer | Uint8Array): Promise<any>;
 }
@@ -79,22 +85,37 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   });
 
   protected constructor(
-    private instance: NativeInstance,
+    private instance: NativeInstance | undefined,
     private queue: SerialQueue,
     private forkId: number = 0,
     private blockNumber?: number,
+    private log = createDebugLogger('aztec:world-state:database'),
   ) {}
 
   static async create(
+    rollupAddress: EthAddress,
     dataDir: string,
     libraryName = 'world_state_napi',
     className = 'WorldState',
   ): Promise<NativeWorldStateService> {
+    const log = createDebugLogger('aztec:world-state:database');
+    const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
+    const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
+    const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr) : undefined;
+
+    if (currentRollupAddress && !rollupAddress.equals(currentRollupAddress)) {
+      log.warn('Rollup address changed, deleting database');
+      await rm(dataDir, { recursive: true, force: true });
+    }
+
+    await mkdir(dataDir, { recursive: true });
+    await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
+
     const library = bindings(libraryName);
-    const instance = new library[className](dataDir);
+    const instance = new library[className](join(dataDir, 'trees'));
     const queue = new SerialQueue();
     queue.start();
-    const worldState = new NativeWorldStateService(instance, queue);
+    const worldState = new NativeWorldStateService(instance, queue, undefined, undefined, log);
     await worldState.init();
     return worldState;
   }
@@ -375,11 +396,24 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     return Promise.reject(new Error('Method not implemented'));
   }
 
+  async closeRootDatabase(): Promise<void> {
+    if (this.forkId || this.blockNumber) {
+      throw new Error('Closing a fork or a snapshot or fork is forbidden');
+    }
+
+    await this.call(WorldStateMessageType.CLOSE, void 0);
+    this.instance = undefined;
+  }
+
   private call<T extends WorldStateMessageType>(
     messageType: T,
     body: WorldStateRequest[T],
   ): Promise<WorldStateResponse[T]> {
     return this.queue.put(async () => {
+      if (!this.instance) {
+        throw new Error('NativeWorldStateService is stopped');
+      }
+
       const request = new TypedMessage(messageType, new MessageHeader({ messageId: this.nextMessageId++ }), body);
 
       const encodedRequest = this.encoder.encode(request);

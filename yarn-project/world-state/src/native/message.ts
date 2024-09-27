@@ -70,6 +70,8 @@ export enum WorldStateMessageType {
 
   CREATE_FORK,
   DELETE_FORK,
+
+  CLOSE = 999,
 }
 
 interface WithTreeId {
@@ -211,6 +213,8 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
   [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
+
+  [WorldStateMessageType.CLOSE]: void;
 };
 
 export type WorldStateResponse = {
@@ -237,6 +241,8 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
+
+  [WorldStateMessageType.CLOSE]: void;
 };
 
 export type WorldStateRevision = {

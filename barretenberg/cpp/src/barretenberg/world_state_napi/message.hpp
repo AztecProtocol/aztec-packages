@@ -36,6 +36,8 @@ enum WorldStateMessageType {
 
     CREATE_FORK,
     DELETE_FORK,
+
+    CLOSE = 999,
 };
 
 struct TreeIdOnlyRequest {

@@ -8,6 +8,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  EthAddress,
   Fr,
   GENESIS_ARCHIVE_ROOT,
   Header,
@@ -57,7 +58,7 @@ describe('NativeWorldState', () => {
   });
 
   beforeAll(async () => {
-    nativeWS = await NativeWorldStateService.create(nativeDataDir);
+    nativeWS = await NativeWorldStateService.create(EthAddress.random(), nativeDataDir);
     legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
   });
 

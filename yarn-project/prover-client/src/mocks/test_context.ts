@@ -8,7 +8,7 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import { EthAddress, type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -78,7 +78,7 @@ export class TestContext {
     if (worldState === 'native') {
       const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));
       directoriesToCleanup.push(dir);
-      const ws = await NativeWorldStateService.create(dir);
+      const ws = await NativeWorldStateService.create(EthAddress.random(), dir);
       actualDb = await ws.getLatest();
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);

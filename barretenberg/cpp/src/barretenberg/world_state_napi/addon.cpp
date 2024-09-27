@@ -150,6 +150,9 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     _dispatcher.registerTarget(
         WorldStateMessageType::DELETE_FORK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
+
+    _dispatcher.registerTarget(WorldStateMessageType::CLOSE,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
 }
 
 Napi::Value WorldStateAddon::call(const Napi::CallbackInfo& info)
@@ -163,6 +166,8 @@ Napi::Value WorldStateAddon::call(const Napi::CallbackInfo& info)
         deferred->Reject(Napi::TypeError::New(env, "Wrong number of arguments").Value());
     } else if (!info[0].IsBuffer()) {
         deferred->Reject(Napi::TypeError::New(env, "Argument must be a buffer").Value());
+    } else if (!_ws) {
+        deferred->Reject(Napi::TypeError::New(env, "World state has been closed").Value());
     } else {
         auto buffer = info[0].As<Napi::Buffer<char>>();
         size_t length = buffer.Length();
@@ -533,6 +538,22 @@ bool WorldStateAddon::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::DELETE_FORK, header, {});
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::close(msgpack::object& obj, msgpack::sbuffer& buf)
+{
+    HeaderOnlyMessage request;
+    obj.convert(request);
+
+    // The only reason this API exists is for testing purposes in TS (e.g. close db, open new db instance to test
+    // persistence)
+    _ws.reset(nullptr);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::CLOSE, header, {});
     msgpack::pack(buf, resp_msg);
 
     return true;

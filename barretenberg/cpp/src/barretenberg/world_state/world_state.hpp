@@ -42,6 +42,12 @@ template <typename LeafValueType> struct BatchInsertionResult {
 
 const uint64_t CANONICAL_FORK_ID = 0;
 
+/**
+ * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
+ *
+ * @note This class makes no checks against the rollup address being used. It is the responsibility of the caller to
+ * erase the underlying data directory if the rollup address changes _before_ opening the database.
+ */
 class WorldState {
   public:
     WorldState(const std::string& data_dir, uint64_t map_size, uint64_t thread_pool_size);
