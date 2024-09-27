@@ -15,7 +15,6 @@
     "private-vars-no-leading-underscore": ["error"],
     "func-param-name-leading-underscore": ["error"],
     "func-param-name-mixedcase": ["error"],
-    "custom-error-over-require": ["error"],
     "strict-override": ["error"],
     "strict-import": ["error"],
     "ordering": ["error"],

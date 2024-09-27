@@ -63,12 +63,24 @@ function ltTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
   return Timestamp.unwrap(a) < Timestamp.unwrap(b);
 }
 
+function lteTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
+  return Timestamp.unwrap(a) <= Timestamp.unwrap(b);
+}
+
 function gtTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
   return Timestamp.unwrap(a) > Timestamp.unwrap(b);
 }
 
+function gteTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
+  return Timestamp.unwrap(a) >= Timestamp.unwrap(b);
+}
+
 function neqTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
   return Timestamp.unwrap(a) != Timestamp.unwrap(b);
+}
+
+function eqTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
+  return Timestamp.unwrap(a) == Timestamp.unwrap(b);
 }
 
 // Slot
@@ -91,6 +103,14 @@ function ltSlot(Slot a, Slot b) pure returns (bool) {
 
 function lteSlot(Slot a, Slot b) pure returns (bool) {
   return Slot.unwrap(a) <= Slot.unwrap(b);
+}
+
+function gtSlot(Slot a, Slot b) pure returns (bool) {
+  return Slot.unwrap(a) > Slot.unwrap(b);
+}
+
+function gteSlot(Slot a, Slot b) pure returns (bool) {
+  return Slot.unwrap(a) >= Slot.unwrap(b);
 }
 
 // Epoch
@@ -116,9 +136,20 @@ using {
   subTimestamp as -,
   ltTimestamp as <,
   gtTimestamp as >,
-  neqTimestamp as !=
+  lteTimestamp as <=,
+  gteTimestamp as >=,
+  neqTimestamp as !=,
+  eqTimestamp as ==
 } for Timestamp global;
 
 using {addEpoch as +, subEpoch as -, eqEpoch as ==, neqEpoch as !=} for Epoch global;
 
-using {eqSlot as ==, neqSlot as !=, lteSlot as <=, ltSlot as <, addSlot as +} for Slot global;
+using {
+  eqSlot as ==,
+  neqSlot as !=,
+  gteSlot as >=,
+  gtSlot as >,
+  lteSlot as <=,
+  ltSlot as <,
+  addSlot as +
+} for Slot global;
