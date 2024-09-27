@@ -25,7 +25,7 @@ const OUTGOING_BODY_SIZE = 144;
 /**
  * Encrypted log payload with a tag used for retrieval by clients.
  */
-export class L2Log {
+export class EncryptedLogPayload {
   constructor(
     public readonly incomingTag: Fr,
     public readonly outgoingTag: Fr,
@@ -91,7 +91,10 @@ export class L2Log {
    * @param ivsk - The incoming viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(ciphertext: Buffer | BufferReader, ivsk: GrumpkinScalar): L2Log | undefined {
+  public static decryptAsIncoming(
+    ciphertext: Buffer | BufferReader,
+    ivsk: GrumpkinScalar,
+  ): EncryptedLogPayload | undefined {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
@@ -109,7 +112,12 @@ export class L2Log {
       // The incoming can be of variable size, so we read until the end
       const incomingBodyPlaintext = decrypt(reader.readToEnd(), ivsk, ephPk);
 
-      return new L2Log(incomingTag, outgoingTag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
+      return new EncryptedLogPayload(
+        incomingTag,
+        outgoingTag,
+        AztecAddress.fromBuffer(incomingHeader),
+        incomingBodyPlaintext,
+      );
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (
@@ -139,7 +147,10 @@ export class L2Log {
    * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsOutgoing(ciphertext: Buffer | BufferReader, ovsk: GrumpkinScalar): L2Log | undefined {
+  public static decryptAsOutgoing(
+    ciphertext: Buffer | BufferReader,
+    ovsk: GrumpkinScalar,
+  ): EncryptedLogPayload | undefined {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
@@ -171,7 +182,7 @@ export class L2Log {
       // Now we decrypt the incoming body using the ephSk and recipientIvpk
       const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
 
-      return new L2Log(incomingTag, outgoingTag, contractAddress, incomingBody);
+      return new EncryptedLogPayload(incomingTag, outgoingTag, contractAddress, incomingBody);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (

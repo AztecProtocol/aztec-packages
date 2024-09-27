@@ -3,23 +3,23 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
-import { L2Log } from './l2_log.js';
+import { EncryptedLogPayload } from './encrypted_log_payload.js';
 
 // placeholder value until tagging is implemented
 const PLACEHOLDER_TAG = new Fr(33);
 
-describe('L2 Log', () => {
+describe('EncryptedLogPayload', () => {
   describe('encrypt and decrypt a full log', () => {
     let ovskM: GrumpkinScalar;
     let ivskM: GrumpkinScalar;
 
-    let original: L2Log;
+    let original: EncryptedLogPayload;
     let encrypted: Buffer;
 
     beforeAll(() => {
       const incomingBodyPlaintext = randomBytes(128);
       const contract = AztecAddress.random();
-      original = new L2Log(PLACEHOLDER_TAG, PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
+      original = new EncryptedLogPayload(PLACEHOLDER_TAG, PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
 
       ovskM = GrumpkinScalar.random();
       ivskM = GrumpkinScalar.random();
@@ -35,13 +35,13 @@ describe('L2 Log', () => {
     });
 
     it('decrypt a log as incoming', () => {
-      const recreated = L2Log.decryptAsIncoming(encrypted, ivskM);
+      const recreated = EncryptedLogPayload.decryptAsIncoming(encrypted, ivskM);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
 
     it('decrypt a log as outgoing', () => {
-      const recreated = L2Log.decryptAsOutgoing(encrypted, ovskM);
+      const recreated = EncryptedLogPayload.decryptAsOutgoing(encrypted, ovskM);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
@@ -54,7 +54,7 @@ describe('L2 Log', () => {
       '00000001301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5c10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e040fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e659900001027',
       'hex',
     );
-    const log = new L2Log(new Fr(0), new Fr(0), contract, plaintext);
+    const log = new EncryptedLogPayload(new Fr(0), new Fr(0), contract, plaintext);
 
     const ovskM = new GrumpkinScalar(0x06b76394ac57b8a18ceb08b14ed15b5b778d5c506b4cfb7edc203324eab27c05n);
     const ivskM = new GrumpkinScalar(0x03fd94b1101e834e829cda4f227043f60490b5c7b3073875f5bfbe5028ed05ccn);

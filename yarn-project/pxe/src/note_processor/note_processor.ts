@@ -1,4 +1,4 @@
-import { type AztecNode, type L2Block, L2Log, NotePayload } from '@aztec/circuit-types';
+import { type AztecNode, EncryptedLogPayload, type L2Block, NotePayload } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
@@ -135,15 +135,15 @@ export class NoteProcessor {
         this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
         const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
-        // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
+        // Note: Each tx generates a `TxEncryptedLogPayloads` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const incomingDecryptedLog = L2Log.decryptAsIncoming(log.data, ivskM);
-            const outgoingDecryptedLog = L2Log.decryptAsOutgoing(log.data, ovskM);
+            const incomingDecryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, ivskM);
+            const outgoingDecryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, ovskM);
 
             if (incomingDecryptedLog || outgoingDecryptedLog) {
               const incomingNotePayload = incomingDecryptedLog
