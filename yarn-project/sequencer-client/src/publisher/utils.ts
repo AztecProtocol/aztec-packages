@@ -2,7 +2,7 @@ import { type Logger } from '@aztec/foundation/log';
 
 import { BaseError, ContractFunctionRevertedError } from 'viem';
 
-export function prettyLogVeimError(err: any, logger: Logger) {
+export function prettyLogViemError(err: any, logger: Logger) {
   if (err instanceof BaseError) {
     const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
     if (revertError instanceof ContractFunctionRevertedError) {

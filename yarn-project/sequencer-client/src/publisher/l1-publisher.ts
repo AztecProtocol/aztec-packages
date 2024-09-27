@@ -40,7 +40,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogVeimError } from './utils.js';
+import { prettyLogViemError } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -559,7 +559,7 @@ export class L1Publisher {
         gas: gasGuesstimate,
       });
     } catch (err) {
-      prettyLogVeimError(err, this.log);
+      prettyLogViemError(err, this.log);
       this.log.error(`Rollup publish failed`, err);
       return undefined;
     }
@@ -580,7 +580,7 @@ export class L1Publisher {
         gas: gasGuesstimate,
       });
     } catch (err) {
-      prettyLogVeimError(err, this.log);
+      prettyLogViemError(err, this.log);
       this.log.error(`Rollup publish failed`, err);
       return undefined;
     }

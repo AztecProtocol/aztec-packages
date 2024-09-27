@@ -35,7 +35,7 @@ import { type ValidatorClient } from '@aztec/validator-client';
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
-import { prettyLogVeimError } from '../publisher/utils.js';
+import { prettyLogViemError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -312,7 +312,7 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      prettyLogVeimError(err, this.log);
+      prettyLogViemError(err, this.log);
       throw err;
     }
   }
