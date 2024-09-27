@@ -4,7 +4,7 @@ import "forge-std/Test.sol";
 
 // Rollup Processor
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -52,8 +52,7 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup =
-      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();

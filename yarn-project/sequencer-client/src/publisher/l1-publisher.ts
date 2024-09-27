@@ -6,11 +6,20 @@ import {
   getHashedSignaturePayload,
 } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { ETHEREUM_SLOT_DURATION, EthAddress, type FeeRecipient, type Header, type Proof } from '@aztec/circuits.js';
+import {
+  AGGREGATION_OBJECT_LENGTH,
+  ETHEREUM_SLOT_DURATION,
+  EthAddress,
+  type FeeRecipient,
+  type Header,
+  type Proof,
+  type RootRollupPublicInputs,
+} from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
+import { areArraysEqual, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
@@ -101,7 +110,7 @@ type L1SubmitBlockProofArgs = {
 };
 
 /** Arguments to the submitEpochProof method of the rollup contract */
-type L1SubmitEpochProofArgs = {
+export type L1SubmitEpochProofArgs = {
   epochSize: number;
   previousArchive: Fr;
   endArchive: Fr;
@@ -112,7 +121,6 @@ type L1SubmitEpochProofArgs = {
   proverId: Fr;
   fees: Tuple<FeeRecipient, 32>;
   proof: Proof;
-  aggregationObject: Fr[];
 };
 
 /**
@@ -300,6 +308,54 @@ export class L1Publisher {
       return false;
     }
 
+    {
+      const timer = new Timer();
+
+      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+      //        This means that we can avoid the simulation issues in later checks.
+      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+      //        make time consistency checks break.
+      await this.validateBlockForSubmission(block.header, {
+        digest: digest.toBuffer(),
+        signatures: attestations ?? [],
+      });
+
+      const txHash = await this.sendProposeTx(proposeTxArgs);
+
+      if (!txHash) {
+        this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
+        return false;
+      }
+
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        this.log.info(`Failed to get receipt for tx ${txHash}`, ctx);
+        return false;
+      }
+
+      // Tx was mined successfully
+      if (receipt.status) {
+        const tx = await this.getTransactionStats(txHash);
+        const stats: L1PublishBlockStats = {
+          ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
+          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          ...block.getStats(),
+          eventName: 'rollup-published-to-l1',
+        };
+        this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
+        this.metrics.recordProcessBlockTx(timer.ms(), stats);
+
+        return true;
+      }
+
+      this.metrics.recordFailedTx('process');
+      this.log.error(`Rollup.process tx status failed ${receipt.transactionHash}`, {
+        ...ctx,
+        ...receipt,
+      });
+      await this.sleepOrInterrupted();
+    }
+
     const timer = new Timer();
 
     // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
@@ -402,13 +458,21 @@ export class L1Publisher {
     return false;
   }
 
-  public async submitEpochProof(
-    args: L1SubmitEpochProofArgs,
-    ctx: { blockNumber: number; slotNumber: number },
-  ): Promise<boolean> {
-    // Process block
+  public async submitEpochProof(args: {
+    epochNumber: number;
+    fromBlock: number;
+    toBlock: number;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+  }): Promise<boolean> {
+    const { epochNumber, fromBlock, toBlock } = args;
+    const ctx = { epochNumber, fromBlock, toBlock };
     if (!this.interrupted) {
       const timer = new Timer();
+
+      // Validate epoch proof range and hashes are correct before submitting
+      await this.validateEpochProofSubmission(args);
+
       const txHash = await this.sendSubmitEpochProofTx(args);
       if (!txHash) {
         return false;
@@ -439,6 +503,63 @@ export class L1Publisher {
 
     this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
     return false;
+  }
+
+  private async validateEpochProofSubmission(args: {
+    fromBlock: number;
+    toBlock: number;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+  }) {
+    const { fromBlock, toBlock, publicInputs, proof } = args;
+
+    // Check that the block numbers match the expected epoch to be proven
+    const [pending, proven] = await this.rollupContract.read.tips();
+    if (proven !== BigInt(fromBlock) - 1n) {
+      throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
+    }
+    if (toBlock > pending) {
+      throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
+    }
+
+    // Check the block hash and archive for the immediate block before the epoch
+    const [previousArchive, previousBlockHash] = await this.rollupContract.read.blocks([proven]);
+    if (publicInputs.previousArchive.root.toString() !== previousArchive) {
+      throw new Error(
+        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${previousArchive}`,
+      );
+    }
+    // TODO: Remove zero check once we inject the proper zero blockhash
+    if (previousBlockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== previousBlockHash) {
+      throw new Error(
+        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${previousBlockHash}`,
+      );
+    }
+
+    // Check the block hash and archive for the last block in the epoch
+    const [endArchive, endBlockHash] = await this.rollupContract.read.blocks([BigInt(toBlock)]);
+    if (publicInputs.endArchive.root.toString() !== endArchive) {
+      throw new Error(`End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endArchive}`);
+    }
+    if (publicInputs.endBlockHash.toString() !== endBlockHash) {
+      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockHash}`);
+    }
+
+    // Compare the public inputs computed by the contract with the ones injected
+    const rollupPublicInputs = await this.rollupContract.read.getEpochProofPublicInputs(
+      this.getSubmitEpochProofArgs(args),
+    );
+    const aggregationObject = proof.isEmpty()
+      ? times(AGGREGATION_OBJECT_LENGTH, Fr.zero)
+      : proof.extractAggregationObject();
+    const argsPublicInputs = [...publicInputs.toFields(), ...aggregationObject];
+
+    if (!areArraysEqual(rollupPublicInputs.map(Fr.fromString), argsPublicInputs, (a, b) => a.equals(b))) {
+      const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
+      throw new Error(
+        `Root rollup public inputs mismatch:\nRollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,
+      );
+    }
   }
 
   /**
@@ -484,26 +605,15 @@ export class L1Publisher {
     }
   }
 
-  private async sendSubmitEpochProofTx(args: L1SubmitEpochProofArgs): Promise<string | undefined> {
+  private async sendSubmitEpochProofTx(args: {
+    fromBlock: number;
+    toBlock: number;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+  }): Promise<string | undefined> {
     try {
-      const txArgs = [
-        BigInt(args.epochSize),
-        [
-          args.previousArchive.toString(),
-          args.endArchive.toString(),
-          args.previousBlockHash.toString(),
-          args.endBlockHash.toString(),
-          args.endTimestamp.toString(),
-          args.outHash.toString(),
-          args.proverId.toString(),
-        ],
-        makeTuple(64, i =>
-          i % 2 === 0 ? args.fees[i / 2].recipient.toString() : args.fees[(i - 1) / 2].value.toString(),
-        ),
-        `0x${serializeToBuffer(args.aggregationObject).toString('hex')}`,
-        `0x${args.proof.withoutPublicInputs().toString('hex')}`,
-      ] as const;
-
+      const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+      const txArgs = [...this.getSubmitEpochProofArgs(args), proofHex] as const;
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
       await this.rollupContract.simulate.submitEpochRootProof(txArgs, { account: this.account });
       return await this.rollupContract.write.submitEpochRootProof(txArgs, { account: this.account });
@@ -545,6 +655,32 @@ export class L1Publisher {
     ] as const;
 
     return { args, gasGuesstimate };
+  }
+
+  private getSubmitEpochProofArgs(args: {
+    fromBlock: number;
+    toBlock: number;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+  }) {
+    return [
+      BigInt(args.toBlock - args.fromBlock + 1),
+      [
+        args.publicInputs.previousArchive.root.toString(),
+        args.publicInputs.endArchive.root.toString(),
+        args.publicInputs.previousBlockHash.toString(),
+        args.publicInputs.endBlockHash.toString(),
+        args.publicInputs.endTimestamp.toString(),
+        args.publicInputs.outHash.toString(),
+        args.publicInputs.proverId.toString(),
+      ],
+      makeTuple(64, i =>
+        i % 2 === 0
+          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
+          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
+      ),
+      `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
+    ] as const;
   }
 
   private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {

@@ -55,22 +55,26 @@ export class EpochProvingState {
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
+    /** Whether to prove the epoch. Temporary while we still care about proving blocks. */
+    public readonly proveEpoch: boolean,
   ) {}
 
   /** Returns the current block proving state */
   public get currentBlock(): BlockProvingState | undefined {
-    return this.blocks[this.blocks.length - 1];
+    return this.blocks.at(-1);
   }
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumBlocks)) - 1);
+    const totalLeaves = Math.max(2, this.totalNumBlocks);
+    return BigInt(Math.ceil(Math.log2(totalLeaves)) - 1);
   }
 
   // Calculates the index and level of the parent rollup circuit
   // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
   // REFACTOR: This is repeated from the block orchestrator
   public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
+    const totalLeaves = Math.max(2, this.totalNumBlocks);
     const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
       levelSize /= 2;
       if (levelSize & 1) {
@@ -79,8 +83,7 @@ export class EpochProvingState {
       index >>= 1n;
       return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
     };
-    let [thisLevelSize, shiftUp] =
-      this.totalNumBlocks & 1 ? [this.totalNumBlocks - 1, true] : [this.totalNumBlocks, false];
+    let [thisLevelSize, shiftUp] = totalLeaves & 1 ? [totalLeaves - 1, true] : [totalLeaves, false];
     const maxLevel = this.numMergeLevels + 1n;
     let placeholder = currentIndex;
     for (let i = 0; i < maxLevel - currentLevel; i++) {
