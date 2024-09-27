@@ -352,10 +352,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_create)
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    EXPECT_NO_THROW(Store store(name, depth, db));
-    Store store(name, depth, db);
+    EXPECT_NO_THROW(std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db));
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
     ThreadPoolPtr workers = make_thread_pool(1);
-    TreeType tree = TreeType(store, workers, 2);
+    TreeType tree = TreeType(std::move(store), workers, 2);
     check_size(tree, 2);
 
     NullifierMemoryTree<HashPolicy> memdb(10);
@@ -367,10 +367,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_only_recreate_with_same_nam
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
-    EXPECT_ANY_THROW(Store store_wrong_name("Wrong name", depth, db));
-    EXPECT_ANY_THROW(Store store_wrong_depth(name, depth + 1, db));
+    EXPECT_ANY_THROW(Store("Wrong name", depth, db));
+    EXPECT_ANY_THROW(Store(name, depth + 1, db));
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
@@ -380,8 +380,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     check_size(tree, current_size);
 
@@ -400,8 +400,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, indexed_tree_must_have_at_least
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    EXPECT_THROW(TreeType(store, workers, current_size), std::runtime_error);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    EXPECT_THROW(TreeType(std::move(store), workers, current_size), std::runtime_error);
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_overfilled)
@@ -412,8 +412,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_ove
     constexpr size_t depth = 4;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     std::vector<NullifierLeafValue> values;
     for (uint32_t i = 0; i < 14; i++) {
@@ -442,8 +442,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
 
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     check_size(tree, current_size);
     check_root(tree, memdb.root());
@@ -483,8 +483,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, initial_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, initial_size);
 
     add_value(tree, NullifierLeafValue(30));
     add_value(tree, NullifierLeafValue(10));
@@ -546,8 +546,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
 
     {
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-        Store store(name, depth, db);
-        auto tree = TreeType(store, workers, initial_size);
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        auto tree = TreeType(std::move(store), workers, initial_size);
 
         check_size(tree, current_size);
         check_root(tree, memdb.root());
@@ -582,8 +582,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
     // Now restore and it should continue from where we left off
     {
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-        Store store(name, depth, db);
-        auto tree = TreeType(store, workers, initial_size);
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        auto tree = TreeType(std::move(store), workers, initial_size);
 
         // check uncommitted state
         check_size(tree, current_size);
@@ -610,13 +610,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
 
     std::string name1 = random_string();
     LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-    Store store1(name1, depth, db1);
-    auto tree1 = TreeType(store1, workers, batch_size);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree1 = TreeType(std::move(store1), workers, batch_size);
 
     std::string name2 = random_string();
     LMDBTreeStore db2(_directory, name2, _mapSize, _maxReaders);
-    Store store2(name2, depth, db2);
-    auto tree2 = TreeType(store2, multi_workers, batch_size);
+    std::unique_ptr<Store> store2 = std::make_unique<Store>(name2, depth, db2);
+    auto tree2 = TreeType(std::move(store2), multi_workers, batch_size);
 
     check_root(tree1, memdb.root());
     check_root(tree2, memdb.root());
@@ -690,12 +690,12 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
     for (uint32_t i = 0; i < num_batches; i++) {
 
         LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-        Store store1(name1, depth, db1);
-        auto tree1 = TreeType(store1, workers, batch_size);
+        std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+        auto tree1 = TreeType(std::move(store1), workers, batch_size);
 
         LMDBTreeStore db2(_directory, name2, _mapSize, _maxReaders);
-        Store store2(name2, depth, db2);
-        auto tree2 = TreeType(store2, workers, batch_size);
+        std::unique_ptr<Store> store2 = std::make_unique<Store>(name2, depth, db2);
+        auto tree2 = TreeType(std::move(store2), workers, batch_size);
 
         check_root(tree1, memdb.root());
         check_root(tree2, memdb.root());
@@ -762,8 +762,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_conta
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     std::vector<NullifierLeafValue> values;
     for (uint32_t i = 0; i < 16; i++) {
@@ -810,8 +810,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory)
     constexpr size_t depth = 3;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -973,8 +973,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_tree)
     constexpr uint32_t depth = 8;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     IndexedNullifierLeafType zero_leaf = create_indexed_nullifier_leaf(0, 1, 1);
     check_size(tree, current_size);
@@ -1028,9 +1028,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
     {
         std::string name = random_string();
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-        Store store(name, depth, db);
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
         ThreadPoolPtr pool = make_thread_pool(8);
-        TreeType tree(store, pool, 2);
+        TreeType tree(std::move(store), pool, 2);
 
         check_size(tree, 2);
 
@@ -1061,9 +1061,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory_with_public
     constexpr size_t depth = 3;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    ContentAddressedCachedTreeStore<PublicDataLeafValue> store(name, depth, db);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
     auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        store, workers, current_size);
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -1222,8 +1223,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, returns_low_leaves)
     ;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, 2);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, 2);
 
     auto predecessor = get_low_leaf(tree, NullifierLeafValue(42));
 
@@ -1247,8 +1248,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)
     ;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, 2);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, 2);
 
     add_value(tree, NullifierLeafValue(42));
     check_size(tree, 3);
@@ -1273,8 +1274,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-    Store store1(name1, depth, db1);
-    auto tree1 = TreeType(store1, multi_workers, batch_size);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree1 = TreeType(std::move(store1), multi_workers, batch_size);
 
     std::vector<fr_sibling_path> memory_tree_sibling_paths_index_0;
 
@@ -1329,9 +1330,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     constexpr size_t depth = 3;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    ContentAddressedCachedTreeStore<PublicDataLeafValue> store(name, depth, db);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
     auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        store, workers, current_size);
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -1467,8 +1469,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_histo
 
     std::string name1 = random_string();
     LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-    Store store1(name1, depth, db1);
-    auto tree1 = TreeType(store1, multi_workers, batch_size);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree1 = TreeType(std::move(store1), multi_workers, batch_size);
 
     check_root(tree1, memdb.root());
     check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
@@ -1513,8 +1515,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_histo
     fr_sibling_path block3SiblingPathIndex19 = memdb.get_sibling_path(19 + batch_size);
     fr_sibling_path block3SiblingPathIndex3 = memdb.get_sibling_path(3 + batch_size);
 
-    Store storeAtBlock2(name1, depth, 2, db1);
-    auto treeAtBlock2 = TreeType(storeAtBlock2, multi_workers, batch_size);
+    std::unique_ptr<Store> storeAtBlock2 = std::make_unique<Store>(name1, depth, 2, db1);
+    auto treeAtBlock2 = TreeType(std::move(storeAtBlock2), multi_workers, batch_size);
 
     check_root(treeAtBlock2, block2Root);
     check_sibling_path(treeAtBlock2, 3 + batch_size, block2SiblingPathIndex3, false, true);
