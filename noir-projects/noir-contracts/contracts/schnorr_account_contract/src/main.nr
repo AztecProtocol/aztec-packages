@@ -9,7 +9,7 @@ contract SchnorrAccount {
     use dep::std;
 
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_authwit_message_hash}
@@ -36,7 +36,7 @@ contract SchnorrAccount {
         // important.
 
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
-        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note_with_keys(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
+        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file

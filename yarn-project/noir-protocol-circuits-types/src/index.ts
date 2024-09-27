@@ -5,6 +5,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
@@ -49,6 +50,7 @@ import {
   mapBlockMergeRollupInputsToNoir,
   mapBlockRootOrBlockMergePublicInputsFromNoir,
   mapBlockRootRollupInputsToNoir,
+  mapEmptyBlockRootRollupInputsToNoir,
   mapEmptyKernelInputsToNoir,
   mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
@@ -420,6 +422,19 @@ export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs):
 export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockRootRollupArtifact.abi, { inputs: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs of the empty block root rollup circuit into a witness map.
+ * @param inputs - The empty block root rollup inputs.
+ * @returns The witness map
+ */
+export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlockRootRollupInputs): WitnessMap {
+  const mapped = mapEmptyBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
   return initialWitnessMap;
 }
 
