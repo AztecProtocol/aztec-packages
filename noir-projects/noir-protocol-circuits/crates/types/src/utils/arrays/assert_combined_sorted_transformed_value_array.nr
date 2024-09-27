@@ -9,7 +9,9 @@ use crate::{
 };
 
 fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
-    let length = count_private_items(array);
+    let length = unsafe {
+        count_private_items(array)
+    };
     if length != 0 {
         let last_private_item = array[length - 1];
         assert(!is_empty(last_private_item) & (last_private_item.counter() == 0));
@@ -83,7 +85,8 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, tests::utils::pad_end, traits::Empty,
+        tests::utils::pad_end,
+        tests::types::{combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues},
         utils::arrays::{
         array_merge,
         assert_combined_sorted_transformed_value_array::{
@@ -94,99 +97,49 @@ mod tests {
     }
     };
 
-    struct TestItem {
-        name: Field,
-        price: Field,
-        tax: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { name: 0, price: 0, tax: 0, counter: 0 }
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.price == other.price) & (self.tax == other.tax) & (self.counter == other.counter)
-        }
-    }
-
-    struct TestValue {
-        name: Field,
-        total: Field,
-    }
-
-    impl Empty for TestValue {
-        fn empty() -> Self {
-            TestValue { name: 0, total: 0 }
-        }
-    }
-
-    impl Eq for TestValue {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.total == other.total)
-        }
-    }
-
-    fn transform(item: TestItem) -> TestValue {
-        TestValue { name: item.name, total: item.price + item.tax }
-    }
-
-    fn is_transformed(item: TestItem, value: TestValue) -> bool {
-        (item.name == value.name) & ((item.price + item.tax) == value.total)
-    }
-
-    struct TestDataBuilder<T, S, let N: u32> {
-        original_array_lt: [T; N],
-        original_array_gte: [T; N],
-        sorted_transformed_value_array: [S; N],
+    struct TestDataBuilder<let N: u32> {
+        original_array_lt: [TestTwoValues; N],
+        original_array_gte: [TestTwoValues; N],
+        sorted_transformed_value_array: [TestCombinedValue; N],
         hints: [CombinedOrderHint; N],
     }
 
-    impl<let N: u32> TestDataBuilder<TestItem, TestValue, N> {
-        pub fn new() -> TestDataBuilder<TestItem, TestValue, 12> {
+    impl TestDataBuilder<12> {
+        pub fn new() -> Self {
             let original_array_lt = pad_end(
                 [
-                TestItem { name: 7, price: 40, tax: 7, counter: 0 },
-                TestItem { name: 4, price: 70, tax: 6, counter: 0 },
-                TestItem { name: 6, price: 80, tax: 1, counter: 22 },
-                TestItem { name: 3, price: 30, tax: 4, counter: 11 }
+                TestTwoValues { value_1: 40, value_2: 7, counter: 0 },
+                TestTwoValues { value_1: 70, value_2: 6, counter: 0 },
+                TestTwoValues { value_1: 80, value_2: 1, counter: 22 },
+                TestTwoValues { value_1: 30, value_2: 4, counter: 11 }
             ],
-                TestItem::empty()
+                TestTwoValues::empty()
             );
 
             let original_array_gte = pad_end(
                 [
-                TestItem { name: 9, price: 20, tax: 2, counter: 0 },
-                TestItem { name: 8, price: 90, tax: 3, counter: 0 },
-                TestItem { name: 5, price: 50, tax: 9, counter: 55 },
-                TestItem { name: 1, price: 60, tax: 8, counter: 33 },
-                TestItem { name: 2, price: 10, tax: 5, counter: 44 }
+                TestTwoValues { value_1: 20, value_2: 2, counter: 0 },
+                TestTwoValues { value_1: 90, value_2: 3, counter: 0 },
+                TestTwoValues { value_1: 50, value_2: 9, counter: 55 },
+                TestTwoValues { value_1: 60, value_2: 8, counter: 33 },
+                TestTwoValues { value_1: 10, value_2: 5, counter: 44 }
             ],
-                TestItem::empty()
+                TestTwoValues::empty()
             );
 
             let sorted_transformed_value_array = pad_end(
                 [
-                TestValue { name: 7, total: 47 },
-                TestValue { name: 4, total: 76 },
-                TestValue { name: 9, total: 22 },
-                TestValue { name: 8, total: 93 },
-                TestValue { name: 3, total: 34 },
-                TestValue { name: 6, total: 81 },
-                TestValue { name: 1, total: 68 },
-                TestValue { name: 2, total: 15 },
-                TestValue { name: 5, total: 59 }
+                TestCombinedValue { value: 47 },
+                TestCombinedValue { value: 76 },
+                TestCombinedValue { value: 22 },
+                TestCombinedValue { value: 93 },
+                TestCombinedValue { value: 34 },
+                TestCombinedValue { value: 81 },
+                TestCombinedValue { value: 68 },
+                TestCombinedValue { value: 15 },
+                TestCombinedValue { value: 59 }
             ],
-                TestValue::empty()
+                TestCombinedValue::empty()
             );
 
             let hints = [
@@ -206,34 +159,36 @@ mod tests {
 
             TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
         }
+    }
 
-        pub fn new_without_prepended() -> TestDataBuilder<TestItem, TestValue, 8> {
+    impl TestDataBuilder<8> {
+        pub fn new_without_prepended() -> Self {
             let original_array_lt = pad_end(
                 [
-                TestItem { name: 6, price: 80, tax: 1, counter: 22 },
-                TestItem { name: 3, price: 30, tax: 4, counter: 11 }
+                TestTwoValues { value_1: 80, value_2: 1, counter: 22 },
+                TestTwoValues { value_1: 30, value_2: 4, counter: 11 }
             ],
-                TestItem::empty()
+                TestTwoValues::empty()
             );
 
             let original_array_gte = pad_end(
                 [
-                TestItem { name: 5, price: 50, tax: 9, counter: 55 },
-                TestItem { name: 1, price: 60, tax: 8, counter: 33 },
-                TestItem { name: 2, price: 10, tax: 5, counter: 44 }
+                TestTwoValues { value_1: 50, value_2: 9, counter: 55 },
+                TestTwoValues { value_1: 60, value_2: 8, counter: 33 },
+                TestTwoValues { value_1: 10, value_2: 5, counter: 44 }
             ],
-                TestItem::empty()
+                TestTwoValues::empty()
             );
 
             let sorted_transformed_value_array = pad_end(
                 [
-                TestValue { name: 3, total: 34 },
-                TestValue { name: 6, total: 81 },
-                TestValue { name: 1, total: 68 },
-                TestValue { name: 2, total: 15 },
-                TestValue { name: 5, total: 59 }
+                TestCombinedValue { value: 34 },
+                TestCombinedValue { value: 81 },
+                TestCombinedValue { value: 68 },
+                TestCombinedValue { value: 15 },
+                TestCombinedValue { value: 59 }
             ],
-                TestValue::empty()
+                TestCombinedValue::empty()
             );
 
             let hints = [
@@ -249,7 +204,9 @@ mod tests {
 
             TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
         }
+    }
 
+    impl<let N: u32> TestDataBuilder<N> {
         pub fn swap_items(&mut self, from: u32, to: u32) {
             let tmp = self.sorted_transformed_value_array[from];
             self.sorted_transformed_value_array[from] = self.sorted_transformed_value_array[to];
@@ -267,36 +224,36 @@ mod tests {
                 self.original_array_lt,
                 self.original_array_gte,
                 self.sorted_transformed_value_array,
-                is_transformed,
+                is_combined_from_two_values,
                 self.hints
             );
+        }
+
+        pub fn check_and_execute(self) {
+            let hints = unsafe {
+                get_combined_order_hints_asc(self.original_array_lt, self.original_array_gte)
+            };
+            assert_eq(hints, self.hints);
+
+            let sorted = unsafe {
+                sort_by_counter_asc(array_merge(self.original_array_lt, self.original_array_gte)).map(combine_two_values)
+            };
+            assert_eq(sorted, self.sorted_transformed_value_array);
+
+            self.execute();
         }
     }
 
     #[test]
     fn assert_combined_sorted_transformed_value_array_asc_succeeds() {
         let builder = TestDataBuilder::new();
-
-        let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
-        assert_eq(hints, builder.hints);
-
-        let sorted = sort_by_counter_asc(array_merge(builder.original_array_lt, builder.original_array_gte)).map(transform);
-        assert_eq(sorted, builder.sorted_transformed_value_array);
-
-        builder.execute();
+        builder.check_and_execute();
     }
 
     #[test]
     fn assert_combined_sorted_transformed_value_array_asc_without_prepended_counter_zeros_succeeds() {
         let builder = TestDataBuilder::new_without_prepended();
-
-        let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
-        assert_eq(hints, builder.hints);
-
-        let sorted = sort_by_counter_asc(array_merge(builder.original_array_lt, builder.original_array_gte)).map(transform);
-        assert_eq(sorted, builder.sorted_transformed_value_array);
-
-        builder.execute();
+        builder.check_and_execute();
     }
 
     #[test(should_fail_with="incorrect transformed value")]
@@ -304,7 +261,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Tweak the value at index 1.
-        builder.sorted_transformed_value_array[1].total += 1;
+        builder.sorted_transformed_value_array[1].value += 1;
 
         builder.execute();
     }
@@ -378,7 +335,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Clear an item.
-        builder.sorted_transformed_value_array[8] = TestValue::empty();
+        builder.sorted_transformed_value_array[8] = TestCombinedValue::empty();
         builder.hints[8] = CombinedOrderHint { counter: 0, original_index: 6 };
 
         builder.execute();

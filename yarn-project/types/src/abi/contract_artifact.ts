@@ -19,7 +19,6 @@ import {
   AZTEC_INTERNAL_ATTRIBUTE,
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
-  AZTEC_PUBLIC_VM_ATTRIBUTE,
   AZTEC_VIEW_ATTRIBUTE,
   type NoirCompiledContract,
 } from '../noir/index.js';
@@ -182,16 +181,14 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
     bytecode: Buffer.from(fn.bytecode, 'base64'),
     verificationKey: mockVerificationKey,
     debugSymbols: fn.debug_symbols,
+    assertMessages: fn.assert_messages,
   };
 }
 
 function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
   if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
     return FunctionType.PRIVATE;
-  } else if (
-    fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE) ||
-    fn.custom_attributes.includes(AZTEC_PUBLIC_VM_ATTRIBUTE)
-  ) {
+  } else if (fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE)) {
     return FunctionType.PUBLIC;
   } else if (fn.is_unconstrained) {
     return FunctionType.UNCONSTRAINED;

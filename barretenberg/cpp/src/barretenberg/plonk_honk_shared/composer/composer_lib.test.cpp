@@ -61,8 +61,7 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     // operand externally (0 to 63) then the right operand internally (0 to 63). Computing (1 XOR 5) will thus result in
     // 1 lookup from the (1*64 + 5)th index in the table and 5 lookups from the (0*64 + 0)th index (for the remaining 5
     // limbs that are all 0). The counts and tags at all other indices should be zero.
-    size_t idx = 0;
-    for (auto [count, tag] : zip_view(read_counts, read_tags)) {
+    for (auto [idx, count, tag] : zip_polys(read_counts, read_tags)) {
         if (idx == (0 + offset)) {
             EXPECT_EQ(count, 5);
             EXPECT_EQ(tag, 1);

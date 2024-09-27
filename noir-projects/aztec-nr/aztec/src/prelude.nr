@@ -1,9 +1,9 @@
 // docs:start:prelude
-use dep::protocol_types::{
+pub use dep::protocol_types::{
     address::{AztecAddress, EthAddress}, abis::function_selector::FunctionSelector, point::Point,
     traits::{Serialize, Deserialize}
 };
-use crate::{
+pub use crate::{
     state_vars::{
     map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
     public_immutable::PublicImmutable, public_mutable::PublicMutable, private_set::PrivateSet,
@@ -11,8 +11,8 @@ use crate::{
 },
     context::{PrivateContext, PackedReturns, FunctionReturns},
     note::{
-    note_header::NoteHeader, note_interface::NoteInterface, note_getter_options::NoteGetterOptions,
-    note_viewer_options::NoteViewerOptions,
+    note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote},
+    note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_and_optionally_a_nullifier as utils_compute_note_hash_and_optionally_a_nullifier
 }
 };

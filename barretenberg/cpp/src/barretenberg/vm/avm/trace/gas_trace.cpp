@@ -11,6 +11,7 @@ namespace bb::avm_trace {
 void AvmGasTraceBuilder::reset()
 {
     gas_trace.clear();
+    gas_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 void AvmGasTraceBuilder::set_initial_gas(uint32_t l2_gas, uint32_t da_gas)
@@ -33,8 +34,17 @@ uint32_t AvmGasTraceBuilder::get_da_gas_left() const
     return gas_trace.back().remaining_da_gas;
 }
 
-void AvmGasTraceBuilder::constrain_gas(uint32_t clk, OpCode opcode, uint32_t dyn_gas_multiplier)
+void AvmGasTraceBuilder::constrain_gas(
+    uint32_t clk, OpCode opcode, uint32_t dyn_gas_multiplier, uint32_t nested_l2_gas_cost, uint32_t nested_da_gas_cost)
 {
+    uint32_t effective_nested_l2_gas_cost = 0;
+    uint32_t effective_nested_da_gas_cost = 0;
+
+    if (opcode == OpCode::CALL || opcode == OpCode::STATICCALL) {
+        effective_nested_l2_gas_cost = nested_l2_gas_cost;
+        effective_nested_da_gas_cost = nested_da_gas_cost;
+    }
+
     gas_opcode_lookup_counter[opcode]++;
 
     // Get the gas prices for this opcode
@@ -46,43 +56,8 @@ void AvmGasTraceBuilder::constrain_gas(uint32_t clk, OpCode opcode, uint32_t dyn
     auto dyn_da_gas_cost = static_cast<uint32_t>(gas_info.dyn_da_gas_fixed_table);
 
     // Decrease the gas left
-    remaining_l2_gas -= base_l2_gas_cost + dyn_l2_gas_cost * dyn_gas_multiplier;
-    remaining_da_gas -= base_da_gas_cost + dyn_da_gas_cost * dyn_gas_multiplier;
-
-    // Create a gas trace entry
-    gas_trace.push_back({
-        .clk = clk,
-        .opcode = opcode,
-        .base_l2_gas_cost = base_l2_gas_cost,
-        .base_da_gas_cost = base_da_gas_cost,
-        .dyn_l2_gas_cost = dyn_l2_gas_cost,
-        .dyn_da_gas_cost = dyn_da_gas_cost,
-        .dyn_gas_multiplier = dyn_gas_multiplier,
-        .remaining_l2_gas = remaining_l2_gas,
-        .remaining_da_gas = remaining_da_gas,
-    });
-}
-
-void AvmGasTraceBuilder::constrain_gas_for_external_call(uint32_t clk,
-                                                         uint32_t dyn_gas_multiplier,
-                                                         uint32_t nested_l2_gas_cost,
-                                                         uint32_t nested_da_gas_cost)
-{
-    const OpCode opcode = OpCode::CALL;
-    gas_opcode_lookup_counter[opcode]++;
-
-    // Get the gas prices for this opcode
-    const auto& GAS_COST_TABLE = FixedGasTable::get();
-    const auto& gas_info = GAS_COST_TABLE.at(opcode);
-    auto base_l2_gas_cost = static_cast<uint32_t>(gas_info.base_l2_gas_fixed_table);
-    auto base_da_gas_cost = static_cast<uint32_t>(gas_info.base_da_gas_fixed_table);
-    auto dyn_l2_gas_cost = static_cast<uint32_t>(gas_info.dyn_l2_gas_fixed_table);
-    auto dyn_da_gas_cost = static_cast<uint32_t>(gas_info.dyn_da_gas_fixed_table);
-
-    // TODO: this is the only difference, unify.
-    // Decrease the gas left
-    remaining_l2_gas -= (base_l2_gas_cost + dyn_gas_multiplier * dyn_l2_gas_cost) + nested_l2_gas_cost;
-    remaining_da_gas -= (base_da_gas_cost + dyn_gas_multiplier * dyn_da_gas_cost) + nested_da_gas_cost;
+    remaining_l2_gas -= (base_l2_gas_cost + dyn_gas_multiplier * dyn_l2_gas_cost) + effective_nested_l2_gas_cost;
+    remaining_da_gas -= (base_da_gas_cost + dyn_gas_multiplier * dyn_da_gas_cost) + effective_nested_da_gas_cost;
 
     // Create a gas trace entry
     gas_trace.push_back({
@@ -141,16 +116,8 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         uint32_t abs_l2_gas_remaining = l2_out_of_gas ? -gas_entry.remaining_l2_gas : gas_entry.remaining_l2_gas;
         uint32_t abs_da_gas_remaining = da_out_of_gas ? -gas_entry.remaining_da_gas : gas_entry.remaining_da_gas;
 
-        dest.main_abs_l2_rem_gas_hi = abs_l2_gas_remaining >> 16;
-        dest.main_abs_da_rem_gas_hi = abs_da_gas_remaining >> 16;
-        dest.main_abs_l2_rem_gas_lo = static_cast<uint16_t>(abs_l2_gas_remaining);
-        dest.main_abs_da_rem_gas_lo = static_cast<uint16_t>(abs_da_gas_remaining);
-
-        // lookups counting
-        rem_gas_rng_check_counts[L2_HI_GAS_COUNTS_IDX][static_cast<uint16_t>(dest.main_abs_l2_rem_gas_hi)]++;
-        rem_gas_rng_check_counts[L2_LO_GAS_COUNTS_IDX][static_cast<uint16_t>(dest.main_abs_l2_rem_gas_lo)]++;
-        rem_gas_rng_check_counts[DA_HI_GAS_COUNTS_IDX][static_cast<uint16_t>(dest.main_abs_da_rem_gas_hi)]++;
-        rem_gas_rng_check_counts[DA_LO_GAS_COUNTS_IDX][static_cast<uint16_t>(dest.main_abs_da_rem_gas_lo)]++;
+        dest.main_abs_l2_rem_gas = abs_l2_gas_remaining;
+        dest.main_abs_da_rem_gas = abs_da_gas_remaining;
 
         dest.main_l2_out_of_gas = static_cast<uint32_t>(l2_out_of_gas);
         dest.main_da_out_of_gas = static_cast<uint32_t>(da_out_of_gas);

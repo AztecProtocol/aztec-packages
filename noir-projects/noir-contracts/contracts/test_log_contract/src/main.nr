@@ -1,34 +1,42 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract TestLog {
+    use std::meta::derive;
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{traits::Serialize, point::Point, scalar::Scalar, address::AztecAddress};
+    use dep::aztec::protocol_types::{scalar::Scalar, address::AztecAddress, traits::Serialize};
     use dep::aztec::keys::public_keys::IvpkM;
     use dep::value_note::value_note::ValueNote;
-    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
-    use dep::aztec::event::event_interface::EventInterface;
+    use dep::aztec::encrypted_logs::payload::compute_incoming_body_ciphertext;
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
+    use dep::aztec::macros::{storage::storage, events::event, functions::{private, public}};
 
-    #[aztec(event)]
+    use std::embedded_curve_ops::EmbeddedCurveScalar;
+
+    #[event]
+    #[derive(Serialize)]
     struct ExampleEvent0 {
         value0: Field,
         value1: Field,
     }
 
-    #[aztec(event)]
+    #[event]
+    #[derive(Serialize)]
     struct ExampleEvent1 {
         value2: AztecAddress,
         value3: u8,
     }
 
-    #[aztec(storage)]
-    struct Storage {
-        example_set: PrivateSet<ValueNote>,
+    #[storage]
+    struct Storage<Context> {
+        example_set: PrivateSet<ValueNote, Context>,
     }
 
     // EXAMPLE_EVENT_0_BYTES_LEN + 16
     global EXAMPLE_EVENT_0_CIPHERTEXT_BYTES_LEN = 144;
 
-    #[aztec(private)]
+    #[private]
     fn compute_incoming_log_body_ciphertext(
         secret: Scalar,
         ivpk: IvpkM,
@@ -36,13 +44,12 @@ contract TestLog {
         event_type_id: Field,
         preimage: [Field; 2]
     ) -> [u8; EXAMPLE_EVENT_0_CIPHERTEXT_BYTES_LEN] {
-        EncryptedLogIncomingBody::from_event(
-            ExampleEvent0 { value0: preimage[0], value1: preimage[1] },
-            randomness
-        ).compute_ciphertext(secret, ivpk).as_array()
+        let event = ExampleEvent0 { value0: preimage[0], value1: preimage[1] };
+        let plaintext = event.private_to_be_bytes(randomness);
+        compute_incoming_body_ciphertext(plaintext, secret, ivpk).as_array()
     }
 
-    #[aztec(private)]
+    #[private]
     fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
@@ -80,7 +87,7 @@ contract TestLog {
         );
     }
 
-    #[aztec(public)]
+    #[public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 

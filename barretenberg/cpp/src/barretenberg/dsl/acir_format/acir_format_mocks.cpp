@@ -6,7 +6,6 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -22,9 +21,12 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
@@ -42,9 +44,6 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.aes128_constraints.size(); i++) {
         constraint_system.original_opcode_indices.aes128_constraints.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.sha256_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.sha256_constraints.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.sha256_compression.size(); i++) {
         constraint_system.original_opcode_indices.sha256_compression.push_back(current_opcode++);
@@ -91,6 +90,12 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); i++) {
         constraint_system.original_opcode_indices.honk_recursion_constraints.push_back(current_opcode++);
     }
+    for (size_t i = 0; i < constraint_system.avm_recursion_constraints.size(); i++) {
+        constraint_system.original_opcode_indices.avm_recursion_constraints.push_back(current_opcode++);
+    }
+    for (size_t i = 0; i < constraint_system.ivc_recursion_constraints.size(); i++) {
+        constraint_system.original_opcode_indices.ivc_recursion_constraints.push_back(current_opcode++);
+    }
     for (size_t i = 0; i < constraint_system.bigint_from_le_bytes_constraints.size(); i++) {
         constraint_system.original_opcode_indices.bigint_from_le_bytes_constraints.push_back(current_opcode++);
     }
@@ -99,6 +104,9 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.bigint_operations.size(); i++) {
         constraint_system.original_opcode_indices.bigint_operations.push_back(current_opcode++);
+    }
+    for (size_t i = 0; i < constraint_system.assert_equalities.size(); i++) {
+        constraint_system.original_opcode_indices.assert_equalities.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); i++) {
         constraint_system.original_opcode_indices.poly_triple_constraints.push_back(current_opcode++);

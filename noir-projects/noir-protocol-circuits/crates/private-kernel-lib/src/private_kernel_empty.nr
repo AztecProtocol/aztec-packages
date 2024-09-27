@@ -3,32 +3,24 @@ use dep::types::{
     recursion::{verification_key::VerificationKey, proof::RecursiveProof, traits::Verifiable}
 };
 
-struct EmptyNestedCircuitPublicInputs {
+pub struct EmptyNestedCircuitPublicInputs {
     proof: RecursiveProof,
     vk: VerificationKey,
 }
 
 impl Verifiable for EmptyNestedCircuitPublicInputs {
-  fn verify(self) {
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        [],
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        std::verify_proof(self.vk.key, self.proof.fields, [], self.vk.hash);
+    }
 }
 
 impl Empty for EmptyNestedCircuitPublicInputs {
     fn empty() -> Self {
-        Self {
-            proof: RecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-        }
+        Self { proof: RecursiveProof::empty(), vk: VerificationKey::empty() }
     }
 }
 
-struct PrivateKernelEmptyPrivateInputs {
+pub struct PrivateKernelEmptyPrivateInputs {
     empty_nested: EmptyNestedCircuitPublicInputs,
     historical_header: Header,
     chain_id: Field,

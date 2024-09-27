@@ -1,3 +1,4 @@
+import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   ETHEREUM_SLOT_DURATION,
@@ -24,7 +25,7 @@ import type * as chains from 'viem/chains';
 /**
  * Simple global variables builder.
  */
-export class GlobalVariableBuilder {
+export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createDebugLogger('aztec:sequencer:global_variable_builder');
 
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
@@ -52,23 +53,26 @@ export class GlobalVariableBuilder {
    * @param blockNumber - The block number to build global variables for.
    * @param coinbase - The address to receive block reward.
    * @param feeRecipient - The address to receive fees.
+   * @param slotNumber - The slot number to use for the global variables, if undefined it will be calculated.
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
     blockNumber: Fr,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
+    slotNumber?: bigint,
   ): Promise<GlobalVariables> {
     const version = new Fr(await this.rollupContract.read.VERSION());
     const chainId = new Fr(this.publicClient.chain.id);
 
-    const ts = (await this.publicClient.getBlock()).timestamp;
+    if (slotNumber === undefined) {
+      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+      slotNumber = await this.rollupContract.read.getSlotAt([ts]);
+    }
 
-    // Not just the current slot, the slot of the next block.
-    const slot = await this.rollupContract.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
-    const timestamp = await this.rollupContract.read.getTimestampForSlot([slot]);
+    const timestamp = await this.rollupContract.read.getTimestampForSlot([slotNumber]);
 
-    const slotFr = new Fr(slot);
+    const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);
 
     const gasFees = GasFees.default();

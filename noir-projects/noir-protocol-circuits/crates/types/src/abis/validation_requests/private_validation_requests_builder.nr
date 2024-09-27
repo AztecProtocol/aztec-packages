@@ -14,7 +14,7 @@ use crate::{
     traits::Empty
 };
 
-struct PrivateValidationRequestsBuilder {
+pub struct PrivateValidationRequestsBuilder {
     max_block_number: MaxBlockNumber,
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -45,7 +45,7 @@ impl Empty for PrivateValidationRequestsBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
-            split_counter: Option::none(),
+            split_counter: Option::none()
         }
     }
 }

@@ -48,6 +48,10 @@ export const BLOCK_CANDIDATE_TXS_COUNT = 'aztec.block.candidate_txs_count';
 export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
 /** The block size (power of 2) */
 export const BLOCK_SIZE = 'aztec.block.size';
+/** How many blocks are included in this epoch */
+export const EPOCH_SIZE = 'aztec.epoch.size';
+/** The epoch number */
+export const EPOCH_NUMBER = 'aztec.epoch.number';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */
@@ -62,3 +66,7 @@ export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
 
 export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
+/** The prover-id in a root rollup proof. */
+export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
+/** Whether the proof submission was timed out (delayed more than 20 min) */
+export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';

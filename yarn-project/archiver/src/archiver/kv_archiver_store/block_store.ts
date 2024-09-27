@@ -1,16 +1,16 @@
-import { L2Block, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
+import { Body, L2Block, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
 
-import { type DataRetrieval } from '../data_retrieval.js';
-import { type BlockBodyStore } from './block_body_store.js';
+import { type L1Published, type L1PublishedData } from '../structs/published.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockStorage = {
   header: Buffer;
   archive: Buffer;
+  l1: L1PublishedData;
 };
 
 /**
@@ -19,10 +19,14 @@ type BlockStorage = {
 export class BlockStore {
   /** Map block number to block data */
   #blocks: AztecMap<number, BlockStorage>;
+
+  /** Map block body hash to block body */
+  #blockBodies: AztecMap<string, Buffer>;
+
   /** Stores L1 block number in which the last processed L2 block was included */
   #lastSynchedL1Block: AztecSingleton<bigint>;
 
-  /** Stores last proven L2 block number */
+  /** Stores l2 block number of the last proven block */
   #lastProvenL2Block: AztecSingleton<number>;
 
   /** Index mapping transaction hash (as a string) to its location in a block */
@@ -33,12 +37,9 @@ export class BlockStore {
 
   #log = createDebugLogger('aztec:archiver:block_store');
 
-  #blockBodyStore: BlockBodyStore;
-
-  constructor(private db: AztecKVStore, blockBodyStore: BlockBodyStore) {
-    this.#blockBodyStore = blockBodyStore;
-
+  constructor(private db: AztecKVStore) {
     this.#blocks = db.openMap('archiver_blocks');
+    this.#blockBodies = db.openMap('archiver_block_bodies');
     this.#txIndex = db.openMap('archiver_tx_index');
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
@@ -47,23 +48,62 @@ export class BlockStore {
 
   /**
    * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
+   * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean> {
+  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+    if (blocks.length === 0) {
+      return Promise.resolve(true);
+    }
+
     return this.db.transaction(() => {
-      for (const block of blocks.retrievedData) {
-        void this.#blocks.set(block.number, {
-          header: block.header.toBuffer(),
-          archive: block.archive.toBuffer(),
+      for (const block of blocks) {
+        void this.#blocks.set(block.data.number, {
+          header: block.data.header.toBuffer(),
+          archive: block.data.archive.toBuffer(),
+          l1: block.l1,
         });
 
-        block.body.txEffects.forEach((tx, i) => {
-          void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
+        block.data.body.txEffects.forEach((tx, i) => {
+          void this.#txIndex.set(tx.txHash.toString(), [block.data.number, i]);
         });
+
+        void this.#blockBodies.set(block.data.body.getTxsEffectsHash().toString('hex'), block.data.body.toBuffer());
       }
 
-      void this.#lastSynchedL1Block.set(blocks.lastProcessedL1BlockNumber);
+      void this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
+
+      return true;
+    });
+  }
+
+  /**
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
+   */
+  unwindBlocks(from: number, blocksToUnwind: number) {
+    return this.db.transaction(() => {
+      const last = this.getSynchedL2BlockNumber();
+      if (from != last) {
+        throw new Error(`Can only remove from the tip`);
+      }
+
+      for (let i = 0; i < blocksToUnwind; i++) {
+        const blockNumber = from - i;
+        const block = this.getBlock(blockNumber);
+
+        if (block === undefined) {
+          throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
+        }
+        void this.#blocks.delete(block.data.number);
+        block.data.body.txEffects.forEach(tx => {
+          void this.#txIndex.delete(tx.txHash.toString());
+        });
+        void this.#blockBodies.delete(block.data.body.getTxsEffectsHash().toString('hex'));
+      }
 
       return true;
     });
@@ -75,7 +115,7 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  *getBlocks(start: number, limit: number): IterableIterator<L2Block> {
+  *getBlocks(start: number, limit: number): IterableIterator<L1Published<L2Block>> {
     for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
       yield this.getBlockFromBlockStorage(blockStorage);
     }
@@ -86,7 +126,7 @@ export class BlockStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
    */
-  getBlock(blockNumber: number): L2Block | undefined {
+  getBlock(blockNumber: number): L1Published<L2Block> | undefined {
     const blockStorage = this.#blocks.get(blockNumber);
     if (!blockStorage || !blockStorage.header) {
       return undefined;
@@ -98,17 +138,15 @@ export class BlockStore {
   private getBlockFromBlockStorage(blockStorage: BlockStorage) {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
-    const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsEffectsHash);
 
-    if (body === undefined) {
-      throw new Error('Body is not able to be retrieved from BodyStore');
+    const blockBodyBuffer = this.#blockBodies.get(header.contentCommitment.txsEffectsHash.toString('hex'));
+    if (blockBodyBuffer === undefined) {
+      throw new Error('Body could not be retrieved');
     }
+    const body = Body.fromBuffer(blockBodyBuffer);
 
-    return L2Block.fromFields({
-      header,
-      archive,
-      body,
-    });
+    const l2Block = L2Block.fromFields({ header, archive, body });
+    return { data: l2Block, l1: blockStorage.l1 };
   }
 
   /**
@@ -123,7 +161,7 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber);
-    return block?.body.txEffects[txIndex];
+    return block?.data.body.txEffects[txIndex];
   }
 
   /**
@@ -138,15 +176,15 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber)!;
-    const tx = block.body.txEffects[txIndex];
+    const tx = block.data.body.txEffects[txIndex];
 
     return new TxReceipt(
       txHash,
       TxReceipt.statusFromRevertCode(tx.revertCode),
       '',
       tx.transactionFee.toBigInt(),
-      block.hash().toBuffer(),
-      block.number,
+      block.data.hash().toBuffer(),
+      block.data.number,
     );
   }
 
@@ -181,16 +219,20 @@ export class BlockStore {
    * Gets the most recent L1 block processed.
    * @returns The L1 block that published the latest L2 block
    */
-  getSynchedL1BlockNumber(): bigint {
-    return this.#lastSynchedL1Block.get() ?? 0n;
+  getSynchedL1BlockNumber(): bigint | undefined {
+    return this.#lastSynchedL1Block.get();
+  }
+
+  setSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    void this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
   getProvenL2BlockNumber(): number {
     return this.#lastProvenL2Block.get() ?? 0;
   }
 
-  async setProvenL2BlockNumber(blockNumber: number) {
-    await this.#lastProvenL2Block.set(blockNumber);
+  setProvenL2BlockNumber(blockNumber: number) {
+    void this.#lastProvenL2Block.set(blockNumber);
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
@@ -199,7 +241,7 @@ export class BlockStore {
     }
 
     if (start < INITIAL_L2_BLOCK_NUM) {
-      start = INITIAL_L2_BLOCK_NUM;
+      throw new Error(`Invalid start: ${start}`);
     }
 
     const end = start + limit;

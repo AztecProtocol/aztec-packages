@@ -3,16 +3,16 @@ use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
 
-struct PublicContext {
-    inputs: PublicContextInputs,
+pub struct PublicContext {
+    args_hash: Option<Field>,
+    compute_args_hash: fn () -> Field,
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs }
+    pub fn new(compute_args_hash: fn() -> Field) -> Self {
+        PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -107,8 +107,7 @@ impl PublicContext {
         _function_selector: FunctionSelector,
         _args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
+        panic(f"'delegate_call_public_function' not implemented!")
     }
 
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
@@ -130,8 +129,12 @@ impl PublicContext {
     fn selector(_self: Self) -> FunctionSelector {
         FunctionSelector::from_u32(function_selector())
     }
-    fn get_args_hash(self) -> Field {
-        self.inputs.args_hash
+    fn get_args_hash(mut self) -> Field {
+        if !self.args_hash.is_some() {
+            self.args_hash = Option::some((self.compute_args_hash)());
+        }
+
+        self.args_hash.unwrap_unchecked()
     }
     fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
@@ -162,9 +165,16 @@ impl PublicContext {
     fn da_gas_left(_self: Self) -> Field {
         da_gas_left()
     }
+    fn is_static_call(_self: Self) -> bool {
+        is_static_call() == 1
+    }
 
     fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
-        storage_read(storage_slot)
+        let mut out = [0; N];
+        for i in 0..N {
+            out[i] = storage_read(storage_slot + i as Field);
+        }
+        out
     }
 
     fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T where T: Deserialize<N> {
@@ -172,7 +182,9 @@ impl PublicContext {
     }
 
     fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
-        storage_write(storage_slot, values);
+        for i in 0..N {
+            storage_write(storage_slot + i as Field, values[i]);
+        }
     }
 
     fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T) where T: Serialize<N> {
@@ -191,7 +203,6 @@ fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
 }
 
 // Unconstrained opcode wrappers (do not use directly).
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6420): reconsider.
 unconstrained fn address() -> AztecAddress {
     address_opcode()
 }
@@ -234,6 +245,9 @@ unconstrained fn l2_gas_left() -> Field {
 unconstrained fn da_gas_left() -> Field {
     da_gas_left_opcode()
 }
+unconstrained fn is_static_call() -> Field {
+    is_static_call_opcode()
+}
 unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
@@ -272,17 +286,25 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn storage_read<let N: u32>(storage_slot: Field) -> [Field; N] {
-    storage_read_opcode(storage_slot, N as Field)
+unconstrained pub fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
+    calldata_copy_opcode(cdoffset, copy_size)
 }
 
-unconstrained fn storage_write<let N: u32>(storage_slot: Field, values: [Field; N]) {
-    storage_write_opcode(storage_slot, values);
+unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
+    return_opcode(returndata)
+}
+
+unconstrained fn storage_read(storage_slot: Field) -> Field {
+    storage_read_opcode(storage_slot)
+}
+
+unconstrained fn storage_write(storage_slot: Field, value: Field) {
+    storage_write_opcode(storage_slot, value);
 }
 
 impl Empty for PublicContext {
     fn empty() -> Self {
-        PublicContext::new(PublicContextInputs::empty())
+        PublicContext::new(|| 0)
     }
 }
 
@@ -329,6 +351,9 @@ unconstrained fn l2_gas_left_opcode() -> Field {}
 #[oracle(avmOpcodeDaGasLeft)]
 unconstrained fn da_gas_left_opcode() -> Field {}
 
+#[oracle(avmOpcodeIsStaticCall)]
+unconstrained fn is_static_call_opcode() -> Field {}
+
 #[oracle(avmOpcodeNoteHashExists)]
 unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
 
@@ -349,6 +374,12 @@ unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Fie
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
+
+#[oracle(avmOpcodeCalldataCopy)]
+unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
+
+#[oracle(avmOpcodeReturn)]
+unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode<let RET_SIZE: u32>(
@@ -371,12 +402,12 @@ unconstrained fn call_static_opcode<let RET_SIZE: u32>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<let N: u32>(storage_slot: Field, length: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 
 #[oracle(avmOpcodeStorageWrite)]
-unconstrained fn storage_write_opcode<let N: u32>(storage_slot: Field, values: [Field; N]) {}
+unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
-struct FunctionReturns<let N: u32> {
+pub struct FunctionReturns<let N: u32> {
     values: [Field; N]
 }
 
@@ -385,15 +416,17 @@ impl<let N: u32> FunctionReturns<N> {
         FunctionReturns { values }
     }
 
-    pub fn assert_empty(returns: FunctionReturns<0>) {
-        assert(returns.values.len() == 0);
-    }
-
     pub fn raw(self) -> [Field; N] {
         self.values
     }
 
     pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
         Deserialize::deserialize(self.raw())
+    }
+}
+
+impl FunctionReturns<0> {
+    pub fn assert_empty(self) {
+        assert(self.values.len() == 0);
     }
 }

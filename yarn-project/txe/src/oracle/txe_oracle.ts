@@ -51,7 +51,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle } from '@aztec/pxe';
 import {
-  ContractsDataSourcePublicDB,
   ExecutionError,
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
@@ -60,7 +59,6 @@ import {
   type PackedValuesCache,
   PublicExecutor,
   type TypedOracle,
-  WorldStateDB,
   acvm,
   createSimulationError,
   extractCallStack,
@@ -74,7 +72,7 @@ import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/wor
 
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEPublicStateDB } from '../util/txe_public_state_db.js';
+import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 0;
@@ -82,6 +80,10 @@ export class TXE implements TypedOracle {
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
+  private isStaticCall = false;
+  // This will hold the _real_ calldata. That is, the one without the PublicContextInputs.
+  // TODO: Remove this comment once PublicContextInputs are removed.
+  private calldata: Fr[] = [];
 
   private contractDataOracle: ContractDataOracle;
 
@@ -128,8 +130,16 @@ export class TXE implements TypedOracle {
     return this.functionSelector;
   }
 
+  getCalldata() {
+    return this.calldata;
+  }
+
   setMsgSender(msgSender: Fr) {
     this.msgSender = msgSender;
+  }
+
+  setCalldata(calldata: Fr[]) {
+    this.calldata = calldata;
   }
 
   setFunctionSelector(functionSelector: FunctionSelector) {
@@ -202,17 +212,6 @@ export class TXE implements TypedOracle {
     return inputs;
   }
 
-  getPublicContextInputs() {
-    const inputs = {
-      argsHash: new Fr(0),
-      isStaticCall: false,
-      toFields: function () {
-        return [this.argsHash, new Fr(this.isStaticCall)];
-      },
-    };
-    return inputs;
-  }
-
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = siloNullifier(targetAddress, innerNullifier!);
     const db = this.trees.asLatest();
@@ -268,6 +267,14 @@ export class TXE implements TypedOracle {
 
   getContractAddress() {
     return Promise.resolve(this.contractAddress);
+  }
+
+  setIsStaticCall(isStatic: boolean) {
+    this.isStaticCall = isStatic;
+  }
+
+  getIsStaticCall() {
+    return this.isStaticCall;
   }
 
   getRandomField() {
@@ -464,28 +471,22 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async avmOpcodeStorageRead(slot: Fr, length: Fr) {
+  async avmOpcodeStorageRead(slot: Fr) {
     const db = this.trees.asLatest();
 
-    const result = [];
+    const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
-    for (let i = 0; i < length.toNumber(); i++) {
-      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot.add(new Fr(i))).toBigInt();
-
-      const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-      if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-        result.push(Fr.ZERO);
-        continue;
-      }
-
-      const preimage = (await db.getLeafPreimage(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      )) as PublicDataTreeLeafPreimage;
-
-      result.push(preimage.value);
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
     }
-    return result;
+
+    const preimage = (await db.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+
+    return preimage.value;
   }
 
   async storageRead(
@@ -710,10 +711,9 @@ export class TXE implements TypedOracle {
     const header = Header.empty();
     header.state = await this.trees.getStateReference(true);
     header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
+
     const executor = new PublicExecutor(
-      new TXEPublicStateDB(this),
-      new ContractsDataSourcePublicDB(new TXEPublicContractDataSource(this)),
-      new WorldStateDB(this.trees.asLatest()),
+      new TXEWorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
       header,
       new NoopTelemetryClient(),
     );
@@ -744,6 +744,7 @@ export class TXE implements TypedOracle {
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
+    this.setCalldata(args);
 
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;

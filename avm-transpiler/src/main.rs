@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+mod bit_traits;
 mod instructions;
 mod opcodes;
 mod transpile;
@@ -28,7 +29,7 @@ fn main() {
 
     // Parse original (pre-transpile) contract.
     let contract_json = fs::read_to_string(Path::new(in_contract_artifact_path))
-        .expect(&format!("Unable to read file: {in_contract_artifact_path}"));
+        .unwrap_or_else(|_| panic!("Unable to read file: {in_contract_artifact_path}"));
     let raw_json_obj: serde_json::Value =
         serde_json::from_str(&contract_json).expect(&json_parse_error);
 
@@ -44,7 +45,7 @@ fn main() {
             Path::new(out_transpiled_artifact_path),
             Path::new(&(out_transpiled_artifact_path.clone() + ".bak")),
         )
-        .expect(&format!("Unable to backup file: {out_transpiled_artifact_path}"));
+        .unwrap_or_else(|_| panic!("Unable to backup file: {out_transpiled_artifact_path}"));
     }
 
     // Parse json into contract object

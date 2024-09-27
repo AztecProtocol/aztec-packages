@@ -13,10 +13,11 @@ import {
   type LogHash,
   type NoteHash,
   type Nullifier,
-  PublicCallRequest,
   PublicCallStackItemCompressed,
+  PublicInnerCallRequest,
   type ReadRequest,
   RevertCode,
+  type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
@@ -62,13 +63,13 @@ export interface PublicExecutionResult {
   /** The new nullifiers to be inserted into the nullifier tree. */
   nullifiers: Nullifier[];
   /** The note hash read requests emitted in this call. */
-  noteHashReadRequests: ReadRequest[];
+  noteHashReadRequests: TreeLeafReadRequest[];
   /** The nullifier read requests emitted in this call. */
   nullifierReadRequests: ReadRequest[];
   /** The nullifier non existent read requests emitted in this call. */
   nullifierNonExistentReadRequests: ReadRequest[];
   /** L1 to L2 message read requests emitted in this call. */
-  l1ToL2MsgReadRequests: ReadRequest[];
+  l1ToL2MsgReadRequests: TreeLeafReadRequest[];
   /**
    * The hashed logs with side effect counter.
    * Note: required as we don't track the counter anywhere else.
@@ -88,7 +89,7 @@ export interface PublicExecutionResult {
   // TODO(dbanks12): add contract instance read requests
 
   /** The requests to call public functions made by this call. */
-  publicCallRequests: PublicCallRequest[];
+  publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
   nestedExecutions: this[];
 
@@ -99,15 +100,8 @@ export interface PublicExecutionResult {
   functionName: string;
 }
 
-/**
- * Returns if the input is a public execution result and not just a public execution.
- * @param input - Public execution or public execution result.
- * @returns Whether the input is a public execution result and not just a public execution.
- */
-export function isPublicExecutionResult(
-  input: PublicExecutionRequest | PublicExecutionResult,
-): input is PublicExecutionResult {
-  return 'executionRequest' in input && input.executionRequest !== undefined;
+export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {
+  return [result, ...result.nestedExecutions.map(collectExecutionResults)].flat();
 }
 
 /**
@@ -145,5 +139,5 @@ export function resultToPublicCallRequest(result: PublicExecutionResult) {
     Gas.from(result.startGasLeft),
     Gas.from(result.endGasLeft),
   );
-  return new PublicCallRequest(item, result.startSideEffectCounter.toNumber());
+  return new PublicInnerCallRequest(item, result.startSideEffectCounter.toNumber());
 }

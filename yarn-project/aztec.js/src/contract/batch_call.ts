@@ -1,5 +1,5 @@
 import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
-import { FunctionType, decodeReturnValues } from '@aztec/foundation/abi';
+import { FunctionType, decodeFromAbi } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/index.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
@@ -78,7 +78,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const [unconstrainedResults, simulatedTx] = await Promise.all([
       Promise.all(unconstrainedCalls),
-      this.wallet.simulateTx(txRequest, true, options?.from),
+      this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation),
     ]);
 
     const results: any[] = [];
@@ -95,7 +95,7 @@ export class BatchCall extends BaseContractInteraction {
           ? simulatedTx.privateReturnValues?.nested?.[resultIndex].values
           : simulatedTx.publicOutput?.publicReturnValues?.[resultIndex].values;
 
-      results[callIndex] = rawReturnValues ? decodeReturnValues(call.returnTypes, rawReturnValues) : [];
+      results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
     });
     return results;
   }

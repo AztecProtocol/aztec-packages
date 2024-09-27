@@ -112,6 +112,7 @@ class Bn254FrParams {
 
     // This is a BN254 scalar, so it represents one BN254 scalar
     static constexpr size_t NUM_BN254_SCALARS = 1;
+    static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
 };
 
 using fr = field<Bn254FrParams>;

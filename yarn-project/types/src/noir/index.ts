@@ -7,12 +7,11 @@ import {
   type DebugInfo,
 } from '@aztec/foundation/abi';
 
-export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
-export const AZTEC_PUBLIC_ATTRIBUTE = 'aztec(public)';
-export const AZTEC_PUBLIC_VM_ATTRIBUTE = 'aztec(public-vm)';
-export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';
-export const AZTEC_INITIALIZER_ATTRIBUTE = 'aztec(initializer)';
-export const AZTEC_VIEW_ATTRIBUTE = 'aztec(view)';
+export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
+export const AZTEC_PUBLIC_ATTRIBUTE = 'public';
+export const AZTEC_INTERNAL_ATTRIBUTE = 'internal';
+export const AZTEC_INITIALIZER_ATTRIBUTE = 'initializer';
+export const AZTEC_VIEW_ATTRIBUTE = 'view';
 
 /**
  * An error could be a custom error of any regular type or a formatted string error.
@@ -64,6 +63,8 @@ export interface NoirFunctionEntry {
   verification_key?: string;
   /** The debug information, compressed and base64 encoded. */
   debug_symbols: string;
+  /** Map opcode index to assert message for public functions */
+  assert_messages?: Record<number, string>;
 }
 
 /**

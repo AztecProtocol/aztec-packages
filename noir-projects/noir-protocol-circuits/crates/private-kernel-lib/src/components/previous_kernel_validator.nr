@@ -6,14 +6,16 @@ use dep::types::{
     address::AztecAddress, traits::is_empty, utils::arrays::array_length
 };
 
-struct PreviousKernelValidator {
+pub struct PreviousKernelValidator {
     previous_kernel: PrivateKernelCircuitPublicInputs,
     hints: PreviousKernelValidatorHints,
 }
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
-        let hints = generate_previous_kernel_validator_hints(previous_kernel);
+        let hints = unsafe {
+            generate_previous_kernel_validator_hints(previous_kernel)
+        };
         PreviousKernelValidator { previous_kernel, hints }
     }
 

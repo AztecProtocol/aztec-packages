@@ -72,4 +72,17 @@ template <typename Curve> class OpeningClaim {
 
     bool operator==(const OpeningClaim& other) const = default;
 };
+
+/**
+ * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
+ *
+ * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
+ *
+ * @tparam Curve: BN254 or Grumpkin.
+ */
+template <typename Curve> struct BatchOpeningClaim {
+    std::vector<typename Curve::AffineElement> commitments;
+    std::vector<typename Curve::ScalarField> scalars;
+    typename Curve::ScalarField evaluation_point;
+};
 } // namespace bb

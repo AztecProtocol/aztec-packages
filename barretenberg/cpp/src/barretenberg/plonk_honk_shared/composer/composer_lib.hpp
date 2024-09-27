@@ -11,8 +11,8 @@ namespace bb {
 template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit,
-                                        size_t dyadic_circuit_size,
-                                        size_t additional_offset = 0)
+                                        const size_t dyadic_circuit_size,
+                                        const size_t additional_offset = 0)
 {
     // Create lookup selector polynomials which interpolate each table column.
     // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
@@ -22,17 +22,18 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    ASSERT(dyadic_circuit_size > circuit.get_tables_size() + additional_offset);
-    size_t offset = dyadic_circuit_size - circuit.get_tables_size() - additional_offset;
+    const size_t tables_size = circuit.get_tables_size();
+    ASSERT(dyadic_circuit_size > tables_size + additional_offset);
+    size_t offset = dyadic_circuit_size - tables_size - additional_offset;
 
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
 
         for (size_t i = 0; i < table.size(); ++i) {
-            table_polynomials[0][offset] = table.column_1[i];
-            table_polynomials[1][offset] = table.column_2[i];
-            table_polynomials[2][offset] = table.column_3[i];
-            table_polynomials[3][offset] = table_index;
+            table_polynomials[0].at(offset) = table.column_1[i];
+            table_polynomials[1].at(offset) = table.column_2[i];
+            table_polynomials[2].at(offset) = table.column_3[i];
+            table_polynomials[3].at(offset) = table_index;
             ++offset;
         }
     }
@@ -49,12 +50,12 @@ template <typename Flavor>
 void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit,
-                                  size_t dyadic_circuit_size)
+                                  const size_t dyadic_circuit_size)
 {
+    const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t offset = dyadic_circuit_size - circuit.get_tables_size();
+    size_t table_offset = dyadic_circuit_size - tables_size;
 
-    size_t table_offset = offset; // offset of the present table in the table polynomials
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {
         table.initialize_index_map();
@@ -68,8 +69,8 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
-            read_counts[index_in_poly]++;
-            read_tags[index_in_poly] = 1; // tag is 1 if entry has been read 1 or more times
+            read_counts.at(index_in_poly)++;
+            read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
         }
         table_offset += table.size(); // set the offset of the next table within the polynomials
     }

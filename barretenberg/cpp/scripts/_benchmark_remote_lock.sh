@@ -1,6 +1,6 @@
 # NOTE: This script is NOT meant to be ran, only sourced.
 # This sets up all the necessary machinery to lock ~/BENCHMARK_IN_PROGRESS
-# 
+#
 
 # Function to clean up lock file
 function cleanup() {
@@ -9,6 +9,13 @@ function cleanup() {
 }
 
 # Check for existing lock file
+for i in {1..10} ; do
+    if ! ssh $BB_SSH_KEY $BB_SSH_INSTANCE "test -f ~/BENCHMARK_IN_PROGRESS"; then
+        break # we are able to benchmark
+    fi
+    echo "Benchmarking is already in progress. Waiting..."
+    sleep 10 # wait
+done
 if ssh $BB_SSH_KEY $BB_SSH_INSTANCE "test -f ~/BENCHMARK_IN_PROGRESS"; then
     echo "Benchmarking is already in progress. If htop on the remote machine is not active, ~/BENCHMARK_IN_PROGRESS may need to be deleted."
     # Important: Exits the script that called this!

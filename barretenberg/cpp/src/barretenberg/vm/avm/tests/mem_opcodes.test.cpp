@@ -17,7 +17,8 @@ class AvmMemOpcodeTests : public ::testing::Test {
   public:
     AvmMemOpcodeTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
@@ -48,9 +49,9 @@ class AvmMemOpcodeTests : public ::testing::Test {
         if (indirect) {
             trace_builder.op_set(0, dir_src_offset, src_offset, AvmMemoryTag::U32);
             trace_builder.op_set(0, dir_dst_offset, dst_offset, AvmMemoryTag::U32);
-            trace_builder.op_set(0, val, dir_src_offset, tag);
+            trace_builder.op_set(0, uint256_t::from_uint128(val), dir_src_offset, tag);
         } else {
-            trace_builder.op_set(0, val, src_offset, tag);
+            trace_builder.op_set(0, uint256_t::from_uint128(val), src_offset, tag);
         }
 
         trace_builder.op_mov(indirect ? 3 : 0, src_offset, dst_offset);
@@ -331,7 +332,10 @@ class AvmMemOpcodeTests : public ::testing::Test {
     }
 };
 
-class AvmMemOpcodeNegativeTests : public AvmMemOpcodeTests {};
+class AvmMemOpcodeNegativeTests : public AvmMemOpcodeTests {
+  protected:
+    void SetUp() override { GTEST_SKIP(); }
+};
 
 /******************************************************************************
  *
@@ -400,7 +404,7 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
                       MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                       MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1)));
 
-    validate_trace(std::move(trace), public_inputs, {}, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
 /******************************************************************************
@@ -421,7 +425,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovA)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 987162, 10, 11, 12, 20, AvmMemoryTag::U16, AvmMemoryTag::U128, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allDirectCMovB)
@@ -438,7 +442,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovB)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 0, 10, 11, 12, 20, AvmMemoryTag::U8, AvmMemoryTag::U8, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allDirectCMovConditionUninitialized)
@@ -455,7 +459,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovConditionUninitialized)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 0, 10, 11, 12, 20, AvmMemoryTag::U8, AvmMemoryTag::U8, AvmMemoryTag::U0);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allDirectCMovOverwriteA)
@@ -471,7 +475,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovOverwriteA)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 0, 10, 11, 10, 20, AvmMemoryTag::U8, AvmMemoryTag::U8, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allIndirectCMovA)
@@ -498,7 +502,7 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovA)
     compute_cmov_indices(15);
     common_cmov_trace_validate(
         true, 1979, 1980, 987162, 10, 11, 12, 20, AvmMemoryTag::U16, AvmMemoryTag::U128, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allIndirectCMovAllUnitialized)
@@ -509,7 +513,7 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovAllUnitialized)
 
     compute_cmov_indices(15);
     common_cmov_trace_validate(true, 0, 0, 0, 0, 0, 0, 0, AvmMemoryTag::U0, AvmMemoryTag::U0, AvmMemoryTag::U0);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************

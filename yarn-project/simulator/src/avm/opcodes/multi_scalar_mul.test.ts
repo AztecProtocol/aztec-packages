@@ -2,7 +2,7 @@ import { Fq, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, type MemoryValue, Uint8, Uint32 } from '../avm_memory_types.js';
+import { Field, type MemoryValue, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { MultiScalarMul } from './multi_scalar_mul.js';
 
@@ -50,7 +50,7 @@ describe('MultiScalarMul Opcode', () => {
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] where the types are [Field, Field, Uint8, Field, Field, Uint8, ...]
     const storedPoints: MemoryValue[] = points
       .map(p => p.toFields())
-      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint8(inf.toNumber())]);
+      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint1(inf.toNumber())]);
     const pointsOffset = 0;
     context.machineState.memory.setSlice(pointsOffset, storedPoints);
     // Store scalars
@@ -90,7 +90,7 @@ describe('MultiScalarMul Opcode', () => {
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] where the types are [Field, Field, Uint8, Field, Field, Uint8, ...]
     const storedPoints: MemoryValue[] = points
       .map(p => p.toFields())
-      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint8(inf.toNumber())]);
+      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint1(inf.toNumber())]);
     const pointsOffset = 0;
     context.machineState.memory.setSlice(pointsOffset, storedPoints);
     // Store scalars

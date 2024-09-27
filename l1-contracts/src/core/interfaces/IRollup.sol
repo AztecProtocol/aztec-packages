@@ -1,50 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 
-import {SignatureLib} from "../sequencer_selection/SignatureLib.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 interface ITestRollup {
-  function setDevNet(bool _devNet) external;
   function setVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
-  function setAssumeProvenUntilBlockNumber(uint256 blockNumber) external;
+  function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
 
 interface IRollup {
-  event L2BlockProcessed(uint256 indexed blockNumber);
+  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive);
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
-  event ProgressedState(uint256 provenBlockCount, uint256 pendingBlockCount);
-  event PrunedPending(uint256 provenBlockCount, uint256 pendingBlockCount);
+  event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
+  event ProofRightClaimed(
+    Epoch indexed epoch,
+    address indexed bondProvider,
+    address indexed proposer,
+    uint256 bondAmount,
+    Slot currentSlot
+  );
 
   function prune() external;
 
-  function INBOX() external view returns (IInbox);
+  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
 
-  function OUTBOX() external view returns (IOutbox);
-
-  function publishAndProcess(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
+    bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
-  ) external;
-  function publishAndProcess(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes calldata _body
-  ) external;
-  function process(bytes calldata _header, bytes32 _archive, bytes32 _blockHash) external;
-  function process(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    SignatureLib.Signature[] memory _signatures
   ) external;
 
   function submitBlockRootProof(
@@ -54,6 +48,45 @@ interface IRollup {
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
+
+  function submitEpochRootProof(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
+  ) external;
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
+
+  function validateHeader(
+    bytes calldata _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _txsEffecstHash,
+    DataStructures.ExecutionFlags memory _flags
+  ) external view;
+
+  // solhint-disable-next-line func-name-mixedcase
+  function INBOX() external view returns (IInbox);
+
+  // solhint-disable-next-line func-name-mixedcase
+  function OUTBOX() external view returns (IOutbox);
+
+  // solhint-disable-next-line func-name-mixedcase
+  function L1_BLOCK_AT_GENESIS() external view returns (uint256);
+
+  function status(uint256 myHeaderBlockNumber)
+    external
+    view
+    returns (
+      uint256 provenBlockNumber,
+      bytes32 provenArchive,
+      uint256 pendingBlockNumber,
+      bytes32 pendingArchive,
+      bytes32 archiveOfMyBlock
+    );
 
   // TODO(#7346): Integrate batch rollups
   // function submitRootProof(
@@ -68,6 +101,9 @@ interface IRollup {
   // ) external;
 
   function archive() external view returns (bytes32);
-  function isBlockProven(uint256 _blockNumber) external view returns (bool);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function getProvenBlockNumber() external view returns (uint256);
+  function getPendingBlockNumber() external view returns (uint256);
+  function getEpochToProve() external view returns (Epoch);
+  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

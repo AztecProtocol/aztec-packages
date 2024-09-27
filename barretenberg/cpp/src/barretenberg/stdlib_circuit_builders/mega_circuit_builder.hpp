@@ -109,8 +109,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return null_op_idx;
     }
 
-    void finalize_circuit();
-    void add_gates_to_ensure_all_polys_are_non_zero();
+    void finalize_circuit(const bool ensure_nonzero = false);
+    void add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
+    void add_mega_gates_to_ensure_all_polys_are_non_zero();
 
     size_t get_num_constant_gates() const override { return 0; }
 
@@ -141,7 +142,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         MegaCircuitBuilder_<FF> builder; // instantiate new builder
 
         size_t num_gates_prior = builder.get_num_gates();
-        builder.add_gates_to_ensure_all_polys_are_non_zero();
+        builder.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
         size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
 
         return num_gates_post - num_gates_prior;

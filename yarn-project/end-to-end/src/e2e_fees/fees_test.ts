@@ -12,6 +12,7 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
@@ -27,6 +28,7 @@ import {
   TokenContract,
 } from '@aztec/noir-contracts.js';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { type ProverNode } from '@aztec/prover-node';
 
 import { getContract } from 'viem';
 
@@ -53,6 +55,7 @@ export class FeesTest {
   public logger: DebugLogger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
+  public proverNode!: ProverNode;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -99,6 +102,13 @@ export class FeesTest {
     await this.snapshotManager.teardown();
   }
 
+  async catchUpProvenChain() {
+    const bn = await this.aztecNode.getBlockNumber();
+    while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
+      await sleep(1000);
+    }
+  }
+
   /** Alice mints Token  */
   async mintToken(amount: bigint) {
     const balanceBefore = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
@@ -107,12 +117,10 @@ export class FeesTest {
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
-  // Mint fee juice AND mint funds to the portal to emulate the L1 -> L2 bridge
-  async mintFeeJuice(address: AztecAddress, amount: bigint) {
-    await this.feeJuiceContract.methods.mint_public(address, amount).send().wait();
-    // Need to also mint funds to the portal
-    const portalAddress = EthAddress.fromString(this.feeJuiceBridgeTestHarness.tokenPortal.address);
-    await this.feeJuiceBridgeTestHarness.mintTokensOnL1(amount, portalAddress);
+  async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
+    const { secret } = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, amount, address);
+
+    await this.feeJuiceContract.methods.claim(address, amount, secret).send().wait();
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
@@ -167,9 +175,10 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
+      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig, proverNode }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
+        this.proverNode = proverNode;
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -365,7 +374,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'fund_alice_with_fee_juice',
       async () => {
-        await this.mintFeeJuice(this.aliceAddress, this.INITIAL_GAS_BALANCE);
+        await this.mintAndBridgeFeeJuice(this.aliceAddress, this.INITIAL_GAS_BALANCE);
       },
       () => Promise.resolve(),
     );
@@ -395,7 +404,7 @@ export class FeesTest {
 
         // Mint some Fee Juice to the subscription contract
         // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
-        await this.mintFeeJuice(subscriptionContract.address, this.INITIAL_GAS_BALANCE);
+        await this.mintAndBridgeFeeJuice(subscriptionContract.address, this.INITIAL_GAS_BALANCE);
         return {
           counterContractAddress: counterContract.address,
           subscriptionContractAddress: subscriptionContract.address,

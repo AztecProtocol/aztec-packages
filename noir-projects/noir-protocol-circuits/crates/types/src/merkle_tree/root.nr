@@ -7,8 +7,8 @@ use crate::{hash::merkle_hash, merkle_tree::merkle_tree::MerkleTree};
 //
 // TODO(David/Someone): The cpp code is using a uint256, whereas its
 // TODO a bit simpler in Noir to just have a bit array.
-// TODO: I'd generally like to avoid u256 for algorithms like 
-// this because it means we never even need to consider cases where 
+// TODO: I'd generally like to avoid u256 for algorithms like
+// this because it means we never even need to consider cases where
 // the index is greater than p.
 pub fn root_from_sibling_path<let N: u32>(
     leaf: Field,
@@ -16,7 +16,7 @@ pub fn root_from_sibling_path<let N: u32>(
     sibling_path: [Field; N]
 ) -> Field {
     let mut node = leaf;
-    let indices = leaf_index.to_le_bits(N);
+    let indices: [u1; N] = leaf_index.to_le_bits();
 
     for i in 0..N {
         let (hash_left, hash_right) = if indices[i] == 1 {
@@ -62,8 +62,7 @@ pub fn calculate_empty_tree_root(depth: u32) -> Field {
     } else if depth == 10 {
         0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686
     } else {
-        assert(false, "depth should be between 0 and 10");
-        0
+        panic(f"depth should be between 0 and 10")
     }
 }
 

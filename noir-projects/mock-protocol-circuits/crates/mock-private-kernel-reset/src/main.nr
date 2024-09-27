@@ -1,14 +1,11 @@
-use dep::mock_types::{
-    PrivateKernelPublicInputs, PrivateKernelPublicInputsBuilder, MAX_COMMITMENT_READ_REQUESTS_PER_TX,
-    MAX_COMMITMENTS_PER_TX
-};
+use dep::mock_types::{PrivateKernelPublicInputs, MAX_COMMITMENT_READ_REQUESTS_PER_TX, MAX_COMMITMENTS_PER_TX};
 
 // Mock reset kernel that reset read requests.
 // It needs hints to locate the commitment that matches the read requests.
 fn main(
-    mut prev_kernel_public_inputs: PrivateKernelPublicInputs,
+    mut prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,
     commitment_read_hints: [u32; MAX_COMMITMENT_READ_REQUESTS_PER_TX]
-) -> pub PrivateKernelPublicInputs {
+) -> return_data PrivateKernelPublicInputs {
     for i in 0..MAX_COMMITMENT_READ_REQUESTS_PER_TX {
         if commitment_read_hints[i] != MAX_COMMITMENTS_PER_TX {
             assert_eq(

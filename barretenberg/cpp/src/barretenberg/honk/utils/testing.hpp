@@ -19,7 +19,7 @@ typename Flavor::ProverPolynomials get_sequential_prover_polynomials(const size_
     size_t value_idx = starting_value;
     for (auto& polynomial : prover_polynomials.get_all()) {
         polynomial = Polynomial(circuit_size);
-        for (auto& value : polynomial) {
+        for (auto& value : polynomial.coeffs()) {
             value = FF(value_idx++);
         }
     }
@@ -35,7 +35,7 @@ template <typename Flavor> typename Flavor::ProverPolynomials get_zero_prover_po
     size_t circuit_size = 1 << log_circuit_size;
     for (auto& polynomial : prover_polynomials.get_all()) {
         polynomial = Polynomial(circuit_size);
-        for (auto& value : polynomial) {
+        for (auto& value : polynomial.coeffs()) {
             value = FF(0);
         }
     }

@@ -49,13 +49,13 @@ describe('e2e_note_getter', () => {
       await contract.methods.insert_note(5, Fr.ZERO).send().wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
-        contract.methods.read_note(5, Comparator.EQ).simulate(),
-        contract.methods.read_note(5, Comparator.NEQ).simulate(),
-        contract.methods.read_note(5, Comparator.LT).simulate(),
-        contract.methods.read_note(5, Comparator.GT).simulate(),
-        contract.methods.read_note(5, Comparator.LTE).simulate(),
+        contract.methods.read_note(Comparator.EQ, 5).simulate(),
+        contract.methods.read_note(Comparator.NEQ, 5).simulate(),
+        contract.methods.read_note(Comparator.LT, 5).simulate(),
+        contract.methods.read_note(Comparator.GT, 5).simulate(),
+        contract.methods.read_note(Comparator.LTE, 5).simulate(),
         // docs:start:state_vars-NoteGetterOptionsComparatorExampleTs
-        contract.methods.read_note(5, Comparator.GTE).simulate(),
+        contract.methods.read_note(Comparator.GTE, 5).simulate(),
         // docs:end:state_vars-NoteGetterOptionsComparatorExampleTs
       ]);
 

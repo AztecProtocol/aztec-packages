@@ -1,7 +1,9 @@
 import {
   type ABIParameter,
+  type ABIVariable,
   type ContractArtifact,
   type FunctionArtifact,
+  decodeFunctionSignature,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
@@ -247,7 +249,7 @@ function generateEvents(events: any[] | undefined) {
   const eventsMetadata = events.map(event => {
     const eventName = event.path.split('::').at(-1);
 
-    const eventDefProps = event.fields.map((field: any) => `${field.name}: Fr`);
+    const eventDefProps = event.fields.map((field: ABIVariable) => `${field.name}: ${abiTypeToTypescript(field.type)}`);
     const eventDef = `
       export type ${eventName} = {
         ${eventDefProps.join('\n')}
@@ -255,14 +257,14 @@ function generateEvents(events: any[] | undefined) {
     `;
 
     const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
-    const eventType = `${eventName}: {decode: (payload: L1EventPayload | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
-
+    const eventType = `${eventName}: {decode: (payload: L1EventPayload | UnencryptedL2Log | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
+    // Reusing the decodeFunctionSignature
+    const eventSignature = decodeFunctionSignature(eventName, event.fields);
+    const eventSelector = `EventSelector.fromSignature('${eventSignature}')`;
     const eventImpl = `${eventName}: {
-        decode: this.decodeEvent(${event.fields.length}, EventSelector.fromSignature('${eventName}(${event.fields
-      .map(() => 'Field')
-      .join(',')})'), [${fieldNames}]),
-      eventSelector: EventSelector.fromSignature('${eventName}(${event.fields.map(() => 'Field').join(',')})'),
-      fieldNames: [${fieldNames}],
+        decode: this.decodeEvent(${eventSelector}, ${JSON.stringify(event, null, 4)}),
+        eventSelector: ${eventSelector},
+        fieldNames: [${fieldNames}],
       }`;
 
     return {
@@ -276,31 +278,32 @@ function generateEvents(events: any[] | undefined) {
     eventDefs: eventsMetadata.map(({ eventDef }) => eventDef).join('\n'),
     events: `
     // Partial application is chosen is to avoid the duplication of so much codegen.
-  private static decodeEvent<T>(fieldsLength: number, eventSelector: EventSelector, fields: string[]): (payload: L1EventPayload | undefined) => T | undefined {
-    return (payload: L1EventPayload | undefined): T | undefined => {
-      if (payload === undefined) {
-        return undefined;
-      }
-      if (!eventSelector.equals(payload.eventTypeId)) {
-        return undefined;
-      }
-      if (payload.event.items.length !== fieldsLength) {
-        throw new Error(
-          'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
-        );
-      }
+    private static decodeEvent<T>(
+      eventSelector: EventSelector,
+      eventType: AbiType,
+    ): (payload: L1EventPayload | UnencryptedL2Log | undefined) => T | undefined {
+      return (payload: L1EventPayload | UnencryptedL2Log | undefined): T | undefined => {
+        if (payload === undefined) {
+          return undefined;
+        }
 
-      return fields.reduce(
-        (acc, curr, i) => ({
-          ...acc,
-          [curr]: payload.event.items[i],
-        }),
-        {} as T,
-      );
-    };
-  }
+        if (payload instanceof L1EventPayload) {
+          if (!eventSelector.equals(payload.eventTypeId)) {
+            return undefined;
+          }
+          return decodeFromAbi([eventType], payload.event.items) as T;
+        } else {
+          let items = [];
+          for (let i = 0; i < payload.data.length; i += 32) {
+            items.push(new Fr(payload.data.subarray(i, i + 32)));
+          }
 
-  public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
+          return decodeFromAbi([eventType], items) as T;
+        }
+      };
+    }
+
+    public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
     return {
       ${eventsMetadata.map(({ eventImpl }) => eventImpl).join(',\n')}
     };
@@ -316,7 +319,10 @@ function generateEvents(events: any[] | undefined) {
  * @returns The corresponding ts code.
  */
 export function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
-  const methods = input.functions.filter(f => !f.isInternal).map(generateMethod);
+  const methods = input.functions
+    .filter(f => !f.isInternal)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(generateMethod);
   const deploy = artifactImportPath && generateDeploy(input);
   const ctor = artifactImportPath && generateConstructor(input.name);
   const at = artifactImportPath && generateAt(input.name);
@@ -331,32 +337,35 @@ export function generateTypescriptContractInterface(input: ContractArtifact, art
 
 /* eslint-disable */
 import {
+  type AbiType,
   AztecAddress,
-  AztecAddressLike,
+  type AztecAddressLike,
   CompleteAddress,
   Contract,
-  ContractArtifact,
+  type ContractArtifact,
   ContractBase,
   ContractFunctionInteraction,
-  ContractInstanceWithAddress,
-  ContractMethod,
-  ContractStorageLayout,
-  ContractNotes,
+  type ContractInstanceWithAddress,
+  type ContractMethod,
+  type ContractStorageLayout,
+  type ContractNotes,
+  decodeFromAbi,
   DeployMethod,
   EthAddress,
-  EthAddressLike,
+  type EthAddressLike,
   EventSelector,
-  FieldLike,
+  type FieldLike,
   Fr,
-  FunctionSelectorLike,
+  type FunctionSelectorLike,
   L1EventPayload,
   loadContractArtifact,
-  NoirCompiledContract,
+  type NoirCompiledContract,
   NoteSelector,
   Point,
-  PublicKey,
-  Wallet,
-  WrappedFieldLike,
+  type PublicKey,
+  type UnencryptedL2Log,
+  type Wallet,
+  type WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}
 
@@ -379,7 +388,7 @@ export class ${input.name}Contract extends ContractBase {
   ${notesGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
-  public override methods!: {
+  public declare methods: {
     ${methods.join('\n')}
   };
 

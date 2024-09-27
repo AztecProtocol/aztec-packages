@@ -7,18 +7,18 @@ use crate::utils::reader::Reader;
 /**
  * A compressed version of the PublicCallStackItem struct used to compute the "hash"
  * of a PublicCallStackItem.
- * 
+ *
  * Historically, we have been zeroing most values in the PublicCallStackItem struct
  * to compute the hash involved when adding a PublicCallStackItem to the PublicCallStack.
- * 
+ *
  * This struct is used to store the values that we did not zero out, and allow us to hash
  * only these, thereby skipping a lot of computation and saving us a lot of constraints
- * 
- * Essentially this struct exists such that we don't have a `hash` function in the 
+ *
+ * Essentially this struct exists such that we don't have a `hash` function in the
  * PublicCallStackItem struct that practically throws away some values of the struct
  * without clearly indicating that it does so.
  */
-struct PublicCallStackItemCompressed {
+pub struct PublicCallStackItemCompressed {
     contract_address: AztecAddress,
     call_context: CallContext,
     args_hash: Field,
@@ -49,7 +49,7 @@ impl Empty for PublicCallStackItemCompressed {
             returns_hash: 0,
             revert_code: 0,
             start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty(),
+            end_gas_left: Gas::empty()
         }
     }
 }
@@ -73,19 +73,19 @@ impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItem
 }
 
 impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItemCompressed {
-  fn deserialize(fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH]) -> PublicCallStackItemCompressed {
-    let mut reader = Reader::new(fields);
+    fn deserialize(fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH]) -> PublicCallStackItemCompressed {
+        let mut reader = Reader::new(fields);
 
-    let item = PublicCallStackItemCompressed {
-      contract_address: reader.read_struct(AztecAddress::deserialize),
-      call_context: reader.read_struct(CallContext::deserialize),
-      args_hash: reader.read(),
-      returns_hash: reader.read(),
-      revert_code: reader.read() as u8,
-      start_gas_left: reader.read_struct(Gas::deserialize),
-      end_gas_left: reader.read_struct(Gas::deserialize),
-    };
-    reader.finish();
-    item
-  }
+        let item = PublicCallStackItemCompressed {
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+            call_context: reader.read_struct(CallContext::deserialize),
+            args_hash: reader.read(),
+            returns_hash: reader.read(),
+            revert_code: reader.read() as u8,
+            start_gas_left: reader.read_struct(Gas::deserialize),
+            end_gas_left: reader.read_struct(Gas::deserialize)
+        };
+        reader.finish();
+        item
+    }
 }

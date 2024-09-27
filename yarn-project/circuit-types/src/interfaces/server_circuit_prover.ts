@@ -1,9 +1,7 @@
 import {
-  type ProofAndVerificationKey,
+  type AvmProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type PublicInputsAndTubeProof,
-  type PublicKernelNonTailRequest,
-  type PublicKernelTailRequest,
   type Tx,
 } from '@aztec/circuit-types';
 import {
@@ -14,11 +12,15 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateKernelEmptyInputData,
+  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
+  type PublicKernelInnerCircuitPrivateInputs,
+  type PublicKernelTailCircuitPrivateInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
@@ -26,6 +28,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type TubeInputs,
+  type VMCircuitPublicInputs,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 
@@ -97,6 +100,26 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
+  getBlockRootRollupFinalProof(
+    input: BlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getEmptyBlockRootRollupProof(
+    input: EmptyBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
   getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
@@ -114,21 +137,23 @@ export interface ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>>;
 
   /**
-   * Create a public kernel proof.
+   * Create a public kernel inner proof.
    * @param kernelRequest - Object containing the details of the proof required
    */
-  getPublicKernelProof(
-    kernelRequest: PublicKernelNonTailRequest,
+  getPublicKernelInnerProof(
+    inputs: PublicKernelInnerCircuitPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>>;
+
+  getPublicKernelMergeProof(
+    inputs: PublicKernelCircuitPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>>;
 
-  /**
-   * Create a public kernel tail proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
   getPublicTailProof(
-    kernelRequest: PublicKernelTailRequest,
+    inputs: PublicKernelTailCircuitPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
@@ -149,7 +174,11 @@ export interface ServerCircuitProver {
    * Create a proof for the AVM circuit.
    * @param inputs - Inputs to the AVM circuit.
    */
-  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal, epochNumber?: number): Promise<ProofAndVerificationKey>;
+  getAvmProof(
+    inputs: AvmCircuitInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<AvmProofAndVerificationKey>;
 }
 
 /**

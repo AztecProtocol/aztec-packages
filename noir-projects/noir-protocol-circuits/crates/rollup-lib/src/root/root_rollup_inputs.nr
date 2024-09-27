@@ -9,17 +9,14 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     BLOCK_MERGE_ROLLUP_INDEX,
 ];
 
-struct RootRollupInputs {
+pub struct RootRollupInputs {
     previous_rollup_data: [PreviousRollupBlockData; 2],
     prover_id: Field,
 }
 
 impl Empty for RootRollupInputs {
     fn empty() -> Self {
-        RootRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2],
-            prover_id: 0,
-        }
+        RootRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2], prover_id: 0 }
     }
 }
 

@@ -6,4 +6,5 @@ members = [
   "compressed-string",
   "easy-private-state",
   "value-note",
+  "uint-note",
 ]

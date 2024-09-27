@@ -14,13 +14,11 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-    call_context::CallContext, function_selector::FunctionSelector, gas::Gas,
-    max_block_number::MaxBlockNumber,
+    call_context::CallContext, function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
-    public_call_stack_item_compressed::PublicCallStackItemCompressed, read_request::ReadRequest,
-    note_hash::NoteHash, nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
+    public_call_request::PublicCallRequest, read_request::ReadRequest, note_hash::NoteHash,
+    nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
 },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -30,11 +28,11 @@ use dep::protocol_types::{
     MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
     MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
 },
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::Empty
+    header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::Empty
 };
 
 // When finished, one can call .finish() to convert back to the abi
-struct PrivateContext {
+pub struct PrivateContext {
     // docs:start:private-context
     inputs: PrivateContextInputs,
     side_effect_counter: u32,
@@ -222,7 +220,7 @@ impl PrivateContext {
         let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
         if cached_request.pk_m.hash() == pk_m_hash {
-            // We get a match so the cached request is the latest one 
+            // We get a match so the cached request is the latest one
             cached_request.sk_app
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
@@ -297,7 +295,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -308,7 +306,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -319,11 +317,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
-    pub fn call_private_function_no_args<RETURNS_COUNT>(
+    pub fn call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
@@ -331,7 +329,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
-    pub fn static_call_private_function_no_args<RETURNS_COUNT>(
+    pub fn static_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
@@ -339,7 +337,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
-    pub fn delegate_call_private_function_no_args<let ARGS_COUNT: u32>(
+    pub fn delegate_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
@@ -347,7 +345,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, true)
     }
 
-    pub fn call_private_function_with_packed_args<RETURNS_COUNT>(
+    pub fn call_private_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -409,7 +407,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -420,7 +418,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -431,7 +429,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -486,17 +484,7 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let item = PublicCallStackItemCompressed {
-            contract_address,
-            call_context,
-            args_hash,
-            returns_hash: 0,
-            revert_code: 0,
-            start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty()
-        };
-
-        let call_request = PublicCallRequest { item, counter };
+        let call_request = PublicCallRequest { contract_address, call_context, args_hash, counter };
         self.public_call_requests.push(call_request);
     }
 
@@ -507,11 +495,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
-    pub fn set_public_teardown_function_with_packed_args<let ARGS_COUNT: u32>(
+    pub fn set_public_teardown_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -538,18 +526,10 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let item = PublicCallStackItemCompressed {
+        self.public_teardown_call_request = PublicCallRequest {
             contract_address,
             call_context,
             args_hash,
-            returns_hash: 0,
-            revert_code: 0,
-            start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty()
-        };
-
-        self.public_teardown_call_request = PublicCallRequest {
-            item,
             counter,
         };
     }
