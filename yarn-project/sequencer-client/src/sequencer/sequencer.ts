@@ -564,7 +564,7 @@ export class Sequencer {
     const canClaim = await this.publisher.nextEpochToClaim();
     if (canClaim != epochToProve) {
       // It's not the one we are looking to claim
-      this.log.verbose(`Unable to claim previous epoch (${epochToProve})`);
+      this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
       return undefined;
     }
     // Get quotes for the epoch to be proven
