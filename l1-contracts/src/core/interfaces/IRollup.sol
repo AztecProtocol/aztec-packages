@@ -42,6 +42,16 @@ interface IRollup {
     bytes calldata _body
   ) external;
 
+  function proposeAndClaim(
+    bytes calldata _header,
+    bytes32 _archive,
+    bytes32 _blockHash,
+    bytes32[] memory _txHashes,
+    SignatureLib.Signature[] memory _signatures,
+    bytes calldata _body,
+    DataStructures.SignedEpochProofQuote calldata _quote
+  ) external;
+
   function submitBlockRootProof(
     bytes calldata _header,
     bytes32 _archive,
@@ -86,7 +96,8 @@ interface IRollup {
       bytes32 provenArchive,
       uint256 pendingBlockNumber,
       bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock
+      bytes32 archiveOfMyBlock,
+      Epoch provenEpochNumber
     );
 
   // TODO(#7346): Integrate batch rollups
@@ -106,5 +117,16 @@ interface IRollup {
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
+  function nextEpochToClaim() external view returns (Epoch);
+  function getEpochForBlock(uint256 blockNumber) external view returns (Epoch);
+  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+    external
+    view;
+  function getEpochProofPublicInputs(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject
+  ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

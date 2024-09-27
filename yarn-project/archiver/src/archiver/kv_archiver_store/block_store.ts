@@ -29,6 +29,9 @@ export class BlockStore {
   /** Stores l2 block number of the last proven block */
   #lastProvenL2Block: AztecSingleton<number>;
 
+  /** Stores l2 epoch number of the last proven epoch */
+  #lastProvenL2Epoch: AztecSingleton<number>;
+
   /** Index mapping transaction hash (as a string) to its location in a block */
   #txIndex: AztecMap<string, BlockIndexValue>;
 
@@ -44,6 +47,7 @@ export class BlockStore {
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
     this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
+    this.#lastProvenL2Epoch = db.openSingleton('archiver_last_proven_l2_epoch');
   }
 
   /**
@@ -233,6 +237,14 @@ export class BlockStore {
 
   setProvenL2BlockNumber(blockNumber: number) {
     void this.#lastProvenL2Block.set(blockNumber);
+  }
+
+  getProvenL2EpochNumber(): number | undefined {
+    return this.#lastProvenL2Epoch.get();
+  }
+
+  setProvenL2EpochNumber(epochNumber: number) {
+    void this.#lastProvenL2Epoch.set(epochNumber);
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
