@@ -1,7 +1,7 @@
-use dep::types::constants::{AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS
-                          , AVM_PROOF_LENGTH_IN_FIELDS
-                          , AVM_PUBLIC_INPUTS_FLATTENED_SIZE
-                          , PROOF_TYPE_AVM};
+use dep::types::constants::{
+    AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, AVM_PROOF_LENGTH_IN_FIELDS, AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
+    PROOF_TYPE_AVM
+};
 
 fn main(
     verification_key: [Field; AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS],
