@@ -150,7 +150,7 @@ export interface ArchiverDataStore {
    * Gets the number of the latest proven L2 epoch.
    * @returns The number of the latest proven L2 epoch.
    */
-  getProvenL2EpochNumber(): Promise<number>;
+  getProvenL2EpochNumber(): Promise<number | undefined>;
 
   /**
    * Stores the number of the latest proven L2 block processed.

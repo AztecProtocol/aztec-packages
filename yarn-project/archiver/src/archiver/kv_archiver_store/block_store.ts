@@ -239,8 +239,8 @@ export class BlockStore {
     void this.#lastProvenL2Block.set(blockNumber);
   }
 
-  getProvenL2EpochNumber(): number {
-    return this.#lastProvenL2Epoch.get() ?? 0;
+  getProvenL2EpochNumber(): number | undefined {
+    return this.#lastProvenL2Epoch.get();
   }
 
   setProvenL2EpochNumber(epochNumber: number) {

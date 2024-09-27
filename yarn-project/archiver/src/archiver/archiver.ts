@@ -295,6 +295,7 @@ export class Archiver implements ArchiveSource {
       ) {
         this.log.info(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
         await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+        // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
     };
@@ -516,7 +517,7 @@ export class Archiver implements ArchiveSource {
     return this.store.getProvenL2BlockNumber();
   }
 
-  public getProvenL2EpochNumber(): Promise<number> {
+  public getProvenL2EpochNumber(): Promise<number | undefined> {
     return this.store.getProvenL2EpochNumber();
   }
 
@@ -767,7 +768,7 @@ class ArchiverStoreHelper
   getProvenL2BlockNumber(): Promise<number> {
     return this.store.getProvenL2BlockNumber();
   }
-  getProvenL2EpochNumber(): Promise<number> {
+  getProvenL2EpochNumber(): Promise<number | undefined> {
     return this.store.getProvenL2EpochNumber();
   }
   setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {

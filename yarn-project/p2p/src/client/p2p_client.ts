@@ -528,7 +528,9 @@ export class P2PClient implements P2P {
     await this.synchedProvenBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
-    this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
+    if (provenEpochNumber !== undefined) {
+      this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
+    }
     await this.startServiceIfSynched();
   }
 
