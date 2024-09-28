@@ -28,13 +28,10 @@ WRITE_CONTENT_HASH:
   LET local_dir=$(pwd | sed 's|^/usr/src/||')
   COPY (+compute-content-hash/.content-hash --local_directory_equivalent="$local_dir" --rebuild_patterns="$rebuild_patterns") .
 
-# 1) starts our cache server if not up
-# 2) copies necessary context
-# 3) first tries our rebuild pattern and context against our cache tool to see if we can use our cache
-# 4) if not, we build with $command
-# 5) then we try to upload with our cache tool for next time
-# note, if the cache tool is unreachable at $AZTEC_CACHE_TOOL_IP we silently fail cache-download-pattern.sh
-# and silently pass cache-upload-pattern.sh meaning the command always runs
+# 1) copies necessary context
+# 2) first tries our rebuild pattern and context against our S3/minio cache
+# 3) if not, we build with $command
+# 4) then we try to upload to S3/minio cache for next time
 WITH_CACHE:
   FUNCTION
   ARG command
@@ -46,6 +43,7 @@ WITH_CACHE:
   DO +SETUP_CACHE
   DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
   # configure AWS access and S3 cache params (note these can be blank if not using S3 build cache)
+  # we abuse secrets here somewhat to keep a stable build hash in Earthly, as secrets don't affect earthly's caching
   RUN --secret AWS_ACCESS_KEY_ID \
       --secret AWS_SECRET_ACCESS_KEY \
       --secret S3_BUILD_CACHE_UPLOAD \
