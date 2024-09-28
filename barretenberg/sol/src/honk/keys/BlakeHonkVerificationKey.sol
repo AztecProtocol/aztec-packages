@@ -2,8 +2,7 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-import {Honk} from "../HonkTypes.sol";
-
+import { Honk } from "../HonkTypes.sol";
 uint256 constant N = 32768;
 uint256 constant LOG_N = 15;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 20;
@@ -115,8 +114,8 @@ library BlakeHonkVerificationKey {
                 y: uint256(0x07a88ccd1274fb49dfc7e7c6f2586737f319b6de1a8aa62a17a40a50f367b093)
             }),
             lagrangeFirst: Honk.G1Point({
-                x: uint256(0x0000000000000000000000000000000000000000000000000000000000000001),
-                y: uint256(0x0000000000000000000000000000000000000000000000000000000000000002)
+               x: uint256(0x0000000000000000000000000000000000000000000000000000000000000001),
+               y: uint256(0x0000000000000000000000000000000000000000000000000000000000000002)
             }),
             lagrangeLast: Honk.G1Point({
                 x: uint256(0x126c0ccd8276d578c5f98365a2a294e0af899dcc0407010932550b4a744a37c3),
