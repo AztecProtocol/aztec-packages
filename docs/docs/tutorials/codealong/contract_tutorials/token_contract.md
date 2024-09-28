@@ -200,8 +200,6 @@ This function allows an account approved in the public `minters` mapping to crea
 
 First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `U128` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
 
-The function returns 1 to indicate successful execution.
-
 #include_code mint_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `mint_private`
