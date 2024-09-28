@@ -88,10 +88,16 @@ osxcross:
 foundry-build:
   LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   FROM +base-build
+  # This will not be run often, so we use rustup to manage the cargo version via a tool-chain file
+  # It is done this way to avoid conflicting with noir builds
+  # This image should only be rebuilt when our foundry tag changes, so it should be extremely infrequent
+  RUN apt remove -y cargo
+  RUN apt update && apt install -y rustup
   RUN ulimit -n 65535 \
       && git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git \
       && cd foundry \
-      && cargo build --profile local \
+      && touch rust-toolchain.toml && echo '[toolchain]\nchannel = "1.80.0"\n' > rust-toolchain.toml \
+      && cargo build --release \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
           mv ./target/local/$t /opt/foundry/bin/$t; \
