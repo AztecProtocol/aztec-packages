@@ -355,7 +355,8 @@ contract Add2HonkVerifier is IVerifier {
                 scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
             }
 
-            mem.constantTermAccumulator = mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
+            mem.constantTermAccumulator =
+                mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
 
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldUnivariates[i]);

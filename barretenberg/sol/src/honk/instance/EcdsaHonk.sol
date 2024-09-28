@@ -358,7 +358,8 @@ contract EcdsaHonkVerifier is IVerifier {
                 scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
             }
 
-            mem.constantTermAccumulator = mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
+            mem.constantTermAccumulator =
+                mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
 
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldUnivariates[i]);
@@ -377,7 +378,6 @@ contract EcdsaHonkVerifier is IVerifier {
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
-
 
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
