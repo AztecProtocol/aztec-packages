@@ -86,7 +86,7 @@ osxcross:
 ########################################################################################################################
 # Build foundry.
 foundry-build:
-  LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
+  LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   FROM +base-build
   RUN ulimit -n 65535 \
       && git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git \
@@ -104,7 +104,7 @@ foundry-build:
 
 foundry:
   BUILD +foundry-build
-  LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
+  LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   ARG TARGETARCH
   FROM ubuntu:noble
   COPY +foundry-build/opt/foundry /opt/foundry
