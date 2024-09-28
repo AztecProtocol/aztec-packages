@@ -1034,11 +1034,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
 
         check_size(tree, 2);
 
-        Signal signal(2);
+        Signal signal(1 + num_reads);
 
         auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>&) {
-            signal.signal_level(1);
-            auto commit_completion = [&](const Response&) { signal.signal_level(); };
+            auto commit_completion = [&](const Response&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
         tree.add_or_update_value(VALUES[0], add_completion);
@@ -1046,6 +1045,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
         for (size_t i = 0; i < num_reads; i++) {
             auto completion = [&, i](const TypedResponse<GetSiblingPathResponse>& response) {
                 paths[i] = response.inner.path;
+                signal.signal_decrement();
             };
             tree.get_sibling_path(0, completion, false);
         }

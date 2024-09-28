@@ -938,11 +938,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_single_whilst_readin
 
         check_size(tree, 0);
 
-        Signal signal(2);
+        Signal signal(1 + num_reads);
 
         auto add_completion = [&](const TypedResponse<AddDataResponse>&) {
-            signal.signal_level(1);
-            auto commit_completion = [&](const Response&) { signal.signal_level(0); };
+            auto commit_completion = [&](const Response&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
         tree.add_value(VALUES[0], add_completion);
@@ -950,6 +949,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_single_whilst_readin
         for (size_t i = 0; i < num_reads; i++) {
             auto completion = [&, i](const TypedResponse<GetSiblingPathResponse>& response) {
                 paths[i] = response.inner.path;
+                signal.signal_decrement();
             };
             tree.get_sibling_path(0, completion, false);
         }
@@ -996,21 +996,31 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, returns_sibling_path)
     memdb.update_element(2, 20);
     memdb.update_element(3, 40);
 
-    tree.get_subtree_sibling_path(
-        0,
-        [&](auto& resp) {
-            fr_sibling_path expected_sibling_path = memdb.get_sibling_path(4);
-            EXPECT_EQ(resp.inner.path, expected_sibling_path);
-        },
-        true);
+    {
+        Signal signal(1);
+        tree.get_subtree_sibling_path(
+            0,
+            [&](auto& resp) {
+                fr_sibling_path expected_sibling_path = memdb.get_sibling_path(4);
+                EXPECT_EQ(resp.inner.path, expected_sibling_path);
+                signal.signal_level();
+            },
+            true);
+        signal.wait_for_level();
+    }
 
-    tree.get_subtree_sibling_path(
-        2,
-        [&](auto& resp) {
-            fr_sibling_path expected_sibling_path = { memdb.get_node(2, 0), memdb.get_node(1, 1) };
-            EXPECT_EQ(resp.inner.path, expected_sibling_path);
-        },
-        true);
+    {
+        Signal signal(1);
+        tree.get_subtree_sibling_path(
+            2,
+            [&](auto& resp) {
+                fr_sibling_path expected_sibling_path = { memdb.get_node(2, 0), memdb.get_node(1, 1) };
+                EXPECT_EQ(resp.inner.path, expected_sibling_path);
+                signal.signal_level();
+            },
+            true);
+        signal.wait_for_level();
+    }
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_historic_blocks)
