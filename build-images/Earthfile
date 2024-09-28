@@ -88,7 +88,7 @@ osxcross:
 foundry-build:
   LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   FROM +base-build
-  # This will not be run often, so we use rustup to manage the cargo version via a tool-chain file
+  # We use rustup rather than cargo to manage the cargo version via a tool-chain file
   # It is done this way to avoid conflicting with noir builds
   # This image should only be rebuilt when our foundry tag changes, so it should be extremely infrequent
   RUN apt remove -y cargo
