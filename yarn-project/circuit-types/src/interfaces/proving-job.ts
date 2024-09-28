@@ -78,7 +78,6 @@ export enum ProvingRequestType {
   MERGE_ROLLUP,
   EMPTY_BLOCK_ROOT_ROLLUP,
   BLOCK_ROOT_ROLLUP,
-  BLOCK_ROOT_ROLLUP_FINAL,
   BLOCK_MERGE_ROLLUP,
   ROOT_ROLLUP,
 
@@ -108,8 +107,6 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Ci
       return 'empty-block-root-rollup';
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
       return 'block-root-rollup';
-    case ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL:
-      return 'block-root-rollup-final';
     case ProvingRequestType.BLOCK_MERGE_ROLLUP:
       return 'block-merge-rollup';
     case ProvingRequestType.ROOT_ROLLUP:
@@ -173,10 +170,6 @@ export type ProvingRequest =
       inputs: EmptyBlockRootRollupInputs;
     }
   | {
-      type: ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL;
-      inputs: BlockRootRollupInputs;
-    }
-  | {
       type: ProvingRequestType.BLOCK_MERGE_ROLLUP;
       inputs: BlockMergeRollupInputs;
     }
@@ -205,7 +198,6 @@ export type ProvingRequestPublicInputs = {
   [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
-  [ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
 

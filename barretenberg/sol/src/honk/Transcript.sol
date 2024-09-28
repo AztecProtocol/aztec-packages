@@ -66,7 +66,7 @@ library TranscriptLib {
 
     function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
         bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
@@ -101,7 +101,7 @@ library TranscriptLib {
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
-        view
+        pure
         returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
         bytes32[13] memory round1;
@@ -126,7 +126,7 @@ library TranscriptLib {
     // Alpha challenges non-linearise the gate contributions
     function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
-        view
+        pure
         returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
@@ -157,7 +157,7 @@ library TranscriptLib {
 
     function generateGateChallenges(Fr previousChallenge)
         internal
-        view
+        pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -170,7 +170,7 @@ library TranscriptLib {
 
     function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -188,10 +188,9 @@ library TranscriptLib {
         nextPreviousChallenge = prevChallenge;
     }
 
-    // TODO: reuse this for Shplemini
     function generateRhoChallenge(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr rho, Fr nextPreviousChallenge)
     {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
@@ -209,7 +208,7 @@ library TranscriptLib {
 
     function generateGeminiRChallenge(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr geminiR, Fr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
@@ -229,7 +228,7 @@ library TranscriptLib {
 
     function generateShplonkNuChallenge(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr shplonkNu, Fr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N) + 1] memory shplonkNuChallengeElements;
@@ -246,7 +245,7 @@ library TranscriptLib {
 
     function generateShplonkZChallenge(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr shplonkZ, Fr nextPreviousChallenge)
     {
         uint256[5] memory shplonkZChallengeElements;
@@ -266,7 +265,7 @@ library TranscriptLib {
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
     // TODO: move this back to probably each instance to avoid dynamic init of arrays in the Transcript Lib
-    function loadProof(bytes calldata proof) internal view returns (Honk.Proof memory) {
+    function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory) {
         Honk.Proof memory p;
 
         // Metadata

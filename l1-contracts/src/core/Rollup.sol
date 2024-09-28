@@ -60,7 +60,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-  IVerifier public blockProofVerifier;
+  IVerifier public epochProofVerifier;
 
   ChainTips public tips;
   DataStructures.EpochProofClaim public proofClaim;
@@ -78,17 +78,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
-  // Listed at the end of the contract to avoid changing storage slots
-  // TODO(palla/prover) Drop blockProofVerifier and move this verifier to that slot
-  IVerifier public epochProofVerifier;
-
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     bytes32 _vkTreeRoot,
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
-    blockProofVerifier = new MockVerifier();
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
@@ -145,17 +140,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _verifier - The new verifier contract
    */
-  function setBlockVerifier(address _verifier) external override(ITestRollup) onlyOwner {
-    blockProofVerifier = IVerifier(_verifier);
-  }
-
-  /**
-   * @notice  Set the verifier contract
-   *
-   * @dev     This is only needed for testing, and should be removed
-   *
-   * @param _verifier - The new verifier contract
-   */
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
     epochProofVerifier = IVerifier(_verifier);
   }
@@ -192,147 +176,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   ) external override(IRollup) {
     propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
     claimEpochProofRight(_quote);
-  }
-
-  /**
-   * @notice  Submit a proof for a block in the pending chain
-   *
-   * @dev     TODO(#7346): Verify root proofs rather than block root when batch rollups are integrated.
-   *
-   * @dev     Will emit `L2ProofVerified` if the proof is valid
-   *
-   * @dev     Will throw if:
-   *          - The block number is past the pending chain
-   *          - The last archive root of the header does not match the archive root of parent block
-   *          - The archive root of the header does not match the archive root of the proposed block
-   *          - The proof is invalid
-   *
-   * @dev     We provide the `_archive` even if it could be read from storage itself because it allow for
-   *          better error messages. Without passing it, we would just have a proof verification failure.
-   *
-   * @dev     Following the `BlockLog` struct assumption
-   *
-   * @param  _header - The header of the block (should match the block in the pending chain)
-   * @param  _archive - The archive root of the block (should match the block in the pending chain)
-   * @param  _proverId - The id of this block's prover
-   * @param  _aggregationObject - The aggregation object for the proof
-   * @param  _proof - The proof to verify
-   */
-  function submitBlockRootProof(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _proverId,
-    bytes calldata _aggregationObject,
-    bytes calldata _proof
-  ) external override(IRollup) {
-    if (_canPrune()) {
-      _prune();
-    }
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
-
-    if (header.globalVariables.blockNumber > tips.pendingBlockNumber) {
-      revert Errors.Rollup__TryingToProveNonExistingBlock();
-    }
-
-    // @note  This implicitly also ensures that we have not already proven, since
-    //        the value `tips.provenBlockNumber` is incremented at the end of this function
-    if (header.globalVariables.blockNumber != tips.provenBlockNumber + 1) {
-      revert Errors.Rollup__NonSequentialProving();
-    }
-
-    bytes32 expectedLastArchive = blocks[header.globalVariables.blockNumber - 1].archive;
-    // We do it this way to provide better error messages than passing along the storage values
-    if (header.lastArchive.root != expectedLastArchive) {
-      revert Errors.Rollup__InvalidArchive(expectedLastArchive, header.lastArchive.root);
-    }
-
-    bytes32 expectedArchive = blocks[header.globalVariables.blockNumber].archive;
-    if (_archive != expectedArchive) {
-      revert Errors.Rollup__InvalidProposedArchive(expectedArchive, _archive);
-    }
-
-    // TODO(#7346): Currently verifying block root proofs until batch rollups fully integrated.
-    // Hence the below pub inputs are BlockRootOrBlockMergePublicInputs, which are larger than
-    // the planned set (RootRollupPublicInputs), for the interim.
-    // Public inputs are not fully verified (TODO(#7373))
-
-    bytes32[] memory publicInputs = new bytes32[](
-      Constants.BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH
-    );
-
-    // From block_root_or_block_merge_public_inputs.nr: BlockRootOrBlockMergePublicInputs.
-    // previous_archive.root: the previous archive tree root
-    publicInputs[0] = expectedLastArchive;
-    // previous_archive.next_available_leaf_index: the previous archive next available index
-    publicInputs[1] = bytes32(header.globalVariables.blockNumber);
-
-    // new_archive.root: the new archive tree root
-    publicInputs[2] = expectedArchive;
-    // this is the _next_ available leaf in the archive tree
-    // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
-    // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
-    // new_archive.next_available_leaf_index: the new archive next available index
-    publicInputs[3] = bytes32(header.globalVariables.blockNumber + 1);
-
-    // previous_block_hash: the block hash just preceding this block (will eventually become the end_block_hash of the prev batch)
-    publicInputs[4] = blocks[header.globalVariables.blockNumber - 1].blockHash;
-
-    // end_block_hash: the current block hash (will eventually become the hash of the final block proven in a batch)
-    publicInputs[5] = blocks[header.globalVariables.blockNumber].blockHash;
-
-    // For block root proof outputs, we have a block 'range' of just 1 block => start and end globals are the same
-    bytes32[] memory globalVariablesFields = HeaderLib.toFields(header.globalVariables);
-    for (uint256 i = 0; i < globalVariablesFields.length; i++) {
-      // start_global_variables
-      publicInputs[i + 6] = globalVariablesFields[i];
-      // end_global_variables
-      publicInputs[globalVariablesFields.length + i + 6] = globalVariablesFields[i];
-    }
-    // out_hash: root of this block's l2 to l1 message tree (will eventually be root of roots)
-    publicInputs[24] = header.contentCommitment.outHash;
-
-    // For block root proof outputs, we have a single recipient-value fee payment pair,
-    // but the struct contains space for the max (32) => we keep 31*2=62 fields blank to represent it.
-    // fees: array of recipient-value pairs, for a single block just one entry (will eventually be filled and paid out here)
-    publicInputs[25] = bytes32(uint256(uint160(header.globalVariables.coinbase)));
-    publicInputs[26] = bytes32(header.totalFees);
-    // publicInputs[27] -> publicInputs[88] left blank for empty fee array entries
-
-    // vk_tree_root
-    publicInputs[89] = vkTreeRoot;
-    // prover_id: id of current block range's prover
-    publicInputs[90] = _proverId;
-
-    // the block proof is recursive, which means it comes with an aggregation object
-    // this snippet copies it into the public inputs needed for verification
-    // it also guards against empty _aggregationObject used with mocked proofs
-    uint256 aggregationLength = _aggregationObject.length / 32;
-    for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
-      bytes32 part;
-      assembly {
-        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
-      }
-      publicInputs[i + 91] = part;
-    }
-
-    if (!blockProofVerifier.verify(_proof, publicInputs)) {
-      revert Errors.Rollup__InvalidProof();
-    }
-
-    tips.provenBlockNumber = header.globalVariables.blockNumber;
-
-    for (uint256 i = 0; i < 32; i++) {
-      address coinbase = address(uint160(uint256(publicInputs[25 + i * 2])));
-      uint256 fees = uint256(publicInputs[26 + i * 2]);
-
-      if (coinbase != address(0) && fees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
-      }
-    }
-    emit L2ProofVerified(header.globalVariables.blockNumber, _proverId);
   }
 
   /**

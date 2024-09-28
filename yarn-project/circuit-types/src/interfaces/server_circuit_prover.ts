@@ -100,16 +100,6 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getBlockRootRollupFinalProof(
-    input: BlockRootRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
-
-  /**
-   * Creates a proof for the given input.
-   * @param input - Input to the circuit.
-   */
   getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,

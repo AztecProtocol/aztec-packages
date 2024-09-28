@@ -11,7 +11,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 interface ITestRollup {
-  function setBlockVerifier(address _verifier) external;
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
@@ -50,14 +49,6 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
     DataStructures.SignedEpochProofQuote calldata _quote
-  ) external;
-
-  function submitBlockRootProof(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _proverId,
-    bytes calldata _aggregationObject,
-    bytes calldata _proof
   ) external;
 
   function submitEpochRootProof(
@@ -99,18 +90,6 @@ interface IRollup {
       bytes32 archiveOfMyBlock,
       Epoch provenEpochNumber
     );
-
-  // TODO(#7346): Integrate batch rollups
-  // function submitRootProof(
-  //   bytes32 _previousArchive,
-  //   bytes32 _archive,
-  //   bytes32 outHash,
-  //   address[32] calldata coinbases,
-  //   uint256[32] calldata fees,
-  //   bytes32 _proverId,
-  //   bytes calldata _aggregationObject,
-  //   bytes calldata _proof
-  // ) external;
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);

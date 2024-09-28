@@ -407,32 +407,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Simulates the block root rollup circuit from its inputs.
-   * Returns a non-recursive proof to verify on L1.
-   * @dev TODO(palla/prover): This is a temporary workaround to get the proof to L1 with the old block flow.
-   * @param input - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
-   */
-  public async getBlockRootRollupFinalProof(
-    input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    const { circuitOutput, proof } = await this.createProof(
-      input,
-      'BlockRootRollupFinalArtifact',
-      convertBlockRootRollupInputsToWitnessMap,
-      convertBlockRootRollupOutputsFromWitnessMap,
-    );
-
-    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
-
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupFinalArtifact');
-
-    await this.verifyProof('BlockRootRollupFinalArtifact', proof);
-
-    return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
-  }
-
-  /**
    * Simulates the block merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.

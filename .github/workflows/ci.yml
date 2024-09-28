@@ -128,7 +128,6 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         with:
           concurrency_key: build-x86
       # prepare images locally, tagged by commit hash
