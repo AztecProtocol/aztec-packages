@@ -98,10 +98,29 @@ template <typename FF> struct AvmFullRow {
     FF binary_op_id{};
     FF binary_sel_bin{};
     FF binary_start{};
+    FF bytecode_arifact_hash{};
+    FF bytecode_as_fields{};
+    FF bytecode_bytes{};
+    FF bytecode_bytes_pc{};
+    FF bytecode_class_id{};
+    FF bytecode_contract_address{};
+    FF bytecode_decomposed{};
+    FF bytecode_deployer_addr{};
     FF bytecode_end_latch{};
+    FF bytecode_incoming_viewing_key_x{};
+    FF bytecode_incoming_viewing_key_y{};
+    FF bytecode_initialization_hash{};
     FF bytecode_length_remaining{};
-    FF bytecode_packed{};
+    FF bytecode_nullifier_key_x{};
+    FF bytecode_nullifier_key_y{};
+    FF bytecode_outgoing_viewing_key_x{};
+    FF bytecode_outgoing_viewing_key_y{};
+    FF bytecode_private_fn_root{};
+    FF bytecode_public_key_hash{};
     FF bytecode_running_hash{};
+    FF bytecode_salt{};
+    FF bytecode_tagging_key_x{};
+    FF bytecode_tagging_key_y{};
     FF cmp_a_hi{};
     FF cmp_a_lo{};
     FF cmp_b_hi{};
@@ -744,7 +763,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 730;
+    static constexpr size_t SIZE = 749;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
