@@ -3,13 +3,13 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fstream>
 #include <ranges>
-
 namespace bb {
 
 /* Span class with a start index offset.
@@ -363,7 +363,95 @@ template <typename Fr> class Polynomial {
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
 
-template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynomial<Fr> const& p)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
+}
+
+/**
+ * @brief Internal implementation to support both native and stdlib circuit field types.
+ * @details Instantiation with circuit field type is always called with shift == false
+ */
+template <typename Fr_>
+Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
+                  const SharedShiftedVirtualZeroesArray<Fr_>& coefficients,
+                  bool shift)
+{
+    constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
+    // shift ==> native
+    ASSERT(!shift || is_native);
+
+    if (coefficients.size() == 0) {
+        return Fr_(0);
+    }
+
+    const size_t n = evaluation_points.size();
+    const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
+
+    // To simplify handling of edge cases, we assume that the index space is always a power of 2
+    ASSERT(coefficients.virtual_size() == static_cast<size_t>(1 << n));
+
+    // We first fold over dim rounds l = 0,...,dim-1.
+    // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
+    // at u₀,..., u_l.
+    // In round 0, this is half the size of dim
+    size_t n_l = 1 << (dim - 1);
+
+    // temporary buffer of half the size of the Polynomial
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
+    auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
+    auto tmp = tmp_ptr.get();
+
+    size_t offset = 0;
+    if constexpr (is_native) {
+        if (shift) {
+            ASSERT(coefficients.get(0) == Fr_::zero());
+            offset++;
+        }
+    }
+
+    Fr_ u_l = evaluation_points[0];
+
+    // Note below: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity
+    // padding (and there used to be no assert time checks, which this constant helps with).
+    const size_t ALLOW_ONE_PAST_READ = 1;
+    for (size_t i = 0; i < n_l; ++i) {
+        // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
+        tmp[i] = coefficients.get(i * 2 + offset) +
+                 u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
+    }
+
+    // partially evaluate the dim-1 remaining points
+    for (size_t l = 1; l < dim; ++l) {
+        n_l = 1 << (dim - l - 1);
+        u_l = evaluation_points[l];
+        for (size_t i = 0; i < n_l; ++i) {
+            tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
+        }
+    }
+    auto result = tmp[0];
+
+    // We handle the "trivial" dimensions which are full of zeros.
+    for (size_t i = dim; i < n; i++) {
+        result *= (Fr_(1) - evaluation_points[i]);
+    }
+
+    return result;
+}
+
+/**
+ * @brief Static exposed implementation to support both native and stdlib circuit field types.
+ */
+template <typename Fr_>
+Fr_ generic_evaluate_mle(std::span<const Fr_> evaluation_points,
+                         const SharedShiftedVirtualZeroesArray<Fr_>& coefficients)
+{
+    return _evaluate_mle(evaluation_points, coefficients, false);
+}
+
+template <typename Fr> inline std::ostream& operator<<(std::ostream& os, const Polynomial<Fr>& p)
 {
     if (p.size() == 0) {
         return os << "[]";
@@ -387,5 +475,4 @@ template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&.
     ASSERT((poly.start_index() == polys.start_index() && poly.end_index() == polys.end_index()) && ...);
     return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
 }
-
 } // namespace bb
