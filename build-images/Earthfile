@@ -100,7 +100,7 @@ foundry-build:
       && cargo build --release \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
-          mv ./target/local/$t /opt/foundry/bin/$t; \
+          mv ./target/release/$t /opt/foundry/bin/$t; \
           strip /opt/foundry/bin/$t; \
       done \
       && rm -rf /foundry
