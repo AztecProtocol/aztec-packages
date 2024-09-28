@@ -60,7 +60,7 @@ contract BlakeHonkVerifier is IVerifier {
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function loadVerificationKey() internal view returns (Honk.VerificationKey memory) {
+    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
         return VK.loadVerificationKey();
     }
 
@@ -119,7 +119,7 @@ contract BlakeHonkVerifier is IVerifier {
 
     function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget)
         internal
-        view
+        pure
         returns (bool checked)
     {
         Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
@@ -193,12 +193,17 @@ contract BlakeHonkVerifier is IVerifier {
         newEvaluation = currentEvaluation * univariateEval;
     }
 
-    // Stack too deeps
-    struct REE {
+    // Avoid stack too deep
+    struct ShpleminiIntermediates {
+        // i-th unshifted commitment is multiplied by −ρⁱ and the unshifted_scalar ( 1/(z−r) + ν/(z+r) )
         Fr unshiftedScalar;
+        // i-th shifted commitment is multiplied by −ρⁱ⁺ᵏ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
         Fr shiftedScalar;
+        // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
+        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchingChallenge;
+        // Accumulator for powers of rho
         Fr batchedEvaluation;
     }
 
@@ -207,40 +212,65 @@ contract BlakeHonkVerifier is IVerifier {
         view
         returns (bool verified)
     {
-        REE memory r; // stack
+        ShpleminiIntermediates memory mem; // stack
 
+        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size, I think this should be CONST_PROOF_SIZE
         Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = computeSquares(tp.geminiR);
 
-        // Remember to convert this from a proof point
-        // Honk.G1Point[CONST_PROOF_SIZE_LOG_N + 1] memory commitments;
-        // TODO: check size of scalars
+        // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
         Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals =
             computeInvertedGeminiDenominators(tp, powers_of_evaluation_challenge);
 
-        r.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
-        r.shiftedScalar =
+        mem.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
+        mem.shiftedScalar =
             tp.geminiR.invert() * (inverse_vanishing_evals[0] - (tp.shplonkNu * inverse_vanishing_evals[1]));
 
         scalars[0] = Fr.wrap(1);
         commitments[0] = convertProofPoint(proof.shplonkQ);
 
-        // Batch multivariate opening claims
-        r.batchingChallenge = Fr.wrap(1);
-        r.batchedEvaluation = Fr.wrap(0);
+        /* Batch multivariate opening claims, shifted and unshifted
+        * The vector of scalars is populated as follows:
+        * \f[
+        * \left(
+        * - \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+        * \ldots,
+        * - \rho^{i+k-1} \times \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+        * - \rho^{i+k} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right),
+        * \ldots,
+        * - \rho^{k+m-1} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+        * \right)
+        * \f]
+        *
+        * The following vector is concatenated to the vector of commitments:
+        * \f[
+        * f_0, \ldots, f_{m-1}, f_{\text{shift}, 0}, \ldots, f_{\text{shift}, k-1}
+        * \f]
+        *
+        * Simultaneously, the evaluation of the multilinear polynomial
+        * \f[
+        * \sum \rho^i \cdot f_i + \sum \rho^{i+k} \cdot f_{\text{shift}, i}
+        * \f]
+        * at the challenge point \f$ (u_0,\ldots, u_{n-1}) \f$ is computed.
+        *
+        * This approach minimizes the number of iterations over the commitments to multilinear polynomials
+        * and eliminates the need to store the powers of \f$ \rho \f$.
+        */
+        mem.batchingChallenge = Fr.wrap(1);
+        mem.batchedEvaluation = Fr.wrap(0);
 
         for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
-            scalars[i] = r.unshiftedScalar.neg() * r.batchingChallenge;
-            r.batchedEvaluation = r.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * r.batchingChallenge);
-            r.batchingChallenge = r.batchingChallenge * tp.rho;
+            scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+            mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
         for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
-            scalars[i] = r.shiftedScalar.neg() * r.batchingChallenge;
-            r.batchedEvaluation = r.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * r.batchingChallenge);
-            r.batchingChallenge = r.batchingChallenge * tp.rho;
+            scalars[i] = mem.shiftedScalar.neg() * mem.batchingChallenge;
+            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+            mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
         commitments[1] = vk.qm;
@@ -292,39 +322,60 @@ contract BlakeHonkVerifier is IVerifier {
         commitments[43] = convertProofPoint(proof.w4);
         commitments[44] = convertProofPoint(proof.zPerm);
 
-        // Batch gemini claims from the prover
-        r.constantTermAccumulator = Fr.wrap(0);
-        r.batchingChallenge = tp.shplonkNu.sqr();
+        /* Batch gemini claims from the prover
+         * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
+         * aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
+         *
+         * 1. Moves the vector
+         * \f[
+         * \left( \text{com}(A_1), \text{com}(A_2), \ldots, \text{com}(A_{n-1}) \right)
+         * \f]
+        * to the 'commitments' vector.
+        *
+        * 2. Computes the scalars:
+        * \f[
+        * \frac{\nu^{2}}{z + r^2}, \frac{\nu^3}{z + r^4}, \ldots, \frac{\nu^{n-1}}{z + r^{2^{n-1}}}
+        * \f]
+        * and places them into the 'scalars' vector.
+        *
+        * 3. Accumulates the summands of the constant term:
+         * \f[
+         * \sum_{i=2}^{n-1} \frac{\nu^{i} \cdot A_i(-r^{2^i})}{z + r^{2^i}}
+         * \f]
+         * and adds them to the 'constant_term_accumulator'.
+         */
+        mem.constantTermAccumulator = Fr.wrap(0);
+        mem.batchingChallenge = tp.shplonkNu.sqr();
 
         for (uint256 i; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             bool dummy_round = i >= (LOG_N - 1);
 
             Fr scalingFactor = Fr.wrap(0);
             if (!dummy_round) {
-                scalingFactor = r.batchingChallenge * inverse_vanishing_evals[i + 2];
+                scalingFactor = mem.batchingChallenge * inverse_vanishing_evals[i + 2];
                 scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
             }
 
-            r.constantTermAccumulator = r.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
-            r.batchingChallenge = r.batchingChallenge * tp.shplonkNu;
+            mem.constantTermAccumulator = mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
 
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldUnivariates[i]);
         }
 
+        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
         Fr a_0_pos = computeGeminiBatchedUnivariateEvaluation(
-            tp, r.batchedEvaluation, proof.geminiAEvaluations, powers_of_evaluation_challenge
+            tp, mem.batchedEvaluation, proof.geminiAEvaluations, powers_of_evaluation_challenge
         );
 
-        r.constantTermAccumulator = r.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
-        r.constantTermAccumulator =
-            r.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
+        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
 
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = r.constantTermAccumulator;
+        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
-        // TODO: put below into the reduce verify function
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
@@ -336,7 +387,7 @@ contract BlakeHonkVerifier is IVerifier {
         return pairing(P_0, P_1);
     }
 
-    function computeSquares(Fr r) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {
+    function computeSquares(Fr r) internal pure returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {
         squares[0] = r;
         for (uint256 i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             squares[i] = squares[i - 1].sqr();
@@ -446,7 +497,8 @@ contract BlakeHonkVerifier is IVerifier {
         );
 
         (bool success, bytes memory result) = address(0x08).staticcall(input);
-        return abi.decode(result, (bool));
+        bool decodedResult = abi.decode(result, (bool));
+        return success && decodedResult;
     }
 }
 
