@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include <memory>
+#include <utility>
 
 using namespace bb::crypto::merkle_tree;
 
@@ -9,14 +10,17 @@ namespace bb::world_state {
 struct WorldStateStores {
     using Ptr = std::shared_ptr<WorldStateStores>;
 
-    LMDBTreeStore::Ptr nullifierStore;
-    LMDBTreeStore::Ptr publicDataStore;
-    LMDBTreeStore::Ptr archiveStore;
-    LMDBTreeStore::Ptr noteHashStore;
-    LMDBTreeStore::Ptr messageStore;
+    LMDBTreeStore::SharedPtr nullifierStore;
+    LMDBTreeStore::SharedPtr publicDataStore;
+    LMDBTreeStore::SharedPtr archiveStore;
+    LMDBTreeStore::SharedPtr noteHashStore;
+    LMDBTreeStore::SharedPtr messageStore;
 
-    WorldStateStores(
-        LMDBTreeStore::Ptr n, LMDBTreeStore::Ptr p, LMDBTreeStore::Ptr a, LMDBTreeStore::Ptr no, LMDBTreeStore::Ptr m)
+    WorldStateStores(LMDBTreeStore::SharedPtr n,
+                     LMDBTreeStore::SharedPtr p,
+                     LMDBTreeStore::SharedPtr a,
+                     LMDBTreeStore::SharedPtr no,
+                     LMDBTreeStore::SharedPtr m)
         : nullifierStore(std::move(n))
         , publicDataStore(std::move(p))
         , archiveStore(std::move(a))
