@@ -19,6 +19,15 @@ COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
 export DEBUG="${DEBUG:-aztec:*}"
 export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 export AZTEC_DOCKER_TAG="${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}"
+
+# Set the ARCH_TAG variable for docker compose
+ARCH=$(uname -m)
+if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+    export ARCH_TAG="arm64"
+else
+    export ARCH_TAG="amd64"
+fi
+
 FORCE_BUILD="${FORCE_BUILD:-true}"
 
 # Compute project_name
