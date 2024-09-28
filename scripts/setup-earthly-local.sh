@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 
-echo 'alias earthly="$(git rev-parse --show-toplevel)/scripts/earthly-local"' >> ~/.zshrc
+EARTHLY_SCRIPT_LOCATION="$(git rev-parse --show-toplevel)/scripts/earthly-local"
+echo "alias earthly=\"$EARTHLY_SCRIPT_LOCATION\"" >> ~/.zshrc
