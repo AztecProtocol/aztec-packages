@@ -96,7 +96,7 @@ foundry-build:
   RUN ulimit -n 65535 \
       && git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git \
       && cd foundry \
-      && touch rust-toolchain.toml && echo '[toolchain]\nchannel = "1.80.0"\n' > rust-toolchain.toml \
+      && echo '[toolchain]\nchannel = "1.80.0"\n' > rust-toolchain.toml \
       && cargo build --release \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
