@@ -1,3 +1,4 @@
+#include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
@@ -9,6 +10,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <benchmark/benchmark.h>
 #include <filesystem>
+#include <memory>
 #include <vector>
 
 using namespace benchmark;
@@ -41,10 +43,10 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
 
-    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads);
-    StoreType store(name, depth, db);
-    ThreadPool workers(num_threads);
-    TreeType tree = TreeType(store, workers, batch_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, 1024 * 1024, num_threads);
+    std::unique_ptr<StoreType> store = std::make_unique<StoreType>(name, depth, db);
+    std::shared_ptr<ThreadPool> workers = std::make_shared<ThreadPool>(num_threads);
+    TreeType tree = TreeType(std::move(store), workers, batch_size);
 
     const size_t initial_size = 1024 * 16;
     std::vector<NullifierLeafValue> initial_batch(initial_size);
@@ -74,10 +76,10 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 1;
 
-    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads);
-    StoreType store(name, depth, db);
-    ThreadPool workers(num_threads);
-    TreeType tree = TreeType(store, workers, batch_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, 1024 * 1024, num_threads);
+    std::unique_ptr<StoreType> store = std::make_unique<StoreType>(name, depth, db);
+    std::shared_ptr<ThreadPool> workers = std::make_shared<ThreadPool>(num_threads);
+    TreeType tree = TreeType(std::move(store), workers, batch_size);
 
     const size_t initial_size = 1024 * 16;
     std::vector<NullifierLeafValue> initial_batch(initial_size);
