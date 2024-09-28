@@ -655,7 +655,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
             void enqueue_initial(ThreadPool& workers, size_t numJobs)
             {
                 std::unique_lock lock(enqueueMutex);
-                for (size_t i = 0; i < numJobs; ++i) {
+                for (size_t i = 0; i < numJobs && !operations.empty(); ++i) {
                     auto nextOp = operations.front();
                     operations.pop();
                     workers.enqueue(nextOp);
@@ -708,8 +708,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
         }
 
         {
-            // Kick off an initial set of jobs, capped at the depth of the tree
-            size_t initialSize = std::min(size_t(depth_), enqueuedOperations->operations.size());
+            // Kick off an initial set of jobs, capped at the depth of the tree or the size of the thread pool,
+            // whichever is lower
+            size_t initialSize = std::min(workers_->num_threads(), static_cast<size_t>(depth_));
             enqueuedOperations->enqueue_initial(*workers_, initialSize);
         }
     }
