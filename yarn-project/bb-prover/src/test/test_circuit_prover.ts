@@ -385,12 +385,6 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getBlockRootRollupFinalProof(
-    input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    return this.getBlockRootRollupProof(input);
-  }
-
   /**
    * Simulates the block merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.

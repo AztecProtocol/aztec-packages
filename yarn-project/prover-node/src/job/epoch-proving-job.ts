@@ -4,7 +4,6 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  PROVING_STATUS,
   type ProcessedTx,
   type ProverCoordination,
   type Tx,
@@ -67,7 +66,7 @@ export class EpochProvingJob {
     const timer = new Timer();
 
     try {
-      const provingTicket = this.prover.startNewEpoch(epochNumber, epochSize);
+      this.prover.startNewEpoch(epochNumber, epochSize);
       let previousHeader = (await this.l2BlockSource.getBlock(fromBlock - 1))?.header;
 
       for (let blockNumber = fromBlock; blockNumber <= toBlock; blockNumber++) {
@@ -108,16 +107,8 @@ export class EpochProvingJob {
         previousHeader = block.header;
       }
 
-      // Pad epoch with empty block proofs if needed
-      this.prover.setEpochCompleted();
-
       this.state = 'awaiting-prover';
-      const result = await provingTicket.provingPromise;
-      if (result.status === PROVING_STATUS.FAILURE) {
-        throw new Error(`Epoch proving failed: ${result.reason}`);
-      }
-
-      const { publicInputs, proof } = this.prover.finaliseEpoch();
+      const { publicInputs, proof } = await this.prover.finaliseEpoch();
       this.log.info(`Finalised proof for epoch`, { epochNumber, fromBlock, toBlock, uuid: this.uuid });
 
       this.state = 'publishing-proof';

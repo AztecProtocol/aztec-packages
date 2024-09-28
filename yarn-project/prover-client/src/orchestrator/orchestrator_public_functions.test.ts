@@ -1,4 +1,4 @@
-import { PROVING_STATUS, PublicExecutionRequest, mockTx } from '@aztec/circuit-types';
+import { PublicExecutionRequest, mockTx } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -43,20 +43,16 @@ describe('prover/orchestrator/public-functions', () => {
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
-        const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+        context.orchestrator.startNewEpoch(1, 1);
+        await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
         for (const processedTx of processed) {
           await context.orchestrator.addNewTx(processedTx);
         }
 
-        //  we need to complete the block as we have not added a full set of txs
-        await context.orchestrator.setBlockCompleted();
-
-        const result = await blockTicket.provingPromise;
-        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-        const finalisedBlock = await context.orchestrator.finaliseBlock();
-
-        expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+        const block = await context.orchestrator.setBlockCompleted();
+        await context.orchestrator.finaliseEpoch();
+        expect(block.number).toEqual(context.blockNumber);
       },
     );
 
@@ -135,20 +131,16 @@ describe('prover/orchestrator/public-functions', () => {
       );
 
       // This will need to be a 2 tx block
-      const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       for (const processedTx of processed) {
         await context.orchestrator.addNewTx(processedTx);
       }
 
-      //  we need to complete the block as we have not added a full set of txs
-      await context.orchestrator.setBlockCompleted();
-
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
-
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+      const block = await context.orchestrator.setBlockCompleted();
+      await context.orchestrator.finaliseEpoch();
+      expect(block.number).toEqual(context.blockNumber);
     });
   });
 });

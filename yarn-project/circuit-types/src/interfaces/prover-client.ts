@@ -2,7 +2,7 @@ import { type TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
-import { type EpochProver } from './block-prover.js';
+import { type EpochProver } from './epoch-prover.js';
 import { type MerkleTreeOperations } from './merkle_tree_operations.js';
 import { type ProvingJobSource } from './proving-job.js';
 
