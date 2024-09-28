@@ -242,7 +242,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
         Fr unused;
         (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
-        logFr("shplonkNu", shplonkNu);
     }
 
     function generateShplonkZChallenge(Honk.Proof memory proof, Fr prevChallenge)

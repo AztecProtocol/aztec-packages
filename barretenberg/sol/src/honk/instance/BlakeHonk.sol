@@ -33,6 +33,8 @@ error ShpleminiFailed();
 
 /// Smart contract verifier of honk proofs
 contract BlakeHonkVerifier is IVerifier {
+    using FrLib for Fr;
+
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
@@ -52,7 +54,7 @@ contract BlakeHonkVerifier is IVerifier {
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
 
-        bool shpleminiVerified = verifyShplemini(p, t);
+        bool shpleminiVerified = verifyShplemini(p, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
 
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
@@ -187,45 +189,58 @@ contract BlakeHonkVerifier is IVerifier {
         pure
         returns (Fr newEvaluation)
     {
-        Fr univariateEval = Fr.ONE() + (roundChallenge * (tp.gateChallenges[round] - Fr.ONE()));
+        Fr univariateEval = Fr.wrap(1) + (roundChallenge * (tp.gateChallenges[round] - Fr.wrap(1)));
         newEvaluation = currentEvaluation * univariateEval;
     }
 
-    function verifyShplemini(Honk.Proof memory proof, Transcript memory tp) internal view returns (bool verified) {
-        Fr[CONST_PROOF_SIZE_LOG_N] memory squares = computeSquares(tp.rChallenge);
+    // Stack too deeps
+    struct REE {
+        Fr unshiftedScalar;
+        Fr shiftedScalar;
+        Fr constantTermAccumulator;
+        Fr batchingChallenge;
+        Fr batchedEvaluation;
+    }
 
+    function verifyShplemini(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
+        internal
+        view
+        returns (bool verified)
+    {
+        REE memory r; // stack
+
+        Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = computeSquares(tp.geminiR);
 
         // Remember to convert this from a proof point
         // Honk.G1Point[CONST_PROOF_SIZE_LOG_N + 1] memory commitments;
         // TODO: check size of scalars
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory scalars;
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory commitments;
-
-
-
+        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
+        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
         Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals =
-            computeInvertedGeminiDenominators(tp, squares);
+            computeInvertedGeminiDenominators(tp, powers_of_evaluation_challenge);
 
-        Fr unshifted_scalar = inverse_vanishing_evals[0] + (tp.shplonkZ * inverse_vanishing_evals[1]);
-        Fr shifted_scalar = tp.geminiR.invert() * (inverse_vanishing_evals[0] - (tp.shplonkZ * inverse_vanishing_evals[1]));
+        r.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
+        r.shiftedScalar =
+            tp.geminiR.invert() * (inverse_vanishing_evals[0] - (tp.shplonkNu * inverse_vanishing_evals[1]));
 
-        scalars[0] = Fr.ONE();
+        scalars[0] = Fr.wrap(1);
         commitments[0] = convertProofPoint(proof.shplonkQ);
 
         // Batch multivariate opening claims
-        Fr batchingChallenge = Fr.ONE();
-        Fr batchedEvaluation = Fr.ZERO();
-       for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
-            scalars[i] = -unshiftedScalar * batchingChallenge;
-            batchingChallenge = batchingChallenge * tp.rho;
-            batchedEvaluation += proof.sumcheckEvaluations[i] * batchingChallenge;
+        r.batchingChallenge = Fr.wrap(1);
+        r.batchedEvaluation = Fr.wrap(0);
+
+        for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
+            scalars[i] = r.unshiftedScalar.neg() * r.batchingChallenge;
+            r.batchedEvaluation = r.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * r.batchingChallenge);
+            r.batchingChallenge = r.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
         for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
-            scalars[i] = -shiftedScalar * batchingChallenge;
-            batchingChallenge = batchingChallenge * tp.rho;
-            batchedEvaluation += proof.sumcheckEvaluations[i] * batchingChallenge;
+            scalars[i] = r.shiftedScalar.neg() * r.batchingChallenge;
+            r.batchedEvaluation = r.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * r.batchingChallenge);
+            r.batchingChallenge = r.batchingChallenge * tp.rho;
         }
 
         commitments[1] = vk.qm;
@@ -277,41 +292,43 @@ contract BlakeHonkVerifier is IVerifier {
         commitments[43] = convertProofPoint(proof.w4);
         commitments[44] = convertProofPoint(proof.zPerm);
 
-
         // Batch gemini claims from the prover
-        Fr constant_term_accumulator = Fr.ZERO();
-        batchingChallenge = tp.shplonkNu.sqr();
+        r.constantTermAccumulator = Fr.wrap(0);
+        r.batchingChallenge = tp.shplonkNu.sqr();
 
-        for (uint256 i; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-            bool dummy_round = i >= LOG_N;
+        for (uint256 i; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            bool dummy_round = i >= (LOG_N - 1);
 
-            Fr scalingFactor = 0;
+            Fr scalingFactor = Fr.wrap(0);
             if (!dummy_round) {
-                scaling_factor = batchingChallenge * inverse_vanishing_evals[i + 2];
+                scalingFactor = r.batchingChallenge * inverse_vanishing_evals[i + 2];
+                scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
             }
 
-            constant_term_accumulator += scaling_factor * proof.geminiAEvaluations[i + 1];
-            batchingChallenge = batchingChallenge * tp.shplonkNu;
+            r.constantTermAccumulator = r.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
+            r.batchingChallenge = r.batchingChallenge * tp.shplonkNu;
 
-            scalars[NUMBER_OF_ENTITIES + 1 + i] = -scalingFactor;
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldUnivariates[i]);
         }
 
         // Compute evaluation A₀(r)
-        Fr a_0_pos = computeGeminiBatchedUnivariateEvaluation(tp, constant_term_accumulator, proof.geminiAEvaluations, squares);
+        Fr a_0_pos = computeGeminiBatchedUnivariateEvaluation(
+            tp, r.batchedEvaluation, proof.geminiAEvaluations, powers_of_evaluation_challenge
+        );
 
-        constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
-        constant_term_accumulator += proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1];
+        r.constantTermAccumulator = r.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
+        r.constantTermAccumulator =
+            r.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
 
         // Finalise the batch opening claim
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = Honk.G1Point({x: 1, y: 2});
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = constant_term_accumulator;
+        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
+        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = r.constantTermAccumulator;
 
         // TODO: put below into the reduce verify function
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] = quotient_commitment;
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] = tp.shplonkZ; // evaluation challenge
+        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
+        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
 
         Honk.G1Point memory P_0 = batchMul(commitments, scalars);
         Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
@@ -326,44 +343,48 @@ contract BlakeHonkVerifier is IVerifier {
         }
     }
 
-    function computeInvertedGeminiDenominators(Transcript memory tp, Fr[CONST_PROOF_SIZE_LOG_N] memory eval_challenge_powers)
-        internal
-        view
-        returns (Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals)
-    {
+    function computeInvertedGeminiDenominators(
+        Transcript memory tp,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory eval_challenge_powers
+    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals) {
         Fr eval_challenge = tp.shplonkZ;
         inverse_vanishing_evals[0] = (eval_challenge - eval_challenge_powers[0]).invert();
 
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N + 1; ++i) {
-            Fr round_inverted_denominator = 0;
-            if (i < LOG_N + 1) {
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            Fr round_inverted_denominator = Fr.wrap(0);
+            if (i <= LOG_N + 1) {
                 round_inverted_denominator = (eval_challenge + eval_challenge_powers[i]).invert();
             }
-            inverse_vanishing_evals[i] = round_inverted_denominator;
+            inverse_vanishing_evals[i + 1] = round_inverted_denominator;
         }
     }
 
-    function computeGeminiBatchedUnivariateEvaluation(Transcript memory tp, Fr batched_evaluation_accumulator, Fr[CONST_PROOF_SIZE_LOG_N] memory gemini_evaluations, Fr[CONST_PROOF_SIZE_LOG_N] memory gemini_eval_challenge_powers) internal view returns (Fr a_0_pos) {
-
+    function computeGeminiBatchedUnivariateEvaluation(
+        Transcript memory tp,
+        Fr batchedEvalAccumulator,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers
+    ) internal view returns (Fr a_0_pos) {
         for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
-            Fr challenge_power = gemini_eval_challenge_powers[i - 1];
+            Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = tp.sumCheckUChallenges[i - 1];
-            Fr eval_neg = gemini_evaluations[i - 1];
+            Fr evalNeg = geminiEvaluations[i - 1];
 
-            Fr batched_eval_round_acc =
-                ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr.ONE() - u) - u));
+            Fr batchedEvalRoundAcc = (
+                (challengePower * batchedEvalAccumulator * Fr.wrap(2))
+                    - evalNeg * (challengePower * (Fr.wrap(1) - u) - u)
+            );
             // Divide by the denominator
-            batched_eval_round_acc *= (challenge_power * (Fr.ONE() - u) + u).invert();
+            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
 
             bool is_dummy_round = (i > LOG_N);
             if (!is_dummy_round) {
-                batched_eval_accumulator = batched_eval_round_acc;
+                batchedEvalAccumulator = batchedEvalRoundAcc;
             }
         }
 
-        a_0_pos =batched_eval_accumulator;
+        a_0_pos = batchedEvalAccumulator;
     }
-
 
     // This implementation is the same as above with different constants
     function batchMul(
@@ -404,25 +425,6 @@ contract BlakeHonkVerifier is IVerifier {
             mstore(result, mload(free))
             mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
-    }
-
-    function kzgReduceVerify(
-        Honk.Proof memory proof,
-        Transcript memory tp,
-        Fr evaluation,
-        Honk.G1Point memory commitment
-    ) internal view returns (bool) {
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
-        Honk.G1Point memory ONE = Honk.G1Point({x: 1, y: 2});
-
-
-        Honk.G1Point memory evalAsPoint = ecMul(ONE, evaluation);
-        P0 = ecSub(P0, evalAsPoint);
-
-        Honk.G1Point memory P1 = negateInplace(quotient_commitment);
-
-        // Perform pairing check
-        return pairing(P0, P1);
     }
 
     function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) internal view returns (bool) {

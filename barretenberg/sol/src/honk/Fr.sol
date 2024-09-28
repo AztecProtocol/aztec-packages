@@ -83,7 +83,7 @@ library FrLib {
         return numerator * invert(denominator);
     }
 
-    function sqr(Fr value) internal view returns (Fr) {
+    function sqr(Fr value) internal pure returns (Fr) {
         return value * value;
     }
 
@@ -91,12 +91,8 @@ library FrLib {
         return Fr.unwrap(value);
     }
 
-    function ZERO() internal pure returns (Fr) {
-        return Fr.wrap(0);
-    }
-
-    function ONE() internal pure returns (Fr) {
-        return Fr.wrap(1);
+    function neg(Fr value) internal pure returns (Fr) {
+        return Fr.wrap(MODULUS - Fr.unwrap(value));
     }
 }
 
