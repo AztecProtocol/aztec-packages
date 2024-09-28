@@ -2,7 +2,8 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-import { Honk } from "../HonkTypes.sol";
+import {Honk} from "../HonkTypes.sol";
+
 uint256 constant N = 65536;
 uint256 constant LOG_N = 16;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 22;
