@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727476060774,
+  "lastUpdate": 1727519889436,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aab87733b4381d8d64b85f5e5a6bff4e31ee1abd",
-          "message": "fix: native world state test issues (#8546)\n\nThis PR fixes the flaky Jest tests that were comparing the C++\r\nWorldState against the JS implementation.\r\n\r\nThe issue stemmed from the `WorldState::get_state_reference` function\r\nreading state reference for all five trees in parallel and saving that\r\ninformation in a `std::unordered_map`. Concurrent writes to a\r\n`std::unordered_map` [are\r\ninvalid](https://devblogs.microsoft.com/oldnewthing/20231103-00/?p=108966)\r\nso I've added a lock to ensure that only one thread writes at a time.\r\nSimultaneous reads are fine though.",
-          "timestamp": "2024-09-16T11:08:09+01:00",
-          "tree_id": "3b663f039343f3698013f2bb4b0de35483347c81",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aab87733b4381d8d64b85f5e5a6bff4e31ee1abd"
-        },
-        "date": 1726481903375,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12908.682877000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9257.660694000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5109.11256,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4717.756773 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38327.397527,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38327397000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14658.544392,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14658545000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3613244945,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3613244945 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 137259628,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 137259628 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2962647334,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2962647334 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 113527785,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 113527785 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 126726177,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126726177 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4354ae030b5b7e365ff0361e88cd74cd95d71e04",
+          "message": "feat(avm): Integrate public inputs in AVM recursive verifier (#8846)\n\nResolves #8714",
+          "timestamp": "2024-09-28T10:17:08Z",
+          "tree_id": "bfb114f17a65fb9eeaf618715763a4dce20d01a4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4354ae030b5b7e365ff0361e88cd74cd95d71e04"
+        },
+        "date": 1727519881257,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31237.94903199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28751.546442000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4981.9948709999835,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4673.422072 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91525.805055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91525805000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14497.779775999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14497780000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8041327740,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8041327740 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151726334,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151726334 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6780932091,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6780932091 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128536533,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128536533 ns\nthreads: 1"
           }
         ]
       }
