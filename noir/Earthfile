@@ -27,8 +27,8 @@ nargo-src:
     # just only when it changes
     # the commit hash gets injected into version strings
     DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns_native"
-    # We use our content hash as a fake commit hash, except semver doesn't like the '-' character
-    ENV COMMIT_HASH=$(cat .content-hash | sed 's/-//')
+    # We use our content hash as a fake commit hash, stripped of non-semver characters
+    ENV COMMIT_HASH=$(cat .content-hash | sed 's/[^a-zA-Z0-9.-]//g')
 
     # # borrow Nix's approach to build everything in 1970
     ENV SOURCE_TIMESTAMP=1
