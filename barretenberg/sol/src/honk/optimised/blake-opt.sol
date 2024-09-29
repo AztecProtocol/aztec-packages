@@ -779,7 +779,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override view returns (bool) {
         uint256 gasBefore = gasleft();
 
         // Load the verification key into memory
