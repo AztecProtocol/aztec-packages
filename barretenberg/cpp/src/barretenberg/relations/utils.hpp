@@ -174,15 +174,16 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename Parameters>
     // TODO(#224)(Cody): Input should be an array?
-    inline static void accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
-                                                       RelationEvaluations& relation_evaluations,
-                                                       const Parameters& relation_parameters,
-                                                       const FF& partial_evaluation_result)
+    inline static RelationEvaluations accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
+                                                                      const Parameters& relation_parameters,
+                                                                      const FF& partial_evaluation_result)
     {
+        RelationEvaluations result;
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             accumulate_single_relation<Parameters, rel_index>(
-                evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
+                evaluations, result, relation_parameters, partial_evaluation_result);
         });
+        return result;
     }
 
     template <typename Parameters, size_t relation_idx, bool consider_skipping = true>
@@ -336,7 +337,7 @@ template <typename Flavor> class RelationUtils {
      * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
      */
     template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
-    static void apply_to_tuple_of_arrays_elements(Operation&& operation, std::tuple<Ts...>& tuple)
+    static void apply_to_tuple_of_arrays_elements(Operation&& operation, const std::tuple<Ts...>& tuple)
     {
         using Relation = typename std::tuple_element_t<outer_idx, Relations>;
         const auto subrelation_length = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
