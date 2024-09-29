@@ -3,19 +3,17 @@ import {
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
 } from '@aztec/circuit-types';
-import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import type { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   ClientIvcProof,
-  type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
@@ -38,12 +36,6 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
 
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());
-  }
-
-  public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
-    const contractAddress = publicInputs.callContext.storageContractAddress;
-
-    return Promise.resolve(publicInputs.noteHashes.map(commitment => siloNoteHash(contractAddress, commitment.value)));
   }
 
   public async simulateProofInit(
@@ -75,20 +67,18 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
   }
 
   public async simulateProofReset(
-    privateInputs: PrivateKernelResetCircuitPrivateInputsVariants,
+    privateInputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    const [duration, result] = await elapsed(() => executeReset(privateInputs));
+    const variantPrivateInputs = privateInputs.trimToSizes();
+    const [duration, result] = await elapsed(() => executeReset(variantPrivateInputs, privateInputs.dimensions));
     this.log.debug(`Simulated private kernel reset`, {
       eventName: 'circuit-simulation',
-      circuitName: ('private-kernel-reset-' + privateInputs.sizeTag) as CircuitName,
+      circuitName: 'private-kernel-reset',
       duration,
-      inputSize: privateInputs.toBuffer().length,
+      inputSize: variantPrivateInputs.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
-    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(
-      result,
-      'PrivateKernelResetFullArtifact',
-    );
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelResetArtifact');
   }
 
   public async simulateProofTail(
@@ -129,6 +119,7 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
       publicInputs,
       verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,
       outputWitness: new Map(),
+      bytecode: Buffer.from([]),
     };
     return kernelProofOutput;
   }

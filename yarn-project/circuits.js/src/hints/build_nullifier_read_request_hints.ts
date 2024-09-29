@@ -1,3 +1,4 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Fr } from '@aztec/foundation/fields';
@@ -14,7 +15,9 @@ import {
   type MembershipWitness,
   Nullifier,
   NullifierReadRequestHintsBuilder,
+  PendingReadHint,
   ReadRequest,
+  ReadRequestState,
   type ScopedNullifier,
   ScopedReadRequest,
 } from '../structs/index.js';
@@ -34,20 +37,26 @@ interface NullifierMembershipWitnessWithPreimage {
   leafPreimage: IndexedTreeLeafPreimage;
 }
 
-export async function buildNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
-  oracle: {
-    getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
-  },
+export class NullifierReadRequestResetStates {
+  constructor(
+    public states: Tuple<ReadRequestState, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    public pendingReadHints: PendingReadHint[],
+  ) {}
+
+  static empty() {
+    return new NullifierReadRequestResetStates(
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, () => ReadRequestState.NADA),
+      [],
+    );
+  }
+}
+
+export function getNullifierReadRequestResetStates(
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
-  sizePending: PENDING,
-  sizeSettled: SETTLED,
   futureNullifiers: ScopedNullifier[],
-  siloed = false,
 ) {
-  const builder = new NullifierReadRequestHintsBuilder(sizePending, sizeSettled);
-
-  const numReadRequests = countAccumulatedItems(nullifierReadRequests);
+  const resetStates = NullifierReadRequestResetStates.empty();
 
   const nullifierMap: Map<bigint, { nullifier: ScopedNullifier; index: number }[]> = new Map();
   getNonEmptyItems(nullifiers).forEach((nullifier, index) => {
@@ -59,6 +68,8 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
 
   const futureNullifiersMap = new ScopedValueCache(futureNullifiers);
 
+  const numReadRequests = countAccumulatedItems(nullifierReadRequests);
+
   for (let i = 0; i < numReadRequests; ++i) {
     const readRequest = nullifierReadRequests[i];
     const pendingNullifier = nullifierMap
@@ -66,12 +77,39 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
       ?.find(({ nullifier }) => isValidNullifierReadRequest(readRequest, nullifier));
 
     if (pendingNullifier !== undefined) {
-      builder.addPendingReadRequest(i, pendingNullifier.index);
+      resetStates.states[i] = ReadRequestState.PENDING;
+      resetStates.pendingReadHints.push(new PendingReadHint(i, pendingNullifier.index));
     } else if (
       !futureNullifiersMap
         .get(readRequest)
         .some(futureNullifier => isValidNullifierReadRequest(readRequest, futureNullifier))
     ) {
+      resetStates.states[i] = ReadRequestState.SETTLED;
+    }
+  }
+
+  return resetStates;
+}
+
+export async function buildNullifierReadRequestHintsFromResetStates<PENDING extends number, SETTLED extends number>(
+  oracle: {
+    getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
+  },
+  nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  resetStates: NullifierReadRequestResetStates,
+  sizePending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
+  sizeSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
+  siloed = false,
+) {
+  const builder = new NullifierReadRequestHintsBuilder(sizePending, sizeSettled);
+
+  resetStates.pendingReadHints.forEach(hint => {
+    builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
+  });
+
+  for (let i = 0; i < resetStates.states.length; i++) {
+    if (resetStates.states[i] === ReadRequestState.SETTLED) {
+      const readRequest = nullifierReadRequests[i];
       const siloedValue = siloed ? readRequest.value : siloNullifier(readRequest.contractAddress, readRequest.value);
       const membershipWitnessWithPreimage = await oracle.getNullifierMembershipWitness(siloedValue);
       builder.addSettledReadRequest(
@@ -81,7 +119,30 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
       );
     }
   }
+
   return builder.toHints();
+}
+
+export async function buildNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
+  oracle: {
+    getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
+  },
+  nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
+  futureNullifiers: ScopedNullifier[],
+  sizePending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
+  sizeSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
+  siloed = false,
+) {
+  const resetStates = getNullifierReadRequestResetStates(nullifierReadRequests, nullifiers, futureNullifiers);
+  return await buildNullifierReadRequestHintsFromResetStates(
+    oracle,
+    nullifierReadRequests,
+    resetStates,
+    sizePending,
+    sizeSettled,
+    siloed,
+  );
 }
 
 export function buildSiloedNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
@@ -90,8 +151,8 @@ export function buildSiloedNullifierReadRequestHints<PENDING extends number, SET
   },
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
-  sizePending: PENDING,
-  sizeSettled: SETTLED,
+  sizePending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
+  sizeSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
 ) {
   // Nullifiers outputted from public kernels are already siloed while read requests are not.
   // Siloing the read request values and set the contract addresses to zero to find the matching nullifier contexts.
@@ -111,9 +172,9 @@ export function buildSiloedNullifierReadRequestHints<PENDING extends number, SET
     oracle,
     siloedReadRequests,
     scopedNullifiers,
+    [],
     sizePending,
     sizeSettled,
-    [],
     true,
   );
 }

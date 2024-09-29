@@ -8,11 +8,10 @@ import {
   AGGREGATION_OBJECT_LENGTH,
   ClientIvcProof,
   Fr,
-  type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -20,14 +19,12 @@ import {
   type VerificationKeyAsFields,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
-import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
-  PrivateResetTagToArtifactName,
   ProtocolCircuitVks,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
@@ -39,6 +36,7 @@ import {
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
+  getPrivateKernelResetArtifactName,
 } from '@aztec/noir-protocol-circuits-types';
 import { WASMSimulator } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
@@ -130,12 +128,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await this.runInDirectory(operation);
   }
 
-  public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
-    const contractAddress = publicInputs.callContext.storageContractAddress;
-
-    return Promise.resolve(publicInputs.noteHashes.map(commitment => siloNoteHash(contractAddress, commitment.value)));
-  }
-
   public async simulateProofInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
@@ -159,13 +151,15 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   }
 
   public async simulateProofReset(
-    inputs: PrivateKernelResetCircuitPrivateInputsVariants,
+    inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const variantInputs = inputs.trimToSizes();
+    const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
     return await this.simulate(
-      inputs,
-      PrivateResetTagToArtifactName[inputs.sizeTag],
-      convertPrivateKernelResetInputsToWitnessMap,
-      output => convertPrivateKernelResetOutputsFromWitnessMap(output, inputs.sizeTag),
+      variantInputs,
+      artifactName,
+      variantInputs => convertPrivateKernelResetInputsToWitnessMap(variantInputs, artifactName),
+      output => convertPrivateKernelResetOutputsFromWitnessMap(output, artifactName),
     );
   }
 
@@ -283,14 +277,16 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
+    const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
     // TODO(#7410) we dont need to generate vk's for these circuits, they are in the vk tree
     const { verificationKey } = await this.runInDirectory(dir =>
-      this.computeVerificationKey(dir, Buffer.from(compiledCircuit.bytecode, 'base64'), circuitType),
+      this.computeVerificationKey(dir, bytecode, circuitType),
     );
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
       verificationKey,
       outputWitness,
+      bytecode,
     };
     return kernelOutput;
   }
