@@ -11,7 +11,7 @@ describe('epoch proof quote', () => {
       basisPointFee: 5000,
       bondAmount: 1000000000000000000n,
       epochToProve: 42n,
-      rollupAddress: EthAddress.random(),
+      prover: EthAddress.random(),
       validUntilSlot: 100n,
     });
 

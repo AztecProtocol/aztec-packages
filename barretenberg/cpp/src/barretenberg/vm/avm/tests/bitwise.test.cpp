@@ -356,7 +356,7 @@ class AvmBitwiseTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
     AvmTraceBuilder trace_builder;
 
     std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_trace::AvmMemoryTag tag)

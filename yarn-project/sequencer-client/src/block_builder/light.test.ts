@@ -169,9 +169,8 @@ describe('LightBlockBuilder', () => {
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
-    await builder.setBlockCompleted();
-    const result = await builder.finaliseBlock();
-    return result.block.header;
+    const { header } = await builder.setBlockCompleted();
+    return header;
   };
 
   // Builds the block header using circuit outputs

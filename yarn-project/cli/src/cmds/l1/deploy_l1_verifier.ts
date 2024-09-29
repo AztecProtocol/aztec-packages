@@ -47,7 +47,6 @@ export async function deployUltraHonkVerifier(
   // but also has a reference to L1 artifacts and bb-prover.
   const setupVerifier = async (
     artifact: Parameters<(typeof verifier)['generateSolidityContract']>[0], // Cannot properly import the type here due to the hack above
-    method: 'setBlockVerifier' | 'setEpochVerifier',
   ) => {
     const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
     log(`Generated UltraHonkVerifier contract for ${artifact}`);
@@ -55,12 +54,11 @@ export async function deployUltraHonkVerifier(
     log(`Compiled UltraHonkVerifier contract for ${artifact}`);
     const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
     log(`Deployed real ${artifact} verifier at ${verifierAddress}`);
-    await rollup.write[method]([verifierAddress.toString()]);
+    await rollup.write.setEpochVerifier([verifierAddress.toString()]);
     log(`Set ${artifact} verifier in ${rollup.address} rollup contract to ${verifierAddress}`);
   };
 
-  await setupVerifier('BlockRootRollupFinalArtifact', 'setBlockVerifier');
-  await setupVerifier('RootRollupArtifact', 'setEpochVerifier');
+  await setupVerifier('RootRollupArtifact');
 
   log(`Rollup accepts only real proofs now`);
 }
@@ -98,7 +96,6 @@ export async function deployMockVerifier(
     client: walletClient,
   });
 
-  await rollup.write.setBlockVerifier([mockVerifierAddress.toString()]);
   await rollup.write.setEpochVerifier([mockVerifierAddress.toString()]);
   log(`Rollup accepts only fake proofs now`);
 }
