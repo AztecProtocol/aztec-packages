@@ -55,9 +55,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
-    static FF process_subrelation_evaluations(const RelationEvaluations& evals,
-                                              const std::array<FF, NUM_SUBRELATIONS>& challenges,
-                                              FF& linearly_dependent_contribution)
+    inline static FF process_subrelation_evaluations(const RelationEvaluations& evals,
+                                                     const std::array<FF, NUM_SUBRELATIONS>& challenges,
+                                                     FF& linearly_dependent_contribution)
     {
         FF linearly_independent_contribution{ 0 };
         size_t idx = 0;
