@@ -74,6 +74,23 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
     }
 };
 
+// WORKTODO: this should be a mega thing
+/**
+ * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
+ * variables.
+ */
+consteval size_t subrelation_length_to_component_evaluation_index(const size_t HOMOGENIZED_LENGTH)
+{
+    switch (HOMOGENIZED_LENGTH) {
+    case 7:
+        return 0;
+    case 11:
+        return 1;
+    default:
+        return 2;
+    };
+};
+
 /**
  * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
  * variables.
@@ -226,7 +243,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                                  NUM_KEYS - 1>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
-    // The containter constructor for sumcheck univariates corresponding to each subrelation in ZK Flavor's relations
+    // The containter constructor for sumcheck univariates corresponding to each subrelation in ZK Flavor's
+    // relations
     using ZKSumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, compute_zk_partial_subrelation_lengths<RelationImpl>()>;
 

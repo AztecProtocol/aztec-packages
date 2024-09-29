@@ -81,6 +81,8 @@ class UltraFlavor {
     // combiner) too much.
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
+    using ComponentEvaluations = std::array<FF, 3>; // WORKTODO: get rid of this
+
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3

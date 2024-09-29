@@ -51,9 +51,43 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<DeciderPKs::NUM>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<DeciderPKs::NUM>;
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues; // WORKTODO: del
+    using ComponentEvaluations = typename Flavor::ComponentEvaluations;
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
+
+    static std::tuple<ComponentEvaluations, FF> process_subrelation_evaluations(const RelationEvaluations& evals,
+                                                                                const RelationSeparator& challenges,
+                                                                                FF& linearly_dependent_contribution)
+    {
+        FF linearly_independent_contribution{ 0 };
+        ComponentEvaluations component_evals;
+        size_t idx = 0;
+
+        std::array<FF, NUM_SUBRELATIONS> tmp{ 1 };
+        // WORKTODO: nix this!
+        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
+
+        auto scale_by_challenge_and_accumulate =
+            [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                static constexpr size_t SUBRELATION_PARTIAL_LENGTH =
+                    std::get<subrelation_idx>(Relation::SUBRELATION_PARTIAL_LENGTHS);
+
+                auto contribution = element * tmp[idx];
+                if (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
+                    std::get<subrelation_length_to_component_evaluation_index(SUBRELATION_PARTIAL_LENGTH)>(
+                        component_evals) += contribution;
+                    // WORKTODO: nix result and combine later
+                    linearly_independent_contribution += contribution;
+                } else {
+                    linearly_dependent_contribution += contribution;
+                }
+                idx++;
+            };
+        RelationUtils::apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, evals);
+        return std::make_tuple(component_evals, linearly_independent_contribution);
+    }
 
     /**
      * @brief Compute the values of the aggregated relation evaluations at each row in the execution trace, representing
@@ -67,9 +101,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    static std::tuple<std::shared_ptr<RelationEvaluations[]>, std::vector<FF>> compute_row_evaluations(
+    static std::tuple<std::shared_ptr<ComponentEvaluations[]>, std::vector<FF>> compute_row_evaluations(
         const ProverPolynomials& polynomials,
-        const RelationSeparator& alpha,
+        const RelationSeparator& alphas,
         const RelationParameters<FF>& relation_parameters)
 
     {
@@ -78,7 +112,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         std::vector<FF> aggregate_relation_evaluations(polynomial_size);
-        std::shared_ptr<RelationEvaluations[]> subrelation_evaluations(new RelationEvaluations[polynomial_size]);
+        std::shared_ptr<ComponentEvaluations[]> component_evaluations(new ComponentEvaluations[polynomial_size]);
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
             polynomial_size,
             /*accumulator default*/ FF(0),
@@ -89,18 +123,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                 RelationEvaluations evals =
                     RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-                FF result{ 0 };
-                FF running_challenge{ 1 };
-                RelationUtils::scale_and_batch_elements(
-                    evals, alpha, running_challenge, result, linearly_dependent_contribution_accumulator);
-
-                subrelation_evaluations[static_cast<ptrdiff_t>(row_idx)] = evals;
-                aggregate_relation_evaluations[row_idx] = result;
+                std::tie(component_evaluations[static_cast<ptrdiff_t>(row_idx)],
+                         aggregate_relation_evaluations[row_idx]) =
+                    process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
         aggregate_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
 
-        return std::make_pair(subrelation_evaluations, aggregate_relation_evaluations);
+        return std::make_pair(component_evaluations, aggregate_relation_evaluations);
     }
 
     /**
@@ -165,12 +195,12 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     /**
      * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
      */
-    static std::tuple<std::shared_ptr<RelationEvaluations[]>, Polynomial<FF>> compute_perturbator(
+    static std::tuple<std::shared_ptr<ComponentEvaluations[]>, Polynomial<FF>> compute_perturbator(
         const std::shared_ptr<const DeciderPK>& accumulator, const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();
 
-        auto [subrelation_evaluations, aggregate_relation_evaluations] = compute_row_evaluations(
+        auto [component_evaluations, aggregate_relation_evaluations] = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
@@ -181,7 +211,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             perturbator.emplace_back(FF(0));
         }
 
-        return std::make_pair(subrelation_evaluations, Polynomial<FF>(perturbator));
+        return std::make_pair(component_evaluations, Polynomial<FF>(perturbator));
     }
 
     /**
@@ -210,7 +240,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
               typename ArraysOfValues>
     inline static void accumulate_zero_incoming_contribution(TupleOfUnivariates& relation_accumulator,
                                                              const LagrangePolynomialPowers& L_0_pows,
-                                                             const ArraysOfValues& subrelation_values_on_accumulator,
+                                                             const ArraysOfValues& component_evals_on_accumulator,
                                                              const FF& scaling_factor)
     {
         static constexpr size_t NUM_SUBRELATIONS = std::tuple_size_v<TupleOfUnivariates>;
@@ -219,7 +249,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             using View = typename Accumulator::View;
 
             static constexpr size_t DEG = Accumulator::LENGTH - 1;
-            auto tmp = View(L_0_pows[DEG]) * std::get<idx>(subrelation_values_on_accumulator);
+            auto tmp =
+                View(L_0_pows[DEG]) * std::get<subrelation_length_to_component_evaluation_index(Accumulator::LENGTH)>(
+                                          component_evals_on_accumulator);
             tmp *= scaling_factor;
             std::get<idx>(relation_accumulator) += tmp;
         });
@@ -248,7 +280,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                 const Parameters& relation_parameters,
                                                 const FF& scaling_factor,
                                                 const LagrangePowers& L_0_pows,
-                                                const RelationEvaluations& evaluations_on_accumulator)
+                                                const ComponentEvaluations& component_evaluations_on_accumulator)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
         auto& accumulator_for_one_relation = std::get<relation_idx>(full_accumulator);
@@ -266,9 +298,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                         static_assert(
                             NUM_KEYS == 2,
                             "Sparse Protogalaxy is not implemented for folding more than one decider key at a time.");
-                        auto& subrelation_evaluations = std::get<relation_idx>(evaluations_on_accumulator);
-                        accumulate_zero_incoming_contribution(
-                            accumulator_for_one_relation, L_0_pows, subrelation_evaluations, scaling_factor);
+                        accumulate_zero_incoming_contribution(accumulator_for_one_relation,
+                                                              L_0_pows,
+                                                              component_evaluations_on_accumulator,
+                                                              scaling_factor);
                     } else {
                         Relation::accumulate(
                             accumulator_for_one_relation, extended_univariates, relation_parameters, scaling_factor);
@@ -291,7 +324,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                               relation_parameters,
                                                               scaling_factor,
                                                               L_0_pows,
-                                                              evaluations_on_accumulator);
+                                                              component_evaluations_on_accumulator);
         }
     }
 
@@ -332,7 +365,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const Parameters& relation_parameters,
         const UnivariateRelationSeparator& alphas,
         TupleOfTuples& univariate_accumulators,
-        const std::shared_ptr<RelationEvaluations[]>& subrelation_relation_values_on_accumulator)
+        const std::shared_ptr<ComponentEvaluations[]>& relation_component_values_on_accumulator)
     {
         BB_OP_COUNT_TIME();
 
@@ -408,7 +441,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                     relation_parameters, // these parameters have already been folded
                     pow_challenge,
                     lagrange_powers,
-                    subrelation_relation_values_on_accumulator[static_cast<std::ptrdiff_t>(idx)]);
+                    relation_component_values_on_accumulator[static_cast<std::ptrdiff_t>(idx)]);
             }
         });
 
@@ -433,15 +466,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateRelationSeparator& alphas,
-        const std::shared_ptr<RelationEvaluations[]>& subrelation_relation_values_on_accumulator)
+        const std::shared_ptr<ComponentEvaluations[]>& relation_component_values_on_accumulator)
     {
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
-        return compute_combiner(keys,
-                                gate_separators,
-                                relation_parameters,
-                                alphas,
-                                accumulators,
-                                subrelation_relation_values_on_accumulator);
+        return compute_combiner(
+            keys, gate_separators, relation_parameters, alphas, accumulators, relation_component_values_on_accumulator);
     }
 
     static ExtendedUnivariateWithRandomization compute_combiner(
@@ -449,15 +478,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParameters& relation_parameters,
         const UnivariateRelationSeparator& alphas,
-        const std::shared_ptr<RelationEvaluations[]>& subrelation_relation_values_on_accumulator)
+        const std::shared_ptr<ComponentEvaluations[]>& relation_component_values_on_accumulator)
     {
         TupleOfTuplesOfUnivariates accumulators;
-        return compute_combiner(keys,
-                                gate_separators,
-                                relation_parameters,
-                                alphas,
-                                accumulators,
-                                subrelation_relation_values_on_accumulator);
+        return compute_combiner(
+            keys, gate_separators, relation_parameters, alphas, accumulators, relation_component_values_on_accumulator);
     }
 
     /**

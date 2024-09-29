@@ -268,7 +268,7 @@ template <typename Flavor> class RelationUtils {
      * @param result
      * @param linearly_dependent_contribution
      */
-    static void scale_and_batch_elements(auto& tuple,
+    static void scale_and_batch_elements(const auto& tuple,
                                          const RelationSeparator& challenges,
                                          FF current_scalar,
                                          FF& result,
@@ -338,7 +338,7 @@ template <typename Flavor> class RelationUtils {
      * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
      */
     template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
-    static void apply_to_tuple_of_arrays_elements(Operation&& operation, std::tuple<Ts...>& tuple)
+    static void apply_to_tuple_of_arrays_elements(Operation&& operation, const std::tuple<Ts...>& tuple)
     {
         using Relation = typename std::tuple_element_t<outer_idx, Relations>;
         const auto subrelation_length = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
