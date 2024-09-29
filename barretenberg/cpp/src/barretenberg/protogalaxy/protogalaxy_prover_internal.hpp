@@ -55,6 +55,19 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
+    /**
+     * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
+     * evaluation(s).
+     *
+     * @details Note that a linearly dependent subrelation is not computed on a specific row but rather on the entire
+     * execution trace.
+     *
+     * @param evals The evaluations of all subrelations on some row
+     * @param challenges The 'alpha' challenges used to batch the subrelations
+     * @param linearly_dependent_contribution An accumulator for values of  the linearly-dependent (i.e., 'whole-trace')
+     * subrelations
+     * @return FF The evaluation of the linearly-independent (i.e., 'per-row') subrelations
+     */
     inline static FF process_subrelation_evaluations(const RelationEvaluations& evals,
                                                      const std::array<FF, NUM_SUBRELATIONS>& challenges,
                                                      FF& linearly_dependent_contribution)
