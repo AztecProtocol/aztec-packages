@@ -5,6 +5,8 @@
 // Source code for the Ultrahonk Solidity verifier.
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
 const std::string HONK_CONTRACT_SOURCE = R"(
+pragma solidity ^0.8.27;
+
 type Fr is uint256;
 
 using { add as + } for Fr global;
@@ -340,31 +342,31 @@ library TranscriptLib {
 
     function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
-        bytes32[] memory round0 = new bytes32[](3 + NUMBER_OF_PUBLIC_INPUTS + 12);
+        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
         round0[0] = bytes32(proof.circuitSize);
         round0[1] = bytes32(proof.publicInputsSize);
         round0[2] = bytes32(proof.publicInputsOffset);
-        for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
+        for (uint256 i = 0; i < publicInputsSize; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS] = bytes32(proof.w1.x_0);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 1] = bytes32(proof.w1.x_1);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 2] = bytes32(proof.w1.y_0);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 3] = bytes32(proof.w1.y_1);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 4] = bytes32(proof.w2.x_0);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 5] = bytes32(proof.w2.x_1);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 6] = bytes32(proof.w2.y_0);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 7] = bytes32(proof.w2.y_1);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 8] = bytes32(proof.w3.x_0);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 9] = bytes32(proof.w3.x_1);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 10] = bytes32(proof.w3.y_0);
-        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 11] = bytes32(proof.w3.y_1);
+        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
+        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
+        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
+        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
+        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
+        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
+        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
+        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
+        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
+        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
+        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
+        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -373,7 +375,10 @@ library TranscriptLib {
         (etaThree, unused) = splitChallenge(previousChallenge);
     }
 
-    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
+    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
+        internal
+        pure
+        returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
         bytes32[13] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
@@ -395,7 +400,10 @@ library TranscriptLib {
     }
 
     // Alpha challenges non-linearise the gate contributions
-    function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
+    function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof)
+        internal
+        pure
+        returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
         uint256[9] memory alpha0;
@@ -423,7 +431,10 @@ library TranscriptLib {
         }
     }
 
-    function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
+    function generateGateChallenges(Fr previousChallenge)
+        internal
+        pure
+        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
@@ -433,13 +444,15 @@ library TranscriptLib {
         nextPreviousChallenge = previousChallenge;
     }
 
-    function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
+    function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
             univariateChal[0] = prevChallenge;
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
@@ -458,7 +471,6 @@ library TranscriptLib {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
         }
@@ -523,10 +535,6 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    // TODO: mod q proof points
-    // TODO: Preprocess all of the memory locations
-    // TODO: Adjust proof point serde away from poseidon forced field elements
-    // TODO: move this back to probably each instance to avoid dynamic init of arrays in the Transcript Lib
     function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory) {
         Honk.Proof memory p;
 
@@ -592,8 +600,6 @@ library TranscriptLib {
         uint256 boundary = 0x460;
 
         // Sumcheck univariates
-        // TODO: in this case we know what log_n is - so we hard code it, we would want this to be included in
-        // a cpp template for different circuit sizes
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             // The loop boundary of i, this will shift forward on each evaluation
             uint256 loop_boundary = boundary + (i * 0x20 * BATCHED_RELATION_PARTIAL_LENGTH);
@@ -668,7 +674,6 @@ library TranscriptLib {
 
         return p;
     }
-
 }
 
 // EC Point utilities
@@ -716,7 +721,7 @@ library RelationsLib {
 
     function accumulateRelationEvaluations(Honk.Proof memory proof, Transcript memory tp, Fr powPartialEval)
         internal
-        view
+        pure
         returns (Fr accumulator)
     {
         Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations = proof.sumcheckEvaluations;
@@ -729,24 +734,22 @@ library RelationsLib {
         accumulateDeltaRangeRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        accumulatePoseidonExternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        accumulatePoseidonInternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulatePoseidonExternalRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulatePoseidonInternalRelation(purportedEvaluations, evaluations, powPartialEval);
         // batch the subrelations with the alpha challenges to obtain the full honk relation
         accumulator = scaleAndBatchSubrelations(evaluations, tp.alphas);
     }
 
     /**
-     * WIRE
-     *
-     * Wire is an aesthetic helper function that is used to index by enum into proof.sumcheckEvaluations, it avoids
+     * Aesthetic helper function that is used to index by enum into proof.sumcheckEvaluations, it avoids
      * the relation checking code being cluttered with uint256 type casting, which is often a different colour in code
      * editors, and thus is noisy.
      */
-    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns(Fr)
-    {
+    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns (Fr) {
         return p[uint256(_wire)];
     }
 
+    uint256 internal constant NEG_HALF_MODULO_P = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000;
     /**
      * Ultra Arithmetic Relation
      *
@@ -755,16 +758,15 @@ library RelationsLib {
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         // Relation 0
         Fr q_arith = wire(p, WIRE.Q_ARITH);
         {
-            Fr neg_half = Fr.wrap(0) - (FrLib.invert(Fr.wrap(2)));
+            Fr neg_half = Fr.wrap(NEG_HALF_MODULO_P);
 
             Fr accum = (q_arith - Fr.wrap(3)) * (wire(p, WIRE.Q_M) * wire(p, WIRE.W_R) * wire(p, WIRE.W_L)) * neg_half;
-            accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R)) +
-                    (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) +
-                    wire(p, WIRE.Q_C);
+            accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R))
+                + (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) + wire(p, WIRE.Q_C);
             accum = accum + (q_arith - Fr.wrap(1)) * wire(p, WIRE.W_4_SHIFT);
             accum = accum * q_arith;
             accum = accum * domainSep;
@@ -829,9 +831,11 @@ library RelationsLib {
     }
 
     function accumulateLogDerivativeLookupRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p, Transcript memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr domainSep)
-        internal view
-    {
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
         Fr write_term;
         Fr read_term;
 
@@ -872,7 +876,7 @@ library RelationsLib {
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         Fr minus_one = Fr.wrap(0) - Fr.wrap(1);
         Fr minus_two = Fr.wrap(0) - Fr.wrap(2);
         Fr minus_three = Fr.wrap(0) - Fr.wrap(3);
@@ -940,10 +944,11 @@ library RelationsLib {
         Fr x_double_identity;
     }
 
-    function
-    accumulateEllipticRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr domainSep)
-        internal view
-    {
+    function accumulateEllipticRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
         EllipticParams memory ep;
         ep.x_1 = wire(p, WIRE.W_R);
         ep.y_1 = wire(p, WIRE.W_O);
@@ -1038,11 +1043,12 @@ library RelationsLib {
         Fr auxiliary_identity;
     }
 
-    function
-    accumulateAuxillaryRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p, Transcript memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr domainSep)
-        internal pure
-    {
+    function accumulateAuxillaryRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp, // sooo we take the relation parameters, if needed, from tramscript
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep // i guess this is the scaling factor?
+    ) internal pure {
         AuxParams memory ap;
 
         /**
@@ -1178,16 +1184,14 @@ library RelationsLib {
 
         ap.index_is_monotonically_increasing = ap.index_delta * ap.index_delta - ap.index_delta; // deg 2
 
-        ap.adjacent_values_match_if_adjacent_indices_match =
-            (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.record_delta; // deg 2
+        ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.record_delta; // deg 2
 
-        evals[13] = ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)) *
-                    (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
-        evals[14] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)) *
-                    (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
+        evals[13] = ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
+            * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
+        evals[14] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
+            * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
 
-        ap.ROM_consistency_check_identity =
-            ap.memory_record_check * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)); // deg 3 or 7
+        ap.ROM_consistency_check_identity = ap.memory_record_check * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)); // deg 3 or 7
 
         /**
          * Contributions 15,16,17
@@ -1209,18 +1213,17 @@ library RelationsLib {
          * with a WRITE operation.
          */
         Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
-        ap.access_check = access_type * access_type - access_type;      // check value is 0 or 1; deg 2 or 8
+        ap.access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
 
-        // deg 1 or 4
         ap.next_gate_access_type = wire(p, WIRE.W_O_SHIFT) * tp.etaThree;
         ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_R_SHIFT) * tp.etaTwo);
         ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_L_SHIFT) * tp.eta);
         ap.next_gate_access_type = wire(p, WIRE.W_4_SHIFT) - ap.next_gate_access_type;
 
         Fr value_delta = wire(p, WIRE.W_O_SHIFT) - wire(p, WIRE.W_O);
-        ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
-            (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * value_delta *
-            (ap.next_gate_access_type * MINUS_ONE + Fr.wrap(1)); // deg 3 or 6
+        ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation = (
+            ap.index_delta * MINUS_ONE + Fr.wrap(1)
+        ) * value_delta * (ap.next_gate_access_type * MINUS_ONE + Fr.wrap(1)); // deg 3 or 6
 
         // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
         // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
@@ -1231,12 +1234,10 @@ library RelationsLib {
             ap.next_gate_access_type * ap.next_gate_access_type - ap.next_gate_access_type;
 
         // Putting it all together...
-        evals[15] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
-                    (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5 or 8
-        evals[16] =
-            ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 4
-        evals[17] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) *
-                    (wire(p, WIRE.Q_AUX) * domainSep); // deg 4 or 6
+        evals[15] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation
+            * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5 or 8
+        evals[16] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 4
+        evals[17] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 4 or 6
 
         ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_ARITH)); // deg 3 or 9
 
@@ -1263,9 +1264,8 @@ library RelationsLib {
         ap.memory_identity = ap.ROM_consistency_check_identity; // deg 3 or 6
         ap.memory_identity =
             ap.memory_identity + ap.RAM_timestamp_check_identity * (wire(p, WIRE.Q_4) * wire(p, WIRE.Q_L)); // deg 4
-        ap.memory_identity =
-            ap.memory_identity + ap.memory_record_check * (wire(p, WIRE.Q_M) * wire(p, WIRE.Q_L)); // deg 3 or 6
-        ap.memory_identity = ap.memory_identity + ap.RAM_consistency_check_identity;               // deg 3 or 9
+        ap.memory_identity = ap.memory_identity + ap.memory_record_check * (wire(p, WIRE.Q_M) * wire(p, WIRE.Q_L)); // deg 3 or 6
+        ap.memory_identity = ap.memory_identity + ap.RAM_consistency_check_identity; // deg 3 or 9
 
         // (deg 3 or 9) + (deg 4) + (deg 3)
         ap.auxiliary_identity = ap.memory_identity + non_native_field_identity + limb_accumulator_identity;
@@ -1295,7 +1295,6 @@ library RelationsLib {
 
     function accumulatePoseidonExternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // I think this is not needed
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep // i guess this is the scaling factor?
     ) internal pure {
@@ -1352,11 +1351,11 @@ library RelationsLib {
 
     function accumulatePoseidonInternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // I think this is not needed
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         PoseidonInternalParams memory ip;
+
         Fr[4] memory INTERNAL_MATRIX_DIAGONAL = [
             FrLib.from(0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7),
             FrLib.from(0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b),
@@ -1443,7 +1442,7 @@ contract HonkVerifier is IVerifier
     }
 
     function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
-        return VK.loadVerificationKey();
+        return HonkVerificationKey.loadVerificationKey();
     }
 
     function computePublicInputDelta(
@@ -1514,7 +1513,6 @@ contract HonkVerifier is IVerifier
         view
         returns (Fr targetSum)
     {
-        // TODO: inline
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
             Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
             Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
@@ -1538,7 +1536,6 @@ contract HonkVerifier is IVerifier
         ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
-        // TODO: opt: use same array mem for each iteratioon
         // Performing Barycentric evaluations
         // Compute B(x)
         Fr numeratorValue = Fr.wrap(1);
@@ -1546,7 +1543,7 @@ contract HonkVerifier is IVerifier
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
-        // Calculate domain size N of inverses -- TODO: montgomery's trick
+        // Calculate domain size N of inverses
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
@@ -1894,6 +1891,7 @@ function convertPoints(Honk.G1ProofPoint[LOG_N + 1] memory commitments)
         converted[i] = convertProofPoint(commitments[i]);
     }
 }
+
 )";
 
 inline std::string get_honk_solidity_verifier(auto const& verification_key)
