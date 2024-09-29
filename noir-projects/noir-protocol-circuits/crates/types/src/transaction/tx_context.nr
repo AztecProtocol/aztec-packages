@@ -4,7 +4,7 @@ use crate::{
 };
 
 // docs:start:tx-context
-struct TxContext {
+pub struct TxContext {
     chain_id : Field,
     version : Field,
     gas_settings: GasSettings,

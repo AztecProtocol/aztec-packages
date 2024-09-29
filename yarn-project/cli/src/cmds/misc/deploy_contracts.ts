@@ -2,14 +2,12 @@ import { DefaultWaitOpts, type EthAddress, NoFeePaymentMethod, type Wallet } fro
 import {
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  CANONICAL_KEY_REGISTRY_ADDRESS,
   GasSettings,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
 } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 
 /**
  * Deploys the contract to pay for gas on L2.
@@ -54,43 +52,6 @@ export async function deployCanonicalL2FeeJuice(
   }
 
   return canonicalFeeJuice.address;
-}
-
-/**
- * Deploys the key registry on L2.
- */
-export async function deployCanonicalKeyRegistry(deployer: Wallet, waitOpts = DefaultWaitOpts): Promise<AztecAddress> {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { KeyRegistryContract } = await import('@aztec/noir-contracts.js');
-
-  const canonicalKeyRegistry = getCanonicalKeyRegistry();
-
-  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
-  // the key registry has already been deployed to the correct address.
-  if (
-    (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(
-      canonicalKeyRegistry.contractClass.id,
-    ) &&
-    (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id))
-  ) {
-    return canonicalKeyRegistry.address;
-  }
-
-  const keyRegistry = await KeyRegistryContract.deploy(deployer)
-    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
-    .deployed(waitOpts);
-
-  if (
-    !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
-    !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))
-  ) {
-    throw new Error(
-      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}, or they both do not equal CANONICAL_KEY_REGISTRY_ADDRESS`,
-    );
-  }
-
-  return canonicalKeyRegistry.address;
 }
 
 /**

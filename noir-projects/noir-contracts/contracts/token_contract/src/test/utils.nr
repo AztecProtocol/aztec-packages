@@ -7,7 +7,7 @@ use dep::aztec::{
 
 use crate::{types::transparent_note::TransparentNote, Token};
 
-pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
@@ -38,7 +38,7 @@ pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddres
     (&mut env, token_contract_address, owner, recipient)
 }
 
-pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
@@ -54,14 +54,14 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
-    // docs:start:txe_test_store_note
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // docs:start:txe_test_add_note
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
-    // docs:end:txe_test_store_note
+    // docs:end:txe_test_add_note
 
     // Redeem our shielded tokens
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
@@ -71,12 +71,16 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
 }
 
 // docs:start:txe_test_read_public
-pub fn check_public_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+unconstrained pub fn check_public_balance(
+    token_contract_address: AztecAddress,
+    address: AztecAddress,
+    address_amount: Field
+) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     let block_number = get_block_number();
 
-    let balances_slot = Token::storage().public_balances.slot;
+    let balances_slot = Token::storage_layout().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
     let amount: U128 = storage_read(token_contract_address, address_slot, block_number);
     assert(amount.to_field() == address_amount, "Public balance is not correct");
@@ -85,7 +89,11 @@ pub fn check_public_balance(token_contract_address: AztecAddress, address: Aztec
 // docs:end:txe_test_read_public
 
 // docs:start:txe_test_call_unconstrained
-pub fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+unconstrained pub fn check_private_balance(
+    token_contract_address: AztecAddress,
+    address: AztecAddress,
+    address_amount: Field
+) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     // Direct call to unconstrained
@@ -94,4 +102,3 @@ pub fn check_private_balance(token_contract_address: AztecAddress, address: Azte
     cheatcodes::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_call_unconstrained
-

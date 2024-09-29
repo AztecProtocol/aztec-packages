@@ -1,8 +1,8 @@
 use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize}};
 
-global NOTE_HEADER_LENGTH: Field = 4;
+global NOTE_HEADER_LENGTH: u32 = 4;
 
-struct NoteHeader {
+pub struct NoteHeader {
     contract_address: AztecAddress,
     nonce: Field,
     storage_slot: Field,

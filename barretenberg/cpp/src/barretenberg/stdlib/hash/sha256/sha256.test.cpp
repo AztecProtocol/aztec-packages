@@ -21,6 +21,7 @@ using Builder = UltraCircuitBuilder;
 using byte_array_ct = byte_array<Builder>;
 using packed_byte_array_ct = packed_byte_array<Builder>;
 using field_ct = field_t<Builder>;
+using witness_ct = witness_t<Builder>;
 
 constexpr uint64_t ror(uint64_t val, uint64_t shift)
 {
@@ -424,4 +425,39 @@ TEST(stdlib_sha256, test_input_str_len_multiple)
 
         EXPECT_EQ(circuit_output, expected);
     }
+}
+
+TEST(stdlib_sha256, test_boomerang_value_regression)
+{
+    auto builder = Builder();
+    std::array<field_t<Builder>, 16> input;
+
+    // Create random input witnesses and ensure that the witnesses are constrained to constants
+    for (size_t i = 0; i < 16; i++) {
+        auto random32bits = engine.get_random_uint32();
+        field_ct elt(witness_ct(&builder, fr(random32bits)));
+        elt.fix_witness();
+        input[i] = elt;
+    }
+    // Check correctness
+    std::array<field_t<Builder>, 64> w_ext = sha256_plookup::extend_witness(input);
+    bool result1 = CircuitChecker::check(builder);
+    EXPECT_EQ(result1, true);
+    bool result2 = false;
+    for (auto& single_extended_witness : w_ext) {
+
+        auto random32bits = engine.get_random_uint32();
+        uint32_t variable_index = single_extended_witness.witness_index;
+        // Ensure our random value is different
+        while (builder.variables[builder.real_variable_index[variable_index]] == fr(random32bits)) {
+            random32bits = engine.get_random_uint32();
+        }
+        auto backup = builder.variables[builder.real_variable_index[variable_index]];
+        builder.variables[builder.real_variable_index[variable_index]] = fr(random32bits);
+        // Check that the circuit fails
+        result2 = result2 || CircuitChecker::check(builder);
+        builder.variables[builder.real_variable_index[variable_index]] = backup;
+    }
+    // If at least one of the updated witnesses hasn't caused the circuit to fail, we're in trouble
+    EXPECT_EQ(result2, false);
 }

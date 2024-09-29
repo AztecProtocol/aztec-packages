@@ -1,7 +1,7 @@
 import { FunctionSelector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
-import { allSameExcept, anyAvmContextInputs, initExecutionEnvironment } from './fixtures/index.js';
+import { allSameExcept, initExecutionEnvironment } from './fixtures/index.js';
 
 describe('Execution Environment', () => {
   const newAddress = new Fr(123456n);
@@ -17,8 +17,7 @@ describe('Execution Environment', () => {
         address: newAddress,
         storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(calldata),
+        calldata: calldata,
       }),
     );
   });
@@ -33,8 +32,7 @@ describe('Execution Environment', () => {
         address: newAddress,
         contractCallDepth: Fr.ONE,
         isDelegateCall: true,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(calldata),
+        calldata: calldata,
       }),
     );
   });
@@ -53,8 +51,7 @@ describe('Execution Environment', () => {
         storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
         isStaticCall: true,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(calldata),
+        calldata: calldata,
       }),
     );
   });

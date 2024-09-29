@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 
 #include <cassert>
@@ -21,11 +22,6 @@ const std::vector<OperandType> three_operand_format16 = {
     OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16,
 };
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
-
-const std::vector<OperandType> getter_format = {
-    OperandType::INDIRECT,
-    OperandType::UINT32,
-};
 
 const std::vector<OperandType> external_call_format = { OperandType::INDIRECT,
                                                         /*gasOffset=*/OperandType::UINT32,
@@ -66,8 +62,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::OR_16, three_operand_format16 },
     { OpCode::XOR_8, three_operand_format8 },
     { OpCode::XOR_16, three_operand_format16 },
-    { OpCode::NOT_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
-    { OpCode::NOT_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::NOT_8, { OperandType::INDIRECT, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::NOT_16, { OperandType::INDIRECT, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::SHL_8, three_operand_format8 },
     { OpCode::SHL_16, three_operand_format16 },
     { OpCode::SHR_8, three_operand_format8 },
@@ -77,26 +73,15 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::CAST_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
 
     // Execution Environment - Globals
-    { OpCode::ADDRESS, getter_format },
-    { OpCode::STORAGEADDRESS, getter_format },
-    { OpCode::SENDER, getter_format },
-    { OpCode::FUNCTIONSELECTOR, getter_format },
-    { OpCode::TRANSACTIONFEE, getter_format },
-    // Execution Environment - Globals
-    { OpCode::CHAINID, getter_format },
-    { OpCode::VERSION, getter_format },
-    { OpCode::BLOCKNUMBER, getter_format },
-    { OpCode::TIMESTAMP, getter_format },
-    // Execution Environment - Globals - Gas
-    { OpCode::FEEPERL2GAS, getter_format },
-    { OpCode::FEEPERDAGAS, getter_format },
+    { OpCode::GETENVVAR_16,
+      {
+          OperandType::INDIRECT,
+          OperandType::UINT8, // var idx
+          OperandType::UINT16,
+      } },
 
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-
-    // Machine State - Gas
-    { OpCode::L2GASLEFT, getter_format },
-    { OpCode::DAGASLEFT, getter_format },
 
     // Machine State - Internal Control Flow
     { OpCode::JUMP_16, { OperandType::UINT16 } },
@@ -158,7 +143,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     // Control Flow - Contract Calls
     { OpCode::CALL, external_call_format },
-    // STATICCALL,
+    { OpCode::STATICCALL, external_call_format },
     // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // REVERT,
@@ -173,7 +158,14 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Gadgets - Hashing
     { OpCode::KECCAK, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::POSEIDON2, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SHA256, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SHA256COMPRESSION,
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::PEDERSEN,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // TEMP ECADD without relative memory
@@ -192,7 +184,12 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Gadget - Conversion
     { OpCode::TORADIXLE,
-      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT1 } },
     // Gadgets - Unused for now
     { OpCode::SHA256COMPRESSION,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
@@ -200,8 +197,9 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
-    { OperandType::INDIRECT, 1 }, { OperandType::TAG, 1 },    { OperandType::UINT8, 1 },    { OperandType::UINT16, 2 },
-    { OperandType::UINT32, 4 },   { OperandType::UINT64, 8 }, { OperandType::UINT128, 16 }, { OperandType::FF, 32 }
+    { OperandType::INDIRECT, 1 }, { OperandType::TAG, 1 },      { OperandType::UINT1, 1 },
+    { OperandType::UINT8, 1 },    { OperandType::UINT16, 2 },   { OperandType::UINT32, 4 },
+    { OperandType::UINT64, 8 },   { OperandType::UINT128, 16 }, { OperandType::FF, 32 }
 };
 
 } // Anonymous namespace
@@ -261,6 +259,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
                 break;
             }
+            case OperandType::UINT1:
             case OperandType::UINT8:
                 operands.emplace_back(bytecode.at(pos));
                 break;

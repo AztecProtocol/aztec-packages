@@ -62,8 +62,7 @@ pub fn calculate_empty_tree_root(depth: u32) -> Field {
     } else if depth == 10 {
         0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686
     } else {
-        assert(false, "depth should be between 0 and 10");
-        0
+        panic(f"depth should be between 0 and 10")
     }
 }
 

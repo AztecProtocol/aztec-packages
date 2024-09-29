@@ -6,7 +6,7 @@ use crate::{
 }
 };
 
-struct SplitOrderHints<let N: u32> {
+pub struct SplitOrderHints<let N: u32> {
     sorted_counters_lt: [u32; N],
     sorted_counters_gte: [u32; N],
     sorted_indexes: [u32; N],
@@ -281,4 +281,3 @@ mod tests {
         builder.desc_to_equal(expected_hints);
     }
 }
-

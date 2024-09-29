@@ -1,34 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../decoders/Base.sol";
 
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "../../src/core/sequencer_selection/SignatureLib.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
-import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+
+import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+
+// solhint-disable comprehensive-interface
+
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
-
 contract SpartaTest is DecoderBase {
   using MessageHashUtils for bytes32;
+  using SlotLib for Slot;
+  using EpochLib for Epoch;
 
-  Registry internal registry;
+  struct StructToAvoidDeepStacks {
+    uint256 needed;
+    address proposer;
+    bool shouldRevert;
+  }
+
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
@@ -36,9 +46,10 @@ contract SpartaTest is DecoderBase {
   TxsDecoderHelper internal txsHelper;
   PortalERC20 internal portalERC20;
 
-  mapping(address validator => uint256 privateKey) internal privateKeys;
-
   SignatureLib.Signature internal emptySignature;
+  mapping(address validator => uint256 privateKey) internal privateKeys;
+  mapping(address => bool) internal _seenValidators;
+  mapping(address => bool) internal _seenCommittee;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -62,24 +73,16 @@ contract SpartaTest is DecoderBase {
       initialValidators[i - 1] = validator;
     }
 
-    registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(
-      registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators
-    );
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
-
-    registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
     _;
   }
-
-  mapping(address => bool) internal _seenValidators;
-  mapping(address => bool) internal _seenCommittee;
 
   function testInitialCommitteMatch() public setup(4) {
     address[] memory validators = rollup.getValidators();
@@ -97,15 +100,18 @@ contract SpartaTest is DecoderBase {
       assertFalse(_seenCommittee[committee[i]]);
       _seenCommittee[committee[i]] = true;
     }
+
+    address proposer = rollup.getCurrentProposer();
+    assertTrue(_seenCommittee[proposer]);
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
-    uint256 pre = rollup.getCurrentEpoch();
+    Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
     );
-    uint256 post = rollup.getCurrentEpoch();
-    assertEq(pre + _epochsToJump, post, "Invalid epoch");
+    Epoch post = rollup.getCurrentEpoch();
+    assertEq(pre + Epoch.wrap(_epochsToJump), post, "Invalid epoch");
 
     address expectedProposer = rollup.getCurrentProposer();
 
@@ -140,12 +146,6 @@ contract SpartaTest is DecoderBase {
 
   function testInsufficientSigs() public setup(4) {
     _testBlock("mixed_block_1", true, 2, false);
-  }
-
-  struct StructToAvoidDeepStacks {
-    uint256 needed;
-    address proposer;
-    bool shouldRevert;
   }
 
   function _testBlock(
@@ -256,7 +256,7 @@ contract SpartaTest is DecoderBase {
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
@@ -280,8 +280,9 @@ contract SpartaTest is DecoderBase {
     returns (SignatureLib.Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
-    bytes32 digestForSig = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digestForSig);
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
     return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
   }

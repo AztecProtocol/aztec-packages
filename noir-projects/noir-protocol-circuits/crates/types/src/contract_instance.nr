@@ -4,7 +4,7 @@ use crate::{
     traits::{Deserialize, Hash, Serialize}
 };
 
-struct ContractInstance {
+pub struct ContractInstance {
     salt : Field,
     deployer: AztecAddress,
     contract_class_id : ContractClassId,

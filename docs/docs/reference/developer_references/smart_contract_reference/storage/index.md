@@ -63,19 +63,15 @@ You can view the implementation in the Aztec.nr library [here (GitHub link)](htt
 
 You can have multiple `map`s in your contract that each have a different underlying note type, due to note type IDs. These are identifiers for each note type that are unique within a contract.
 
-### `new`
-
-When declaring the storage for a map, we use the `Map::new()` constructor. As seen below, this takes the `storage_slot` and the `start_var_constructor` along with the `Context`.
-
-We will see examples of map constructors for public and private variables in later sections.
-
 #### As private storage
 
-When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note type.
+When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note which will hold `ValueNote` types.
 
 In the Storage struct:
 
-#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+```rust
+numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
+```
 
 #### Public Example
 
@@ -106,5 +102,5 @@ require(minters[msg.sender], "caller is not minter");
 ## Concepts mentioned
 
 - [State Model](../../../../aztec/concepts/state_model/index.md)
-- [Public-private execution](../../../../aztec/smart_contracts/communication/public_private_calls.md)
+- [Public-private execution](../../../../aztec/smart_contracts/functions/public_private_calls.md)
 - [Function Contexts](../../../../aztec/smart_contracts/functions/context.md)

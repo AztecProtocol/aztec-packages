@@ -1,12 +1,11 @@
 use dep::aztec::{
     context::PrivateContext, protocol_types::{address::AztecAddress},
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-    keys::getters::get_current_public_keys
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, keys::getters::get_public_keys
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
-struct EasyPrivateUint<Context> {
+pub struct EasyPrivateUint<Context> {
     context: Context,
     set: PrivateSet<ValueNote, Context>,
     storage_slot: Field,
@@ -24,15 +23,15 @@ impl<Context> EasyPrivateUint<Context> {
 impl EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let owner_keys = get_current_public_keys(self.context, owner);
-        let outgoing_viewer_keys = get_current_public_keys(self.context, outgoing_viewer);
+        let owner_keys = get_public_keys(owner);
+        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner_keys.npk_m.hash());
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
         self.set.insert(&mut addend_note).emit(
-            encode_and_encrypt_note_with_keys(
+            encode_and_encrypt_note(
                 self.context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,
@@ -44,8 +43,8 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let owner_keys = get_current_public_keys(self.context, owner);
-        let outgoing_viewer_keys = get_current_public_keys(self.context, outgoing_viewer);
+        let owner_keys = get_public_keys(owner);
+        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
 
         // docs:start:pop_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
@@ -67,7 +66,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner_keys.npk_m.hash());
         self.set.insert(&mut result_note).emit(
-            encode_and_encrypt_note_with_keys(
+            encode_and_encrypt_note(
                 self.context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,

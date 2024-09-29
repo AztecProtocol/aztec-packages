@@ -15,7 +15,7 @@ use crate::{
     traits::Empty, utils::arrays::array_to_bounded_vec
 };
 
-struct PublicValidationRequestsBuilder {
+pub struct PublicValidationRequestsBuilder {
     max_block_number: MaxBlockNumber,
     note_hash_read_requests: BoundedVec<TreeLeafReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,

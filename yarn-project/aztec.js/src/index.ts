@@ -29,6 +29,7 @@ export {
   type ContractStorageLayout,
   DefaultWaitOpts,
   DeployMethod,
+  DeployOptions,
   DeploySentTx,
   type SendMethodOptions,
   SentTx,
@@ -132,9 +133,11 @@ export {
   createAztecNodeClient,
   merkleTreeIds,
   mockTx,
+  mockEpochProofQuote,
   TaggedLog,
   L1NotePayload,
   L1EventPayload,
+  EpochProofQuote,
 } from '@aztec/circuit-types';
 export { NodeInfo } from '@aztec/types/interfaces';
 
@@ -143,7 +146,7 @@ export { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/c
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { encodeArguments } from '@aztec/foundation/abi';
+export { encodeArguments, decodeFromAbi, type AbiType } from '@aztec/foundation/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256 } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';

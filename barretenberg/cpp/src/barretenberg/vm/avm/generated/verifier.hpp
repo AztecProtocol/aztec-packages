@@ -28,6 +28,9 @@ class AvmVerifier {
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
+
+  private:
+    FF evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges);
 };
 
 } // namespace bb

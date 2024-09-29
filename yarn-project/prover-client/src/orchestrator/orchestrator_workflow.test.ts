@@ -47,6 +47,7 @@ describe('prover/orchestrator', () => {
         }
       });
 
+      orchestrator.startNewEpoch(1, 1);
       await orchestrator.startNewBlock(2, makeGlobalVariables(1), [message]);
 
       await sleep(10);
@@ -64,7 +65,7 @@ describe('prover/orchestrator', () => {
       await sleep(10);
       expect(mockProver.getRootParityProof).toHaveBeenCalledTimes(1);
 
-      orchestrator.cancelBlock();
+      orchestrator.cancel();
     });
   });
 });

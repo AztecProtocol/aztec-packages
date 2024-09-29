@@ -1,12 +1,16 @@
 #ifndef DISABLE_AZTEC_VM
 
 #include "avm_recursion_constraint.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
+#include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
 
@@ -38,21 +42,19 @@ void create_dummy_vkey_and_proof(Builder& builder,
 {
     using Flavor = AvmFlavor;
 
-    size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
-    size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<Flavor::FF>();
-
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
-    assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm - Flavor::NUM_ALL_ENTITIES * num_frs_fr -
-            2 * num_frs_comm) %
-               (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
+    assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
+            Flavor::NUM_ALL_ENTITIES * Flavor::NUM_FRS_FR - 2 * Flavor::NUM_FRS_COM - Flavor::NUM_FRS_FR) %
+               (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
            0);
 
     // Derivation of circuit size based on the proof
     // Here, we should always get CONST_PROOF_SIZE_LOG_N which is not what is
     // usually set for the AVM proof. As it is a dummy key/proof, it should not matter.
-    auto log_circuit_size = (proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-                             Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
-                            (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    auto log_circuit_size =
+        (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
+         Flavor::NUM_ALL_ENTITIES * Flavor::NUM_FRS_FR - 2 * Flavor::NUM_FRS_COM - Flavor::NUM_FRS_FR) /
+        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
 
     /***************************************************************************
      *                  Construct Dummy Verification Key
@@ -168,13 +170,28 @@ AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
     // proof with public inputs reinserted std::vector<uint32_t> proof_indices =
     //     ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
 
-    std::vector<field_ct> proof_fields;
-    proof_fields.reserve(input.proof.size());
+    auto fields_from_witnesses = [&](std::vector<uint32_t> const& input) {
+        std::vector<field_ct> result;
+        result.reserve(input.size());
+        for (const auto& idx : input) {
+            auto field = field_ct::from_witness_index(&builder, idx);
+            result.emplace_back(field);
+        }
+        return result;
+    };
 
-    for (const auto& idx : input.proof) {
-        auto field = field_ct::from_witness_index(&builder, idx);
-        proof_fields.emplace_back(field);
-    }
+    const auto proof_fields = fields_from_witnesses(input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
+
+    auto it = public_inputs_flattened.begin();
+    avm_trace::VmPublicInputs<field_ct> vm_public_inputs =
+        avm_trace::convert_public_inputs(std::vector(it, it + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));
+    it += PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+    std::vector<field_ct> calldata(it, it + AVM_PUBLIC_COLUMN_MAX_SIZE);
+    it += AVM_PUBLIC_COLUMN_MAX_SIZE;
+    std::vector<field_ct> return_data(it, it + AVM_PUBLIC_COLUMN_MAX_SIZE);
+
+    auto public_inputs_vectors = avm_trace::copy_public_inputs_columns(vm_public_inputs, calldata, return_data);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
@@ -186,7 +203,7 @@ AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
     RecursiveVerifier verifier(&builder, vkey);
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);
-    aggregation_state_ct output_agg_object = verifier.verify_proof(proof_fields, input_agg_obj);
+    aggregation_state_ct output_agg_object = verifier.verify_proof(proof_fields, public_inputs_vectors, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public
     // inputs is important, like what the plonk recursion constraint does.
 

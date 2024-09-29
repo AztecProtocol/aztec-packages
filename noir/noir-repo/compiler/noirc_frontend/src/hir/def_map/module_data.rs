@@ -96,24 +96,40 @@ impl ModuleData {
         self.definitions.remove_definition(name);
     }
 
-    pub fn declare_global(&mut self, name: Ident, id: GlobalId) -> Result<(), (Ident, Ident)> {
-        self.declare(name, ItemVisibility::Public, id.into(), None)
+    pub fn declare_global(
+        &mut self,
+        name: Ident,
+        visibility: ItemVisibility,
+        id: GlobalId,
+    ) -> Result<(), (Ident, Ident)> {
+        self.declare(name, visibility, id.into(), None)
     }
 
-    pub fn declare_struct(&mut self, name: Ident, id: StructId) -> Result<(), (Ident, Ident)> {
-        self.declare(name, ItemVisibility::Public, ModuleDefId::TypeId(id), None)
+    pub fn declare_struct(
+        &mut self,
+        name: Ident,
+        visibility: ItemVisibility,
+        id: StructId,
+    ) -> Result<(), (Ident, Ident)> {
+        self.declare(name, visibility, ModuleDefId::TypeId(id), None)
     }
 
     pub fn declare_type_alias(
         &mut self,
         name: Ident,
+        visibility: ItemVisibility,
         id: TypeAliasId,
     ) -> Result<(), (Ident, Ident)> {
-        self.declare(name, ItemVisibility::Public, id.into(), None)
+        self.declare(name, visibility, id.into(), None)
     }
 
-    pub fn declare_trait(&mut self, name: Ident, id: TraitId) -> Result<(), (Ident, Ident)> {
-        self.declare(name, ItemVisibility::Public, ModuleDefId::TraitId(id), None)
+    pub fn declare_trait(
+        &mut self,
+        name: Ident,
+        visibility: ItemVisibility,
+        id: TraitId,
+    ) -> Result<(), (Ident, Ident)> {
+        self.declare(name, visibility, ModuleDefId::TraitId(id), None)
     }
 
     pub fn declare_child_module(

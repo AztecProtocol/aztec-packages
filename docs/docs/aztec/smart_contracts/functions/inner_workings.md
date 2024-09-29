@@ -1,6 +1,6 @@
 ---
 title: Inner Workings of Functions and Macros
-sidebar_position: 3
+sidebar_position: 4
 tags: [functions]
 ---
 
@@ -79,14 +79,14 @@ This function takes the application context, and converts it into the `PrivateCi
 
 Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as un-trusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
 
-Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../aztec/concepts/pxe/index.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/index.md).
+Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../concepts/pxe/index.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/index.md).
 
 When an unconstrained function is called, it prompts the ACIR simulator to
 
 1. generate the execution environment
 2. execute the function within this environment
 
-To generate the environment, the simulator gets the blockheader from the [PXE database](../../../aztec/concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
+To generate the environment, the simulator gets the blockheader from the [PXE database](../../concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
@@ -122,22 +122,19 @@ To create a public function you can annotate it with the `#[aztec(public)]` attr
 Under the hood:
 
 - Context Creation: The macro inserts code at the beginning of the function to create a`PublicContext` object:
+
 ```rust
-let mut context = PublicContext::new(inputs);
+let mut context = PublicContext::new(args_hasher);
 ```
+
 This context provides access to public state and transaction information
-- Function Signature Modification: The macro modifies the function signature to include a `PublicContextInputs` parameter:
-```rust
-fn function_name(inputs: PublicContextInputs, ...other_params) -> ReturnType
-```
-- Return Type Transformation: For functions that return a value, the macro wraps the return type in a `PublicCircuitPublicInputs` struct:
-```rust 
--> protocol_types::abis::public_circuit_public_inputs::PublicCircuitPublicInputs
-```
+
 - Storage Access: If the contract has a storage struct defined, the macro inserts code to initialize the storage:
+
 ```rust
 let storage = Storage::init(&mut context);
 ```
+
 - Function Body Wrapping: The original function body is wrapped in a new scope that handles the context and return value
 - Visibility Control: The function is marked as pub, making it accessible from outside the contract.
 - Unconstrained Execution: Public functions are marked as unconstrained, meaning they don't generate proofs and are executed directly by the sequencer.
@@ -206,7 +203,6 @@ When a struct is annotated with `#[aztec(note)]`, the Aztec macro applies a seri
 
 6. **Export Information**: The note type and its ID are automatically exported
 
-
 ### Before expansion
 
 Here is how you could define a custom note:
@@ -250,7 +246,7 @@ impl CustomNote {
 
     fn compute_note_hiding_point(self: CustomNote) -> Point {
         aztec::hash::pedersen_commitment(
-            self.serialize_content(), 
+            self.serialize_content(),
             aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT
         )
     }
@@ -291,6 +287,7 @@ struct CustomNoteProperties {
     owner: aztec::note::note_getter_options::PropertySelector,
 }
 ```
+
 Key things to keep in mind:
 
 - Developers can override any of the auto-generated methods by specifying a note interface
@@ -360,7 +357,6 @@ Key things to keep in mind:
 - `Map` types and private `Note` types always occupy a single storage slot
 
 ## Further reading
+
 - [How do macros work](./inner_workings.md)
 - [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
-
-

@@ -2,29 +2,20 @@ import {
   MerkleTreeId,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
-  mockTx,
 } from '@aztec/circuit-types';
+import { makeBloatedProcessedTx as makeBloatedProcessedTxWithVKRoot } from '@aztec/circuit-types/test';
 import {
   AztecAddress,
   EthAddress,
   Fr,
   GasFees,
   GlobalVariables,
-  KernelCircuitPublicInputs,
-  LogHash,
-  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
-  PublicDataUpdateRequest,
-  ScopedLogHash,
 } from '@aztec/circuits.js';
-import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
@@ -98,43 +89,8 @@ export async function getSimulationProvider(
   return new WASMSimulator();
 }
 
-export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0x1) => {
-  seed *= MAX_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
-  const tx = mockTx(seed);
-  const kernelOutput = KernelCircuitPublicInputs.empty();
-  kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
-  kernelOutput.constants.historicalHeader = builderDb.getInitialHeader();
-  kernelOutput.end.publicDataUpdateRequests = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
-    seed + 0x500,
-  );
-  kernelOutput.end.publicDataUpdateRequests = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
-    seed + 0x600,
-  );
-
-  const processedTx = makeProcessedTx(tx, kernelOutput, []);
-
-  processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
-  processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100000);
-
-  processedTx.data.end.nullifiers[tx.data.forPublic!.end.nullifiers.length - 1] = Fr.zero();
-
-  processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x300);
-  processedTx.noteEncryptedLogs.unrollLogs().forEach((log, i) => {
-    processedTx.data.end.noteEncryptedLogsHashes[i] = new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length));
-  });
-  processedTx.encryptedLogs.unrollLogs().forEach((log, i) => {
-    processedTx.data.end.encryptedLogsHashes[i] = new ScopedLogHash(
-      new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
-      log.maskedContractAddress,
-    );
-  });
-
-  return processedTx;
-};
+export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0x1) =>
+  makeBloatedProcessedTxWithVKRoot(builderDb, getVKTreeRoot(), seed);
 
 export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
   const header = builderDb.getInitialHeader();
@@ -179,9 +135,9 @@ export const makeGlobals = (blockNumber: number) => {
   return new GlobalVariables(
     Fr.ZERO,
     Fr.ZERO,
-    new Fr(blockNumber),
+    new Fr(blockNumber) /** block number */,
     new Fr(blockNumber) /** slot number */,
-    Fr.ZERO,
+    new Fr(blockNumber) /** timestamp */,
     EthAddress.ZERO,
     AztecAddress.ZERO,
     GasFees.empty(),

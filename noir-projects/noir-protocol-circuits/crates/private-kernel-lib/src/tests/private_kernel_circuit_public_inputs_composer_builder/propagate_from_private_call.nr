@@ -201,8 +201,8 @@ fn propagate_from_private_call_public_call_requests_succeeds() {
 fn propagate_from_private_call_public_teardown_call_request_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
-    let res = builder.private_call.public_teardown_call_stack.storage[0];
+    builder.private_call.set_public_teardown_call_request();
+    let res = builder.private_call.public_teardown_call_request;
 
     let output = builder.compose_from_tx_request();
 

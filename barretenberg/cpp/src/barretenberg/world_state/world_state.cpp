@@ -9,6 +9,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -96,18 +97,17 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
 {
     Signal signal(static_cast<uint32_t>(_trees.size()));
     StateReference state_reference;
+
     bool uncommitted = include_uncommitted(revision);
 
     for (const auto& [id, tree] : _trees) {
-        std::visit(
-            [&signal, &state_reference, id, uncommitted](auto&& wrapper) {
-                auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
-                    state_reference.insert({ id, { meta.inner.root, meta.inner.size } });
-                    signal.signal_decrement();
-                };
-                wrapper.tree->get_meta_data(uncommitted, callback);
-            },
-            tree);
+        auto callback = [&](const TypedResponse<TreeMetaResponse>& meta) {
+            std::lock_guard<std::mutex> lock(state_ref_mutex);
+            state_reference.insert({ id, { meta.inner.root, meta.inner.size } });
+            signal.signal_decrement();
+        };
+        std::visit([&callback, uncommitted](auto&& wrapper) { wrapper.tree->get_meta_data(uncommitted, callback); },
+                   tree);
     }
 
     signal.wait_for_level(0);
