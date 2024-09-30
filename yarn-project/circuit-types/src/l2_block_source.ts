@@ -70,6 +70,41 @@ export interface L2BlockSource {
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
+   * Returns the latest L1 block number seen.
+   * Throws if hasn't performed an initial sync yet.
+   */
+  getL1BlockNumber(): bigint;
+
+  /**
+   * Returns the timestamp for the latest L1 block number seen.
+   * Throws if hasn't performed an initial sync yet.
+   */
+  getL1Timestamp(): bigint;
+
+  /**
+   * Returns the current L2 slot number based on the current L1 timestamp.
+   */
+  getL2SlotNumber(): bigint;
+
+  /**
+   * Returns the current L2 epoch number based on the current L1 timestamp.
+   */
+  getL2EpochNumber(): bigint;
+
+  /**
+   * Returns all blocks for a given epoch.
+   * @dev Use this method only with recent epochs, since it walks the block list backwards.
+   * @param epochNumber - The epoch number to return blocks for.
+   */
+  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]>;
+
+  /**
+   * Returns whether the given epoch is completed on L1, based on the current L1 block number.
+   * @param epochNumber - The epoch number to check.
+   */
+  isEpochComplete(epochNumber: bigint): boolean;
+
+  /**
    * Starts the L2 block source.
    * @param blockUntilSynced - If true, blocks until the data source has fully synced.
    * @returns A promise signalling completion of the start process.
