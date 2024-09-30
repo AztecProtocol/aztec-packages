@@ -8,7 +8,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.68.0"
+      version = "5.47.0"
     }
   }
 }
@@ -28,7 +28,7 @@ data "aws_availability_zones" "available" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.13.0"
+  version = "5.8.1"
 
   name = var.cluster_name
   cidr = "10.1.0.0/16"
@@ -58,26 +58,20 @@ module "vpc" {
 # EKS Module
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.24.0"
+  version = "20.8.5"
 
   cluster_name    = var.cluster_name
   cluster_version = "1.31"
 
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
+  # iam_role_arn = "arn:aws:iam::278380418400:role/AWSServiceRoleForAmazonEKS"
 
   cluster_addons = {
     aws-ebs-csi-driver = {
       service_account_role_arn = module.irsa-ebs-csi.iam_role_arn
     }
   }
-
-#   cluster_addons = {
-#     coredns                = {}
-#     eks-pod-identity-agent = {}
-#     kube-proxy             = {}
-#     vpc-cni                = {}
-#   }
 
   # VPC and Subnets
   vpc_id     = module.vpc.vpc_id
@@ -98,13 +92,6 @@ module "eks" {
       desired_size = 1
     }
   }
-
-#   access_entries = {
-#     aws_admin_users = {
-#       kubernetes_groups = ["system:masters"]
-#       principal_arn     = "arn:aws:iam::278380418400:group/admin"
-#     }
-#   }
 
   tags = {
     Project     = var.cluster_name
