@@ -288,6 +288,8 @@ contract Test {
             );
         }
 
+        // For whatever reason after the if branch above the side_effect_counter gets reset to 0 on the context.
+        // This should never happen as the counter is always just incremented.
         assert(context.side_effect_counter as Field != 0, "this assert should be triggered if bug reproduction succeeded");
     }
 
