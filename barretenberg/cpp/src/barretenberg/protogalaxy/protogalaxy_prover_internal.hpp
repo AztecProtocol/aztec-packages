@@ -72,6 +72,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                      const std::array<FF, NUM_SUBRELATIONS>& challenges,
                                                      FF& linearly_dependent_contribution)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1115): Iniitalize with first subrelation value to
+        // avoid Montgomery allocating 0 and doing a mul. This is about 60ns per row.
         FF linearly_independent_contribution{ 0 };
         size_t idx = 0;
 
