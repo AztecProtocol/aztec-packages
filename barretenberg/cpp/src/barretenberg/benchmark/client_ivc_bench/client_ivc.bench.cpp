@@ -1,3 +1,8 @@
+/**
+ * @warning These benchmarks use functions that are tested elsewhere to guard against regressions in the benchmark.
+ * Please do not anything that is untested.
+ */
+
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
@@ -10,7 +15,6 @@ namespace {
 
 /**
  * @brief Benchmark suite for the aztec client PG-Goblin IVC scheme
- *
  */
 class ClientIVCBench : public benchmark::Fixture {
   public:
@@ -26,7 +30,6 @@ class ClientIVCBench : public benchmark::Fixture {
 
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
- *
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
