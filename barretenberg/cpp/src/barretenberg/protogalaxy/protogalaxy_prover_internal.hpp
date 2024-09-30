@@ -25,6 +25,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using RelationUtils = bb::RelationUtils<Flavor>;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
+    using AllValues = typename Flavor::AllValues;
     using RelationSeparator = typename Flavor::RelationSeparator;
     static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
     using UnivariateRelationParametersNoOptimisticSkipping =
@@ -56,17 +57,29 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
-    static std::tuple<ComponentEvaluations, FF> process_subrelation_evaluations(const RelationEvaluations& evals,
-                                                                                const RelationSeparator& challenges,
-                                                                                FF& linearly_dependent_contribution)
+    /**
+     * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
+     * evaluation(s).
+     *
+     * @details Note that a linearly dependent subrelation is not computed on a specific row but rather on the entire
+     * execution trace.
+     *
+     * @param evals The evaluations of all subrelations on some row
+     * @param challenges The 'alpha' challenges used to batch the subrelations
+     * @param linearly_dependent_contribution An accumulator for values of  the linearly-dependent (i.e., 'whole-trace')
+     * subrelations
+     * @return FF The evaluation of the linearly-independent (i.e., 'per-row') subrelations
+     */
+    inline static std::tuple<ComponentEvaluations, FF> process_subrelation_evaluations(
+        const RelationEvaluations& evals,
+        const std::array<FF, NUM_SUBRELATIONS>& challenges,
+        FF& linearly_dependent_contribution)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1115): Iniitalize with first subrelation value to
+        // avoid Montgomery allocating 0 and doing a mul. This is about 60ns per row.
         FF linearly_independent_contribution{ 0 };
         ComponentEvaluations component_evals;
         size_t idx = 0;
-
-        std::array<FF, NUM_SUBRELATIONS> tmp{ 1 };
-        // WORKTODO: nix this!
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
 
         auto scale_by_challenge_and_accumulate =
             [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
@@ -74,7 +87,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                 static constexpr size_t SUBRELATION_PARTIAL_LENGTH =
                     std::get<subrelation_idx>(Relation::SUBRELATION_PARTIAL_LENGTHS);
 
-                auto contribution = element * tmp[idx];
+                const Element contribution = element * challenges[idx];
                 if (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
                     std::get<subrelation_length_to_component_evaluation_index(SUBRELATION_PARTIAL_LENGTH)>(
                         component_evals) += contribution;
@@ -103,34 +116,41 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::tuple<std::shared_ptr<ComponentEvaluations[]>, std::vector<FF>> compute_row_evaluations(
         const ProverPolynomials& polynomials,
-        const RelationSeparator& alphas,
+        const RelationSeparator& alphas_,
         const RelationParameters<FF>& relation_parameters)
 
     {
-
         BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> aggregate_relation_evaluations(polynomial_size);
+        std::vector<FF> aggregated_relation_evaluations(polynomial_size);
         std::shared_ptr<ComponentEvaluations[]> component_evaluations(new ComponentEvaluations[polynomial_size]);
+
+        const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
+            std::array<FF, NUM_SUBRELATIONS> tmp;
+            tmp[0] = 1;
+            std::copy(alphas_.begin(), alphas_.end(), tmp.begin() + 1);
+            return tmp;
+        }();
+
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
             polynomial_size,
             /*accumulator default*/ FF(0),
             [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
-                auto row = polynomials.get_row(row_idx);
-                // evaluate all subrelations on (row, relation_params) and accumulate in evals (separator is 1 since we
-                // are not summing across rows here)
-                RelationEvaluations evals =
+                const AllValues row = polynomials.get_row(row_idx);
+                // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows here.
+                const RelationEvaluations evals =
                     RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
+                // Sum against challenges alpha and cache evaluations of homogeneous components
                 std::tie(component_evaluations[static_cast<ptrdiff_t>(row_idx)],
-                         aggregate_relation_evaluations[row_idx]) =
+                         aggregated_relation_evaluations[row_idx]) =
                     process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
-        aggregate_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
+        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
 
-        return std::make_pair(component_evaluations, aggregate_relation_evaluations);
+        return std::make_pair(component_evaluations, aggregated_relation_evaluations);
     }
 
     /**

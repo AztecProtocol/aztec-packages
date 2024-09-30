@@ -254,48 +254,6 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scales elements, representing evaluations of polynomials in subrelations, by separate challenges and then
-     * sum them together. This function has identical functionality with the one above with the caveat that one such
-     * evaluation is part of a linearly dependent subrelation and hence needs to be accumulated separately.
-     *
-     * @details Such functionality is needed when computing the evaluation of the full relation at a specific row in
-     * the execution trace because a linearly dependent subrelation does not act on a specific row but rather on the
-     * entire execution trace.
-     *
-     * @param tuple
-     * @param challenges
-     * @param current_scalar
-     * @param result
-     * @param linearly_dependent_contribution
-     */
-    static void scale_and_batch_elements(const auto& tuple,
-                                         const RelationSeparator& challenges,
-                                         FF current_scalar,
-                                         FF& result,
-                                         FF& linearly_dependent_contribution)
-        requires bb::IsFoldingFlavor<Flavor>
-    {
-        size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-
-        auto scale_by_challenge_and_accumulate =
-            [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-                const bool is_subrelation_linearly_independent =
-                    bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-                if (is_subrelation_linearly_independent) {
-                    result += element * tmp[idx];
-                } else {
-                    linearly_dependent_contribution += element * tmp[idx];
-                }
-                idx++;
-            };
-        apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, tuple);
-    }
-
-    /**
      * @brief Scale elements by consecutive powers of a given challenge then sum the result
      * @param result Batched result
      */
