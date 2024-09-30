@@ -126,8 +126,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
         if constexpr (std::same_as<Flavor, MegaFlavor>) {
             if (block.is_arithmetic) {
-                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                    size_t trace_row_idx = row_idx + offset;
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) { // WORKTODO: block.size()?
+                    const size_t trace_row_idx = row_idx + offset;
                     proving_key.polynomials.homogenizer.set_if_valid_index(trace_row_idx, 1);
                 }
             }
