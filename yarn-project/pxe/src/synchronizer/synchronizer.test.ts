@@ -97,20 +97,12 @@ describe('Synchronizer', () => {
       .mockResolvedValueOnce([blocks[1].body.encryptedLogs]);
 
     aztecNode.getBlocks
-      // called by synchronizer.work, we are testing fromFields in this first call
+      // called by synchronizer.work,
       .mockResolvedValueOnce([
-        L2Block.fromFields({
-          archive: blocks[0].archive,
-          header: blocks[0].header,
-          body: blocks[0].body,
-        }),
+          blocks[0],
       ])
       .mockResolvedValueOnce([
-        L2Block.fromFields({
-          archive: blocks[1].archive,
-          header: blocks[1].header,
-          body: blocks[1].body,
-        }),
+          blocks[1]
       ])
       // called by synchronizer.workNoteProcessorCatchUp
       .mockResolvedValueOnce([blocks[0]])
