@@ -99,14 +99,15 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     template <typename Transcript>
-    static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr N,
-                                                                RefSpan<Commitment> unshifted_commitments,
-                                                                RefSpan<Commitment> shifted_commitments,
-                                                                RefSpan<Fr> unshifted_evaluations,
-                                                                RefSpan<Fr> shifted_evaluations,
-                                                                const std::vector<Fr>& multivariate_challenge,
-                                                                const Commitment& g1_identity,
-                                                                const std::shared_ptr<Transcript>& transcript)
+    static BatchOpeningClaim<Curve> compute_batch_opening_claim(
+        const Fr N,
+        RefSpan<Commitment> unshifted_commitments,
+        RefSpan<Commitment> shifted_commitments,
+        RefSpan<Fr> unshifted_evaluations,
+        RefSpan<Fr> shifted_evaluations,
+        [[maybe_unused]] const std::vector<Fr>& multivariate_challenge,
+        const Commitment& g1_identity,
+        const std::shared_ptr<Transcript>& transcript)
     {
 
         // Extract log_circuit_size
@@ -198,7 +199,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                                  multivariate_challenge,
                                                                                  gemini_eval_challenge_powers,
                                                                                  gemini_evaluations);
-        // - Add A₀(r)/(z−r) to the constant term accumulator
+        // // - Add A₀(r)/(z−r) to the constant term accumulator
         constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
         // Add A₀(−r)/(z+r) to the constant term accumulator
         constant_term_accumulator += gemini_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
@@ -325,41 +326,40 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param scalars Output vector where the computed scalars will be stored.
      * @param constant_term_accumulator The accumulator for the summands of the constant term.
      */
-    static void batch_gemini_claims_received_from_prover(const size_t log_circuit_size,
-                                                         const std::vector<Commitment>& fold_commitments,
-                                                         const std::vector<Fr>& gemini_evaluations,
-                                                         const std::vector<Fr>& inverse_vanishing_evals,
-                                                         const Fr& shplonk_batching_challenge,
-                                                         std::vector<Commitment>& commitments,
-                                                         std::vector<Fr>& scalars,
-                                                         Fr& constant_term_accumulator)
+    static void batch_gemini_claims_received_from_prover(
+        const size_t log_circuit_size,
+        const std::vector<Commitment>& fold_commitments,
+        const std::vector<Fr>& gemini_evaluations,
+        [[maybe_unused]] const std::vector<Fr>& inverse_vanishing_evals,
+        const Fr& shplonk_batching_challenge,
+        std::vector<Commitment>& commitments,
+        std::vector<Fr>& scalars,
+        Fr& constant_term_accumulator)
     {
 
         // Initialize batching challenge as ν²
         Fr current_batching_challenge = shplonk_batching_challenge.sqr();
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N - 1; ++j) {
-            bool is_dummy_round = j >= (log_circuit_size - 1);
             // Compute the scaling factor  (ν²⁺ⁱ) / (z + r²⁽ⁱ⁺²⁾) for i = 0, … , d-2
             Fr scaling_factor = current_batching_challenge * inverse_vanishing_evals[j + 2];
+
+            // Add Aᵢ(−r²ⁱ) for i = 1, … , n-1 to the constant term accumulator
+            constant_term_accumulator += scaling_factor * gemini_evaluations[j + 1];
+
+            // Update the batching challenge
+            current_batching_challenge *= shplonk_batching_challenge;
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = shplonk_batching_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= (log_circuit_size - 1));
                 Fr zero = Fr(0);
-                zero.convert_constant_to_fixed_witness(builder);
                 scaling_factor = Fr::conditional_assign(dummy_round, zero, scaling_factor);
             } else {
-                if (is_dummy_round) {
+                if (j >= (log_circuit_size - 1)) {
                     scaling_factor = 0;
                 }
             }
-
-            // Add Aᵢ(−r²ⁱ) for i = 1, … , n-1 to the constant term accumulator
-            constant_term_accumulator += scaling_factor * gemini_evaluations[j + 1];
-            // Update the batching challenge
-            current_batching_challenge *= shplonk_batching_challenge;
-
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-scaling_factor);
             // Move com(Aᵢ) to the 'commitments' vector
