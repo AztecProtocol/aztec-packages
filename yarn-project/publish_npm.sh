@@ -2,26 +2,28 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-if [ -z "$COMMIT_TAG" ]; then
-  echo "No commit tag, not deploying to npm."
-  exit 0
-fi
-
-retry ecr_login
-extract_repo yarn-project /usr/src project
-cd project/src/yarn-project
-
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
+
+echo "Current directory: $(pwd)"
+echo "Contents of .npmrc:"
+cat .npmrc
 
 # This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
 DIST_TAG=${1:-"latest"}
+VERSION=$2
+
+DRY_DEPLOY=${DRY_DEPLOY:-0}
+
+if [ -z "$VERSION" ]; then
+  echo "No version provided, exiting."
+  exit 1
+fi
 
 function deploy_package() {
   REPOSITORY=$1
   cd $REPOSITORY
 
   PACKAGE_NAME=$(jq -r '.name' package.json)
-  VERSION=$(extract_tag_version $REPOSITORY false)
   echo "Deploying $REPOSITORY $VERSION $DIST_TAG"
 
   # If the commit tag itself has a dist-tag (e.g. v2.1.0-testnet.123), extract the dist-tag.
