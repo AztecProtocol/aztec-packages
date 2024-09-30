@@ -38,7 +38,7 @@ import { ExtendedNote, UniqueNote } from './notes/index.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
-import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { NestedProcessReturnValues, PublicSimulationOutput, Tx, TxHash, TxSimulationResult } from './tx/index.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
@@ -224,7 +224,7 @@ export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
     [dec],
     {},
   );
-  return new SimulatedTx(tx, dec, output);
+  return new TxSimulationResult(tx, dec, output);
 };
 
 export const mockEpochProofQuote = (

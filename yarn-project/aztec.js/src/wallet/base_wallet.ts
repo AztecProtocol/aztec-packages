@@ -11,13 +11,13 @@ import {
   type PXE,
   type PXEInfo,
   type SiblingPath,
-  type SimulatedTx,
   type SyncStatus,
   type Tx,
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  type TxSimulationResult,
   type UniqueNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
@@ -106,15 +106,27 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.proveTx(txRequest, simulatePublic, this.scopes);
-  }
-  simulateTx(
+  async prove(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-  ): Promise<SimulatedTx> {
+  ): Promise<Tx> {
+    const { privateExecutionResult } = await this.pxe.simulateTx(
+      txRequest,
+      simulatePublic,
+      msgSender,
+      skipTxValidation,
+      this.scopes,
+    );
+    return this.pxe.proveTx(txRequest, privateExecutionResult);
+  }
+  simulate(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender?: AztecAddress,
+    skipTxValidation?: boolean,
+  ): Promise<TxSimulationResult> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {

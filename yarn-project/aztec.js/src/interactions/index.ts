@@ -1,4 +1,10 @@
-import { NestedProcessReturnValues, PublicSimulationOutput, SimulationError, Tx } from '@aztec/circuit-types';
+import {
+  NestedProcessReturnValues,
+  PublicSimulationOutput,
+  SimulationError,
+  Tx,
+  TxSimulationResult,
+} from '@aztec/circuit-types';
 import { AztecAddress, Fr, GasSettings } from '@aztec/circuits.js';
 import { ContractArtifact, FunctionAbi } from '@aztec/foundation/abi';
 import { ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -44,23 +50,8 @@ export interface UserRequest {
   simulatePublicFunctions?: boolean;
 }
 
-export interface SimulatedUserRequest {
-  request: UserRequest;
-  publicOutput: PublicSimulationOutput;
-  privateOutput: NestedProcessReturnValues;
-  error?: SimulationError;
-}
-
-export type ProvenUserRequest = {
-  request: UserRequest;
-  publicOutput: PublicSimulationOutput;
-  privateOutput: NestedProcessReturnValues;
-  tx: Tx;
-};
-
 export interface InteractionHandler {
-  simulate(userRequest: UserRequest): Promise<SimulatedUserRequest>;
-  read(userRequest: UserRequest): Promise<SimulatedUserRequest>;
-  prove(simulationOutput: SimulatedUserRequest): Promise<ProvenUserRequest>;
-  send(userRequest: ProvenUserRequest): Promise<SentTx>;
+  simulate(userRequest: UserRequest): Promise<TxSimulationResult>;
+  prove(simulationResult: TxSimulationResult): Promise<Tx>;
+  send(tx: Tx): Promise<SentTx>;
 }

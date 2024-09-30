@@ -91,7 +91,7 @@ export class FunctionData {
 
   public toJSON() {
     return {
-      selector: this.selector.toString('hex'),
+      selector: this.selector.toString(),
       isPrivate: this.isPrivate,
     };
   }

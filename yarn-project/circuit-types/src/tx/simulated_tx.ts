@@ -1,4 +1,3 @@
-import { ExecutionResult } from '../execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 

@@ -510,6 +510,10 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
+  #simulateKernels(txRequest: TxExecutionRequest, privateExecutionResult: ExecutionResult): Promise<Tx> {
+    return this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
+  }
+
   public proveTx(txRequest: TxExecutionRequest, privateExecutionResult: ExecutionResult): Promise<Tx> {
     return this.jobQueue.put(async () => {
       const provenTx = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
@@ -527,7 +531,7 @@ export class PXEService implements PXE {
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#simulatePrivate(txRequest, msgSender, scopes);
-      const simulatedTx = await this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
+      const simulatedTx = await this.#simulateKernels(txRequest, privateExecutionResult);
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
         publicOutput = await this.#simulatePublicCalls(simulatedTx);
