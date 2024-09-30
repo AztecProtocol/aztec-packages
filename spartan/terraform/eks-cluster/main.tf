@@ -65,7 +65,6 @@ module "eks" {
 
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
-  # iam_role_arn = "arn:aws:iam::278380418400:role/AWSServiceRoleForAmazonEKS"
 
   cluster_addons = {
     aws-ebs-csi-driver = {
