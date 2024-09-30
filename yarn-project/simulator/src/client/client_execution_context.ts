@@ -105,6 +105,12 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     const fields = [...privateContextInputs.toFields(), ...args];
+
+    console.log("privateContextInputs", JSON.stringify({
+      inputs: privateContextInputs
+    }));
+    console.log("args", args);
+
     return toACVMWitness(0, fields);
   }
 
