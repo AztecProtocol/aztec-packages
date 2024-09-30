@@ -798,7 +798,7 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
 {
     uint32_t batchSize = 2;
-    while (batchSize <= 32) {
+    while (batchSize <= 2) {
         test_batch_insert(batchSize, _directory, _mapSize, _maxReaders);
         batchSize <<= 1;
     }

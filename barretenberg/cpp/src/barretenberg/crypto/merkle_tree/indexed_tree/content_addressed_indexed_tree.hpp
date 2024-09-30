@@ -26,6 +26,7 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
@@ -190,12 +191,12 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                                       Signal& follower,
                                       fr_sibling_path& previous_sibling_path);
 
-    bool sparse_batch_update(const index_t& start_index,
-                             const index_t& num_leaves_to_be_inserted,
-                             const uint32_t& root_level,
-                             const std::vector<LeafInsertion>& insertions);
+    std::pair<bool, fr> sparse_batch_update(const index_t& start_index,
+                                            const index_t& num_leaves_to_be_inserted,
+                                            const uint32_t& root_level,
+                                            const std::vector<LeafInsertion>& insertions);
 
-    void sparse_batch_update(const std::vector<index_t> indices_at_level, uint32_t level);
+    void sparse_batch_update(const std::vector<std::pair<index_t, fr>>& hashes_at_level, uint32_t level);
 
     /**
      * @brief Adds or updates the given set of values in the tree
@@ -846,55 +847,50 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_witho
 
     std::shared_ptr<Status> status = std::make_shared<Status>();
 
-    uint32_t p = static_cast<uint32_t>(std::log2(highest_index + 1));
-    index_t span = static_cast<uint32_t>(std::pow(2, p)) + 1;
+    uint32_t p = static_cast<uint32_t>(std::log2(highest_index + 1)) + 1;
+    index_t span = static_cast<uint32_t>(std::pow(2, p));
     uint64_t numBatches = workers_->num_threads();
     index_t batchSize = span / numBatches;
     batchSize = std::max(batchSize, 1UL);
     index_t startIndex = 0;
     p = static_cast<uint32_t>(std::log2(batchSize));
     uint32_t rootLevel = depth_ - p;
-    numBatches *= 2;
 
-    // std::cout << "Max size " << max_size << " under span " << underSpan << " num batches " << numBatches
-    //           << " batch size " << batchSize << " root level " << rootLevel << std::endl;
-
-    struct OpCount {
+    struct BatchInsertResults {
         std::atomic_uint32_t count;
-        std::vector<bool> roots;
+        std::vector<std::pair<bool, fr>> roots;
 
-        OpCount(uint32_t init)
+        BatchInsertResults(uint32_t init)
             : count(init)
-            , roots(init, false)
+            , roots(init, std::make_pair(false, fr::zero()))
         {}
     };
-    std::shared_ptr<OpCount> opCount = std::make_shared<OpCount>(numBatches);
+    std::shared_ptr<BatchInsertResults> opCount = std::make_shared<BatchInsertResults>(numBatches);
 
     for (uint32_t i = 0; i < numBatches; ++i) {
         std::function<void()> op = [=, this]() {
             try {
                 bool withinRange = startIndex <= highest_index;
-                opCount->roots[i] = withinRange && sparse_batch_update(startIndex, batchSize, rootLevel, *insertions);
+                if (withinRange) {
+                    opCount->roots[i] = sparse_batch_update(startIndex, batchSize, rootLevel, *insertions);
+                }
             } catch (std::exception& e) {
                 status->set_failure(e.what());
             }
 
             if (opCount->count.fetch_sub(1) == 1) {
-                std::vector<index_t> indices;
+                std::vector<std::pair<index_t, fr>> hashes_at_level;
                 for (size_t i = 0; i < opCount->roots.size(); i++) {
-                    if (opCount->roots[i]) {
-                        indices.push_back(i);
+                    if (opCount->roots[i].first) {
+                        hashes_at_level.push_back(std::make_pair(i, opCount->roots[i].second));
                     }
                 }
-                sparse_batch_update(indices, rootLevel);
+                sparse_batch_update(hashes_at_level, rootLevel);
 
                 TypedResponse<InsertionCompletionResponse> response;
                 response.success = true;
                 completion(response);
             }
-
-            // std::cout << "Op " << i << " completed, final level " << finalLevel << " our index " << ourIndex
-            //           << " follower index " << followerIndex << std::endl;
         };
         startIndex += batchSize;
         workers_->enqueue(op);
@@ -1142,8 +1138,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(const std::vector<index_t> indices_at_level,
-                                                                            uint32_t level)
+void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
+    const std::vector<std::pair<index_t, fr>>& hashes_at_level, uint32_t level)
 {
     auto get_optional_node = [&](uint32_t level, index_t index) -> std::optional<fr> {
         fr value = fr::zero();
@@ -1152,16 +1148,16 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(cons
         // std::cout << "Getting node at " << level << " : " << index << " success " << success << std::endl;
         return success ? std::optional<fr>(value) : std::nullopt;
     };
-    std::vector<index_t> indices = indices_at_level;
+    std::vector<index_t> indices;
+    indices.reserve(hashes_at_level.size());
     std::unordered_map<index_t, fr> hashes;
     // grab the hashes
-    for (size_t i = 0; i < indices_at_level.size(); ++i) {
-        index_t index = indices_at_level[i];
-        std::optional<fr> op = get_optional_node(level, index);
-        if (!op.has_value()) {
-            continue;
-        }
-        hashes[index] = op.value();
+    for (size_t i = 0; i < hashes_at_level.size(); ++i) {
+        index_t index = hashes_at_level[i].first;
+        fr hash = hashes_at_level[i].second;
+        hashes[index] = hash;
+        indices.push_back(index);
+        // std::cout << "index " << index << " hash " << hash << std::endl;
     }
     std::unordered_set<index_t> unique_indices;
     while (level > 0) {
@@ -1169,8 +1165,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(cons
         std::unordered_map<index_t, fr> next_hashes;
         for (size_t i = 0; i < indices.size(); ++i) {
             index_t index = indices[i];
-            fr new_hash = hashes[index];
-            // std::cout << "Level " << level << " index " << index << std::endl;
             index_t parent_index = index >> 1;
             auto it = unique_indices.insert(parent_index);
             if (!it.second) {
@@ -1178,6 +1172,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(cons
             }
             next_indices.push_back(parent_index);
             bool is_right = static_cast<bool>(index & 0x01);
+            fr new_hash = hashes[index];
             std::optional<fr> new_right_option = is_right ? new_hash : get_optional_node(level, index + 1);
             std::optional<fr> new_left_option = is_right ? get_optional_node(level, index - 1) : new_hash;
             fr new_right_value = new_right_option.has_value() ? new_right_option.value() : zero_hashes_[level];
@@ -1187,8 +1182,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(cons
             store_->put_cached_node_by_index(level - 1, parent_index, new_hash);
             store_->put_node_by_hash(new_hash, { .left = new_left_option, .right = new_right_option, .ref = 1 });
             next_hashes[parent_index] = new_hash;
-            // std::cout << "Created parent hash at level " << level - 1 << " index " << parent_index << " hash "
-            //           << new_hash << " left " << new_left_value << " right " << new_right_value << std::endl;
         }
         indices = std::move(next_indices);
         hashes = std::move(next_hashes);
@@ -1198,7 +1191,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(cons
 }
 
 template <typename Store, typename HashingPolicy>
-bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
+std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
     const index_t& start_index,
     const index_t& num_leaves_to_be_inserted,
     const uint32_t& root_level,
@@ -1215,8 +1208,8 @@ bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
 
     std::vector<index_t> indices;
     indices.reserve(insertions.size());
-    // std::vector<fr> hashes;
-    // hashes.reserve(insertions.size());
+
+    fr new_hash = fr::zero();
 
     std::unordered_set<index_t> unique_indices;
     std::unordered_map<index_t, fr> hashes;
@@ -1230,23 +1223,24 @@ bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
         }
 
         // one of our leaves
-        fr leaf_hash = HashingPolicy::hash(insertion.low_leaf.get_hash_inputs());
+        new_hash = HashingPolicy::hash(insertion.low_leaf.get_hash_inputs());
 
         // std::cout << "Hashing leaf at level " << level << " index " << insertion.low_leaf_index << " batch start "
         //           << start_index << " hash " << leaf_hash << std::endl;
 
         // Write the new leaf hash in place
-        store_->put_cached_node_by_index(level, insertion.low_leaf_index, leaf_hash);
+        store_->put_cached_node_by_index(level, insertion.low_leaf_index, new_hash);
         // std::cout << "Writing leaf hash: " << new_hash << " at index " << index << std::endl;
-        store_->put_leaf_by_hash(leaf_hash, insertion.low_leaf);
+        store_->put_leaf_by_hash(new_hash, insertion.low_leaf);
         // std::cout << "Writing level: " << level << std::endl;
-        store_->put_node_by_hash(leaf_hash, { .left = std::nullopt, .right = std::nullopt, .ref = 1 });
+        store_->put_node_by_hash(new_hash, { .left = std::nullopt, .right = std::nullopt, .ref = 1 });
         indices.push_back(insertion.low_leaf_index);
-        hashes[insertion.low_leaf_index] = leaf_hash;
+        hashes[insertion.low_leaf_index] = new_hash;
+        // std::cout << "Leaf " << new_hash << " at index " << insertion.low_leaf_index << std::endl;
     }
 
     if (indices.empty()) {
-        return false;
+        return std::make_pair(false, fr::zero());
     }
 
     while (level > root_level) {
@@ -1254,7 +1248,6 @@ bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
         std::unordered_map<index_t, fr> next_hashes;
         for (size_t i = 0; i < indices.size(); ++i) {
             index_t index = indices[i];
-            fr new_hash = hashes[index];
             index_t parent_index = index >> 1;
             auto it = unique_indices.insert(parent_index);
             if (!it.second) {
@@ -1262,6 +1255,7 @@ bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
             }
             next_indices.push_back(parent_index);
             bool is_right = static_cast<bool>(index & 0x01);
+            new_hash = hashes[index];
             std::optional<fr> new_right_option = is_right ? new_hash : get_optional_node(level, index + 1);
             std::optional<fr> new_left_option = is_right ? get_optional_node(level, index - 1) : new_hash;
             fr new_right_value = new_right_option.has_value() ? new_right_option.value() : zero_hashes_[level];
@@ -1279,7 +1273,8 @@ bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
         unique_indices.clear();
         --level;
     }
-    return true;
+    // std::cout << "Returning hash " << new_hash << std::endl;
+    return std::make_pair(true, new_hash);
 }
 
 } // namespace bb::crypto::merkle_tree
