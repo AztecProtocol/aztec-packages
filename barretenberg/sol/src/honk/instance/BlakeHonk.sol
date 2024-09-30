@@ -55,8 +55,6 @@ contract BlakeHonkVerifier is IVerifier {
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
-        uint256 gasAfter = gasleft();
-        console.log("Gas used until sumcheck: ", gasBefore - gasAfter);
 
         bool shpleminiVerified = verifyShplemini(p, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();

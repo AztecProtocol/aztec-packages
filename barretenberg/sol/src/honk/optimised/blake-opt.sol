@@ -695,7 +695,70 @@ uint256 internal constant  AUX_ROM_CONSISTENCY_CHECK_IDENTITY  =  0x5ba0 ;
 uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
 
-    uint256 internal constant NEXT_FREE_MEMORY_LOC = 0x5be0;
+    // TODO(md): shplemini regions can be reused for the reserved sumcheck regions
+    // 28 powers of evaluation challenge
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_0_LOC = 0x5be0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_1_LOC = 0x5c00;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_2_LOC = 0x5c20;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_3_LOC = 0x5c40;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_4_LOC = 0x5c60;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_5_LOC = 0x5c80;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_6_LOC = 0x5ca0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_7_LOC = 0x5cc0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_8_LOC = 0x5ce0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_9_LOC = 0x5d00;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_10_LOC = 0x5d20;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_11_LOC = 0x5d40;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_12_LOC = 0x5d60;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_13_LOC = 0x5d80;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_14_LOC = 0x5da0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_15_LOC = 0x5dc0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_16_LOC = 0x5de0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_17_LOC = 0x5e00;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_18_LOC = 0x5e20;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_19_LOC = 0x5e40;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_20_LOC = 0x5e60;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_21_LOC = 0x5e80;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_22_LOC = 0x5ea0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_23_LOC = 0x5ec0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_24_LOC = 0x5ee0;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_25_LOC = 0x5f00;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_26_LOC = 0x5f20;
+    uint256 internal constant POWERS_OF_EVALUATION_CHALLENGE_27_LOC = 0x5f40;
+
+    // 29 Inverted Gemini Denominators
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_0_LOC = 0x5f60;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_1_LOC = 0x5f80;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_2_LOC = 0x5fa0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_3_LOC = 0x5fc0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_4_LOC = 0x5fe0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_5_LOC = 0x6000;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_6_LOC = 0x6020;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_7_LOC = 0x6040;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_8_LOC = 0x6060;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_9_LOC = 0x6080;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_10_LOC = 0x60a0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_11_LOC = 0x60c0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_12_LOC = 0x60e0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_13_LOC = 0x6100;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_14_LOC = 0x6120;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_15_LOC = 0x6140;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_16_LOC = 0x6160;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_17_LOC = 0x6180;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_18_LOC = 0x61a0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_19_LOC = 0x61c0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_20_LOC = 0x61e0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_21_LOC = 0x6200;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_22_LOC = 0x6220;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_23_LOC = 0x6240;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_24_LOC = 0x6260;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_25_LOC = 0x6280;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_26_LOC = 0x62a0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_27_LOC = 0x62c0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_28_LOC = 0x62e0;
+
+
+
 
     // Aliases
     // Aliases for wire values (Elliptic curve gadget)
@@ -2279,6 +2342,33 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 return(0x00, 0x20)
             }
             }
+
+            // Shplemini Commitment scheme
+
+            // Compute powers of evaluation challenge
+            let cache := mload(GEMINI_R_CHALLENGE)
+            let off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
+            mstore(off, cache)
+            for {let i := 1} lt(i, CONST_PROOF_SIZE_LOG_N) {i := add(i, 1)} {
+                off := add(off, 0x20)
+                cache := mulmod(cache, cache, p)
+                mstore(off, cache)
+            }
+
+            // Compute Inverted Gemini Denominators
+            let eval_challenge := mload(SHPLONK_Z_CHALLENGE)
+            mstore(INVERTED_GEMINI_DENOMINATOR_0_LOC, addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p))
+
+            off := INVERTED_GEMINI_DENOMINATOR_1_LOC
+            for {let i := 0} lt(i, CONST_PROOF_SIZE_LOG_N) {i := add(i, 1)} {
+
+                mstore(off, cache)
+            }
+
+
+
+
+
 
 
             mstore(0x00, 0x01)

@@ -192,7 +192,7 @@ def print_entities(pointer: int):
 
 
 def print_shplemini(pointer: int):
-    for size in range(0, PROOF_SIZE_LOG_N):
+    for size in range(0, PROOF_SIZE_LOG_N - 1):
         print_g1(pointer, "GEMINI_FOLD_UNIVARIATE_" + str(size))
         pointer += (4*32)
 
