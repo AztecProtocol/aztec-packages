@@ -24,11 +24,18 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
                                    const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    AggregationObject verify_proof(const HonkProof& proof, AggregationObject agg_obj);
-    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof, AggregationObject agg_obj);
+    AggregationObject verify_proof(const HonkProof& proof,
+                                   const std::vector<std::vector<bb::fr>>& public_inputs_vec_nt,
+                                   AggregationObject agg_obj);
+    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof,
+                                   const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
+                                   AggregationObject agg_obj);
 
     std::shared_ptr<VerificationKey> key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
+
+  private:
+    FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 } // namespace bb

@@ -360,14 +360,6 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.enqueue({ type: ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, inputs: input }, signal, epochNumber);
   }
 
-  getBlockRootRollupFinalProof(
-    input: BlockRootRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL, inputs: input }, signal, epochNumber);
-  }
-
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.

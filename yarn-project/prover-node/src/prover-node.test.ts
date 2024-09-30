@@ -3,7 +3,7 @@ import {
   type L1ToL2MessageSource,
   type L2BlockSource,
   type MerkleTreeAdminOperations,
-  type TxProvider,
+  type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
@@ -24,7 +24,7 @@ describe('prover-node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let txProvider: MockProxy<TxProvider>;
+  let txProvider: MockProxy<ProverCoordination>;
   let simulator: MockProxy<SimulationProvider>;
 
   let proverNode: TestProverNode;
@@ -43,7 +43,7 @@ describe('prover-node', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
-    txProvider = mock<TxProvider>();
+    txProvider = mock<ProverCoordination>();
     simulator = mock<SimulationProvider>();
     const telemetryClient = new NoopTelemetryClient();
 

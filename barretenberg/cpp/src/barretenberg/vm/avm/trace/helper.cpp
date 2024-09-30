@@ -1,9 +1,7 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
-
+#include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include <algorithm>
 #include <cassert>
-
-#include "barretenberg/vm/avm/trace/mem_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -70,37 +68,6 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
     }
 
     return (ind_value & (1 << operand_idx)) != 0;
-}
-
-std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& public_inputs,
-                                                        std::vector<FF> const& calldata,
-                                                        std::vector<FF> const& returndata)
-{
-    // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
-    // For each of the public input vectors
-    std::vector<FF> public_inputs_kernel_inputs(std::get<KERNEL_INPUTS>(public_inputs).begin(),
-                                                std::get<KERNEL_INPUTS>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_value_outputs(std::get<KERNEL_OUTPUTS_VALUE>(public_inputs).begin(),
-                                                       std::get<KERNEL_OUTPUTS_VALUE>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_side_effect_outputs(
-        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs).begin(),
-        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_metadata_outputs(std::get<KERNEL_OUTPUTS_METADATA>(public_inputs).begin(),
-                                                          std::get<KERNEL_OUTPUTS_METADATA>(public_inputs).end());
-
-    assert(public_inputs_kernel_inputs.size() == KERNEL_INPUTS_LENGTH);
-    assert(public_inputs_kernel_value_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-    assert(public_inputs_kernel_side_effect_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-    assert(public_inputs_kernel_metadata_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-
-    return {
-        std::move(public_inputs_kernel_inputs),
-        std::move(public_inputs_kernel_value_outputs),
-        std::move(public_inputs_kernel_side_effect_outputs),
-        std::move(public_inputs_kernel_metadata_outputs),
-        calldata,
-        returndata,
-    };
 }
 
 std::string to_hex(bb::avm_trace::AvmMemoryTag tag)

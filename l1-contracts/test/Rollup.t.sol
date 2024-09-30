@@ -373,6 +373,7 @@ contract RollupTest is DecoderBase {
     //        and timestamp as if it was created at a different point in time. This allow us to insert it
     //        as if it was the first block, even after we had originally inserted the mixed block.
     //        An example where this could happen would be if no-one could prove the mixed block.
+    // @note  We prune the pending chain as part of the propose call.
     _testBlock("empty_block_1", false, prunableAt.unwrap());
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");

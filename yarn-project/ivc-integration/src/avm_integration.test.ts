@@ -9,6 +9,8 @@ import {
 import { AvmCircuitInputs, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_PUBLIC_COLUMN_MAX_SIZE,
+  AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js/constants';
@@ -16,7 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
-import { AvmSimulator, type PublicContractsDB, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
+import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
@@ -72,7 +74,10 @@ describe('AVM Integration', () => {
   }
 
   it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
-    const bbSuccess = await proveAvmTestContract('new_note_hash', [new Fr(1)]);
+    const bbSuccess = await proveAvmTestContract(
+      'bulk_testing',
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+    );
 
     const avmProofPath = bbSuccess.proofPath;
     const avmVkPath = bbSuccess.vkPath;
@@ -82,11 +87,19 @@ describe('AVM Integration', () => {
     // Read the binary proof
     const avmProofBuffer = await fs.readFile(avmProofPath!);
     const reader = BufferReader.asReader(avmProofBuffer);
-    reader.readArray(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, Fr);
+    const kernel_public_inputs = reader.readArray(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, Fr);
     const calldataSize = Fr.fromBuffer(reader).toNumber();
-    reader.readArray(calldataSize, Fr);
+    const calldata = reader.readArray(calldataSize, Fr);
     const returnDataSize = Fr.fromBuffer(reader).toNumber();
-    reader.readArray(returnDataSize, Fr);
+    const returnData = reader.readArray(returnDataSize, Fr);
+
+    const public_cols_flattened = kernel_public_inputs
+      .concat(calldata)
+      .concat(Array(AVM_PUBLIC_COLUMN_MAX_SIZE - calldata.length).fill(new Fr(0)))
+      .concat(returnData)
+      .concat(Array(AVM_PUBLIC_COLUMN_MAX_SIZE - returnData.length).fill(new Fr(0)));
+
+    expect(public_cols_flattened.length).toBe(AVM_PUBLIC_INPUTS_FLATTENED_SIZE);
 
     const proof: Fr[] = [];
     while (!reader.isEmpty()) {
@@ -106,6 +119,10 @@ describe('AVM Integration', () => {
         typeof AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS
       >,
       proof: proof.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_PROOF_LENGTH_IN_FIELDS>,
+      pub_cols_flattened: public_cols_flattened.map(x => x.toString()) as FixedLengthArray<
+        string,
+        typeof AVM_PUBLIC_INPUTS_FLATTENED_SIZE
+      >,
     });
 
     await createHonkProof(witGenResult.witness, MockPublicKernelCircuit.bytecode);
@@ -134,7 +151,7 @@ const proveAvmTestContract = async (
   const globals = GlobalVariables.empty();
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
-  const contractsDb = mock<PublicContractsDB>();
+  const worldStateDB = mock<WorldStateDB>();
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -143,9 +160,8 @@ const proveAvmTestContract = async (
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
   }).withAddress(environment.address);
-  contractsDb.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
+  worldStateDB.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
 
-  const worldStateDB = mock<WorldStateDB>();
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(await Promise.resolve(storageValue));
 
