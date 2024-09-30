@@ -200,9 +200,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const DeciderPKs& keys,
         const size_t row_idx)
     {
-        const auto base_univariates = keys.template row_to_univariates<skip_count>(row_idx);
-        for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
-            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH, skip_count>();
+        auto incoming_univariates = keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
+        for (auto [extended_univariate, incoming_univariate] :
+             zip_view(extended_univariates.get_all(), incoming_univariates)) {
+            incoming_univariate.template self_extend_from<NUM_KEYS>();
+            extended_univariate = std::move(incoming_univariate);
         }
     }
 

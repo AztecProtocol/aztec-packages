@@ -61,6 +61,15 @@ else()
     SET(TRACY_LIBS)
 endif()
 
+if(TRACY_PROFILE_MEMORY)
+  add_compile_options(-DTRACY_MEMORY)
+endif()
+
+if(TRACY_PROFILE_TIME)
+  add_compile_options(-DTRACY_TIME)
+endif()
+
+
 if(ENABLE_ASAN)
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
