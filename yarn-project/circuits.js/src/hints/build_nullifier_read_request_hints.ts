@@ -1,4 +1,3 @@
-import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Fr } from '@aztec/foundation/fields';
@@ -17,6 +16,7 @@ import {
   NullifierReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequest,
+  ReadRequestResetStates,
   ReadRequestState,
   type ScopedNullifier,
   ScopedReadRequest,
@@ -37,26 +37,12 @@ interface NullifierMembershipWitnessWithPreimage {
   leafPreimage: IndexedTreeLeafPreimage;
 }
 
-export class NullifierReadRequestResetStates {
-  constructor(
-    public states: Tuple<ReadRequestState, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    public pendingReadHints: PendingReadHint[],
-  ) {}
-
-  static empty() {
-    return new NullifierReadRequestResetStates(
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, () => ReadRequestState.NADA),
-      [],
-    );
-  }
-}
-
 export function getNullifierReadRequestResetStates(
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
   futureNullifiers: ScopedNullifier[],
-) {
-  const resetStates = NullifierReadRequestResetStates.empty();
+): ReadRequestResetStates<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX> {
+  const resetStates = ReadRequestResetStates.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
 
   const nullifierMap: Map<bigint, { nullifier: ScopedNullifier; index: number }[]> = new Map();
   getNonEmptyItems(nullifiers).forEach((nullifier, index) => {
@@ -96,12 +82,12 @@ export async function buildNullifierReadRequestHintsFromResetStates<PENDING exte
     getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
   },
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-  resetStates: NullifierReadRequestResetStates,
-  sizePending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
-  sizeSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
+  resetStates: ReadRequestResetStates<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
+  maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
   siloed = false,
 ) {
-  const builder = new NullifierReadRequestHintsBuilder(sizePending, sizeSettled);
+  const builder = new NullifierReadRequestHintsBuilder(maxPending, maxSettled);
 
   resetStates.pendingReadHints.forEach(hint => {
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
@@ -130,8 +116,8 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
   futureNullifiers: ScopedNullifier[],
-  sizePending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
-  sizeSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
+  maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
+  maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
   siloed = false,
 ) {
   const resetStates = getNullifierReadRequestResetStates(nullifierReadRequests, nullifiers, futureNullifiers);
@@ -139,8 +125,8 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
     oracle,
     nullifierReadRequests,
     resetStates,
-    sizePending,
-    sizeSettled,
+    maxPending,
+    maxSettled,
     siloed,
   );
 }
@@ -151,8 +137,8 @@ export function buildSiloedNullifierReadRequestHints<PENDING extends number, SET
   },
   nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
-  sizePending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
-  sizeSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
+  maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
+  maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
 ) {
   // Nullifiers outputted from public kernels are already siloed while read requests are not.
   // Siloing the read request values and set the contract addresses to zero to find the matching nullifier contexts.
@@ -168,13 +154,5 @@ export function buildSiloedNullifierReadRequestHints<PENDING extends number, SET
     new Nullifier(n.value, n.counter, n.noteHash).scope(AztecAddress.ZERO),
   ) as Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>;
 
-  return buildNullifierReadRequestHints(
-    oracle,
-    siloedReadRequests,
-    scopedNullifiers,
-    [],
-    sizePending,
-    sizeSettled,
-    true,
-  );
+  return buildNullifierReadRequestHints(oracle, siloedReadRequests, scopedNullifiers, [], maxPending, maxSettled, true);
 }

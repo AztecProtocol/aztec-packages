@@ -43,15 +43,14 @@ function getDimensionsList(allowedVariants) {
     [[]]
   );
 
-  // TODO: Remove standalone until bb can create vk for it.
   // Standalone.
-  // dimensionNames.forEach((name, i) => {
-  //   config.dimensions[name].standalone.forEach((val) => {
-  //     const dimensions = Array(dimensionNames.length).fill(0);
-  //     dimensions[i] = val;
-  //     dimensionsList.push(dimensions);
-  //   });
-  // });
+  dimensionNames.forEach((name, i) => {
+    config.dimensions[name].standalone.forEach((val) => {
+      const dimensions = Array(dimensionNames.length).fill(0);
+      dimensions[i] = val;
+      dimensionsList.push(dimensions);
+    });
+  });
 
   // Special cases.
   config.specialCases.forEach((dimensions) => dimensionsList.push(dimensions));

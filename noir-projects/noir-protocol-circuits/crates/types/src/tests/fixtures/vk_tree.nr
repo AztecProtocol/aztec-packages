@@ -8,12 +8,7 @@ use crate::constants::{
 };
 use crate::merkle_tree::merkle_tree::MerkleTree;
 
-global VK_TREE_WIDTH: u32 = 32;
-
-#[test]
-fn check_vk_tree_width() {
-    assert_eq(2.pow_32(VK_TREE_HEIGHT as Field), VK_TREE_WIDTH as Field, "Incorrect VK tree width");
-}
+global VK_TREE_WIDTH: u32 = (1 as u8 << VK_TREE_HEIGHT as u8) as u32;
 
 pub fn get_vk_merkle_tree() -> MerkleTree<VK_TREE_WIDTH> {
     let mut leaves = [0; VK_TREE_WIDTH];

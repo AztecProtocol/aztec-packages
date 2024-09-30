@@ -81,11 +81,15 @@ impl<
         );
 
         // key_validation_requests
-        verify_reset_key_validation_requests(
-            self.validation_requests.scoped_key_validation_requests_and_generators,
-            self.key_validation_hints,
-            output.scoped_key_validation_requests_and_generators
-        );
+        if KEY_VALIDATION_REQUESTS == 0 {
+            assert_eq(output.scoped_key_validation_requests_and_generators, self.validation_requests.scoped_key_validation_requests_and_generators, "mismatch scoped_key_validation_requests_and_generators");
+        } else {
+            verify_reset_key_validation_requests(
+                self.validation_requests.scoped_key_validation_requests_and_generators,
+                self.key_validation_hints,
+                output.scoped_key_validation_requests_and_generators
+            );
+        }
 
         // split_counter
         assert_eq(

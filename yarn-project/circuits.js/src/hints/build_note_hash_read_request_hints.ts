@@ -1,4 +1,3 @@
-import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import {
@@ -11,6 +10,7 @@ import {
   type MembershipWitness,
   NoteHashReadRequestHintsBuilder,
   PendingReadHint,
+  ReadRequestResetStates,
   ReadRequestState,
   type ScopedNoteHash,
   type ScopedReadRequest,
@@ -26,26 +26,12 @@ export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteH
   );
 }
 
-export class NoteHashReadRequestResetStates {
-  constructor(
-    public states: Tuple<ReadRequestState, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    public pendingReadHints: PendingReadHint[],
-  ) {}
-
-  static empty() {
-    return new NoteHashReadRequestResetStates(
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, () => ReadRequestState.NADA),
-      [],
-    );
-  }
-}
-
 export function getNoteHashReadRequestResetStates(
   noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
   futureNoteHashes: ScopedNoteHash[],
-) {
-  const resetStates = NoteHashReadRequestResetStates.empty();
+): ReadRequestResetStates<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
+  const resetStates = ReadRequestResetStates.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
 
   const noteHashMap: Map<bigint, { noteHash: ScopedNoteHash; index: number }[]> = new Map();
   getNonEmptyItems(noteHashes).forEach((noteHash, index) => {
@@ -86,12 +72,12 @@ export async function buildNoteHashReadRequestHintsFromResetStates<PENDING exten
   },
   noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
-  resetStates: NoteHashReadRequestResetStates,
+  resetStates: ReadRequestResetStates<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashLeafIndexMap: Map<bigint, bigint>,
-  sizePending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
-  sizeSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
+  maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
+  maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
 ) {
-  const builder = new NoteHashReadRequestHintsBuilder(sizePending, sizeSettled);
+  const builder = new NoteHashReadRequestHintsBuilder(maxPending, maxSettled);
 
   resetStates.pendingReadHints.forEach(hint => {
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
@@ -129,8 +115,8 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
   noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
   noteHashLeafIndexMap: Map<bigint, bigint>,
   futureNoteHashes: ScopedNoteHash[],
-  sizePending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
-  sizeSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
+  maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
+  maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
 ) {
   const resetStates = getNoteHashReadRequestResetStates(noteHashReadRequests, noteHashes, futureNoteHashes);
   return await buildNoteHashReadRequestHintsFromResetStates(
@@ -139,7 +125,7 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
     noteHashes,
     resetStates,
     noteHashLeafIndexMap,
-    sizePending,
-    sizeSettled,
+    maxPending,
+    maxSettled,
   );
 }

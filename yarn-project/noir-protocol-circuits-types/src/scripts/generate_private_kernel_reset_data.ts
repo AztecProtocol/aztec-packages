@@ -124,8 +124,6 @@ const main = async () => {
   const config = JSON.parse(
     await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_config.json', 'utf8'),
   ) as PrivateKernelResetDimensionsConfig;
-  // TODO: Remove standalone until bb can create vk for it.
-  privateKernelResetDimensionNames.forEach(name => (config.dimensions[name].standalone = []));
 
   checkDimensionNames(config);
 

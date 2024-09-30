@@ -9,8 +9,6 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  NoteHashReadRequestResetStates,
-  NullifierReadRequestResetStates,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -18,6 +16,7 @@ import {
   PrivateKernelResetDimensions,
   PrivateKernelResetHints,
   type ReadRequest,
+  ReadRequestResetStates,
   ReadRequestState,
   type ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
@@ -99,8 +98,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
   // If there's no next iteration, it's the final reset.
   private nextIteration?: PrivateCircuitPublicInputs;
 
-  private noteHashResetStates: NoteHashReadRequestResetStates;
-  private nullifierResetStates: NullifierReadRequestResetStates;
+  private noteHashResetStates: ReadRequestResetStates<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
+  private nullifierResetStates: ReadRequestResetStates<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
   private numTransientData?: number;
   private transientDataIndexHints: Tuple<TransientDataIndexHint, typeof MAX_NULLIFIERS_PER_TX>;
   private requestedDimensions: PrivateKernelResetDimensions;
@@ -113,9 +112,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
   ) {
     this.previousKernel = previousKernelOutput.publicInputs;
     this.requestedDimensions = PrivateKernelResetDimensions.empty();
-    this.noteHashResetStates = NoteHashReadRequestResetStates.empty();
-    this.nullifierResetStates = NullifierReadRequestResetStates.empty();
-    this.transientDataIndexHints = makeTuple(MAX_NULLIFIERS_PER_TX, () => TransientDataIndexHint.empty());
+    this.noteHashResetStates = ReadRequestResetStates.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
+    this.nullifierResetStates = ReadRequestResetStates.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
+    this.transientDataIndexHints = makeTuple(
+      MAX_NULLIFIERS_PER_TX,
+      () => new TransientDataIndexHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
+    );
     this.nextIteration = executionStack[this.executionStack.length - 1]?.callStackItem.publicInputs;
   }
 
@@ -158,11 +160,15 @@ export class PrivateKernelResetPrivateInputsBuilder {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const getNullifierMembershipWitness = getNullifierMembershipWitnessResolver(oracle);
-
-    const keysHints = await getMasterSecretKeysAndAppKeyGenerators(
-      this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
-      oracle,
+    this.reduceReadRequestStates(
+      this.noteHashResetStates,
+      dimensions.NOTE_HASH_PENDING_AMOUNT,
+      dimensions.NOTE_HASH_SETTLED_AMOUNT,
+    );
+    this.reduceReadRequestStates(
+      this.nullifierResetStates,
+      dimensions.NULLIFIER_PENDING_AMOUNT,
+      dimensions.NULLIFIER_SETTLED_AMOUNT,
     );
 
     return new PrivateKernelResetCircuitPrivateInputs(
@@ -176,16 +182,46 @@ export class PrivateKernelResetPrivateInputsBuilder {
           noteHashLeafIndexMap,
         ),
         await buildNullifierReadRequestHintsFromResetStates(
-          { getNullifierMembershipWitness },
+          { getNullifierMembershipWitness: getNullifierMembershipWitnessResolver(oracle) },
           this.previousKernel.validationRequests.nullifierReadRequests,
           this.nullifierResetStates,
         ),
-        keysHints,
+        await getMasterSecretKeysAndAppKeyGenerators(
+          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
+          oracle,
+        ),
         this.transientDataIndexHints,
         this.validationRequestsSplitCounter,
       ),
       dimensions,
     );
+  }
+
+  private reduceReadRequestStates<NUM_READS extends number>(
+    resetStates: ReadRequestResetStates<NUM_READS>,
+    maxPending: number,
+    maxSettled: number,
+  ) {
+    let numPending = 0;
+    let numSettled = 0;
+    for (let i = 0; i < resetStates.states.length; i++) {
+      const state = resetStates.states[i];
+      if (state === ReadRequestState.PENDING) {
+        if (numPending < maxPending) {
+          numPending++;
+        } else {
+          resetStates.states[i] = ReadRequestState.NADA;
+        }
+      } else if (state === ReadRequestState.SETTLED) {
+        if (numSettled < maxSettled) {
+          numSettled++;
+        } else {
+          resetStates.states[i] = ReadRequestState.NADA;
+        }
+      }
+    }
+
+    resetStates.pendingReadHints = resetStates.pendingReadHints.slice(0, maxPending);
   }
 
   private needsResetNoteHashReadRequests() {
@@ -312,6 +348,28 @@ export class PrivateKernelResetPrivateInputsBuilder {
   }
 
   private needsResetTransientData() {
+    // Initialize this to 0 so that needsSilo can be run.
+    this.numTransientData = 0;
+
+    {
+      // Check if note hashes will overflow.
+      const maxAmountToKeep = !this.nextIteration ? 0 : MAX_NOTE_HASHES_PER_TX;
+      const numCurr = countAccumulatedItems(this.previousKernel.end.noteHashes);
+      const numNext = this.nextIteration ? countAccumulatedItems(this.nextIteration.noteHashes) : 0;
+      if (numCurr + numNext <= maxAmountToKeep) {
+        return false;
+      }
+    }
+    {
+      // Check if nullifiers will overflow.
+      const maxAmountToKeep = !this.nextIteration ? 0 : MAX_NULLIFIERS_PER_TX;
+      const numCurr = countAccumulatedItems(this.previousKernel.end.nullifiers);
+      const numNext = this.nextIteration ? countAccumulatedItems(this.nextIteration.nullifiers) : 0;
+      if (numCurr + numNext <= maxAmountToKeep) {
+        return false;
+      }
+    }
+
     const futureNoteHashReads = collectNestedReadRequests(
       this.executionStack,
       executionResult => executionResult.callStackItem.publicInputs.noteHashReadRequests,
