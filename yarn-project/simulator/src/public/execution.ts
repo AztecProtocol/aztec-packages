@@ -86,8 +86,6 @@ export interface PublicExecutionResult {
    */
   allUnencryptedLogs: UnencryptedFunctionL2Logs;
 
-  // TODO(dbanks12): add contract instance read requests
-
   /** The requests to call public functions made by this call. */
   publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
