@@ -45,7 +45,6 @@ export async function createPXEService(
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
   const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);
-
   for (const contract of [
     getCanonicalClassRegisterer(),
     getCanonicalInstanceDeployer(),

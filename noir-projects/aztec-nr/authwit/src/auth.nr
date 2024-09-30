@@ -252,9 +252,7 @@ pub fn assert_current_call_valid_authwit_public(
     let dispatch_selector = comptime {
         FunctionSelector::from_signature("public_dispatch(Field)").to_field()
     };
-    let inner_hash = compute_inner_authwit_hash(
-        [(*context).msg_sender().to_field(), dispatch_selector, (*context).get_args_hash()]
-    );
+    let inner_hash = compute_inner_authwit_hash([(*context).msg_sender().to_field(), dispatch_selector, (*context).get_args_hash()]);
     assert_inner_hash_valid_authwit_public(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit_public
