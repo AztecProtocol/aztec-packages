@@ -695,7 +695,6 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     std::vector<fr>& values, fr& new_root, index_t& new_size, bool update_index, ReadTransaction& tx)
 {
-
     uint32_t start_level = depth_;
     uint32_t level = start_level;
     std::vector<fr>& hashes_local = values;

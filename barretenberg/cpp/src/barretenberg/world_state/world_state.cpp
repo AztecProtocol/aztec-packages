@@ -285,7 +285,9 @@ void WorldState::update_public_data(const PublicDataLeafValue& new_value, Fork::
     if (const auto* wrapper =
             std::get_if<TreeWithStore<PublicDataTree>>(&fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE))) {
         Signal signal;
-        wrapper->tree->add_or_update_value(new_value, [&signal](const auto&) { signal.signal_level(0); });
+        wrapper->tree->add_or_update_value(
+            new_value,
+            [&signal](const TypedResponse<AddIndexedDataResponse<PublicDataLeafValue>>&) { signal.signal_level(0); });
         signal.wait_for_level();
     } else {
         throw std::runtime_error("Invalid tree type for PublicDataTree");
@@ -361,7 +363,8 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
-        wrapper.tree->add_or_update_values(nullifiers, 0, decr);
+        NullifierTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        wrapper.tree->add_or_update_values(nullifiers, 0, completion);
     }
 
     {
@@ -381,8 +384,8 @@ bool WorldState::sync_block(StateReference& block_state_ref,
         for (const auto& batch : public_writes) {
             leaves.insert(leaves.end(), batch.begin(), batch.end());
         }
-
-        wrapper.tree->add_or_update_values(leaves, 0, decr);
+        PublicDataTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
+        wrapper.tree->add_or_update_values(leaves, 0, completion);
     }
 
     {

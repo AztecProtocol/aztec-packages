@@ -14,6 +14,7 @@
 #include "indexed_leaf.hpp"
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -43,7 +44,9 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     // The public methods accept these function types as asynchronous callbacks
     using LeafValueType = typename Store::LeafType;
     using IndexedLeafValueType = typename Store::IndexedLeafValueType;
-    using AddCompletionCallback = std::function<void(const TypedResponse<AddIndexedDataResponse<LeafValueType>>&)>;
+    using AddCompletionCallbackWithWitness =
+        std::function<void(const TypedResponse<AddIndexedDataResponse<LeafValueType>>&)>;
+    using AddCompletionCallback = std::function<void(const TypedResponse<AddDataResponse>&)>;
     using LeafCallback = std::function<void(const TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
     using FindLowLeafCallback = std::function<void(const TypedResponse<GetLowIndexedLeafResponse>&)>;
 
@@ -59,10 +62,33 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     /**
      * @brief Adds or updates a single values in the tree (updates not currently supported)
      */
-    void add_or_update_value(const LeafValueType& value, const AddCompletionCallback& completion);
+    void add_or_update_value(const LeafValueType& value, const AddCompletionCallbackWithWitness& completion);
 
     /**
      * @brief Adds or updates the given set of values in the tree (updates not currently supported)
+     * @param values The values to be added or updated
+     * @param completion The callback to be triggered once the values have been added
+     */
+    void add_or_update_values(const std::vector<LeafValueType>& values,
+                              const AddCompletionCallbackWithWitness& completion);
+
+    /**
+     * @brief Adds or updates the given set of values in the tree
+     * @param values The values to be added or updated
+     * @param subtree_depth The height of the subtree to be inserted.
+     * @param completion The callback to be triggered once the values have been added
+     */
+    void add_or_update_values(const std::vector<LeafValueType>& values,
+                              uint32_t subtree_depth,
+                              const AddCompletionCallbackWithWitness& completion);
+
+    /**
+     * @brief Adds or updates a single values in the tree (updates not currently supported)
+     */
+    void add_or_update_value(const LeafValueType& value, const AddCompletionCallback& completion);
+
+    /**
+     * @brief Adds or updates the given set of values in the tree
      * @param values The values to be added or updated
      * @param completion The callback to be triggered once the values have been added
      */
@@ -164,9 +190,29 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                                       Signal& follower,
                                       fr_sibling_path& previous_sibling_path);
 
+    bool sparse_batch_update(const index_t& start_index,
+                             const index_t& num_leaves_to_be_inserted,
+                             const uint32_t& root_level,
+                             const std::vector<LeafInsertion>& insertions);
+
+    void sparse_batch_update(const std::vector<index_t> indices_at_level, uint32_t level);
+
+    /**
+     * @brief Adds or updates the given set of values in the tree
+     * @param values The values to be added or updated
+     * @param subtree_depth The height of the subtree to be inserted.
+     * @param completion The callback to be triggered once the values have been added
+     * @param capture_witness Whether or not we should capture the low-leaf witnesses
+     */
+    void add_or_update_values_internal(const std::vector<LeafValueType>& values,
+                                       uint32_t subtree_depth,
+                                       const AddCompletionCallbackWithWitness& completion,
+                                       bool capture_witness);
+
     struct InsertionGenerationResponse {
         std::shared_ptr<std::vector<LeafInsertion>> insertions;
         std::shared_ptr<std::vector<IndexedLeafValueType>> indexed_leaves;
+        index_t highest_index;
     };
 
     using InsertionGenerationCallback = std::function<void(const TypedResponse<InsertionGenerationResponse>&)>;
@@ -181,6 +227,9 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     void perform_insertions(size_t total_leaves,
                             std::shared_ptr<std::vector<LeafInsertion>> insertions,
                             const InsertionCompletionCallback& completion);
+    void perform_insertions_without_witness(index_t highest_index,
+                                            std::shared_ptr<std::vector<LeafInsertion>> insertions,
+                                            const InsertionCompletionCallback& completion);
 
     struct HashGenerationResponse {
         std::shared_ptr<std::vector<fr>> hashes;
@@ -465,10 +514,24 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_value(
+    const LeafValueType& value, const AddCompletionCallbackWithWitness& completion)
+{
+    add_or_update_values(std::vector<LeafValueType>{ value }, 1, completion);
+}
+
+template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_value(const LeafValueType& value,
                                                                             const AddCompletionCallback& completion)
 {
     add_or_update_values(std::vector<LeafValueType>{ value }, 1, completion);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(
+    const std::vector<LeafValueType>& values, const AddCompletionCallbackWithWitness& completion)
+{
+    add_or_update_values(values, 0, completion);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -479,9 +542,38 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(
+    const std::vector<LeafValueType>& values,
+    const uint32_t subtree_depth,
+    const AddCompletionCallbackWithWitness& completion)
+{
+    add_or_update_values_internal(values, subtree_depth, completion, true);
+}
+
+template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
                                                                              const uint32_t subtree_depth,
                                                                              const AddCompletionCallback& completion)
+{
+    auto final_completion = [=](const TypedResponse<AddIndexedDataResponse<LeafValueType>>& add_data_response) {
+        TypedResponse<AddDataResponse> response;
+        response.success = add_data_response.success;
+        response.message = add_data_response.message;
+        if (add_data_response.success) {
+            response.inner = add_data_response.inner.add_data_result;
+        }
+        // Trigger the client's provided callback
+        completion(response);
+    };
+    add_or_update_values_internal(values, subtree_depth, final_completion, false);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_internal(
+    const std::vector<LeafValueType>& values,
+    const uint32_t subtree_depth,
+    const AddCompletionCallbackWithWitness& completion,
+    bool capture_witness)
 {
     // We first take a copy of the leaf values and their locations within the set given to us
     std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> values_to_be_sorted =
@@ -521,15 +613,17 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
         }
     };
 
-    // Thsi is the final callback triggered once the leaves have been appended to the tree
+    // This is the final callback triggered once the leaves have been appended to the tree
     auto final_completion = [=](const TypedResponse<AddDataResponse>& add_data_response) {
         TypedResponse<AddIndexedDataResponse<LeafValueType>> response;
         response.success = add_data_response.success;
         response.message = add_data_response.message;
         if (add_data_response.success) {
-            response.inner.subtree_path = std::move(results->subtree_path);
-            response.inner.sorted_leaves = std::move(values_to_be_sorted);
-            response.inner.low_leaf_witness_data = std::move(results->low_leaf_witness_data);
+            if (capture_witness) {
+                response.inner.subtree_path = std::move(results->subtree_path);
+                response.inner.sorted_leaves = std::move(values_to_be_sorted);
+                response.inner.low_leaf_witness_data = std::move(results->low_leaf_witness_data);
+            }
             response.inner.add_data_result = std::move(add_data_response.inner);
         }
         // Trigger the client's provided callback
@@ -540,7 +634,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
         if (!response.success) {
             results->status.set_failure(response.message);
         } else {
-            results->subtree_path = std::move(response.inner.path);
+            if (capture_witness) {
+                results->subtree_path = std::move(response.inner.path);
+            }
             ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
                 (*results->hashes_to_append), final_completion, false);
         }
@@ -560,8 +656,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
                 on_error(results->status.message);
                 return;
             }
-            ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
-                subtree_depth, sibling_path_completion, true);
+            if (capture_witness) {
+                ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
+                    subtree_depth, sibling_path_completion, true);
+                return;
+            }
+            TypedResponse<GetSiblingPathResponse> response;
+            response.success = true;
+            sibling_path_completion(response);
         }
     };
 
@@ -571,7 +673,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
         [=, this](const TypedResponse<InsertionCompletionResponse>& insertion_response) {
             if (!insertion_response.success) {
                 results->status.set_failure(insertion_response.message);
-            } else {
+            } else if (capture_witness) {
                 results->low_leaf_witness_data = insertion_response.inner.low_leaf_witness_data;
             }
 
@@ -580,8 +682,15 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
                     on_error(results->status.message);
                     return;
                 }
-                ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
-                    subtree_depth, sibling_path_completion, true);
+                if (capture_witness) {
+                    ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
+                        subtree_depth, sibling_path_completion, true);
+                    return;
+                }
+                TypedResponse<GetSiblingPathResponse> response;
+                response.success = true;
+
+                sibling_path_completion(response);
             }
         };
 
@@ -596,7 +705,12 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
             workers_->enqueue([=, this]() {
                 generate_hashes_for_appending(insertion_response.inner.indexed_leaves, hash_completion);
             });
-            perform_insertions(values.size(), insertion_response.inner.insertions, insertion_completion);
+            if (capture_witness) {
+                perform_insertions(values.size(), insertion_response.inner.insertions, insertion_completion);
+                return;
+            }
+            perform_insertions_without_witness(
+                insertion_response.inner.highest_index, insertion_response.inner.insertions, insertion_completion);
         };
 
     // We start by enqueueing the insertion data generation
@@ -717,6 +831,77 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_without_witness(
+    index_t highest_index,
+    std::shared_ptr<std::vector<LeafInsertion>> insertions,
+    const InsertionCompletionCallback& completion)
+{
+    // early return, no insertions to perform
+    if (insertions->size() == 0) {
+        TypedResponse<InsertionCompletionResponse> response;
+        response.success = true;
+        completion(response);
+        return;
+    }
+
+    std::shared_ptr<Status> status = std::make_shared<Status>();
+
+    uint32_t p = static_cast<uint32_t>(std::log2(highest_index + 1));
+    index_t span = static_cast<uint32_t>(std::pow(2, p)) + 1;
+    uint64_t numBatches = workers_->num_threads();
+    index_t batchSize = span / numBatches;
+    batchSize = std::max(batchSize, 1UL);
+    index_t startIndex = 0;
+    p = static_cast<uint32_t>(std::log2(batchSize));
+    uint32_t rootLevel = depth_ - p;
+    numBatches *= 2;
+
+    // std::cout << "Max size " << max_size << " under span " << underSpan << " num batches " << numBatches
+    //           << " batch size " << batchSize << " root level " << rootLevel << std::endl;
+
+    struct OpCount {
+        std::atomic_uint32_t count;
+        std::vector<bool> roots;
+
+        OpCount(uint32_t init)
+            : count(init)
+            , roots(init, false)
+        {}
+    };
+    std::shared_ptr<OpCount> opCount = std::make_shared<OpCount>(numBatches);
+
+    for (uint32_t i = 0; i < numBatches; ++i) {
+        std::function<void()> op = [=, this]() {
+            try {
+                bool withinRange = startIndex <= highest_index;
+                opCount->roots[i] = withinRange && sparse_batch_update(startIndex, batchSize, rootLevel, *insertions);
+            } catch (std::exception& e) {
+                status->set_failure(e.what());
+            }
+
+            if (opCount->count.fetch_sub(1) == 1) {
+                std::vector<index_t> indices;
+                for (size_t i = 0; i < opCount->roots.size(); i++) {
+                    if (opCount->roots[i]) {
+                        indices.push_back(i);
+                    }
+                }
+                sparse_batch_update(indices, rootLevel);
+
+                TypedResponse<InsertionCompletionResponse> response;
+                response.success = true;
+                completion(response);
+            }
+
+            // std::cout << "Op " << i << " completed, final level " << finalLevel << " our index " << ourIndex
+            //           << " follower index " << followerIndex << std::endl;
+        };
+        startIndex += batchSize;
+        workers_->enqueue(op);
+    }
+}
+
+template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
     std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash, const HashGenerationCallback& completion)
 {
@@ -759,6 +944,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
 
             // Now that we have the sorted values we need to identify the leaves that need updating.
             // This is performed sequentially and is stored in this 'leaf_insertion' struct
+            response.inner.highest_index = 0;
             response.inner.insertions = std::make_shared<std::vector<LeafInsertion>>();
             response.inner.insertions->reserve(values.size());
             response.inner.indexed_leaves =
@@ -870,6 +1056,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     } else {
                         throw std::runtime_error("IndexedLeafValue is not updateable");
                     }
+                    response.inner.highest_index = std::max(response.inner.highest_index, low_leaf_index);
 
                     response.inner.insertions->push_back(insertion);
                 }
@@ -946,12 +1133,153 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_
         store_->put_cached_node_by_index(level, index, new_hash);
         store_->put_node_by_hash(new_hash, { .left = new_left_option, .right = new_right_option, .ref = 1 });
         // if (level == 0) {
-        //     std::cout << "NEW VALUE AT LEVEL " << level << " : " << new_hash << " LEFT: " << new_left_value
-        //             << " RIGHT: " << new_right_value << std::endl;
+        // std::cout << "NEW VALUE AT LEVEL " << level << " : " << new_hash << " LEFT: " << new_left_value
+        //           << " RIGHT: " << new_right_value << std::endl;
         // }
 
         follower.signal_level(level);
     }
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(const std::vector<index_t> indices_at_level,
+                                                                            uint32_t level)
+{
+    auto get_optional_node = [&](uint32_t level, index_t index) -> std::optional<fr> {
+        fr value = fr::zero();
+
+        bool success = store_->get_cached_node_by_index(level, index, value);
+        // std::cout << "Getting node at " << level << " : " << index << " success " << success << std::endl;
+        return success ? std::optional<fr>(value) : std::nullopt;
+    };
+    std::vector<index_t> indices = indices_at_level;
+    std::unordered_map<index_t, fr> hashes;
+    // grab the hashes
+    for (size_t i = 0; i < indices_at_level.size(); ++i) {
+        index_t index = indices_at_level[i];
+        std::optional<fr> op = get_optional_node(level, index);
+        if (!op.has_value()) {
+            continue;
+        }
+        hashes[index] = op.value();
+    }
+    std::unordered_set<index_t> unique_indices;
+    while (level > 0) {
+        std::vector<index_t> next_indices;
+        std::unordered_map<index_t, fr> next_hashes;
+        for (size_t i = 0; i < indices.size(); ++i) {
+            index_t index = indices[i];
+            fr new_hash = hashes[index];
+            // std::cout << "Level " << level << " index " << index << std::endl;
+            index_t parent_index = index >> 1;
+            auto it = unique_indices.insert(parent_index);
+            if (!it.second) {
+                continue;
+            }
+            next_indices.push_back(parent_index);
+            bool is_right = static_cast<bool>(index & 0x01);
+            std::optional<fr> new_right_option = is_right ? new_hash : get_optional_node(level, index + 1);
+            std::optional<fr> new_left_option = is_right ? get_optional_node(level, index - 1) : new_hash;
+            fr new_right_value = new_right_option.has_value() ? new_right_option.value() : zero_hashes_[level];
+            fr new_left_value = new_left_option.has_value() ? new_left_option.value() : zero_hashes_[level];
+
+            new_hash = HashingPolicy::hash_pair(new_left_value, new_right_value);
+            store_->put_cached_node_by_index(level - 1, parent_index, new_hash);
+            store_->put_node_by_hash(new_hash, { .left = new_left_option, .right = new_right_option, .ref = 1 });
+            next_hashes[parent_index] = new_hash;
+            // std::cout << "Created parent hash at level " << level - 1 << " index " << parent_index << " hash "
+            //           << new_hash << " left " << new_left_value << " right " << new_right_value << std::endl;
+        }
+        indices = std::move(next_indices);
+        hashes = std::move(next_hashes);
+        unique_indices.clear();
+        --level;
+    }
+}
+
+template <typename Store, typename HashingPolicy>
+bool ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
+    const index_t& start_index,
+    const index_t& num_leaves_to_be_inserted,
+    const uint32_t& root_level,
+    const std::vector<LeafInsertion>& insertions)
+{
+    auto get_optional_node = [&](uint32_t level, index_t index) -> std::optional<fr> {
+        fr value = fr::zero();
+        // std::cout << "Getting node at " << level << " : " << index << std::endl;
+        bool success = store_->get_cached_node_by_index(level, index, value);
+        return success ? std::optional<fr>(value) : std::nullopt;
+    };
+
+    uint32_t level = depth_;
+
+    std::vector<index_t> indices;
+    indices.reserve(insertions.size());
+    // std::vector<fr> hashes;
+    // hashes.reserve(insertions.size());
+
+    std::unordered_set<index_t> unique_indices;
+    std::unordered_map<index_t, fr> hashes;
+    index_t end_index = start_index + num_leaves_to_be_inserted;
+    // Insert the leaves
+    for (size_t i = 0; i < insertions.size(); ++i) {
+
+        const LeafInsertion& insertion = insertions[i];
+        if (insertion.low_leaf_index < start_index || insertion.low_leaf_index >= end_index) {
+            continue;
+        }
+
+        // one of our leaves
+        fr leaf_hash = HashingPolicy::hash(insertion.low_leaf.get_hash_inputs());
+
+        // std::cout << "Hashing leaf at level " << level << " index " << insertion.low_leaf_index << " batch start "
+        //           << start_index << " hash " << leaf_hash << std::endl;
+
+        // Write the new leaf hash in place
+        store_->put_cached_node_by_index(level, insertion.low_leaf_index, leaf_hash);
+        // std::cout << "Writing leaf hash: " << new_hash << " at index " << index << std::endl;
+        store_->put_leaf_by_hash(leaf_hash, insertion.low_leaf);
+        // std::cout << "Writing level: " << level << std::endl;
+        store_->put_node_by_hash(leaf_hash, { .left = std::nullopt, .right = std::nullopt, .ref = 1 });
+        indices.push_back(insertion.low_leaf_index);
+        hashes[insertion.low_leaf_index] = leaf_hash;
+    }
+
+    if (indices.empty()) {
+        return false;
+    }
+
+    while (level > root_level) {
+        std::vector<index_t> next_indices;
+        std::unordered_map<index_t, fr> next_hashes;
+        for (size_t i = 0; i < indices.size(); ++i) {
+            index_t index = indices[i];
+            fr new_hash = hashes[index];
+            index_t parent_index = index >> 1;
+            auto it = unique_indices.insert(parent_index);
+            if (!it.second) {
+                continue;
+            }
+            next_indices.push_back(parent_index);
+            bool is_right = static_cast<bool>(index & 0x01);
+            std::optional<fr> new_right_option = is_right ? new_hash : get_optional_node(level, index + 1);
+            std::optional<fr> new_left_option = is_right ? get_optional_node(level, index - 1) : new_hash;
+            fr new_right_value = new_right_option.has_value() ? new_right_option.value() : zero_hashes_[level];
+            fr new_left_value = new_left_option.has_value() ? new_left_option.value() : zero_hashes_[level];
+
+            new_hash = HashingPolicy::hash_pair(new_left_value, new_right_value);
+            store_->put_cached_node_by_index(level - 1, parent_index, new_hash);
+            store_->put_node_by_hash(new_hash, { .left = new_left_option, .right = new_right_option, .ref = 1 });
+            next_hashes[parent_index] = new_hash;
+            // std::cout << "Created parent hash at level " << level - 1 << " index " << parent_index << " hash "
+            //           << new_hash << " left " << new_left_value << " right " << new_right_value << std::endl;
+        }
+        indices = std::move(next_indices);
+        hashes = std::move(next_hashes);
+        unique_indices.clear();
+        --level;
+    }
+    return true;
 }
 
 } // namespace bb::crypto::merkle_tree

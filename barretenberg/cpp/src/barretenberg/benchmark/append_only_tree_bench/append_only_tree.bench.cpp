@@ -71,16 +71,16 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
 
     std::filesystem::remove_all(directory);
 }
-BENCHMARK(append_only_tree_bench<Pedersen>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(2, MAX_BATCH_SIZE)
-    ->Iterations(100);
 BENCHMARK(append_only_tree_bench<Poseidon2>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
+BENCHMARK(append_only_tree_bench<Poseidon2>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
 
 } // namespace
 

@@ -362,18 +362,22 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     Signal signal;
 
     bool success = false;
-    auto callback = [&signal, &success](const auto& resp) {
-        success = resp.success;
-        signal.signal_level(0);
-    };
 
     if constexpr (std::is_same_v<bb::fr, T>) {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
+        auto callback = [&signal, &success](const auto& resp) {
+            success = resp.success;
+            signal.signal_level(0);
+        };
         wrapper.tree->add_values(leaves, callback);
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+        typename Tree::AddCompletionCallbackWithWitness callback = [&signal, &success](const auto& resp) {
+            success = resp.success;
+            signal.signal_level(0);
+        };
         wrapper.tree->add_or_update_values(leaves, 0, callback);
     }
 
