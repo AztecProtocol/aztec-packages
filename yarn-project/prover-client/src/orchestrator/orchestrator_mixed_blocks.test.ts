@@ -17,7 +17,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
-    expectsDb = await MerkleTrees.tmp().then(t => t.asLatest());
+    expectsDb = await MerkleTrees.tmp().then(t => t.getLatest());
   });
 
   afterEach(async () => {
