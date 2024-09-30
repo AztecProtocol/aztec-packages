@@ -11,6 +11,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
+import { getRandomPort } from '@aztec/foundation/testing';
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -19,11 +20,24 @@ export interface NodeContext {
   account: AztecAddress;
 }
 
+export function generateNodePrivateKeys(startIndex: number, numberOfNodes: number): `0x${string}`[] {
+  const nodePrivateKeys: `0x${string}`[] = [];
+  // Do not start from 0 as it is used during setup
+  for (let i = startIndex; i < startIndex + numberOfNodes; i++) {
+    nodePrivateKeys.push(`0x${getPrivateKeyFromIndex(i)!.toString('hex')}`);
+  }
+  return nodePrivateKeys;
+}
+
+export function generatePeerIdPrivateKey(): string {
+    // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
+  return '08021220' + generatePrivateKey().substr(2, 66);
+}
+
 export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   const peerIdPrivateKeys = [];
   for (let i = 0; i < numberOfPeers; i++) {
-    // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
-    peerIdPrivateKeys.push('08021220' + generatePrivateKey().substr(2, 66));
+    peerIdPrivateKeys.push(generatePeerIdPrivateKey());
   }
   return peerIdPrivateKeys;
 }
@@ -33,40 +47,53 @@ export async function createNodes(
   peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
   numNodes: number,
-  bootNodePort: number,
+  bootNodePort?: number,
 ): Promise<AztecNodeService[]> {
-  const nodes = [];
+  const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
-    const node = await createNode(config, peerIdPrivateKeys[i], i + 1 + bootNodePort, bootstrapNodeEnr, i);
-    nodes.push(node);
+    // TODO(md): explain
+    const port = bootNodePort ? bootNodePort + i + 1 : await getRandomPort() || 40401 + i;
+
+    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i);
+    nodePromises.push(nodePromise);
   }
-  return nodes;
+  return Promise.all(nodePromises);
 }
 
 // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
   config: AztecNodeConfig,
   peerIdPrivateKey: string,
-  tcpListenPort: number,
+  tcpPort: number,
   bootstrapNode: string | undefined,
   publisherAddressIndex: number,
   dataDirectory?: string,
 ) {
-  // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
-  // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
-  const publisherPrivKey = getPrivateKeyFromIndex(publisherAddressIndex + 1);
-  config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, peerIdPrivateKey, publisherAddressIndex, dataDirectory);
+  return await AztecNodeService.createAndSync(
+    validatorConfig,
+    new NoopTelemetryClient(),
+    createDebugLogger(`aztec:node-${tcpPort}`),
+  );
+}
 
-  const validatorPrivKey = getPrivateKeyFromIndex(1 + publisherAddressIndex);
-  config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+export async function createValidatorConfig(config: AztecNodeConfig, bootstrapNodeEnr?: string, port?: number, peerIdPrivateKey?: string, accountIndex: number = 0, dataDirectory?: string) {
+  peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
+  port = port ?? await getRandomPort()!;
 
-  const newConfig: AztecNodeConfig = {
+  const privateKey = getPrivateKeyFromIndex(accountIndex);
+  const privateKeyHex: `0x${string}` = `0x${privateKey!.toString('hex')}`;
+
+  config.publisherPrivateKey = privateKeyHex;
+  config.validatorPrivateKey = privateKeyHex;
+
+  const nodeConfig: AztecNodeConfig = {
     ...config,
     peerIdPrivateKey: peerIdPrivateKey,
-    udpListenAddress: `0.0.0.0:${tcpListenPort}`,
-    tcpListenAddress: `0.0.0.0:${tcpListenPort}`,
-    tcpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
-    udpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
+    udpListenAddress: `0.0.0.0:${port}`,
+    tcpListenAddress: `0.0.0.0:${port}`,
+    tcpAnnounceAddress: `127.0.0.1:${port}`,
+    udpAnnounceAddress: `127.0.0.1:${port}`,
     minTxsPerBlock: config.minTxsPerBlock,
     maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
@@ -74,13 +101,10 @@ export async function createNode(
     l2QueueSize: 1,
     transactionProtocol: '',
     dataDirectory,
-    bootstrapNodes: bootstrapNode ? [bootstrapNode] : [],
+    bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
   };
-  return await AztecNodeService.createAndSync(
-    newConfig,
-    new NoopTelemetryClient(),
-    createDebugLogger(`aztec:node-${tcpListenPort}`),
-  );
+
+  return nodeConfig;
 }
 
 export async function createBootstrapNode(port: number) {
