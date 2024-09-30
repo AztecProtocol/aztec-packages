@@ -14,7 +14,7 @@ async function runTest(
   debug("starting test...");
   const barretenberg = await Barretenberg.new({ threads });
 
-  const backend = new UltraPlonkBackend(bytecode, barretenberg);
+  const backend = new UltraPlonkBackend(barretenberg, bytecode);
   const proof = await backend.generateProof(witness);
 
   const verificationKey = await backend.getVerificationKey();
