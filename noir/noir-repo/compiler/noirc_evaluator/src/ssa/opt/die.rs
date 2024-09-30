@@ -119,6 +119,8 @@ impl Context {
         // If an array has not been mutably borrowed we can then safely remove all IncrementRc instructions on that array.
         let mut inc_rcs: HashMap<ValueId, HashSet<InstructionId>> = HashMap::default();
         let mut borrowed_arrays: HashSet<ValueId> = HashSet::default();
+        // Finally, there are
+        let mut last_inc_rc = None;
 
         // Indexes of instructions that might be out of bounds.
         // We'll remove those, but before that we'll insert bounds checks for them.
@@ -154,15 +156,25 @@ impl Context {
                 &mut rc_pairs_to_remove,
                 &mut inc_rcs,
                 &mut borrowed_arrays,
+                &mut last_inc_rc,
             );
         }
 
-        for inc_rc_value in inc_rcs.keys() {
-            if !borrowed_arrays.contains(inc_rc_value) {
-                self.instructions_to_remove.extend(&inc_rcs[inc_rc_value]);
-            }
-        }
+        let non_mutated_arrays =
+            inc_rcs
+                .keys()
+                .filter_map(|value| {
+                    if !borrowed_arrays.contains(value) {
+                        Some(&inc_rcs[value])
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .copied()
+                .collect::<Vec<_>>();
 
+        self.instructions_to_remove.extend(non_mutated_arrays);
         self.instructions_to_remove.extend(rc_pairs_to_remove);
 
         // If there are some instructions that might trigger an out of bounds error,
@@ -195,8 +207,21 @@ impl Context {
         inc_rcs_to_remove: &mut HashSet<InstructionId>,
         inc_rcs: &mut HashMap<ValueId, HashSet<InstructionId>>,
         borrowed_arrays: &mut HashSet<ValueId>,
+        last_inc_rc: &mut Option<ValueId>,
     ) {
         let instruction = &function.dfg[instruction_id];
+
+        if let Instruction::IncrementRc { value } = instruction {
+            if let Some(previous_value) = last_inc_rc {
+                if *previous_value == *value {
+                    inc_rcs_to_remove.insert(instruction_id);
+                }
+            }
+            *last_inc_rc = Some(*value);
+        } else {
+            *last_inc_rc = None;
+        }
+
         // DIE loops over a block in reverse order, so we insert an RC instruction for possible removal
         // when we see a DecrementRc and check whether it was possibly mutated when we see an IncrementRc.
         match instruction {
@@ -810,9 +835,10 @@ mod test {
     fn keep_inc_rc_on_borrowed_array_store() {
         // acir(inline) fn main f0 {
         //     b0():
-        //       inc_rc [u32 0, u32 0]
         //       v2 = allocate
+        //       inc_rc [u32 0, u32 0]
         //       store [u32 0, u32 0] at v2
+        //       inc_rc [u32 0, u32 0]
         //       jmp b1()
         //     b1():
         //       v3 = load v2
@@ -826,9 +852,10 @@ mod test {
         let zero = builder.numeric_constant(0u128, Type::unsigned(32));
         let array_type = Type::Array(Arc::new(vec![Type::unsigned(32)]), 2);
         let array = builder.array_constant(vector![zero, zero], array_type.clone());
-        builder.increment_array_reference_count(array);
         let v2 = builder.insert_allocate(array_type.clone());
+        builder.increment_array_reference_count(array);
         builder.insert_store(v2, array);
+        builder.increment_array_reference_count(array);
 
         let b1 = builder.insert_block();
         builder.terminate_with_jmp(b1, vec![]);
@@ -843,14 +870,14 @@ mod test {
         let main = ssa.main();
 
         // The instruction count never includes the terminator instruction
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 3);
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 4);
         assert_eq!(main.dfg[b1].instructions().len(), 2);
 
         // We expect the output to be unchanged
         let ssa = ssa.dead_instruction_elimination();
         let main = ssa.main();
 
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 3);
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 4);
         assert_eq!(main.dfg[b1].instructions().len(), 2);
     }
 
@@ -860,7 +887,11 @@ mod test {
         //     b0(v0: [u32; 2]):
         //       inc_rc v0
         //       v3 = array_set v0, index u32 0, value u32 1
-        //       return v3
+        //       inc_rc v0
+        //       inc_rc v0
+        //       inc_rc v0
+        //       v4 = array_get v3, index u32 1
+        //       return v4
         //   }
         let main_id = Id::test_new(0);
 
@@ -872,19 +903,42 @@ mod test {
         let zero = builder.numeric_constant(0u128, Type::unsigned(32));
         let one = builder.numeric_constant(1u128, Type::unsigned(32));
         let v3 = builder.insert_array_set(v0, zero, one);
-        builder.terminate_with_return(vec![v3]);
+        builder.increment_array_reference_count(v0);
+        builder.increment_array_reference_count(v0);
+        builder.increment_array_reference_count(v0);
+
+        let v4 = builder.insert_array_get(v3, one, Type::unsigned(32));
+
+        builder.terminate_with_return(vec![v4]);
 
         let ssa = builder.finish();
         let main = ssa.main();
 
         // The instruction count never includes the terminator instruction
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 2);
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 6);
 
         // We expect the output to be unchanged
+        // Expected output:
+        //
+        // acir(inline) fn main f0 {
+        //     b0(v0: [u32; 2]):
+        //       inc_rc v0
+        //       v3 = array_set v0, index u32 0, value u32 1
+        //       inc_rc v0
+        //       v4 = array_get v3, index u32 1
+        //       return v4
+        //   }
         let ssa = ssa.dead_instruction_elimination();
         let main = ssa.main();
 
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 2);
+        let instructions = main.dfg[main.entry_block()].instructions();
+        // We expect only the repeated inc_rc instructions to be collapsed into a single inc_rc.
+        assert_eq!(instructions.len(), 4);
+
+        assert!(matches!(&main.dfg[instructions[0]], Instruction::IncrementRc { .. }));
+        assert!(matches!(&main.dfg[instructions[1]], Instruction::ArraySet { .. }));
+        assert!(matches!(&main.dfg[instructions[2]], Instruction::IncrementRc { .. }));
+        assert!(matches!(&main.dfg[instructions[3]], Instruction::ArrayGet { .. }));
     }
 
     #[test]
@@ -895,6 +949,7 @@ mod test {
         //       inc_rc v0
         //       inc_rc v0
         //       v2 = array_get v0, index u32 0
+        //       inc_rc v0
         //       return v2
         //   }
         let main_id = Id::test_new(0);
@@ -907,14 +962,15 @@ mod test {
         builder.increment_array_reference_count(v0);
 
         let zero = builder.numeric_constant(0u128, Type::unsigned(32));
-        let v1 = builder.insert_array_get(v0, zero, Type::field());
-        builder.terminate_with_return(vec![v1]);
+        let v2 = builder.insert_array_get(v0, zero, Type::field());
+        builder.increment_array_reference_count(v0);
+        builder.terminate_with_return(vec![v2]);
 
         let ssa = builder.finish();
         let main = ssa.main();
 
         // The instruction count never includes the terminator instruction
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 4);
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 5);
 
         // Expected output:
         //
