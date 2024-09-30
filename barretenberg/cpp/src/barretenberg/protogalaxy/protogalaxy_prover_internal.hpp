@@ -24,6 +24,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using RelationUtils = bb::RelationUtils<Flavor>;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
+    using AllValues = typename Flavor::AllValues;
     using RelationSeparator = typename Flavor::RelationSeparator;
     static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
     using UnivariateRelationParametersNoOptimisticSkipping =
@@ -55,6 +56,43 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
     /**
+     * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
+     * evaluation(s).
+     *
+     * @details Note that a linearly dependent subrelation is not computed on a specific row but rather on the entire
+     * execution trace.
+     *
+     * @param evals The evaluations of all subrelations on some row
+     * @param challenges The 'alpha' challenges used to batch the subrelations
+     * @param linearly_dependent_contribution An accumulator for values of  the linearly-dependent (i.e., 'whole-trace')
+     * subrelations
+     * @return FF The evaluation of the linearly-independent (i.e., 'per-row') subrelations
+     */
+    inline static FF process_subrelation_evaluations(const RelationEvaluations& evals,
+                                                     const std::array<FF, NUM_SUBRELATIONS>& challenges,
+                                                     FF& linearly_dependent_contribution)
+    {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1115): Iniitalize with first subrelation value to
+        // avoid Montgomery allocating 0 and doing a mul. This is about 60ns per row.
+        FF linearly_independent_contribution{ 0 };
+        size_t idx = 0;
+
+        auto scale_by_challenge_and_accumulate =
+            [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                const Element contribution = element * challenges[idx];
+                if (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
+                    linearly_independent_contribution += contribution;
+                } else {
+                    linearly_dependent_contribution += contribution;
+                }
+                idx++;
+            };
+        RelationUtils::apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, evals);
+        return linearly_independent_contribution;
+    }
+
+    /**
      * @brief Compute the values of the aggregated relation evaluations at each row in the execution trace, representing
      * f_i(ω) in the Protogalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching
      * challenges that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT
@@ -67,40 +105,41 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
     static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                                   const RelationSeparator& alpha,
+                                                   const RelationSeparator& alphas_,
                                                    const RelationParameters<FF>& relation_parameters)
 
     {
 
         BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
+
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> full_honk_evaluations(polynomial_size);
+        std::vector<FF> aggregated_relation_evaluations(polynomial_size);
+
+        const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
+            std::array<FF, NUM_SUBRELATIONS> tmp;
+            tmp[0] = 1;
+            std::copy(alphas_.begin(), alphas_.end(), tmp.begin() + 1);
+            return tmp;
+        }();
+
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
             polynomial_size,
             /*accumulator default*/ FF(0),
-            [&](size_t row, FF& linearly_dependent_contribution_accumulator) {
-                auto row_evaluations = polynomials.get_row(row);
-                RelationEvaluations relation_evaluations;
-                RelationUtils::zero_elements(relation_evaluations);
+            [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
+                const AllValues row = polynomials.get_row(row_idx);
+                // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows here.
+                const RelationEvaluations evals =
+                    RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-                RelationUtils::template accumulate_relation_evaluations<>(
-                    row_evaluations, relation_evaluations, relation_parameters, FF(1));
-
-                auto output = FF(0);
-                auto running_challenge = FF(1);
-                RelationUtils::scale_and_batch_elements(relation_evaluations,
-                                                        alpha,
-                                                        running_challenge,
-                                                        output,
-                                                        linearly_dependent_contribution_accumulator);
-
-                full_honk_evaluations[row] = output;
+                // Sum against challenges alpha
+                aggregated_relation_evaluations[row_idx] =
+                    process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
-        full_honk_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
-        return full_honk_evaluations;
-    }
+        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
 
+        return aggregated_relation_evaluations;
+    }
     /**
      * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
      * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
