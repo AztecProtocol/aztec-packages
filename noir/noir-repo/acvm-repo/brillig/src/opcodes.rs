@@ -5,18 +5,32 @@ use serde::{Deserialize, Serialize};
 pub type Label = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct MemoryAddress(pub usize);
+pub enum MemoryAddress {
+    Direct(usize),
+    Relative(usize),
+}
 
 /// `MemoryAddress` refers to the index in VM memory.
 impl MemoryAddress {
-    pub fn to_usize(self) -> usize {
-        self.0
+    pub fn direct(address: usize) -> Self {
+        MemoryAddress::Direct(address)
     }
-}
+    pub fn relative(offset: usize) -> Self {
+        MemoryAddress::Relative(offset)
+    }
 
-impl From<usize> for MemoryAddress {
-    fn from(value: usize) -> Self {
-        MemoryAddress(value)
+    pub fn unwrap_direct(self) -> usize {
+        match self {
+            MemoryAddress::Direct(address) => address,
+            MemoryAddress::Relative(_) => panic!("Expected direct memory address"),
+        }
+    }
+
+    pub fn unwrap_relative(self) -> usize {
+        match self {
+            MemoryAddress::Direct(_) => panic!("Expected relative memory address"),
+            MemoryAddress::Relative(offset) => offset,
+        }
     }
 }
 
@@ -54,7 +68,7 @@ pub struct HeapArray {
 
 impl Default for HeapArray {
     fn default() -> Self {
-        Self { pointer: MemoryAddress(0), size: 0 }
+        Self { pointer: MemoryAddress::direct(0), size: 0 }
     }
 }
 

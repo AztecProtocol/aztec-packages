@@ -28,10 +28,13 @@ impl DebugToString for MemoryAddress {
     fn debug_to_string(&self) -> String {
         if *self == ReservedRegisters::free_memory_pointer() {
             "FreeMem".into()
-        } else if *self == ReservedRegisters::previous_stack_pointer() {
+        } else if *self == ReservedRegisters::stack_pointer() {
             "PrevStack".into()
         } else {
-            format!("R{}", self.to_usize())
+            match self {
+                MemoryAddress::Direct(address) => format!("M{}", address),
+                MemoryAddress::Relative(offset) => format!("S{}", offset),
+            }
         }
     }
 }
