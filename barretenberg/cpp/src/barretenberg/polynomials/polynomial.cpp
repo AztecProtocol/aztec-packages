@@ -18,13 +18,6 @@
 
 namespace bb {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
-}
-
 // Note: This function is pretty gnarly, but we try to make it the only function that deals
 // with copying polynomials. It should be scrutinized thusly.
 template <typename Fr>
@@ -187,58 +180,7 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
-    if (size() == 0) {
-        return Fr(0);
-    }
-
-    const size_t n = evaluation_points.size();
-    const size_t dim = numeric::get_msb(end_index() - 1) + 1; // Round up to next power of 2
-
-    // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    ASSERT(virtual_size() == static_cast<size_t>(1 << n));
-
-    // We first fold over dim rounds l = 0,...,dim-1.
-    // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
-    // at u₀,..., u_l.
-    // In round 0, this is half the size of dim
-    size_t n_l = 1 << (dim - 1);
-
-    // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
-    auto tmp_ptr = _allocate_aligned_memory<Fr>(sizeof(Fr) * n_l);
-    auto tmp = tmp_ptr.get();
-
-    size_t offset = 0;
-    if (shift) {
-        ASSERT((*this)[0] == Fr::zero());
-        offset++;
-    }
-
-    Fr u_l = evaluation_points[0];
-    for (size_t i = 0; i < n_l; ++i) {
-        // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
-        // Note: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity padding
-        // (and there used to be no assert time checks, which this constant helps with).
-        const size_t ALLOW_ONE_PAST_READ = 1;
-        tmp[i] = get(i * 2 + offset) + u_l * (get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - get(i * 2 + offset));
-    }
-
-    // partially evaluate the dim-1 remaining points
-    for (size_t l = 1; l < dim; ++l) {
-        n_l = 1 << (dim - l - 1);
-        u_l = evaluation_points[l];
-        for (size_t i = 0; i < n_l; ++i) {
-            tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
-        }
-    }
-    auto result = tmp[0];
-
-    // We handle the "trivial" dimensions which are full of zeros.
-    for (size_t i = dim; i < n; i++) {
-        result *= (Fr(1) - evaluation_points[i]);
-    }
-
-    return result;
+    return _evaluate_mle(evaluation_points, coefficients_, shift);
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
@@ -384,5 +326,4 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
-
 } // namespace bb

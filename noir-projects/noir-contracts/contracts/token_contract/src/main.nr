@@ -23,7 +23,7 @@ contract Token {
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress, FunctionSelector},
         encrypted_logs::{
         encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
+        encrypted_event_emission::encode_and_encrypt_event_unconstrained
     },
         keys::getters::get_public_keys,
         macros::{storage::storage, events::event, functions::{initializer, private, view, public}},
@@ -334,9 +334,7 @@ contract Token {
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        Transfer { from, to, amount: amount.to_field() }.emit(
-            encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
-        );
+        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
     // docs:end:transfer
     #[contract_library_method]
