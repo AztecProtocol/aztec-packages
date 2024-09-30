@@ -27,12 +27,12 @@ using bb::utils::hex_to_bytes;
 class AvmExecutionTests : public ::testing::Test {
   public:
     std::vector<FF> public_inputs_vec;
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
 
     AvmExecutionTests()
         : public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH)
     {
-        Execution::set_trace_builder_constructor([](VmPublicInputs public_inputs,
+        Execution::set_trace_builder_constructor([](VmPublicInputsNT public_inputs,
                                                     ExecutionHints execution_hints,
                                                     uint32_t side_effect_counter,
                                                     std::vector<FF> calldata) {
@@ -52,7 +52,7 @@ class AvmExecutionTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        public_inputs = Execution::convert_public_inputs(public_inputs_vec);
+        public_inputs = convert_public_inputs(public_inputs_vec);
     };
 
     /**
@@ -1723,7 +1723,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_is_static_call == 1; });
     EXPECT_EQ(is_static_call_row->main_ia, is_static_call);
 
-    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), calldata, returndata);
+    validate_trace(std::move(trace), convert_public_inputs(public_inputs_vec), calldata, returndata);
 }
 
 // Positive test for L2GASLEFT opcode

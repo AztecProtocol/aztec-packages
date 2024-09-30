@@ -1,9 +1,10 @@
 import {
+  type EpochProofQuote,
   type EpochProverManager,
   type L1ToL2MessageSource,
   type L2BlockSource,
   type MerkleTreeOperations,
-  type TxProvider,
+  type ProverCoordination,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { compact } from '@aztec/foundation/collection';
@@ -44,7 +45,7 @@ export class ProverNode {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private contractDataSource: ContractDataSource,
     private worldState: WorldStateSynchronizer,
-    private txProvider: TxProvider,
+    private coordination: ProverCoordination,
     private simulator: SimulationProvider,
     private telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
@@ -134,6 +135,10 @@ export class ProverNode {
     }
   }
 
+  public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    return this.coordination.addEpochProofQuote(quote);
+  }
+
   /**
    * Creates a proof for a block range. Returns once the proof has been submitted to L1.
    */
@@ -212,7 +217,7 @@ export class ProverNode {
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.txProvider,
+      this.coordination,
       this.metrics,
       cleanUp,
     );

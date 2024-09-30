@@ -1,4 +1,5 @@
 use super::utils::compute_fn_selector;
+use std::panic;
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
@@ -102,13 +103,18 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 }
 
 comptime fn size_in_fields(typ: Type) -> u32 {
-    if typ.as_slice().is_some() {
-        panic(f"Can't determine size in fields of Slice type")
+    let size = array_size_in_fields(typ);
+    let size = size.or_else(|| bool_size_in_fields(typ));
+    let size = size.or_else(|| constant_size_in_fields(typ));
+    let size = size.or_else(|| field_size_in_fields(typ));
+    let size = size.or_else(|| int_size_in_fields(typ));
+    let size = size.or_else(|| str_size_in_fields(typ));
+    let size = size.or_else(|| struct_size_in_fields(typ));
+    let size = size.or_else(|| tuple_size_in_fields(typ));
+    if size.is_some() {
+        size.unwrap()
     } else {
-        let size = array_size_in_fields(typ);
-        let size = size.or_else(|| struct_size_in_fields(typ));
-        let size = size.or_else(|| tuple_size_in_fields(typ));
-        size.unwrap_or(1)
+        panic(f"Can't determine size in fields of {typ}")
     }
 }
 
@@ -121,6 +127,38 @@ comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
             })
         }
     )
+}
+
+comptime fn bool_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.is_bool() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn field_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.is_field() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn int_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.as_integer().is_some() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn constant_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_constant()
+}
+
+comptime fn str_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_str().map(|typ| size_in_fields(typ))
 }
 
 comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
@@ -152,3 +190,4 @@ comptime fn get_type<T>() -> Type {
     let t: T = std::mem::zeroed();
     std::meta::type_of(t)
 }
+

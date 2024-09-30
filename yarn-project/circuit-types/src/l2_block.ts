@@ -20,21 +20,6 @@ export class L2Block {
   ) {}
 
   /**
-   * Constructs a new instance from named fields.
-   * @param fields - Fields to pass to the constructor.
-   * @returns A new instance.
-   */
-  static fromFields(fields: {
-    /** Snapshot of archive tree after the block is applied. */
-    archive: AppendOnlyTreeSnapshot;
-    /** L2 block header. */
-    header: Header;
-    body: Body;
-  }) {
-    return new this(fields.archive, fields.header, fields.body);
-  }
-
-  /**
    * Deserializes a block from a buffer
    * @returns A deserialized L2 block.
    */
@@ -44,11 +29,7 @@ export class L2Block {
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
 
-    return L2Block.fromFields({
-      archive,
-      header,
-      body,
-    });
+    return new L2Block(archive, header, body);
   }
 
   /**
@@ -107,11 +88,11 @@ export class L2Block {
 
     const txsEffectsHash = body.getTxsEffectsHash();
 
-    return L2Block.fromFields({
-      archive: makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      header: makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
+    return new L2Block(
+      makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
+      makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
       body,
-    });
+    );
   }
 
   /**
@@ -119,11 +100,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return L2Block.fromFields({
-      archive: AppendOnlyTreeSnapshot.zero(),
-      header: Header.empty(),
-      body: Body.empty(),
-    });
+    return new L2Block(AppendOnlyTreeSnapshot.zero(), Header.empty(), Body.empty());
   }
 
   get number(): number {

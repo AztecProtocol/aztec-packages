@@ -3,7 +3,7 @@ import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { deploy } from '../deploy.mjs';
 import { main } from '../index.mjs';
 
-const { PXE_URL = '' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 // Tests on our CI that all scripts included in the guide work fine
 describe('sample-dapp', () => {

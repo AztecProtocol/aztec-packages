@@ -2,8 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-
 interface IProofCommitmentEscrow {
   function deposit(uint256 _amount) external;
   function withdraw(uint256 _amount) external;
