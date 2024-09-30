@@ -72,10 +72,6 @@ e2e-deploy-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_deploy_contract
 
-e2e-encryption:
-  LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/e2e_encryption.test.ts
-
 e2e-escrow-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_escrow_contract.test.ts
@@ -293,9 +289,11 @@ e2e-cli-wallet:
   RUN COMPOSE_FILE=scripts/docker-compose-wallet.yml ./scripts/e2e_compose_test.sh e2e_cli_wallet
 
 network-smoke:
+  ARG values_file
   LOCALLY
   RUN NAMESPACE=smoke FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
 network-transfer:
+  ARG values_file
   LOCALLY
   RUN NAMESPACE=transfer FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts

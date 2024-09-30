@@ -104,6 +104,8 @@ barretenberg-acir-tests-bb.js:
     RUN cd ../ts && yarn
     ENV VERBOSE=1
     ENV TEST_SRC /usr/src/acir_artifacts
+    # We have diminishing returns after 32 cores, and unnecessarily use resources
+    ENV HARDWARE_CONCURRENCY=32
 
     # TODO(https://github.com/noir-lang/noir/issues/5106)
     # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)c

@@ -321,6 +321,17 @@ contract Leonidas is Ownable, ILeonidas {
   }
 
   /**
+   * @notice  Computes the epoch at a specific slot
+   *
+   * @param _slotNumber - The slot number to compute the epoch for
+   *
+   * @return The computed epoch
+   */
+  function getEpochAtSlot(Slot _slotNumber) public pure override(ILeonidas) returns (Epoch) {
+    return Epoch.wrap(_slotNumber.unwrap() / EPOCH_DURATION);
+  }
+
+  /**
    * @notice  Adds a validator to the set WITHOUT setting up the epoch
    * @param _validator - The validator to add
    */
