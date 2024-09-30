@@ -6,14 +6,14 @@ cd "$(dirname "$0")/.."
 
 # Define environment variables and login to dockerhub
 SETUP="
-  export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
-  export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-  export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-  export BUILD_INSTANCE_SSH_KEY=$BUILD_INSTANCE_SSH_KEY
-  export GIT_COMMIT=${GIT_COMMIT:-}
-  export EARTHLY_BUILD_ARGS=\"${EARTHLY_BUILD_ARGS:-}\"
-  export FORCE_COLOR=1
-  echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+  export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD ;
+  export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID ;
+  export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY ;
+  export BUILD_INSTANCE_SSH_KEY=$BUILD_INSTANCE_SSH_KEY ;
+  export GIT_COMMIT=${GIT_COMMIT:-} ;
+  export EARTHLY_BUILD_ARGS=\"${EARTHLY_BUILD_ARGS:-}\" ;
+  export FORCE_COLOR=1 ;
+  echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin ;
 "
 
 ssh -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$BUILDER_SPOT_KEY" ubuntu@"$BUILDER_SPOT_IP" "$SETUP $@"
