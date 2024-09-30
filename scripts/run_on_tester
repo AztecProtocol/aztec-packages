@@ -5,7 +5,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 # Define environment variables
-ENV_VARS="
+SETUP="
   export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
   export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
   export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -16,7 +16,4 @@ ENV_VARS="
   echo $$DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
 "
 
-# Format the environment variables for the SSH command
-ENV_EXPORTS=$(printf 'export %s; ' $ENV_VARS)
-
-ssh -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$ENV_EXPORTS $@"
+ssh -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$SETUP $@"
