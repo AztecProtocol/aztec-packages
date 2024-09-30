@@ -178,7 +178,7 @@ export class KernelProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
-    acirs.push(output.bytecode);
+    acirs.push(tailOutput.bytecode);
     witnessStack.push(tailOutput.outputWitness);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
