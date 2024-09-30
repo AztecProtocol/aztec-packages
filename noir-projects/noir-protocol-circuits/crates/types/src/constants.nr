@@ -120,7 +120,6 @@ global BLOCK_ROOT_ROLLUP_INDEX: u32 = 22;
 global BLOCK_MERGE_ROLLUP_INDEX: u32 = 23;
 global ROOT_ROLLUP_INDEX: u32 = 24;
 global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 25;
-global BLOCK_ROOT_ROLLUP_FINAL_INDEX: u32 = 26;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
@@ -329,7 +328,8 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
 global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
-global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
+global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
+global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed

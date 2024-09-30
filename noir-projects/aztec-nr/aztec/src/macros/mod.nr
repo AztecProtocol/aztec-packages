@@ -1,3 +1,4 @@
+mod dispatch;
 mod functions;
 mod utils;
 mod notes;
@@ -10,26 +11,26 @@ use notes::{NOTES, generate_note_export};
 
 use functions::transform_unconstrained;
 use utils::module_has_storage;
+use dispatch::generate_public_dispatch;
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-
     let unconstrained_functions = m.functions().filter(
         | f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
     );
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }
-
     let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
-
+    let public_dispatch = generate_public_dispatch(m);
     quote {
         $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
+        $public_dispatch
     }
 }
 
@@ -46,8 +47,8 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     let storage_layout_getter = if has_storage_layout {
         let storage_layout_name = STORAGE_LAYOUT_NAME.get(m).unwrap();
         quote {
-            pub fn storage_layout() -> StorageLayout {
-                $storage_layout_name
+            pub fn storage_layout() -> StorageLayoutFields {
+                $storage_layout_name.fields
             }
         }
     } else {

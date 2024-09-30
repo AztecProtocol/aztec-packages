@@ -11,7 +11,7 @@ export class EpochProofQuotePayload implements Signable {
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
     public readonly bondAmount: bigint,
-    public readonly rollupAddress: EthAddress,
+    public readonly prover: EthAddress,
     public readonly basisPointFee: number,
   ) {}
 
@@ -20,7 +20,7 @@ export class EpochProofQuotePayload implements Signable {
       fields.epochToProve,
       fields.validUntilSlot,
       fields.bondAmount,
-      fields.rollupAddress,
+      fields.prover,
       fields.basisPointFee,
     ] as const;
   }
@@ -45,7 +45,7 @@ export class EpochProofQuotePayload implements Signable {
       fields.epochToProve,
       fields.validUntilSlot,
       fields.bondAmount,
-      fields.rollupAddress,
+      fields.prover,
       fields.basisPointFee,
     );
   }
@@ -56,7 +56,7 @@ export class EpochProofQuotePayload implements Signable {
       this.epochToProve,
       this.validUntilSlot,
       this.bondAmount,
-      this.rollupAddress.toString(),
+      this.prover.toString(),
       this.basisPointFee,
     ] as const);
 

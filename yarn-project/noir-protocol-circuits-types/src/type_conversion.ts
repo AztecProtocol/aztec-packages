@@ -2334,7 +2334,6 @@ export function mapEmptyBlockRootRollupInputsToNoir(
     archive: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.archive),
     block_hash: mapFieldToNoir(rootRollupInputs.blockHash),
     global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
-    out_hash: mapFieldToNoir(rootRollupInputs.outHash),
     vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };

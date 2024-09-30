@@ -31,7 +31,10 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     size_t polynomial_size = proving_key->proving_key.circuit_size;
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("sumcheck.prove");
+#endif
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                          proving_key->relation_parameters,
                                          proving_key->alphas,

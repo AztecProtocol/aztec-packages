@@ -533,7 +533,7 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        VerificationKey(ProvingKey& proving_key)
+        void set_metadata(ProvingKey& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
@@ -545,7 +545,11 @@ class MegaFlavor {
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
+        }
 
+        VerificationKey(ProvingKey& proving_key)
+        {
+            set_metadata(proving_key);
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }

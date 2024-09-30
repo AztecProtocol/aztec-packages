@@ -11,12 +11,9 @@ contract Test {
         PrivateImmutable, PrivateSet
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys_with_randomness;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
 
-    use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point, scalar::Scalar};
-
-    use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::payload::{compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext};
+    use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
@@ -34,9 +31,8 @@ contract Test {
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
     // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
-    use std::embedded_curve_ops::{EmbeddedCurveScalar, EmbeddedCurvePoint, fixed_base_scalar_mul as derive_public_key};
+    use std::embedded_curve_ops::{EmbeddedCurveScalar, EmbeddedCurvePoint};
     use std::meta::derive;
-    use std::aes128::aes128_encrypt;
 
     use crate::test_note::TestNote;
 
@@ -280,7 +276,7 @@ contract Test {
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
         event.emit(
-            encode_and_encrypt_event_with_keys_with_randomness(
+            encode_and_encrypt_event_with_randomness_unconstrained(
                 &mut context,
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
@@ -298,9 +294,9 @@ contract Test {
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
             otherEvent.emit(
-                encode_and_encrypt_event_with_keys_with_randomness(
+                encode_and_encrypt_event_with_randomness_unconstrained(
                     &mut context,
-                    // testing only - a randomness of 0 signals the kerels to not mask the address
+                    // testing only - a randomness of 0 signals the kernels to not mask the address
                     0,
                     outgoing_viewer_ovpk_m,
                     owner_ivpk_m,
@@ -398,45 +394,6 @@ contract Test {
     fn assert_private_global_vars(chain_id: Field, version: Field) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
-    }
-
-    #[private]
-    fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
-        aes128_encrypt(input, iv, key).as_array()
-    }
-
-    #[private]
-    fn encrypt_with_padding(input: [u8; 65], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
-        aes128_encrypt(input, iv, key).as_array()
-    }
-
-    #[private]
-    fn compute_note_header_ciphertext(secret: Scalar, ivpk: IvpkM) -> [u8; 48] {
-        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, ivpk)
-    }
-
-    // 64 bytes + 32 * #fields + 16 = 112 bytes
-    #[private]
-    fn compute_incoming_log_body_ciphertext(
-        secret: Scalar,
-        ivpk: IvpkM,
-        storage_slot: Field,
-        value: Field
-    ) -> [u8; 112] {
-        let note = TestNote::new(value);
-        let plaintext = note.to_be_bytes(storage_slot);
-        compute_incoming_body_ciphertext(plaintext, secret, ivpk).as_array()
-    }
-
-    #[private]
-    fn compute_outgoing_log_body_ciphertext(
-        eph_sk: Scalar,
-        recipient: AztecAddress,
-        recipient_ivpk: IvpkM,
-        ovsk_app: Scalar
-    ) -> [u8; 144] {
-        let eph_pk = derive_public_key(eph_sk);
-        compute_outgoing_body_ciphertext(recipient, recipient_ivpk, ovsk_app, eph_sk, eph_pk)
     }
 
     #[public]
