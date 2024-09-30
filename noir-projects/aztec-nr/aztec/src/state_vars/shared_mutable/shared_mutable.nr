@@ -1,4 +1,7 @@
-use dep::protocol_types::{hash::{pedersen_hash, poseidon2_hash}, address::AztecAddress, traits::{FromField, ToField}};
+use dep::protocol_types::{
+    hash::{pedersen_hash, poseidon2_hash}, address::AztecAddress, traits::{FromField, ToField},
+    utils::arrays::array_concat
+};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::state_vars::{
@@ -28,17 +31,6 @@ global HASH_SEPARATOR: u32 = 2;
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
 // can actually use it here
 impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
-
-fn concat_arrays<let N: u32, let M: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; N + M] {
-    let mut out: [Field; N + M] = [0; N + M];
-    for i in 0..N {
-        out[i] = arr_n[i];
-    }
-    for i in 0..M {
-        out[N+i] = arr_m[i];
-    }
-    out
-}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
@@ -217,7 +209,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>
     ) -> Field {
-        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
+        let concatenated: [Field; 4] = array_concat(value_change.serialize(), delay_change.serialize());
         poseidon2_hash(concatenated)
     }
 }
