@@ -42,7 +42,7 @@ contract Registry is IRegistry, Ownable {
    */
   function getVersionFor(address _rollup) external view override(IRegistry) returns (uint256) {
     (uint256 version, bool exists) = _getVersionFor(_rollup);
-    if (!exists) revert Errors.Registry__RollupNotRegistered(_rollup);
+    require(exists, Errors.Registry__RollupNotRegistered(_rollup));
     return version;
   }
 
@@ -99,7 +99,7 @@ contract Registry is IRegistry, Ownable {
 
   function _upgrade(address _rollup) internal returns (uint256) {
     (, bool exists) = _getVersionFor(_rollup);
-    if (exists) revert Errors.Registry__RollupAlreadyRegistered(_rollup);
+    require(!exists, Errors.Registry__RollupAlreadyRegistered(_rollup));
 
     DataStructures.RegistrySnapshot memory newSnapshot =
       DataStructures.RegistrySnapshot(_rollup, block.number);

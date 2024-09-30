@@ -111,13 +111,31 @@
       }
     },
     {
-      "name": "tracy",
+      "name": "tracy-memory",
       "displayName": "Release build with tracy, optimized for memory tracking",
       "description": "Release build with tracy, optimized for memory tracking",
       "inherits": "clang16",
-      "binaryDir": "build-tracy",
+      "binaryDir": "build-tracy-memory",
       "cacheVariables": {
-        "ENABLE_TRACY": "ON"
+        "ENABLE_TRACY": "ON",
+        "TRACY_PROFILE_MEMORY": "ON"
+      }
+    },
+    {
+      "name": "tracy-time",
+      "displayName": "Build for tracy time profiling",
+      "description": "Build for tracy time profiling",
+      "binaryDir": "build-tracy-time",
+      "inherits": "clang16",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CFLAGS": "-g -fno-omit-frame-pointer",
+        "CXXFLAGS": "-g -fno-omit-frame-pointer",
+        "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
+      },
+      "cacheVariables": {
+        "ENABLE_TRACY": "ON",
+        "TRACY_PROFILE_TIME": "ON"
       }
     },
     {
@@ -472,9 +490,14 @@
       "configurePreset": "clang16-dbg"
     },
     {
-      "name": "tracy",
+      "name": "tracy-memory",
       "inherits": "default",
-      "configurePreset": "tracy"
+      "configurePreset": "tracy-memory"
+    },
+    {
+      "name": "tracy-time",
+      "inherits": "default",
+      "configurePreset": "tracy-time"
     },
     {
       "name": "clang16-pic",

@@ -47,8 +47,8 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     let storage_layout_getter = if has_storage_layout {
         let storage_layout_name = STORAGE_LAYOUT_NAME.get(m).unwrap();
         quote {
-            pub fn storage_layout() -> StorageLayout {
-                $storage_layout_name
+            pub fn storage_layout() -> StorageLayoutFields {
+                $storage_layout_name.fields
             }
         }
     } else {

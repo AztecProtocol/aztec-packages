@@ -149,7 +149,7 @@ export class BlockStore {
     }
     const body = Body.fromBuffer(blockBodyBuffer);
 
-    const l2Block = L2Block.fromFields({ header, archive, body });
+    const l2Block = new L2Block(archive, header, body);
     return { data: l2Block, l1: blockStorage.l1 };
   }
 
