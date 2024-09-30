@@ -11,7 +11,6 @@
  *
  *        To run the Setup run with the `AZTEC_GENERATE_TEST_DATA=1` flag. Without
  *        this flag, we will run in execution.
- *
  *        There is functionality to store the `stats` of a sync, but currently we
  *        will simply be writing it to the log instead.
  *
@@ -277,10 +276,10 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const batch = new BatchCall(this.wallets[i], [
-          this.spam.methods.spam(this.seed, 16, false).request(),
-          this.spam.methods.spam(this.seed + 16n, 16, false).request(),
-          this.spam.methods.spam(this.seed + 32n, 16, false).request(),
-          this.spam.methods.spam(this.seed + 48n, 15, true).request(),
+          this.spam.methods.spam(this.seed, 16, false, false).request(),
+          this.spam.methods.spam(this.seed + 16n, 16, false, false).request(),
+          this.spam.methods.spam(this.seed + 32n, 16, false, false).request(),
+          this.spam.methods.spam(this.seed + 48n, 15, true, false).request(),
         ]);
 
         this.seed += 100n;

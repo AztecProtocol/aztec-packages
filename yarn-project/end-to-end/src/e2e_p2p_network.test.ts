@@ -132,7 +132,7 @@ describe('e2e_p2p_network', () => {
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
-    // is if the txs are successfully gossiped around the nodes.
+    // is if the txs are successfully re-executed.
     const contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = await createNodes(
       config,

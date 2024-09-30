@@ -33,14 +33,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import getPort from 'get-port';
 import { join } from 'path';
-import { type Hex } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { getContract, type Hex } from 'viem';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 import { deployCanonicalAuthRegistry, deployCanonicalRouter, getPrivateKeyFromIndex } from './utils.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -65,7 +66,10 @@ export function createSnapshotManager(
   testName: string,
   dataPath?: string,
   config: Partial<AztecNodeConfig> = {},
-  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    initialValidators: [],
+  },
 ) {
   return dataPath
     ? new SnapshotManager(testName, dataPath, config, deployL1ContractsArgs)
@@ -140,7 +144,10 @@ class SnapshotManager implements ISnapshotManager {
     testName: string,
     private dataPath: string,
     private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+      initialValidators: [],
+    },
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
@@ -288,6 +295,7 @@ async function setupFromFresh(
   config: Partial<AztecNodeConfig> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    initialValidators: [],
   },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
@@ -317,8 +325,8 @@ async function setupFromFresh(
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
-  const validatorPrivKey = getPrivateKeyFromIndex(1);
-  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+  const validatorPrivKey = getPrivateKeyFromIndex(0);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
@@ -379,6 +387,20 @@ async function setupFromFresh(
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
   }
+
+  // If initial validators are provided, we need to remove them from the node.
+  if (deployL1ContractsArgs.initialValidators && deployL1ContractsArgs.initialValidators?.length > 0) {
+    const rollup = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
+
+    logger.debug(`Removing ${deployL1ContractsArgs.initialValidators[0].toString()} as validator`);
+    const txHash = await rollup.write.removeValidator([deployL1ContractsArgs.initialValidators[0].toString()]);
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
+  }
+
 
   return {
     aztecNodeConfig,

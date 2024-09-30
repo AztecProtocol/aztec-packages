@@ -21,11 +21,15 @@ export interface NodeContext {
   account: AztecAddress;
 }
 
+export function generatePeerIdPrivateKey(): string {
+  // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
+  return '08021220' + generatePrivateKey().substr(2, 66);
+}
+
 export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   const peerIdPrivateKeys = [];
   for (let i = 0; i < numberOfPeers; i++) {
-    // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
-    peerIdPrivateKeys.push('08021220' + generatePrivateKey().substr(2, 66));
+    peerIdPrivateKeys.push(generatePeerIdPrivateKey());
   }
   return peerIdPrivateKeys;
 }
@@ -38,12 +42,12 @@ export async function createNodes(
   numNodes: number,
   bootNodePort: number,
 ): Promise<AztecNodeService[]> {
-  const nodes = [];
+  const nodesPromises = [];
   for (let i = 0; i < numNodes; i++) {
-    const node = await createNode(config, peerIdPrivateKeys[i], i + 1 + bootNodePort, bootstrapNodeEnr, i);
-    nodes.push(node);
+    const nodePromise = createNode(config, peerIdPrivateKeys[i], i + 1 + bootNodePort, bootstrapNodeEnr, i);
+    nodesPromises.push(nodePromise);
   }
-  return nodes;
+  return Promise.all(nodesPromises);
 }
 
 // creates a P2P enabled instance of Aztec Node Service

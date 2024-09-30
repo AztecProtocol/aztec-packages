@@ -2,11 +2,12 @@ mod types;
 
 use dep::aztec::macros::aztec;
 
-global MAX_EXTERNAL_CALL_SPAM = 4;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 #[aztec]
 contract Spam {
+
+    global MAX_EXTERNAL_CALL_SPAM = 4;
 
     use dep::aztec::{
         prelude::{Map, AztecAddress, PublicMutable},
@@ -63,10 +64,6 @@ contract Spam {
 
         if (call_recursive_spam) {
             Spam::at(context.this_address()).public_spam_with_external_call(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).enqueue(&mut context);
-            Spam::at(context.this_address()).public_spam_with_external_call(
-                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-            ).enqueue(&mut context);
         }
     }
 
@@ -89,7 +86,8 @@ contract Spam {
             let prev = storage.public_balances.at(i as Field).read();
             storage.public_balances.at(i as Field).write(prev + one);
         }
-        Spam::at(context.this_address()).recursive_spam(0).enqueue(&mut context);
+
+        Spam::at(context.this_address()).recursive_spam(0).call(&mut context);
     }
 
     #[public]
@@ -99,7 +97,7 @@ contract Spam {
             let prev = storage.public_balances.at(counter as Field).read();
             storage.public_balances.at(counter as Field).write(prev + one);
 
-            Spam::at(context.this_address()).external_spam(counter + 1).call(&mut context);
+            Spam::at(context.this_address()).recursive_spam(counter + 1).call(&mut context);
         }
     }
 }
