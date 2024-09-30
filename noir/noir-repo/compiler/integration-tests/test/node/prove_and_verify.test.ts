@@ -241,7 +241,7 @@ it('UltraHonk end-to-end proving and verification with different instances', asy
   const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proof = await honkBackend.generateProof(witness);
 
-  const verifier = new UltraHonkBackend(assert_lt_program);
+  const verifier = await UltraHonkVerifier.new();
   const proof_is_valid = await verifier.verifyProof(proof);
   expect(proof_is_valid).to.be.true;
 });
@@ -289,7 +289,7 @@ it('UltraHonk end-to-end proof creation and verification for multiple ACIR circu
   // bb.js part
   //
   // Proof creation
-  const honkBackend = new UltraHonkBackend(fold_fibonacci_program);
+  const honkBackend = await UltraHonkBackend.new(fold_fibonacci_program);
   const proof = await honkBackend.generateProof(witness);
 
   // Proof verification
