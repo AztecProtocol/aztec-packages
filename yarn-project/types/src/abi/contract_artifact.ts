@@ -227,7 +227,10 @@ function getStorageLayout(input: NoirCompiledContract) {
     >;
     return contractNameField.value === input.name;
   });
-  const storageFields = storageForContract ? (storageForContract.fields as TypedStructFieldValue<StructValue>[]) : [];
+  const storageFields = storageForContract
+    ? ((storageForContract.fields.find(field => field.name == 'fields') as TypedStructFieldValue<StructValue>).value
+        .fields as TypedStructFieldValue<StructValue>[])
+    : [];
 
   if (storageFields.length === 0) {
     return {};
