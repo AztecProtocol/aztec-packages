@@ -13,7 +13,7 @@ SETUP="
   export GIT_COMMIT=${GIT_COMMIT:-}
   export EARTHLY_BUILD_ARGS=\"${EARTHLY_BUILD_ARGS:-}\"
   export FORCE_COLOR=1
-  echo ${{ $DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+  echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
 "
 
 ssh -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$BUILDER_SPOT_KEY" ubuntu@"$BUILDER_SPOT_IP" "$SETUP $@"
