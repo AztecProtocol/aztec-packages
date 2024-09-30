@@ -209,7 +209,7 @@ template <typename Flavor> class SumcheckProver {
         auto round_univariate = round.compute_univariate(
             round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
         {
-            // ZoneScopedN("rest of sumcheck round 1");
+            ZoneScopedN("rest of sumcheck round 1");
 
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
@@ -227,7 +227,7 @@ template <typename Flavor> class SumcheckProver {
                                                       // We operate on partially_evaluated_polynomials in place.
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-            // ZoneScopedN("sumcheck loop");
+            ZoneScopedN("sumcheck loop");
             // Write the round univariate to the transcript
             round_univariate = round.compute_univariate(round_idx,
                                                         partially_evaluated_polynomials,

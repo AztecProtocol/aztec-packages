@@ -14,29 +14,29 @@ namespace bb {
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 {
     {
-        // ZoneScopedN("execute_preamble_round");
+        ZoneScopedN("execute_preamble_round");
         // Add circuit size public input size and public inputs to transcript->
         execute_preamble_round();
     }
     {
-        // ZoneScopedN("execute_wire_commitments_round");
+        ZoneScopedN("execute_wire_commitments_round");
         // Compute first three wire commitments
         execute_wire_commitments_round();
     }
     {
-        // ZoneScopedN("execute_sorted_list_accumulator_round");
+        ZoneScopedN("execute_sorted_list_accumulator_round");
         // Compute sorted list accumulator and commitment
         execute_sorted_list_accumulator_round();
     }
 
     {
-        // ZoneScopedN("execute_log_derivative_inverse_round");
+        ZoneScopedN("execute_log_derivative_inverse_round");
         // Fiat-Shamir: beta & gamma
         execute_log_derivative_inverse_round();
     }
 
     {
-        // ZoneScopedN("execute_grand_product_computation_round");
+        ZoneScopedN("execute_grand_product_computation_round");
         // Compute grand product(s) and commitments.
         execute_grand_product_computation_round();
     }
