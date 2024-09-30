@@ -14,9 +14,10 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
         # avoid double shell interpolation
         RUN_SCRIPT: |
-          sudo shutdown -P 40
-          export GITHUB_REF_NAME=${{ github.ref_name }}
-          cd ~/run-${{ env.RUN_ID }}
+          set -eux ;
+          sudo shutdown -P 40 ;
+          export GITHUB_REF_NAME=${{ github.ref_name }} ;
+          cd ~/run-${{ github.run_id }} ;
           ${{ inputs.run }}
       shell: bash
       run: scripts/run_on_builder "$RUN_SCRIPT"
