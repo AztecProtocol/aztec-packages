@@ -13,7 +13,7 @@ ENV_VARS="
   export GIT_COMMIT=${GIT_COMMIT:-}
   export EARTHLY_BUILD_ARGS=\"${EARTHLY_BUILD_ARGS:-}\"
   export FORCE_COLOR=1
-  echo ${{ $DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+  echo $$DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
 "
 
 # Format the environment variables for the SSH command
