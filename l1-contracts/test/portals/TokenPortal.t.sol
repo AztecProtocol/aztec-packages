@@ -1,11 +1,11 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import "forge-std/Test.sol";
 
 // Rollup Processor
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -60,8 +60,7 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
-    rollup =
-      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 
@@ -89,7 +88,7 @@ contract TokenPortalTest is Test {
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
-        ),
+      ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -167,7 +166,7 @@ contract TokenPortalTest is Test {
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )
-          )
+        )
       })
     );
 

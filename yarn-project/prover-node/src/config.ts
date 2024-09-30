@@ -16,20 +16,25 @@ import {
 } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
 
-import { type TxProviderConfig, getTxProviderConfigFromEnv, txProviderConfigMappings } from './tx-provider/config.js';
+import {
+  type ProverCoordinationConfig,
+  getTxProviderConfigFromEnv,
+  proverCoordinationConfigMappings,
+} from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
-  TxProviderConfig & {
+  ProverCoordinationConfig & {
     proverNodeDisableAutomaticProving?: boolean;
     proverNodeMaxPendingJobs?: number;
+    proverNodeEpochSize?: number;
   };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<
-  Pick<ProverNodeConfig, 'proverNodeDisableAutomaticProving' | 'proverNodeMaxPendingJobs'>
+  Pick<ProverNodeConfig, 'proverNodeDisableAutomaticProving' | 'proverNodeMaxPendingJobs' | 'proverNodeEpochSize'>
 > = {
   proverNodeDisableAutomaticProving: {
     env: 'PROVER_NODE_DISABLE_AUTOMATIC_PROVING',
@@ -41,6 +46,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<
     description: 'The maximum number of pending jobs for the prover node',
     ...numberConfigHelper(100),
   },
+  proverNodeEpochSize: {
+    env: 'PROVER_NODE_EPOCH_SIZE',
+    description: 'The number of blocks to prove in a single epoch',
+    ...numberConfigHelper(2),
+  },
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
@@ -49,7 +59,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
-  ...txProviderConfigMappings,
+  ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 

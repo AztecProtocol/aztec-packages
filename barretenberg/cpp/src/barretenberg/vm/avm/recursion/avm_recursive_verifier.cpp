@@ -1,7 +1,14 @@
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <memory>
 
 namespace bb {
 
@@ -18,18 +25,51 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
     , builder(builder)
 {}
 
+// Evaluate the given public input column over the multivariate challenge points
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof,
-                                                                                             AggregationObject agg_obj)
+Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std::vector<FF>& points,
+                                                                       const std::vector<FF>& challenges)
+{
+    auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
+        .start_ = 0,
+        .end_ = points.size(),
+        .virtual_size_ = key->circuit_size, // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+        .backing_memory_ = std::static_pointer_cast<FF[]>(get_mem_slab(sizeof(FF) * points.size())),
+    };
+
+    memcpy(
+        static_cast<void*>(coefficients.data()), static_cast<const void*>(points.data()), sizeof(FF) * points.size());
+
+    return generic_evaluate_mle<FF>(challenges, coefficients);
+}
+
+template <typename Flavor>
+AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const std::vector<std::vector<bb::fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    return verify_proof(stdlib_proof, agg_obj);
+
+    std::vector<std::vector<FF>> public_inputs_ct;
+    public_inputs_ct.reserve(public_inputs_vec_nt.size());
+
+    for (const auto& vec : public_inputs_vec_nt) {
+        std::vector<FF> vec_ct;
+        vec_ct.reserve(vec.size());
+        for (const auto& el : vec) {
+            vec_ct.push_back(bb::stdlib::witness_t<Builder>(builder, el));
+        }
+        public_inputs_ct.push_back(vec_ct);
+    }
+
+    return verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof, AggregationObject agg_obj)
+    const StdlibProof<Builder>& stdlib_proof,
+    const std::vector<std::vector<FF>>& public_inputs,
+    AggregationObject agg_obj)
 {
     using Curve = typename Flavor::Curve;
     using Zeromorph = ZeroMorphVerifier_<Curve>;
@@ -81,6 +121,32 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     vinfo("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
+
+    // Public columns evaluation checks
+    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
+                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+
+    FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
+    main_kernel_inputs_evaluation.assert_equal(claimed_evaluations.main_kernel_inputs,
+                                               "main_kernel_inputs_evaluation failed");
+
+    FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], mle_challenge);
+    main_kernel_value_out_evaluation.assert_equal(claimed_evaluations.main_kernel_value_out,
+                                                  "main_kernel_value_out_evaluation failed");
+
+    FF main_kernel_side_effect_out_evaluation = evaluate_public_input_column(public_inputs[2], mle_challenge);
+    main_kernel_side_effect_out_evaluation.assert_equal(claimed_evaluations.main_kernel_side_effect_out,
+                                                        "main_kernel_side_effect_out_evaluation failed");
+
+    FF main_kernel_metadata_out_evaluation = evaluate_public_input_column(public_inputs[3], mle_challenge);
+    main_kernel_metadata_out_evaluation.assert_equal(claimed_evaluations.main_kernel_metadata_out,
+                                                     "main_kernel_metadata_out_evaluation failed");
+
+    FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], mle_challenge);
+    main_calldata_evaluation.assert_equal(claimed_evaluations.main_calldata, "main_calldata_evaluation failed");
+
+    FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], mle_challenge);
+    main_returndata_evaluation.assert_equal(claimed_evaluations.main_returndata, "main_returndata_evaluation failed");
 
     auto opening_claim = Zeromorph::verify(circuit_size,
                                            commitments.get_unshifted(),

@@ -1,9 +1,10 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -103,7 +104,7 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      IOutbox outbox = registry.getRollup().OUTBOX();
+      IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
 
       outbox.consume(
         DataStructures.L2ToL1Msg({
@@ -209,7 +210,7 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      IOutbox outbox = registry.getRollup().OUTBOX();
+      IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
 
       outbox.consume(
         DataStructures.L2ToL1Msg({
