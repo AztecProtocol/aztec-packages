@@ -82,7 +82,9 @@ impl<
 
         // key_validation_requests
         if KEY_VALIDATION_REQUESTS == 0 {
-            assert_eq(output.scoped_key_validation_requests_and_generators, self.validation_requests.scoped_key_validation_requests_and_generators, "mismatch scoped_key_validation_requests_and_generators");
+            assert_eq(
+                output.scoped_key_validation_requests_and_generators, self.validation_requests.scoped_key_validation_requests_and_generators, "mismatch scoped_key_validation_requests_and_generators"
+            );
         } else {
             verify_reset_key_validation_requests(
                 self.validation_requests.scoped_key_validation_requests_and_generators,
