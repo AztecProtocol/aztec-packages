@@ -46,7 +46,7 @@ test_cases.forEach((testInfo) => {
     const inputs = toml.parse(prover_toml);
     const { witness } = await program.execute(inputs);
 
-    const backend = new BarretenbergBackend(noir_program);
+    const backend = await BarretenbergBackend.new(noir_program);
     const proofData = await backend.generateProof(witness);
 
     // JS verification

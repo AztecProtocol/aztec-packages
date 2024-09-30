@@ -13,8 +13,6 @@ import { CompiledCircuit } from '@noir-lang/types';
 const assert_lt_program = assert_lt_json as CompiledCircuit;
 const fold_fibonacci_program = fold_fibonacci_json as CompiledCircuit;
 
-const backend = new Backend(assert_lt_program);
-
 it('end-to-end proof creation and verification (outer)', async () => {
   // Noir.Js part
   const inputs = {
@@ -29,6 +27,7 @@ it('end-to-end proof creation and verification (outer)', async () => {
   // bb.js part
   //
   // Proof creation
+  const backend = await Backend.new(assert_lt_program);
   const proof = await backend.generateProof(witness);
 
   // Proof verification
@@ -48,12 +47,13 @@ it('end-to-end proof creation and verification (outer) -- Verifier API', async (
   const { witness } = await program.execute(inputs);
 
   // Generate proof
+  const backend = await Backend.new(assert_lt_program);
   const proof = await backend.generateProof(witness);
 
   const verificationKey = await backend.getVerificationKey();
 
   // Proof verification
-  const verifier = new Verifier();
+  const verifier = await Verifier.new();
   const isValid = await verifier.verifyProof(proof, verificationKey);
   expect(isValid).to.be.true;
 });
@@ -73,6 +73,7 @@ it('end-to-end proof creation and verification (inner)', async () => {
   // bb.js part
   //
   // Proof creation
+  const backend = await Backend.new(assert_lt_program);
   const proof = await backend.generateProof(witness);
 
   // Proof verification
@@ -92,9 +93,10 @@ it('end-to-end proving and verification with different instances', async () => {
   const { witness } = await program.execute(inputs);
 
   // bb.js part
+  const backend = await Backend.new(assert_lt_program);
   const proof = await backend.generateProof(witness);
 
-  const verifier = new Backend(assert_lt_program);
+  const verifier = await Backend.new(assert_lt_program);
   const proof_is_valid = await verifier.verifyProof(proof);
   expect(proof_is_valid).to.be.true;
 });
@@ -123,6 +125,7 @@ it('[BUG] -- bb.js null function or function signature mismatch (outer-inner) ',
   //
   // Create a proof using both proving systems, the majority of the time
   // one would only use outer proofs.
+  const backend = await Backend.new(assert_lt_program);
   const proofOuter = await backend.generateProof(witness);
   const _proofInner = await backend.generateProof(witness);
 
@@ -148,15 +151,13 @@ it('end-to-end proof creation and verification for multiple ACIR circuits (inner
   // bb.js part
   //
   // Proof creation
-  const backend = new Backend(fold_fibonacci_program);
+  const backend = await Backend.new(fold_fibonacci_program);
   const proof = await backend.generateProof(witness);
 
   // Proof verification
   const isValid = await backend.verifyProof(proof);
   expect(isValid).to.be.true;
 });
-
-const honkBackend = new UltraHonkBackend(assert_lt_program);
 
 it('UltraHonk end-to-end proof creation and verification (outer)', async () => {
   // Noir.Js part
@@ -172,6 +173,7 @@ it('UltraHonk end-to-end proof creation and verification (outer)', async () => {
   // bb.js part
   //
   // Proof creation
+  const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proof = await honkBackend.generateProof(witness);
 
   // Proof verification
@@ -191,12 +193,13 @@ it('UltraHonk end-to-end proof creation and verification (outer) -- Verifier API
   const { witness } = await program.execute(inputs);
 
   // Generate proof
+  const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proof = await honkBackend.generateProof(witness);
 
   const verificationKey = await honkBackend.getVerificationKey();
 
   // Proof verification
-  const verifier = new UltraHonkVerifier();
+  const verifier = await UltraHonkVerifier.new();
   const isValid = await verifier.verifyProof(proof, verificationKey);
   expect(isValid).to.be.true;
 });
@@ -215,6 +218,7 @@ it('UltraHonk end-to-end proof creation and verification (inner)', async () => {
   // bb.js part
   //
   // Proof creation
+  const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proof = await honkBackend.generateProof(witness);
 
   // Proof verification
@@ -234,6 +238,7 @@ it('UltraHonk end-to-end proving and verification with different instances', asy
   const { witness } = await program.execute(inputs);
 
   // bb.js part
+  const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proof = await honkBackend.generateProof(witness);
 
   const verifier = new UltraHonkBackend(assert_lt_program);
@@ -258,6 +263,7 @@ it('[BUG] -- UltraHonk bb.js null function or function signature mismatch (outer
   //
   // Create a proof using both proving systems, the majority of the time
   // one would only use outer proofs.
+  const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proofOuter = await honkBackend.generateProof(witness);
   const _proofInner = await honkBackend.generateProof(witness);
 
