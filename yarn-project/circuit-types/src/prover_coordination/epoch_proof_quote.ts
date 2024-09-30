@@ -6,7 +6,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { Gossipable } from '../p2p/gossipable.js';
-import { getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
+import { get712StructuredDigest } from '../p2p/signature_utils.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
 
@@ -37,14 +37,14 @@ export class EpochProofQuote extends Gossipable {
   }
 
   static new(payload: EpochProofQuotePayload, signer: Secp256k1Signer): EpochProofQuote {
-    const digest = getHashedSignaturePayloadEthSignedMessage(payload);
+    const digest = get712StructuredDigest(payload);
     const signature = signer.sign(digest);
     return new EpochProofQuote(payload, signature);
   }
 
   get senderAddress(): EthAddress {
     if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload);
+      const hashed = get712StructuredDigest(this.payload);
 
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);

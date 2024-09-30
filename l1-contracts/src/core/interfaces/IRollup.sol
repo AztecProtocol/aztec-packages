@@ -7,6 +7,7 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
@@ -30,7 +31,7 @@ interface IRollup {
 
   function prune() external;
 
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,
@@ -48,7 +49,7 @@ interface IRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.SignedEpochProofQuote calldata _quote
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(
@@ -98,7 +99,7 @@ interface IRollup {
   function getEpochToProve() external view returns (Epoch);
   function nextEpochToClaim() external view returns (Epoch);
   function getEpochForBlock(uint256 blockNumber) external view returns (Epoch);
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     external
     view;
   function getEpochProofPublicInputs(

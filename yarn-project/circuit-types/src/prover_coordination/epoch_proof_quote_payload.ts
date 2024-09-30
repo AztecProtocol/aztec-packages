@@ -1,4 +1,6 @@
 import { EthAddress } from '@aztec/circuits.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -50,9 +52,18 @@ export class EpochProofQuotePayload implements Signable {
     );
   }
 
+  static TYPE_HASH = Buffer32.fromBuffer(
+    keccak256(
+      Buffer.from(
+        'EpochProofQuote(uint256 epochToProve,uint256 validUntilSlot,uint256 bondAmount,address prover,uint32 basisPointFee)',
+      ),
+    ),
+  );
+
   getPayloadToSign(): Buffer {
-    const abi = parseAbiParameters('uint256, uint256, uint256, address, uint32');
+    const abi = parseAbiParameters('bytes32, uint256, uint256, uint256, address, uint32');
     const encodedData = encodeAbiParameters(abi, [
+      EpochProofQuotePayload.TYPE_HASH.to0xString(),
       this.epochToProve,
       this.validUntilSlot,
       this.bondAmount,

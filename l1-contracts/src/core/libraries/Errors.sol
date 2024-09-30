@@ -100,4 +100,9 @@ library Errors {
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
   error FeeJuicePortal__InvalidInitialization(); // 0xfd9b3208
   error FeeJuicePortal__Unauthorized(); // 0x67e3691e
+
+  // Proof Commitment Escrow
+  error ProofCommitmentEscrow__InsufficientBalance(uint256 balance, uint256 requested);
+  error ProofCommitmentEscrow__NotOwner(address caller);
+  error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, uint256 readyAt);
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
@@ -11,6 +11,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
@@ -34,7 +35,6 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
  */
 contract Rollup is Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
-
   using SlotLib for Slot;
   using EpochLib for Epoch;
 
@@ -169,7 +169,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.SignedEpochProofQuote calldata _quote
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
     claimEpochProofRight(_quote);
@@ -324,7 +324,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return TxsDecoder.decode(_body);
   }
 
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote)
+  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     public
     override(IRollup)
   {
@@ -559,7 +559,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     public
     view
     override(IRollup)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./decoders/Base.sol";
@@ -7,6 +7,7 @@ import {DecoderBase} from "./decoders/Base.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -46,7 +47,7 @@ contract RollupTest is DecoderBase {
 
   SignatureLib.Signature[] internal signatures;
 
-  DataStructures.SignedEpochProofQuote internal quote;
+  EpochProofQuoteLib.SignedEpochProofQuote internal quote;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -77,8 +78,8 @@ contract RollupTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    quote = DataStructures.SignedEpochProofQuote({
-      quote: DataStructures.EpochProofQuote({
+    quote = EpochProofQuoteLib.SignedEpochProofQuote({
+      quote: EpochProofQuoteLib.EpochProofQuote({
         epochToProve: Epoch.wrap(0),
         validUntilSlot: Slot.wrap(1),
         bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),

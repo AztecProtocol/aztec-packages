@@ -1,6 +1,8 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, makeEthSignDigest } from '@aztec/foundation/crypto';
 
+import { DOMAIN_SEPARATOR } from '../domain_separator.js';
+
 export interface Signable {
   getPayloadToSign(): Buffer;
 }
@@ -22,4 +24,10 @@ export function getHashedSignaturePayload(s: Signable): Buffer32 {
 export function getHashedSignaturePayloadEthSignedMessage(s: Signable): Buffer32 {
   const payload = getHashedSignaturePayload(s);
   return makeEthSignDigest(payload);
+}
+
+export function get712StructuredDigest(s: Signable): Buffer32 {
+  return Buffer32.fromBuffer(
+    keccak256(Buffer.concat([Buffer.from('\x19\x01'), DOMAIN_SEPARATOR.buffer, keccak256(s.getPayloadToSign())])),
+  );
 }
