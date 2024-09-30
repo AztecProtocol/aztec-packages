@@ -8,6 +8,7 @@ import { type TracedContractInstance } from './side_effect_trace.js';
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   getCounter(): number;
+  // all "trace*" functions can throw SideEffectLimitReachedError
   tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
   tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr): void;
   traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
