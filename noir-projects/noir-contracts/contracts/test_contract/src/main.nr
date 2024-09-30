@@ -266,38 +266,20 @@ contract Test {
     // For testing non-note encrypted logs
     #[private]
     fn emit_array_as_encrypted_log(
-        // fields: [Field; 5],
         owner: AztecAddress,
         owner_ivpk_m: IvpkM,
         outgoing_viewer_ovpk_m: OvpkM
     ) {
 
         let event = ExampleEvent { value0: 5, value1: 4, value2: 3, value3: 2, value4: 1 };
-
-        event.emit(
-            encode_and_encrypt_event_with_randomness(
-                &mut context,
-                // testing only - a secret random value is passed in here to salt / mask the address
-                5,
-                outgoing_viewer_ovpk_m,
-                owner_ivpk_m,
-                owner
-            )
-        );
-
         assert(context.side_effect_counter as Field != 0, "this assert should not be triggered");
 
-        // this contract has reached max number of functions, so using this one fn
-        // to test nested and non nested encrypted logs
         if owner_ivpk_m.inner.is_infinite {
-            Test::at(context.this_address()).emit_array_as_encrypted_log( owner, owner_ivpk_m, outgoing_viewer_ovpk_m).call(&mut context);
+            Test::at(context.this_address()).emit_array_as_encrypted_log(owner, owner_ivpk_m, outgoing_viewer_ovpk_m).call(&mut context);
 
-            let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
-
-            otherEvent.emit(
+            event.emit(
                 encode_and_encrypt_event_with_randomness(
                     &mut context,
-                    // testing only - a randomness of 0 signals the kernels to not mask the address
                     0,
                     outgoing_viewer_ovpk_m,
                     owner_ivpk_m,
