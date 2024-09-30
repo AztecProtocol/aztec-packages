@@ -23,7 +23,8 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "moduleNameMapper": {

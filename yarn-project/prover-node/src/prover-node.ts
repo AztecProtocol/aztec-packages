@@ -1,11 +1,13 @@
 import {
+  type EpochProofQuote,
+  type EpochProverManager,
   type L1ToL2MessageSource,
   type L2BlockSource,
   type MerkleTreeOperations,
-  type ProverClient,
-  type TxProvider,
+  type ProverCoordination,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type L1Publisher } from '@aztec/sequencer-client';
@@ -13,8 +15,15 @@ import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulato
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
-import { BlockProvingJob, type BlockProvingJobState } from './job/block-proving-job.js';
+import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
+
+type ProverNodeOptions = {
+  pollingIntervalMs: number;
+  disableAutomaticProving: boolean;
+  maxPendingJobs: number;
+  epochSize: number;
+};
 
 /**
  * An Aztec Prover Node is a standalone process that monitors the unfinalised chain on L1 for unproven blocks,
@@ -25,27 +34,28 @@ export class ProverNode {
   private log = createDebugLogger('aztec:prover-node');
   private runningPromise: RunningPromise | undefined;
   private latestBlockWeAreProving: number | undefined;
-  private jobs: Map<string, BlockProvingJob> = new Map();
-  private options: { pollingIntervalMs: number; disableAutomaticProving: boolean; maxPendingJobs: number };
+  private jobs: Map<string, EpochProvingJob> = new Map();
+  private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
 
   constructor(
-    private prover: ProverClient,
+    private prover: EpochProverManager,
     private publisher: L1Publisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private contractDataSource: ContractDataSource,
     private worldState: WorldStateSynchronizer,
-    private txProvider: TxProvider,
+    private coordination: ProverCoordination,
     private simulator: SimulationProvider,
     private telemetryClient: TelemetryClient,
-    options: { pollingIntervalMs?: number; disableAutomaticProving?: boolean; maxPendingJobs?: number } = {},
+    options: Partial<ProverNodeOptions> = {},
   ) {
     this.options = {
       pollingIntervalMs: 1_000,
       disableAutomaticProving: false,
       maxPendingJobs: 100,
-      ...options,
+      epochSize: 2,
+      ...compact(options),
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
@@ -58,7 +68,7 @@ export class ProverNode {
   start() {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.options.pollingIntervalMs);
     this.runningPromise.start();
-    this.log.info('Started ProverNode');
+    this.log.info('Started ProverNode', this.options);
   }
 
   /**
@@ -70,7 +80,7 @@ export class ProverNode {
     await this.prover.stop();
     await this.l2BlockSource.stop();
     this.publisher.interrupt();
-    this.jobs.forEach(job => job.stop());
+    await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     this.log.info('Stopped ProverNode');
   }
@@ -101,8 +111,8 @@ export class ProverNode {
       // Consider both the latest block we are proving and the last block proven on the chain
       const latestBlockBeingProven = this.latestBlockWeAreProving ?? 0;
       const latestProven = Math.max(latestBlockBeingProven, latestProvenBlockNumber);
-      if (latestProven >= latestBlockNumber) {
-        this.log.debug(`No new blocks to prove`, {
+      if (latestBlockNumber - latestProven < this.options.epochSize) {
+        this.log.debug(`No epoch to prove`, {
           latestBlockNumber,
           latestProvenBlockNumber,
           latestBlockBeingProven,
@@ -111,7 +121,7 @@ export class ProverNode {
       }
 
       const fromBlock = latestProven + 1;
-      const toBlock = fromBlock; // We only prove one block at a time for now
+      const toBlock = fromBlock + this.options.epochSize - 1;
 
       try {
         await this.startProof(fromBlock, toBlock);
@@ -123,6 +133,10 @@ export class ProverNode {
     } catch (err) {
       this.log.error(`Error in prover node work`, err);
     }
+  }
+
+  public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    return this.coordination.addEpochProofQuote(quote);
   }
 
   /**
@@ -151,7 +165,7 @@ export class ProverNode {
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): { uuid: string; status: BlockProvingJobState }[] {
+  public getJobs(): { uuid: string; status: EpochProvingJobState }[] {
     return Array.from(this.jobs.entries()).map(([uuid, job]) => ({ uuid, status: job.getState() }));
   }
 
@@ -186,24 +200,24 @@ export class ProverNode {
       this.jobs.delete(job.getId());
     };
 
-    const job = this.doCreateBlockProvingJob(db, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(db, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
   }
 
   /** Extracted for testing purposes. */
-  protected doCreateBlockProvingJob(
+  protected doCreateEpochProvingJob(
     db: MerkleTreeOperations,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
-    return new BlockProvingJob(
-      this.prover.createBlockProver(db),
+    return new EpochProvingJob(
+      this.prover.createEpochProver(db),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.txProvider,
+      this.coordination,
       this.metrics,
       cleanUp,
     );

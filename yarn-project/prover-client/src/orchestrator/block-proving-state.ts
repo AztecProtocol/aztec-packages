@@ -1,4 +1,4 @@
-import { type L2Block, type MerkleTreeId, type ProvingResult } from '@aztec/circuit-types';
+import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
@@ -18,13 +18,8 @@ import {
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
+import { type EpochProvingState } from './epoch-proving-state.js';
 import { type TxProvingState } from './tx-proving-state.js';
-
-enum PROVING_STATE_LIFECYCLE {
-  PROVING_STATE_CREATED,
-  PROVING_STATE_RESOLVED,
-  PROVING_STATE_REJECTED,
-}
 
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
@@ -50,8 +45,6 @@ export class BlockProvingState {
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];
 
-  private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
-
   constructor(
     public readonly index: number,
     public readonly totalNumTxs: number,
@@ -63,8 +56,7 @@ export class BlockProvingState {
     public readonly archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     public readonly previousBlockHash: Fr,
-    private completionCallback?: (result: ProvingResult) => void,
-    private rejectionCallback?: (reason: string) => void,
+    private readonly parentEpoch: EpochProvingState,
   ) {
     this.rootParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
   }
@@ -206,35 +198,15 @@ export class BlockProvingState {
 
   // Returns true if we are still able to accept transactions, false otherwise
   public isAcceptingTransactions() {
-    return (
-      this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED && this.totalNumTxs > this.txs.length
-    );
+    return this.totalNumTxs > this.txs.length;
   }
 
-  // Returns true if this proving state is still valid, false otherwise
+  // Returns whether the proving state is still valid
   public verifyState() {
-    return this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
+    return this.parentEpoch.verifyState();
   }
 
-  // Attempts to reject the proving state promise with the given reason
   public reject(reason: string) {
-    if (!this.verifyState()) {
-      return;
-    }
-    this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
-    if (this.rejectionCallback) {
-      this.rejectionCallback(reason);
-    }
-  }
-
-  // Attempts to resolve the proving state promise with the given result
-  public resolve(result: ProvingResult) {
-    if (!this.verifyState()) {
-      return;
-    }
-    this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_RESOLVED;
-    if (this.completionCallback) {
-      this.completionCallback(result);
-    }
+    this.parentEpoch.reject(reason);
   }
 }

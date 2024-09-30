@@ -78,7 +78,6 @@ export type CircuitName =
   | 'merge-rollup'
   | 'block-root-rollup'
   | 'empty-block-root-rollup'
-  | 'block-root-rollup-final'
   | 'block-merge-rollup'
   | 'root-rollup'
   | 'private-kernel-init'

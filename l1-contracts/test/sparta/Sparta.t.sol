@@ -8,7 +8,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -40,7 +39,6 @@ contract SpartaTest is DecoderBase {
     bool shouldRevert;
   }
 
-  Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
@@ -75,15 +73,10 @@ contract SpartaTest is DecoderBase {
       initialValidators[i - 1] = validator;
     }
 
-    registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(
-      registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators
-    );
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
-
-    registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();

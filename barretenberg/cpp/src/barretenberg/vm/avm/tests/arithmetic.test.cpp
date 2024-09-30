@@ -211,7 +211,7 @@ class AvmArithmeticTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
     AvmTraceBuilder trace_builder;
 
     void gen_trace_builder(std::vector<FF> const& calldata)

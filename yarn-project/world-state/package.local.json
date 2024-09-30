@@ -1,5 +1,6 @@
 {
   "scripts": {
-    "build": "yarn clean && ./scripts/build.sh ts"
+    "build": "yarn clean && mkdir -p build && (([ -f ../../barretenberg/cpp/build/bin/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build/bin/world_state_napi.node build) || ([ -f ../../barretenberg/cpp/build-pic/lib/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build) || true) && tsc -b",
+    "clean": "rm -rf ./dest ./build .tsbuildinfo"
   }
 }

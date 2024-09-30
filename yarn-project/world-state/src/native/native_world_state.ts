@@ -457,6 +457,11 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   }
 
   public async stop(): Promise<void> {
+    if (this.forkId !== 0 || this.blockNumber !== undefined) {
+      throw new Error('Stopping a fork or a snapshot is forbidden');
+    }
+
+    // only the canonical fork can stop the queue
     await this.queue.end();
   }
 
