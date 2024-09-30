@@ -1,15 +1,14 @@
-import { bufferFromFields } from '@aztec/foundation/abi';
+import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { type ContractClassPublic } from '@aztec/types/contracts';
+import { type ContractClassPublic, type PublicFunction } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 
 import { REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE } from '../../constants.gen.js';
 import { computeContractClassId, computePublicBytecodeCommitment } from '../contract_class_id.js';
-import { unpackBytecode } from '../public_bytecode.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class ContractClassRegisteredEvent {
@@ -73,12 +72,20 @@ export class ContractClassRegisteredEvent {
       throw new Error(`Unexpected contract class version ${this.version}`);
     }
 
+    const publicFunctions: PublicFunction[] = [];
+    if (this.packedPublicBytecode.length > 0) {
+      publicFunctions.push({
+        selector: FunctionSelector.fromSignature('public_dispatch(Field)'),
+        bytecode: this.packedPublicBytecode,
+      });
+    }
+
     return {
       id: this.contractClassId,
       artifactHash: this.artifactHash,
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      publicFunctions: unpackBytecode(this.packedPublicBytecode),
+      publicFunctions: publicFunctions,
       version: this.version,
       privateFunctions: [],
       unconstrainedFunctions: [],

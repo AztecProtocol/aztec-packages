@@ -4,7 +4,6 @@ import { type ContractClass, type ContractClassWithId } from '@aztec/types/contr
 
 import { computeArtifactHash } from './artifact_hash.js';
 import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
-import { packBytecode } from './public_bytecode.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
@@ -25,7 +24,18 @@ export function getContractClassFromArtifact(
     }))
     .sort(cmpFunctionArtifacts);
 
-  const packedBytecode = packBytecode(publicFunctions);
+  let packedBytecode = Buffer.alloc(0);
+  if (publicFunctions.length > 0) {
+    const dispatchFunction = publicFunctions.find(f =>
+      f.selector.equals(FunctionSelector.fromSignature('public_dispatch(Field)')),
+    );
+    if (!dispatchFunction) {
+      throw new Error(
+        'A contract with public functions should define a public_dispatch(Field) function as its public entrypoint.',
+      );
+    }
+    packedBytecode = dispatchFunction.bytecode;
+  }
 
   const privateFunctions: ContractClass['privateFunctions'] = artifact.functions
     .filter(f => f.functionType === FunctionType.PRIVATE)

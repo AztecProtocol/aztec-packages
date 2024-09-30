@@ -15,9 +15,9 @@ export interface ContractClass {
   artifactHash: Fr;
   /** List of individual private functions, constructors included. */
   privateFunctions: PrivateFunction[];
-  /** List of individual public functions. Should be removed once we switch to the AVM where all public bytecode is bundled together. */
+  /** List of individual public functions. */
   publicFunctions: PublicFunction[];
-  /** Packed bytecode representation of the AVM bytecode for all public functions in this contract. Unused for now, see `publicFunctions`. */
+  /** Bytecode of the public dispatch function. */
   packedBytecode: Buffer;
 }
 
