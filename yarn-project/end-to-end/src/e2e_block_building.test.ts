@@ -314,7 +314,9 @@ describe('e2e_block_building', () => {
       const action = testContract.methods.emit_array_as_encrypted_log(
         [5, 4, 3, 2, 1],
         thisWallet.getAddress(),
-        outgoingViewer,
+        thisWallet.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey.toWrappedNoirStruct(),
+        thisWallet.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
+        // outgoingViewer,
         true,
       );
       const tx = await action.prove();

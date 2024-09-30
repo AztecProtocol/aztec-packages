@@ -11,7 +11,7 @@ contract Test {
         PrivateImmutable, PrivateSet
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
 
     use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point};
 
@@ -35,6 +35,7 @@ contract Test {
     use std::meta::derive;
 
     use crate::test_note::TestNote;
+    use aztec::keys::public_keys::OvpkM;
 
     #[event]
     #[derive(Serialize)]
@@ -267,16 +268,17 @@ contract Test {
     fn emit_array_as_encrypted_log(
         fields: [Field; 5],
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        owner_ivpk_m: IvpkM,
+        outgoing_viewer_ovpk_m: OvpkM,
         nest: bool
     ) {
-        let owner_ivpk_m = get_public_keys(owner).ivpk_m;
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
+        // let owner_ivpk_m = get_public_keys(owner).ivpk_m;
+        // let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
         event.emit(
-            encode_and_encrypt_event_with_randomness_unconstrained(
+            encode_and_encrypt_event_with_randomness(
                 &mut context,
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
@@ -289,12 +291,12 @@ contract Test {
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false).call(&mut context);
+            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, owner_ivpk_m, outgoing_viewer_ovpk_m, false).call(&mut context);
 
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
             otherEvent.emit(
-                encode_and_encrypt_event_with_randomness_unconstrained(
+                encode_and_encrypt_event_with_randomness(
                     &mut context,
                     // testing only - a randomness of 0 signals the kernels to not mask the address
                     0,
