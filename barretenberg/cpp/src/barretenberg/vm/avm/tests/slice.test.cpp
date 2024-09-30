@@ -115,7 +115,7 @@ class AvmSliceTests : public ::testing::Test {
         validate_trace(std::move(trace), public_inputs, calldata);
     }
 
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
     AvmTraceBuilder trace_builder;
     std::vector<FF> calldata;
 

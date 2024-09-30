@@ -6,7 +6,6 @@ pub struct EmptyBlockRootRollupInputs {
     archive: AppendOnlyTreeSnapshot,
     block_hash: Field,
     global_variables: GlobalVariables,
-    out_hash: Field,
     vk_tree_root: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
@@ -21,7 +20,7 @@ impl EmptyBlockRootRollupInputs {
             end_block_hash: self.block_hash,
             start_global_variables: self.global_variables,
             end_global_variables: self.global_variables,
-            out_hash: self.out_hash,
+            out_hash: 0, // out_hash is ignored when merging if the block proof is padding
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: self.vk_tree_root,
             prover_id: self.prover_id

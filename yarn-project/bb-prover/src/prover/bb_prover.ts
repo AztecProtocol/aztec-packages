@@ -59,6 +59,7 @@ import {
   convertBlockRootRollupInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertEmptyBlockRootRollupInputsToWitnessMap,
+  convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -395,40 +396,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'EmptyBlockRootRollupArtifact',
       RECURSIVE_PROOF_LENGTH,
       convertEmptyBlockRootRollupInputsToWitnessMap,
-      convertBlockRootRollupOutputsFromWitnessMap,
+      convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupArtifact');
+    const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyBlockRootRollupArtifact');
 
-    await this.verifyProof('BlockRootRollupArtifact', proof.binaryProof);
+    await this.verifyProof('EmptyBlockRootRollupArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
-  }
-
-  /**
-   * Simulates the block root rollup circuit from its inputs.
-   * Returns a non-recursive proof to verify on L1.
-   * @dev TODO(palla/prover): This is a temporary workaround to get the proof to L1 with the old block flow.
-   * @param input - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
-   */
-  public async getBlockRootRollupFinalProof(
-    input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    const { circuitOutput, proof } = await this.createProof(
-      input,
-      'BlockRootRollupFinalArtifact',
-      convertBlockRootRollupInputsToWitnessMap,
-      convertBlockRootRollupOutputsFromWitnessMap,
-    );
-
-    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
-
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupFinalArtifact');
-
-    await this.verifyProof('BlockRootRollupFinalArtifact', proof);
-
-    return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
 
   /**

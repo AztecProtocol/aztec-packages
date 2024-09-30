@@ -32,4 +32,5 @@ interface ILeonidas {
 
   function getEpochAt(Timestamp _ts) external view returns (Epoch);
   function getSlotAt(Timestamp _ts) external view returns (Slot);
+  function getEpochAtSlot(Slot _slotNumber) external view returns (Epoch);
 }
