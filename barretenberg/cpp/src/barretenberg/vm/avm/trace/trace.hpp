@@ -52,7 +52,7 @@ struct AddressWithMode {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs<FF> public_inputs = {},
+    AvmTraceBuilder(VmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
