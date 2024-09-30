@@ -109,6 +109,12 @@ export interface ArchiverDataStore {
   getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined>;
 
   /**
+   * Get the total number of L1 to L2 messages
+   * @returns The number of L1 to L2 messages in the store
+   */
+  getTotalL1ToL2MessageCount(): Promise<bigint>;
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.
@@ -141,10 +147,22 @@ export interface ArchiverDataStore {
   getProvenL2BlockNumber(): Promise<number>;
 
   /**
+   * Gets the number of the latest proven L2 epoch.
+   * @returns The number of the latest proven L2 epoch.
+   */
+  getProvenL2EpochNumber(): Promise<number | undefined>;
+
+  /**
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
   setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
+
+  /**
+   * Stores the number of the latest proven L2 epoch.
+   * @param l2EpochNumber - The number of the latest proven L2 epoch.
+   */
+  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void>;
 
   /**
    * Stores the l1 block number that blocks have been synched until

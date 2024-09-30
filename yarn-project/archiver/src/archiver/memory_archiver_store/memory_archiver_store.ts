@@ -70,6 +70,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private lastL1BlockNewMessages: bigint | undefined = undefined;
 
   private lastProvenL2BlockNumber: number = 0;
+  private lastProvenL2EpochNumber: number = 0;
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -217,6 +218,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     });
 
     return Promise.resolve(true);
+  }
+
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return Promise.resolve(this.l1ToL2Messages.getTotalL1ToL2MessageCount());
   }
 
   /**
@@ -467,8 +472,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
+  public getProvenL2EpochNumber(): Promise<number | undefined> {
+    return Promise.resolve(this.lastProvenL2EpochNumber);
+  }
+
   public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
     this.lastProvenL2BlockNumber = l2BlockNumber;
+    return Promise.resolve();
+  }
+
+  public setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
+    this.lastProvenL2EpochNumber = l2EpochNumber;
     return Promise.resolve();
   }
 

@@ -18,13 +18,6 @@
 
 namespace bb {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
-}
-
 // Note: This function is pretty gnarly, but we try to make it the only function that deals
 // with copying polynomials. It should be scrutinized thusly.
 template <typename Fr>
@@ -49,6 +42,7 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
 template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
+    ASSERT(start_index + size <= virtual_size);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
@@ -159,7 +153,6 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
-    // Compute the subset that is defined in both polynomials
     ASSERT(start_index() <= other.start_index);
     ASSERT(end_index() >= other.end_index());
     size_t num_threads = calculate_num_threads(other.size());
@@ -187,58 +180,7 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
-    if (size() == 0) {
-        return Fr(0);
-    }
-
-    const size_t n = evaluation_points.size();
-    const size_t dim = numeric::get_msb(end_index() - 1) + 1; // Round up to next power of 2
-
-    // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    ASSERT(virtual_size() == static_cast<size_t>(1 << n));
-
-    // We first fold over dim rounds l = 0,...,dim-1.
-    // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
-    // at u₀,..., u_l.
-    // In round 0, this is half the size of dim
-    size_t n_l = 1 << (dim - 1);
-
-    // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
-    auto tmp_ptr = _allocate_aligned_memory<Fr>(sizeof(Fr) * n_l);
-    auto tmp = tmp_ptr.get();
-
-    size_t offset = 0;
-    if (shift) {
-        ASSERT((*this)[0] == Fr::zero());
-        offset++;
-    }
-
-    Fr u_l = evaluation_points[0];
-    for (size_t i = 0; i < n_l; ++i) {
-        // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
-        // Note: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity padding
-        // (and there used to be no assert time checks, which this constant helps with).
-        const size_t ALLOW_ONE_PAST_READ = 1;
-        tmp[i] = get(i * 2 + offset) + u_l * (get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - get(i * 2 + offset));
-    }
-
-    // partially evaluate the dim-1 remaining points
-    for (size_t l = 1; l < dim; ++l) {
-        n_l = 1 << (dim - l - 1);
-        u_l = evaluation_points[l];
-        for (size_t i = 0; i < n_l; ++i) {
-            tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
-        }
-    }
-    auto result = tmp[0];
-
-    // We handle the "trivial" dimensions which are full of zeros.
-    for (size_t i = dim; i < n; i++) {
-        result *= (Fr(1) - evaluation_points[i]);
-    }
-
-    return result;
+    return _evaluate_mle(evaluation_points, coefficients_, shift);
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
@@ -300,15 +242,14 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
-    // Compute the subset that is defined in both polynomials
     ASSERT(start_index() <= other.start_index);
     ASSERT(end_index() >= other.end_index());
-    size_t num_threads = calculate_num_threads(other.size());
-    size_t range_per_thread = other.size() / num_threads;
-    size_t leftovers = other.size() - (range_per_thread * num_threads);
+    const size_t num_threads = calculate_num_threads(other.size());
+    const size_t range_per_thread = other.size() / num_threads;
+    const size_t leftovers = other.size() - (range_per_thread * num_threads);
     parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread + other.start_index;
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+        const size_t offset = j * range_per_thread + other.start_index;
+        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
             at(i) -= other[i];
         }
@@ -318,18 +259,35 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
 {
-    size_t num_threads = calculate_num_threads(size());
-    size_t range_per_thread = size() / num_threads;
-    size_t leftovers = size() - (range_per_thread * num_threads);
+    const size_t num_threads = calculate_num_threads(size());
+    const size_t range_per_thread = size() / num_threads;
+    const size_t leftovers = size() - (range_per_thread * num_threads);
     parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread;
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+        const size_t offset = j * range_per_thread;
+        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
             data()[i] *= scaling_factor;
         }
     });
 
     return *this;
+}
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
+// expand, but it is currently unused.
+template <typename Fr>
+Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
+{
+    ASSERT(new_end_index <= virtual_size());
+    ASSERT(new_start_index <= start_index());
+    ASSERT(new_end_index >= end_index());
+    if (new_start_index == start_index() && new_end_index == end_index()) {
+        return *this;
+    }
+    Polynomial result = *this;
+    // Make new_start_index..new_end_index usable
+    result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);
+    return result;
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
@@ -339,17 +297,17 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
     result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
 }
+
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
-    // Compute the subset that is defined in both polynomials
     ASSERT(start_index() <= other.start_index);
     ASSERT(end_index() >= other.end_index());
-    size_t num_threads = calculate_num_threads(other.size());
-    size_t range_per_thread = other.size() / num_threads;
-    size_t leftovers = other.size() - (range_per_thread * num_threads);
+    const size_t num_threads = calculate_num_threads(other.size());
+    const size_t range_per_thread = other.size() / num_threads;
+    const size_t leftovers = other.size() - (range_per_thread * num_threads);
     parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread + other.start_index;
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+        const size_t offset = j * range_per_thread + other.start_index;
+        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
             at(i) += scaling_factor * other[i];
         }
@@ -368,5 +326,4 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
-
 } // namespace bb

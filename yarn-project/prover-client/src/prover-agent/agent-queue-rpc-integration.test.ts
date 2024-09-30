@@ -6,6 +6,7 @@ import {
   makeBaseRollupInputs,
   makeBlockMergeRollupInputs,
   makeBlockRootRollupInputs,
+  makeEmptyBlockRootRollupInputs,
   makeHeader,
   makeMergeRollupInputs,
   makePublicKernelCircuitPrivateInputs,
@@ -40,8 +41,8 @@ describe('Prover agent <-> queue integration', () => {
     getBaseRollupProof: makeBaseRollupInputs,
     getRootParityProof: makeRootParityInputs,
     getBlockMergeRollupProof: makeBlockMergeRollupInputs,
+    getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
     getBlockRootRollupProof: makeBlockRootRollupInputs,
-    getBlockRootRollupFinalProof: makeBlockRootRollupInputs,
     getEmptyPrivateKernelProof: () =>
       new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
     getEmptyTubeProof: () => new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
@@ -73,6 +74,7 @@ describe('Prover agent <-> queue integration', () => {
     await queue.stop();
   });
 
+  // TODO: This test hangs instead of failing when the Inputs are not registered on the RPC wrapper
   it.each(Object.entries(makeInputs))('can call %s over JSON-RPC', async (fnName, makeInputs) => {
     const resp = await queue[fnName as keyof ServerCircuitProver](makeInputs() as any);
     expect(resp).toBeDefined();

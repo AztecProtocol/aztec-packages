@@ -614,6 +614,3 @@ workflows:
             - e2e-join
             - cli-wallet
           <<: *defaults
-
-      # Production releases.
-      - deploy-and-release: *defaults_deploy

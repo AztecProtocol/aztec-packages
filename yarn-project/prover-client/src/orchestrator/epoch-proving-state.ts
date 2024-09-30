@@ -1,4 +1,4 @@
-import { type MerkleTreeId, type ProvingResult } from '@aztec/circuit-types';
+import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
@@ -36,6 +36,8 @@ export type BlockMergeRollupInputData = {
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
 
+export type ProvingResult = { status: 'success' } | { status: 'failure'; reason: string };
+
 /**
  * The current state of the proving schedule for an epoch.
  * Contains the raw inputs and intermediate state to generate every constituent proof in the tree.
@@ -59,18 +61,20 @@ export class EpochProvingState {
 
   /** Returns the current block proving state */
   public get currentBlock(): BlockProvingState | undefined {
-    return this.blocks[this.blocks.length - 1];
+    return this.blocks.at(-1);
   }
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumBlocks)) - 1);
+    const totalLeaves = Math.max(2, this.totalNumBlocks);
+    return BigInt(Math.ceil(Math.log2(totalLeaves)) - 1);
   }
 
   // Calculates the index and level of the parent rollup circuit
   // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
   // REFACTOR: This is repeated from the block orchestrator
   public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
+    const totalLeaves = Math.max(2, this.totalNumBlocks);
     const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
       levelSize /= 2;
       if (levelSize & 1) {
@@ -79,8 +83,7 @@ export class EpochProvingState {
       index >>= 1n;
       return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
     };
-    let [thisLevelSize, shiftUp] =
-      this.totalNumBlocks & 1 ? [this.totalNumBlocks - 1, true] : [this.totalNumBlocks, false];
+    let [thisLevelSize, shiftUp] = totalLeaves & 1 ? [totalLeaves - 1, true] : [totalLeaves, false];
     const maxLevel = this.numMergeLevels + 1n;
     let placeholder = currentIndex;
     for (let i = 0; i < maxLevel - currentLevel; i++) {
@@ -107,8 +110,6 @@ export class EpochProvingState {
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
-    completionCallback?: (result: ProvingResult) => void,
-    rejectionCallback?: (reason: string) => void,
   ) {
     const block = new BlockProvingState(
       this.blocks.length,
@@ -121,15 +122,7 @@ export class EpochProvingState {
       archiveTreeSnapshot,
       archiveTreeRootSiblingPath,
       previousBlockHash,
-      completionCallback,
-      reason => {
-        // Reject the block
-        if (rejectionCallback) {
-          rejectionCallback(reason);
-        }
-        // An error on any block rejects this whole epoch
-        this.reject(reason);
-      },
+      this,
     );
     this.blocks.push(block);
     if (this.blocks.length === this.totalNumBlocks) {
@@ -214,10 +207,6 @@ export class EpochProvingState {
     }
     this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
     this.rejectionCallback(reason);
-
-    for (const block of this.blocks) {
-      block.reject('Proving cancelled');
-    }
   }
 
   // Attempts to resolve the proving state promise with the given result

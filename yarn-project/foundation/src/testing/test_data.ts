@@ -8,7 +8,7 @@ const testData: { [key: string]: unknown[] } = {};
 
 /** Returns whether test data generation is enabled */
 export function isGenerateTestDataEnabled() {
-  return process.env.AZTEC_GENERATE_TEST_DATA === '1' && typeof expect !== 'undefined';
+  return ['1', 'true'].includes(process.env.AZTEC_GENERATE_TEST_DATA ?? '') && typeof expect !== 'undefined';
 }
 
 /** Pushes test data with the given name, only if test data generation is enabled. */

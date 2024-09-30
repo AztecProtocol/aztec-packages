@@ -167,6 +167,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#logStore.deleteLogs(blocks);
   }
 
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return Promise.resolve(this.#messageStore.getTotalL1ToL2MessageCount());
+  }
+
   /**
    * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
@@ -243,8 +247,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#blockStore.getProvenL2BlockNumber());
   }
 
+  getProvenL2EpochNumber(): Promise<number | undefined> {
+    return Promise.resolve(this.#blockStore.getProvenL2EpochNumber());
+  }
+
   setProvenL2BlockNumber(blockNumber: number) {
     this.#blockStore.setProvenL2BlockNumber(blockNumber);
+    return Promise.resolve();
+  }
+
+  setProvenL2EpochNumber(epochNumber: number) {
+    this.#blockStore.setProvenL2EpochNumber(epochNumber);
     return Promise.resolve();
   }
 
