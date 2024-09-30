@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 interface IFeeJuicePortal {
   function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress) external;

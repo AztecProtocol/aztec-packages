@@ -1,164 +1,113 @@
 use crate::{
     context::PrivateContext, event::event_interface::EventInterface,
-    encrypted_logs::payload::compute_encrypted_event_log,
-    keys::{getters::get_current_public_keys, public_keys::{OvpkM, IvpkM}},
-    oracle::logs_traits::LensForEncryptedEvent, oracle::unsafe_rand::unsafe_rand
+    encrypted_logs::payload::compute_encrypted_log,
+    keys::{getters::get_ovsk_app, public_keys::{OvpkM, IvpkM}}, oracle::unsafe_rand::unsafe_rand
 };
 use dep::protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
-unconstrained fn compute_unconstrained<Event, let NB: u32, let MB: u32, let OB: u32>(
-    contract_address: AztecAddress,
+fn compute_raw_event_log<Event, let N: u32>(
+    context: PrivateContext,
+    event: Event,
     randomness: Field,
     ovsk_app: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
-    recipient: AztecAddress,
-    event: Event
-) -> ([u8; OB], Field) where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    compute(
-        contract_address,
-        randomness,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        event
-    )
-}
-
-fn compute<Event, let NB: u32, let MB: u32, let OB: u32>(
-    contract_address: AztecAddress,
-    randomness: Field,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress,
-    event: Event
-) -> ([u8; OB], Field) where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    let encrypted_log: [u8; OB] = compute_encrypted_event_log(
-        contract_address,
-        randomness,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        event
-    );
+    recipient: AztecAddress
+) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+    let contract_address: AztecAddress = context.this_address();
+    let plaintext = event.private_to_be_bytes(randomness);
+    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
     (encrypted_log, log_hash)
 }
 
-fn emit_with_keys<Event, let NB: u32, let MB: u32, let OB: u32>(
-    context: &mut PrivateContext,
-    randomness: Field,
+unconstrained fn compute_raw_event_log_unconstrained<Event, let N: u32>(
+    context: PrivateContext,
     event: Event,
+    randomness: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
-    iv: AztecAddress,
-    inner_compute: fn(AztecAddress, Field, Field, OvpkM, IvpkM, AztecAddress, Event) -> ([u8; OB], Field)
-) where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    let contract_address: AztecAddress = context.this_address();
-    let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
-    let (encrypted_log, log_hash) = inner_compute(contract_address, randomness, ovsk_app, ovpk, ivpk, iv, event);
-    context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
+    recipient: AztecAddress
+) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+    let ovsk_app = get_ovsk_app(ovpk.hash());
+    compute_raw_event_log(context, event, randomness, ovsk_app, ovpk, ivpk, recipient)
 }
 
-pub fn encode_and_encrypt_event<Event, let NB: u32, let MB: u32, let OB: u32>(
-    context: &mut PrivateContext,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    | e: Event | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
-        let randomness = unsafe_rand();
-        emit_with_keys(context, randomness, e, ovpk, ivpk, iv, compute);
-    }
-}
-
-pub fn encode_and_encrypt_event_unconstrained<Event, let NB: u32, let MB: u32, let OB: u32>(
-    context: &mut PrivateContext,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    | e: Event | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
-        let randomness = unsafe_rand();
-        emit_with_keys(context, randomness, e, ovpk, ivpk, iv, compute_unconstrained);
-    }
-}
-
-pub fn encode_and_encrypt_event_with_randomness<Event, let NB: u32, let MB: u32, let OB: u32>(
-    context: &mut PrivateContext,
-    randomness: Field,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress, Field)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    | e: Event | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
-        emit_with_keys(context, randomness, e, ovpk, ivpk, iv, compute);
-    }
-}
-
-pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let NB: u32, let MB: u32, let OB: u32>(
-    context: &mut PrivateContext,
-    randomness: Field,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress, Field)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
-    | e: Event | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
-        emit_with_keys(context, randomness, e, ovpk, ivpk, iv, compute_unconstrained);
-    }
-}
-
-pub fn encode_and_encrypt_event_with_keys<Event, let NB: u32, let MB: u32, let OB: u32>(
+pub fn encode_and_encrypt_event<Event, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let randomness = unsafe_rand();
-        emit_with_keys(context, randomness, e, ovpk, ivpk, recipient, compute);
+        let randomness =  unsafe {
+            unsafe_rand()
+        };
+        let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
+        let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
+        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
 
-pub fn encode_and_encrypt_event_with_keys_unconstrained<Event, let NB: u32, let MB: u32, let OB: u32>(
+pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let randomness = unsafe_rand();
-        emit_with_keys(context, randomness, e, ovpk, ivpk, recipient, compute_unconstrained);
+        let randomness =  unsafe {
+            unsafe_rand()
+        };
+        let (encrypted_log, log_hash) =  unsafe {
+            compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
+        };
+        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
 
-pub fn encode_and_encrypt_event_with_keys_with_randomness<Event, let NB: u32, let MB: u32, let OB: u32>(
+// This function seems to be affected by the following Noir bug:
+// https://github.com/noir-lang/noir/issues/5771
+// If you get weird behavior it might be because of it.
+pub fn encode_and_encrypt_event_with_randomness<Event, let N: u32>(
     context: &mut PrivateContext,
     randomness: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> fn[(&mut PrivateContext, Field, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+) -> fn[(&mut PrivateContext, OvpkM, Field, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        emit_with_keys(context, randomness, e, ovpk, ivpk, recipient, compute);
+        let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
+        let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
+        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
 
-pub fn encode_and_encrypt_event_with_keys_with_randomness_unconstrained<Event, let NB: u32, let MB: u32, let OB: u32>(
+pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     randomness: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> fn[(&mut PrivateContext, Field, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<NB, MB>, [u8; NB]: LensForEncryptedEvent<NB, OB> {
+) -> fn[(&mut PrivateContext, Field, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        emit_with_keys(context, randomness, e, ovpk, ivpk, recipient, compute_unconstrained);
+        //   Having the log hash be unconstrained here is fine because the way this works is we send the log hash
+        // to the kernel, and it gets included as part of its public inputs. Then we send the tx to the sequencer,
+        // which includes the kernel proof and the log preimages. The sequencer computes the hashes of the logs
+        // and checks that they are the ones in the public inputs of the kernel, and drops the tx otherwise (proposing
+        // the block on L1 would later fail if it didn't because of txs effects hash mismatch).
+        //   So if we don't constrain the log hash, then a malicious sender can compute the correct log, submit a bad
+        // log hash to the kernel, and then submit the bad log preimage to the sequencer. All checks will pass, but
+        // the submitted log will not be the one that was computed by the app.
+        //   In the unconstrained case, we don't care about the log at all because we don't do anything with it,
+        // and because it's unconstrained: it could be anything. So if a sender chooses to broadcast the tx with a log
+        // that is different from the one that was used in the circuit, then they'll be able to, but they were already
+        // able to change the log before anyway, so the end result is the same. It's important here that we do not
+        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
+        // be wrong.
+        let (encrypted_log, log_hash) = unsafe {
+            compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
+        };
+        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }

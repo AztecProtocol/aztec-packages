@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-// Libraries
-import {DataStructures} from "../libraries/DataStructures.sol";
-import {Errors} from "../libraries/Errors.sol";
-import {MerkleLib} from "../libraries/MerkleLib.sol";
-import {Hash} from "../libraries/Hash.sol";
-import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+import {IOutbox} from "@aztec/core//interfaces/messagebridge/IOutbox.sol";
 
-import {Rollup} from "../Rollup.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+
+import {Rollup} from "@aztec/core/Rollup.sol";
 
 /**
  * @title Outbox
@@ -81,7 +81,7 @@ contract Outbox is IOutbox {
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external override(IOutbox) {
-    if (_l2BlockNumber >= ROLLUP.provenBlockCount()) {
+    if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
       revert Errors.Outbox__BlockNotProven(_l2BlockNumber);
     }
 
@@ -149,7 +149,7 @@ contract Outbox is IOutbox {
    * @param _l2BlockNumber - The block number to fetch the root data for
    *
    * @return root - The root of the merkle tree containing the L2 to L1 messages
-   * @return minHeight - The min height for the the merkle tree that the root corresponds to
+   * @return minHeight - The min height for the merkle tree that the root corresponds to
    */
   function getRootData(uint256 _l2BlockNumber)
     external
@@ -157,7 +157,7 @@ contract Outbox is IOutbox {
     override(IOutbox)
     returns (bytes32 root, uint256 minHeight)
   {
-    if (_l2BlockNumber >= ROLLUP.provenBlockCount()) {
+    if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
       return (bytes32(0), 0);
     }
     RootData storage rootData = roots[_l2BlockNumber];

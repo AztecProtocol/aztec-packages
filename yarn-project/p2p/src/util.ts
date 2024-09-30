@@ -1,4 +1,12 @@
+import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { resolve } from 'dns/promises';
+import type { Libp2p } from 'libp2p';
+
+export interface PubSubLibp2p extends Libp2p {
+  services: {
+    pubsub: GossipSub;
+  };
+}
 
 /**
  * Converts an address string to a multiaddr string.

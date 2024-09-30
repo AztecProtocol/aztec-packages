@@ -1,16 +1,13 @@
-import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
-
 import { FullProverTest } from './e2e_prover_test.js';
 
 const TIMEOUT = 1_800_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
-// Enable proving the full lookup tables (no truncation).
-process.env.AVM_ENABLE_FULL_PROVING = '1';
 
 describe('full_prover', () => {
-  const t = new FullProverTest('full_prover', 2);
+  const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
+  const t = new FullProverTest('full_prover', 1, realProofs);
   let { provenAssets, accounts, tokenSim, logger } = t;
 
   beforeAll(async () => {
@@ -59,32 +56,30 @@ describe('full_prover', () => {
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
-      const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
-      const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
-      await Promise.all([
-        sentPrivateTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 }),
-        sentPublicTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 }),
-      ]);
+      // TODO(palla/prover): The following depends on the epoch boundaries to work. It assumes that we're proving
+      // 2-block epochs, and a new epoch is starting now, so the 2nd tx will land on the last block of the epoch and
+      // get proven. That relies on how many blocks we mined before getting here.
+      // We can make this more robust when we add padding, set 1-block epochs, and rollback the test config to
+      // have a min of 2 txs per block, so these both land on the same block.
+      logger.info(`Sending first tx and awaiting it to be mined`);
+      await privateInteraction.send({ skipPublicSimulation: true }).wait({ timeout: 300, interval: 10 });
+      logger.info(`Sending second tx and awaiting it to be proven`);
+      await publicInteraction
+        .send({ skipPublicSimulation: true })
+        .wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 });
+
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
-
-      if (isGenerateTestDataEnabled()) {
-        const blockResults = getTestData('blockResults');
-        // the first blocks were setup blocks with fake proofs
-        // the last block is the one that was actually proven to the end
-        const blockResult: any = blockResults.at(-1);
-
-        if (!blockResult) {
-          // fail the test. User asked for fixtures but we don't have any
-          throw new Error('No block result found in test data');
-        }
-        writeTestData('yarn-project/end-to-end/src/fixtures/dumps/block_result.json', JSON.stringify(blockResult));
-      }
     },
     TIMEOUT,
   );
 
   it('rejects txs with invalid proofs', async () => {
+    if (!realProofs) {
+      t.logger.warn(`Skipping test with fake proofs`);
+      return;
+    }
+
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 

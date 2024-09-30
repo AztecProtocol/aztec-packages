@@ -1,6 +1,6 @@
 import { type PXE } from '@aztec/circuit-types';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { NoRetryError } from '@aztec/foundation/retry';
+import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';
 
 import axios, { type AxiosError, type AxiosResponse } from 'axios';
 
@@ -12,10 +12,9 @@ import { createPXEClient } from '../pxe_client.js';
  * @param rpcMethod - The RPC method to call.
  * @param body - The body of the request.
  * @param useApiEndpoints - Whether to use the API endpoints or inject the method in the body.
- * @param _noRetry - Whether to retry on non-server errors.
  * @returns The response data.
  */
-async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean, _noRetry = true) {
+async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
   let resp: AxiosResponse;
   if (useApiEndpoints) {
     resp = await axios
@@ -62,8 +61,18 @@ async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndp
  * @param _logger - Debug logger to warn version incompatibilities.
  * @returns A PXE client.
  */
-export function createCompatibleClient(rpcUrl: string, _logger: DebugLogger): Promise<PXE> {
+export function createCompatibleClient(rpcUrl: string, logger: DebugLogger): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
-  const pxe = createPXEClient(rpcUrl, axiosFetch);
+  const fetch = async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
+    return await retry(
+      () => axiosFetch(host, rpcMethod, body, useApiEndpoints),
+      `JsonRpcClient request ${rpcMethod} to ${host}`,
+      makeBackoff([1, 2, 3]),
+      logger,
+      false,
+    );
+  };
+  const pxe = createPXEClient(rpcUrl, fetch);
+
   return Promise.resolve(pxe);
 }

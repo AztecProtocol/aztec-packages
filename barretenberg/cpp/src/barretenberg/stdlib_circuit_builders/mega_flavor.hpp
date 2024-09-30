@@ -142,23 +142,14 @@ class MegaFlavor {
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
-        auto get_selectors()
+        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
+        auto get_gate_selectors()
         {
-            return RefArray{ q_m,
-                             q_c,
-                             q_l,
-                             q_r,
-                             q_o,
-                             q_4,
-                             q_arith,
-                             q_delta_range,
-                             q_elliptic,
-                             q_aux,
-                             q_lookup,
-                             q_busread,
-                             q_poseidon2_external,
-                             q_poseidon2_internal };
-        };
+            return RefArray{ q_arith,  q_delta_range, q_elliptic,           q_aux,
+                             q_lookup, q_busread,     q_poseidon2_external, q_poseidon2_internal };
+        }
+        auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
+
         auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
         auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
         auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
@@ -322,6 +313,8 @@ class MegaFlavor {
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
+        auto get_non_gate_selectors() { return PrecomputedEntities<DataType>::get_non_gate_selectors(); }
+        auto get_gate_selectors() { return PrecomputedEntities<DataType>::get_gate_selectors(); }
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
         auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };
@@ -378,7 +371,7 @@ class MegaFlavor {
         ProverPolynomials(size_t circuit_size)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
-            // of these polys (in aztec_ivc_bench only).
+            // of these polys (in client_ivc_bench only).
             BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
@@ -431,8 +424,7 @@ class MegaFlavor {
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(circuit_size, num_public_inputs, commitment_key)
-            , polynomials(circuit_size){};
+            : Base(circuit_size, num_public_inputs, commitment_key){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
@@ -541,7 +533,7 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        VerificationKey(ProvingKey& proving_key)
+        void set_metadata(ProvingKey& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
@@ -553,7 +545,11 @@ class MegaFlavor {
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
+        }
 
+        VerificationKey(ProvingKey& proving_key)
+        {
+            set_metadata(proving_key);
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
@@ -562,7 +558,7 @@ class MegaFlavor {
         /**
          * @brief Serialize verification key to field elements
          */
-        std::vector<FF> to_field_elements()
+        std::vector<FF> to_field_elements() const
         {
             using namespace bb::field_conversion;
 
@@ -585,7 +581,7 @@ class MegaFlavor {
             serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
 
-            for (Commitment& commitment : this->get_all()) {
+            for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
 

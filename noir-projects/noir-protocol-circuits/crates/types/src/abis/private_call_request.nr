@@ -4,7 +4,7 @@ use crate::{
     utils::reader::Reader
 };
 
-struct PrivateCallRequest {
+pub struct PrivateCallRequest {
     contract_address: AztecAddress,
     call_context: CallContext,
     args_hash: Field,

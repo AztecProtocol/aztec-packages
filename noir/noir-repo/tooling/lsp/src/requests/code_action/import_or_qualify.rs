@@ -7,7 +7,7 @@ use noirc_frontend::{
 
 use crate::{
     byte_span_to_range,
-    modules::{get_parent_module_id, relative_module_full_path, relative_module_id_path},
+    modules::{relative_module_full_path, relative_module_id_path},
 };
 
 use super::CodeActionFinder;
@@ -28,7 +28,7 @@ impl<'a> CodeActionFinder<'a> {
             return;
         }
 
-        let current_module_parent_id = get_parent_module_id(self.def_maps, self.module_id);
+        let current_module_parent_id = self.module_id.parent(self.def_maps);
 
         // The Path doesn't resolve to anything so it means it's an error and maybe we
         // can suggest an import or to fully-qualify the path.
@@ -134,7 +134,7 @@ mod tests {
         let src = r#"
         mod foo {
             mod bar {
-                struct SomeTypeInBar {}
+                pub struct SomeTypeInBar {}
             }
         }
 
@@ -144,7 +144,7 @@ mod tests {
         let expected = r#"
         mod foo {
             mod bar {
-                struct SomeTypeInBar {}
+                pub struct SomeTypeInBar {}
             }
         }
 
@@ -160,7 +160,7 @@ mod tests {
 
         let src = r#"mod foo {
     mod bar {
-        struct SomeTypeInBar {}
+        pub struct SomeTypeInBar {}
     }
 }
 
@@ -170,7 +170,7 @@ fn foo(x: SomeType>|<InBar) {}"#;
 
 mod foo {
     mod bar {
-        struct SomeTypeInBar {}
+        pub struct SomeTypeInBar {}
     }
 }
 

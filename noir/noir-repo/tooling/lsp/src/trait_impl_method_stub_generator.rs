@@ -9,7 +9,7 @@ use noirc_frontend::{
     },
     hir_def::{function::FuncMeta, stmt::HirPattern, traits::Trait},
     macros_api::{ModuleDefId, NodeInterner},
-    node_interner::ReferenceId,
+    node_interner::{FunctionModifiers, ReferenceId},
     Kind, ResolvedGeneric, Type, TypeVariableKind,
 };
 
@@ -18,6 +18,7 @@ use crate::modules::relative_module_id_path;
 pub(crate) struct TraitImplMethodStubGenerator<'a> {
     name: &'a str,
     func_meta: &'a FuncMeta,
+    modifiers: &'a FunctionModifiers,
     trait_: &'a Trait,
     noir_trait_impl: &'a NoirTraitImpl,
     interner: &'a NodeInterner,
@@ -33,6 +34,7 @@ impl<'a> TraitImplMethodStubGenerator<'a> {
     pub(crate) fn new(
         name: &'a str,
         func_meta: &'a FuncMeta,
+        modifiers: &'a FunctionModifiers,
         trait_: &'a Trait,
         noir_trait_impl: &'a NoirTraitImpl,
         interner: &'a NodeInterner,
@@ -43,6 +45,7 @@ impl<'a> TraitImplMethodStubGenerator<'a> {
         Self {
             name,
             func_meta,
+            modifiers,
             trait_,
             noir_trait_impl,
             interner,
@@ -63,6 +66,9 @@ impl<'a> TraitImplMethodStubGenerator<'a> {
         let indent_string = " ".repeat(self.indent);
 
         self.string.push_str(&indent_string);
+        if self.modifiers.is_unconstrained {
+            self.string.push_str("unconstrained ");
+        }
         self.string.push_str("fn ");
         self.string.push_str(self.name);
         self.append_resolved_generics(&self.func_meta.direct_generics);
@@ -191,12 +197,7 @@ impl<'a> TraitImplMethodStubGenerator<'a> {
                     }
                 }
 
-                let module_id = struct_type.id.module_id();
-                let module_data = &self.def_maps[&module_id.krate].modules()[module_id.local_id.0];
-                let parent_module_local_id = module_data.parent.unwrap();
-                let parent_module_id =
-                    ModuleId { krate: module_id.krate, local_id: parent_module_local_id };
-
+                let parent_module_id = struct_type.id.parent_module_id(self.def_maps);
                 let current_module_parent_id = current_module_data
                     .parent
                     .map(|parent| ModuleId { krate: self.module_id.krate, local_id: parent });
@@ -367,7 +368,7 @@ impl<'a> TraitImplMethodStubGenerator<'a> {
                 self.string.push(' ');
                 self.append_type(right);
             }
-            Type::Constant(_)
+            Type::Constant(..)
             | Type::Integer(_, _)
             | Type::Bool
             | Type::String(_)

@@ -2,7 +2,10 @@ pub use noirc_errors::Span;
 use noirc_errors::{CustomDiagnostic as Diagnostic, FileDiagnostic};
 use thiserror::Error;
 
-use crate::{ast::Ident, hir::comptime::InterpreterError, parser::ParserError, Type};
+use crate::{
+    ast::Ident, hir::comptime::InterpreterError, parser::ParserError, usage_tracker::UnusedItem,
+    Type,
+};
 
 use super::import::PathResolutionError;
 
@@ -20,8 +23,8 @@ pub enum ResolverError {
     DuplicateDefinition { name: String, first_span: Span, second_span: Span },
     #[error("Unused variable")]
     UnusedVariable { ident: Ident },
-    #[error("Unused {item_type}")]
-    UnusedItem { ident: Ident, item_type: &'static str },
+    #[error("Unused {}", item.item_type())]
+    UnusedItem { ident: Ident, item: UnusedItem },
     #[error("Could not find variable in this scope")]
     VariableNotDeclared { name: String, span: Span },
     #[error("path is not an identifier")]
@@ -55,7 +58,7 @@ pub enum ResolverError {
     #[error("Test functions are not allowed to have any parameters")]
     TestFunctionHasParameters { span: Span },
     #[error("Only struct types can be used in constructor expressions")]
-    NonStructUsedInConstructor { typ: Type, span: Span },
+    NonStructUsedInConstructor { typ: String, span: Span },
     #[error("Only struct types can have generics")]
     NonStructWithGenerics { span: Span },
     #[error("Cannot apply generics on Self type")]
@@ -102,8 +105,6 @@ pub enum ResolverError {
     FoldAttributeOnUnconstrained { ident: Ident },
     #[error("The only supported types of numeric generics are integers, fields, and booleans")]
     UnsupportedNumericGenericType { ident: Ident, typ: Type },
-    #[error("Numeric generics should be explicit")]
-    UseExplicitNumericGeneric { ident: Ident },
     #[error("expected type, found numeric generic parameter")]
     NumericGenericUsedForType { name: String, span: Span },
     #[error("Invalid array length construction")]
@@ -130,6 +131,10 @@ pub enum ResolverError {
     ComptimeTypeInRuntimeCode { typ: String, span: Span },
     #[error("Comptime variable `{name}` cannot be mutated in a non-comptime context")]
     MutatingComptimeInNonComptimeContext { name: String, span: Span },
+    #[error("Failed to parse `{statement}` as an expression")]
+    InvalidInternedStatementInExpr { statement: String, span: Span },
+    #[error("Type `{typ}` is more private than item `{item}`")]
+    TypeIsMorePrivateThenItem { typ: String, item: String, span: Span },
 }
 
 impl ResolverError {
@@ -164,14 +169,24 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 diagnostic.unnecessary = true;
                 diagnostic
             }
-            ResolverError::UnusedItem { ident, item_type } => {
+            ResolverError::UnusedItem { ident, item} => {
                 let name = &ident.0.contents;
+                let item_type = item.item_type();
 
-                let mut diagnostic = Diagnostic::simple_warning(
-                    format!("unused {item_type} {name}"),
-                    format!("unused {item_type}"),
-                    ident.span(),
-                );
+                let mut diagnostic =
+                    if let UnusedItem::Struct(..) = item {
+                        Diagnostic::simple_warning(
+                            format!("{item_type} `{name}` is never constructed"),
+                            format!("{item_type} is never constructed"),
+                            ident.span(),
+                        )
+                    } else {
+                        Diagnostic::simple_warning(
+                            format!("unused {item_type} {name}"),
+                            format!("unused {item_type}"),
+                            ident.span(),
+                        )
+                    };
                 diagnostic.unnecessary = true;
                 diagnostic
             }
@@ -437,15 +452,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     ident.0.span(),
                 )
             }
-            ResolverError::UseExplicitNumericGeneric { ident } => {
-                let name = &ident.0.contents;
-
-                Diagnostic::simple_warning(
-                    String::from("Noir now supports explicit numeric generics. Support for implicit numeric generics will be removed in the following release."), 
-                format!("Numeric generic `{name}` should now be specified with `let {name}: <annotated type>`"), 
-                ident.0.span(),
-                )
-            }
             ResolverError::NumericGenericUsedForType { name, span } => {
                 Diagnostic::simple_error(
                     format!("expected type, found numeric generic parameter {name}"),
@@ -528,6 +534,20 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 Diagnostic::simple_error(
                     format!("Comptime variable `{name}` cannot be mutated in a non-comptime context"),
                     format!("`{name}` mutated here"),
+                    *span,
+                )
+            },
+            ResolverError::InvalidInternedStatementInExpr { statement, span } => {
+                Diagnostic::simple_error(
+                    format!("Failed to parse `{statement}` as an expression"),
+                    "The statement was used from a macro here".to_string(),
+                    *span,
+                )
+            },
+            ResolverError::TypeIsMorePrivateThenItem { typ, item, span } => {
+                Diagnostic::simple_warning(
+                    format!("Type `{typ}` is more private than item `{item}`"),
+                    String::new(),
                     *span,
                 )
             },

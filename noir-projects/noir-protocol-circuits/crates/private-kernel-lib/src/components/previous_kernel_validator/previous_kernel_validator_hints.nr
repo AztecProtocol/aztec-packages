@@ -3,7 +3,7 @@ use dep::types::{
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, utils::arrays::find_index_hint
 };
 
-struct PreviousKernelValidatorHints {
+pub struct PreviousKernelValidatorHints {
     note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
 }
 

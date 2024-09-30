@@ -19,6 +19,10 @@ export class L1ToL2MessageStore {
 
   constructor() {}
 
+  getTotalL1ToL2MessageCount(): bigint {
+    return BigInt(this.store.size);
+  }
+
   addMessage(message: InboxLeaf) {
     if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
       throw new Error(`Message index ${message.index} out of subtree range`);

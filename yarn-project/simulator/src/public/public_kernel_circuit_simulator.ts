@@ -2,7 +2,9 @@ import {
   type KernelCircuitPublicInputs,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
+  type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelTailCircuitPrivateInputs,
+  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 
 /**
@@ -10,23 +12,17 @@ import {
  */
 export interface PublicKernelCircuitSimulator {
   /**
-   * Simulates the public kernel setup circuit from its inputs.
+   * Simulates the public kernel inner circuit from its inputs.
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitSetup(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
+  publicKernelCircuitInner(inputs: PublicKernelInnerCircuitPrivateInputs): Promise<VMCircuitPublicInputs>;
   /**
-   * Simulates the public kernel app logic circuit from its inputs.
+   * Simulates the public kernel merge circuit from its inputs.
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitAppLogic(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
-  /**
-   * Simulates the public kernel teardown circuit from its inputs.
-   * @param inputs - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
-   */
-  publicKernelCircuitTeardown(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
+  publicKernelCircuitMerge(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
   /**
    * Simulates the public kernel tail circuit from its inputs.
    * @param inputs - Inputs to the circuit.

@@ -55,6 +55,7 @@ jobs:
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      txe: ${{ steps.filter.outputs.txe }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
@@ -80,13 +81,16 @@ jobs:
               - 'l1-contracts/**'
             noir-projects:
               - 'noir-projects/**'
+            txe:
+              - 'yarn-project/txe/**'
             non-barretenberg-cpp:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
               - barretenberg/cpp/pil/**
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
-              - barretenberg/cpp/src/barretenberg/client_ivc.{hpp,cpp}
+              - barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.{hpp,cpp}
+              - barretenberg/cpp/src/barretenberg/bb/main.cpp
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -114,7 +118,8 @@ jobs:
 
   build:
     needs: [build-images, changes]
-    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
+    # NOTE: we don't skip this job here instead using if's below so that dependencies are not broken
+    # we still want build to be at the bottom of the dependency chain
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -128,6 +133,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
+        if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
           earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
@@ -156,7 +162,7 @@ jobs:
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -186,7 +192,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
+    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -217,7 +223,7 @@ jobs:
 
   acir-bench:
     runs-on: ubuntu-20.04
-    needs: [build-images, changes]
+    needs: [build, changes]
     # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
     if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     steps:
@@ -254,7 +260,6 @@ jobs:
           ref: "${{ github.event.pull_request.head.sha }}"
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: build-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
@@ -282,7 +287,7 @@ jobs:
           AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
   bb-gcc:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
@@ -302,7 +307,7 @@ jobs:
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
@@ -320,7 +325,7 @@ jobs:
         run: earthly-ci --exec-stats --no-output +test --hardware_concurrency=64
 
   bb-js-test:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg == 'true'
     steps:
@@ -335,7 +340,7 @@ jobs:
         run: earthly-ci --no-output ./+test
 
   noir-build-acir-tests:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
@@ -409,7 +414,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   noir-format:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
     steps:
@@ -429,7 +434,7 @@ jobs:
           earthly-ci --no-output ./+format
 
   noir-test:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.noir == 'true'
     steps:
@@ -442,7 +447,7 @@ jobs:
         run: earthly-ci --no-output ./noir+test
 
   noir-examples:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
@@ -455,7 +460,7 @@ jobs:
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
@@ -469,9 +474,9 @@ jobs:
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
-    needs: [build-images, changes, build]
+    needs: [build, changes, build]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' || needs.changes.outputs.txe == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -484,7 +489,7 @@ jobs:
           earthly-ci --no-output ./noir-projects/+test
 
   avm-format:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true'
     steps:
@@ -538,7 +543,7 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
   l1-contracts-test:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.l1-contracts == 'true'
     steps:
@@ -551,7 +556,7 @@ jobs:
         run: earthly-ci --no-output ./l1-contracts+test
 
   docs-preview:
-    needs: [build-images, changes]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     steps:
@@ -572,7 +577,7 @@ jobs:
 
   bb-bench:
     runs-on: ubuntu-20.04
-    needs: [build-images, changes]
+    needs: [build, changes]
     if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -621,6 +626,7 @@ jobs:
   boxes:
     needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'boxes') || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
@@ -656,7 +662,7 @@ jobs:
         run: earthly-ci -P --no-output +test --box=${{ matrix.box }} --browser=${{ matrix.browser }} --mode=cache
 
   protocol-circuits-gates-report:
-    needs: [build-images, changes]
+    needs: [build, changes]
     if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     permissions:
@@ -690,6 +696,47 @@ jobs:
           # delete the comment in case changes no longer impact circuit sizes
           delete: ${{ !steps.gates_diff.outputs.markdown }}
           message: ${{ steps.gates_diff.outputs.markdown }}
+
+  public-functions-size-report:
+    needs: [build, changes]
+    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true'
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: public-functions-size-report-x86
+      - name: "Aztec Public Functions Bytecode Size Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: |
+          earthly-ci \
+          --artifact +public-functions-report/public_functions_report.json
+          mv public_functions_report.json ../public_functions_report.json
+
+      - name: Compare public functions bytecode size reports
+        id: public_functions_sizes_diff
+        uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
+        with:
+          report: public_functions_report.json
+          header: |
+            # Changes to public function bytecode sizes
+          brillig_report: true
+          brillig_report_bytes: true
+          summaryQuantile: 0 # Display any diff in bytecode size count
+
+      - name: Add bytecode size diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: public_functions_size
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
+          message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
 
   merge-check:
     runs-on: ubuntu-20.04

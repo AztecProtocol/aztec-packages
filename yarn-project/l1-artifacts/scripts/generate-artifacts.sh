@@ -20,6 +20,7 @@ CONTRACTS=(
   "l1-contracts:IERC20"
   "l1-contracts:FeeJuicePortal"
   "l1-contracts:MockVerifier"
+  "l1-contracts:IVerifier"
 )
 
 

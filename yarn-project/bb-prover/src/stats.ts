@@ -1,8 +1,6 @@
 import type { CircuitName } from '@aztec/circuit-types/stats';
 import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
-export { mapPublicKernelToCircuitName } from '@aztec/circuit-types';
-
 export function mapProtocolArtifactNameToCircuitName(
   artifact: ServerProtocolArtifact | ClientProtocolArtifact,
 ): CircuitName {
@@ -17,16 +15,16 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'merge-rollup';
     case 'BlockRootRollupArtifact':
       return 'block-root-rollup';
+    case 'EmptyBlockRootRollupArtifact':
+      return 'empty-block-root-rollup';
     case 'BlockMergeRollupArtifact':
       return 'block-merge-rollup';
     case 'RootRollupArtifact':
       return 'root-rollup';
-    case 'PublicKernelSetupArtifact':
-      return 'public-kernel-setup';
-    case 'PublicKernelAppLogicArtifact':
-      return 'public-kernel-app-logic';
-    case 'PublicKernelTeardownArtifact':
-      return 'public-kernel-teardown';
+    case 'PublicKernelInnerArtifact':
+      return 'public-kernel-inner';
+    case 'PublicKernelMergeArtifact':
+      return 'public-kernel-merge';
     case 'PublicKernelTailArtifact':
       return 'public-kernel-tail';
     case 'PrivateKernelInitArtifact':

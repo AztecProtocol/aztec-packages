@@ -437,22 +437,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "aztec_macros"
-version = "0.34.0"
-dependencies = [
- "acvm",
- "bn254_blackbox_solver",
- "convert_case 0.6.0",
- "hex",
- "im",
- "iter-extended",
- "itertools",
- "noirc_errors",
- "noirc_frontend",
- "regex",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2769,6 +2753,7 @@ version = "0.34.0"
 dependencies = [
  "acvm",
  "async-lsp",
+ "chumsky",
  "codespan-lsp",
  "convert_case 0.6.0",
  "fm",
@@ -2898,7 +2883,6 @@ name = "noirc_driver"
 version = "0.34.0"
 dependencies = [
  "acvm",
- "aztec_macros",
  "build-data",
  "clap",
  "fm",

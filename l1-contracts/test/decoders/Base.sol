@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
+
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 
 // Many of the structs in here match what you see in `header` but with very important exceptions!
 // The order of variables is sorted alphabetically in the structs in here to work with the
 // JSON cheatcodes.
 
 contract DecoderBase is Test {
+  using SlotLib for Slot;
+  using EpochLib for Epoch;
+
   struct AppendOnlyTreeSnapshot {
     uint32 nextAvailableLeafIndex;
     bytes32 root;
@@ -34,6 +39,7 @@ contract DecoderBase is Test {
 
   struct Data {
     bytes32 archive;
+    bytes32 blockHash;
     bytes body;
     DecodedHeader decodedHeader;
     bytes header;
@@ -96,5 +102,139 @@ contract DecoderBase is Test {
 
   function max(uint256 a, uint256 b) internal pure returns (uint256) {
     return a > b ? a : b;
+  }
+
+  // timestamps
+
+  function assertLe(Timestamp a, Timestamp b) internal {
+    if (a > b) {
+      emit log("Error: a <= b not satisfied [Timestamp]");
+      emit log_named_uint("      Left", Timestamp.unwrap(a));
+      emit log_named_uint("     Right", Timestamp.unwrap(b));
+      fail();
+    }
+  }
+
+  function assertLe(Timestamp a, uint256 b) internal {
+    if (a > Timestamp.wrap(b)) {
+      emit log("Error: a <= b not satisfied [Timestamp]");
+      emit log_named_uint("      Left", Timestamp.unwrap(a));
+      emit log_named_uint("     Right", b);
+      fail();
+    }
+  }
+
+  function assertLe(Timestamp a, Timestamp b, string memory err) internal {
+    if (a > b) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertLe(Timestamp a, uint256 b, string memory err) internal {
+    if (a > Timestamp.wrap(b)) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertEq(Timestamp a, Timestamp b) internal {
+    if (a != b) {
+      emit log("Error: a == b not satisfied [Timestamp]");
+      emit log_named_uint("      Left", Timestamp.unwrap(a));
+      emit log_named_uint("     Right", Timestamp.unwrap(b));
+      fail();
+    }
+  }
+
+  function assertEq(Timestamp a, uint256 b) internal {
+    if (a != Timestamp.wrap(b)) {
+      emit log("Error: a == b not satisfied [Timestamp]");
+      emit log_named_uint("      Left", Timestamp.unwrap(a));
+      emit log_named_uint("     Right", b);
+      fail();
+    }
+  }
+
+  function assertEq(Timestamp a, Timestamp b, string memory err) internal {
+    if (a != b) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertEq(Timestamp a, uint256 b, string memory err) internal {
+    if (a != Timestamp.wrap(b)) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  // Slots
+
+  function assertEq(Slot a, Slot b) internal {
+    if (a != b) {
+      emit log("Error: a == b not satisfied [Slot]");
+      emit log_named_uint("      Left", a.unwrap());
+      emit log_named_uint("     Right", b.unwrap());
+      fail();
+    }
+  }
+
+  function assertEq(Slot a, uint256 b) internal {
+    if (a != Slot.wrap(b)) {
+      emit log("Error: a == b not satisfied [Slot]");
+      emit log_named_uint("      Left", a.unwrap());
+      emit log_named_uint("     Right", b);
+      fail();
+    }
+  }
+
+  function assertEq(Slot a, Slot b, string memory err) internal {
+    if (a != b) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertEq(Slot a, uint256 b, string memory err) internal {
+    if (a != Slot.wrap(b)) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  // Epochs
+
+  function assertEq(Epoch a, Epoch b) internal {
+    if (a != b) {
+      emit log("Error: a == b not satisfied [Epoch]");
+      emit log_named_uint("      Left", a.unwrap());
+      emit log_named_uint("     Right", b.unwrap());
+      fail();
+    }
+  }
+
+  function assertEq(Epoch a, uint256 b) internal {
+    if (a != Epoch.wrap(b)) {
+      emit log("Error: a == b not satisfied [Epoch]");
+      emit log_named_uint("      Left", a.unwrap());
+      emit log_named_uint("     Right", b);
+      fail();
+    }
+  }
+
+  function assertEq(Epoch a, Epoch b, string memory err) internal {
+    if (a != b) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertEq(Epoch a, uint256 b, string memory err) internal {
+    if (a != Epoch.wrap(b)) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
   }
 }

@@ -2,7 +2,13 @@ import { type TxHash } from '@aztec/circuit-types/tx_hash';
 
 export class ValidatorError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`Validator Error: ${message}`);
+  }
+}
+
+export class InvalidValidatorPrivateKeyError extends ValidatorError {
+  constructor() {
+    super('Invalid validator private key provided');
   }
 }
 

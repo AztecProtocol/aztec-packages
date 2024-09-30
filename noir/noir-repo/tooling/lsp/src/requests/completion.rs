@@ -17,10 +17,11 @@ use noirc_frontend::{
     ast::{
         AsTraitPath, AttributeTarget, BlockExpression, CallExpression, ConstructorExpression,
         Expression, ExpressionKind, ForLoopStatement, GenericTypeArgs, Ident, IfExpression,
-        ItemVisibility, Lambda, LetStatement, MemberAccessExpression, MethodCallExpression,
-        NoirFunction, NoirStruct, NoirTraitImpl, Path, PathKind, Pattern, Statement,
-        TraitImplItemKind, TypeImpl, UnresolvedGeneric, UnresolvedGenerics, UnresolvedType,
-        UseTree, UseTreeKind, Visitor,
+        IntegerBitSize, ItemVisibility, LValue, Lambda, LetStatement, MemberAccessExpression,
+        MethodCallExpression, NoirFunction, NoirStruct, NoirTraitImpl, Path, PathKind, Pattern,
+        Signedness, Statement, TraitImplItemKind, TypeImpl, TypePath, UnresolvedGeneric,
+        UnresolvedGenerics, UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression, UseTree,
+        UseTreeKind, Visitor,
     },
     graph::{CrateId, Dependency},
     hir::def_map::{CrateDefMap, LocalModuleId, ModuleId},
@@ -28,8 +29,8 @@ use noirc_frontend::{
     macros_api::{ModuleDefId, NodeInterner},
     node_interner::ReferenceId,
     parser::{Item, ItemKind, ParsedSubModule},
-    token::CustomAtrribute,
-    ParsedModule, StructType, Type,
+    token::{CustomAttribute, Token, Tokens},
+    Kind, ParsedModule, StructType, Type, TypeBinding,
 };
 use sort_text::underscore_sort_text;
 
@@ -113,6 +114,7 @@ struct NodeFinder<'a> {
     /// The line where an auto_import must be inserted
     auto_import_line: usize,
     self_type: Option<Type>,
+    in_comptime: bool,
 }
 
 impl<'a> NodeFinder<'a> {
@@ -156,6 +158,7 @@ impl<'a> NodeFinder<'a> {
             nesting: 0,
             auto_import_line: 0,
             self_type: None,
+            in_comptime: false,
         }
     }
 
@@ -179,8 +182,13 @@ impl<'a> NodeFinder<'a> {
     }
 
     fn complete_constructor_field_name(&mut self, constructor_expression: &ConstructorExpression) {
-        let location =
-            Location::new(constructor_expression.type_name.last_ident().span(), self.file);
+        let span = if let UnresolvedTypeData::Named(path, _, _) = &constructor_expression.typ.typ {
+            path.last_ident().span()
+        } else {
+            constructor_expression.typ.span
+        };
+
+        let location = Location::new(span, self.file);
         let Some(ReferenceId::Struct(struct_id)) = self.interner.find_referenced(location) else {
             return;
         };
@@ -355,6 +363,8 @@ impl<'a> NodeFinder<'a> {
                     self.local_variables_completion(&prefix);
                     self.builtin_functions_completion(&prefix, function_completion_kind);
                     self.builtin_values_completion(&prefix);
+                    self.builtin_types_completion(&prefix);
+                    self.type_parameters_completion(&prefix);
                     if let Some(self_type) = &self.self_type {
                         let self_prefix = true;
                         self.complete_type_fields_and_methods(
@@ -546,6 +556,7 @@ impl<'a> NodeFinder<'a> {
         function_completion_kind: FunctionCompletionKind,
         self_prefix: bool,
     ) {
+        let typ = &typ;
         match typ {
             Type::Struct(struct_type, generics) => {
                 self.complete_struct_fields(&struct_type.borrow(), generics, prefix, self_prefix);
@@ -570,6 +581,16 @@ impl<'a> NodeFinder<'a> {
             Type::Tuple(types) => {
                 self.complete_tuple_fields(types, self_prefix);
             }
+            Type::TypeVariable(var, _) | Type::NamedGeneric(var, _, _) => {
+                if let TypeBinding::Bound(typ) = &*var.borrow() {
+                    return self.complete_type_fields_and_methods(
+                        typ,
+                        prefix,
+                        function_completion_kind,
+                        self_prefix,
+                    );
+                }
+            }
             Type::FieldElement
             | Type::Array(_, _)
             | Type::Slice(_)
@@ -578,12 +599,10 @@ impl<'a> NodeFinder<'a> {
             | Type::String(_)
             | Type::FmtString(_, _)
             | Type::Unit
-            | Type::TypeVariable(_, _)
             | Type::TraitAsType(_, _, _)
-            | Type::NamedGeneric(_, _, _)
             | Type::Function(..)
             | Type::Forall(_, _)
-            | Type::Constant(_)
+            | Type::Constant(..)
             | Type::Quoted(_)
             | Type::InfixExpr(_, _, _)
             | Type::Error => (),
@@ -611,17 +630,26 @@ impl<'a> NodeFinder<'a> {
         };
 
         for (name, methods) in methods_by_name {
-            for func_id in methods.iter() {
+            for (func_id, method_type) in methods.iter() {
+                if function_kind == FunctionKind::Any {
+                    if let Some(method_type) = method_type {
+                        if method_type.unify(typ).is_err() {
+                            continue;
+                        }
+                    }
+                }
+
                 if name_matches(name, prefix) {
-                    if let Some(completion_item) = self.function_completion_item(
+                    let completion_items = self.function_completion_items(
                         name,
                         func_id,
                         function_completion_kind,
                         function_kind,
                         None, // attribute first type
                         self_prefix,
-                    ) {
-                        self.completion_items.push(completion_item);
+                    );
+                    if !completion_items.is_empty() {
+                        self.completion_items.extend(completion_items);
                         self.suggested_module_def_ids.insert(ModuleDefId::FunctionId(func_id));
                     }
                 }
@@ -640,15 +668,16 @@ impl<'a> NodeFinder<'a> {
 
         for (name, func_id) in &trait_.method_ids {
             if name_matches(name, prefix) {
-                if let Some(completion_item) = self.function_completion_item(
+                let completion_items = self.function_completion_items(
                     name,
                     *func_id,
                     function_completion_kind,
                     function_kind,
                     None, // attribute first type
                     self_prefix,
-                ) {
-                    self.completion_items.push(completion_item);
+                );
+                if !completion_items.is_empty() {
+                    self.completion_items.extend(completion_items);
                     self.suggested_module_def_ids.insert(ModuleDefId::FunctionId(*func_id));
                 }
             }
@@ -728,14 +757,15 @@ impl<'a> NodeFinder<'a> {
                 let per_ns = module_data.find_name(ident);
                 if let Some((module_def_id, visibility, _)) = per_ns.types {
                     if is_visible(module_id, self.module_id, visibility, self.def_maps) {
-                        if let Some(completion_item) = self.module_def_id_completion_item(
+                        let completion_items = self.module_def_id_completion_items(
                             module_def_id,
                             name.clone(),
                             function_completion_kind,
                             function_kind,
                             requested_items,
-                        ) {
-                            self.completion_items.push(completion_item);
+                        );
+                        if !completion_items.is_empty() {
+                            self.completion_items.extend(completion_items);
                             self.suggested_module_def_ids.insert(module_def_id);
                         }
                     }
@@ -743,14 +773,15 @@ impl<'a> NodeFinder<'a> {
 
                 if let Some((module_def_id, visibility, _)) = per_ns.values {
                     if is_visible(module_id, self.module_id, visibility, self.def_maps) {
-                        if let Some(completion_item) = self.module_def_id_completion_item(
+                        let completion_items = self.module_def_id_completion_items(
                             module_def_id,
                             name.clone(),
                             function_completion_kind,
                             function_kind,
                             requested_items,
-                        ) {
-                            self.completion_items.push(completion_item);
+                        );
+                        if !completion_items.is_empty() {
+                            self.completion_items.extend(completion_items);
                             self.suggested_module_def_ids.insert(module_def_id);
                         }
                     }
@@ -885,10 +916,12 @@ impl<'a> NodeFinder<'a> {
             }
 
             let func_meta = self.interner.function_meta(&func_id);
+            let modifiers = self.interner.function_modifiers(&func_id);
 
             let mut generator = TraitImplMethodStubGenerator::new(
                 &name,
                 func_meta,
+                modifiers,
                 trait_,
                 noir_trait_impl,
                 self.interner,
@@ -927,12 +960,39 @@ impl<'a> NodeFinder<'a> {
                     if let Some(ReferenceId::Local(definition_id)) =
                         self.interner.find_referenced(location)
                     {
-                        self.self_type = Some(self.interner.definition_type(definition_id));
+                        self.self_type =
+                            Some(self.interner.definition_type(definition_id).follow_bindings());
                     }
                 }
             }
             Pattern::Mutable(pattern, ..) => self.try_set_self_type(pattern),
             Pattern::Tuple(..) | Pattern::Struct(..) | Pattern::Interned(..) => (),
+        }
+    }
+
+    fn get_lvalue_type(&self, lvalue: &LValue) -> Option<Type> {
+        match lvalue {
+            LValue::Ident(ident) => {
+                let location = Location::new(ident.span(), self.file);
+                if let Some(ReferenceId::Local(definition_id)) =
+                    self.interner.find_referenced(location)
+                {
+                    let typ = self.interner.definition_type(definition_id);
+                    Some(typ)
+                } else {
+                    None
+                }
+            }
+            LValue::MemberAccess { object, field_name, .. } => {
+                let typ = self.get_lvalue_type(object)?;
+                get_field_type(&typ, &field_name.0.contents)
+            }
+            LValue::Index { array, .. } => {
+                let typ = self.get_lvalue_type(array)?;
+                get_array_element_type(typ)
+            }
+            LValue::Dereference(lvalue, ..) => self.get_lvalue_type(lvalue),
+            LValue::Interned(..) => None,
         }
     }
 
@@ -952,7 +1012,12 @@ impl<'a> Visitor for NodeFinder<'a> {
         self.includes_span(item.span)
     }
 
-    fn visit_import(&mut self, use_tree: &UseTree, _visibility: ItemVisibility) -> bool {
+    fn visit_import(
+        &mut self,
+        use_tree: &UseTree,
+        _span: Span,
+        _visibility: ItemVisibility,
+    ) -> bool {
         let mut prefixes = Vec::new();
         self.find_in_use_tree(use_tree, &mut prefixes);
         false
@@ -1009,8 +1074,12 @@ impl<'a> Visitor for NodeFinder<'a> {
             self.collect_local_variables(&param.pattern);
         }
 
+        let old_in_comptime = self.in_comptime;
+        self.in_comptime = noir_function.def.is_comptime;
+
         noir_function.def.body.accept(Some(span), self);
 
+        self.in_comptime = old_in_comptime;
         self.type_parameters = old_type_parameters;
         self.self_type = None;
 
@@ -1148,7 +1217,6 @@ impl<'a> Visitor for NodeFinder<'a> {
         if after_dot && call_expression.func.span.end() as usize == self.byte_index - 1 {
             let location = Location::new(call_expression.func.span, self.file);
             if let Some(typ) = self.interner.type_at_location(location) {
-                let typ = typ.follow_bindings();
                 let prefix = "";
                 let self_prefix = false;
                 self.complete_type_fields_and_methods(
@@ -1179,7 +1247,6 @@ impl<'a> Visitor for NodeFinder<'a> {
         if self.includes_span(method_call_expression.method_name.span()) {
             let location = Location::new(method_call_expression.object.span, self.file);
             if let Some(typ) = self.interner.type_at_location(location) {
-                let typ = typ.follow_bindings();
                 let prefix = method_call_expression.method_name.to_string();
                 let offset =
                     self.byte_index - method_call_expression.method_name.span().start() as usize;
@@ -1233,8 +1300,12 @@ impl<'a> Visitor for NodeFinder<'a> {
         let old_local_variables = self.local_variables.clone();
         self.local_variables.clear();
 
+        let old_in_comptime = self.in_comptime;
+        self.in_comptime = true;
+
         statement.accept(self);
 
+        self.in_comptime = old_in_comptime;
         self.local_variables = old_local_variables;
 
         false
@@ -1253,6 +1324,7 @@ impl<'a> Visitor for NodeFinder<'a> {
     }
 
     fn visit_lvalue_ident(&mut self, ident: &Ident) {
+        // If we have `foo.>|<` we suggest `foo`'s type fields and methods
         if self.byte == Some(b'.') && ident.span().end() as usize == self.byte_index - 1 {
             let location = Location::new(ident.span(), self.file);
             if let Some(ReferenceId::Local(definition_id)) = self.interner.find_referenced(location)
@@ -1268,6 +1340,72 @@ impl<'a> Visitor for NodeFinder<'a> {
                 );
             }
         }
+    }
+
+    fn visit_lvalue_member_access(
+        &mut self,
+        object: &LValue,
+        field_name: &Ident,
+        span: Span,
+    ) -> bool {
+        // If we have `foo.bar.>|<` we solve the type of `foo`, get the field `bar`,
+        // then suggest methods of the resulting type.
+        if self.byte == Some(b'.') && span.end() as usize == self.byte_index - 1 {
+            if let Some(typ) = self.get_lvalue_type(object) {
+                if let Some(typ) = get_field_type(&typ, &field_name.0.contents) {
+                    let prefix = "";
+                    let self_prefix = false;
+                    self.complete_type_fields_and_methods(
+                        &typ,
+                        prefix,
+                        FunctionCompletionKind::NameAndParameters,
+                        self_prefix,
+                    );
+                }
+            }
+
+            return false;
+        }
+        true
+    }
+
+    fn visit_lvalue_index(&mut self, array: &LValue, _index: &Expression, span: Span) -> bool {
+        // If we have `foo[index].>|<` we solve the type of `foo`, then get the array/slice element type,
+        // then suggest methods of that type.
+        if self.byte == Some(b'.') && span.end() as usize == self.byte_index - 1 {
+            if let Some(typ) = self.get_lvalue_type(array) {
+                if let Some(typ) = get_array_element_type(typ) {
+                    let prefix = "";
+                    let self_prefix = false;
+                    self.complete_type_fields_and_methods(
+                        &typ,
+                        prefix,
+                        FunctionCompletionKind::NameAndParameters,
+                        self_prefix,
+                    );
+                }
+            }
+            return false;
+        }
+        true
+    }
+
+    fn visit_lvalue_dereference(&mut self, lvalue: &LValue, span: Span) -> bool {
+        if self.byte == Some(b'.') && span.end() as usize == self.byte_index - 1 {
+            if let Some(typ) = self.get_lvalue_type(lvalue) {
+                let prefix = "";
+                let self_prefix = false;
+                self.complete_type_fields_and_methods(
+                    &typ,
+                    prefix,
+                    FunctionCompletionKind::NameAndParameters,
+                    self_prefix,
+                );
+            }
+            return false;
+        }
+
+        true
     }
 
     fn visit_variable(&mut self, path: &Path, _: Span) -> bool {
@@ -1289,7 +1427,6 @@ impl<'a> Visitor for NodeFinder<'a> {
         {
             let location = Location::new(expression.span, self.file);
             if let Some(typ) = self.interner.type_at_location(location) {
-                let typ = typ.follow_bindings();
                 let prefix = "";
                 let self_prefix = false;
                 self.complete_type_fields_and_methods(
@@ -1313,8 +1450,12 @@ impl<'a> Visitor for NodeFinder<'a> {
         let old_local_variables = self.local_variables.clone();
         self.local_variables.clear();
 
+        let old_in_comptime = self.in_comptime;
+        self.in_comptime = true;
+
         block_expression.accept(Some(span), self);
 
+        self.in_comptime = old_in_comptime;
         self.local_variables = old_local_variables;
 
         false
@@ -1325,7 +1466,11 @@ impl<'a> Visitor for NodeFinder<'a> {
         constructor_expression: &ConstructorExpression,
         _: Span,
     ) -> bool {
-        self.find_in_path(&constructor_expression.type_name, RequestedItems::OnlyTypes);
+        let UnresolvedTypeData::Named(path, _, _) = &constructor_expression.typ.typ else {
+            return true;
+        };
+
+        self.find_in_path(path, RequestedItems::OnlyTypes);
 
         // Check if we need to autocomplete the field name
         if constructor_expression
@@ -1355,7 +1500,6 @@ impl<'a> Visitor for NodeFinder<'a> {
             // Assuming member_access_expression is of the form `foo.bar`, we are right after `bar`
             let location = Location::new(member_access_expression.lhs.span, self.file);
             if let Some(typ) = self.interner.type_at_location(location) {
-                let typ = typ.follow_bindings();
                 let prefix = ident.to_string().to_case(Case::Snake);
                 let self_prefix = false;
                 self.complete_type_fields_and_methods(
@@ -1425,12 +1569,125 @@ impl<'a> Visitor for NodeFinder<'a> {
         false
     }
 
-    fn visit_custom_attribute(&mut self, attribute: &CustomAtrribute, target: AttributeTarget) {
+    fn visit_type_path(&mut self, type_path: &TypePath, _: Span) -> bool {
+        if type_path.item.span().end() as usize != self.byte_index {
+            return true;
+        }
+
+        let typ = match &type_path.typ.typ {
+            UnresolvedTypeData::FieldElement => Some(Type::FieldElement),
+            UnresolvedTypeData::Integer(signedness, integer_bit_size) => {
+                Some(Type::Integer(*signedness, *integer_bit_size))
+            }
+            UnresolvedTypeData::Bool => Some(Type::Bool),
+            UnresolvedTypeData::String(UnresolvedTypeExpression::Constant(value, _)) => {
+                Some(Type::String(Box::new(Type::Constant(
+                    *value,
+                    Kind::Numeric(Box::new(Type::Integer(
+                        Signedness::Unsigned,
+                        IntegerBitSize::ThirtyTwo,
+                    ))),
+                ))))
+            }
+            UnresolvedTypeData::Quoted(quoted_type) => Some(Type::Quoted(*quoted_type)),
+            _ => None,
+        };
+
+        if let Some(typ) = typ {
+            let prefix = &type_path.item.0.contents;
+            self.complete_type_methods(
+                &typ,
+                prefix,
+                FunctionKind::Any,
+                FunctionCompletionKind::NameAndParameters,
+                false, // self_prefix
+            );
+        }
+
+        false
+    }
+
+    fn visit_custom_attribute(&mut self, attribute: &CustomAttribute, target: AttributeTarget) {
         if self.byte_index != attribute.contents_span.end() as usize {
             return;
         }
 
         self.suggest_attributes(&attribute.contents, target);
+    }
+
+    fn visit_quote(&mut self, tokens: &Tokens) {
+        let mut last_was_dollar = false;
+
+        for token in &tokens.0 {
+            let span = token.to_span();
+            if span.end() as usize > self.byte_index {
+                break;
+            }
+
+            let token = token.token();
+
+            if let Token::DollarSign = token {
+                if span.end() as usize == self.byte_index {
+                    self.local_variables_completion("");
+                    break;
+                }
+
+                last_was_dollar = true;
+                continue;
+            }
+
+            if span.end() as usize == self.byte_index {
+                let prefix = token.to_string();
+                if last_was_dollar {
+                    self.local_variables_completion(&prefix);
+                }
+                break;
+            }
+
+            last_was_dollar = false;
+        }
+    }
+}
+
+fn get_field_type(typ: &Type, name: &str) -> Option<Type> {
+    match typ {
+        Type::Struct(struct_type, generics) => {
+            Some(struct_type.borrow().get_field(name, generics)?.0)
+        }
+        Type::Tuple(types) => {
+            if let Ok(index) = name.parse::<i32>() {
+                types.get(index as usize).cloned()
+            } else {
+                None
+            }
+        }
+        Type::Alias(alias_type, generics) => Some(alias_type.borrow().get_type(generics)),
+        Type::TypeVariable(var, _) | Type::NamedGeneric(var, _, _) => {
+            if let TypeBinding::Bound(typ) = &*var.borrow() {
+                get_field_type(typ, name)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn get_array_element_type(typ: Type) -> Option<Type> {
+    match typ {
+        Type::Array(_, typ) | Type::Slice(typ) => Some(*typ),
+        Type::Alias(alias_type, generics) => {
+            let typ = alias_type.borrow().get_type(&generics);
+            get_array_element_type(typ)
+        }
+        Type::TypeVariable(var, _) | Type::NamedGeneric(var, _, _) => {
+            if let TypeBinding::Bound(typ) = &*var.borrow() {
+                get_array_element_type(typ.clone())
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }
 

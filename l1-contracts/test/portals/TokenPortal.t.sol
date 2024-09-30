@@ -1,19 +1,19 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 // Interfaces
-import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
@@ -60,8 +60,7 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
-    rollup =
-      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 
@@ -71,8 +70,8 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
-    assertEq(rollup.provenBlockCount(), l2BlockNumber + 1);
+    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber));
+    assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
   }
@@ -89,7 +88,7 @@ contract TokenPortalTest is Test {
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
-        ),
+      ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -167,7 +166,7 @@ contract TokenPortalTest is Test {
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )
-          )
+        )
       })
     );
 

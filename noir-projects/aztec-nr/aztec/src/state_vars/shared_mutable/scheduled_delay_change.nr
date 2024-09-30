@@ -9,7 +9,7 @@ mod test;
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.
-struct ScheduledDelayChange<let INITIAL_DELAY: u32> {
+pub struct ScheduledDelayChange<let INITIAL_DELAY: u32> {
     // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
     // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
     // ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
@@ -127,7 +127,7 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
     }
 }
 
-impl<INITIAL_DELAY> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
+impl<let INITIAL_DELAY: u32> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
     fn serialize(self) -> [Field; 1] {
         // We pack all three u32 values into a single U128, which is made up of two u64 limbs.
         // Low limb: [ pre_inner: u32 | post_inner: u32 ]
@@ -145,7 +145,7 @@ impl<INITIAL_DELAY> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
     }
 }
 
-impl<INITIAL_DELAY> Deserialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
+impl<let INITIAL_DELAY: u32> Deserialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
     fn deserialize(input: [Field; 1]) -> Self {
         let packed = U128::from_integer(input[0]);
 
@@ -175,7 +175,7 @@ impl<INITIAL_DELAY> Deserialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
     }
 }
 
-impl<INITIAL_DELAY> Eq for ScheduledDelayChange<INITIAL_DELAY> {
+impl<let INITIAL_DELAY: u32> Eq for ScheduledDelayChange<INITIAL_DELAY> {
     fn eq(self, other: Self) -> bool {
         (self.pre == other.pre)
             & (self.post == other.post)

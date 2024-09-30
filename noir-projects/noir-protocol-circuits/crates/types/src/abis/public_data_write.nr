@@ -6,7 +6,7 @@ use crate::{
     traits::Empty
 };
 
-struct OverridablePublicDataWrite {
+pub struct OverridablePublicDataWrite {
     write: PublicDataUpdateRequest,
     override_counter: u32,
 }
