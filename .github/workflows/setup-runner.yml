@@ -30,12 +30,6 @@ on:
 
 concurrency:
   group: ci-${{ inputs.username }}-${{ inputs.runner_type }}-${{ inputs.runner_action }}
-env:
-  USERNAME: ${{ inputs.username }}
-  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 jobs:
   start-builder:
     runs-on: ubuntu-latest
@@ -48,6 +42,13 @@ jobs:
 
       - name: Start EC2 runner
         uses: ./.github/ensure-builder
+        env:
+          USERNAME: ${{ inputs.username }}
+          DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
         with:
           runner_action: ${{ inputs.runner_action }}
           runner_type: ${{ inputs.runner_type }}
