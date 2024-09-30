@@ -13,6 +13,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   EmptyNestedData,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
@@ -52,6 +53,8 @@ import {
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockRootRollupInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
+  convertEmptyBlockRootRollupInputsToWitnessMap,
+  convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -344,6 +347,41 @@ export class TestCircuitProver implements ServerCircuitProver {
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       ProtocolCircuitVks['BlockRootRollupArtifact'],
+    );
+  }
+
+  /**
+   * Simulates the empty block root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  @trackSpan('TestCircuitProver.getEmptyBlockRootRollupProof')
+  public async getEmptyBlockRootRollupProof(
+    input: EmptyBlockRootRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const timer = new Timer();
+    const witnessMap = convertEmptyBlockRootRollupInputsToWitnessMap(input);
+
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.EmptyBlockRootRollupArtifact,
+    );
+
+    const result = convertEmptyBlockRootRollupOutputsFromWitnessMap(witness);
+
+    this.instrumentation.recordDuration('simulationDuration', 'empty-block-root-rollup', timer);
+    emitCircuitSimulationStats(
+      'empty-block-root-rollup',
+      timer.ms(),
+      input.toBuffer().length,
+      result.toBuffer().length,
+      this.logger,
+    );
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      ProtocolCircuitVks['EmptyBlockRootRollupArtifact'],
     );
   }
 

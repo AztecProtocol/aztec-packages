@@ -4,7 +4,6 @@
 
 mod arguments;
 mod call_private_function;
-mod encryption;
 mod execution;
 mod get_contract_instance;
 mod get_l1_to_l2_membership_witness;
@@ -20,7 +19,6 @@ mod header;
 mod notes;
 mod storage;
 mod logs;
-mod logs_traits;
 mod returns;
 
 // debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it

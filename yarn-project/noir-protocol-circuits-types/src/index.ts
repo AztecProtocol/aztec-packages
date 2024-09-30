@@ -5,6 +5,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
@@ -49,6 +50,7 @@ import {
   mapBlockMergeRollupInputsToNoir,
   mapBlockRootOrBlockMergePublicInputsFromNoir,
   mapBlockRootRollupInputsToNoir,
+  mapEmptyBlockRootRollupInputsToNoir,
   mapEmptyKernelInputsToNoir,
   mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
@@ -82,6 +84,7 @@ import {
   type PublicKernelInnerReturnType,
   type PublicKernelMergeReturnType,
   type PrivateKernelResetReturnType as ResetReturnType,
+  type RollupBlockRootEmptyReturnType,
   type ParityRootReturnType as RootParityReturnType,
   type RollupRootReturnType as RootRollupReturnType,
   type PrivateKernelTailReturnType as TailReturnType,
@@ -424,6 +427,19 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
 }
 
 /**
+ * Converts the inputs of the empty block root rollup circuit into a witness map.
+ * @param inputs - The empty block root rollup inputs.
+ * @returns The witness map
+ */
+export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlockRootRollupInputs): WitnessMap {
+  const mapped = mapEmptyBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
+/**
  * Converts the inputs of the block merge rollup circuit into a witness map.
  * @param inputs - The block merge rollup inputs.
  * @returns The witness map
@@ -585,6 +601,23 @@ export function convertMergeRollupOutputsFromWitnessMap(outputs: WitnessMap): Ba
   const returnType = decodedInputs.return_value as MergeRollupReturnType;
 
   return mapBaseOrMergeRollupPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the empty block root rollup circuit from a witness map.
+ * @param outputs - The block root rollup outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertEmptyBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
 }
 
 /**

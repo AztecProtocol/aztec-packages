@@ -1,3 +1,10 @@
+test: "sample"
+scenario: "default"
+
+network:
+  public: false
+  enableBots: true
+
 images:
   test:
     image: aztecprotocol/end-to-end
@@ -38,7 +45,13 @@ bootNode:
     disabled: true
   p2p:
     enabled: "true"
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "4"
 
 validator:
   replicas: 0
@@ -54,7 +67,13 @@ validator:
     disabled: false
   p2p:
     enabled: "true"
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "28Gi"
+      cpu: "7"
 
 proverNode:
   replicas: 1
@@ -64,14 +83,19 @@ proverNode:
   debug: "aztec:*"
   realProofs: false
   proverAgentEnabled: true
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "120Gi"
+      cpu: "15"
 
 pxe:
   logLevel: "debug"
   debug: "aztec:*"
   replicas: 1
   service:
-    type: ClusterIP
     port: 8080
     targetPort: 8080
   readinessProbe:
@@ -80,7 +104,13 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 bot:
   logLevel: "debug"
@@ -104,7 +134,13 @@ bot:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 ethereum:
   replicas: 1
@@ -126,11 +162,15 @@ ethereum:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 metrics:
-  service:
-    type: ClusterIP
   ports:
     otlp: 4316
     metrics: 4315
@@ -143,6 +183,3 @@ metrics:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-
-test: "sample"
-scenario: "default"

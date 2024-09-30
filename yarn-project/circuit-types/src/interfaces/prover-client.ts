@@ -2,7 +2,7 @@ import { type TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
-import { type BlockProver } from './block-prover.js';
+import { type EpochProver } from './epoch-prover.js';
 import { type MerkleTreeOperations } from './merkle_tree_operations.js';
 import { type ProvingJobSource } from './proving-job.js';
 
@@ -84,10 +84,9 @@ function parseProverId(str: string) {
 /**
  * The interface to the prover client.
  * Provides the ability to generate proofs and build rollups.
- * TODO(palla/prover-node): Rename this interface
  */
-export interface ProverClient {
-  createBlockProver(db: MerkleTreeOperations): BlockProver;
+export interface EpochProverManager {
+  createEpochProver(db: MerkleTreeOperations): EpochProver;
 
   start(): Promise<void>;
 

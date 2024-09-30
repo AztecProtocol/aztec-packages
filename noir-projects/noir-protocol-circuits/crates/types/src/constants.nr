@@ -119,6 +119,7 @@ global MERGE_ROLLUP_INDEX: u32 = 21;
 global BLOCK_ROOT_ROLLUP_INDEX: u32 = 22;
 global BLOCK_MERGE_ROLLUP_INDEX: u32 = 23;
 global ROOT_ROLLUP_INDEX: u32 = 24;
+global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 25;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
@@ -293,6 +294,9 @@ global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH + P
 // + 64 for 32 * FeeRecipient { recipient, value }, + 4 for previous_block_hash, end_block_hash, out_hash, vk_tree_root + 1 temporarily for prover_id
 global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 2 * GLOBAL_VARIABLES_LENGTH + 69;
 
+global FEE_RECIPIENT_LENGTH: u32 = 2;
+global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 7 + 32 * FEE_RECIPIENT_LENGTH;
+
 global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
@@ -324,7 +328,8 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
 global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
-global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
+global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
+global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed

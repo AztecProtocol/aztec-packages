@@ -8,6 +8,10 @@ e2e-l1-with-wall-time:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_l1_with_wall_time.test.ts
 
+e2e-synching:
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_synching.test.ts
+
 e2e-2-pxes:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_2_pxes.test.ts
@@ -67,10 +71,6 @@ e2e-delegate-calls:
 e2e-deploy-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_deploy_contract
-
-e2e-encryption:
-  LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/e2e_encryption.test.ts
 
 e2e-escrow-contract:
   LOCALLY
@@ -222,15 +222,18 @@ guides-dapp-testing:
   LOCALLY
   RUN ./scripts/e2e_compose_test.sh guides/dapp_testing.test.ts
 
-# TODO intermittent failure
-# guides-sample-dapp:
-#   LOCALLY
-#   RUN ./scripts/e2e_compose_test.sh sample-dapp
+# The two tests below need to be separated, because there is some crosstalk between the two. TODO (#8813): Figure out why.
+guides-sample-dapp-ci:
+  LOCALLY
+  RUN ./scripts/e2e_compose_test.sh sample-dapp/ci/index.test.mjs
 
-# TODO currently hangs for hour+
-# guides-up-quick-start:
-#   LOCALLY
-#   RUN ./scripts/e2e_compose_test.sh guides/up_quick_start.test.ts
+guides-sample-dapp:
+  LOCALLY
+  RUN ./scripts/e2e_compose_test.sh sample-dapp/index.test.mjs
+
+guides-up-quick-start:
+  LOCALLY
+  RUN ./scripts/e2e_compose_test.sh guides/up_quick_start.test.ts
 
 bench-publish-rollup:
   LOCALLY
@@ -289,9 +292,11 @@ e2e-cli-wallet:
   RUN COMPOSE_FILE=scripts/docker-compose-wallet.yml ./scripts/e2e_compose_test.sh e2e_cli_wallet
 
 network-smoke:
+  ARG values_file
   LOCALLY
   RUN NAMESPACE=smoke FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
 network-transfer:
+  ARG values_file
   LOCALLY
   RUN NAMESPACE=transfer FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts

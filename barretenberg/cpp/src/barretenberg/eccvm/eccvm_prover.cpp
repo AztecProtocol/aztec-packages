@@ -129,16 +129,6 @@ void ECCVMProver::execute_pcs_rounds()
                          commitment_key,
                          transcript);
 
-    // Batch open the transcript polynomials as univariates for Translator consistency check. Since IPA cannot
-    // currently handle polynomials for which the latter half of the coefficients are 0, we hackily
-    // batch the constant polynomial 1 in with the 5 transcript polynomials.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/768): fix IPA to avoid the need for the hack polynomial
-    Polynomial hack(key->circuit_size);
-    for (size_t idx = 0; idx < key->circuit_size; idx++) {
-        hack.at(idx) = 1;
-    }
-    transcript->send_to_verifier("Translation:hack_commitment", commitment_key->commit(hack));
-
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -156,20 +146,20 @@ void ECCVMProver::execute_pcs_rounds()
     transcript->send_to_verifier("Translation:z1", translation_evaluations.z1);
     transcript->send_to_verifier("Translation:z2", translation_evaluations.z2);
 
-    FF hack_evaluation = hack.evaluate(evaluation_challenge_x);
-    transcript->send_to_verifier("Translation:hack_evaluation", hack_evaluation);
-
     // Get another challenge for batching the univariates and evaluations
     FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
     // Collect the polynomials and evaluations to be batched
-    RefArray univariate_polynomials{ key->polynomials.transcript_op, key->polynomials.transcript_Px,
-                                     key->polynomials.transcript_Py, key->polynomials.transcript_z1,
-                                     key->polynomials.transcript_z2, hack };
-    std::array<FF, univariate_polynomials.size()> univariate_evaluations{
-        translation_evaluations.op, translation_evaluations.Px, translation_evaluations.Py,
-        translation_evaluations.z1, translation_evaluations.z2, hack_evaluation
-    };
+    RefArray univariate_polynomials{ key->polynomials.transcript_op,
+                                     key->polynomials.transcript_Px,
+                                     key->polynomials.transcript_Py,
+                                     key->polynomials.transcript_z1,
+                                     key->polynomials.transcript_z2 };
+    std::array<FF, univariate_polynomials.size()> univariate_evaluations{ translation_evaluations.op,
+                                                                          translation_evaluations.Px,
+                                                                          translation_evaluations.Py,
+                                                                          translation_evaluations.z1,
+                                                                          translation_evaluations.z2 };
 
     // Construct the batched polynomial and batched evaluation to produce the batched opening claim
     Polynomial batched_univariate{ key->circuit_size };

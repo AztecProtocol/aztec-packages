@@ -9,7 +9,9 @@
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
 
-set -eu
+set -eux
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Main positional parameter
 TEST="$1"
@@ -28,7 +30,7 @@ fi
 
 if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
    ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
-  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
+  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
   exit 1
 fi
 
@@ -42,7 +44,7 @@ if [ "$FRESH_INSTALL" = "true" ]; then
 fi
 
 # Install the Helm chart
-helm install spartan spartan/aztec-network/ \
+helm install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       --values "$(git rev-parse --show-toplevel)/spartan/aztec-network/values/$VALUES_FILE" \
@@ -51,7 +53,7 @@ helm install spartan spartan/aztec-network/ \
       --set test="$TEST" \
       --wait \
       --wait-for-jobs=true \
-      --timeout=10m
+      --timeout=30m
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
