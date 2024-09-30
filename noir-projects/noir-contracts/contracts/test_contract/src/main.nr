@@ -272,8 +272,6 @@ contract Test {
         outgoing_viewer_ovpk_m: OvpkM,
         nest: bool
     ) {
-        // let owner_ivpk_m = get_public_keys(owner).ivpk_m;
-        // let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
@@ -287,6 +285,8 @@ contract Test {
                 owner
             )
         );
+
+        assert(context.side_effect_counter as Field != 0, "this assert should not be triggered");
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -306,6 +306,8 @@ contract Test {
                 )
             );
         }
+
+        assert(context.side_effect_counter as Field != 0, "this assert should be triggered if bug reproduction succeeded");
     }
 
     #[private]

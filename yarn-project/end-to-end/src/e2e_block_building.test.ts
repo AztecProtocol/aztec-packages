@@ -317,7 +317,7 @@ describe('e2e_block_building', () => {
         thisWallet.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey.toWrappedNoirStruct(),
         thisWallet.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
         // outgoingViewer,
-        true,
+        false,
       );
       const tx = await action.prove();
       const rct = await action.send().wait();
