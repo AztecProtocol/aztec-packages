@@ -98,12 +98,8 @@ describe('Synchronizer', () => {
 
     aztecNode.getBlocks
       // called by synchronizer.work,
-      .mockResolvedValueOnce([
-          blocks[0],
-      ])
-      .mockResolvedValueOnce([
-          blocks[1]
-      ])
+      .mockResolvedValueOnce([blocks[0]])
+      .mockResolvedValueOnce([blocks[1]])
       // called by synchronizer.workNoteProcessorCatchUp
       .mockResolvedValueOnce([blocks[0]])
       .mockResolvedValueOnce([blocks[1]]);

@@ -29,11 +29,7 @@ export class L2Block {
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
 
-    return new L2Block(
-      archive,
-      header,
-      body,
-    );
+    return new L2Block(archive, header, body);
   }
 
   /**
@@ -93,7 +89,7 @@ export class L2Block {
     const txsEffectsHash = body.getTxsEffectsHash();
 
     return new L2Block(
-       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
+      makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
       makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
       body,
     );
@@ -104,11 +100,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return new L2Block(
-      AppendOnlyTreeSnapshot.zero(),
-      Header.empty(),
-      Body.empty(),
-    );
+    return new L2Block(AppendOnlyTreeSnapshot.zero(), Header.empty(), Body.empty());
   }
 
   get number(): number {
