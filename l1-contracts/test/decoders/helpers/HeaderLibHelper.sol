@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-import {HeaderLib} from "../../../src/core/libraries/HeaderLib.sol";
+import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
 
 contract HeaderLibHelper {
   // A wrapper used such that we get "calldata" and not memory

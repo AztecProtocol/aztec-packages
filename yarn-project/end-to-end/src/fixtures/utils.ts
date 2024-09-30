@@ -113,7 +113,9 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: { salt?: number; initialValidators?: EthAddress[] } = {},
+  args: { salt?: number; initialValidators?: EthAddress[]; assumeProvenThrough?: number } = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+  },
   chain: Chain = foundry,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
@@ -148,6 +150,7 @@ export const setupL1Contracts = async (
     vkTreeRoot: getVKTreeRoot(),
     salt: args.salt,
     initialValidators: args.initialValidators,
+    assumeProvenThrough: args.assumeProvenThrough,
   });
 
   return l1Data;

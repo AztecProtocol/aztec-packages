@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -342,3 +343,47 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
+
+/**
+ * @brief Run a test using functions shared with the ClientIVC benchmark.
+ * @details We do have this in addition to the above tests anyway so we can believe that the benchmark is running on
+ * real data EXCEPT the verification keys, whose correctness is not needed to assess the performance of the folding
+ * prover. Before this test was added, we spend more than 50% of the benchmarking time running an entire IVC prover
+ * protocol just to precompute valid verification keys.
+ */
+TEST(ClientIVCBenchValidation, Full6)
+{
+    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+
+    ClientIVC ivc;
+    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    size_t total_num_circuits{ 12 };
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_structure);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto proof = ivc.prove();
+    bool verified = verify_ivc(proof, ivc);
+    EXPECT_TRUE(verified);
+}
+
+/**
+ * @brief Test that running the benchmark suite with movked verification keys will not error out.
+ */
+TEST(ClientIVCBenchValidation, Full6MockedVKs)
+{
+    const auto run_test = []() {
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+
+        ClientIVC ivc;
+        ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+        size_t total_num_circuits{ 12 };
+        PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+        auto mocked_vkeys = mock_verification_keys(total_num_circuits);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
+        auto proof = ivc.prove();
+        verify_ivc(proof, ivc);
+    };
+    ASSERT_NO_FATAL_FAILURE(run_test());
+}

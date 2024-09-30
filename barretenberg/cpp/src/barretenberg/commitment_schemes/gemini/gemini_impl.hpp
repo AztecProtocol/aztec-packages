@@ -73,15 +73,23 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     auto fold_polynomials = compute_fold_polynomials(
         log_n, multilinear_challenge, std::move(batched_unshifted), std::move(batched_to_be_shifted));
 
-    for (size_t l = 0; l < log_n - 1; l++) {
-        transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1),
-                                     commitment_key->commit(fold_polynomials[l + 2]));
+    for (size_t l = 0; l < CONST_PROOF_SIZE_LOG_N - 1; l++) {
+        if (l < log_n - 1) {
+            transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1),
+                                         commitment_key->commit(fold_polynomials[l + 2]));
+        } else {
+            transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1), Commitment::one());
+        }
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
     std::vector<Claim> claims = compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), r_challenge);
 
-    for (size_t l = 1; l <= log_n; l++) {
-        transcript->send_to_verifier("Gemini:a_" + std::to_string(l), claims[l].opening_pair.evaluation);
+    for (size_t l = 1; l <= CONST_PROOF_SIZE_LOG_N; l++) {
+        if (l <= log_n) {
+            transcript->send_to_verifier("Gemini:a_" + std::to_string(l), claims[l].opening_pair.evaluation);
+        } else {
+            transcript->send_to_verifier("Gemini:a_" + std::to_string(l), Fr::zero());
+        }
     }
 
     return claims;
