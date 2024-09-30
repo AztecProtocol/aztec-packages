@@ -58,7 +58,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
     /**
-     * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
+     * @brief Scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
      * evaluation(s).
      *
      * @details Note that a linearly dependent subrelation is not computed on a specific row but rather on the entire
