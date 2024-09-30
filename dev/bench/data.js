@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727669043663,
+  "lastUpdate": 1727706010619,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ee21583aea137eea31cb1b4e6e0643061ef0d59f",
-          "message": "chore: 7791: Disable world_state test suite (#8594)\n\nCherry picking a commit from #8531\r\n\r\nCo-authored-by: jeanmon <jean@aztecprotocol.com>",
-          "timestamp": "2024-09-17T13:02:27Z",
-          "tree_id": "ec1453a5c2bf3c49eec35de9b2551f91eb6a2142",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ee21583aea137eea31cb1b4e6e0643061ef0d59f"
-        },
-        "date": 1726578952886,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12790.927277000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9280.466177 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5078.173162000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4677.550386 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38105.954957,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38105955000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14531.602249000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14531603000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3655785058,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3655785058 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135770542,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135770542 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2942975027,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2942975027 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 112775950,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 112775950 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 125016510,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125016510 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ed1e23edff04ea026a94ffc22b29b6ef520cdf55",
+          "message": "feat: Origin Tags part 1 (#8787)\n\nCreates the Origin Tag mechanism and implements it for the bool and\r\nfield stdlib primitives with tests.\r\nThe mechanism preserves the origin of a particular element, which will\r\nallow us to detect bad interactions of transcript elements",
+          "timestamp": "2024-09-30T13:59:09Z",
+          "tree_id": "52b8c2358d5972510b9f831cb314ad28164b9ca5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed1e23edff04ea026a94ffc22b29b6ef520cdf55"
+        },
+        "date": 1727706002836,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31438.24954099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29138.560251000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4993.152302999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4687.819371 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93209.18359199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93209185000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14526.573803999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14526574000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8182467376,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8182467376 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153491092,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153491092 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6653015305,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6653015305 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126591970,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126591970 ns\nthreads: 1"
           }
         ]
       }
