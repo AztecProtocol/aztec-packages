@@ -26,8 +26,7 @@ export class AvmPersistableStateManager {
 
   constructor(
     /** Reference to node storage */
-    // DO NOT LEAVE AS PUBLIC!
-    public readonly worldStateDB: WorldStateDB,
+    private readonly worldStateDB: WorldStateDB,
     /** Side effect trace */
     private readonly trace: PublicSideEffectTraceInterface,
     /** Public storage, including cached writes */

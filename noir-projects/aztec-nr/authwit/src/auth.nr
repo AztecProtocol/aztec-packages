@@ -9,7 +9,7 @@ use dep::aztec::protocol_types::{
 use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
 
 /**
- * Authenticaion witness helper library
+ * Authentication witness helper library
  *
  * Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties
  * (e.g. protocols or other users) to execute an action on their behalf.
@@ -62,7 +62,7 @@ use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::h
  * contract. Since the `DeFi` contract is trying to pull funds from an account that is not its own, it needs to
  * convince the `Token` contract that it is allowed to do so.
  *
- * This is where the authentication witness comes in The `Token` contract computes a `message_hash` from the
+ * This is where the authentication witness comes in. The `Token` contract computes a `message_hash` from the
  * `transfer` call, and then asks `Alice Account` contract to verify that the `DeFi` contract is allowed to
  * execute that call.
  *
@@ -189,7 +189,8 @@ use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::h
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
+// 0x47dacd73
+global IS_VALID_SELECTOR = comptime { FunctionSelector::from_signature("IS_VALID()").to_field() };
 
 /**
  * Assert that `on_behalf_of` have authorized the current call with a valid authentication witness
@@ -247,8 +248,12 @@ pub fn assert_current_call_valid_authwit_public(
     context: &mut PublicContext,
     on_behalf_of: AztecAddress
 ) {
+    // Public calls are rerouted through the dispatch function.
+    let dispatch_selector = comptime {
+        FunctionSelector::from_signature("public_dispatch(Field)").to_field()
+    };
     let inner_hash = compute_inner_authwit_hash(
-        [(*context).msg_sender().to_field(), (*context).selector().to_field(), (*context).get_args_hash()]
+        [(*context).msg_sender().to_field(), dispatch_selector, (*context).get_args_hash()]
     );
     assert_inner_hash_valid_authwit_public(context, on_behalf_of, inner_hash);
 }
