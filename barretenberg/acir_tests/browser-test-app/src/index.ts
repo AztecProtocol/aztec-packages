@@ -12,19 +12,19 @@ async function runTest(
   const { Barretenberg, UltraPlonkBackend, BarretenbergVerifier } = await import("@aztec/bb.js");
 
   debug("starting test...");
-  const barretenberg = Barretenberg.new({ threads });
+  const barretenberg = await Barretenberg.new({ threads });
 
   const backend = new UltraPlonkBackend(bytecode, barretenberg);
   const proof = await backend.generateProof(witness);
 
   const verificationKey = await backend.getVerificationKey();
-  await backend.destroy();
 
   debug(`verifying...`);
   const verifier = new BarretenbergVerifier(barretenberg);
   const verified = await verifier.verifyUltraplonkProof(proof, verificationKey);
   debug(`verified: ${verified}`);
 
+  await backend.destroy();
   await verifier.destroy();
 
   debug("test complete.");
