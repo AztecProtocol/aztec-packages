@@ -14,7 +14,7 @@ global ECDSA_PUBLIC_KEY_NOTE_LEN: u32 = 5;
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
 #[note_custom_interface]
-struct EcdsaPublicKeyNote {
+pub struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
     // We store the npk_m_hash only to get the secret key to compute the nullifier
@@ -136,7 +136,7 @@ impl NullifiableNote for EcdsaPublicKeyNote {
         )
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

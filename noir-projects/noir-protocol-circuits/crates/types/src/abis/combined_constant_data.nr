@@ -5,7 +5,7 @@ use crate::abis::global_variables::GlobalVariables;
 use crate::constants::COMBINED_CONSTANT_DATA_LENGTH;
 use crate::utils::reader::Reader;
 
-struct CombinedConstantData {
+pub struct CombinedConstantData {
     historical_header: Header,
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
     // self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such

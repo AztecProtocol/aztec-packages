@@ -42,9 +42,9 @@ class AvmRecursiveTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     // Generate an extremely simple avm trace
-    static AvmCircuitBuilder generate_avm_circuit()
+    static AvmCircuitBuilder generate_avm_circuit(VmPublicInputsNT public_inputs)
     {
-        AvmTraceBuilder trace_builder(generate_base_public_inputs());
+        AvmTraceBuilder trace_builder(public_inputs);
         AvmCircuitBuilder builder;
 
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
@@ -63,14 +63,14 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    AvmCircuitBuilder circuit_builder = generate_avm_circuit();
+    const auto public_inputs = generate_base_public_inputs();
+    AvmCircuitBuilder circuit_builder = generate_avm_circuit(public_inputs);
     AvmComposer composer = AvmComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
     InnerVerifier verifier = composer.create_verifier(circuit_builder);
 
     HonkProof proof = prover.construct_proof();
 
-    auto public_inputs = generate_base_public_inputs();
     std::vector<std::vector<InnerFF>> public_inputs_vec =
         bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
 
@@ -85,7 +85,7 @@ TEST_F(AvmRecursiveTests, recursion)
     auto agg_object =
         stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
 
-    auto agg_output = recursive_verifier.verify_proof(proof, agg_object);
+    auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_vec, agg_object);
 
     bool agg_output_valid =
         verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());

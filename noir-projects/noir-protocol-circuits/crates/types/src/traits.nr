@@ -107,7 +107,7 @@ impl<let N: u32> ToField for str<N> {
     }
 }
 
-trait FromField {
+pub trait FromField {
     fn from_field(value: Field) -> Self;
 }
 
@@ -155,12 +155,6 @@ pub trait Serialize<let N: u32> {
 }
 // docs:end:serialize
 
-impl<let N: u32> Serialize<N> for [Field; N] {
-    fn serialize(self) -> [Field; N] {
-        self
-    }
-}
-
 impl<let N: u32> Serialize<N> for str<N> {
     fn serialize(self) -> [Field; N] {
         let bytes = self.as_bytes();
@@ -179,8 +173,8 @@ pub trait Deserialize<let N: u32> {
 }
 // docs:end:deserialize
 
-impl<let N: u32> Deserialize<N> for [Field; N] {
+impl <let N: u32> Deserialize<N> for str<N> {
     fn deserialize(fields: [Field; N]) -> Self {
-        fields
+        str<N>::from(fields.map(|value| value as u8))
     }
 }

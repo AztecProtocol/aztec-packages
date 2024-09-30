@@ -13,7 +13,7 @@ import merge from 'lodash.merge';
 import { type WorldStateDB, resolveAssertionMessage, traverseCauseChain } from '../../index.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
-import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { type AvmRevertReason } from '../errors.js';
@@ -102,22 +102,6 @@ export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachi
  */
 export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
-}
-
-/**
- * Adjust the user index to account for the AvmContextInputs size.
- * This is a hack for testing, and should go away once AvmContextInputs themselves go away.
- */
-export function adjustCalldataIndex(userIndex: number): number {
-  return userIndex + AvmContextInputs.SIZE;
-}
-
-export function anyAvmContextInputs() {
-  const tv = [];
-  for (let i = 0; i < AvmContextInputs.SIZE; i++) {
-    tv.push(expect.any(Fr));
-  }
-  return tv;
 }
 
 export function randomMemoryBytes(length: number): Uint8[] {

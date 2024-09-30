@@ -5,6 +5,7 @@ use super::utils::{
     modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
     fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer
 };
+use protocol_types::meta::flatten_to_fields;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 
@@ -44,7 +45,7 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
         quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }
     } else {
         // Here `context` is of type context::PublicContext
-        quote { assert(context.inputs.is_static_call == true, $assertion_message); }
+        quote { assert(context.is_static_call(), $assertion_message); }
     }
 }
 
@@ -224,6 +225,15 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
 /// Public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
 pub comptime fn public(f: FunctionDefinition) -> Quoted {
+    // We don't want to transform the public_dispatch function.
+    if f.name() == quote { public_dispatch } {
+        quote {}
+    } else {
+        transform_public(f)
+    }
+}
+
+comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
@@ -231,26 +241,17 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
-    // Public functions undergo a lot of transformations from their Aztec.nr form into a circuit that can be fed to the
-    // Public Kernel Circuit.
-
-    // First we change the function signature so that it also receives `PublicContextInputs`, which contain information
-    // about the execution context (e.g. the caller).
-
+    // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
-    f.set_parameters(
-        &[
-        (
-            quote { inputs }, quote { crate::context::inputs::public_context_inputs::PublicContextInputs }.as_type()
-        )
-    ].append(original_params)
-    );
+    let args_len = original_params.map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len()).fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(inputs); };
+    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
+        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(0, $args_len);
+        dep::aztec::hash::hash_args_array(serialized_args)
+     }); };
 
     // Modifications introduced by the different marker attributes.
-
     let internal_check = if is_fn_internal(f) {
         create_internal_check(f)
     } else {

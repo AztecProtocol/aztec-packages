@@ -27,7 +27,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
-struct PrivateKernelInnerCircuitPrivateInputs {
+pub struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
     private_call: PrivateCallData,
 }

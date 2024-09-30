@@ -1,6 +1,6 @@
 use crate::{traits::{Empty, Serialize, Deserialize}, constants::TREE_LEAF_READ_REQUEST_LENGTH};
 
-struct TreeLeafReadRequest {
+pub struct TreeLeafReadRequest {
     value: Field,
     leaf_index: Field,
 }

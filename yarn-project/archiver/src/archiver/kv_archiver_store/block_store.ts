@@ -26,6 +26,12 @@ export class BlockStore {
   /** Stores L1 block number in which the last processed L2 block was included */
   #lastSynchedL1Block: AztecSingleton<bigint>;
 
+  /** Stores l2 block number of the last proven block */
+  #lastProvenL2Block: AztecSingleton<number>;
+
+  /** Stores l2 epoch number of the last proven epoch */
+  #lastProvenL2Epoch: AztecSingleton<number>;
+
   /** Index mapping transaction hash (as a string) to its location in a block */
   #txIndex: AztecMap<string, BlockIndexValue>;
 
@@ -40,6 +46,8 @@ export class BlockStore {
     this.#txIndex = db.openMap('archiver_tx_index');
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
+    this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
+    this.#lastProvenL2Epoch = db.openSingleton('archiver_last_proven_l2_epoch');
   }
 
   /**
@@ -68,6 +76,38 @@ export class BlockStore {
       }
 
       void this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
+
+      return true;
+    });
+  }
+
+  /**
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
+   */
+  unwindBlocks(from: number, blocksToUnwind: number) {
+    return this.db.transaction(() => {
+      const last = this.getSynchedL2BlockNumber();
+      if (from != last) {
+        throw new Error(`Can only remove from the tip`);
+      }
+
+      for (let i = 0; i < blocksToUnwind; i++) {
+        const blockNumber = from - i;
+        const block = this.getBlock(blockNumber);
+
+        if (block === undefined) {
+          throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
+        }
+        void this.#blocks.delete(block.data.number);
+        block.data.body.txEffects.forEach(tx => {
+          void this.#txIndex.delete(tx.txHash.toString());
+        });
+        void this.#blockBodies.delete(block.data.body.getTxsEffectsHash().toString('hex'));
+      }
 
       return true;
     });
@@ -191,13 +231,29 @@ export class BlockStore {
     void this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
+  getProvenL2BlockNumber(): number {
+    return this.#lastProvenL2Block.get() ?? 0;
+  }
+
+  setProvenL2BlockNumber(blockNumber: number) {
+    void this.#lastProvenL2Block.set(blockNumber);
+  }
+
+  getProvenL2EpochNumber(): number | undefined {
+    return this.#lastProvenL2Epoch.get();
+  }
+
+  setProvenL2EpochNumber(epochNumber: number) {
+    void this.#lastProvenL2Epoch.set(epochNumber);
+  }
+
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }
 
     if (start < INITIAL_L2_BLOCK_NUM) {
-      start = INITIAL_L2_BLOCK_NUM;
+      throw new Error(`Invalid start: ${start}`);
     }
 
     const end = start + limit;

@@ -5,7 +5,7 @@ use dep::types::{
 };
 use crate::parity_public_inputs::ParityPublicInputs;
 
-struct RootParityInput {
+pub struct RootParityInput {
     proof: RecursiveProof,
     verification_key: VerificationKey,
     vk_path: [Field; VK_TREE_HEIGHT],

@@ -4,7 +4,7 @@ global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
 global BLACKLIST_FLAG: u64 = 4;
 
-struct UserFlags {
+pub struct UserFlags {
     is_admin: bool,
     is_minter: bool,
     is_blacklisted: bool,

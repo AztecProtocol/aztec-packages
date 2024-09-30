@@ -7,7 +7,7 @@ use crate::{
     traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader}
 };
 
-struct LogHash {
+pub struct LogHash {
     value: Field,
     counter: u32,
     length: Field,
@@ -60,7 +60,7 @@ impl LogHash {
     }
 }
 
-struct ScopedLogHash {
+pub struct ScopedLogHash {
     log_hash: LogHash,
     contract_address: AztecAddress,
 }
@@ -129,7 +129,7 @@ impl ScopedLogHash {
     }
 }
 
-struct EncryptedLogHash {
+pub struct EncryptedLogHash {
     value: Field,
     counter: u32,
     length: Field,
@@ -184,7 +184,7 @@ impl EncryptedLogHash {
     }
 }
 
-struct ScopedEncryptedLogHash {
+pub struct ScopedEncryptedLogHash {
     log_hash: EncryptedLogHash,
     contract_address: AztecAddress,
 }
@@ -254,7 +254,7 @@ impl Deserialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
     }
 }
 
-struct NoteLogHash {
+pub struct NoteLogHash {
     value: Field,
     counter: u32,
     length: Field,

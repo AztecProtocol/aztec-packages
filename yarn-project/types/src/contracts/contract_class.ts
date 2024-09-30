@@ -65,6 +65,9 @@ export type ContractClassPublic = {
 } & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
 
+/** The contract class with the block it was initially deployed at */
+export type ContractClassPublicWithBlockNumber = { l2BlockNumber: number } & ContractClassPublic;
+
 /** Private function definition with executable bytecode. */
 export interface ExecutablePrivateFunction extends PrivateFunction {
   /** ACIR and Brillig bytecode */

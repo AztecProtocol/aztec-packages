@@ -5,7 +5,7 @@ use crate::{
     utils::reader::Reader
 };
 
-struct TxRequest {
+pub struct TxRequest {
     origin: AztecAddress,
     args_hash: Field,
     tx_context: TxContext,

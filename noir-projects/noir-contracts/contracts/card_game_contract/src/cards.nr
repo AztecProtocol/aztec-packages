@@ -3,12 +3,12 @@ use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteGetterOptions, NoteV
 use dep::aztec::{
     context::UnconstrainedContext,
     protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-    keys::getters::get_public_keys, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, keys::getters::get_public_keys,
+    state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::value_note::value_note::ValueNote;
 
-struct Card {
+pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
     points: u32,
@@ -44,7 +44,7 @@ fn test_to_from_field() {
 }
 // docs:end:pure_noir_testing
 
-struct CardNote {
+pub struct CardNote {
     card: Card,
     note: ValueNote,
 }
@@ -64,7 +64,7 @@ impl CardNote {
     }
 }
 
-struct Deck<Context> {
+pub struct Deck<Context> {
     set: PrivateSet<ValueNote, Context>,
 }
 
@@ -112,9 +112,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
-            self.set.insert(&mut card_note.note).emit(
-                encode_and_encrypt_note_with_keys(self.set.context, msg_sender_ovpk_m, owner_ivpk_m, owner)
-            );
+            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(self.set.context, msg_sender_ovpk_m, owner_ivpk_m, owner));
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

@@ -130,8 +130,17 @@ class ClientIVC {
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
-    // Perform prover work for accumulation (e.g. PG folding, merge proving)
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
+    /**
+     * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)
+     *
+     * @param circuit The incoming statement
+     * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
+     * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
+     * @param mock_vk A boolean to say whether the precomputed vk shoudl have its metadata set.
+     */
+    void accumulate(ClientCircuit& circuit,
+                    const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr,
+                    bool mock_vk = false);
 
     Proof prove();
 

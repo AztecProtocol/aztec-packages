@@ -3,7 +3,7 @@ use crate::{
     traits::{Serialize, Deserialize, Empty}
 };
 
-struct FunctionData {
+pub struct FunctionData {
     selector : FunctionSelector,
     is_private : bool,
 }

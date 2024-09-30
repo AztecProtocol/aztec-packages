@@ -18,7 +18,6 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
-  adjustCalldataIndex,
   getAvmTestContractBytecode,
   initContext,
   initExecutionEnvironment,
@@ -52,10 +51,7 @@ describe('AVM simulator: injected bytecode', () => {
   beforeAll(() => {
     calldata = [new Fr(1), new Fr(2)];
     bytecode = encodeToBytecode([
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ adjustCalldataIndex(0), /*dstOffset*/ 0).as(
-        Opcode.SET_8,
-        Set.wireFormat8,
-      ),
+      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
       new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(

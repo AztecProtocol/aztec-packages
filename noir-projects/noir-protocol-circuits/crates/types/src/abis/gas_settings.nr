@@ -7,7 +7,7 @@ use crate::{
     traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
 };
 
-struct GasSettings {
+pub struct GasSettings {
     gas_limits: Gas,
     teardown_gas_limits: Gas,
     max_fees_per_gas: GasFees,

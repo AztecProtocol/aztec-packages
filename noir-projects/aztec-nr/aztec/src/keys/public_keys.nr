@@ -6,18 +6,18 @@ use dep::protocol_types::{
 
 global PUBLIC_KEYS_LENGTH: u32 = 12;
 
-struct PublicKeys {
+pub struct PublicKeys {
     npk_m: NpkM,
     ivpk_m: IvpkM,
     ovpk_m: OvpkM,
     tpk_m: TpkM,
 }
 
-trait ToPoint {
+pub trait ToPoint {
     fn to_point(self) -> Point;
 }
 
-struct NpkM {
+pub struct NpkM {
     inner: Point
 }
 
@@ -40,7 +40,7 @@ impl Hash for NpkM {
     }
 }
 
-struct IvpkM {
+pub struct IvpkM {
     inner: Point
 }
 
@@ -56,7 +56,7 @@ impl Serialize<POINT_LENGTH> for IvpkM {
     }
 }
 
-struct OvpkM {
+pub struct OvpkM {
     inner: Point
 }
 
@@ -78,7 +78,7 @@ impl Serialize<POINT_LENGTH> for OvpkM {
     }
 }
 
-struct TpkM {
+pub struct TpkM {
     inner: Point
 }
 
@@ -151,7 +151,7 @@ impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 }
 
 #[test]
-fn compute_public_keys_hash() {
+unconstrained fn compute_public_keys_hash() {
     let keys = PublicKeys {
         npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
         ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
@@ -166,7 +166,7 @@ fn compute_public_keys_hash() {
 }
 
 #[test]
-fn compute_empty_hash() {
+unconstrained fn compute_empty_hash() {
     let keys = PublicKeys::empty();
 
     let actual = keys.hash();
@@ -176,7 +176,7 @@ fn compute_empty_hash() {
 }
 
 #[test]
-fn test_public_keys_serialization() {
+unconstrained fn test_public_keys_serialization() {
     let keys = PublicKeys {
         npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
         ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },

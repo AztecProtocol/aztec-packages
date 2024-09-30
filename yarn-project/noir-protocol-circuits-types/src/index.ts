@@ -5,6 +5,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
@@ -19,10 +20,12 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
+  type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelTailCircuitPrivateInputs,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -47,6 +50,7 @@ import {
   mapBlockMergeRollupInputsToNoir,
   mapBlockRootOrBlockMergePublicInputsFromNoir,
   mapBlockRootRollupInputsToNoir,
+  mapEmptyBlockRootRollupInputsToNoir,
   mapEmptyKernelInputsToNoir,
   mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
@@ -61,10 +65,12 @@ import {
   mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
+  mapPublicKernelInnerCircuitPrivateInputsToNoir,
   mapPublicKernelTailCircuitPrivateInputsToNoir,
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
+  mapVMCircuitPublicInputsFromNoir,
 } from './type_conversion.js';
 import {
   type ParityBaseReturnType as BaseParityReturnType,
@@ -75,9 +81,10 @@ import {
   type PrivateKernelInnerReturnType as InnerReturnType,
   type RollupMergeReturnType as MergeRollupReturnType,
   type PrivateKernelEmptyReturnType,
-  type PublicKernelAppLogicReturnType as PublicPublicPreviousReturnType,
-  type PublicKernelSetupReturnType as PublicSetupReturnType,
+  type PublicKernelInnerReturnType,
+  type PublicKernelMergeReturnType,
   type PrivateKernelResetReturnType as ResetReturnType,
+  type RollupBlockRootEmptyReturnType,
   type ParityRootReturnType as RootParityReturnType,
   type RollupRootReturnType as RootRollupReturnType,
   type PrivateKernelTailReturnType as TailReturnType,
@@ -340,7 +347,7 @@ export function convertPrivateKernelTailForPublicOutputsFromWitnessMap(
   const decodedInputs: DecodedInputs = abiDecode(ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.abi, outputs);
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as PublicKernelMergeReturnType;
 
   return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
 }
@@ -420,6 +427,19 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
 }
 
 /**
+ * Converts the inputs of the empty block root rollup circuit into a witness map.
+ * @param inputs - The empty block root rollup inputs.
+ * @returns The witness map
+ */
+export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlockRootRollupInputs): WitnessMap {
+  const mapped = mapEmptyBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
+/**
  * Converts the inputs of the block merge rollup circuit into a witness map.
  * @param inputs - The block merge rollup inputs.
  * @returns The witness map
@@ -440,40 +460,30 @@ export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): W
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.RootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
+
 /**
- * Converts the inputs of the public setup circuit into a witness map
+ * Converts the inputs of the public inner circuit into a witness map
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertSimulatedPublicSetupInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
-  const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicKernelSetupArtifact.abi, {
+export function convertSimulatedPublicInnerInputsToWitnessMap(
+  inputs: PublicKernelInnerCircuitPrivateInputs,
+): WitnessMap {
+  const mapped = mapPublicKernelInnerCircuitPrivateInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicKernelInnerArtifact.abi, {
     input: mapped as any,
   });
   return initialWitnessMap;
 }
 
 /**
- * Converts the inputs of the public app logic circuit into a witness map
+ * Converts the inputs of the public merge circuit into a witness map
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertSimulatedPublicInnerInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
+export function convertSimulatedPublicMergeInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
   const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicKernelAppLogicArtifact.abi, {
-    input: mapped as any,
-  });
-  return initialWitnessMap;
-}
-
-/**
- * Converts the inputs of the public teardown circuit into a witness map
- * @param inputs - The public kernel inputs.
- * @returns The witness map
- */
-export function convertSimulatedPublicTeardownInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
-  const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicKernelTeardownArtifact.abi, {
+  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicKernelMergeArtifact.abi, {
     input: mapped as any,
   });
   return initialWitnessMap;
@@ -493,37 +503,26 @@ export function convertSimulatedPublicTailInputsToWitnessMap(inputs: PublicKerne
 }
 
 /**
- * Converts the inputs of the public setup circuit into a witness map
+ * Converts the inputs of the public inner circuit into a witness map
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertPublicSetupInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
-  const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicKernelSetupArtifact.abi, { input: mapped as any });
-  return initialWitnessMap;
-}
-
-/**
- * Converts the inputs of the public setup circuit into a witness map
- * @param inputs - The public kernel inputs.
- * @returns The witness map
- */
-export function convertPublicInnerInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
-  const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicKernelAppLogicArtifact.abi, {
+export function convertPublicInnerInputsToWitnessMap(inputs: PublicKernelInnerCircuitPrivateInputs): WitnessMap {
+  const mapped = mapPublicKernelInnerCircuitPrivateInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicKernelInnerArtifact.abi, {
     input: mapped as any,
   });
   return initialWitnessMap;
 }
 
 /**
- * Converts the inputs of the public teardown circuit into a witness map
+ * Converts the inputs of the public merge circuit into a witness map
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertPublicTeardownInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
+export function convertPublicMergeInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
   const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicKernelTeardownArtifact.abi, {
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicKernelMergeArtifact.abi, {
     input: mapped as any,
   });
   return initialWitnessMap;
@@ -605,6 +604,23 @@ export function convertMergeRollupOutputsFromWitnessMap(outputs: WitnessMap): Ba
 }
 
 /**
+ * Converts the outputs of the empty block root rollup circuit from a witness map.
+ * @param outputs - The block root rollup outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertEmptyBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+/**
  * Converts the outputs of the block root rollup circuit from a witness map.
  * @param outputs - The block root rollup outputs as a witness map.
  * @returns The public inputs.
@@ -680,57 +696,37 @@ export function convertRootParityOutputsFromWitnessMap(outputs: WitnessMap): Par
 }
 
 /**
- * Converts the outputs of the public setup circuit from a witness map.
- * @param outputs - The public kernel outputs as a witness map.
- * @returns The public inputs.
- */
-export function convertSimulatedPublicSetupOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
-  // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(
-    SimulatedServerCircuitArtifacts.PublicKernelSetupArtifact.abi,
-    outputs,
-  );
-
-  // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicSetupReturnType;
-
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
-}
-
-/**
  * Converts the outputs of the public inner circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertSimulatedPublicInnerOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertSimulatedPublicInnerOutputFromWitnessMap(outputs: WitnessMap): VMCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(
-    SimulatedServerCircuitArtifacts.PublicKernelAppLogicArtifact.abi,
+    SimulatedServerCircuitArtifacts.PublicKernelInnerArtifact.abi,
     outputs,
   );
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as PublicKernelInnerReturnType;
 
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
+  return mapVMCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
- * Converts the outputs of the public tail circuit from a witness map.
+ * Converts the outputs of the public merge circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertSimulatedPublicTeardownOutputFromWitnessMap(
-  outputs: WitnessMap,
-): PublicKernelCircuitPublicInputs {
+export function convertSimulatedPublicMergeOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(
-    SimulatedServerCircuitArtifacts.PublicKernelTeardownArtifact.abi,
+    SimulatedServerCircuitArtifacts.PublicKernelMergeArtifact.abi,
     outputs,
   );
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as PublicKernelMergeReturnType;
 
   return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -751,46 +747,31 @@ export function convertSimulatedPublicTailOutputFromWitnessMap(outputs: WitnessM
 }
 
 /**
- * Converts the outputs of the public setup circuit from a witness map.
- * @param outputs - The public kernel outputs as a witness map.
- * @returns The public inputs.
- */
-export function convertPublicSetupOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
-  // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicKernelSetupArtifact.abi, outputs);
-
-  // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicSetupReturnType;
-
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
-}
-
-/**
  * Converts the outputs of the public inner circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicInnerOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicInnerOutputFromWitnessMap(outputs: WitnessMap): VMCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicKernelAppLogicArtifact.abi, outputs);
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicKernelInnerArtifact.abi, outputs);
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as PublicKernelInnerReturnType;
 
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
+  return mapVMCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
- * Converts the outputs of the public tail circuit from a witness map.
+ * Converts the outputs of the public merge circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicTeardownOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicMergeOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicKernelTeardownArtifact.abi, outputs);
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicKernelMergeArtifact.abi, outputs);
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as PublicKernelMergeReturnType;
 
   return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
 }

@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 
 #[note]
-struct SubscriptionNote {
+pub struct SubscriptionNote {
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
     expiry_block_number: Field,
@@ -27,7 +27,7 @@ impl NullifiableNote for SubscriptionNote {
         )
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

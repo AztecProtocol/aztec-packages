@@ -31,7 +31,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
   'CONTRACT_STORAGE_READ_LENGTH',
-  'PUBLIC_CALL_REQUEST_LENGTH',
+  'PUBLIC_INNER_CALL_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_READS_PER_CALL',
   'MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL',
   'NOTE_HASH_LENGTH',
@@ -269,7 +269,7 @@ function generateSolidityConstants({ constants }: ParsedContent, targetPath: str
   const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 /**
  * @title Constants Library

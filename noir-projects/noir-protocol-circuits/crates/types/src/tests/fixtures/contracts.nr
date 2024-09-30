@@ -3,7 +3,7 @@ use crate::{
     contract_class_id::ContractClassId
 };
 
-struct ContractData {
+pub struct ContractData {
     address: AztecAddress,
     artifact_hash: Field,
     contract_address_salt: Field,

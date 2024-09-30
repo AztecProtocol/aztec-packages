@@ -26,18 +26,17 @@ import PrivateKernelTailJson from '../artifacts/private_kernel_tail.json' assert
 import PrivateKernelTailSimulatedJson from '../artifacts/private_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateKernelTailToPublicJson from '../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
 import PrivateKernelTailToPublicSimulatedJson from '../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
-import PublicKernelAppLogicJson from '../artifacts/public_kernel_app_logic.json' assert { type: 'json' };
-import PublicKernelAppLogicSimulatedJson from '../artifacts/public_kernel_app_logic_simulated.json' assert { type: 'json' };
-import PublicKernelSetupJson from '../artifacts/public_kernel_setup.json' assert { type: 'json' };
-import PublicKernelSetupSimulatedJson from '../artifacts/public_kernel_setup_simulated.json' assert { type: 'json' };
+import PublicKernelInnerJson from '../artifacts/public_kernel_inner.json' assert { type: 'json' };
+import PublicKernelInnerSimulatedJson from '../artifacts/public_kernel_inner_simulated.json' assert { type: 'json' };
+import PublicKernelMergeJson from '../artifacts/public_kernel_merge.json' assert { type: 'json' };
+import PublicKernelMergeSimulatedJson from '../artifacts/public_kernel_merge_simulated.json' assert { type: 'json' };
 import PublicKernelTailJson from '../artifacts/public_kernel_tail.json' assert { type: 'json' };
 import PublicKernelTailSimulatedJson from '../artifacts/public_kernel_tail_simulated.json' assert { type: 'json' };
-import PublicKernelTeardownJson from '../artifacts/public_kernel_teardown.json' assert { type: 'json' };
-import PublicKernelTeardownSimulatedJson from '../artifacts/public_kernel_teardown_simulated.json' assert { type: 'json' };
 import BaseRollupJson from '../artifacts/rollup_base.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from '../artifacts/rollup_base_simulated.json' assert { type: 'json' };
 import BlockMergeRollupJson from '../artifacts/rollup_block_merge.json' assert { type: 'json' };
 import BlockRootRollupJson from '../artifacts/rollup_block_root.json' assert { type: 'json' };
+import EmptyBlockRootRollupJson from '../artifacts/rollup_block_root_empty.json' assert { type: 'json' };
 import MergeRollupJson from '../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../artifacts/rollup_root.json' assert { type: 'json' };
 
@@ -61,15 +60,15 @@ export const PrivateResetTagToArtifactName: Record<PrivateKernelResetTags, Priva
 export type ServerProtocolArtifact =
   | 'EmptyNestedArtifact'
   | 'PrivateKernelEmptyArtifact'
-  | 'PublicKernelSetupArtifact'
-  | 'PublicKernelAppLogicArtifact'
-  | 'PublicKernelTeardownArtifact'
+  | 'PublicKernelInnerArtifact'
+  | 'PublicKernelMergeArtifact'
   | 'PublicKernelTailArtifact'
   | 'BaseParityArtifact'
   | 'RootParityArtifact'
   | 'BaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'BlockRootRollupArtifact'
+  | 'EmptyBlockRootRollupArtifact'
   | 'BlockMergeRollupArtifact'
   | 'RootRollupArtifact';
 
@@ -85,15 +84,15 @@ export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   EmptyNestedArtifact: EmptyNestedJson as NoirCompiledCircuit,
   PrivateKernelEmptyArtifact: PrivateKernelEmptyJson as NoirCompiledCircuit,
-  PublicKernelSetupArtifact: PublicKernelSetupJson as NoirCompiledCircuit,
-  PublicKernelAppLogicArtifact: PublicKernelAppLogicJson as NoirCompiledCircuit,
-  PublicKernelTeardownArtifact: PublicKernelTeardownJson as NoirCompiledCircuit,
+  PublicKernelInnerArtifact: PublicKernelInnerJson as NoirCompiledCircuit,
+  PublicKernelMergeArtifact: PublicKernelMergeJson as NoirCompiledCircuit,
   PublicKernelTailArtifact: PublicKernelTailJson as NoirCompiledCircuit,
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
   BaseRollupArtifact: BaseRollupJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
+  EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };
@@ -101,15 +100,15 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
 export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   EmptyNestedArtifact: EmptyNestedSimulatedJson as NoirCompiledCircuit,
   PrivateKernelEmptyArtifact: PrivateKernelEmptySimulatedJson as NoirCompiledCircuit,
-  PublicKernelSetupArtifact: PublicKernelSetupSimulatedJson as NoirCompiledCircuit,
-  PublicKernelAppLogicArtifact: PublicKernelAppLogicSimulatedJson as NoirCompiledCircuit,
-  PublicKernelTeardownArtifact: PublicKernelTeardownSimulatedJson as NoirCompiledCircuit,
+  PublicKernelInnerArtifact: PublicKernelInnerSimulatedJson as NoirCompiledCircuit,
+  PublicKernelMergeArtifact: PublicKernelMergeSimulatedJson as NoirCompiledCircuit,
   PublicKernelTailArtifact: PublicKernelTailSimulatedJson as NoirCompiledCircuit,
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
   BaseRollupArtifact: BaseRollupSimulatedJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
+  EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };

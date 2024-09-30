@@ -36,7 +36,8 @@ export interface AttestationPool {
    * Retrieve all of the attestations observed pertaining to a given slot
    *
    * @param slot - The slot to query
+   * @param proposalId - The proposal to query
    * @return BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+  getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
 }
