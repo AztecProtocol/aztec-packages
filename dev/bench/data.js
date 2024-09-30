@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727519889436,
+  "lastUpdate": 1727669043663,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c3ad163dbcf79067b49553f1c139c49a6aa066cb",
-          "message": "chore: Moves add gate out of aux (#8541)\n\nResolves https://github.com/AztecProtocol/barretenberg/issues/913.\r\n\r\nMoves the add gate in aux to the arithmetic block instead. Adds some\r\ntests to check the partitioning of selectors into their blocks.\r\n\r\nThis used to be blocked by the recursion limit in Plonk (as in this change would've bumped us over the limit), but we don't\r\ncare about that anymore (because it's double_verify_proof already goes over 2^19).",
-          "timestamp": "2024-09-16T22:01:52Z",
-          "tree_id": "b7f17aa771b6009b4b178a3054d12fcb84b536b8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c3ad163dbcf79067b49553f1c139c49a6aa066cb"
-        },
-        "date": 1726524799888,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12786.754499000011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9327.253631 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5068.5812840000035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4688.537831000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38141.85167499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38141851000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14527.160270999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14527160000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3610663401,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3610663401 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136642405,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136642405 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2972482515,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2972482515 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 113856029,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 113856029 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 128536533,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128536533 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fad3d6e41765c774696ecc98d45a27851c7c4442",
+          "message": "feat: Faster CIV benching with mocked VKs (#8843)\n\nRather than going through a whole separate (and more expensive) CIVC\r\nprover flow to get vks, we just use random group elements. In order to\r\nget assurance that the benchmark is still a good reflection of\r\nperformance, we refactor the functions used in the benchmark to create\r\nan equivalent test.",
+          "timestamp": "2024-09-30T03:44:01Z",
+          "tree_id": "af576d80388a276e60020c87ec0dfd06a0dd81cb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fad3d6e41765c774696ecc98d45a27851c7c4442"
+        },
+        "date": 1727669036792,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31708.77826999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29374.254102000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5067.799370999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4770.776283 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 96144.082579,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 96144084000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14558.825446,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14558826000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8260900741,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8260900741 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152813824,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152813824 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6723423607,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6723423607 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125016510,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125016510 ns\nthreads: 1"
           }
         ]
       }
