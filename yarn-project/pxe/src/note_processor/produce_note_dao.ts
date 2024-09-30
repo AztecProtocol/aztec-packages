@@ -1,4 +1,4 @@
-import { L1NotePayload, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
+import { type L1NotePayload, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type Logger } from '@aztec/foundation/log';
@@ -115,7 +115,7 @@ export async function produceNoteDaos(
 
             // We concatenate the partial fields with the rest of the fields of the note and we try to produce
             // the note dao again
-            const payloadWithPartialFields = L1NotePayload.fromBuffer(payload.toBuffer());
+            const payloadWithPartialFields = JSON.parse(JSON.stringify(payload));
             payloadWithPartialFields.note.items.push(...partialFields);
 
             ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
@@ -219,7 +219,7 @@ export async function produceNoteDaos(
 
             // We concatenate the partial fields with the rest of the fields of the note and we try to produce
             // the note dao again
-            const payloadWithPartialFields = L1NotePayload.fromBuffer(payload.toBuffer());
+            const payloadWithPartialFields = JSON.parse(JSON.stringify(payload));
             payloadWithPartialFields.note.items.push(...partialFields);
 
             ({ outgoingNote, outgoingDeferredNote } = await produceNoteDaos(
