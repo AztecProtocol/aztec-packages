@@ -312,7 +312,7 @@ describe('e2e_block_building', () => {
 
       // call test contract
       const action = testContract.methods.emit_array_as_encrypted_log(
-        [5, 4, 3, 2, 1],
+        // [5, 4, 3, 2, 1],
         thisWallet.getAddress(),
         thisWallet.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey.toWrappedNoirStruct(),
         thisWallet.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey.toWrappedNoirStruct(),

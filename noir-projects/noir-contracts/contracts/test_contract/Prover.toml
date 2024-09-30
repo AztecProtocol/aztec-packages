@@ -1,0 +1,93 @@
+[owner]
+inner = "0x28573bb3ef83cce3128ffeabe3492fbc38ac415f12d79969c83b2a3afbec817f"
+
+[owner_ivpk_m.inner]
+x = "0x21b8d0f45f8f0e0cb7d03fe462e761e9c1ea889399fb43d6a18bffdee1c3142c"
+y = "0x03a29e44e09d358d5e09234adff6d316373a8575ca9fc810d62eb69d5b6e3b2b"
+is_infinite = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+[outgoing_viewer_ovpk_m.inner]
+x = "0x218a3dcd7b162197f9ea8a1209d3e3b51201a9f65b8b8000f08ab7fdb712796a"
+y = "0x1c800f23afd8615175aa4e25a4c8ad4e9989df943eb69e4e1d7ea5914a765db3"
+is_infinite = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+[inputs]
+start_side_effect_counter = 6
+
+[inputs.call_context]
+is_delegate_call = false
+is_static_call = false
+
+[inputs.call_context.msg_sender]
+inner = "0x22c1d6c0c8919e6e627aaedc82a7a8e56cc1b84a2776b18cb9066ab53a6067cd"
+
+[inputs.call_context.storage_contract_address]
+inner = "0x0163a5c3314dffb1c00923f8add187f7659df2e37ad3a48ff20a877041886b7a"
+
+[inputs.call_context.function_selector]
+inner = "0xf653c2a7"
+
+[inputs.historical_header.last_archive]
+next_available_leaf_index = 11
+root = "0x1ca41db0044d51f774683f38d6a275c2f1fca3aa4c270adc1068c749505f8a4d"
+
+[inputs.historical_header.content_commitment]
+num_txs = "0x0000000000000000000000000000000000000000000000000000000000000002"
+txs_effects_hash = "0x00c867ac7e23bfb73833e363542c1b97660fcb615f927e60f94cd01de5f6fdd9"
+in_hash = "0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c"
+out_hash = "0x0007638bb56b6dda2b64b8f76841114ac3a87a1820030e2e16772c4d294879c3"
+
+[inputs.historical_header.state.l1_to_l2_message_tree]
+next_available_leaf_index = 176
+root = "0x0a65c806402251cc03d8761979e3842a1b5984a83d4d9c10ffd84d64ddcdad6a"
+
+[inputs.historical_header.state.partial.note_hash_tree]
+next_available_leaf_index = 1_472
+root = "0x1e4a0bb7b65fc9c2907c8c1c57e8178d5bf1145f309476ec332f409bd51a0fa3"
+
+[inputs.historical_header.state.partial.nullifier_tree]
+next_available_leaf_index = 1_600
+root = "0x1108cec9a39fec4c4770c99e61c3cd4b2fecd5441843452621efa50b7c8aa8d5"
+
+[inputs.historical_header.state.partial.public_data_tree]
+next_available_leaf_index = 1_600
+root = "0x2bbac3536b8c78f6ac886fa65e55f41936e34b74b52e82fe7d15c6f772d81ab1"
+
+[inputs.historical_header.global_variables]
+chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
+version = "0x0000000000000000000000000000000000000000000000000000000000000001"
+block_number = "0x000000000000000000000000000000000000000000000000000000000000000b"
+slot_number = "0x0000000000000000000000000000000000000000000000000000000000000012"
+timestamp = "0x0000000000000000000000000000000000000000000000000000000066c48758"
+
+[inputs.historical_header.global_variables.coinbase]
+inner = "0x0000000000000000000000000000000000000000"
+
+[inputs.historical_header.global_variables.fee_recipient]
+inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+[inputs.historical_header.global_variables.gas_fees]
+fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000001"
+fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000000001"
+
+[inputs.historical_header]
+total_fees = "0x000000000000000000000000000000000000000000000000000000000bec0bc8"
+
+[inputs.tx_context.gas_settings.gas_limits]
+da_gas = 1_000_000_000
+l2_gas = 1_000_000_000
+
+[inputs.tx_context.gas_settings.teardown_gas_limits]
+da_gas = 100_000_000
+l2_gas = 100_000_000
+
+[inputs.tx_context.gas_settings.max_fees_per_gas]
+fee_per_da_gas = "0x000000000000000000000000000000000000000000000000000000000000000a"
+fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000000a"
+
+[inputs.tx_context.gas_settings]
+inclusion_fee = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+[inputs.tx_context]
+chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
+version = "0x0000000000000000000000000000000000000000000000000000000000000001"

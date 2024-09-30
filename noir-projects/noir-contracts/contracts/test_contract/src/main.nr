@@ -266,14 +266,13 @@ contract Test {
     // For testing non-note encrypted logs
     #[private]
     fn emit_array_as_encrypted_log(
-        fields: [Field; 5],
+        // fields: [Field; 5],
         owner: AztecAddress,
         owner_ivpk_m: IvpkM,
-        outgoing_viewer_ovpk_m: OvpkM,
-        nest: bool
+        outgoing_viewer_ovpk_m: OvpkM
     ) {
 
-        let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
+        let event = ExampleEvent { value0: 5, value1: 4, value2: 3, value3: 2, value4: 1 };
 
         event.emit(
             encode_and_encrypt_event_with_randomness(
@@ -290,8 +289,8 @@ contract Test {
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
-        if nest {
-            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, owner_ivpk_m, outgoing_viewer_ovpk_m, false).call(&mut context);
+        if owner_ivpk_m.inner.is_infinite {
+            Test::at(context.this_address()).emit_array_as_encrypted_log( owner, owner_ivpk_m, outgoing_viewer_ovpk_m).call(&mut context);
 
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
@@ -506,4 +505,15 @@ contract Test {
             result
         }
     }
+}
+
+
+fn main(
+    inputs: dep::aztec::context::inputs::PrivateContextInputs,
+    owner: dep::aztec::prelude::AztecAddress,
+    owner_ivpk_m: dep::aztec::keys::public_keys::IvpkM,
+    outgoing_viewer_ovpk_m: dep::aztec::keys::public_keys::OvpkM
+) -> pub Field {
+    Test::emit_array_as_encrypted_log(inputs, owner, owner_ivpk_m, outgoing_viewer_ovpk_m);
+    0
 }

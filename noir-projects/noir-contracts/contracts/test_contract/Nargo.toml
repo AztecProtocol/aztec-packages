@@ -2,7 +2,7 @@
 name = "test_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
-type = "contract"
+type = "bin"
 
 [dependencies]
 aztec = { path = "../../../aztec-nr/aztec" }
