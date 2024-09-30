@@ -22,7 +22,6 @@ env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   setup:
@@ -156,10 +155,7 @@ jobs:
     needs: [build, changes]
     if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
-    env:
-      WAIT_FOR_RUNNERS: false
     strategy:
-      fail-fast: false
       matrix:
         test: ${{ fromJson( needs.build.outputs.e2e_list )}}
     steps:
@@ -167,11 +163,12 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
-        timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           WAIT_FOR_RUNNERS: false
+        timeout-minutes: 40
         with:
           runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '8core-tester-x86' }}
           builder_type: builder-x86
@@ -191,8 +188,6 @@ jobs:
     needs: [build, changes]
     if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-20.04
-    env:
-      WAIT_FOR_RUNNERS: false
     strategy:
       fail-fast: false
       matrix:
@@ -205,6 +200,7 @@ jobs:
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           WAIT_FOR_RUNNERS: false
         timeout-minutes: 45
         with:
@@ -233,10 +229,11 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           WAIT_FOR_RUNNERS: false
-        uses: ./.github/ensure-tester-with-images
         timeout-minutes: 40
         with:
           runner_type: 16core-tester-x86
@@ -600,6 +597,7 @@ jobs:
         uses: ./.github/ensure-tester
         env:
           USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           WAIT_FOR_RUNNERS: false
         timeout-minutes: 40
         with:
