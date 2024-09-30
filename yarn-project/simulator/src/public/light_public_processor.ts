@@ -99,7 +99,6 @@ export class LightPublicProcessor {
         // TODO: maybe there is some extra validation to make sure that we do not overrun
         // the checks that the kernel should have been doing?
         // If not we add them to the vm execution
-        console.log("validating txs");
         // TODO(md): skiping tx validation for now as validator is not well defined
         // const [_, invalidTxs] = await this.txValidator.validateTxs(txs);
 
@@ -148,22 +147,16 @@ export class LightPublicProcessor {
                     await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, allNoteHashes);
                     await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, allNullifiers, NULLIFIER_SUBTREE_HEIGHT);
 
-                    // console.log("number of public data writes", allPublicDataWrites.length);
-                    console.log("all public data writes", getNonEmptyItems(allPublicDataWrites));
                     const beingWritten = allPublicDataWrites.map(x => x.toBuffer());
                     await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, beingWritten, PUBLIC_DATA_SUBTREE_HEIGHT);
 
                 }
             } else {
-                // console.log("root before", await this.merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE));
                 await this.applyPrivateStateUpdates(tx);
 
                 // Apply empty public data writes
-                console.log("applying empty public data writes");
                 const emptyPublicDataWrites = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => PublicDataTreeLeaf.empty());
                 await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, emptyPublicDataWrites.map(x => x.toBuffer()), PUBLIC_DATA_SUBTREE_HEIGHT);
-                // console.log("root after", await this.merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE));
-                // console.log("applied private state updates");
             }
         }
 
@@ -238,12 +231,10 @@ export class LightPublicProcessor {
             const res = await this.publicExecutor.simulate(call, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers);
 
             if (!this.temporaryDidCallOrNestedCallRevert(res)) {
-                console.log("non revertible call succeeded");
                 this.addNullifiers(res.nullifiers);
                 publicExecutionResults.push(res);
                 this.worldStateDB.checkpoint();
             } else {
-                console.log("non revertible call or nested call failed");
                 await this.worldStateDB.removeNewContracts(tx);
                 await this.worldStateDB.rollbackToCommit();
 
@@ -314,13 +305,9 @@ export class LightPublicProcessor {
             const tempPub = getNonEmptyItems(res.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(res.executionRequest.contractAddress, req));
             enqueuedCallPublicDataWrites.push(...tempPub);
 
-            console.log("public data writes", tempPub);
-
             // TODO: do for the nested executions
             let i = 0;
             for (const nested of res.nestedExecutions) {
-                console.log("nested execution", i++);
-                console.log("first public data write", nested.contractStorageUpdateRequests[0]);
 
                 const newNullifiers = getNonEmptyItems(nested.nullifiers).map(n => n.scope(nested.executionRequest.contractAddress));
                 const newNoteHashes = getNonEmptyItems(nested.noteHashes).map(n => n.scope(nested.executionRequest.contractAddress));
@@ -350,8 +337,6 @@ export class LightPublicProcessor {
             newNoteHashes: newNoteHashes.map(n => siloNoteHash(n.contractAddress, n.value)),
             publicDataWrites: newPublicDataWrites
         };
-        console.log("after public execution new nullifiers", returning.nullifiers);
-        console.log("after public execution new note hashes", returning.newNoteHashes);
         return returning;
     }
 

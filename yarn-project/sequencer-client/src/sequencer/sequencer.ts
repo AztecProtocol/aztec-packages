@@ -435,9 +435,12 @@ export class Sequencer {
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
     await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
+    const timer = new Timer();
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
     );
+    this.log.info(`Public processor duration ${timer.ms()}ms`);
+
     if (failedTxs.length > 0) {
       const failedTxData = failedTxs.map(fail => fail.tx);
       this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);

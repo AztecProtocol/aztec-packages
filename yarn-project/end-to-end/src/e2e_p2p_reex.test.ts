@@ -32,13 +32,13 @@ import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 import { createAccounts } from '@aztec/accounts/testing';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 2;
-const NUM_TXS_PER_BLOCK = 2;
-const NUM_TXS_PER_NODE = 2;
+const NUM_NODES = 4;
+const NUM_TXS_PER_BLOCK = 4;
 const BOOT_NODE_UDP_PORT = 40400;
 
 const PEER_ID_PRIVATE_KEYS = generatePeerIdPrivateKeys(NUM_NODES);
 
+// TODO: set up a test snapshot to make the iteration speed faster on this set of tests
 describe('e2e_p2p_network', () => {
   let config: AztecNodeConfig;
   let logger: DebugLogger;
@@ -46,6 +46,9 @@ describe('e2e_p2p_network', () => {
   let bootstrapNode: BootstrapNode;
   let bootstrapNodeEnr: string;
   let deployL1ContractsValues: DeployL1Contracts;
+
+
+  let snapshotManager: ISnapshotManager;
 
   let token: TokenContract;
   let spam: SpamContract;

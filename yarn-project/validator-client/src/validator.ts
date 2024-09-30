@@ -19,6 +19,7 @@ import {
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { LightPublicProcessor, LightPublicProcessorFactory } from '@aztec/simulator';
+import { Timer } from '@aztec/foundation/timer';
 
 export interface Validator {
   start(): Promise<void>;
@@ -144,10 +145,11 @@ export class ValidatorClient implements Validator {
       const lightProcessor = await this.lightPublicProcessorFactory.createWithSyncedState(targetBlockNumber, undefined, header.globalVariables, txValidator);
 
       this.log.verbose(`Re-ex: Re-executing transactions`);
+      const timer = new Timer();
       await lightProcessor.process(filteredTransactions as Tx[]);
-      this.log.verbose(`Re-ex: Re-execution complete`);
+      this.log.verbose(`Re-ex: Re-execution complete ${timer.ms()}ms`);
 
-      // TODO: update this to check the archive matches
+      // TODO(md): update this to check the archive matches
 
       const [
         newNullifierTree,

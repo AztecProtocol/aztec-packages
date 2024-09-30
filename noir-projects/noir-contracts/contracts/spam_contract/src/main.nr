@@ -2,6 +2,8 @@ mod types;
 
 use dep::aztec::macros::aztec;
 
+global MAX_EXTERNAL_CALL_SPAM = 4;
+
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 #[aztec]
 contract Spam {
@@ -29,7 +31,7 @@ contract Spam {
     }
 
     #[private]
-    fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
+    fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool, call_recursive_spam: bool) {
         let caller = context.msg_sender();
         let caller_keys = get_public_keys(caller);
         let amount = U128::from_integer(1);
@@ -58,6 +60,14 @@ contract Spam {
                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
             ).enqueue(&mut context);
         }
+
+        if (call_recursive_spam) {
+            Spam::at(context.this_address()).public_spam_with_external_call(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).enqueue(&mut context);
+            Spam::at(context.this_address()).public_spam_with_external_call(
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+            ).enqueue(&mut context);
+        }
     }
 
     #[public]
@@ -67,6 +77,29 @@ contract Spam {
         for i in start..end {
             let prev = storage.public_balances.at(i as Field).read();
             storage.public_balances.at(i as Field).write(prev + one);
+        }
+    }
+
+    // TODO(md): add something to the public spam such that we can test further enqueued calls
+    #[public]
+    #[internal]
+    fn public_spam_with_external_call(start: u32, end: u32) {
+        let one = U128::from_integer(1);
+        for i in start..end {
+            let prev = storage.public_balances.at(i as Field).read();
+            storage.public_balances.at(i as Field).write(prev + one);
+        }
+        Spam::at(context.this_address()).recursive_spam(0).enqueue(&mut context);
+    }
+
+    #[public]
+    fn recursive_spam(counter: u32) {
+        let one = U128::from_integer(1);
+        if (counter < MAX_EXTERNAL_CALL_SPAM) {
+            let prev = storage.public_balances.at(counter as Field).read();
+            storage.public_balances.at(counter as Field).write(prev + one);
+
+            Spam::at(context.this_address()).external_spam(counter + 1).call(&mut context);
         }
     }
 }
