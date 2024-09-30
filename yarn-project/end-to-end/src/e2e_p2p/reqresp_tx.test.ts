@@ -1,23 +1,16 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
-import {
-  sleep,
-} from '@aztec/aztec.js';
-
-import fs from 'fs';
+import { sleep } from '@aztec/aztec.js';
 
 import { jest } from '@jest/globals';
+import fs from 'fs';
 
-import {
-  type NodeContext,
-  createNodes,
-} from '../fixtures/setup_p2p_test.js';
+import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
+import { P2PNetworkTest } from './p2p_network.js';
+import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
-
-import { P2PNetworkTest } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;

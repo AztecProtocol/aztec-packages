@@ -4,6 +4,7 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
+import { getRandomPort } from '@aztec/foundation/testing';
 import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -11,7 +12,6 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
-import { getRandomPort } from '@aztec/foundation/testing';
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -30,7 +30,7 @@ export function generateNodePrivateKeys(startIndex: number, numberOfNodes: numbe
 }
 
 export function generatePeerIdPrivateKey(): string {
-    // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
+  // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
   return '08021220' + generatePrivateKey().substr(2, 66);
 }
 
@@ -52,7 +52,7 @@ export async function createNodes(
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
     // TODO(md): explain
-    const port = bootNodePort ? bootNodePort + i + 1 : await getRandomPort() || 40401 + i;
+    const port = bootNodePort ? bootNodePort + i + 1 : (await getRandomPort()) || 40401 + i;
 
     const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i);
     nodePromises.push(nodePromise);
@@ -69,7 +69,14 @@ export async function createNode(
   publisherAddressIndex: number,
   dataDirectory?: string,
 ) {
-  const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, peerIdPrivateKey, publisherAddressIndex, dataDirectory);
+  const validatorConfig = await createValidatorConfig(
+    config,
+    bootstrapNode,
+    tcpPort,
+    peerIdPrivateKey,
+    publisherAddressIndex,
+    dataDirectory,
+  );
   return await AztecNodeService.createAndSync(
     validatorConfig,
     new NoopTelemetryClient(),
@@ -77,9 +84,16 @@ export async function createNode(
   );
 }
 
-export async function createValidatorConfig(config: AztecNodeConfig, bootstrapNodeEnr?: string, port?: number, peerIdPrivateKey?: string, accountIndex: number = 0, dataDirectory?: string) {
+export async function createValidatorConfig(
+  config: AztecNodeConfig,
+  bootstrapNodeEnr?: string,
+  port?: number,
+  peerIdPrivateKey?: string,
+  accountIndex: number = 0,
+  dataDirectory?: string,
+) {
   peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
-  port = port ?? await getRandomPort()!;
+  port = port ?? (await getRandomPort()!);
 
   const privateKey = getPrivateKeyFromIndex(accountIndex);
   const privateKeyHex: `0x${string}` = `0x${privateKey!.toString('hex')}`;

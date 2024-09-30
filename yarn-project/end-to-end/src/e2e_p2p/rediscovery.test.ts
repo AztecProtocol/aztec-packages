@@ -1,24 +1,16 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
-import {
-  sleep,
-} from '@aztec/aztec.js';
-import { type BootstrapNode } from '@aztec/p2p';
+import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
-import {
-  type NodeContext,
-  createNode,
-  createNodes,
-} from '../fixtures/setup_p2p_test.js';
+import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
+import { P2PNetworkTest } from './p2p_network.js';
+import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40400;
-
-import { P2PNetworkTest } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 describe('e2e_p2p_rediscovery', () => {
   let t: P2PNetworkTest;
@@ -36,7 +28,6 @@ describe('e2e_p2p_rediscovery', () => {
       fs.rmSync(`./data-${i}`, { recursive: true, force: true });
     }
   });
-
 
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
@@ -97,5 +88,4 @@ describe('e2e_p2p_rediscovery', () => {
     // shutdown all nodes.
     await t.stopNodes(newNodes);
   });
-
 });

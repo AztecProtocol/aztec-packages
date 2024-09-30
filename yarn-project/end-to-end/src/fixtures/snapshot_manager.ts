@@ -21,7 +21,6 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -40,8 +39,13 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalRouter, getPrivateKeyFromIndex, SetupOptions, startAnvil } from './utils.js';
-import { config } from 'process';
+import {
+  type SetupOptions,
+  deployCanonicalAuthRegistry,
+  deployCanonicalRouter,
+  getPrivateKeyFromIndex,
+  startAnvil,
+} from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -68,7 +72,7 @@ export function createSnapshotManager(
   config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
-    initialValidators: []
+    initialValidators: [],
   },
 ) {
   return dataPath
@@ -325,16 +329,11 @@ async function setupFromFresh(
     await ethCheatCodes.warp(opts.l1StartTime);
   }
 
-  const deployL1ContractsValues = await setupL1Contracts(
-    aztecNodeConfig.l1RpcUrl,
-    hdAccount,
-    logger,
-    {
-      salt: opts.salt,
-      initialValidators: opts.initialValidators,
-      ...deployL1ContractsArgs,
-    }
-  );
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+    salt: opts.salt,
+    initialValidators: opts.initialValidators,
+    ...deployL1ContractsArgs,
+  });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
