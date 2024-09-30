@@ -28,7 +28,7 @@ jobs:
         run: |
           RUN_ID="${{ inputs.run_id }}"
           # Get the run details
-          RUN_INFO=$(gh run view $RUN_ID --json headSha,headBranch,event)
+          RUN_INFO=$(gh run view ${{ github.run_id }} --json headSha,headBranch,event)
           # Extract the commit SHA, branch name, and event type
           COMMIT_SHA=$(echo "$RUN_INFO" | jq -r '.headSha')
           BRANCH_NAME=$(echo "$RUN_INFO" | jq -r '.headBranch')

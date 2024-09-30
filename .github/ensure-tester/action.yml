@@ -83,14 +83,14 @@ runs:
       run: |
         set -x
         # detect run folder
-        if ! scripts/run_on_tester "[ -d ~/run-$RUN_ID-git ]" ; then
+        if ! scripts/run_on_tester "[ -d ~/run-${{ github.run_id }}-git ]" ; then
           echo "Copying local repo to spot"
           tar czf - .git | scripts/run_on_tester \
-            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
+            "mkdir -p ~/run-${{ github.run_id }}-git && cd ~/run-${{ github.run_id }}-git && tar xzf -" || true
           scripts/run_on_tester "
             echo "Unpacking repo"
             git config --global advice.detachedHead false
-            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
+            git clone ~/run-${{ github.run_id }}-git/.git ~/run-${{ github.run_id }}
             echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
             chmod 600 ~/.ssh/build_instance_key
           " || true
