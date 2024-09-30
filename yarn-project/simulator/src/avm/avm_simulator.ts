@@ -14,58 +14,62 @@ import {
 } from './errors.js';
 import type { Instruction } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
+import { AztecAddress } from '@aztec/circuits.js';
 
 export class AvmSimulator {
   private log: DebugLogger;
-  private bytecode: Buffer | undefined;
+  private bytecodes: Map<AztecAddress, Buffer> = new Map();
 
-  constructor(private context: AvmContext) {
-    this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
+  //constructor(private context: AvmContext) {
+  constructor() {
+    //this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
+    this.log = createDebugLogger(`aztec:avm_simulator:core`);
   }
 
   /**
    * Fetch the bytecode and execute it in the current context.
    */
-  public async execute(): Promise<AvmContractCallResult> {
-    const bytecode = await this.context.persistableState.getBytecode(
-      this.context.environment.address,
-      this.context.environment.functionSelector,
+  public async execute(context: AvmContext): Promise<AvmContractCallResult> {
+    const bytecode = await context.persistableState.getBytecode(
+      context.environment.address,
+      context.environment.functionSelector,
     );
 
     // This assumes that we will not be able to send messages to accounts without code
     // Pending classes and instances impl details
     if (!bytecode) {
-      throw new NoBytecodeForContractError(this.context.environment.address);
+      throw new NoBytecodeForContractError(context.environment.address);
     }
 
-    return await this.executeBytecode(bytecode);
+    this.bytecodes.set(context.environment.address, bytecode);
+
+    return await this.executeBytecode(context, bytecode);
   }
 
   /**
    * Return the bytecode used for execution, if any.
    */
-  public getBytecode(): Buffer | undefined {
-    return this.bytecode;
+  public getBytecode(address: AztecAddress): Buffer | undefined {
+    return this.bytecodes.get(address);
   }
 
   /**
    * Executes the provided bytecode in the current context.
    * This method is useful for testing and debugging.
    */
-  public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
+  public async executeBytecode(context: AvmContext, bytecode: Buffer): Promise<AvmContractCallResult> {
     assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
 
-    this.bytecode = bytecode;
-    return await this.executeInstructions(decodeFromBytecode(bytecode));
+    return await this.executeInstructions(context, decodeFromBytecode(bytecode));
   }
 
   /**
    * Executes the provided instructions in the current context.
    * This method is useful for testing and debugging.
    */
-  public async executeInstructions(instructions: Instruction[]): Promise<AvmContractCallResult> {
+  public async executeInstructions(context: AvmContext, instructions: Instruction[]): Promise<AvmContractCallResult> {
     assert(instructions.length > 0);
-    const { machineState } = this.context;
+    const { machineState } = context;
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
@@ -81,7 +85,7 @@ export class AvmSimulator {
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
-        await instruction.execute(this.context);
+        await instruction.execute(context, this.execute, this.getBytecode);
 
         if (machineState.pc >= instructions.length) {
           this.log.warn('Passed end of program');
@@ -91,7 +95,7 @@ export class AvmSimulator {
 
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
-      const revertReason = reverted ? revertReasonFromExplicitRevert(output, this.context) : undefined;
+      const revertReason = reverted ? revertReasonFromExplicitRevert(output, context) : undefined;
       const results = new AvmContractCallResult(reverted, output, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
       // Return results for processing by calling context
@@ -103,7 +107,7 @@ export class AvmSimulator {
         throw err;
       }
 
-      const revertReason = revertReasonFromExceptionalHalt(err, this.context);
+      const revertReason = revertReasonFromExceptionalHalt(err, context);
       // Note: "exceptional halts" cannot return data, hence []
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);

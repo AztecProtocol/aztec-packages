@@ -9,7 +9,7 @@ import { AvmSimulator } from '../avm_simulator.js';
 import { RethrownError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { Instruction } from './instruction.js';
+import { Instruction, ContractBytecodeFn, NestedSimulatorCallFn, } from './instruction.js';
 
 abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
@@ -43,7 +43,8 @@ abstract class ExternalCall extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext) {
+
+  public async execute(context: AvmContext, executeNestedContext: NestedSimulatorCallFn, getContractBytecode: ContractBytecodeFn) {
     const memory = context.machineState.memory.track(this.type);
     const [gasOffset, addrOffset, argsOffset, argsSizeOffset, retOffset, successOffset] = Addressing.fromWire(
       this.indirect,
@@ -87,8 +88,7 @@ abstract class ExternalCall extends Instruction {
       FunctionSelector.fromField(functionSelector),
     );
 
-    const simulator = new AvmSimulator(nestedContext);
-    const nestedCallResults: AvmContractCallResult = await simulator.execute();
+    const nestedCallResults: AvmContractCallResult = await executeNestedContext(nestedContext);
     const success = !nestedCallResults.reverted;
 
     // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
@@ -123,7 +123,7 @@ abstract class ExternalCall extends Instruction {
       /*nestedEnvironment=*/ nestedContext.environment,
       /*startGasLeft=*/ Gas.from(allocatedGas),
       /*endGasLeft=*/ Gas.from(nestedContext.machineState.gasLeft),
-      /*bytecode=*/ simulator.getBytecode()!,
+      /*bytecode=*/ getContractBytecode(nestedContext.environment.address)!,
       /*avmCallResults=*/ nestedCallResults,
     );
 

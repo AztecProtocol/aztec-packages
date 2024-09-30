@@ -1,11 +1,16 @@
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
+import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import { type MemoryOperations } from '../avm_memory_types.js';
 import { type BufferCursor } from '../serialization/buffer_cursor.js';
 import { type Serializable } from '../serialization/bytecode_serialization.js';
 import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
+import { AztecAddress } from '@aztec/circuits.js';
+
+export type NestedSimulatorCallFn = (context: AvmContext) => Promise<AvmContractCallResult>;
+export type ContractBytecodeFn = (address: AztecAddress) => Buffer | undefined;
 
 type InstructionConstructor = {
   new (...args: any[]): Instruction;
@@ -21,7 +26,7 @@ export abstract class Instruction {
    * This is the main entry point for the instruction.
    * @param context - The AvmContext in which the instruction executes.
    */
-  public abstract execute(context: AvmContext): Promise<void>;
+  public abstract execute(context: AvmContext, executeNestedContext?: NestedSimulatorCallFn, getContractBytecode?: ContractBytecodeFn): Promise<void>;
 
   /**
    * Generate a string representation of the instruction including
