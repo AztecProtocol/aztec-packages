@@ -37,7 +37,12 @@ pub fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u3
 }
 
 pub fn pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> EmbeddedCurvePoint {
-    pedersen_commitment_with_separator_noir(input, separator)
+    let value = __pedersen_commitment_with_separator(input, separator);
+    if (value[0] == 0) & (value[1] == 0) {
+        EmbeddedCurvePoint { x: 0, y: 0, is_infinite: true }
+    } else {
+        EmbeddedCurvePoint { x: value[0], y: value[1], is_infinite: false }
+    }
 }
 
 #[no_predicates]
