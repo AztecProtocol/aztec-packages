@@ -178,10 +178,7 @@ jobs:
           # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
           run: |
-            set -eux
-            cd ./yarn-project/end-to-end/
-            export FORCE_COLOR=1
-            ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
+            cd ./yarn-project/end-to-end/ && ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -213,11 +210,7 @@ jobs:
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
           tester_ttl: 40
           run: |
-            set -eux
-            cd ./yarn-project/end-to-end/
-            export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../../scripts/earthly-ci --exec-stats -P --no-output +${{ matrix.test }}
+            cd ./yarn-project/end-to-end/ &&  ../../scripts/earthly-ci --exec-stats -P --no-output +${{ matrix.test }}
 
   acir-bench:
     runs-on: ubuntu-20.04
@@ -243,12 +236,7 @@ jobs:
           builder_images_to_copy: aztecprotocol/barretenberg-acir-benches:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: cd noir && ../scripts/earthly-ci +export-bench-acir-bb
-          run: |
-            set -eux
-            cd ./noir/
-            export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../scripts/earthly-ci -P --no-output +bench-publish-acir-bb
+          run: cd noir && ../scripts/earthly-ci -P --no-output ./noir/+bench-publish-acir-bb
 
   bench-summary:
     needs:
@@ -590,8 +578,6 @@ jobs:
         with:
           runner_type: builder-x86
           run: |
-            set -eux
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
         uses: ./.github/ensure-tester
@@ -684,8 +670,7 @@ jobs:
         working-directory: ./noir-projects/
         timeout-minutes: 40
         run: |
-          earthly-ci \
-          --artifact +gates-report/gates_report.json
+          earthly-ci --artifact +gates-report/gates_report.json
           mv gates_report.json ../protocol_circuits_report.json
 
       - name: Compare gates reports
@@ -720,8 +705,7 @@ jobs:
         working-directory: ./noir-projects/
         timeout-minutes: 40
         run: |
-          earthly-ci \
-          --artifact +public-functions-report/public_functions_report.json
+          earthly-ci --artifact +public-functions-report/public_functions_report.json
           mv public_functions_report.json ../public_functions_report.json
 
       - name: Compare public functions bytecode size reports
