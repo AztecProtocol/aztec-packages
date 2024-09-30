@@ -10,6 +10,7 @@ import {
   type TxHash,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
@@ -27,6 +28,8 @@ export class EpochProvingJob {
   private state: EpochProvingJobState = 'initialized';
   private log = createDebugLogger('aztec:epoch-proving-job');
   private uuid: string;
+
+  private runPromise: Promise<void> | undefined;
 
   constructor(
     private prover: EpochProver,
@@ -64,6 +67,9 @@ export class EpochProvingJob {
     this.log.info(`Starting epoch proving job`, { fromBlock, toBlock, epochNumber, uuid: this.uuid });
     this.state = 'processing';
     const timer = new Timer();
+
+    const { promise, resolve } = promiseWithResolvers<void>();
+    this.runPromise = promise;
 
     try {
       this.prover.startNewEpoch(epochNumber, epochSize);
@@ -122,11 +128,15 @@ export class EpochProvingJob {
       this.state = 'failed';
     } finally {
       await this.cleanUp(this);
+      resolve();
     }
   }
 
-  public stop() {
+  public async stop() {
     this.prover.cancel();
+    if (this.runPromise) {
+      await this.runPromise;
+    }
   }
 
   private async getBlock(blockNumber: number): Promise<L2Block> {

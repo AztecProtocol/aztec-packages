@@ -80,7 +80,7 @@ export class ProverNode {
     await this.prover.stop();
     await this.l2BlockSource.stop();
     this.publisher.interrupt();
-    this.jobs.forEach(job => job.stop());
+    await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     this.log.info('Stopped ProverNode');
   }
