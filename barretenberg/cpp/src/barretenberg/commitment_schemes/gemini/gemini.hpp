@@ -275,7 +275,7 @@ template <typename Curve> class GeminiVerifier_ {
                     Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
 
             } else {
-                if (l < num_variables) {
+                if (l <= num_variables) {
                     batched_eval_accumulator = batched_eval_round_acc;
                 }
             }

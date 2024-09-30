@@ -1099,6 +1099,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
+    info(proof.size());
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1093): As the Smart contract doesn't verify the PCS and
     // Shplemini is not constant size, we slice the proof up to sumcheck so calculation of public inputs is correct.
     // This hack will be subsequently removed.
