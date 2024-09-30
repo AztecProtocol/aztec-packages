@@ -15,6 +15,7 @@ describe('epoch proof quote', () => {
       epochToProve: 42n,
       prover: EthAddress.random(),
       validUntilSlot: 100n,
+      domainSeparator: Buffer32.random(),
     });
 
     const quote = EpochProofQuote.new(payload, signer);
@@ -29,6 +30,7 @@ describe('epoch proof quote', () => {
       bondAmount: 1000000000000000000n,
       prover: EthAddress.fromString('0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826'),
       basisPointFee: 5000,
+      domainSeparator: Buffer32.random(),
     });
 
     const hash = getHashedSignaturePayload(payload).to0xString();

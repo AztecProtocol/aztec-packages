@@ -44,7 +44,7 @@ contract SpartaTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  TestERC20 internal portalERC20;
+  TestERC20 internal testERC20;
 
   SignatureLib.Signature internal emptySignature;
   mapping(address validator => uint256 privateKey) internal privateKeys;
@@ -73,7 +73,7 @@ contract SpartaTest is DecoderBase {
       initialValidators[i - 1] = validator;
     }
 
-    portalERC20 = new TestERC20();
+    testERC20 = new TestERC20();
     rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));

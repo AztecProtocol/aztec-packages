@@ -42,7 +42,7 @@ contract RollupTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  TestERC20 internal portalERC20;
+  TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
 
   SignatureLib.Signature[] internal signatures;
@@ -63,11 +63,11 @@ contract RollupTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    portalERC20 = new TestERC20();
+    testERC20 = new TestERC20();
     feeJuicePortal = new FeeJuicePortal(address(this));
-    portalERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize(
-      address(registry), address(portalERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
+      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
     rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
@@ -425,7 +425,7 @@ contract RollupTest is DecoderBase {
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes32[] memory txHashes = new bytes32[](0);
-    uint256 portalBalance = portalERC20.balanceOf(address(feeJuicePortal));
+    uint256 portalBalance = testERC20.balanceOf(address(feeJuicePortal));
     address coinbase = data.decodedHeader.globalVariables.coinbase;
 
     // Progress time as necessary
@@ -437,17 +437,17 @@ contract RollupTest is DecoderBase {
         mstore(add(header, add(0x20, 0x0248)), feeAmount)
       }
 
-      assertEq(portalERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
+      assertEq(testERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
 
       // We jump to the time of the block. (unless it is in the past)
       vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-      uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
+      uint256 coinbaseBalance = testERC20.balanceOf(coinbase);
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       // Assert that balance have NOT been increased by proposing the block
       rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body);
-      assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
     }
 
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
@@ -472,11 +472,11 @@ contract RollupTest is DecoderBase {
         coinbase,
         feeAmount
       );
-      assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
     }
 
     {
-      portalERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
+      testERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
 
       // When the block is proven we should have received the funds
       _submitEpochProofWithFee(
@@ -490,7 +490,7 @@ contract RollupTest is DecoderBase {
         coinbase,
         feeAmount
       );
-      assertEq(portalERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
+      assertEq(testERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
     }
   }
 

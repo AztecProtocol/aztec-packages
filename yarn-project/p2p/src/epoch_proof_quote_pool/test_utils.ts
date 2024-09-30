@@ -1,5 +1,6 @@
 import { EpochProofQuote, EpochProofQuotePayload } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 
 export function makeRandomEpochProofQuotePayload(): EpochProofQuotePayload {
@@ -9,6 +10,7 @@ export function makeRandomEpochProofQuotePayload(): EpochProofQuotePayload {
     epochToProve: randomBigInt(1000000n),
     prover: EthAddress.random(),
     validUntilSlot: randomBigInt(1000000n),
+    domainSeparator: Buffer32.random(),
   });
 }
 

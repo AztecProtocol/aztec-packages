@@ -6,15 +6,16 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
-import { type Signable } from '../p2p/signature_utils.js';
+import { type ScopedToDomain, type Signable } from '../p2p/signature_utils.js';
 
-export class EpochProofQuotePayload implements Signable {
+export class EpochProofQuotePayload implements Signable, ScopedToDomain {
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
     public readonly bondAmount: bigint,
     public readonly prover: EthAddress,
     public readonly basisPointFee: number,
+    public readonly domainSeparator: Buffer32,
   ) {}
 
   static getFields(fields: FieldsOf<EpochProofQuotePayload>) {
@@ -24,6 +25,7 @@ export class EpochProofQuotePayload implements Signable {
       fields.bondAmount,
       fields.prover,
       fields.basisPointFee,
+      fields.domainSeparator,
     ] as const;
   }
 
@@ -39,6 +41,7 @@ export class EpochProofQuotePayload implements Signable {
       reader.readUInt256(),
       reader.readObject(EthAddress),
       reader.readNumber(),
+      reader.readObject(Buffer32),
     );
   }
 
@@ -49,6 +52,7 @@ export class EpochProofQuotePayload implements Signable {
       fields.bondAmount,
       fields.prover,
       fields.basisPointFee,
+      fields.domainSeparator,
     );
   }
 

@@ -37,7 +37,7 @@ contract TokenPortalTest is Test {
   bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
 
   TokenPortal internal tokenPortal;
-  TestERC20 internal portalERC20;
+  TestERC20 internal testERC20;
 
   // input params
   uint32 internal deadline = uint32(block.timestamp + 1 days);
@@ -59,7 +59,7 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry(address(this));
-    portalERC20 = new TestERC20();
+    testERC20 = new TestERC20();
     rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
@@ -67,7 +67,7 @@ contract TokenPortalTest is Test {
     registry.upgrade(address(rollup));
 
     tokenPortal = new TokenPortal();
-    tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
+    tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
 
     // Modify the proven block count
     vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber));
@@ -88,7 +88,7 @@ contract TokenPortalTest is Test {
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
-        ),
+      ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -108,8 +108,8 @@ contract TokenPortalTest is Test {
 
   function testDepositPrivate() public returns (bytes32) {
     // mint token and approve to the portal
-    portalERC20.mint(address(this), mintAmount);
-    portalERC20.approve(address(tokenPortal), mintAmount);
+    testERC20.mint(address(this), mintAmount);
+    testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message();
@@ -134,8 +134,8 @@ contract TokenPortalTest is Test {
 
   function testDepositPublic() public returns (bytes32) {
     // mint token and approve to the portal
-    portalERC20.mint(address(this), mintAmount);
-    portalERC20.approve(address(tokenPortal), mintAmount);
+    testERC20.mint(address(this), mintAmount);
+    testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message();
@@ -166,7 +166,7 @@ contract TokenPortalTest is Test {
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )
-          )
+        )
       })
     );
 
@@ -183,7 +183,7 @@ contract TokenPortalTest is Test {
     returns (bytes32, bytes32[] memory, bytes32)
   {
     // send assets to the portal
-    portalERC20.mint(address(tokenPortal), withdrawAmount);
+    testERC20.mint(address(tokenPortal), withdrawAmount);
 
     // Create the message
     (bytes32 l2ToL1Message,) = _createWithdrawMessageForOutbox(_designatedCaller);
@@ -208,7 +208,7 @@ contract TokenPortalTest is Test {
     // add message with caller as this address
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(0), l2BlockNumber);
-    assertEq(portalERC20.balanceOf(recipient), 0);
+    assertEq(testERC20.balanceOf(recipient), 0);
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
@@ -216,7 +216,7 @@ contract TokenPortalTest is Test {
     tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
 
     // Should have received 654 RNA tokens
-    assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
+    assertEq(testERC20.balanceOf(recipient), withdrawAmount);
 
     // Should not be able to withdraw again
     vm.expectRevert(
@@ -261,6 +261,6 @@ contract TokenPortalTest is Test {
     tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
 
     // Should have received 654 RNA tokens
-    assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
+    assertEq(testERC20.balanceOf(recipient), withdrawAmount);
   }
 }
