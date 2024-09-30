@@ -73,10 +73,10 @@ TEST(Protogalaxy, CombinerOn2Keys)
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
-            auto subrelation_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
+            auto component_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
                 new Fun::ComponentEvaluations[keys_data[0]->proving_key.circuit_size]);
             auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
-                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, subrelation_evals);
+                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, component_evals);
             // The expected_result values are computed by running the python script combiner_example_gen.py
             auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 9704UL,
                                                                           13245288UL,
@@ -156,12 +156,12 @@ TEST(Protogalaxy, CombinerOn2Keys)
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
             Fun::UnivariateRelationParameters univariate_relation_parameters;
-            auto subrelation_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
+            auto component_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
                 new Fun::ComponentEvaluations[keys_data[0]->proving_key.circuit_size]);
             auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
-                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, subrelation_evals);
+                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, component_evals);
             auto result_with_skipping =
-                Fun::compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas, subrelation_evals);
+                Fun::compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas, component_evals);
             auto expected_result =
                 Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
@@ -277,12 +277,12 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             auto expected_result = Univariate<FF, UNIVARIATE_LENGTH>(precomputed_result);
             Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
             Fun::UnivariateRelationParameters univariate_relation_parameters;
-            auto subrelation_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
+            auto component_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
                 new Fun::ComponentEvaluations[keys_data[0]->proving_key.circuit_size]);
             auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
-                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, subrelation_evals);
+                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, component_evals);
             auto result_with_skipping =
-                Fun::compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas, subrelation_evals);
+                Fun::compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas, component_evals);
 
             EXPECT_EQ(result_no_skipping, expected_result);
             EXPECT_EQ(result_with_skipping, expected_result);
@@ -351,12 +351,12 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
             Fun::UnivariateRelationParameters univariate_relation_parameters;
-            auto subrelation_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
+            auto component_evals = std::shared_ptr<Fun::ComponentEvaluations[]>(
                 new Fun::ComponentEvaluations[keys_data[0]->proving_key.circuit_size]);
             auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
-                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, subrelation_evals);
+                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas, component_evals);
             auto result_with_skipping =
-                Fun::compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas, subrelation_evals);
+                Fun::compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas, component_evals);
             auto expected_result =
                 Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 

@@ -196,17 +196,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
-                                                              const std::vector<FF>& subrelation_evaluations)
+                                                              const std::vector<FF>& relation_evaluations)
     {
-        const size_t width = subrelation_evaluations.size();
+        const size_t width = relation_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
         parallel_for_heuristic(
             width / 2,
             [&](size_t parent) {
                 size_t node = parent * 2;
-                first_level_coeffs[parent][0] =
-                    subrelation_evaluations[node] + subrelation_evaluations[node + 1] * betas[0];
-                first_level_coeffs[parent][1] = subrelation_evaluations[node + 1] * deltas[0];
+                first_level_coeffs[parent][0] = relation_evaluations[node] + relation_evaluations[node + 1] * betas[0];
+                first_level_coeffs[parent][1] = relation_evaluations[node + 1] * deltas[0];
             },
             /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
         return construct_coefficients_tree(betas, deltas, first_level_coeffs);

@@ -62,7 +62,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
         std::fill_n(result.get(), 1 << log_circuit_size, ComponentEvaluations());
         return result;
     };
-    const auto [subrelation_evaluations, perturbator] =
+    const auto [component_evaluations, perturbator] =
         accumulator->is_accumulator
             ? Fun::compute_perturbator(accumulator, deltas)
             : std::make_pair(compute_first_round_relation_evaluations(), Polynomial<FF>(CONST_PG_LOG_N + 1));
@@ -74,7 +74,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
-    return std::make_tuple(deltas, subrelation_evaluations, perturbator);
+    return std::make_tuple(deltas, component_evaluations, perturbator);
 };
 
 template <class DeciderProvingKeys>
@@ -87,7 +87,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(
     const std::vector<FF>& gate_challenges,
     const std::vector<FF>& deltas,
     const DeciderProvingKeys& keys,
-    const std::shared_ptr<ComponentEvaluations[]>& subrelation_evaluations)
+    const std::shared_ptr<ComponentEvaluations[]>& component_evaluations)
 {
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
@@ -102,7 +102,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(
     const UnivariateRelationParameters relation_parameters =
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
-    auto combiner = Fun::compute_combiner(keys, gate_separators, relation_parameters, alphas, subrelation_evaluations);
+    auto combiner = Fun::compute_combiner(keys, gate_separators, relation_parameters, alphas, component_evaluations);
 
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);

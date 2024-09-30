@@ -93,7 +93,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator, bool expect_true)
     {
         size_t accumulator_size = accumulator->proving_key.circuit_size;
-        auto [subrelation_evaluations, expected_honk_evals] = Fun::compute_row_evaluations(
+        auto [component_evaluations, expected_honk_evals] = Fun::compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
         GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
@@ -150,7 +150,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();
         }
-        auto [subrelation_evaluations, full_honk_evals] = Fun::compute_row_evaluations(
+        auto [component_evaluations, full_honk_evals] = Fun::compute_row_evaluations(
             decider_pk->proving_key.polynomials, decider_pk->alphas, decider_pk->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
@@ -199,7 +199,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             alpha = FF::random_element();
         }
 
-        auto [subrelation_evaluations, full_honk_evals] =
+        auto [component_evaluations, full_honk_evals] =
             Fun::compute_row_evaluations(full_polynomials, alphas, relation_parameters);
         std::vector<FF> betas(log_size);
         for (size_t idx = 0; idx < log_size; idx++) {
@@ -224,7 +224,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         accumulator->alphas = alphas;
 
         auto deltas = compute_round_challenge_pows(log_size, FF::random_element());
-        auto [subrelation_evaluations_again, perturbator] = Fun::compute_perturbator(accumulator, deltas);
+        auto [component_evaluations_again, perturbator] = Fun::compute_perturbator(accumulator, deltas);
 
         // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
         EXPECT_EQ(perturbator[0], target_sum);
