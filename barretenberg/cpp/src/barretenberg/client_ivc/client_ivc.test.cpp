@@ -366,3 +366,24 @@ TEST(ClientIVCBenchValidation, Full6)
     bool verified = verify_ivc(proof, ivc);
     EXPECT_TRUE(verified);
 }
+
+/**
+ * @brief Test that running the benchmark suite with movked verification keys will not error out.
+ */
+TEST(ClientIVCBenchValidation, Full6MockedVKs)
+{
+    const auto run_test = []() {
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+
+        ClientIVC ivc;
+        ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+        size_t total_num_circuits{ 12 };
+        PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+        auto mocked_vkeys = mock_verification_keys(total_num_circuits);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
+        auto proof = ivc.prove();
+        verify_ivc(proof, ivc);
+    };
+    ASSERT_NO_FATAL_FAILURE(run_test());
+}

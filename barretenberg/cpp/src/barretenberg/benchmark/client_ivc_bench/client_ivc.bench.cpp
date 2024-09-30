@@ -1,4 +1,3 @@
-
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
@@ -15,7 +14,7 @@ namespace {
  */
 class ClientIVCBench : public benchmark::Fixture {
   public:
-    // Number of function circuits to accumulate(based on Zacs target numbers)
+    // Number of function circuits to accumulate (based on Zac's target numbers)
     static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
@@ -34,11 +33,11 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     ClientIVC ivc;
     ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
-    auto mock_vkeys = mock_verification_keys(total_num_circuits);
+    auto mocked_vkeys = mock_verification_keys(total_num_circuits);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mock_vkeys, /* mock_vk */ true);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
         ivc.prove();
     }
 }
