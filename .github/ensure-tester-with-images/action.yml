@@ -51,6 +51,8 @@ runs:
 
     - name: Check Cached Success
       uses: ./.github/cache-success
+      env:
+        RUN_ID: ${{ github.run_id }}
       with:
         success_key: ${{ env.SUCCESS_KEY }}
 

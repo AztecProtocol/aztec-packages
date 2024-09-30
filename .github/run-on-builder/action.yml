@@ -11,6 +11,7 @@ runs:
     # Assumes ensure-builder has ran and BUILDER_SPOT_IP/BUILDER_SPOT_KEY are defined
     - name: Run On Builder
       env:
+        GITHUB_TOKEN: ${{ github.token }}
         # avoid double shell interpolation
         RUN_SCRIPT: |
           sudo shutdown -P 40

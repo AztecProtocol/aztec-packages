@@ -8,7 +8,6 @@ inputs:
   run:
     # command to run once tester available
     required: false
-
   ttl:
     required: false
     description: "Time to live for the tester instance in minutes"
@@ -47,6 +46,9 @@ runs:
 
     - name: Start Tester
       uses: ./.github/spot-runner-action
+      env:
+        RUN_ID: ${{ github.run_id }}
+        RUN_ATTEMPT: ${{ github.run_attempt }}
       with:
         # inputs:
         runner_label: ${{ steps.select_instance.outputs.runner_label }}

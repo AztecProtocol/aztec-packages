@@ -19,24 +19,17 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
-  RUN_ID: ${{ github.run_id }}
-  RUN_ATTEMPT: ${{ github.run_attempt }}
-  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
   GITHUB_TOKEN: ${{ github.token }}
   GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  # kludge until we move away from runners
-  WAIT_FOR_RUNNERS: false
-
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ github.event.pull_request.user.login || github.actor }}
+      username: ${{ github.actor }}
       runner_type: builder-x86
     secrets: inherit
 
@@ -44,14 +37,14 @@ jobs:
   # only ran on x86 for resource reasons (memory intensive)
   avm-full-tests:
     needs: [setup]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
+        env:
+          DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
         with:
-          # must be globally unique for build x runner
           concurrency_key: avm-full-tests-x86
       - name: "AVM Full Tests"
         working-directory: ./barretenberg/cpp/

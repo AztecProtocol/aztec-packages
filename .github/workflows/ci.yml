@@ -20,18 +20,12 @@ concurrency:
 
 env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
-  RUN_ID: ${{ github.run_id }}
-  RUN_ATTEMPT: ${{ github.run_attempt }}
-  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
   GITHUB_TOKEN: ${{ github.token }}
   GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  # kludge until we move away from runners
-  WAIT_FOR_RUNNERS: false
-
 jobs:
   setup:
     if: github.event.pull_request.draft == false
@@ -164,6 +158,8 @@ jobs:
     needs: [build, changes]
     if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
+    env:
+      WAIT_FOR_RUNNERS: false
     strategy:
       fail-fast: false
       matrix:
@@ -175,6 +171,9 @@ jobs:
       - name: Setup and Test
         timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          WAIT_FOR_RUNNERS: false
         with:
           runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '8core-tester-x86' }}
           builder_type: builder-x86
@@ -194,6 +193,8 @@ jobs:
     needs: [build, changes]
     if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-20.04
+    env:
+      WAIT_FOR_RUNNERS: false
     strategy:
       fail-fast: false
       matrix:
@@ -204,6 +205,9 @@ jobs:
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          WAIT_FOR_RUNNERS: false
         timeout-minutes: 45
         with:
           runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
@@ -231,6 +235,9 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
+        env:
+          USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          WAIT_FOR_RUNNERS: false
         uses: ./.github/ensure-tester-with-images
         timeout-minutes: 40
         with:
@@ -593,6 +600,9 @@ jobs:
             scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
         uses: ./.github/ensure-tester
+        env:
+          USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+          WAIT_FOR_RUNNERS: false
         timeout-minutes: 40
         with:
           runner_type: 16core-tester-x86
@@ -601,7 +611,7 @@ jobs:
 
       # TODO(AD): revisit this model as it's currently fiddly to get these artifacts off of the 'tester'
       - name: Copy Bench.json
-        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/barretenberg/cpp/bench.json bench.json
+        run: copy_from_tester /home/ubuntu/run-${{ github.run_id }}/barretenberg/cpp/bench.json bench.json
       # Utilize github-action-benchmark to automatically update the plots at
       # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
       # This also creates an alert if benchmarks exceed the threshold specified below.
@@ -836,7 +846,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+          if [[ $HAD_FAILURE == true ]] && [[ ${{ github.run_attempt }} -lt 2 ]] ; then
             echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
           fi
