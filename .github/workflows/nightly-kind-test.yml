@@ -69,29 +69,13 @@ jobs:
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
             ./scripts/earthly-ci --exec-stats -P --no-output ./yarn-project/end-to-end/+network-transfer --values-file=${{ matrix.values_file }}
 
-  success-check:
-    runs-on: ubuntu-20.04
-    needs:
-      - test
-    if: always()
-    steps:
-      - name: Report overall success
-        env:
-          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
-          FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: |
-          if [[ $FAIL == true ]]; then
-              echo "Test failed."
-              exit 1
-          fi
-
   notify:
     needs:
-      - success-check
+      - test
     runs-on: ubuntu-20.04
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
     steps:
-      - name: Send notification to aztec3-ci channel if workflow failed on master
+      - name: Send notification to aztec3-ci channel if workflow failed
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
