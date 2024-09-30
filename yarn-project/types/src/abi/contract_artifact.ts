@@ -2,7 +2,6 @@ import {
   type ABIParameter,
   type ABIParameterVisibility,
   type AbiType,
-  AbiValue,
   BasicValue,
   type ContractArtifact,
   type ContractNote,
