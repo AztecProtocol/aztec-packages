@@ -218,6 +218,9 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
  * @returns A storage layout for the contract.
  */
 function getStorageLayout(input: NoirCompiledContract) {
+  // If another contract is imported by the main contract, its storage layout its going to also show up here.
+  // The layout export includes the contract name, so here we can find the one that belongs to the current one and
+  // ignore the rest.
   const storageExports = input.outputs.globals.storage ? (input.outputs.globals.storage as StructValue[]) : [];
   const storageForContract = storageExports.find(storageExport => {
     const contractNameField = storageExport.fields.find(field => field.name === 'contract_name')?.value as BasicValue<
