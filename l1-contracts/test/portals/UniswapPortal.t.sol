@@ -65,7 +65,7 @@ contract UniswapPortalTest is Test {
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
+    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber + 1));
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn
@@ -90,7 +90,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
-      )
+        )
     });
 
     return message.sha256ToField();
@@ -122,7 +122,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-      )
+        )
     });
 
     return message.sha256ToField();
@@ -153,7 +153,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-      )
+        )
     });
 
     return message.sha256ToField();

@@ -8,6 +8,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   using SafeERC20 for IERC20;
@@ -19,34 +20,25 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
 
   struct WithdrawRequest {
     uint256 amount;
-    uint256 executableAt;
+    Timestamp executableAt;
   }
 
-  address public immutable OWNER;
+  address public immutable ROLLUP;
   uint256 public constant WITHDRAW_DELAY =
     Constants.ETHEREUM_SLOT_DURATION * Constants.AZTEC_EPOCH_DURATION * 3;
   mapping(address => uint256) public deposits;
   mapping(address => WithdrawRequest) public withdrawRequests;
-  IERC20 public token;
+  IERC20 public immutable token;
   Stake public stake;
 
-  modifier onlyOwner() {
-    if (msg.sender != OWNER) {
-      revert Errors.ProofCommitmentEscrow__NotOwner(msg.sender);
-    }
-    _;
-  }
-
-  modifier hasBalance(address _prover, uint256 _amount) {
-    if (deposits[_prover] < _amount) {
-      revert Errors.ProofCommitmentEscrow__InsufficientBalance(deposits[_prover], _amount);
-    }
+  modifier onlyRollup() {
+    require(msg.sender == ROLLUP, Errors.ProofCommitmentEscrow__NotOwner(msg.sender));
     _;
   }
 
   constructor(IERC20 _token, address _owner) {
     token = _token;
-    OWNER = _owner;
+    ROLLUP = _owner;
   }
 
   /**
@@ -60,6 +52,8 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     token.safeTransferFrom(msg.sender, address(this), _amount);
 
     deposits[msg.sender] += _amount;
+
+    emit Deposit(msg.sender, _amount);
   }
 
   /**
@@ -71,27 +65,35 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *
    * @param _amount - The amount of tokens to withdraw
    */
-  function startWithdraw(uint256 _amount) external override hasBalance(msg.sender, _amount) {
-    withdrawRequests[msg.sender] =
-      WithdrawRequest({amount: _amount, executableAt: block.timestamp + WITHDRAW_DELAY});
+  function startWithdraw(uint256 _amount) external override {
+    require(
+      deposits[msg.sender] >= _amount,
+      Errors.ProofCommitmentEscrow__InsufficientBalance(deposits[msg.sender], _amount)
+    );
+
+    withdrawRequests[msg.sender] = WithdrawRequest({
+      amount: _amount,
+      executableAt: Timestamp.wrap(block.timestamp + WITHDRAW_DELAY)
+    });
+
+    emit StartWithdraw(msg.sender, _amount, withdrawRequests[msg.sender].executableAt);
   }
 
   /**
    * @notice Execute a mature withdrawal request
    */
   function executeWithdraw() external override {
-    WithdrawRequest storage request = withdrawRequests[msg.sender];
-    if (request.executableAt > block.timestamp) {
-      revert Errors.ProofCommitmentEscrow__WithdrawRequestNotReady(
-        block.timestamp, request.executableAt
-      );
-    }
-
-    uint256 amount = request.amount;
+    WithdrawRequest memory request = withdrawRequests[msg.sender];
+    require(
+      request.executableAt <= Timestamp.wrap(block.timestamp),
+      Errors.ProofCommitmentEscrow__WithdrawRequestNotReady(block.timestamp, request.executableAt)
+    );
 
     delete withdrawRequests[msg.sender];
-    deposits[msg.sender] -= amount;
-    token.safeTransfer(msg.sender, amount);
+    deposits[msg.sender] -= request.amount;
+    token.safeTransfer(msg.sender, request.amount);
+
+    emit ExecuteWithdraw(msg.sender, request.amount);
   }
 
   /**
@@ -101,14 +103,11 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *          The prover must have sufficient balance
    *          The prover's balance will be reduced by the bond amount
    */
-  function stakeBond(uint256 _amount, address _prover)
-    external
-    override
-    onlyOwner
-    hasBalance(_prover, _amount)
-  {
+  function stakeBond(uint256 _amount, address _prover) external override onlyRollup {
     deposits[_prover] -= _amount;
     stake = Stake({amount: _amount, prover: _prover});
+
+    emit StakeBond(_prover, _amount);
   }
 
   /**
@@ -116,7 +115,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *
    * @dev     Only callable by the owner
    */
-  function unstakeBond() external override onlyOwner {
+  function unstakeBond() external override onlyRollup {
     deposits[stake.prover] += stake.amount;
     delete stake;
   }
@@ -131,7 +130,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *
    * @return  The balance of the prover at the given timestamp, compensating for withdrawal requests that have matured by that time
    */
-  function minBalanceAtTime(uint256 _timestamp, address _prover)
+  function minBalanceAtTime(Timestamp _timestamp, address _prover)
     external
     view
     override
@@ -140,7 +139,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     // If the timestamp is beyond the WITHDRAW_DELAY, the minimum possible balance is 0;
     // the prover could issue a withdraw request in this block for the full amount,
     // and execute it exactly WITHDRAW_DELAY later.
-    if (_timestamp >= block.timestamp + WITHDRAW_DELAY) {
+    if (_timestamp >= Timestamp.wrap(block.timestamp + WITHDRAW_DELAY)) {
       return 0;
     }
 

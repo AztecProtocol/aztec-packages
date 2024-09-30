@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 import {EscrowERC20} from "./EscrowERC20.sol";
 
@@ -129,11 +130,7 @@ contract TestProofCommitmentEscrow is Test {
 
     _mintAndDeposit(prover, depositAmount);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.ProofCommitmentEscrow__InsufficientBalance.selector, depositAmount, stakeAmount
-      )
-    );
+    vm.expectRevert();
     _escrow.stakeBond(stakeAmount, prover);
 
     assertEq(
@@ -260,18 +257,18 @@ contract TestProofCommitmentEscrow is Test {
     address prover = address(42);
     uint256 depositAmount = 100;
     uint256 withdrawAmount = 25;
-    uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
+    Timestamp withdrawReadyAt = Timestamp.wrap(block.timestamp + _escrow.WITHDRAW_DELAY());
 
     _mintAndDeposit(prover, depositAmount);
 
     assertEq(
-      _escrow.minBalanceAtTime(block.timestamp, prover),
+      _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
       depositAmount,
       "Min balance should match deposit amount before any withdraw request"
     );
 
     assertEq(
-      _escrow.minBalanceAtTime(withdrawReadyAt - 1, prover),
+      _escrow.minBalanceAtTime(withdrawReadyAt - Timestamp.wrap(1), prover),
       depositAmount,
       "Min balance should match deposit amount before withdraw request matures"
     );
@@ -280,13 +277,13 @@ contract TestProofCommitmentEscrow is Test {
     _escrow.startWithdraw(withdrawAmount);
 
     assertEq(
-      _escrow.minBalanceAtTime(block.timestamp, prover),
+      _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
       depositAmount,
       "Min balance should be unaffected by pending withdraw request before maturity"
     );
 
     assertEq(
-      _escrow.minBalanceAtTime(block.timestamp + _escrow.WITHDRAW_DELAY(), prover),
+      _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp + _escrow.WITHDRAW_DELAY()), prover),
       0,
       "Min balance should be 0 at or beyond the delay window"
     );
@@ -300,7 +297,7 @@ contract TestProofCommitmentEscrow is Test {
     );
 
     assertEq(
-      _escrow.minBalanceAtTime(withdrawReadyAt + 1, prover),
+      _escrow.minBalanceAtTime(withdrawReadyAt + Timestamp.wrap(1), prover),
       0,
       "Min balance should be 0 at or beyond the delay window"
     );

@@ -1,13 +1,13 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import {PortalERC20} from "./PortalERC20.sol";
+import {TestERC20} from "./TestERC20.sol";
 
-contract PortalERC20Test is Test {
-  PortalERC20 portalERC20;
+contract TestERC20Test is Test {
+  TestERC20 portalERC20;
 
   function setUp() public {
-    portalERC20 = new PortalERC20();
+    portalERC20 = new TestERC20();
   }
 
   function test_mint() public {

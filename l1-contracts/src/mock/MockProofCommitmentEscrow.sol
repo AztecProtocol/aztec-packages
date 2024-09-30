@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 contract MockProofCommitmentEscrow is IProofCommitmentEscrow {
   function deposit(uint256 _amount) external override {
@@ -25,7 +26,7 @@ contract MockProofCommitmentEscrow is IProofCommitmentEscrow {
     // do nothing
   }
 
-  function minBalanceAtTime(uint256, address) external pure override returns (uint256) {
+  function minBalanceAtTime(Timestamp, address) external pure override returns (uint256) {
     return 0;
   }
 }

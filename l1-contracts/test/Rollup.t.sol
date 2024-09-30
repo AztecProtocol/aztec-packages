@@ -19,7 +19,7 @@ import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
-import {PortalERC20} from "./portals/PortalERC20.sol";
+import {TestERC20} from "./TestERC20.sol";
 
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -42,7 +42,7 @@ contract RollupTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  PortalERC20 internal portalERC20;
+  TestERC20 internal portalERC20;
   FeeJuicePortal internal feeJuicePortal;
 
   SignatureLib.Signature[] internal signatures;
@@ -63,7 +63,7 @@ contract RollupTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    portalERC20 = new PortalERC20();
+    portalERC20 = new TestERC20();
     feeJuicePortal = new FeeJuicePortal(address(this));
     portalERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize(

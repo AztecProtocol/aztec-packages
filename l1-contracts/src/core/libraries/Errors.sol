@@ -104,5 +104,5 @@ library Errors {
   // Proof Commitment Escrow
   error ProofCommitmentEscrow__InsufficientBalance(uint256 balance, uint256 requested);
   error ProofCommitmentEscrow__NotOwner(address caller);
-  error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, uint256 readyAt);
+  error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt);
 }

@@ -2,6 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
+
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
@@ -33,7 +36,7 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
  * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
  */
-contract Rollup is Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
   using SlotLib for Slot;
   using EpochLib for Epoch;
@@ -103,6 +106,25 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       _addValidator(_validators[i]);
     }
     setupEpoch();
+  }
+
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+    public
+    view
+    override(IRollup)
+    returns (bytes32)
+  {
+    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
+  }
+
+  function verifySignedQuote(EpochProofQuoteLib.SignedEpochProofQuote memory signedQuote)
+    public
+    view
+    override(IRollup)
+  {
+    bytes32 digest = quoteToDigest(signedQuote.quote);
+    address recoveredSigner = ECDSA.recover(digest, SignatureLib.toBytes(signedQuote.signature));
+    require(recoveredSigner == signedQuote.quote.prover);
   }
 
   /**

@@ -92,6 +92,14 @@ interface IRollup {
       Epoch provenEpochNumber
     );
 
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+    external
+    view
+    returns (bytes32);
+  function verifySignedQuote(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
+    external
+    view;
+
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
   function getProvenBlockNumber() external view returns (uint256);

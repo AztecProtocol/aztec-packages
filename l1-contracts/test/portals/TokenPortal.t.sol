@@ -17,7 +17,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
-import {PortalERC20} from "./PortalERC20.sol";
+import {TestERC20} from "../TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
 
@@ -37,7 +37,7 @@ contract TokenPortalTest is Test {
   bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
 
   TokenPortal internal tokenPortal;
-  PortalERC20 internal portalERC20;
+  TestERC20 internal portalERC20;
 
   // input params
   uint32 internal deadline = uint32(block.timestamp + 1 days);
@@ -59,7 +59,7 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry(address(this));
-    portalERC20 = new PortalERC20();
+    portalERC20 = new TestERC20();
     rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
@@ -70,7 +70,7 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber));
+    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber));
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
@@ -88,7 +88,7 @@ contract TokenPortalTest is Test {
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
-      ),
+        ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -166,7 +166,7 @@ contract TokenPortalTest is Test {
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )
-        )
+          )
       })
     );
 
