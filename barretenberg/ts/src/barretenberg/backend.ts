@@ -2,43 +2,29 @@ import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
 export class UltraPlonkBackend {
-  // These type assertions are used so that we don't
-  // have to initialize `api` and `acirComposer` in the constructor.
-  // These are initialized asynchronously in the `init` function,
-  // constructors cannot be asynchronous which is why we do this.
-
-  protected api!: Barretenberg;
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   protected acirComposer: any;
 
-  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
+  constructor(protected api: Barretenberg, protected acirUncompressedBytecode: Uint8Array) {}
+
+  static async new(acirUncompressedBytecode: Uint8Array, options?: BackendOptions): Promise<UltraPlonkBackend> {
+    const api = await Barretenberg.new(options);
+    return new UltraPlonkBackend(api, acirUncompressedBytecode);
+  }
 
   /** @ignore */
   async instantiate(): Promise<void> {
-    if (!this.api) {
-      if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-        this.options.threads = Math.min(navigator.hardwareConcurrency, 32);
-      } else {
-        try {
-          const os = await import('os');
-          this.options.threads = Math.min(os.cpus().length, 32);
-        } catch (e) {
-          console.log('Could not detect environment. Falling back to one thread.', e);
-        }
-      }
-      const api = await Barretenberg.new(this.options);
-
+    if (!this.acirComposer) {
       const honkRecursion = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(
+      const [_exact, _total, subgroupSize] = await this.api.acirGetCircuitSizes(
         this.acirUncompressedBytecode,
         honkRecursion,
       );
 
-      await api.initSRSForCircuitSize(subgroupSize);
-      this.acirComposer = await api.acirNewAcirComposer(subgroupSize);
-      await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
-      this.api = api;
+      await this.api.initSRSForCircuitSize(subgroupSize);
+      this.acirComposer = await this.api.acirNewAcirComposer(subgroupSize);
+      await this.api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
     }
   }
 
@@ -91,14 +77,6 @@ export class UltraPlonkBackend {
     };
   }
 
-  /**
-   * Provided for use with sharing backend API to verifier for efficiency.
-   * @returns Barretenberg object.
-   */
-  public getApi(): Barretenberg {
-    return this.api;
-  }
-
   /** @description Verifies a proof */
   async verifyProof(proof: Uint8Array): Promise<boolean> {
     await this.instantiate();
@@ -113,43 +91,28 @@ export class UltraPlonkBackend {
   }
 
   async destroy(): Promise<void> {
-    if (!this.api) {
-      return;
-    }
     await this.api.destroy();
   }
 }
 
 export class UltraHonkBackend {
-  // These type assertions are used so that we don't
-  // have to initialize `api` in the constructor.
-  // These are initialized asynchronously in the `init` function,
-  // constructors cannot be asynchronous which is why we do this.
+  protected initialized = false;
 
-  protected api!: Barretenberg;
+  constructor(protected api: Barretenberg, protected acirUncompressedBytecode: Uint8Array) {}
 
-  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
+  static async new(acirUncompressedBytecode: Uint8Array, options?: BackendOptions): Promise<UltraHonkBackend> {
+    const api = await Barretenberg.new(options);
+    return new UltraHonkBackend(api, acirUncompressedBytecode);
+  }
 
   /** @ignore */
   async instantiate(): Promise<void> {
-    if (!this.api) {
-      if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-        this.options.threads = Math.min(navigator.hardwareConcurrency, 32);
-      } else {
-        try {
-          const os = await import('os');
-          this.options.threads = Math.min(os.cpus().length, 32);
-        } catch (e) {
-          console.log('Could not detect environment. Falling back to one thread.', e);
-        }
-      }
-      const api = await Barretenberg.new(this.options);
+    if (!this.initialized) {
       const honkRecursion = true;
-      await api.acirInitSRS(this.acirUncompressedBytecode, honkRecursion);
+      await this.api.acirInitSRS(this.acirUncompressedBytecode, honkRecursion);
 
       // We don't init a proving key here in the Honk API
       // await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
-      this.api = api;
     }
   }
 
@@ -203,9 +166,6 @@ export class UltraHonkBackend {
   }
 
   async destroy(): Promise<void> {
-    if (!this.api) {
-      return;
-    }
     await this.api.destroy();
   }
 }

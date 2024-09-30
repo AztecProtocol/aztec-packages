@@ -16,12 +16,16 @@ import { decompressSync as gunzip } from 'fflate';
 const numBytesInProofWithoutPublicInputs: number = 2144;
 
 export class BarretenbergBackend implements Backend, VerifierBackend {
-  protected backend!: UltraPlonkBackend;
+  constructor(
+    protected backend: UltraPlonkBackend,
+    protected acirUncompressedBytecode: Uint8Array,
+  ) {}
 
-  constructor(acirCircuit: CompiledCircuit, options: BackendOptions = { threads: 1 }) {
+  static async new(acirCircuit: CompiledCircuit, options?: BackendOptions): Promise<BarretenbergBackend> {
     const acirBytecodeBase64 = acirCircuit.bytecode;
     const acirUncompressedBytecode = acirToUint8Array(acirBytecodeBase64);
-    this.backend = new UltraPlonkBackend(acirUncompressedBytecode, options);
+    const backend = await UltraPlonkBackend.new(acirUncompressedBytecode, options);
+    return new BarretenbergBackend(backend, acirUncompressedBytecode);
   }
 
   /** @description Generates a proof */
@@ -81,17 +85,16 @@ export class BarretenbergBackend implements Backend, VerifierBackend {
 }
 
 export class UltraHonkBackend implements Backend, VerifierBackend {
-  // These type assertions are used so that we don't
-  // have to initialize `api` in the constructor.
-  // These are initialized asynchronously in the `init` function,
-  // constructors cannot be asynchronous which is why we do this.
+  constructor(
+    protected backend: UltraHonkBackendInternal,
+    protected acirUncompressedBytecode: Uint8Array,
+  ) {}
 
-  protected backend!: UltraHonkBackendInternal;
-
-  constructor(acirCircuit: CompiledCircuit, options: BackendOptions = { threads: 1 }) {
+  static async new(acirCircuit: CompiledCircuit, options?: BackendOptions): Promise<UltraHonkBackend> {
     const acirBytecodeBase64 = acirCircuit.bytecode;
     const acirUncompressedBytecode = acirToUint8Array(acirBytecodeBase64);
-    this.backend = new UltraHonkBackendInternal(acirUncompressedBytecode, options);
+    const backend = await UltraHonkBackendInternal.new(acirUncompressedBytecode, options);
+    return new UltraHonkBackend(backend, acirUncompressedBytecode);
   }
 
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
