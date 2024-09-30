@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # A wrapper for Earthly that is meant to catch signs of known intermittent failures and continue.
 # The silver lining is if Earthly does crash, the cache can pick up the build.
+# env vars required:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
 set -eu -o pipefail
 
 MAX_WAIT_TIME=300 # Maximum wait time in seconds
@@ -39,8 +42,8 @@ function run_earthly() {
   # We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
   # we do not run with minio in CI
   earthly --logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON \
-          --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-          --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+          --secret AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+          --secret AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
           --secret S3_BUILD_CACHE_MINIO_URL="" \
           --secret S3_BUILD_CACHE_UPLOAD="true" \
           --secret S3_BUILD_CACHE_DOWNLOAD="true" \
