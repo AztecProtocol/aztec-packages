@@ -44,9 +44,9 @@ e2e-blacklist-token-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_blacklist_token_contract
 
-#e2e-block-building:
-#  LOCALLY
-#  RUN ./scripts/e2e_test.sh ./src/e2e_block_building.test.ts
+e2e-block-building:
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_block_building.test.ts
 
 e2e-bot:
   LOCALLY
