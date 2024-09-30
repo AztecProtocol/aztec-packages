@@ -73,11 +73,16 @@ function pickBestOption(options: DimensionOption[]) {
 function findVariant(
   requestedDimensions: PrivateKernelResetDimensions,
   config: PrivateKernelResetDimensionsConfig,
-): DimensionOption {
+  isQualified: (dimensions: PrivateKernelResetDimensions) => boolean,
+): DimensionOption | undefined {
   const variant = PrivateKernelResetDimensions.empty();
   privateKernelResetDimensionNames.forEach(name => {
     variant[name] = pickFromValues(requestedDimensions[name], config.dimensions[name].variants);
   });
+  if (!isQualified(variant)) {
+    return;
+  }
+
   return {
     dimensions: variant,
     cost: computeCost(variant, config),
@@ -88,6 +93,7 @@ function findVariant(
 function findStandalone(
   requestedDimensions: PrivateKernelResetDimensions,
   config: PrivateKernelResetDimensionsConfig,
+  isQualified: (dimensions: PrivateKernelResetDimensions) => boolean,
 ): DimensionOption | undefined {
   const needsReset = privateKernelResetDimensionNames.filter(name => requestedDimensions[name] > 0);
   if (needsReset.length !== 1) {
@@ -102,6 +108,10 @@ function findStandalone(
   }
 
   const dimensions = PrivateKernelResetDimensions.from({ [name]: value });
+  if (!isQualified(dimensions)) {
+    return;
+  }
+
   return {
     dimensions,
     cost: computeCost(dimensions, config),
@@ -112,9 +122,10 @@ function findStandalone(
 function findSpecialCase(
   requestedDimensions: PrivateKernelResetDimensions,
   config: PrivateKernelResetDimensionsConfig,
+  isQualified: (dimensions: PrivateKernelResetDimensions) => boolean,
 ): DimensionOption | undefined {
   const specialCases = config.specialCases.map(PrivateKernelResetDimensions.fromValues);
-  const options = specialCases.map(dimensions => ({
+  const options = specialCases.filter(isQualified).map(dimensions => ({
     dimensions,
     cost: computeCost(dimensions, config),
     remainder: getRemainder(requestedDimensions, dimensions),
@@ -125,11 +136,25 @@ function findSpecialCase(
 export function findPrivateKernelResetDimensions(
   requestedDimensions: PrivateKernelResetDimensions,
   config: PrivateKernelResetDimensionsConfig,
+  isInner = false,
 ) {
+  const isQualified = !isInner
+    ? () => true
+    : // If inner is true, it's a reset to prevent overflow. The following must be zero because siloing can't be done at the moment.
+      (dimensions: PrivateKernelResetDimensions) =>
+        dimensions.NOTE_HASH_SILOING_AMOUNT === 0 &&
+        dimensions.NULLIFIER_SILOING_AMOUNT === 0 &&
+        dimensions.ENCRYPTED_LOG_SILOING_AMOUNT === 0;
+
   const options = [
-    findVariant(requestedDimensions, config),
-    findStandalone(requestedDimensions, config),
-    findSpecialCase(requestedDimensions, config),
+    findVariant(requestedDimensions, config, isQualified),
+    findStandalone(requestedDimensions, config, isQualified),
+    findSpecialCase(requestedDimensions, config, isQualified),
   ].filter(isDefined);
+
+  if (!options.length) {
+    throw new Error(`Cannot find an option for dimension: ${requestedDimensions.toValues()}`);
+  }
+
   return pickBestOption(options).dimensions;
 }

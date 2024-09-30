@@ -48,6 +48,10 @@ export class PrivateKernelResetDimensions {
     privateKernelResetDimensionNames.forEach((name, i) => (dimensions[name] = values[i]));
     return dimensions;
   }
+
+  toValues() {
+    return privateKernelResetDimensionNames.map(name => this[name]);
+  }
 }
 
 export type DimensionName = keyof FieldsOf<PrivateKernelResetDimensions>;

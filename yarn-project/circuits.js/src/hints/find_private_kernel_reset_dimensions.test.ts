@@ -64,8 +64,8 @@ describe('findPrivateKernelResetDimensions', () => {
     };
   });
 
-  const getDimensions = (requestedDimensions: Partial<FieldsOf<PrivateKernelResetDimensions>> = {}) =>
-    findPrivateKernelResetDimensions(PrivateKernelResetDimensions.from(requestedDimensions), config);
+  const getDimensions = (requestedDimensions: Partial<FieldsOf<PrivateKernelResetDimensions>> = {}, isInner = false) =>
+    findPrivateKernelResetDimensions(PrivateKernelResetDimensions.from(requestedDimensions), config, isInner);
 
   const expectEqualDimensions = (
     dimensions: PrivateKernelResetDimensions,
@@ -220,6 +220,49 @@ describe('findPrivateKernelResetDimensions', () => {
       });
 
       expectEqualStandalone(dimensions, 'ENCRYPTED_LOG_SILOING_AMOUNT', 18);
+    });
+  });
+
+  describe('is inner', () => {
+    const isInner = true;
+
+    it('returns the option that does not perform siloing', () => {
+      // Increase the cost so it's more expensive running a key verification check.
+      config.dimensions.NULLIFIER_KEYS.cost = 9999;
+
+      // Is not inner.
+      {
+        const dimensions = getDimensions({
+          NULLIFIER_KEYS: 4,
+        });
+
+        expectEqualDimensions(dimensions, { NULLIFIER_KEYS: 5 });
+      }
+
+      // Is inner.
+      {
+        const dimensions = getDimensions(
+          {
+            NULLIFIER_KEYS: 8,
+          },
+          isInner,
+        );
+
+        expectEqualStandalone(dimensions, 'NULLIFIER_KEYS', 15);
+      }
+    });
+  });
+
+  describe('not found', () => {
+    it('throw if no valid option is found', () => {
+      expect(() =>
+        getDimensions(
+          {
+            ENCRYPTED_LOG_SILOING_AMOUNT: 2,
+          },
+          true, // isInner
+        ),
+      ).toThrow();
     });
   });
 });

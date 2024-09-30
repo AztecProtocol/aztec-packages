@@ -150,7 +150,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('Reset is not required.');
     }
 
-    const dimensions = findPrivateKernelResetDimensions(this.requestedDimensions, privateKernelResetDimensionsConfig);
+    const isInner = !!this.nextIteration;
+    const dimensions = findPrivateKernelResetDimensions(
+      this.requestedDimensions,
+      privateKernelResetDimensionsConfig,
+      isInner,
+    );
 
     const previousVkMembershipWitness = await oracle.getVkMembershipWitness(this.previousKernelOutput.verificationKey);
     const previousKernelData = new PrivateKernelData(
