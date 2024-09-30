@@ -2,6 +2,8 @@ import {
   type ABIParameter,
   type ABIParameterVisibility,
   type AbiType,
+  AbiValue,
+  BasicValue,
   type ContractArtifact,
   type ContractNote,
   type FieldLayout,
@@ -217,10 +219,17 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
  * @returns A storage layout for the contract.
  */
 function getStorageLayout(input: NoirCompiledContract) {
-  const storage = input.outputs.globals.storage ? (input.outputs.globals.storage[0] as StructValue) : { fields: [] };
-  const storageFields = storage.fields as TypedStructFieldValue<StructValue>[];
+  const storageExports = input.outputs.globals.storage ? (input.outputs.globals.storage as StructValue[]) : [];
+  const storageForContract = storageExports.find(storageExport => {
+    let contractNameField = storageExport.fields.find(field => field.name === 'contract_name')?.value as BasicValue<
+      'string',
+      string
+    >;
+    return contractNameField.value === input.name;
+  });
+  const storageFields = storageForContract ? (storageForContract.fields as TypedStructFieldValue<StructValue>[]) : [];
 
-  if (!storageFields) {
+  if (storageFields.length === 0) {
     return {};
   }
 
