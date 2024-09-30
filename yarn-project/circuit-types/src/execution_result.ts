@@ -1,27 +1,45 @@
 import {
   EncryptedFunctionL2Logs,
-  type EncryptedL2Log,
-  type EncryptedL2NoteLog,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
   EncryptedNoteFunctionL2Logs,
-  type Note,
+  Note,
   PublicExecutionRequest,
   UnencryptedFunctionL2Logs,
-  type UnencryptedL2Log,
+  UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type IsEmpty, type PrivateCallStackItem, sortByCounter } from '@aztec/circuits.js';
-import { type NoteSelector } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import { type IsEmpty, PrivateCallStackItem, sortByCounter } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * The contents of a new note.
  */
-export interface NoteAndSlot {
-  /** The note. */
-  note: Note;
-  /** The storage slot of the note. */
-  storageSlot: Fr;
-  /** The note type identifier. */
-  noteTypeId: NoteSelector;
+export class NoteAndSlot {
+  constructor(
+    /** The note. */
+    public note: Note,
+    /** The storage slot of the note. */
+    public storageSlot: Fr,
+    /** The note type identifier. */
+    public noteTypeId: NoteSelector,
+  ) {}
+
+  toJSON() {
+    return {
+      note: this.note.toBuffer().toString('hex'),
+      storageSlot: this.storageSlot.toBuffer().toString('hex'),
+      noteTypeId: this.noteTypeId.toString(),
+    };
+  }
+
+  public static fromJSON(json: any): NoteAndSlot {
+    return new NoteAndSlot(
+      Note.fromBuffer(Buffer.from(json.note, 'hex')),
+      Fr.fromString(json.storageSlot),
+      NoteSelector.fromString(json.noteTypeId),
+    );
+  }
 }
 
 export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> implements IsEmpty {
@@ -30,11 +48,37 @@ export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | Enc
   isEmpty(): boolean {
     return !this.log.data.length && !this.counter;
   }
+
+  toJSON() {
+    return {
+      log: this.log.toJSON(),
+      counter: this.counter,
+    };
+  }
+
+  static fromJSON<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(
+    json: any,
+    fromJSON: (json: any) => TLog,
+  ) {
+    return new CountedLog<any>(fromJSON(json.log), json.counter);
+  }
 }
 
 export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
   constructor(log: EncryptedL2NoteLog, counter: number, public noteHashCounter: number) {
     super(log, counter);
+  }
+
+  override toJSON() {
+    return {
+      log: this.log.toJSON(),
+      counter: this.counter,
+      noteHashCounter: this.noteHashCounter,
+    };
+  }
+
+  static override fromJSON(json: any, fromJSON: (json: any) => EncryptedL2NoteLog) {
+    return new CountedNoteLog(fromJSON(json.log), json.counter, json.noteHashCounter);
   }
 }
 
@@ -44,51 +88,114 @@ export class CountedPublicExecutionRequest {
   isEmpty(): boolean {
     return this.request.isEmpty() && !this.counter;
   }
+
+  toJSON() {
+    return {
+      request: this.request.toBuffer().toString('hex'),
+      counter: this.counter,
+    };
+  }
+
+  static fromJSON(json: any) {
+    new CountedPublicExecutionRequest(
+      PublicExecutionRequest.fromBuffer(Buffer.from(json.request, 'hex')),
+      json.counter,
+    );
+  }
 }
 
 /**
  * The result of executing a private function.
  */
-export interface ExecutionResult {
-  // Needed for prover
-  /** The ACIR bytecode. */
-  acir: Buffer;
-  /** The verification key. */
-  vk: Buffer;
-  /** The partial witness. */
-  partialWitness: Map<number, string>;
-  // Needed for the verifier (kernel)
-  /** The call stack item. */
-  callStackItem: PrivateCallStackItem;
-  /** Mapping of note hash to its index in the note hash tree. Used for building hints for note hash read requests. */
-  noteHashLeafIndexMap: Map<bigint, bigint>;
-  /** The notes created in the executed function. */
-  newNotes: NoteAndSlot[];
-  /** Mapping of note hash counter to the counter of its nullifier. */
-  noteHashNullifierCounterMap: Map<number, number>;
-  /** The raw return values of the executed function. */
-  returnValues: Fr[];
-  /** The nested executions. */
-  nestedExecutions: this[];
-  /** Enqueued public function execution requests to be picked up by the sequencer. */
-  enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[];
-  /** Public function execution requested for teardown */
-  publicTeardownFunctionCall: PublicExecutionRequest;
-  /**
-   * Encrypted note logs emitted during execution of this function call.
-   * Note: These are preimages to `noteEncryptedLogsHashes`.
-   */
-  noteEncryptedLogs: CountedNoteLog[];
-  /**
-   * Encrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `encryptedLogsHashes`.
-   */
-  encryptedLogs: CountedLog<EncryptedL2Log>[];
-  /**
-   * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHashes`.
-   */
-  unencryptedLogs: CountedLog<UnencryptedL2Log>[];
+export class ExecutionResult {
+  constructor(
+    // Needed for prover
+    /** The ACIR bytecode. */
+    public acir: Buffer,
+    /** The verification key. */
+    public vk: Buffer,
+    /** The partial witness. */
+    public partialWitness: Map<number, string>,
+    // Needed for the verifier (kernel)
+    /** The call stack item. */
+    public callStackItem: PrivateCallStackItem,
+    /** Mapping of note hash to its index in the note hash tree. Used for building hints for note hash read requests. */
+    public noteHashLeafIndexMap: Map<bigint, bigint>,
+    /** The notes created in the executed function. */
+    public newNotes: NoteAndSlot[],
+    /** Mapping of note hash counter to the counter of its nullifier. */
+    public noteHashNullifierCounterMap: Map<number, number>,
+    /** The raw return values of the executed function. */
+    public returnValues: Fr[],
+    /** The nested executions. */
+    public nestedExecutions: ExecutionResult[],
+    /** Enqueued public function execution requests to be picked up by the sequencer. */
+    public enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[],
+    /** Public function execution requested for teardown */
+    public publicTeardownFunctionCall: PublicExecutionRequest,
+    /**
+     * Encrypted note logs emitted during execution of this function call.
+     * Note: These are preimages to `noteEncryptedLogsHashes`.
+     */
+    public noteEncryptedLogs: CountedNoteLog[],
+    /**
+     * Encrypted logs emitted during execution of this function call.
+     * Note: These are preimages to `encryptedLogsHashes`.
+     */
+    public encryptedLogs: CountedLog<EncryptedL2Log>[],
+    /**
+     * Unencrypted logs emitted during execution of this function call.
+     * Note: These are preimages to `unencryptedLogsHashes`.
+     */
+    public unencryptedLogs: CountedLog<UnencryptedL2Log>[],
+  ) {}
+
+  toJSON(): any {
+    return {
+      acir: this.acir.toString('hex'),
+      vk: this.vk.toString('hex'),
+      partialWitness: this.partialWitness,
+      callStackItem: this.callStackItem.toJSON(),
+      noteHashLeafIndexMap: this.noteHashLeafIndexMap,
+      newNotes: this.newNotes.map(note => note.toJSON()),
+      noteHashNullifierCounterMap: this.noteHashNullifierCounterMap,
+      returnValues: this.returnValues.map(fr => fr.toBuffer().toString('hex')),
+      nestedExecutions: this.nestedExecutions.map(exec => exec.toJSON()),
+      enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(call => call.toJSON()),
+      publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
+      noteEncryptedLogs: this.noteEncryptedLogs.map(log => log.toJSON()),
+      unencryptedLogs: this.unencryptedLogs.map(log => log.toJSON()),
+    };
+  }
+
+  static fromJSON(json: any): ExecutionResult {
+    return new ExecutionResult(
+      Buffer.from(json.acir, 'hex'),
+      Buffer.from(json.vk, 'hex'),
+      json.partialWitness,
+      PrivateCallStackItem.fromJSON(json.callStackItem),
+      json.noteHashLeafIndexMap,
+      Array.isArray(json.newNotes) ? json.newNotes.map((note: any) => NoteAndSlot.fromJSON(note)) : [],
+      json.noteHashNullifierCounterMap,
+      json.returnValues.map((fr: any) => new Fr(Buffer.from(fr, 'hex'))),
+      Array.isArray(json.nestedExecutions)
+        ? json.nestedExecutions.map((exec: any) => ExecutionResult.fromJSON(exec))
+        : [],
+      Array.isArray(json.enqueuedPublicFunctionCalls)
+        ? json.enqueuedPublicFunctionCalls.map((call: any) => CountedPublicExecutionRequest.fromJSON(call))
+        : [],
+      PublicExecutionRequest.fromBuffer(Buffer.from(json.publicTeardownFunctionCall, 'hex')),
+      Array.isArray(json.noteEncryptedLogs)
+        ? json.noteEncryptedLogs.map((log: any) => CountedNoteLog.fromJSON(log, EncryptedL2NoteLog.fromJSON))
+        : [],
+      Array.isArray(json.encryptedLogs)
+        ? json.encryptedLogs.map((log: any) => CountedLog.fromJSON(log, EncryptedL2Log.fromJSON))
+        : [],
+      Array.isArray(json.unencryptedLogs)
+        ? json.unencryptedLogs.map((log: any) => CountedLog.fromJSON(log, UnencryptedL2Log.fromJSON))
+        : [],
+    );
+  }
 }
 
 export function collectNoteHashLeafIndexMap(execResult: ExecutionResult, accum: Map<bigint, bigint> = new Map()) {

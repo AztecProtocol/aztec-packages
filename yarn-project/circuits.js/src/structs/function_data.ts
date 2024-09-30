@@ -88,4 +88,15 @@ export class FunctionData {
 
     return new FunctionData(selector, isPrivate);
   }
+
+  public toJSON() {
+    return {
+      selector: this.selector.toString('hex'),
+      isPrivate: this.isPrivate,
+    };
+  }
+
+  public static fromJSON(json: any) {
+    return new FunctionData(FunctionSelector.fromString(json.selector), json.isPrivate);
+  }
 }
