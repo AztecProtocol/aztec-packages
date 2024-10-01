@@ -15,6 +15,8 @@ import {TestERC20} from "../TestERC20.sol";
 contract TestProofCommitmentEscrow is Test {
   ProofCommitmentEscrow internal _escrow;
   TestERC20 internal _token;
+  address internal prover;
+  uint256 internal depositAmount;
 
   modifier setup() {
     _token = new TestERC20();
@@ -22,10 +24,22 @@ contract TestProofCommitmentEscrow is Test {
     _;
   }
 
-  function testDeposit() public setup {
-    address prover = address(42);
-    uint256 depositAmount = 100;
-    _mintAndDeposit(prover, depositAmount);
+  modifier setupWithApproval(address _prover, uint256 _depositAmount) {
+    _token = new TestERC20();
+    _escrow = new ProofCommitmentEscrow(_token, address(this));
+
+    _token.mint(_prover, _depositAmount);
+    vm.prank(_prover);
+    _token.approve(address(_escrow), _depositAmount);
+
+    prover = _prover;
+    depositAmount = _depositAmount;
+    _;
+  }
+
+  function testDeposit() public setupWithApproval(address(42), 100) {
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
 
     assertEq(
       _token.balanceOf(address(_escrow)),
@@ -35,9 +49,9 @@ contract TestProofCommitmentEscrow is Test {
     assertEq(_token.balanceOf(prover), 0, "Prover balance should be 0 after deposit");
   }
 
-  function testCannotWithdrawWithoutMatureRequest() public setup {
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testCannotWithdrawWithoutMatureRequest() public setupWithApproval(address(42), 100) {
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
     uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
 
     _mintAndDeposit(prover, depositAmount);
@@ -67,9 +81,9 @@ contract TestProofCommitmentEscrow is Test {
     _escrow.executeWithdraw();
   }
 
-  function testWithdrawAfterDelay() public setup {
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testWithdrawAfterDelay() public setupWithApproval(address(42), 100) {
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
     uint256 withdrawAmount = 50;
     uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
 
@@ -91,9 +105,9 @@ contract TestProofCommitmentEscrow is Test {
     assertEq(_token.balanceOf(prover), withdrawAmount, "Prover balance should match deposit amount");
   }
 
-  function testCannotReplayWithdrawRequest() public setup {
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testCannotReplayWithdrawRequest() public setupWithApproval(address(42), 100) {
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
     uint256 withdrawAmount = 50;
     uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
 
@@ -116,16 +130,18 @@ contract TestProofCommitmentEscrow is Test {
     );
   }
 
-  function testOnlyOwnerCanStake() public setup {
-    address prover = address(42);
-    vm.prank(prover);
-    vm.expectRevert(abi.encodeWithSelector(Errors.ProofCommitmentEscrow__NotOwner.selector, prover));
+  function testOnlyOwnerCanStake(address nonOwner) public setup {
+    vm.assume(nonOwner != address(this));
+    vm.prank(nonOwner);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ProofCommitmentEscrow__NotOwner.selector, nonOwner)
+    );
     _escrow.stakeBond(0, address(0));
   }
 
-  function testCannotStakeMoreThanProverBalance() public setup {
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testCannotStakeMoreThanProverBalance() public setupWithApproval(address(42), 100) {
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
     uint256 stakeAmount = depositAmount + 1;
 
     _mintAndDeposit(prover, depositAmount);
@@ -141,16 +157,18 @@ contract TestProofCommitmentEscrow is Test {
     assertEq(_escrow.deposits(prover), depositAmount, "Prover balance should match deposit amount");
   }
 
-  function testOnlyOwnerCanUnstake() public setup {
-    address prover = address(42);
-    vm.prank(prover);
-    vm.expectRevert(abi.encodeWithSelector(Errors.ProofCommitmentEscrow__NotOwner.selector, prover));
+  function testOnlyOwnerCanUnstake(address nonOwner) public setup {
+    vm.assume(nonOwner != address(this));
+    vm.prank(nonOwner);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ProofCommitmentEscrow__NotOwner.selector, nonOwner)
+    );
     _escrow.unstakeBond();
   }
 
-  function testStakeAndUnstake() public setup {
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testStakeAndUnstake() public setupWithApproval(address(42), 100) {
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
     uint256 stakeAmount = 50;
 
     _mintAndDeposit(prover, depositAmount);
@@ -169,7 +187,6 @@ contract TestProofCommitmentEscrow is Test {
   }
 
   function testOverwritingStakeSlashesPreviousProver() public setup {
-    // Arrange
     address proverA = address(42);
     address proverB = address(43);
     uint256 depositAmountA = 100;
@@ -177,12 +194,22 @@ contract TestProofCommitmentEscrow is Test {
     uint256 depositAmountB = 200;
     uint256 stakeAmountB = 100;
 
+    _token.mint(proverA, depositAmountA);
+    vm.prank(proverA);
+    _token.approve(address(_escrow), depositAmountA);
+    vm.prank(proverA);
+    _escrow.deposit(depositAmountA);
+
+    _token.mint(proverB, depositAmountB);
+    vm.prank(proverB);
+    _token.approve(address(_escrow), depositAmountB);
+    vm.prank(proverB);
+    _escrow.deposit(depositAmountB);
+
     // Prover A deposits and is staked
-    _mintAndDeposit(proverA, depositAmountA);
     _escrow.stakeBond(stakeAmountA, proverA);
 
     // Prover B deposits and owner overwrites the stake
-    _mintAndDeposit(proverB, depositAmountB);
     _escrow.stakeBond(stakeAmountB, proverB);
 
     // Prover A cannot recover the staked amount
@@ -207,16 +234,14 @@ contract TestProofCommitmentEscrow is Test {
     );
   }
 
-  function testWithdrawRequestOverwriting() public setup {
-    // Arrange
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testWithdrawRequestOverwriting() public setupWithApproval(address(42), 100) {
     uint256 withdrawAmountA = 40;
     uint256 withdrawAmountB = 60;
     uint256 withdrawReadyAtA = block.timestamp + _escrow.WITHDRAW_DELAY();
     uint256 withdrawReadyAtB = block.timestamp + 2 * _escrow.WITHDRAW_DELAY();
 
-    _mintAndDeposit(prover, depositAmount);
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
 
     // Prover starts first withdraw request
     vm.prank(prover);
@@ -252,14 +277,12 @@ contract TestProofCommitmentEscrow is Test {
     );
   }
 
-  function testMinBalanceAtSlot() public setup {
-    // Arrange
-    address prover = address(42);
-    uint256 depositAmount = 100;
+  function testMinBalanceAtSlot() public setupWithApproval(address(42), 100) {
     uint256 withdrawAmount = 25;
     Timestamp withdrawReadyAt = Timestamp.wrap(block.timestamp + _escrow.WITHDRAW_DELAY());
 
-    _mintAndDeposit(prover, depositAmount);
+    vm.prank(prover);
+    _escrow.deposit(depositAmount);
 
     assertEq(
       _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
@@ -303,13 +326,5 @@ contract TestProofCommitmentEscrow is Test {
     );
   }
 
-  function _mintAndDeposit(address _prover, uint256 _amount) internal {
-    _token.mint(_prover, _amount);
-
-    vm.prank(_prover);
-    _token.approve(address(_escrow), _amount);
-
-    vm.prank(_prover);
-    _escrow.deposit(_amount);
-  }
+  function _mintAndDeposit(address _prover, uint256 _amount) internal {}
 }
