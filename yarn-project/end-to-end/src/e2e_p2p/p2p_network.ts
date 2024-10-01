@@ -1,5 +1,5 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { EthCheatCodes } from '@aztec/aztec.js';
+import { AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -15,8 +15,10 @@ import {
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
-import { type ISnapshotManager, type SubsystemsContext, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import { type ISnapshotManager, type SubsystemsContext, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { SpamContract } from '@aztec/noir-contracts.js';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
@@ -29,6 +31,10 @@ export class P2PNetworkTest {
   public peerIdPrivateKeys: string[] = [];
 
   public bootstrapNodeEnr: string = '';
+
+  // The re-execution test needs a wallet and a spam contract
+  public wallet?: AccountWalletWithSecretKey;
+  public spamContract?: SpamContract;
 
   constructor(
     testName: string,
@@ -109,6 +115,31 @@ export class P2PNetworkTest {
           account: this.baseAccount,
         }),
       });
+    });
+  }
+
+    async setupAccount() {
+      await this.snapshotManager.snapshot("setup-account", addAccounts(1, this.logger, false), async ({accountKeys}, ctx) => {
+        const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
+      await Promise.all(accountManagers.map(a => a.register()));
+      const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      this.wallet = wallets[0];
+    });
+  }
+
+  async deploySpamContract() {
+    await this.snapshotManager.snapshot("add-spam-contract", async () => {
+      if (!this.wallet) {
+        throw new Error('Call snapshot t.setupAccount before deploying account contract');
+      }
+
+      const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
+      return {contractAddress: spamContract.address};
+    }, async ({contractAddress}) => {
+      if (!this.wallet) {
+        throw new Error('Call snapshot t.setupAccount before deploying account contract');
+      }
+      this.spamContract = await SpamContract.at(contractAddress, this.wallet);
     });
   }
 
