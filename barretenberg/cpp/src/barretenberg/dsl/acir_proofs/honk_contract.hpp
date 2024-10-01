@@ -277,7 +277,7 @@ library Honk {
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Gemini
-        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N] geminiFoldUnivariates;
+        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
         Honk.G1ProofPoint shplonkQ;
         Honk.G1ProofPoint kzgQuotient;
@@ -489,10 +489,10 @@ library TranscriptLib {
         gR[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            gR[1 + i * 4] = proof.geminiFoldUnivariates[i].x_0;
-            gR[2 + i * 4] = proof.geminiFoldUnivariates[i].x_1;
-            gR[3 + i * 4] = proof.geminiFoldUnivariates[i].y_0;
-            gR[4 + i * 4] = proof.geminiFoldUnivariates[i].y_1;
+            gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
+            gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
+            gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;
+            gR[4 + i * 4] = proof.geminiFoldComms[i].y_1;
         }
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
@@ -635,7 +635,7 @@ library TranscriptLib {
 
             uint256 y1Start = yEnd;
             uint256 y1End = y1Start + 0x20;
-            p.geminiFoldUnivariates[i] = Honk.G1ProofPoint({
+            p.geminiFoldComms[i] = Honk.G1ProofPoint({
                 x_0: uint256(bytes32(proof[xStart:xEnd])),
                 x_1: uint256(bytes32(proof[x1Start:x1End])),
                 y_0: uint256(bytes32(proof[yStart:yEnd])),
@@ -1739,7 +1739,7 @@ contract HonkVerifier is IVerifier
                 mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
 
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldUnivariates[i]);
+            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
