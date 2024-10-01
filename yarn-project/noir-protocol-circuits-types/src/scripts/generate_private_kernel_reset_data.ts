@@ -127,9 +127,9 @@ function checkDimensionNames(config: PrivateKernelResetDimensionsConfig) {
   }
 }
 
-function checkMaxDimensions(config: PrivateKernelResetDimensionsConfig) {
-  if (!config.specialCases.some(dimensions => dimensions.every((v, i) => v === maxDimensions[i]))) {
-    throw new Error(`Max dimensions is not defined in the config. Expected: ${maxDimensions}`);
+function checkMaxDimensions(dimensionsList: number[][]) {
+  if (!dimensionsList.some(dimensions => dimensions.every((v, i) => v === maxDimensions[i]))) {
+    throw new Error(`Max dimensions is not defined in the config. Expected: [${maxDimensions.join(',')}]`);
   }
 }
 
@@ -152,11 +152,11 @@ const main = async () => {
 
   checkDimensionNames(config);
 
-  checkMaxDimensions(config);
-
   const dimensionsList = JSON.parse(
     await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as number[][];
+
+  checkMaxDimensions(dimensionsList);
 
   checkVkTreeSize(dimensionsList.length);
 
