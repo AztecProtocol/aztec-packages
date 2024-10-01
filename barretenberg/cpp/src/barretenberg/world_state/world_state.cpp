@@ -1,6 +1,7 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
@@ -100,9 +101,11 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree)) });
     }
     {
+        std::vector<bb::fr> initial_leaves{ compute_initial_archive(
+            get_state_reference(WorldStateRevision::committed(), fork)) };
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), ARCHIVE_HEIGHT, _persistentStores->archiveStore);
-        auto tree = std::make_unique<FrTree>(std::move(store), _workers);
+        auto tree = std::make_unique<FrTree>(std::move(store), _workers, initial_leaves);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree)) });
     }
     _forks[fork->_forkId] = fork;
@@ -211,16 +214,36 @@ TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTr
 
 StateReference WorldState::get_state_reference(WorldStateRevision revision) const
 {
-    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
+    return get_state_reference(revision, retrieve_fork(revision.forkId));
+}
+
+StateReference WorldState::get_initial_state_reference() const
+{
+    return get_state_reference(WorldStateRevision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false },
+                               retrieve_fork(CANONICAL_FORK_ID),
+                               true);
+}
+
+StateReference WorldState::get_state_reference(WorldStateRevision revision, Fork::SharedPtr fork, bool initial_state)
+{
+    if (revision.forkId != 0 && fork->_forkId != revision.forkId) {
+        throw std::runtime_error("Fork does not match revision");
+    }
+
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     StateReference state_reference;
     std::mutex state_ref_mutex;
 
     for (const auto& [id, tree] : fork->_trees) {
-        auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
+        auto callback = [&signal, &state_reference, &state_ref_mutex, initial_state, id](
+                            const TypedResponse<TreeMetaResponse>& meta) {
             {
                 std::lock_guard<std::mutex> lock(state_ref_mutex);
-                state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
+                if (initial_state) {
+                    state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
+                } else {
+                    state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
+                }
             }
             signal.signal_decrement();
         };
@@ -233,28 +256,6 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
                 }
             },
             tree);
-    }
-
-    signal.wait_for_level(0);
-    return state_reference;
-}
-
-StateReference WorldState::get_initial_state_reference() const
-{
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
-    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
-    StateReference state_reference;
-    std::mutex state_ref_mutex;
-
-    for (const auto& [id, tree] : fork->_trees) {
-        auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
-            {
-                std::lock_guard<std::mutex> lock(state_ref_mutex);
-                state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
-            }
-            signal.signal_decrement();
-        };
-        std::visit([&callback](auto&& wrapper) { wrapper.tree->get_meta_data(false, callback); }, tree);
     }
 
     signal.wait_for_level(0);
@@ -453,6 +454,40 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
     signal.wait_for_level();
     return low_leaf_info;
+}
+
+bb::fr WorldState::compute_initial_archive(StateReference initial_state_ref)
+{
+    return HashPolicy::hash({ GENERATOR_INDEX__BLOCK_HASH, // separator
+                                                           // last archive - which, at genesis, is all 0s
+                              0,
+                              0,
+                              // content commitment - all 0s
+                              0,
+                              0,
+                              0,
+                              0,
+                              // state reference - the initial state for all the trees (accept the archive tree)
+                              initial_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE].first,
+                              initial_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE].second,
+                              initial_state_ref[MerkleTreeId::NOTE_HASH_TREE].first,
+                              initial_state_ref[MerkleTreeId::NOTE_HASH_TREE].second,
+                              initial_state_ref[MerkleTreeId::NULLIFIER_TREE].first,
+                              initial_state_ref[MerkleTreeId::NULLIFIER_TREE].second,
+                              initial_state_ref[MerkleTreeId::PUBLIC_DATA_TREE].first,
+                              initial_state_ref[MerkleTreeId::PUBLIC_DATA_TREE].second,
+                              // global variables
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              // total fees
+                              0 });
 }
 
 bool WorldState::block_state_matches_world_state(const StateReference& block_state_ref,

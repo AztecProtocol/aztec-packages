@@ -78,6 +78,8 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
 
+  '',
+
   'NULLIFIER_TREE_HEIGHT',
   'MAX_NULLIFIERS_PER_TX',
   'NOTE_HASH_TREE_HEIGHT',
@@ -86,6 +88,8 @@ const CPP_CONSTANTS = [
   'L1_TO_L2_MSG_TREE_HEIGHT',
   'ARCHIVE_HEIGHT',
 ];
+
+const CPP_GENERATORS = ['BLOCK_HASH'];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -168,11 +172,19 @@ function processConstantsTS(constants: { [key: string]: string }): string {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsCpp(constants: { [key: string]: string }): string {
+function processConstantsCpp(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
       code.push(`#define ${key} ${value}`);
+    }
+  });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    if (CPP_GENERATORS.includes(key)) {
+      code.push(`#define GENERATOR_INDEX__${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -248,11 +260,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 #pragma once
 
-${processConstantsCpp(constants)}
+${processConstantsCpp(constants, generatorIndexEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);

@@ -229,6 +229,12 @@ class WorldState {
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
     Fork::SharedPtr create_new_fork(index_t blockNumber);
 
+    static bb::fr compute_initial_archive(StateReference initial_state_ref);
+
+    static StateReference get_state_reference(WorldStateRevision revision,
+                                              Fork::SharedPtr fork,
+                                              bool initial_state = false);
+
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);
 };
