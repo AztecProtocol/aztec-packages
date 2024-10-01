@@ -83,11 +83,21 @@ export class P2PNetworkTest {
         client: deployL1ContractsValues.walletClient,
       });
 
+      const txHashes: `0x${string}`[] = [];
       for (let i = 0; i < this.numberOfNodes; i++) {
         const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
-        await rollup.write.addValidator([account.address]);
+        const txHash = await rollup.write.addValidator([account.address]);
+        txHashes.push(txHash);
         this.logger.debug(`Adding ${account.address} as validator`);
       }
+      // Wait for all the transactions adding validators to be mined
+      await Promise.all(
+        txHashes.map(txHash =>
+          deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+            hash: txHash,
+          }),
+        ),
+      );
 
       //@note   Now we jump ahead to the next epoch such that the validator committee is picked
       //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
