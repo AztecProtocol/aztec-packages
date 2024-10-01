@@ -36,10 +36,8 @@ export class MultiScalarMul extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     // Resolve indirects
     const operands = [this.pointsOffset, this.scalarsOffset, this.outputOffset];
-    const [pointsOffset, scalarsOffset, outputOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
-      operands,
-      memory,
-    );
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [pointsOffset, scalarsOffset, outputOffset] = addressing.resolve(operands, memory);
 
     // Length of the points vector should be U32
     memory.checkTag(TypeTag.UINT32, this.pointsLengthOffset);
@@ -63,12 +61,6 @@ export class MultiScalarMul extends Instruction {
 
     // The size of the scalars vector is twice the NUMBER of points because of the scalar limb decomposition
     const scalarReadLength = numPoints * 2;
-    // Consume gas prior to performing work
-    const memoryOperations = {
-      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
-      writes: 3 /* output triplet */,
-      indirect: this.indirect,
-    };
     context.machineState.consumeGas(this.gasCost(pointsReadLength));
     // Get the unrolled scalar (lo & hi) representing the scalars
     const scalarsVector = memory.getSlice(scalarsOffset, scalarReadLength);
@@ -109,7 +101,11 @@ export class MultiScalarMul extends Instruction {
 
     memory.setSlice(outputOffset, output);
 
-    memory.assert(memoryOperations);
+    memory.assert({
+      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
+      writes: 3 /* output triplet */,
+      addressing,
+    });
     context.machineState.incrementPc();
   }
 }

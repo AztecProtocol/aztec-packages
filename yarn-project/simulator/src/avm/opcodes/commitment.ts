@@ -34,10 +34,8 @@ export class PedersenCommitment extends Instruction {
     const memory = context.machineState.memory.track(this.type);
 
     const operands = [this.inputOffset, this.outputOffset, this.inputSizeOffset, this.genIndexOffset];
-    const [inputOffset, outputOffset, inputSizeOffset, genIndexOffset] = Addressing.fromWire(
-      this.indirect,
-      operands.length,
-    ).resolve(operands, memory);
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [inputOffset, outputOffset, inputSizeOffset, genIndexOffset] = addressing.resolve(operands, memory);
 
     const inputSize = memory.get(inputSizeOffset).toNumber();
     memory.checkTag(TypeTag.UINT32, inputSizeOffset);
@@ -48,7 +46,6 @@ export class PedersenCommitment extends Instruction {
     const generatorIndex = memory.get(genIndexOffset).toNumber();
     memory.checkTag(TypeTag.UINT32, genIndexOffset);
 
-    const memoryOperations = { reads: inputSize + 2, writes: 3, indirect: this.indirect };
     context.machineState.consumeGas(this.gasCost(inputSize));
 
     const inputBuffer: Buffer[] = inputs.map(input => input.toBuffer());
@@ -62,7 +59,7 @@ export class PedersenCommitment extends Instruction {
     memory.set(outputOffset + 1, commitment[1]); // Field typed
     memory.set(outputOffset + 2, new Uint8(isInfinity ? 1 : 0)); // U8 typed
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: inputSize + 2, writes: 3, addressing });
     context.machineState.incrementPc();
   }
 }

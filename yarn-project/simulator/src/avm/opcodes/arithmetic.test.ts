@@ -58,7 +58,6 @@ describe('Arithmetic Instructions', () => {
     it('Should add in relative indirect mode', async () => {
       const a = new Field(1n);
       const b = new Field(2n);
-      const dst = new Field(0n);
 
       context.machineState.memory.set(10, a);
       context.machineState.memory.set(11, b);
