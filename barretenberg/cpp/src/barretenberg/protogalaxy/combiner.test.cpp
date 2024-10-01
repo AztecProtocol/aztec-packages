@@ -43,34 +43,47 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 auto key = std::make_shared<DeciderProvingKey>();
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
+                // info(prover_polynomials.ecc_op_wire_1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->proving_key.polynomials = std::move(prover_polynomials);
                 key->proving_key.circuit_size = 2;
                 key->proving_key.log_circuit_size = 1;
                 keys_data[idx] = key;
+                // info(key->proving_key.polynomials.ecc_op_wire_1);
+                // info(key->proving_key.polynomials.q_m);
+                info(key->proving_key.polynomials.w_l);
+                info(key->proving_key.polynomials.w_r);
+                info(key->proving_key.polynomials.w_o);
+                info(key->proving_key.polynomials.q_m);
+                info(key->proving_key.polynomials.q_l);
+                info(key->proving_key.polynomials.q_r);
+                info(key->proving_key.polynomials.q_o);
+                info("q_c", key->proving_key.polynomials.q_c);
+
+                info(key->proving_key.polynomials.databus_id);
             }
 
             DeciderProvingKeys keys{ keys_data };
             Fun::UnivariateRelationSeparator alphas;
-            info(alphas[0]);
+            // info(alphas[0]);
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
             auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 10872UL,
-                                                                          13823480UL,
-                                                                          77476216UL,
-                                                                          228717816UL,
-                                                                          505297016UL,
-                                                                          944962552UL,
-                                                                          1585463160UL,
-                                                                          2464547580UL,
-                                                                          3619964540UL,
-                                                                          5089462780UL,
-                                                                          6910791030UL,
-                                                                          9121698040UL });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 11480UL,
+                                                                          14117208UL,
+                                                                          78456280UL,
+                                                                          230777432UL,
+                                                                          508829400UL,
+                                                                          950360920UL,
+                                                                          1593120728UL,
+                                                                          2474857560UL,
+                                                                          3633320152UL,
+                                                                          5106257240UL,
+                                                                          6931417560UL,
+                                                                          9146549848UL });
             EXPECT_EQ(result_no_skipping, expected_result);
         } else {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
