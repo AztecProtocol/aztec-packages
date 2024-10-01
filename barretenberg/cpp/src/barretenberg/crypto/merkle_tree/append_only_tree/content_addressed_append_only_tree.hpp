@@ -120,6 +120,14 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion) const;
 
     /**
+     * @brief Returns the tree meta data
+     * @param blockNumber The block number of the tree to use as a reference
+     * @param includeUncommitted Whether to include uncommitted changes
+     * @param on_completion Callback to be called on completion
+     */
+    void get_meta_data(index_t blockNumber, bool includeUncommitted, const MetaDataCallback& on_completion) const;
+
+    /**
      * @brief Returns the leaf value at the provided index
      * @param index The index of the leaf to be retrieved
      * @param includeUncommitted Whether to include uncommitted changes
@@ -268,6 +276,28 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool in
             [=, this](TypedResponse<TreeMetaResponse>& response) {
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 store_->get_meta(response.inner.meta, *tx, includeUncommitted);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(index_t blockNumber,
+                                                                         bool includeUncommitted,
+                                                                         const MetaDataCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<TreeMetaResponse>(
+            [=, this](TypedResponse<TreeMetaResponse>& response) {
+                ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(response.inner.meta, *tx, includeUncommitted);
+
+                BlockPayload blockData;
+                store_->get_block_data(blockNumber, blockData, *tx);
+                response.inner.meta.size = blockData.size;
+                response.inner.meta.committedSize = blockData.size;
+                response.inner.meta.root = blockData.root;
             },
             on_completion);
     };

@@ -197,7 +197,11 @@ TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTr
                 signal.signal_level(0);
             };
 
-            wrapper.tree->get_meta_data(include_uncommitted(revision), callback);
+            if (revision.blockNumber) {
+                wrapper.tree->get_meta_data(revision.blockNumber, revision.includeUncommitted, callback);
+            } else {
+                wrapper.tree->get_meta_data(revision.includeUncommitted, callback);
+            }
             signal.wait_for_level(0);
 
             return response;
@@ -211,7 +215,6 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     StateReference state_reference;
     std::mutex state_ref_mutex;
-    bool uncommitted = include_uncommitted(revision);
 
     for (const auto& [id, tree] : fork->_trees) {
         auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
@@ -221,8 +224,15 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
             }
             signal.signal_decrement();
         };
-        std::visit([&callback, uncommitted](auto&& wrapper) { wrapper.tree->get_meta_data(uncommitted, callback); },
-                   tree);
+        std::visit(
+            [&callback, &revision](auto&& wrapper) {
+                if (revision.blockNumber) {
+                    wrapper.tree->get_meta_data(revision.blockNumber, revision.includeUncommitted, callback);
+                } else {
+                    wrapper.tree->get_meta_data(revision.includeUncommitted, callback);
+                }
+            },
+            tree);
     }
 
     signal.wait_for_level(0);
@@ -425,16 +435,16 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
     if (const auto* wrapper = std::get_if<TreeWithStore<NullifierTree>>(&fork->_trees.at(tree_id))) {
         if (revision.blockNumber != 0U) {
-            wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, include_uncommitted(revision), callback);
+            wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
-            wrapper->tree->find_low_leaf(leaf_key, include_uncommitted(revision), callback);
+            wrapper->tree->find_low_leaf(leaf_key, revision.includeUncommitted, callback);
         }
 
     } else if (const auto* wrapper = std::get_if<TreeWithStore<PublicDataTree>>(&fork->_trees.at(tree_id))) {
         if (revision.blockNumber != 0U) {
-            wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, include_uncommitted(revision), callback);
+            wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
-            wrapper->tree->find_low_leaf(leaf_key, include_uncommitted(revision), callback);
+            wrapper->tree->find_low_leaf(leaf_key, revision.includeUncommitted, callback);
         }
 
     } else {
@@ -443,11 +453,6 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
     signal.wait_for_level();
     return low_leaf_info;
-}
-
-bool WorldState::include_uncommitted(WorldStateRevision rev)
-{
-    return rev.includeUncommitted;
 }
 
 bool WorldState::block_state_matches_world_state(const StateReference& block_state_ref,
