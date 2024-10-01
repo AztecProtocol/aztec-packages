@@ -288,7 +288,7 @@ function getNoteTypes(input: NoirCompiledContract) {
     const fields = note.fields[2].fields.map(field => {
       return {
         name: field.name,
-        index: Number(field.value.fields[0].value.value), // TODO: is this hex or decimal?
+        index: parseInt(field.value.fields[0].value.value, 16),
         nullable: field.value.fields[1].value.value,
       };
     });
