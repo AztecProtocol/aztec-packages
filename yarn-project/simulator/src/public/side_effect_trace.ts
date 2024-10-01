@@ -182,7 +182,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // NOTE: counter does not increment for l1tol2 message checks (because it doesn't rely on pending messages)
   }
 
-  public traceNewL2ToL1Message(recipient: Fr, content: Fr) {
+  public traceNewL2ToL1Message(_contractAddress: Fr, recipient: Fr, content: Fr) {
     if (this.newL2ToL1Messages.length >= MAX_L2_TO_L1_MSGS_PER_TX) {
       throw new SideEffectLimitReachedError('l2 to l1 message', MAX_L2_TO_L1_MSGS_PER_TX);
     }
