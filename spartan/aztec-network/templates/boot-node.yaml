@@ -123,11 +123,20 @@ spec:
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
-        - name: shared-volume
-          emptyDir: {}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-deploy-contracts-script
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "aztec-network.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.bootNode.storage }}
+      storageClassName: "gp2"
 ---
 apiVersion: v1
 kind: Service
