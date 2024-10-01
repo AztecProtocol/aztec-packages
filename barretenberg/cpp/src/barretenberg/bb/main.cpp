@@ -458,6 +458,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
                                            // assumes that folding is never done with ultrahonk.
 
     // Accumulate the entire program stack into the IVC
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
@@ -465,9 +466,13 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto builder = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
+        // Set the internal is_kernel flag to trigger automatic appending of kernel logic if true
+        builder.databus_propagation_data.is_kernel = is_kernel;
+
         ivc.accumulate(builder);
 
         program_stack.pop_back();
+        is_kernel = !is_kernel; // toggle the kernel indicator flag on/off
     }
     return ivc.prove_and_verify();
 }
