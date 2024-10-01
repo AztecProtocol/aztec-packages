@@ -146,7 +146,6 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
-    info(proof.size());
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = construct_ultra_honk_manifest();

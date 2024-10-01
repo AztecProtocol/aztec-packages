@@ -30,8 +30,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
-    // Execute Shplemini rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
-    // unrolled protocol.
+    // Execute Shplemini rounds.
     auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
                                                                 commitments.get_unshifted(),
                                                                 commitments.get_to_be_shifted(),

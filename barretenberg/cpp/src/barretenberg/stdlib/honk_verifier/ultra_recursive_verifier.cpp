@@ -91,7 +91,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
 
-    // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
+    // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     auto opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
                                                                 commitments.get_unshifted(),
                                                                 commitments.get_to_be_shifted(),

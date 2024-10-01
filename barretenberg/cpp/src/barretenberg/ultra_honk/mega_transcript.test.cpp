@@ -259,14 +259,9 @@ TEST_F(MegaTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
-    auto prover_manifest = prover.transcript->get_manifest();
-    prover_manifest.print();
-
     prover.transcript->deserialize_full_transcript();
     prover.transcript->serialize_full_transcript();
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
-    auto prover_manifest1 = prover.transcript->get_manifest();
-    prover_manifest1.print();
 
     Flavor::Commitment one_group_val = Flavor::Commitment::one();
     FF rand_val = FF::random_element();

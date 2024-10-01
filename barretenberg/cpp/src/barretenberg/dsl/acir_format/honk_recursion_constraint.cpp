@@ -105,7 +105,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs)
+    // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
@@ -117,7 +117,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1 comms
+    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
