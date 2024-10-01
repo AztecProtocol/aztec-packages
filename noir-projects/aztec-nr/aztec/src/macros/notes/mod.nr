@@ -156,6 +156,7 @@ pub(crate) comptime fn generate_note_export(
 ) -> Quoted {
     let name = s.name();
     let global_export_name = f"{name}_EXPORTS".quoted_contents();
+    let note_fields_name = f"{name}Fields".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
 
@@ -171,12 +172,12 @@ pub(crate) comptime fn generate_note_export(
     let note_field_constructors = note_field_constructors.join(quote {,});
 
     quote {
-        struct NoteFields {
+        struct $note_fields_name {
             $note_fields
         }
 
         #[abi(notes)]
-        global $global_export_name: (Field, str<$note_name_str_len>, NoteFields) = ($note_type_id,$note_name_as_str, NoteFields { $note_field_constructors });
+        global $global_export_name: (Field, str<$note_name_str_len>, $note_fields_name) = ($note_type_id,$note_name_as_str, $note_fields_name { $note_field_constructors });
     }
 }
 
