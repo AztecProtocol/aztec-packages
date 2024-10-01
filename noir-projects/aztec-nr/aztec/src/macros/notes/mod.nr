@@ -7,7 +7,10 @@ use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
-comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fixed_fields, nullable_fields).
+// The fixed and nullable fields contain the name of the struct member and the index of where it starts in
+// the serialized note.
+comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32)], [(Quoted, u32)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
@@ -287,9 +290,22 @@ comptime fn generate_partial_note_impl(s: StructDefinition, hiding_point_name: Q
     }
 }
 
-comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note_type_id: Field) {
-    // Here you need to insert the info about the partial fields, we need to
-    NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id));
+comptime fn register_note(
+    note: StructDefinition,
+    note_serialized_len: u32,
+    note_type_id: Field,
+    fixed_fields: [(Quoted, Type, u32)],
+    nullable_fields: [(Quoted, Type, u32)]
+) {
+    // We omit the Type as we don't need it in the ABI. In the ABI we only care about the name and the start index
+    // in the serialized note array.
+    let fixed_fields_without_type = fixed_fields.map(| (name, _, index): (Quoted, Type, u32) | (name, index));
+    let nullable_fields_without_type = nullable_fields.map(| (name, _, index): (Quoted, Type, u32) | (name, index));
+
+    NOTES.insert(
+        note.as_type(),
+        (note, note_serialized_len, note_type_id, fixed_fields_without_type, nullable_fields_without_type)
+    );
 }
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
@@ -335,6 +351,8 @@ comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
 
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
+    // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
+    // member in the serialized note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
 
     let (common, note_type_id) = common_note_annotation(s);
@@ -347,7 +365,13 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         indexed_nullable_fields
     );
     let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
-    register_note(s, note_serialized_len, note_type_id);
+    register_note(
+        s,
+        note_serialized_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
 
     quote {
         $common
@@ -368,7 +392,13 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
         indexed_fixed_fields,
         indexed_nullable_fields
     );
-    register_note(s, note_serialized_len, note_type_id);
+    register_note(
+        s,
+        note_serialized_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
 
     quote {
         $common
@@ -385,7 +415,14 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
 
     let note_serialized_len = note_interface_impl.expect(f"Note {name} must implement NoteInterface trait").trait_generic_args()[0].as_constant().unwrap();
 
-    register_note(s, note_serialized_len, note_type_id);
+    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
+    register_note(
+        s,
+        note_serialized_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
 
     quote {
         $common
