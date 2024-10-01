@@ -392,9 +392,7 @@ contract Leonidas is Ownable, ILeonidas {
     }
 
     // @todo We should allow to provide a signature instead of needing the proposer to broadcast.
-    if (proposer != msg.sender) {
-      revert Errors.Leonidas__InvalidProposer(proposer, msg.sender);
-    }
+    require(proposer == msg.sender, Errors.Leonidas__InvalidProposer(proposer, msg.sender));
 
     // @note  This is NOT the efficient way to do it, but it is a very convenient way for us to do it
     //        that allows us to reduce the number of code paths. Also when changed with optimistic for
@@ -407,9 +405,10 @@ contract Leonidas is Ownable, ILeonidas {
     address[] memory committee = getCommitteeAt(ts);
 
     uint256 needed = committee.length * 2 / 3 + 1;
-    if (_signatures.length < needed) {
-      revert Errors.Leonidas__InsufficientAttestationsProvided(needed, _signatures.length);
-    }
+    require(
+      _signatures.length >= needed,
+      Errors.Leonidas__InsufficientAttestationsProvided(needed, _signatures.length)
+    );
 
     // Validate the attestations
     uint256 validAttestations = 0;
@@ -426,9 +425,10 @@ contract Leonidas is Ownable, ILeonidas {
       validAttestations++;
     }
 
-    if (validAttestations < needed) {
-      revert Errors.Leonidas__InsufficientAttestations(needed, validAttestations);
-    }
+    require(
+      validAttestations >= needed,
+      Errors.Leonidas__InsufficientAttestations(needed, validAttestations)
+    );
   }
 
   /**

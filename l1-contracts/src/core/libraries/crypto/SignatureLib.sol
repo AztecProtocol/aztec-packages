@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
@@ -20,12 +20,8 @@ library SignatureLib {
    * @param _digest - The digest that was signed
    */
   function verify(Signature memory _signature, address _signer, bytes32 _digest) internal pure {
-    if (_signature.isEmpty) {
-      revert Errors.SignatureLib__CannotVerifyEmpty();
-    }
+    require(!_signature.isEmpty, Errors.SignatureLib__CannotVerifyEmpty());
     address recovered = ecrecover(_digest, _signature.v, _signature.r, _signature.s);
-    if (_signer != recovered) {
-      revert Errors.SignatureLib__InvalidSignature(_signer, recovered);
-    }
+    require(_signer == recovered, Errors.SignatureLib__InvalidSignature(_signer, recovered));
   }
 }
