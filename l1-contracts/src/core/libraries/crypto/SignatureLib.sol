@@ -24,4 +24,8 @@ library SignatureLib {
     address recovered = ecrecover(_digest, _signature.v, _signature.r, _signature.s);
     require(_signer == recovered, Errors.SignatureLib__InvalidSignature(_signer, recovered));
   }
+
+  function toBytes(Signature memory _signature) internal pure returns (bytes memory) {
+    return abi.encodePacked(_signature.r, _signature.s, _signature.v);
+  }
 }
