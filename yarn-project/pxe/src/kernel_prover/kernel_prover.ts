@@ -21,7 +21,7 @@ import {
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types';
 import {
-  type ExecutionResult,
+  type PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
@@ -63,7 +63,7 @@ export class KernelProver {
    */
   async prove(
     txRequest: TxRequest,
-    executionResult: ExecutionResult,
+    executionResult: PrivateExecutionResult,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
@@ -185,7 +185,7 @@ export class KernelProver {
   }
 
   private async getPrivateKernelResetInputs(
-    executionStack: ExecutionResult[],
+    executionStack: PrivateExecutionResult[],
     output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
     noteHashNullifierCounterMap: Map<number, number>,
@@ -211,7 +211,7 @@ export class KernelProver {
     );
   }
 
-  private async createPrivateCallData({ callStackItem }: ExecutionResult, vk: VerificationKeyAsFields) {
+  private async createPrivateCallData({ callStackItem }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
     const { contractAddress, functionData } = callStackItem;
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(

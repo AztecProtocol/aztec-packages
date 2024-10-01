@@ -21,7 +21,7 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
+import { type NoteAndSlot, type PrivateExecutionResult } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
@@ -50,7 +50,7 @@ describe('Kernel Prover', () => {
   const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
-  const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
+  const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
     publicInputs.noteHashes = makeTuple(
       MAX_NOTE_HASHES_PER_CALL,
@@ -133,7 +133,7 @@ describe('Kernel Prover', () => {
     proofCreator.simulateProofInit.mockClear();
   };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
+  const prove = (executionResult: PrivateExecutionResult) => prover.prove(txRequest, executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();

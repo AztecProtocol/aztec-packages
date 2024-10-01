@@ -49,9 +49,3 @@ export interface UserRequest {
   from: AztecAddress;
   simulatePublicFunctions?: boolean;
 }
-
-export interface InteractionHandler {
-  simulate(userRequest: UserRequest): Promise<TxSimulationResult>;
-  prove(simulationResult: TxSimulationResult): Promise<Tx>;
-  send(tx: Tx): Promise<SentTx>;
-}

@@ -17,7 +17,7 @@ import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { type ExecutionResult } from './execution_result.js';
+import { type PrivateExecutionResult } from './execution_result.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -47,7 +47,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     scopes?: AztecAddress[],
-  ): Promise<ExecutionResult> {
+  ): Promise<PrivateExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
     }

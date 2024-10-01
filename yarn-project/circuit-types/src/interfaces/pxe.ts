@@ -5,6 +5,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
   type Point,
+  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
 import {
@@ -15,7 +16,7 @@ import {
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
-import { ExecutionResult } from '../execution_result.js';
+import { PrivateExecutionResult } from '../execution_result.js';
 import { type L2Block } from '../l2_block.js';
 import {
   type GetUnencryptedLogsResponse,
@@ -27,9 +28,10 @@ import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
-import { type Tx, type TxHash, type TxReceipt, type TxSimulationResult } from '../tx/index.js';
+import { type PrivateSimulationResult, type Tx, type TxHash, type TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
+import { PrivateKernelSimulateOutput } from './private_kernel_prover.js';
 import { type SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
@@ -159,7 +161,10 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, executionResult: ExecutionResult): Promise<Tx>;
+  proveTx(
+    txRequest: TxExecutionRequest,
+    executionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.

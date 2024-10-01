@@ -10,6 +10,8 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
+  PrivateExecutionResult,
+  PrivateKernelSimulateOutput,
   type SiblingPath,
   type SyncStatus,
   type Tx,
@@ -28,6 +30,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
   type Point,
+  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -106,22 +109,13 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  async prove(
+  proveTx(
     txRequest: TxExecutionRequest,
-    simulatePublic: boolean,
-    msgSender?: AztecAddress,
-    skipTxValidation?: boolean,
-  ): Promise<Tx> {
-    const { privateExecutionResult } = await this.pxe.simulateTx(
-      txRequest,
-      simulatePublic,
-      msgSender,
-      skipTxValidation,
-      this.scopes,
-    );
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     return this.pxe.proveTx(txRequest, privateExecutionResult);
   }
-  simulate(
+  simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender?: AztecAddress,

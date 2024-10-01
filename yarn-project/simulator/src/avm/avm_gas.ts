@@ -5,12 +5,6 @@ import { InstructionExecutionError } from './errors.js';
 import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 
-/** Gas counters in L1, L2, and DA. */
-export type Gas = {
-  l2Gas: number;
-  daGas: number;
-};
-
 /** Maps a Gas struct to gasLeft properties. */
 export function gasToGasLeft(gas: Gas) {
   return { l2GasLeft: gas.l2Gas, daGasLeft: gas.daGas };

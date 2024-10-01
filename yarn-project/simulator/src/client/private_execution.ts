@@ -9,7 +9,7 @@ import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
-import { type ExecutionResult } from './execution_result.js';
+import { type PrivateExecutionResult } from './execution_result.js';
 
 /**
  * Execute a private function and return the execution result.
@@ -20,7 +20,7 @@ export async function executePrivateFunction(
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createDebugLogger('aztec:simulator:secret_execution'),
-): Promise<ExecutionResult> {
+): Promise<PrivateExecutionResult> {
   const functionName = await context.getDebugFunctionName();
   log.verbose(`Executing external function ${contractAddress}:${functionSelector}(${functionName})`);
   const acir = artifact.bytecode;

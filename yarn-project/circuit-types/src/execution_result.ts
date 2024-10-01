@@ -107,7 +107,7 @@ export class CountedPublicExecutionRequest {
 /**
  * The result of executing a private function.
  */
-export class ExecutionResult {
+export class PrivateExecutionResult {
   constructor(
     // Needed for prover
     /** The ACIR bytecode. */
@@ -128,7 +128,7 @@ export class ExecutionResult {
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
     /** The nested executions. */
-    public nestedExecutions: ExecutionResult[],
+    public nestedExecutions: PrivateExecutionResult[],
     /** Enqueued public function execution requests to be picked up by the sequencer. */
     public enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[],
     /** Public function execution requested for teardown */
@@ -168,8 +168,8 @@ export class ExecutionResult {
     };
   }
 
-  static fromJSON(json: any): ExecutionResult {
-    return new ExecutionResult(
+  static fromJSON(json: any): PrivateExecutionResult {
+    return new PrivateExecutionResult(
       Buffer.from(json.acir, 'hex'),
       Buffer.from(json.vk, 'hex'),
       json.partialWitness,
@@ -179,7 +179,7 @@ export class ExecutionResult {
       json.noteHashNullifierCounterMap,
       json.returnValues.map((fr: any) => new Fr(Buffer.from(fr, 'hex'))),
       Array.isArray(json.nestedExecutions)
-        ? json.nestedExecutions.map((exec: any) => ExecutionResult.fromJSON(exec))
+        ? json.nestedExecutions.map((exec: any) => PrivateExecutionResult.fromJSON(exec))
         : [],
       Array.isArray(json.enqueuedPublicFunctionCalls)
         ? json.enqueuedPublicFunctionCalls.map((call: any) => CountedPublicExecutionRequest.fromJSON(call))
@@ -198,14 +198,17 @@ export class ExecutionResult {
   }
 }
 
-export function collectNoteHashLeafIndexMap(execResult: ExecutionResult, accum: Map<bigint, bigint> = new Map()) {
+export function collectNoteHashLeafIndexMap(
+  execResult: PrivateExecutionResult,
+  accum: Map<bigint, bigint> = new Map(),
+) {
   execResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
   execResult.nestedExecutions.forEach(nested => collectNoteHashLeafIndexMap(nested, accum));
   return accum;
 }
 
 export function collectNoteHashNullifierCounterMap(
-  execResult: ExecutionResult,
+  execResult: PrivateExecutionResult,
   accum: Map<number, number> = new Map(),
 ) {
   execResult.noteHashNullifierCounterMap.forEach((value, key) => accum.set(key, value));
@@ -219,7 +222,7 @@ export function collectNoteHashNullifierCounterMap(
  * @returns All encrypted logs.
  */
 function collectNoteEncryptedLogs(
-  execResult: ExecutionResult,
+  execResult: PrivateExecutionResult,
   noteHashNullifierCounterMap: Map<number, number>,
   minRevertibleSideEffectCounter: number,
 ): CountedLog<EncryptedL2NoteLog>[] {
@@ -242,7 +245,7 @@ function collectNoteEncryptedLogs(
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
-export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): EncryptedNoteFunctionL2Logs {
+export function collectSortedNoteEncryptedLogs(execResult: PrivateExecutionResult): EncryptedNoteFunctionL2Logs {
   const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(execResult);
   const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(execResult);
   const allLogs = collectNoteEncryptedLogs(execResult, noteHashNullifierCounterMap, minRevertibleSideEffectCounter);
@@ -254,7 +257,7 @@ export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): Enc
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
-function collectEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
+function collectEncryptedLogs(execResult: PrivateExecutionResult): CountedLog<EncryptedL2Log>[] {
   return [execResult.encryptedLogs, ...execResult.nestedExecutions.flatMap(collectEncryptedLogs)].flat();
 }
 
@@ -263,7 +266,7 @@ function collectEncryptedLogs(execResult: ExecutionResult): CountedLog<Encrypted
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
-export function collectSortedEncryptedLogs(execResult: ExecutionResult): EncryptedFunctionL2Logs {
+export function collectSortedEncryptedLogs(execResult: PrivateExecutionResult): EncryptedFunctionL2Logs {
   const allLogs = collectEncryptedLogs(execResult);
   const sortedLogs = sortByCounter(allLogs);
   return new EncryptedFunctionL2Logs(sortedLogs.map(l => l.log));
@@ -274,7 +277,7 @@ export function collectSortedEncryptedLogs(execResult: ExecutionResult): Encrypt
  * @param execResult - The topmost execution result.
  * @returns All unencrypted logs.
  */
-function collectUnencryptedLogs(execResult: ExecutionResult): CountedLog<UnencryptedL2Log>[] {
+function collectUnencryptedLogs(execResult: PrivateExecutionResult): CountedLog<UnencryptedL2Log>[] {
   return [execResult.unencryptedLogs, ...execResult.nestedExecutions.flatMap(collectUnencryptedLogs)].flat();
 }
 
@@ -283,13 +286,15 @@ function collectUnencryptedLogs(execResult: ExecutionResult): CountedLog<Unencry
  * @param execResult - The topmost execution result.
  * @returns All unencrypted logs.
  */
-export function collectSortedUnencryptedLogs(execResult: ExecutionResult): UnencryptedFunctionL2Logs {
+export function collectSortedUnencryptedLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
   const allLogs = collectUnencryptedLogs(execResult);
   const sortedLogs = sortByCounter(allLogs);
   return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
 }
 
-function collectEnqueuedCountedPublicExecutionRequests(execResult: ExecutionResult): CountedPublicExecutionRequest[] {
+function collectEnqueuedCountedPublicExecutionRequests(
+  execResult: PrivateExecutionResult,
+): CountedPublicExecutionRequest[] {
   return [
     ...execResult.enqueuedPublicFunctionCalls,
     ...execResult.nestedExecutions.flatMap(collectEnqueuedCountedPublicExecutionRequests),
@@ -301,14 +306,14 @@ function collectEnqueuedCountedPublicExecutionRequests(execResult: ExecutionResu
  * @param execResult - The topmost execution result.
  * @returns All enqueued public function calls.
  */
-export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult): PublicExecutionRequest[] {
+export function collectEnqueuedPublicFunctionCalls(execResult: PrivateExecutionResult): PublicExecutionRequest[] {
   const countedRequests = collectEnqueuedCountedPublicExecutionRequests(execResult);
   // without the reverse sort, the logs will be in a queue like fashion which is wrong
   // as the kernel processes it like a stack, popping items off and pushing them to output
   return sortByCounter(countedRequests, false).map(r => r.request);
 }
 
-export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicExecutionRequest {
+export function collectPublicTeardownFunctionCall(execResult: PrivateExecutionResult): PublicExecutionRequest {
   const teardownCalls = [
     execResult.publicTeardownFunctionCall,
     ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
@@ -325,7 +330,7 @@ export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): 
   return PublicExecutionRequest.empty();
 }
 
-export function getFinalMinRevertibleSideEffectCounter(execResult: ExecutionResult): number {
+export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
   return execResult.nestedExecutions.reduce((counter, exec) => {
     const nestedCounter = getFinalMinRevertibleSideEffectCounter(exec);
     return nestedCounter ? nestedCounter : counter;

@@ -24,8 +24,8 @@ import {
   CountedLog,
   CountedNoteLog,
   CountedPublicExecutionRequest,
-  type ExecutionResult,
   type NoteAndSlot,
+  type PrivateExecutionResult,
 } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
@@ -57,7 +57,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
-  private nestedExecutions: ExecutionResult[] = [];
+  private nestedExecutions: PrivateExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
@@ -383,7 +383,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     return Fr.fromBuffer(log.hash());
   }
 
-  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
     if (
       childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||

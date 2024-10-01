@@ -8,9 +8,9 @@ import {
   type PrivateKernelCircuitPublicInputs,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { type ExecutionResult } from '@aztec/simulator';
+import { type PrivateExecutionResult } from '@aztec/simulator';
 
-export function needsReset(publicInputs: PrivateKernelCircuitPublicInputs, executionStack: ExecutionResult[]) {
+export function needsReset(publicInputs: PrivateKernelCircuitPublicInputs, executionStack: PrivateExecutionResult[]) {
   const nextIteration = executionStack[executionStack.length - 1];
   return (
     countAccumulatedItems(nextIteration.callStackItem.publicInputs.noteHashes) +

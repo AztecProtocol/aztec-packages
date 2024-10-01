@@ -26,7 +26,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
-import type { ExecutionResult } from '@aztec/simulator';
+import type { PrivateExecutionResult } from '@aztec/simulator';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 
@@ -86,7 +86,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
 }
 
 export async function buildPrivateKernelResetInputs(
-  executionStack: ExecutionResult[],
+  executionStack: PrivateExecutionResult[],
   previousKernelData: PrivateKernelData,
   noteHashLeafIndexMap: Map<bigint, bigint>,
   noteHashNullifierCounterMap: Map<number, number>,
@@ -222,8 +222,8 @@ export async function buildPrivateKernelResetInputs(
 }
 
 function collectNested<T>(
-  executionStack: ExecutionResult[],
-  extractExecutionItems: (execution: ExecutionResult) => T[],
+  executionStack: PrivateExecutionResult[],
+  extractExecutionItems: (execution: PrivateExecutionResult) => T[],
 ): T[] {
   const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
 
@@ -233,8 +233,8 @@ function collectNested<T>(
 }
 
 function collectNestedReadRequests(
-  executionStack: ExecutionResult[],
-  extractReadRequests: (execution: ExecutionResult) => ReadRequest[],
+  executionStack: PrivateExecutionResult[],
+  extractReadRequests: (execution: PrivateExecutionResult) => ReadRequest[],
 ): ScopedReadRequest[] {
   return collectNested(executionStack, executionResult => {
     const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));

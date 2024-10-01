@@ -5,7 +5,6 @@ import {
   EncryptedTxL2Logs,
   type EventMetadata,
   EventType,
-  ExecutionResult,
   type ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
@@ -17,7 +16,10 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
+  PrivateExecutionResult,
   type PrivateKernelProver,
+  PrivateKernelSimulateOutput,
+  PrivateSimulationResult,
   PublicSimulationOutput,
   type SiblingPath,
   SimulationError,
@@ -27,22 +29,19 @@ import {
   type TxHash,
   type TxReceipt,
   TxSimulationResult,
-  UnencryptedTxL2Logs,
   UniqueNote,
-  collectEnqueuedPublicFunctionCalls,
-  collectPublicTeardownFunctionCall,
-  collectSortedEncryptedLogs,
-  collectSortedNoteEncryptedLogs,
-  collectSortedUnencryptedLogs,
+  accumulateReturnValues,
   getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
+  ClientIvcProof,
   type CompleteAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
+  PrivateKernelTailCircuitPublicInputs,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
@@ -63,12 +62,7 @@ import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-register
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
-import {
-  type AcirSimulator,
-  accumulateReturnValues,
-  resolveAssertionMessage,
-  resolveOpcodeLocations,
-} from '@aztec/simulator';
+import { type AcirSimulator, resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
@@ -510,11 +504,17 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  #simulateKernels(txRequest: TxExecutionRequest, privateExecutionResult: ExecutionResult): Promise<Tx> {
+  #simulateKernels(
+    txRequest: TxExecutionRequest,
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     return this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
   }
 
-  public proveTx(txRequest: TxExecutionRequest, privateExecutionResult: ExecutionResult): Promise<Tx> {
+  public proveTx(
+    txRequest: TxExecutionRequest,
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     return this.jobQueue.put(async () => {
       const provenTx = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
       return provenTx;
@@ -531,7 +531,13 @@ export class PXEService implements PXE {
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#simulatePrivate(txRequest, msgSender, scopes);
-      const simulatedTx = await this.#simulateKernels(txRequest, privateExecutionResult);
+      const { clientIvcProof, publicInputs } = await this.#simulateKernels(txRequest, privateExecutionResult);
+      const privateSimulationResult = new PrivateSimulationResult(
+        privateExecutionResult,
+        clientIvcProof!,
+        publicInputs,
+      );
+      let simulatedTx = privateSimulationResult.toTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
         publicOutput = await this.#simulatePublicCalls(simulatedTx);
@@ -694,7 +700,7 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<ExecutionResult> {
+  ): Promise<PrivateExecutionResult> {
     // TODO - Pause syncing while simulating.
 
     const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
@@ -800,32 +806,12 @@ export class PXEService implements PXE {
   async #prove(
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
-    privateExecutionResult: ExecutionResult,
-  ): Promise<Tx> {
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
-    const { clientIvcProof, publicInputs } = await kernelProver.prove(
-      txExecutionRequest.toTxRequest(),
-      privateExecutionResult,
-    );
-
-    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(privateExecutionResult)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(privateExecutionResult)]);
-    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(privateExecutionResult)]);
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(privateExecutionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(privateExecutionResult);
-
-    const tx = new Tx(
-      publicInputs,
-      clientIvcProof!,
-      noteEncryptedLogs,
-      encryptedLogs,
-      unencryptedLogs,
-      enqueuedPublicFunctions,
-      teardownPublicFunction,
-    );
-    return tx;
+    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);
   }
 
   /**

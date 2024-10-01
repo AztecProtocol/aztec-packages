@@ -1,18 +1,47 @@
+import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+
+import {
+  PrivateExecutionResult,
+  collectEnqueuedPublicFunctionCalls,
+  collectPublicTeardownFunctionCall,
+  collectSortedEncryptedLogs,
+  collectSortedNoteEncryptedLogs,
+  collectSortedUnencryptedLogs,
+} from '../execution_result.js';
+import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../index.js';
+import { PublicExecutionResult } from '../public_execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
-// REFACTOR: Review what we need to expose to the user when running a simulation.
-// Eg tx already has encrypted and unencrypted logs, but those cover only the ones
-// emitted during private. We need the ones from ProcessOutput to include the public
-// ones as well. However, those would only be present if the user chooses to simulate
-// the public side of things. This also points at this class needing to be split into
-// two: one with just private simulation, and one that also includes public simulation.
-export class TxSimulationResult {
+export class PrivateSimulationResult {
   constructor(
-    public tx: Tx,
-    public privateReturnValues?: NestedProcessReturnValues,
-    public publicOutput?: PublicSimulationOutput,
+    public privateExecutionResult: PrivateExecutionResult,
+    public clientIvcProof: ClientIvcProof,
+    public publicInputs: PrivateKernelTailCircuitPublicInputs,
   ) {}
+
+  getReturnValues() {
+    return accumulateReturnValues(this.privateExecutionResult);
+  }
+
+  toTx(): Tx {
+    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
+    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
+
+    const tx = new Tx(
+      this.publicInputs,
+      this.clientIvcProof!,
+      noteEncryptedLogs,
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      teardownPublicFunction,
+    );
+    return tx;
+  }
 
   /**
    * Convert a SimulatedTx class object to a plain JSON object.
@@ -20,9 +49,9 @@ export class TxSimulationResult {
    */
   public toJSON() {
     return {
-      tx: this.tx.toJSON(),
-      privateReturnValues: this.privateReturnValues && this.privateReturnValues.toJSON(),
-      publicOutput: this.publicOutput && this.publicOutput.toJSON(),
+      privateExecutionResult: this.privateExecutionResult.toJSON(),
+      clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
+      publicInputs: this.publicInputs.toBuffer().toString('hex'),
     };
   }
 
@@ -32,12 +61,31 @@ export class TxSimulationResult {
    * @returns A Tx class object.
    */
   public static fromJSON(obj: any) {
-    const tx = Tx.fromJSON(obj.tx);
-    const publicOutput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
-    const privateReturnValues = obj.privateReturnValues
-      ? NestedProcessReturnValues.fromJSON(obj.privateReturnValues)
-      : undefined;
-
-    return new TxSimulationResult(tx, privateReturnValues, publicOutput);
+    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
+    const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
+    return new PrivateSimulationResult(privateExecutionResult, clientIvcProof, publicInputs);
   }
+}
+
+export class TxSimulationResult {
+  constructor(
+    public tx: Tx,
+    public privateReturValues: NestedProcessReturnValues,
+    public publicOutput?: PublicSimulationOutput,
+  ) {}
+}
+
+/**
+ * Recursively accummulate the return values of a call result and its nested executions,
+ * so they can be retrieved in order.
+ * @param executionResult
+ * @returns
+ */
+export function accumulateReturnValues(
+  executionResult: PublicExecutionResult | PrivateExecutionResult,
+): NestedProcessReturnValues {
+  const acc = new NestedProcessReturnValues(executionResult.returnValues);
+  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulateReturnValues(nestedExecution));
+  return acc;
 }

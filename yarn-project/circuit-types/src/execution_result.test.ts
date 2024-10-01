@@ -2,14 +2,14 @@ import { PublicExecutionRequest } from '@aztec/circuit-types';
 import { Fr, PrivateCallStackItem } from '@aztec/circuits.js';
 
 import {
-  ExecutionResult,
+  PrivateExecutionResult,
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from './execution_result.js';
 
-function emptyExecutionResult(): ExecutionResult {
-  return new ExecutionResult(
+function emptyExecutionResult(): PrivateExecutionResult {
+  return new PrivateExecutionResult(
     Buffer.from(''),
     Buffer.from(''),
     new Map(),
@@ -28,7 +28,7 @@ function emptyExecutionResult(): ExecutionResult {
 }
 
 describe('execution_result', () => {
-  let executionResult: ExecutionResult;
+  let executionResult: PrivateExecutionResult;
 
   beforeEach(() => {
     executionResult = emptyExecutionResult();

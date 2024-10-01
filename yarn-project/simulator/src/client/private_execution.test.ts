@@ -69,7 +69,11 @@ import { toFunctionSelector } from 'viem';
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
-import { CountedPublicExecutionRequest, type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
+import {
+  CountedPublicExecutionRequest,
+  type PrivateExecutionResult,
+  collectSortedEncryptedLogs,
+} from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 import { computeNoteHash } from './test_utils.js';
 
@@ -180,7 +184,7 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  const getEncryptedNoteSerializedLength = (result: ExecutionResult) => {
+  const getEncryptedNoteSerializedLength = (result: PrivateExecutionResult) => {
     const fnLogs = new EncryptedNoteFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
     return fnLogs.getKernelLength();
   };
