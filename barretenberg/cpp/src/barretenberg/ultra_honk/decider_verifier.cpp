@@ -39,8 +39,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using GroupElement = typename Curve::Element;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
@@ -58,32 +56,15 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         return false;
     }
 
-    std::array<GroupElement, 2> pairing_points;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1109): Remove this hack once the verifier runs on
-    // Shplemini for all Ultra flavors
-    if constexpr (bb::IsAnyOf<Flavor, UltraKeccakFlavor>) {
-        const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                                                          commitments.get_unshifted(),
-                                                                          commitments.get_to_be_shifted(),
-                                                                          claimed_evaluations.get_unshifted(),
-                                                                          claimed_evaluations.get_shifted(),
-                                                                          multivariate_challenge,
-                                                                          Commitment::one(),
-                                                                          transcript);
-        pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    } else {
-        // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
-        // unrolled protocol.
-        const auto opening_claim = ZeroMorph::verify(accumulator->verification_key->circuit_size,
-                                                     commitments.get_unshifted(),
-                                                     commitments.get_to_be_shifted(),
-                                                     claimed_evaluations.get_unshifted(),
-                                                     claimed_evaluations.get_shifted(),
-                                                     multivariate_challenge,
-                                                     Commitment::one(),
-                                                     transcript);
-        pairing_points = PCS::reduce_verify(opening_claim, transcript);
-    }
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+                                                                      commitments.get_unshifted(),
+                                                                      commitments.get_to_be_shifted(),
+                                                                      claimed_evaluations.get_unshifted(),
+                                                                      claimed_evaluations.get_shifted(),
+                                                                      multivariate_challenge,
+                                                                      Commitment::one(),
+                                                                      transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;

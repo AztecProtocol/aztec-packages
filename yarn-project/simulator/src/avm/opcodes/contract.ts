@@ -24,7 +24,7 @@ export class GetContractInstance extends Instruction {
   async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 1, writes: 6, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [addressOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.addressOffset, this.dstOffset],

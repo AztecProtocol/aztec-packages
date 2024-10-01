@@ -38,7 +38,7 @@ export class ToRadixLE extends Instruction {
       memory,
     );
     const memoryOperations = { reads: 2, writes: this.numLimbs, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: this.numLimbs }));
+    context.machineState.consumeGas(this.gasCost(this.numLimbs));
 
     // The radix gadget only takes in a Field
     memory.checkTag(TypeTag.FIELD, srcOffset);

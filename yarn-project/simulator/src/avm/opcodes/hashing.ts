@@ -35,7 +35,7 @@ export class Poseidon2 extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: Poseidon2.stateSize, writes: Poseidon2.stateSize, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [inputOffset, outputOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.inputStateOffset, this.outputStateOffset],
@@ -87,7 +87,7 @@ export class Keccak extends Instruction {
     memory.checkTag(TypeTag.UINT32, messageSizeOffset);
     const messageSize = memory.get(messageSizeOffset).toNumber();
     const memoryOperations = { reads: messageSize + 1, writes: 32, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: messageSize }));
+    context.machineState.consumeGas(this.gasCost(messageSize));
 
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, messageSize);
 
@@ -137,7 +137,7 @@ export class KeccakF1600 extends Instruction {
     const stateSize = memory.get(stateSizeOffset).toNumber();
     assert(stateSize === 25, 'Invalid state size for keccakf1600');
     const memoryOperations = { reads: stateSize + 1, writes: 25, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     memory.checkTagsRange(TypeTag.UINT64, stateOffset, stateSize);
 
@@ -200,7 +200,7 @@ export class Sha256Compression extends Instruction {
     // +2 to account for both size offsets (stateSizeOffset and inputsSizeOffset)
     // Note: size of output is same as size of state
     const memoryOperations = { reads: stateSize + inputsSize + 2, writes: stateSize, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
     memory.checkTagsRange(TypeTag.UINT32, inputsOffset, inputsSize);
     memory.checkTagsRange(TypeTag.UINT32, stateOffset, stateSize);
 
@@ -256,7 +256,7 @@ export class Pedersen extends Instruction {
     const hashData = memory.getSlice(messageOffset, messageSize);
 
     const memoryOperations = { reads: messageSize + 2, writes: 1, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: messageSize }));
+    context.machineState.consumeGas(this.gasCost(messageSize));
 
     memory.checkTagsRange(TypeTag.FIELD, messageOffset, messageSize);
 
