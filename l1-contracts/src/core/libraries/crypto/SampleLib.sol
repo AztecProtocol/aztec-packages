@@ -33,9 +33,7 @@ library SampleLib {
     pure
     returns (uint256)
   {
-    if (_index >= _indexCount) {
-      revert Errors.SampleLib__IndexOutOfBounds(_index, _indexCount);
-    }
+    require(_index < _indexCount, Errors.SampleLib__IndexOutOfBounds(_index, _indexCount));
     uint256 rounds = computeShuffleRounds(_indexCount);
 
     uint256 index = _index;
@@ -64,9 +62,9 @@ library SampleLib {
     pure
     returns (uint256)
   {
-    if (_shuffledIndex >= _indexCount) {
-      revert Errors.SampleLib__IndexOutOfBounds(_shuffledIndex, _indexCount);
-    }
+    require(
+      _shuffledIndex < _indexCount, Errors.SampleLib__IndexOutOfBounds(_shuffledIndex, _indexCount)
+    );
 
     uint256 rounds = computeShuffleRounds(_indexCount);
 

@@ -8,6 +8,14 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.js] Removed `L2Block.fromFields`
+`L2Block.fromFields` was a syntactic sugar which is causing [issues](https://github.com/AztecProtocol/aztec-packages/issues/8340) so we've removed it.
+
+```diff
+-const l2Block = L2Block.fromFields({ header, archive, body });
++const l2Block = new L2Block(archive, header, body);
+```
+
 ### [Aztec.nr] Removed `SharedMutablePrivateGetter`
 
 This state variable was deleted due to it being difficult to use safely.
