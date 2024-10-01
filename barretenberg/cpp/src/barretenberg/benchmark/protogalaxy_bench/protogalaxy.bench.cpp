@@ -75,7 +75,7 @@ void fold_k(State& state) noexcept
     }
 }
 
-BENCHMARK(vector_of_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
+BENCHMARK(vector_of_evaluations)->DenseRange(15, 21)->Unit(kMillisecond)->Iterations(1);
 BENCHMARK(compute_row_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
 // We stick to just k=1 for compile-time reasons.
 BENCHMARK(fold_k)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
