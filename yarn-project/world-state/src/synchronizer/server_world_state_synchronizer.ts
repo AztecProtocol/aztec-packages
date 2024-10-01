@@ -17,7 +17,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
 import {
@@ -48,6 +48,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private pausedResolve?: () => void = undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
   private blockNumber: AztecSingleton<number>;
+  private treeMemStore: AztecLmdbStore | null = null;
 
   constructor(
     store: AztecKVStore,
@@ -62,6 +63,13 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       pollIntervalMS: config.worldStateBlockCheckIntervalMS,
       proven: config.worldStateProvenBlocksOnly,
     });
+  }
+
+  private getTreeMemStore(): AztecLmdbStore {
+    if (!this.treeMemStore) {
+      this.treeMemStore = AztecLmdbStore.open(undefined, true);
+    }
+    return this.treeMemStore;
   }
 
   public getLatest(): MerkleTreeAdminOperations {
@@ -303,13 +311,24 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
   async #verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
-    const store = openTmpStore(true);
+    const store = this.getTreeMemStore();
     const tree = new StandardTree(store, new SHA256Trunc(), 'temp_in_hash_check', L1_TO_L2_MSG_SUBTREE_HEIGHT, 0n, Fr);
-    await tree.appendLeaves(l1ToL2Messages);
 
-    if (!tree.getRoot(true).equals(inHash)) {
-      throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
+    let error: Error | null = null;
+    try {
+      await tree.appendLeaves(l1ToL2Messages);
+
+      if (!tree.getRoot(true).equals(inHash)) {
+        error = new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
+      }
+    } catch (e) {
+      error = e as Error;
+    } finally {
+      await store.clear();
     }
-    await store.delete();
+
+    if (error instanceof Error) {
+      throw error;
+    }
   }
 }
