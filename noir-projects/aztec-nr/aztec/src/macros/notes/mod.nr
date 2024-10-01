@@ -149,6 +149,7 @@ pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: F
     let global_export_name = f"{name}_EXPORTS".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
+    // the #[abi( tag below seems to result in the note being exported to the ABI
     quote {
         #[abi(notes)]
         global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id,$note_name_as_str);
@@ -287,9 +288,13 @@ comptime fn generate_partial_note_impl(s: StructDefinition, hiding_point_name: Q
 }
 
 comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note_type_id: Field) {
+    // Here you need to insert the info about the partial fields, we need to
     NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id));
 }
 
+/// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
+/// starts in the serialized note. Note that each struct member can occupy multiple fields (as in Field type).
+/// An example of a struct member occupying multiple fields is `amount` in `TokenNote` that uses `U128` type.
 comptime fn index_note_fields(
     s: StructDefinition,
     nullable_fields: [Quoted]
@@ -307,6 +312,7 @@ comptime fn index_note_fields(
             }
         }
         let (flattened, _) = flatten_to_fields(name, typ, &[]);
+        // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter+=flattened.len();
     }
     (indexed_fixed_fields, indexed_nullable_fields)

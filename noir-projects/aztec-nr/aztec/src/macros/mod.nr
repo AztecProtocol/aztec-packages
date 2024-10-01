@@ -15,6 +15,10 @@ use dispatch::generate_public_dispatch;
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
+///
+/// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
+/// The difference between a module and a regular struct or functionn annotation is that module annotations inject
+/// the code inside the module instead of directly below the annotated element.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
     let unconstrained_functions = m.functions().filter(
@@ -155,8 +159,11 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     }
 }
 
+// here it actually generates the struct
 comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
+    // Second value in each tuple is `note_serialized_len` and that is ignored here because it's only used whne
+    // generating the `compute_note_hash_and_optionally_a_nullifier` function.
     notes.map(
         | (s, _, note_type_id): (StructDefinition, u32, Field) | {
             generate_note_export(s, note_type_id)
