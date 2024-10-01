@@ -375,7 +375,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               typename Flavor::ProvingKey* key,
                                               const std::vector<CyclicPermutation>& copy_cycles)
 {
-    constexpr bool generalized = IsUltraPlonkFlavor<Flavor> || IsUltraFlavor<Flavor>;
+    constexpr bool generalized = IsUltraPlonkFlavor<Flavor> || IsUltraOrMegaHonk<Flavor>;
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
 
     if constexpr (IsPlonkFlavor<Flavor>) { // any Plonk flavor
@@ -386,7 +386,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
             compute_plonk_permutation_lagrange_polynomials_from_mapping("id", mapping.ids, key);
             compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("id", key);
         }
-    } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
+    } else if constexpr (IsUltraOrMegaHonk<Flavor>) { // any UltraHonk flavor
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
 

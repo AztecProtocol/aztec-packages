@@ -159,7 +159,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     circuit.finalize_circuit();
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
-
+    info("Subgroup size: ", subgroup_size);
     auto crs = srs::get_bn254_crs_factory()->get_prover_crs(subgroup_size + 1);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/392): Composer type
     circuit_proving_key =

@@ -66,6 +66,7 @@ void init_bn254_crs(size_t dyadic_circuit_size)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
     // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
     // Must +1 for Plonk only!
+    info("init_bn254_crs  dyadic_circuit_size: ", dyadic_circuit_size);
     auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + dyadic_circuit_size * 6 / 10 + 1);
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
@@ -184,7 +185,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     return verified;
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, acir_format::WitnessVector witness)
 {
     using Builder = Flavor::CircuitBuilder;
@@ -212,7 +213,9 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
 
     Verifier verifier{ verification_key };
 
-    return verifier.verify_proof(proof);
+    bool result = verifier.verify_proof(proof);
+    info("verified: ", result);
+    return result;
 }
 
 /**
@@ -222,7 +225,8 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
  * @param bytecodePath Path to serialized acir circuit data
  * @param witnessPath Path to serialized acir witness data
  */
-template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
+template <IsUltraOrMegaHonk Flavor>
+bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
 {
     bool honk_recursion = false;
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
@@ -243,7 +247,7 @@ template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytec
  * @param witnessPath Path to serialized acir witness stack data. This dictates the execution trace the backend should
  * follow.
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::string& witnessPath)
 {
     bool honk_recursion = false;
@@ -654,6 +658,7 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system, witness);
+    info("number of gates: ", acir_composer.get_total_circuit_size());
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
@@ -1090,7 +1095,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Path to write the proof to
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void prove_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
     // using Builder = Flavor::CircuitBuilder;
@@ -1130,7 +1135,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, const std::string& vk_path)
+template <IsUltraOrMegaHonk Flavor> bool verify_honk(const std::string& proof_path, const std::string& vk_path)
 {
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
@@ -1159,7 +1164,7 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
+template <IsUltraOrMegaHonk Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
@@ -1186,7 +1191,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Path to write toml file
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void write_recursion_inputs_honk(const std::string& bytecodePath,
                                  const std::string& witnessPath,
                                  const std::string& outputPath)
@@ -1256,7 +1261,7 @@ void proof_as_fields_honk(const std::string& proof_path, const std::string& outp
  * @param vk_path Path to the file containing the serialized verification key
  * @param output_path Path to write the verification key to
  */
-template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_path, const std::string& output_path)
+template <IsUltraOrMegaHonk Flavor> void vk_as_fields_honk(const std::string& vk_path, const std::string& output_path)
 {
     using VerificationKey = Flavor::VerificationKey;
 
@@ -1334,7 +1339,7 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Directory into which we write the proof and verification key data
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void prove_honk_output_all(const std::string& bytecodePath,
                            const std::string& witnessPath,
                            const std::string& outputPath)
