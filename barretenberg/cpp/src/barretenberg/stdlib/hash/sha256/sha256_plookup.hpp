@@ -77,10 +77,6 @@ template <typename Builder>
 field_t<Builder> choose(sparse_value<Builder>& e, const sparse_value<Builder>& f, const sparse_value<Builder>& g);
 template <typename Builder>
 field_t<Builder> majority(sparse_value<Builder>& a, const sparse_value<Builder>& b, const sparse_value<Builder>& c);
-<<<<<<< HEAD
-
-=======
->>>>>>> 4df65a2a27 (optimization for stdlib sha256 function)
 template <typename Builder>
 std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 8>& h_init,
                                              const std::array<field_t<Builder>, 16>& input);
