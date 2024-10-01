@@ -9,7 +9,7 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.aOffset, this.bOffset, this.dstOffset],
@@ -100,7 +100,7 @@ export class Not extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
     TaggedMemory.checkIsIntegralTag(memory.getTag(srcOffset));

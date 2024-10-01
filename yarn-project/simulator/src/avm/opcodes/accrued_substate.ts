@@ -30,7 +30,7 @@ export class NoteHashExists extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
     const [noteHashOffset, leafIndexOffset, existsOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.noteHashOffset, this.leafIndexOffset, this.existsOffset],
       memory,
@@ -66,7 +66,7 @@ export class EmitNoteHash extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [noteHashOffset] = Addressing.fromWire(this.indirect).resolve([this.noteHashOffset], memory);
     memory.checkTag(TypeTag.FIELD, noteHashOffset);
@@ -107,7 +107,7 @@ export class NullifierExists extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [nullifierOffset, addressOffset, existsOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.nullifierOffset, this.addressOffset, this.existsOffset],
@@ -143,7 +143,7 @@ export class EmitNullifier extends Instruction {
 
     const memoryOperations = { reads: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [nullifierOffset] = Addressing.fromWire(this.indirect).resolve([this.nullifierOffset], memory);
     memory.checkTag(TypeTag.FIELD, nullifierOffset);
@@ -191,7 +191,7 @@ export class L1ToL2MessageExists extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [msgHashOffset, msgLeafIndexOffset, existsOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset],
@@ -241,7 +241,7 @@ export class EmitUnencryptedLog extends Instruction {
     const contractAddress = context.environment.address;
 
     const memoryOperations = { reads: 1 + logSize, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: logSize }));
+    context.machineState.consumeGas(this.gasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
     context.persistableState.writeUnencryptedLog(contractAddress, log);
 
@@ -267,7 +267,7 @@ export class SendL2ToL1Message extends Instruction {
 
     const memoryOperations = { reads: 2, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [recipientOffset, contentOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.recipientOffset, this.contentOffset],

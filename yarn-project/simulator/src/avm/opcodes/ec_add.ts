@@ -40,7 +40,7 @@ export class EcAdd extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 6, writes: 3, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [p1XOffset, p1YOffset, p1IsInfiniteOffset, p2XOffset, p2YOffset, p2IsInfiniteOffset, dstOffset] =
       Addressing.fromWire(this.indirect).resolve(
