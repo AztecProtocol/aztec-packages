@@ -586,6 +586,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     view
     override(IRollup)
   {
+    verifySignedQuote(_quote);
+
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     Epoch epochToProve = getEpochToProve();

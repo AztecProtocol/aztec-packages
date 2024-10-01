@@ -10,7 +10,6 @@ export function makeRandomEpochProofQuotePayload(): EpochProofQuotePayload {
     epochToProve: randomBigInt(1000000n),
     prover: EthAddress.random(),
     validUntilSlot: randomBigInt(1000000n),
-    domainSeparator: Buffer32.random(),
   });
 }
 
@@ -21,7 +20,7 @@ export function makeRandomEpochProofQuote(payload?: EpochProofQuotePayload): {
   const signer = Secp256k1Signer.random();
 
   return {
-    quote: EpochProofQuote.new(payload ?? makeRandomEpochProofQuotePayload(), signer),
+    quote: EpochProofQuote.new(Buffer32.random(), payload ?? makeRandomEpochProofQuotePayload(), signer),
     signer,
   };
 }

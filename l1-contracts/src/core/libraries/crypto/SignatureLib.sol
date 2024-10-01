@@ -26,6 +26,6 @@ library SignatureLib {
   }
 
   function toBytes(Signature memory _signature) internal pure returns (bytes memory) {
-    return abi.encodePacked(_signature.v, _signature.r, _signature.s);
+    return abi.encodePacked(_signature.r, _signature.s, _signature.v);
   }
 }

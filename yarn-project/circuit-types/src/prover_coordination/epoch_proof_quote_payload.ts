@@ -4,18 +4,18 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
-import { type ScopedToDomain, type Signable } from '../p2p/signature_utils.js';
+import { type Signable } from '../p2p/signature_utils.js';
 
-export class EpochProofQuotePayload implements Signable, ScopedToDomain {
+export class EpochProofQuotePayload implements Signable {
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
     public readonly bondAmount: bigint,
     public readonly prover: EthAddress,
     public readonly basisPointFee: number,
-    public readonly domainSeparator: Buffer32,
   ) {}
 
   static getFields(fields: FieldsOf<EpochProofQuotePayload>) {
@@ -25,7 +25,6 @@ export class EpochProofQuotePayload implements Signable, ScopedToDomain {
       fields.bondAmount,
       fields.prover,
       fields.basisPointFee,
-      fields.domainSeparator,
     ] as const;
   }
 
@@ -41,7 +40,6 @@ export class EpochProofQuotePayload implements Signable, ScopedToDomain {
       reader.readUInt256(),
       reader.readObject(EthAddress),
       reader.readNumber(),
-      reader.readObject(Buffer32),
     );
   }
 
@@ -52,7 +50,6 @@ export class EpochProofQuotePayload implements Signable, ScopedToDomain {
       fields.bondAmount,
       fields.prover,
       fields.basisPointFee,
-      fields.domainSeparator,
     );
   }
 
@@ -77,5 +74,25 @@ export class EpochProofQuotePayload implements Signable, ScopedToDomain {
 
     // NOTE: trim the first two bytes to get rid of the `0x` prefix
     return Buffer.from(encodedData.slice(2), 'hex');
+  }
+
+  toViemArgs(): {
+    epochToProve: bigint;
+    validUntilSlot: bigint;
+    bondAmount: bigint;
+    prover: `0x${string}`;
+    basisPointFee: number;
+  } {
+    return {
+      epochToProve: this.epochToProve,
+      validUntilSlot: this.validUntilSlot,
+      bondAmount: this.bondAmount,
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
+  [inspect.custom](): string {
+    return `EpochProofQuotePayload { epochToProve: ${this.epochToProve}, validUntilSlot: ${this.validUntilSlot}, bondAmount: ${this.bondAmount}, prover: ${this.prover}, basisPointFee: ${this.basisPointFee} }`;
   }
 }

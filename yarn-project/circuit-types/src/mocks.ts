@@ -27,7 +27,6 @@ import {
 } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -234,7 +233,6 @@ export const mockEpochProofQuote = (
   bondAmount?: bigint,
   proverAddress?: EthAddress,
   basisPointFee?: number,
-  domainSeparator?: Buffer32,
 ) => {
   const quotePayload: EpochProofQuotePayload = new EpochProofQuotePayload(
     epochToProve,
@@ -242,7 +240,6 @@ export const mockEpochProofQuote = (
     bondAmount ?? randomBigInt(10000n) + 1000n,
     proverAddress ?? EthAddress.random(),
     basisPointFee ?? randomInt(100),
-    domainSeparator ?? Buffer32.random(),
   );
   const sig: Signature = Signature.empty();
   return new EpochProofQuote(quotePayload, sig);
