@@ -107,14 +107,16 @@ class AvmTraceBuilder {
     void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Machine State - Internal Control Flow
-    void op_jump(uint32_t jmp_dest);
+    // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
+    void op_jump(uint32_t jmp_dest, bool skip_gas = false);
     void op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset);
     // TODO(md): this program counter MUST be an operand to the OPCODE.
     void op_internal_call(uint32_t jmp_dest);
     void op_internal_return();
 
     // Machine State - Memory
-    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
+    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas = false);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 

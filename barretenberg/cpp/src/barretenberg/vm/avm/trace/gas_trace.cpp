@@ -89,47 +89,66 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
     first_opcode_row.main_l2_gas_remaining = initial_l2_gas;
     first_opcode_row.main_da_gas_remaining = initial_da_gas;
 
-    uint32_t current_clk = 1;
     uint32_t current_l2_gas_remaining = initial_l2_gas;
     uint32_t current_da_gas_remaining = initial_da_gas;
 
+    auto gas_it = gas_trace.begin();
+
     // Assume that gas_trace entries are ordered by a strictly increasing clk sequence.
-    for (auto const& gas_entry : gas_trace) {
-        // There should be no gaps in the gas_trace.
-        ASSERT(gas_entry.clk == current_clk);
+    for (size_t current_clk = 1; current_clk < main_trace.size(); current_clk++) {
+        // TODO(8945): There should be no gaps in the gas_trace once fake rows are removed.
+        // Uncomment ASSERT once we will have removed all fake rows as well as code involving
+        // is_fake_row boolean.
+        // ASSERT(gas_entry.clk == current_clk);
 
-        auto& dest = main_trace.at(gas_entry.clk - 1);
-        auto& next = main_trace.at(gas_entry.clk);
+        // Here, main_trace is not prepended with the extra row yet and therefore the index
+        // of the row pertaining to clk is clk - 1.
 
-        // Write each of the relevant gas accounting values
-        dest.main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);
-        dest.main_base_l2_gas_op_cost = gas_entry.base_l2_gas_cost;
-        dest.main_base_da_gas_op_cost = gas_entry.base_da_gas_cost;
-        dest.main_dyn_l2_gas_op_cost = gas_entry.dyn_l2_gas_cost;
-        dest.main_dyn_da_gas_op_cost = gas_entry.dyn_da_gas_cost;
-        dest.main_dyn_gas_multiplier = gas_entry.dyn_gas_multiplier;
+        bool is_fake_row = (gas_it == gas_trace.end() || gas_it->clk != current_clk);
 
-        // If gas remaining is increasing, it means we underflowed in uint32_t
-        bool l2_out_of_gas = current_l2_gas_remaining < gas_entry.remaining_l2_gas;
-        bool da_out_of_gas = current_da_gas_remaining < gas_entry.remaining_da_gas;
+        if (is_fake_row) {
+            main_trace.at(current_clk).main_l2_gas_remaining = current_l2_gas_remaining;
+            main_trace.at(current_clk).main_da_gas_remaining = current_da_gas_remaining;
+            main_trace.at(current_clk - 1).main_is_fake_row = 1;
+        } else {
 
-        uint32_t abs_l2_gas_remaining = l2_out_of_gas ? -gas_entry.remaining_l2_gas : gas_entry.remaining_l2_gas;
-        uint32_t abs_da_gas_remaining = da_out_of_gas ? -gas_entry.remaining_da_gas : gas_entry.remaining_da_gas;
+            const auto& gas_entry = *gas_it;
+            auto& dest = main_trace.at(gas_entry.clk - 1);
+            auto& next = main_trace.at(gas_entry.clk);
 
-        dest.main_abs_l2_rem_gas = abs_l2_gas_remaining;
-        dest.main_abs_da_rem_gas = abs_da_gas_remaining;
+            // Temporary. Will be removed once "fake" rows are purged.
+            dest.main_is_gas_accounted = 1;
 
-        dest.main_l2_out_of_gas = static_cast<uint32_t>(l2_out_of_gas);
-        dest.main_da_out_of_gas = static_cast<uint32_t>(da_out_of_gas);
+            // Write each of the relevant gas accounting values
+            dest.main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);
+            dest.main_base_l2_gas_op_cost = gas_entry.base_l2_gas_cost;
+            dest.main_base_da_gas_op_cost = gas_entry.base_da_gas_cost;
+            dest.main_dyn_l2_gas_op_cost = gas_entry.dyn_l2_gas_cost;
+            dest.main_dyn_da_gas_op_cost = gas_entry.dyn_da_gas_cost;
+            dest.main_dyn_gas_multiplier = gas_entry.dyn_gas_multiplier;
 
-        current_l2_gas_remaining = gas_entry.remaining_l2_gas;
-        current_da_gas_remaining = gas_entry.remaining_da_gas;
-        next.main_l2_gas_remaining =
-            l2_out_of_gas ? FF::modulus - uint256_t(abs_l2_gas_remaining) : current_l2_gas_remaining;
-        next.main_da_gas_remaining =
-            da_out_of_gas ? FF::modulus - uint256_t(abs_da_gas_remaining) : current_da_gas_remaining;
+            // If gas remaining is increasing, it means we underflowed in uint32_t
+            bool l2_out_of_gas = current_l2_gas_remaining < gas_entry.remaining_l2_gas;
+            bool da_out_of_gas = current_da_gas_remaining < gas_entry.remaining_da_gas;
 
-        current_clk++;
+            uint32_t abs_l2_gas_remaining = l2_out_of_gas ? -gas_entry.remaining_l2_gas : gas_entry.remaining_l2_gas;
+            uint32_t abs_da_gas_remaining = da_out_of_gas ? -gas_entry.remaining_da_gas : gas_entry.remaining_da_gas;
+
+            dest.main_abs_l2_rem_gas = abs_l2_gas_remaining;
+            dest.main_abs_da_rem_gas = abs_da_gas_remaining;
+
+            dest.main_l2_out_of_gas = static_cast<uint32_t>(l2_out_of_gas);
+            dest.main_da_out_of_gas = static_cast<uint32_t>(da_out_of_gas);
+
+            current_l2_gas_remaining = gas_entry.remaining_l2_gas;
+            current_da_gas_remaining = gas_entry.remaining_da_gas;
+            next.main_l2_gas_remaining =
+                l2_out_of_gas ? FF::modulus - uint256_t(abs_l2_gas_remaining) : current_l2_gas_remaining;
+            next.main_da_gas_remaining =
+                da_out_of_gas ? FF::modulus - uint256_t(abs_da_gas_remaining) : current_da_gas_remaining;
+
+            gas_it++;
+        }
     }
 
     reset();
