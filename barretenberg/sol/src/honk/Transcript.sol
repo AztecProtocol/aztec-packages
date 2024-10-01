@@ -215,10 +215,10 @@ library TranscriptLib {
         gR[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            gR[1 + i * 4] = proof.geminiFoldUnivariates[i].x_0;
-            gR[2 + i * 4] = proof.geminiFoldUnivariates[i].x_1;
-            gR[3 + i * 4] = proof.geminiFoldUnivariates[i].y_0;
-            gR[4 + i * 4] = proof.geminiFoldUnivariates[i].y_1;
+            gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
+            gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
+            gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;
+            gR[4 + i * 4] = proof.geminiFoldComms[i].y_1;
         }
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
@@ -367,7 +367,7 @@ library TranscriptLib {
 
             uint256 y1Start = yEnd;
             uint256 y1End = y1Start + 0x20;
-            p.geminiFoldUnivariates[i] = Honk.G1ProofPoint({
+            p.geminiFoldComms[i] = Honk.G1ProofPoint({
                 x_0: uint256(bytes32(proof[xStart:xEnd])),
                 x_1: uint256(bytes32(proof[x1Start:x1End])),
                 y_0: uint256(bytes32(proof[yStart:yEnd])),
