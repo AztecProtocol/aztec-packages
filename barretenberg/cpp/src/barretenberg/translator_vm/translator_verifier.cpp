@@ -72,6 +72,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
     info("Translator Verifier acc result ", accumulated_result);
 
+    info("product of above ", evaluation_input_x * accumulated_result);
+
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
     if (circuit_size != key->circuit_size) {
@@ -109,6 +111,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("sumcheck failed");
         return false;
     }
 

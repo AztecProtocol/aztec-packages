@@ -91,7 +91,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     }
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        size_t last_non_zero_index = 0; // Variable to track the last non-zero element index
+        // size_t last_non_zero_index = 0; // Variable to track the last non-zero element index
 
         // Commit to Goblin ECC op wires
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
@@ -103,14 +103,14 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
 
                 // info("OINK", label, "  ", commitment);
 
-                size_t index = 0; // Variable to track the current index
+                // size_t index = 0; // Variable to track the current index
 
-                for (const auto& coeff : polynomial.coeffs()) {
-                    if (coeff != FF(0)) {
-                        last_non_zero_index = index; // Update last non-zero index
-                    }
-                    index += 1; // Increment the index in each iteration
-                }
+                // for (const auto& coeff : polynomial.coeffs()) {
+                //     if (coeff != FF(0)) {
+                //         last_non_zero_index = index; // Update last non-zero index
+                //     }
+                //     index += 1; // Increment the index in each iteration
+                // }
             }
 
             transcript->send_to_verifier(domain_separator + label, commitment);
@@ -119,19 +119,19 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         // auto test_opcode = proving_key->proving_key.polynomials.get_ecc_op_wires()[0];
         // auto test_first_wire = proving_key->proving_key.polynomials.get_ecc_op_wires()[1];
         // auto test_sec_wire = proving_key->proving_key.polynomials.get_ecc_op_wires()[2];
-        auto test_third_wire = proving_key->proving_key.polynomials.get_ecc_op_wires()[3];
-        info("OINK prover commits to ecc wires");
+        // auto test_third_wire = proving_key->proving_key.polynomials.get_ecc_op_wires()[3];
+        // info("OINK prover commits to ecc wires");
 
-        for (size_t idx = 0; idx < last_non_zero_index + 4; ++idx) {
-            // Printing each wire on a separate line with [0], [1], [2], and [3] wire numbers
-            // info("ecc op wire [0] = ", test_opcode[idx]);
-            // info("ecc op wire [1] = ", test_first_wire[idx]);
-            // info("ecc op wire [2] = ", test_sec_wire[idx]);
-            if (!test_third_wire.is_zero()) {
-                info("ecc op wire [3] = ", test_third_wire[idx], " idx = ", idx);
-            };
-        }
-        info(" oink poly size ", last_non_zero_index);
+        // for (size_t idx = 0; idx < last_non_zero_index + 4; ++idx) {
+        //     // Printing each wire on a separate line with [0], [1], [2], and [3] wire numbers
+        //     // info("ecc op wire [0] = ", test_opcode[idx]);
+        //     // info("ecc op wire [1] = ", test_first_wire[idx]);
+        //     // info("ecc op wire [2] = ", test_sec_wire[idx]);
+        //     if (!test_third_wire.is_zero()) {
+        //         info("ecc op wire [3] = ", test_third_wire[idx], " idx = ", idx);
+        //     };
+        // }
+        // info(" oink poly size ", last_non_zero_index);
         // Commit to DataBus related polynomials
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_entities(),

@@ -20,7 +20,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 {
     // transform it into stdlib proof
     StdlibProof<CircuitBuilder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    const std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>(stdlib_proof);
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>(stdlib_proof);
 
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
     std::array<Commitment, NUM_WIRES> C_T_prev;
@@ -37,6 +37,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     }
 
     const FF kappa = transcript->template get_challenge<FF>("kappa");
+    info("kappa merge recursive ", kappa);
 
     // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
     std::array<FF, NUM_WIRES> T_prev_evals;
@@ -69,20 +70,18 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     std::vector<Commitment> commitments;
     scalars.emplace_back(FF(builder, 1));
     commitments.emplace_back(opening_claims[0].commitment);
+    // info("opening claim comm is a point at inf? ", opening_claims[0].commitment.is_point_at_infinity());
     auto batched_eval = opening_claims[0].opening_pair.evaluation;
     auto alpha_pow = alpha;
     for (size_t idx = 1; idx < opening_claims.size(); ++idx) {
         auto& claim = opening_claims[idx];
         scalars.emplace_back(alpha_pow);
         commitments.emplace_back(claim.commitment);
+        // info("opening claim comm is a point at inf? ", claim.commitment.is_point_at_infinity(), " idx ", idx);
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
         alpha_pow *= alpha;
     }
 
-    for (auto [commitment, scalar] : zip_view(commitments, scalars)) {
-        info("commitment is point at infty ", commitment.is_point_at_infinity());
-        info("scalar is 0 ", scalar == FF(0));
-    }
     info("Merge Recursive verifier BATCH MUL size: ", commitments.size());
     const Commitment batched_commitment =
         Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);

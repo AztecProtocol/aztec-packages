@@ -122,11 +122,10 @@ class GoblinMockCircuits {
         bb::MegaCircuitBuilder builder{ op_queue };
 
         // Add some goblinized ecc ops
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
-
+        builder.queue_ecc_mul_accum(g1::affine_element::one(), 2);
         op_queue->set_size_data();
 
-        // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
+        // Manually compute the op queue transcript commitments(which would normally be done by the merge prover)
         bb::srs::init_crs_factory("../srs_db/ignition");
         auto commitment_key = CommitmentKey(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;

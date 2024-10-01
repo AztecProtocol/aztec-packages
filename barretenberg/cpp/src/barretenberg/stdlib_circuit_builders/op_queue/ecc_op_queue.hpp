@@ -370,6 +370,10 @@ class ECCOpQueue {
             .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
+        if (to_mul.is_point_at_infinity()) {
+            info("deep inside ecc op queue");
+            info(to_mul);
+        }
         num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
 
@@ -487,8 +491,10 @@ class ECCOpQueue {
 
         // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
         const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+
         auto x_256 = uint256_t(point.x);
         auto y_256 = uint256_t(point.y);
+
         ultra_op.return_is_infinity = point.is_point_at_infinity();
         ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
         ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));

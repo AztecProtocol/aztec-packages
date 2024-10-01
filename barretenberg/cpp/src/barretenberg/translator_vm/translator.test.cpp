@@ -1,4 +1,6 @@
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
+#include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
@@ -14,6 +16,10 @@ using CircuitBuilder = TranslatorFlavor::CircuitBuilder;
 using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 auto& engine = numeric::get_debug_randomness();
+using ECCVMFlavor = bb::ECCVMFlavor;
+using ECCVMBuilder = bb::ECCVMCircuitBuilder;
+using ECCVMProver = bb::ECCVMProver;
+using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
 
 std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)
 {
@@ -69,6 +75,56 @@ TEST_F(TranslatorTests, Basic)
     Fq translation_evaluation_challenge = Fq::random_element();
 
     auto circuit_builder = CircuitBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
+    EXPECT_TRUE(circuit_builder.check_circuit());
+
+    TranslatorProver prover{ circuit_builder, prover_transcript };
+    auto proof = prover.construct_proof();
+
+    auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+    verifier_transcript->template receive_from_prover<Fq>("init");
+    TranslatorVerifier verifier(prover.key, verifier_transcript);
+    bool verified = verifier.verify_proof(proof);
+    EXPECT_TRUE(verified);
+}
+/**
+ * @brief Test simple circuit with public inputs
+ *
+ */
+TEST_F(TranslatorTests, BasicPointAtInfinity)
+{
+    using G1 = g1::affine_element;
+    using Fr = fr;
+    using Fq = fq;
+
+    auto P1 = G1::infinity();
+    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+
+    // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    // op_queue->append_nonzero_ops();
+
+    for (size_t i = 0; i < 1; i++) {
+        // op_queue->add_accumulate(P1);
+        op_queue->mul_accumulate(P1, Fr(0));
+    }
+
+    auto prover_transcript = std::make_shared<Transcript>();
+
+    auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+    auto eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
+
+    auto eccvm_proof = eccvm_prover->construct_proof();
+    auto translation_evaluations = eccvm_prover->translation_evaluations;
+    info(translation_evaluations.Px);
+
+    prover_transcript->send_to_verifier("init", Fq::random_element());
+    prover_transcript->export_proof();
+
+    // Fq translation_batching_challenge = prover_transcript->template
+    // get_challenge<Fq>("Translation:batching_challenge");
+
+    auto circuit_builder =
+        CircuitBuilder(eccvm_prover->translation_batching_challenge_v, eccvm_prover->evaluation_challenge_x, op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     TranslatorProver prover{ circuit_builder, prover_transcript };

@@ -124,7 +124,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @note pc starts out at its max value and decrements down to 0. This keeps the degree of the pc polynomial smol
      */
     Accumulator pc_delta = pc - pc_shift;
-    auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
+    auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * is_not_infinity;
     std::get<3>(accumulator) += is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
 
     /**
@@ -165,7 +165,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * row).
      */
     auto msm_count_delta = msm_count_shift - msm_count; // degree 4
-    auto num_counts = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
+    auto num_counts = ((-z1_zero + 1) + (-z2_zero + 1)) * is_not_infinity;
     std::get<7>(accumulator) +=
         is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * (num_counts)) * scaling_factor;
 
@@ -187,7 +187,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * ELSE lhs and rhs are BOTH points at infinity
      **/
     auto both_infinity = transcript_Pinfinity * is_accumulator_empty;
-    auto both_not_infinity = (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1);
+    auto both_not_infinity = is_not_infinity * (-is_accumulator_empty + 1);
     auto infinity_exclusion_check = transcript_Pinfinity + is_accumulator_empty - both_infinity - both_infinity;
     auto eq_x_diff = transcript_Px - transcript_accumulator_x;
     auto eq_y_diff = transcript_Py - transcript_accumulator_y;
@@ -212,7 +212,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * If q_mul = 1 OR q_add = 1 OR q_eq = 1, require (transcript_Px, transcript_Py) is valid ecc point
      * q_mul/q_add/q_eq mutually exclusive, can represent as sum of 3
      */
-    const auto validate_on_curve = q_mul + q_add + q_mul + q_eq;
+    const auto validate_on_curve = q_mul + q_add + q_eq;
     const auto on_curve_check =
         transcript_Py * transcript_Py - transcript_Px * transcript_Px * transcript_Px - get_curve_b();
     std::get<13>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 6
@@ -295,7 +295,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
                 transcript_add_lambda_relation += lambda_relation * is_double;         // degree 4
             }
             auto transcript_add_or_dbl_from_add_output_is_valid =
-                (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1);                    // degree 2
+                is_not_infinity * (-is_accumulator_empty + 1);                                // degree 2
             transcript_add_lambda_relation *= transcript_add_or_dbl_from_add_output_is_valid; // degree 6
             // No group operation because of points at infinity
             {

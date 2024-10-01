@@ -32,6 +32,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
                                                                      [[maybe_unused]] const size_t max_num_bits,
                                                                      [[maybe_unused]] const bool handle_edge_cases)
 {
+
     auto builder = points[0].get_context();
 
     // Check that the internal accumulator is zero?
@@ -41,6 +42,8 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     size_t num_points = points.size();
     for (size_t i = 0; i < num_points; ++i) {
         auto& point = points[i];
+        bool is_point_at_infinity = point.is_point_at_infinity().get_value();
+
         auto& scalar = scalars[i];
 
         // Populate the goblin-style ecc op gates for the given mul inputs
@@ -49,12 +52,14 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         if (scalar_is_constant_equal_one) { // if scalar is 1, there is no need to perform a mul
             op_tuple = builder->queue_ecc_add_accum(point.get_value());
         } else { // otherwise, perform a mul-then-accumulate
-            op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
+            if (!is_point_at_infinity) {
+                op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
+            }
         }
 
-        // Add constraints demonstrating that the EC point coordinates were decomposed faithfully. In particular, show
-        // that the lo-hi components that have been encoded in the op wires can be reconstructed via the limbs of the
-        // original point coordinates.
+        // Add constraints demonstrating that the EC point coordinates were decomposed faithfully. In particular,
+        // show that the lo-hi components that have been encoded in the op wires can be reconstructed via the limbs
+        // of the original point coordinates.
         auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
         auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
         auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
@@ -94,6 +99,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     //       is produced from `eq_and_reset` opcode
     if (op_tuple.return_is_infinity) {
         result.set_point_at_infinity(bool_ct(builder, true));
+        info("op_tuple.return_is_infinity is satisfied");
     };
 
     return result;

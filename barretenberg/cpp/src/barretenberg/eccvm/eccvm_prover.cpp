@@ -136,8 +136,17 @@ void ECCVMProver::execute_pcs_rounds()
     translation_evaluations.op = key->polynomials.transcript_op.evaluate(evaluation_challenge_x);
     info("ECCVM op eval = ", translation_evaluations.op);
 
+    // for (auto coeff : key->polynomials.transcript_op.coeffs()) {
+    //     info(coeff);
+    // }
+
     translation_evaluations.Px = key->polynomials.transcript_Px.evaluate(evaluation_challenge_x);
     info("ECCVM Px eval = ", translation_evaluations.Px);
+
+    // for (auto coeff : key->polynomials.transcript_Px.coeffs()) {
+    //     info(coeff);
+    // }
+
     translation_evaluations.Py = key->polynomials.transcript_Py.evaluate(evaluation_challenge_x);
     info("ECCVM Py eval = ", translation_evaluations.Py);
     translation_evaluations.z1 = key->polynomials.transcript_z1.evaluate(evaluation_challenge_x);

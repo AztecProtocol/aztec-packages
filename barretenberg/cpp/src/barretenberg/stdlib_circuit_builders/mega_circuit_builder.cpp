@@ -60,9 +60,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     read_return_data(read_idx);
 
     // add dummy mul accum op and an equality op
-    // info("adding dummy scalar mul");
-    // this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
-    // this->queue_ecc_eq();
+    //  info("adding dummy scalar mul");
+    this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
+    this->queue_ecc_eq();
 }
 
 /**
@@ -109,8 +109,13 @@ template <typename FF>
 ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
 {
     // Add the operation to the op queue
-    auto ultra_op = op_queue->mul_accumulate(point, scalar);
 
+    auto ultra_op = op_queue->mul_accumulate(point, scalar);
+    // info("populating mul accum", point.is_point_at_infinity(), " point ", point);
+    // info("as an ultra op  X coord:");
+    // info(ultra_op.x_hi, ultra_op.x_lo);
+    // info("as an ultra op  Y coord:");
+    // info(ultra_op.y_hi, ultra_op.y_lo);
     // Add corresponding gates for the operation
     ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
@@ -144,7 +149,11 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     ecc_op_tuple op_tuple;
     op_tuple.op = get_ecc_op_idx(ultra_op.op_code);
     op_tuple.x_lo = this->add_variable(ultra_op.x_lo);
+    info("--------");
+    info("inside populate ecc op wires", ultra_op.x_lo);
     op_tuple.x_hi = this->add_variable(ultra_op.x_hi);
+    info("inside populate ecc op wires", ultra_op.x_hi);
+    info("--------");
     op_tuple.y_lo = this->add_variable(ultra_op.y_lo);
     op_tuple.y_hi = this->add_variable(ultra_op.y_hi);
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);

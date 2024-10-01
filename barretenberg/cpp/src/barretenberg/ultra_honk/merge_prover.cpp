@@ -49,18 +49,18 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
     // Construct t_i^{shift} as T_i - T_{i-1}
     std::array<Polynomial, NUM_WIRES> t_shift;
-    info("merge prover ops");
-    size_t idx = 0;
+    // info("merge prover ops");
+    // size_t idx = 0;
     for (size_t i = 0; i < NUM_WIRES; ++i) {
         t_shift[i] = Polynomial(T_current[i]);
-        if (i == 3) {
-            for (auto coeff : t_shift[3].coeffs()) {
-                // if (coeff != FF(0)) {
-                info("merge prover wire [3]", coeff, " idx = ", idx);
-                idx += 1;
-                // }
-            }
-        }
+        //     if (i == 3) {
+        //         for (auto coeff : t_shift[3].coeffs()) {
+        //             // if (coeff != FF(0)) {
+        //             info("merge prover wire [3]", coeff, " idx = ", idx);
+        //             idx += 1;
+        //             // }
+        //         }
+        //     }
 
         t_shift[i] -= Polynomial(T_prev[i]);
     }
@@ -87,9 +87,16 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
         }
         // info("prev commitments? ", C_T_prev);
         // Compute commitment [t_i^{shift}] directly
+        info(t_shift[idx].size(), "  Size of new ops");
         const auto C_t_shift = pcs_commitment_key->commit(t_shift[idx]);
+        std::vector<Commitment> commitments;
+        std::vector<FF> scalars;
+        scalars.emplace_back(FF(1));
+        scalars.emplace_back(FF(1));
+        commitments.emplace_back(C_T_prev[idx]);
+        commitments.emplace_back(C_t_shift);
         // Compute updated aggregate transcript commitment as [T_i] = [T_{i-1}] + [t_i^{shift}]
-        C_T_current[idx] = C_T_prev[idx] + C_t_shift;
+        C_T_current[idx] = batch_mul_native(commitments, scalars);
 
         std::string suffix = std::to_string(idx + 1);
         transcript->send_to_verifier("T_PREV_" + suffix, C_T_prev[idx]);

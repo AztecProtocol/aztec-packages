@@ -29,7 +29,7 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     std::array<Commitment, NUM_WIRES> C_T_current;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         C_T_prev[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx + 1));
-        info(C_T_prev[idx].is_point_at_infinity(), "comm is a point at inf");
+        info(C_T_prev[idx].is_point_at_infinity(), "comm is a point at inf", C_T_prev[idx].is_point_at_infinity());
         C_t_shift[idx] = transcript->template receive_from_prover<Commitment>("t_SHIFT_" + std::to_string(idx + 1));
         C_T_current[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
     }

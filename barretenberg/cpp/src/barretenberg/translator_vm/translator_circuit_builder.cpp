@@ -578,8 +578,11 @@ TranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_o
 
     // Split P.x and P.y into their representations in bn254 transcript
     p_x_lo = Fr(uint256_t(ecc_op.base_point.x).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+
     p_x_hi = Fr(uint256_t(ecc_op.base_point.x)
                     .slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS, 4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+
+    info("Translator Circuit Builder, Px high/ Px low ", p_x_hi, "  ", p_x_lo);
     p_y_lo = Fr(uint256_t(ecc_op.base_point.y).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
     p_y_hi = Fr(uint256_t(ecc_op.base_point.y)
                     .slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS, 4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
@@ -606,17 +609,47 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
         return;
     }
     // Rename for ease of use
+    info("======");
+
     auto x = evaluation_input_x;
+    info("eval input challenge in circuit builder ", x);
     auto v = batching_challenge_v;
+    info("batching challenge in circuit builder ", v);
+    info("======");
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
     for (size_t i = 0; i < raw_ops.size(); i++) {
         const auto& ecc_op = raw_ops[raw_ops.size() - 1 - i];
+
+        // Print the index and the current ECC operation
+        // info("Iteration ", i, ":\n");
+
+        // Print the current state of the accumulator before multiplication
+        // info("current_accumulator before *= x: ", current_accumulator, "\n");
+
         current_accumulator *= x;
+
+        // // Print the current state of the accumulator after multiplication
+        // info("current_accumulator after *= x: ", current_accumulator, "\n");
+
+        // // Print the individual components being added
+        // info("ecc_op.get_opcode_value(): ", ecc_op.get_opcode_value(), "\n");
+        // info("ecc_op.base_point.x: ", ecc_op.base_point.x, "\n");
+        // info("ecc_op.base_point.y: ", ecc_op.base_point.y, "\n");
+        // info("ecc_op.z1: ", ecc_op.z1, "\n");
+        // info("ecc_op.z2: ", ecc_op.z2, "\n");
+
         current_accumulator +=
             (Fq(ecc_op.get_opcode_value()) +
              v * (ecc_op.base_point.x + v * (ecc_op.base_point.y + v * (ecc_op.z1 + v * ecc_op.z2))));
+
+        // Print the current state of the accumulator after addition
+        // info("current_accumulator after addition: ", current_accumulator, "\n");
+
+        // Print the accumulator trace being updated
+        // info("Pushing to accumulator_trace: ", current_accumulator, "\n");
+
         accumulator_trace.push_back(current_accumulator);
     }
 
