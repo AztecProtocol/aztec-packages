@@ -10,6 +10,8 @@ class ECCVMTranscriptBuilder {
     using FF = grumpkin::fr;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
+    using VMOperation = typename bb::eccvm::VMOperation<CycleGroup>;
+    using Accumulator = typename std::vector<Element>;
 
     struct TranscriptRow {
         bool accumulator_empty = false;
@@ -89,12 +91,12 @@ class ECCVMTranscriptBuilder {
             return res;
         }
     };
-    static std::vector<TranscriptRow> compute_rows(const std::vector<bb::eccvm::VMOperation<CycleGroup>>& vm_operations,
+    static std::vector<TranscriptRow> compute_rows(const std::vector<VMOperation>& vm_operations,
                                                    const uint32_t total_number_of_muls)
     {
-        const size_t num_transcript_entries = vm_operations.size() + 2;
+        // const size_t num_transcript_entries = vm_operations.size() + 2;
         const size_t num_vm_entries = vm_operations.size();
-        std::vector<TranscriptRow> transcript_state(num_transcript_entries);
+        std::vector<TranscriptRow> transcript_state(num_vm_entries + 2);
 
         // These vectors track quantities that we need to invert.
         // We fill these vectors and then perform batch inversions to amortize the cost of FF inverts
@@ -104,9 +106,10 @@ class ECCVMTranscriptBuilder {
         std::vector<FF> add_lambda_denominator(num_vm_entries);
         std::vector<FF> add_lambda_numerator(num_vm_entries);
         std::vector<FF> msm_count_at_transition_inverse_trace(num_vm_entries);
-        std::vector<Element> msm_accumulator_trace(num_vm_entries);
-        std::vector<Element> accumulator_trace(num_vm_entries);
-        std::vector<Element> intermediate_accumulator_trace(num_vm_entries);
+        Accumulator msm_accumulator_trace(num_vm_entries);
+        Accumulator accumulator_trace(num_vm_entries);
+        Accumulator intermediate_accumulator_trace(num_vm_entries);
+
         VMState state{
             .pc = total_number_of_muls,
             .count = 0,
@@ -114,17 +117,22 @@ class ECCVMTranscriptBuilder {
             .msm_accumulator = offset_generator(),
             .is_accumulator_empty = true,
         };
+
         VMState updated_state;
+
         // add an empty row. 1st row all zeroes because of our shiftable polynomials
         transcript_state[0] = (TranscriptRow{});
+
         for (size_t i = 0; i < vm_operations.size(); ++i) {
             TranscriptRow& row = transcript_state[i + 1];
-            const bb::eccvm::VMOperation<CycleGroup>& entry = vm_operations[i];
+            const VMOperation& entry = vm_operations[i];
 
             const bool is_mul = entry.mul;
-            const bool z1_zero = (entry.mul) ? entry.z1 == 0 : true;
-            const bool z2_zero = (entry.mul) ? entry.z2 == 0 : true;
+            const bool is_add = entry.add;
+            const bool z1_zero = is_mul ? entry.z1 == 0 : true;
+            const bool z2_zero = is_mul ? entry.z2 == 0 : true;
             uint32_t num_muls = 0;
+
             auto base_point_infinity = entry.base_point.is_point_at_infinity();
             if (is_mul) {
                 num_muls = static_cast<uint32_t>(!z1_zero) + static_cast<uint32_t>(!z2_zero);
@@ -141,23 +149,25 @@ class ECCVMTranscriptBuilder {
             }
             updated_state.pc = state.pc - num_muls;
 
-            bool last_row = i == (vm_operations.size() - 1);
+            const bool last_row = (i == (vm_operations.size() - 1));
             // msm transition = current row is doing a lookup to validate output = msm output
             // i.e. next row is not part of MSM and current row is part of MSM
             //   or next row is irrelevent and current row is a straight MUL
-            bool next_not_msm = last_row ? true : !vm_operations[i + 1].mul;
-
-            bool msm_transition = entry.mul && next_not_msm && (state.count + num_muls > 0);
-
+            const bool next_not_msm = last_row || !vm_operations[i + 1].mul;
             // we reset the count in updated state if we are not accumulating and not doing an msm
-            bool current_msm = entry.mul;
-            bool current_ongoing_msm = entry.mul && !next_not_msm;
+
+            const bool msm_transition = is_mul && next_not_msm && (state.count + num_muls > 0);
+
+            const bool current_ongoing_msm = is_mul && !next_not_msm;
+
             updated_state.count = current_ongoing_msm ? state.count + num_muls : 0;
-            if (current_msm) {
+
+            if (is_mul) {
                 const auto P = typename CycleGroup::element(entry.base_point);
                 const auto R = typename CycleGroup::element(state.msm_accumulator);
                 updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
             }
+            row.q_mul = is_mul;
 
             if (msm_transition) {
                 if (state.is_accumulator_empty) {
@@ -169,70 +179,51 @@ class ECCVMTranscriptBuilder {
                 updated_state.is_accumulator_empty = updated_state.accumulator.is_point_at_infinity();
             }
 
-            bool add_accumulate = entry.add;
-            if (add_accumulate) {
-                if (state.is_accumulator_empty) {
-                    updated_state.accumulator = entry.base_point;
-                } else {
-                    updated_state.accumulator = typename CycleGroup::element(state.accumulator) + entry.base_point;
-                }
-                updated_state.is_accumulator_empty = updated_state.accumulator.is_point_at_infinity();
-            }
+            handle_add_transition(entry, updated_state, state, row);
+
             row.accumulator_empty = state.is_accumulator_empty;
-            row.q_add = entry.add;
-            row.q_mul = entry.mul;
+
             row.q_eq = entry.eq;
             row.q_reset_accumulator = entry.reset;
             row.msm_transition = msm_transition;
             row.pc = state.pc;
             row.msm_count = state.count;
-            row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && (entry.mul && next_not_msm);
+            row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && (is_mul && next_not_msm);
             msm_count_at_transition_inverse_trace[i] = ((state.count + num_muls) == 0) ? 0 : FF(state.count + num_muls);
-            row.base_x = ((entry.add || entry.mul || entry.eq) && !base_point_infinity) ? entry.base_point.x : 0;
-            row.base_y = ((entry.add || entry.mul || entry.eq) && !base_point_infinity) ? entry.base_point.y : 0;
-            row.base_infinity = (entry.add || entry.mul || entry.eq) ? (base_point_infinity ? 1 : 0) : 0;
+            row.base_x = ((is_add || is_mul || entry.eq) && !base_point_infinity) ? entry.base_point.x : 0;
+            row.base_y = ((is_add || is_mul || entry.eq) && !base_point_infinity) ? entry.base_point.y : 0;
+            row.base_infinity = (is_add || is_mul || entry.eq) ? (base_point_infinity ? 1 : 0) : 0;
             if (msm_transition) {
                 Element msm_output = updated_state.msm_accumulator - offset_generator();
                 row.transcript_msm_infinity = msm_output.is_point_at_infinity();
             }
 
-            row.z1 = (entry.mul) ? entry.z1 : 0;
-            row.z2 = (entry.mul) ? entry.z2 : 0;
+            row.z1 = (is_mul) ? entry.z1 : 0;
+            row.z2 = (is_mul) ? entry.z2 : 0;
             row.z1_zero = z1_zero;
             row.z2_zero = z2_zero;
-            row.opcode = Opcode{ .add = entry.add, .mul = entry.mul, .eq = entry.eq, .reset = entry.reset }.value();
+            row.opcode = Opcode{ .add = is_add, .mul = is_mul, .eq = entry.eq, .reset = entry.reset }.value();
+
             accumulator_trace[i] = state.accumulator;
             msm_accumulator_trace[i] = msm_transition ? updated_state.msm_accumulator : Element::infinity();
             intermediate_accumulator_trace[i] =
                 msm_transition ? (updated_state.msm_accumulator - offset_generator()) : Element::infinity();
-            if (entry.mul && next_not_msm && !row.accumulator_empty) {
+            if (is_mul && next_not_msm && !row.accumulator_empty) {
                 state.msm_accumulator = offset_generator();
             }
 
             state = updated_state;
 
-            if (entry.mul && next_not_msm) {
+            if (is_mul && next_not_msm) {
                 state.msm_accumulator = offset_generator();
             }
         }
-        Element::batch_normalize(&accumulator_trace[0], accumulator_trace.size());
-        Element::batch_normalize(&msm_accumulator_trace[0], msm_accumulator_trace.size());
-        Element::batch_normalize(&intermediate_accumulator_trace[0], intermediate_accumulator_trace.size());
 
-        for (size_t i = 0; i < accumulator_trace.size(); ++i) {
-            if (!accumulator_trace[i].is_point_at_infinity()) {
-                transcript_state[i + 1].accumulator_x = accumulator_trace[i].x;
-                transcript_state[i + 1].accumulator_y = accumulator_trace[i].y;
-            }
-            if (!msm_accumulator_trace[i].is_point_at_infinity()) {
-                transcript_state[i + 1].msm_output_x = msm_accumulator_trace[i].x;
-                transcript_state[i + 1].msm_output_y = msm_accumulator_trace[i].y;
-            }
-            if (!intermediate_accumulator_trace[i].is_point_at_infinity()) {
-                transcript_state[i + 1].transcript_msm_intermediate_x = intermediate_accumulator_trace[i].x;
-                transcript_state[i + 1].transcript_msm_intermediate_y = intermediate_accumulator_trace[i].y;
-            }
-        }
+        normalize_accumulators(accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
+
+        add_point_coordinates_to_transcript(
+            transcript_state, accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
+
         for (size_t i = 0; i < accumulator_trace.size(); ++i) {
             auto& row = transcript_state[i + 1];
             const bool msm_transition = row.msm_transition;
@@ -265,9 +256,10 @@ class ECCVMTranscriptBuilder {
             // msm transition = current row is doing a lookup to validate output = msm output
             // i.e. next row is not part of MSM and current row is part of MSM
             //   or next row is irrelevent and current row is a straight MUL
-            const bb::eccvm::VMOperation<CycleGroup>& entry = vm_operations[i];
-            if (entry.add || msm_transition) {
-                Element lhs = entry.add ? Element(entry.base_point) : intermediate_accumulator_trace[i];
+            const VMOperation& entry = vm_operations[i];
+            const bool is_add = entry.add;
+            if (is_add || msm_transition) {
+                Element lhs = is_add ? Element(entry.base_point) : intermediate_accumulator_trace[i];
                 Element rhs = accumulator_trace[i];
                 FF lhs_y = lhs.y;
                 FF lhs_x = lhs.x;
@@ -303,6 +295,7 @@ class ECCVMTranscriptBuilder {
                 add_lambda_denominator[i] = 0;
             }
         }
+
         FF::batch_invert(&inverse_trace_x[0], num_vm_entries);
         FF::batch_invert(&inverse_trace_y[0], num_vm_entries);
         FF::batch_invert(&transcript_msm_x_inverse_trace[0], num_vm_entries);
@@ -323,6 +316,121 @@ class ECCVMTranscriptBuilder {
             (updated_state.accumulator.is_point_at_infinity()) ? 0 : AffineElement(updated_state.accumulator).y;
         final_row.accumulator_empty = updated_state.is_accumulator_empty;
         return transcript_state;
+    }
+
+  private:
+    static void handle_mul_transition(const VMOperation& entry,
+                                      VMState& updated_state,
+                                      TranscriptRow& row,
+                                      Accumulator& msm_accumulator_trace,
+                                      VMState& state)
+    {
+        const bool is_mul = entry.mul;
+        const bool base_point_infinity = entry.base_point.is_point_at_infinity();
+        const bool z1_zero = is_mul && entry.z1 == 0;
+        const bool z2_zero = is_mul && entry.z2 == 0;
+
+        if (is_mul) {
+            uint32_t num_muls = !z1_zero + !z2_zero;
+            if (base_point_infinity) {
+                num_muls = 0;
+            }
+            updated_state.pc = state.pc - num_muls;
+        }
+
+        row.q_mul = is_mul;
+        if (is_mul && !base_point_infinity) {
+            updated_state.msm_accumulator = state.msm_accumulator + Element(entry.base_point) * entry.mul_scalar_full;
+            msm_accumulator_trace.push_back(updated_state.msm_accumulator);
+        }
+    }
+
+    static void handle_add_transition(const bb::eccvm::VMOperation<CycleGroup>& entry,
+                                      VMState& updated_state,
+                                      VMState& state,
+                                      TranscriptRow& row)
+    {
+        if (entry.add) {
+            if (state.is_accumulator_empty) {
+                updated_state.accumulator = entry.base_point;
+            } else {
+                updated_state.accumulator = typename CycleGroup::element(state.accumulator) + entry.base_point;
+            }
+            updated_state.is_accumulator_empty = updated_state.accumulator.is_point_at_infinity();
+        }
+        row.q_add = entry.add;
+    }
+
+    static void normalize_accumulators(Accumulator& accumulator_trace,
+                                       Accumulator& msm_accumulator_trace,
+                                       std::vector<Element>& intermediate_accumulator_trace)
+    {
+        Element::batch_normalize(&accumulator_trace[0], accumulator_trace.size());
+        Element::batch_normalize(&msm_accumulator_trace[0], msm_accumulator_trace.size());
+        Element::batch_normalize(&intermediate_accumulator_trace[0], intermediate_accumulator_trace.size());
+    }
+
+    static void add_point_coordinates_to_transcript(std::vector<TranscriptRow>& transcript_state,
+                                                    const Accumulator& accumulator_trace,
+                                                    const Accumulator& msm_accumulator_trace,
+                                                    const Accumulator& intermediate_accumulator_trace
+                                                    // const std::vector<FF>& transcript_msm_x_inverse_trace,
+                                                    // const std::vector<FF>& add_lambda_numerator,
+                                                    // const std::vector<FF>& add_lambda_denominator,
+                                                    // const std::vector<FF>& msm_count_at_transition_inverse_trace
+    )
+    {
+        for (size_t i = 0; i < accumulator_trace.size(); ++i) {
+            if (!accumulator_trace[i].is_point_at_infinity()) {
+                transcript_state[i + 1].accumulator_x = accumulator_trace[i].x;
+                transcript_state[i + 1].accumulator_y = accumulator_trace[i].y;
+            }
+            if (!msm_accumulator_trace[i].is_point_at_infinity()) {
+                transcript_state[i + 1].msm_output_x = msm_accumulator_trace[i].x;
+                transcript_state[i + 1].msm_output_y = msm_accumulator_trace[i].y;
+            }
+            if (!intermediate_accumulator_trace[i].is_point_at_infinity()) {
+                transcript_state[i + 1].transcript_msm_intermediate_x = intermediate_accumulator_trace[i].x;
+                transcript_state[i + 1].transcript_msm_intermediate_y = intermediate_accumulator_trace[i].y;
+            }
+        }
+    }
+
+    static void update_trace_accumulators(const VMOperation& entry,
+                                          //   const VMState& state,
+                                          TranscriptRow& row,
+                                          //   std::vector<FF>& inverse_trace_x,
+                                          //   std::vector<FF>& inverse_trace_y,
+                                          std::vector<FF>& add_lambda_numerator,
+                                          std::vector<FF>& add_lambda_denominator,
+                                          //   std::vector<FF>& msm_count_at_transition_inverse_trace,
+                                          size_t i,
+                                          const Accumulator& accumulator_trace,
+                                          const Accumulator& intermediate_accumulator_trace)
+    {
+
+        if (entry.add || row.msm_transition) {
+            const Element lhs = entry.add ? Element(entry.base_point) : intermediate_accumulator_trace[i];
+            const Element rhs = accumulator_trace[i];
+            const FF lhs_x = lhs.is_point_at_infinity() ? 0 : lhs.x;
+            const FF lhs_y = lhs.is_point_at_infinity() ? 0 : lhs.y;
+            const FF rhs_x = rhs.is_point_at_infinity() ? 0 : rhs.x;
+            const FF rhs_y = rhs.is_point_at_infinity() ? 0 : rhs.y;
+
+            row.transcript_add_x_equal = lhs_x == rhs_x;
+            row.transcript_add_y_equal = lhs_y == rhs_y;
+
+            if (lhs_x == rhs_x && lhs_y == rhs_y && !lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
+                add_lambda_denominator[i] = lhs_y + lhs_y;
+                add_lambda_numerator[i] = lhs_x * lhs_x * 3;
+            } else if (lhs_x != rhs_x && !lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
+                add_lambda_denominator[i] = rhs_x - lhs_x;
+                add_lambda_numerator[i] = rhs_y - lhs_y;
+            } else {
+                add_lambda_numerator[i] = 0;
+                add_lambda_denominator[i] = 0;
+            }
+        }
     }
 };
 } // namespace bb
