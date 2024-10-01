@@ -145,7 +145,7 @@ export async function produceNoteDaos(
       }
 
       if (!incomingNote) {
-        logger.error(`Could not process note because of "${e}". Discarding note...`);
+        logger.error(`Could not process partial note because of "${e}". Discarding note...`);
       }
     } else {
       logger.error(`Could not process note because of "${e}". Discarding note...`);
