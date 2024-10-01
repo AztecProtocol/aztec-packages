@@ -556,10 +556,10 @@ export class TXE implements TypedOracle {
     isDelegateCall: boolean,
   ) {
     this.logger.verbose(
-      `Executing external function ${targetContractAddress}:${functionSelector}(${await this.getDebugFunctionName(
+      `Executing external function ${await this.getDebugFunctionName(
         targetContractAddress,
         functionSelector,
-      )}) isStaticCall=${isStaticCall} isDelegateCall=${isDelegateCall}`,
+      )}@${targetContractAddress} isStaticCall=${isStaticCall} isDelegateCall=${isDelegateCall}`,
     );
 
     // Store and modify env

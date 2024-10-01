@@ -494,7 +494,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
-      `Created PublicExecutionRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+      `Created PublicExecutionRequest to ${targetArtifact.name}@${targetContractAddress}, of type [${callType}], side-effect counter [${sideEffectCounter}]`,
     );
 
     const request = PublicExecutionRequest.from({

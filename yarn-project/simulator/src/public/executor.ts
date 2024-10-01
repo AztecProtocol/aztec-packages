@@ -52,7 +52,7 @@ export class PublicExecutor {
     const selector = executionRequest.callContext.functionSelector;
     const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
-    PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
+    PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}@${address}.`);
     const timer = new Timer();
 
     const trace = new PublicSideEffectTrace(startSideEffectCounter);
