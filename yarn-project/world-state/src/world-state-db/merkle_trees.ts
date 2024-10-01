@@ -35,6 +35,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type AppendOnlyTree,
   type IndexedTree,
@@ -47,16 +48,19 @@ import {
   newTree,
 } from '@aztec/merkle-tree';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
   INITIAL_PUBLIC_DATA_TREE_SIZE,
+  type MerkleTreeAdminDb,
   type MerkleTreeDb,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
 import { type MerkleTreeMap } from './merkle_tree_map.js';
 import { MerkleTreeAdminOperationsFacade } from './merkle_tree_operations_facade.js';
+import { MerkleTreeSnapshotOperationsFacade } from './merkle_tree_snapshot_operations_facade.js';
 import { WorldStateMetrics } from './metrics.js';
 
 /**
@@ -96,7 +100,7 @@ class PublicDataTree extends StandardIndexedTree {
 /**
  * A convenience class for managing multiple merkle trees.
  */
-export class MerkleTrees implements MerkleTreeDb {
+export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
   // gets initialized in #init
   private trees: MerkleTreeMap = null as any;
   private jobQueue = new SerialQueue();
@@ -117,6 +121,14 @@ export class MerkleTrees implements MerkleTreeDb {
     const merkleTrees = new MerkleTrees(store, client, log);
     await merkleTrees.#init();
     return merkleTrees;
+  }
+
+  /**
+   * Creates a temporary store. Useful for testing.
+   */
+  public static tmp() {
+    const store = openTmpStore();
+    return MerkleTrees.new(store, new NoopTelemetryClient());
   }
 
   /**
@@ -179,7 +191,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // and persist the initial header state reference so we can later load it when requested.
       const initialState = await this.getStateReference(true);
       await this.#saveInitialStateReference(initialState);
-      await this.#updateArchive(this.getInitialHeader(), true);
+      await this.#updateArchive(this.getInitialHeader());
 
       // And commit anything we did to initialize this set of trees
       await this.#commit();
@@ -200,7 +212,7 @@ export class MerkleTrees implements MerkleTreeDb {
   // we should make sure it's not accidentally called elsewhere by splitting this class into one
   // that can work on a read-only store and one that actually writes to the store. This implies
   // having read-only versions of the kv-stores, all kv-containers, and all trees.
-  public async ephemeralFork(): Promise<MerkleTreeDb> {
+  public async ephemeralFork(): Promise<MerkleTreeAdminDb> {
     const forked = new MerkleTrees(
       this.store,
       this.telemetryClient,
@@ -229,16 +241,20 @@ export class MerkleTrees implements MerkleTreeDb {
    * Gets a view of this db that returns uncommitted data.
    * @returns - A facade for this instance.
    */
-  public asLatest(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, true);
+  public getLatest(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, true));
   }
 
   /**
    * Gets a view of this db that returns committed data only.
    * @returns - A facade for this instance.
    */
-  public asCommitted(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, false);
+  public getCommitted(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, false));
+  }
+
+  public getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeSnapshotOperationsFacade(this, blockNumber));
   }
 
   /**
@@ -246,8 +262,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param header - The header whose hash to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateArchive(header: Header, includeUncommitted: boolean) {
-    await this.synchronize(() => this.#updateArchive(header, includeUncommitted));
+  public async updateArchive(header: Header) {
+    await this.synchronize(() => this.#updateArchive(header));
   }
 
   /**
@@ -491,8 +507,8 @@ export class MerkleTrees implements MerkleTreeDb {
     return StateReference.fromBuffer(serialized);
   }
 
-  async #updateArchive(header: Header, includeUncommitted: boolean) {
-    const state = await this.getStateReference(includeUncommitted);
+  async #updateArchive(header: Header) {
+    const state = await this.getStateReference(true);
 
     // This method should be called only when the block builder already updated the state so we sanity check that it's
     // the case here.
@@ -572,7 +588,7 @@ export class MerkleTrees implements MerkleTreeDb {
     }
   }
 
-  public async getSnapshot(blockNumber: number): Promise<TreeSnapshots> {
+  public async getTreeSnapshots(blockNumber: number): Promise<TreeSnapshots> {
     const snapshots = await Promise.all([
       this.trees[MerkleTreeId.NULLIFIER_TREE].getSnapshot(blockNumber),
       this.trees[MerkleTreeId.NOTE_HASH_TREE].getSnapshot(blockNumber),
@@ -670,7 +686,7 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // The last thing remaining is to update the archive
-      await this.#updateArchive(l2Block.header, true);
+      await this.#updateArchive(l2Block.header);
 
       await this.#commit();
     }

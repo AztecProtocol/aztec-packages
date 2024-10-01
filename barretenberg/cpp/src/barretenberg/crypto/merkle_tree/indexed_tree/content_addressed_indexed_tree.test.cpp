@@ -8,9 +8,8 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/index_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
@@ -31,7 +30,7 @@ using HashPolicy = Poseidon2HashPolicy;
 using Store = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 using TreeType = ContentAddressedIndexedTree<Store, HashPolicy>;
 
-using CompletionCallback = TreeType::AddCompletionCallback;
+using CompletionCallback = TreeType::AddCompletionCallbackWithWitness;
 
 class PersistedContentAddressedIndexedTreeTest : public testing::Test {
   protected:
@@ -353,11 +352,11 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_create)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    EXPECT_NO_THROW(Store store(name, depth, db));
-    Store store(name, depth, db);
-    ThreadPool workers(1);
-    TreeType tree = TreeType(store, workers, 2);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    EXPECT_NO_THROW(std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db));
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    TreeType tree = TreeType(std::move(store), workers, 2);
     check_size(tree, 2);
 
     NullifierMemoryTree<HashPolicy> memdb(10);
@@ -368,22 +367,22 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_only_recreate_with_same_nam
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
-    EXPECT_ANY_THROW(Store store_wrong_name("Wrong name", depth, db));
-    EXPECT_ANY_THROW(Store store_wrong_depth(name, depth + 1, db));
+    EXPECT_ANY_THROW(Store("Wrong name", depth, db));
+    EXPECT_ANY_THROW(Store(name, depth + 1, db));
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     check_size(tree, current_size);
 
@@ -397,23 +396,25 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
 TEST_F(PersistedContentAddressedIndexedTreeTest, indexed_tree_must_have_at_least_2_initial_size)
 {
     index_t current_size = 1;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    EXPECT_THROW(TreeType(store, workers, current_size), std::runtime_error);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    EXPECT_THROW(TreeType(std::move(store), workers, current_size), std::runtime_error);
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_overfilled)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 4;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     std::vector<NullifierLeafValue> values;
     for (uint32_t i = 0; i < 14; i++) {
@@ -437,12 +438,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
     index_t current_size = 2;
     NullifierMemoryTree<HashPolicy> memdb(depth, current_size);
 
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
 
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     check_size(tree, current_size);
     check_root(tree, memdb.root());
@@ -477,12 +479,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 {
     index_t initial_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, initial_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, initial_size);
 
     add_value(tree, NullifierLeafValue(30));
     add_value(tree, NullifierLeafValue(10));
@@ -535,15 +538,17 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
 {
     NullifierMemoryTree<HashPolicy> memdb(10);
-    index_t current_size = 2;
-    ThreadPool workers(1);
+    index_t initial_size = 2;
+    index_t current_size = initial_size;
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
 
     {
-        LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-        Store store(name, depth, db);
-        auto tree = TreeType(store, workers, current_size);
+        LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        auto tree = TreeType(std::move(store), workers, initial_size);
 
         check_size(tree, current_size);
         check_root(tree, memdb.root());
@@ -577,9 +582,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
 
     // Now restore and it should continue from where we left off
     {
-        LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-        Store store(name, depth, db);
-        auto tree = TreeType(store, workers, current_size);
+        LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        auto tree = TreeType(std::move(store), workers, initial_size);
 
         // check uncommitted state
         check_size(tree, current_size);
@@ -593,35 +598,44 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
     }
 }
 
-TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
+void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSize, uint64_t maxReaders)
 {
     auto& random_engine = numeric::get_randomness();
-    const uint32_t batch_size = 16;
+    const uint32_t batch_size = batchSize;
     const uint32_t num_batches = 16;
     uint32_t depth = 10;
-    ThreadPool workers(1);
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     std::string name1 = random_string();
-    LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-    Store store1(name1, depth, db1);
-    auto tree1 = TreeType(store1, workers, batch_size);
+    LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(directory, name1, mapSize, maxReaders);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree1 = TreeType(std::move(store1), workers, batch_size);
 
     std::string name2 = random_string();
-    LMDBTreeStore db2(_directory, name2, _mapSize, _maxReaders);
-    Store store2(name2, depth, db2);
-    auto tree2 = TreeType(store2, multi_workers, batch_size);
+    LMDBTreeStore::SharedPtr db2 = std::make_shared<LMDBTreeStore>(directory, name2, mapSize, maxReaders);
+    std::unique_ptr<Store> store2 = std::make_unique<Store>(name2, depth, db2);
+    auto tree2 = TreeType(std::move(store2), multi_workers, batch_size);
 
-    check_root(tree1, memdb.root());
-    check_root(tree2, memdb.root());
-    check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
-    check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
-
-    check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
-    check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
+    std::string name3 = random_string();
+    LMDBTreeStore::SharedPtr db3 = std::make_shared<LMDBTreeStore>(directory, name3, mapSize, maxReaders);
+    std::unique_ptr<Store> store3 = std::make_unique<Store>(name3, depth, db3);
+    auto tree3 = TreeType(std::move(store3), multi_workers, batch_size);
 
     for (uint32_t i = 0; i < num_batches; i++) {
+
+        check_root(tree1, memdb.root());
+        check_root(tree2, memdb.root());
+        check_root(tree3, memdb.root());
+        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
+
+        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
+
         std::vector<NullifierLeafValue> batch;
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
@@ -652,14 +666,24 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
             tree2.add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
+
+        {
+            Signal signal;
+            auto completion = [&](const TypedResponse<AddDataResponse>&) { signal.signal_level(); };
+            tree3.add_or_update_values(batch, completion);
+            signal.wait_for_level();
+        }
         check_root(tree1, memdb.root());
         check_root(tree2, memdb.root());
+        check_root(tree3, memdb.root());
 
         check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
 
         check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
         check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
 
         for (uint32_t j = 0; j < batch_size; j++) {
             EXPECT_EQ(tree1_low_leaf_witness_data->at(j).leaf, tree2_low_leaf_witness_data->at(j).leaf);
@@ -669,35 +693,46 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
     }
 }
 
-TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_restore)
+void test_batch_insert_with_commit_restore(uint32_t batchSize,
+                                           std::string directory,
+                                           uint64_t mapSize,
+                                           uint64_t maxReaders)
 {
     auto& random_engine = numeric::get_randomness();
-    const uint32_t batch_size = 16;
-    const uint32_t num_batches = 7;
-    std::string name1 = random_string();
-    std::string name2 = random_string();
+    const uint32_t batch_size = batchSize;
+    const uint32_t num_batches = 16;
     uint32_t depth = 10;
-    ThreadPool workers(1);
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     for (uint32_t i = 0; i < num_batches; i++) {
 
-        LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-        Store store1(name1, depth, db1);
-        auto tree1 = TreeType(store1, workers, batch_size);
+        std::string name1 = random_string();
+        LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(directory, name1, mapSize, maxReaders);
+        std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+        auto tree1 = TreeType(std::move(store1), workers, batch_size);
 
-        LMDBTreeStore db2(_directory, name2, _mapSize, _maxReaders);
-        Store store2(name2, depth, db2);
-        auto tree2 = TreeType(store2, workers, batch_size);
+        std::string name2 = random_string();
+        LMDBTreeStore::SharedPtr db2 = std::make_shared<LMDBTreeStore>(directory, name2, mapSize, maxReaders);
+        std::unique_ptr<Store> store2 = std::make_unique<Store>(name2, depth, db2);
+        auto tree2 = TreeType(std::move(store2), multi_workers, batch_size);
+
+        std::string name3 = random_string();
+        LMDBTreeStore::SharedPtr db3 = std::make_shared<LMDBTreeStore>(directory, name3, mapSize, maxReaders);
+        std::unique_ptr<Store> store3 = std::make_unique<Store>(name3, depth, db3);
+        auto tree3 = TreeType(std::move(store3), multi_workers, batch_size);
 
         check_root(tree1, memdb.root());
         check_root(tree2, memdb.root());
+        check_root(tree3, memdb.root());
         check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
 
         check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
         check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
 
         std::vector<NullifierLeafValue> batch;
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
@@ -718,6 +753,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
             tree1.add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
+
         {
             Signal signal;
             CompletionCallback completion =
@@ -728,14 +764,24 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
             tree2.add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
+
+        {
+            Signal signal;
+            auto completion = [&](const TypedResponse<AddDataResponse>&) { signal.signal_level(); };
+            tree3.add_or_update_values(batch, completion);
+            signal.wait_for_level();
+        }
         check_root(tree1, memdb.root());
         check_root(tree2, memdb.root());
+        check_root(tree3, memdb.root());
 
         check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
 
         check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
         check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
 
         for (uint32_t j = 0; j < batch_size; j++) {
             EXPECT_EQ(tree1_low_leaf_witness_data->at(j).leaf, tree2_low_leaf_witness_data->at(j).leaf);
@@ -745,18 +791,38 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
 
         commit_tree(tree1);
         commit_tree(tree2);
+        commit_tree(tree3);
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
+{
+    uint32_t batchSize = 2;
+    while (batchSize <= 2) {
+        test_batch_insert(batchSize, _directory, _mapSize, _maxReaders);
+        batchSize <<= 1;
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_restore)
+{
+    uint32_t batchSize = 2;
+    while (batchSize <= 32) {
+        test_batch_insert(batchSize, _directory, _mapSize, _maxReaders);
+        batchSize <<= 1;
     }
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_contains_duplicate)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     std::vector<NullifierLeafValue> values;
     for (uint32_t i = 0; i < 16; i++) {
@@ -798,13 +864,13 @@ bool verify_sibling_path(TreeType& tree, const IndexedNullifierLeafType& leaf_va
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory)
 {
     index_t current_size = 2;
-    ThreadPool workers(8);
+    ThreadPoolPtr workers = make_thread_pool(8);
     // Create a depth-3 indexed merkle tree
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -960,13 +1026,14 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory)
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_tree)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     // Create a depth-8 indexed merkle tree
     constexpr uint32_t depth = 8;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, current_size);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
 
     IndexedNullifierLeafType zero_leaf = create_indexed_nullifier_leaf(0, 1, 1);
     check_size(tree, current_size);
@@ -1019,18 +1086,17 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
 
     {
         std::string name = random_string();
-        LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-        Store store(name, depth, db);
-        ThreadPool pool(8);
-        TreeType tree(store, pool, 2);
+        LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        ThreadPoolPtr pool = make_thread_pool(8);
+        TreeType tree(std::move(store), pool, 2);
 
         check_size(tree, 2);
 
-        Signal signal(2);
+        Signal signal(1 + num_reads);
 
         auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>&) {
-            signal.signal_level(1);
-            auto commit_completion = [&](const Response&) { signal.signal_level(); };
+            auto commit_completion = [&](const Response&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
         tree.add_or_update_value(VALUES[0], add_completion);
@@ -1038,6 +1104,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
         for (size_t i = 0; i < num_reads; i++) {
             auto completion = [&, i](const TypedResponse<GetSiblingPathResponse>& response) {
                 paths[i] = response.inner.path;
+                signal.signal_decrement();
             };
             tree.get_sibling_path(0, completion, false);
         }
@@ -1048,14 +1115,15 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
 {
     index_t current_size = 2;
-    ThreadPool workers(8);
+    ThreadPoolPtr workers = make_thread_pool(8);
     // Create a depth-3 indexed merkle tree
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    ContentAddressedCachedTreeStore<PublicDataLeafValue> store(name, depth, db);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
     auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        store, workers, current_size);
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -1210,11 +1278,12 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, returns_low_leaves)
     // Create a depth-8 indexed merkle tree
     constexpr uint32_t depth = 8;
 
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, 2);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, 2);
 
     auto predecessor = get_low_leaf(tree, NullifierLeafValue(42));
 
@@ -1234,11 +1303,12 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)
     // Create a depth-8 indexed merkle tree
     constexpr uint32_t depth = 8;
 
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    Store store(name, depth, db);
-    auto tree = TreeType(store, workers, 2);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, 2);
 
     add_value(tree, NullifierLeafValue(42));
     check_size(tree, 3);
@@ -1259,12 +1329,12 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
     std::string name1 = random_string();
     std::string name2 = random_string();
     uint32_t depth = 10;
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
-    LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-    Store store1(name1, depth, db1);
-    auto tree1 = TreeType(store1, multi_workers, batch_size);
+    LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(_directory, name1, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree1 = TreeType(std::move(store1), multi_workers, batch_size);
 
     std::vector<fr_sibling_path> memory_tree_sibling_paths_index_0;
 
@@ -1314,14 +1384,15 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
 {
     index_t current_size = 2;
-    ThreadPool workers(8);
+    ThreadPoolPtr workers = make_thread_pool(8);
     // Create a depth-3 indexed merkle tree
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
-    ContentAddressedCachedTreeStore<PublicDataLeafValue> store(name, depth, db);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
     auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        store, workers, current_size);
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -1452,13 +1523,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_histo
     auto& random_engine = numeric::get_randomness();
     const uint32_t batch_size = 16;
     uint32_t depth = 10;
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     std::string name1 = random_string();
-    LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
-    Store store1(name1, depth, db1);
-    auto tree1 = TreeType(store1, multi_workers, batch_size);
+    LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(_directory, name1, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree1 = TreeType(std::move(store1), multi_workers, batch_size);
 
     check_root(tree1, memdb.root());
     check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
@@ -1503,8 +1574,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_histo
     fr_sibling_path block3SiblingPathIndex19 = memdb.get_sibling_path(19 + batch_size);
     fr_sibling_path block3SiblingPathIndex3 = memdb.get_sibling_path(3 + batch_size);
 
-    Store storeAtBlock2(name1, depth, 2, db1);
-    auto treeAtBlock2 = TreeType(storeAtBlock2, multi_workers, batch_size);
+    std::unique_ptr<Store> storeAtBlock2 = std::make_unique<Store>(name1, depth, 2, db1);
+    auto treeAtBlock2 = TreeType(std::move(storeAtBlock2), multi_workers, batch_size);
 
     check_root(treeAtBlock2, block2Root);
     check_sibling_path(treeAtBlock2, 3 + batch_size, block2SiblingPathIndex3, false, true);

@@ -3,6 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
+  type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type L1ToL2MessageSource,
@@ -51,13 +52,13 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import {
   AggregateTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
-  InMemoryAttestationPool,
   MetadataTxValidator,
   type P2P,
   TxProofValidator,
@@ -120,6 +121,14 @@ export class AztecNodeService implements AztecNode {
     this.log.info(message);
   }
 
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    return Promise.resolve(this.p2pClient.broadcastEpochProofQuote(quote));
+  }
+
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+    return this.p2pClient.getEpochProofQuotes(epoch);
+  }
+
   /**
    * initializes the Aztec Node, wait for component to sync.
    * @param config - The configuration to be used by the aztec node.
@@ -150,14 +159,7 @@ export class AztecNodeService implements AztecNode {
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(
-      config,
-      new InMemoryAttestationPool(),
-      archiver,
-      proofVerifier,
-      worldStateSynchronizer,
-      telemetry,
-    );
+    const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
@@ -228,8 +230,8 @@ export class AztecNodeService implements AztecNode {
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
    */
-  public async isReady() {
-    return (await this.p2pClient.isReady()) ?? false;
+  public isReady() {
+    return Promise.resolve(this.p2pClient.isReady() ?? false);
   }
 
   /**
@@ -508,18 +510,15 @@ export class AztecNodeService implements AztecNode {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
+    const tempStores: AztecKVStore[] = [];
+
     // Construct message subtrees
     const l2toL1Subtrees = await Promise.all(
       l2ToL1Messages.map(async (msgs, i) => {
+        const store = openTmpStore(true);
+        tempStores.push(store);
         const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
-        const tree = new StandardTree(
-          openTmpStore(true),
-          new SHA256Trunc(),
-          `temp_msgs_subtrees_${i}`,
-          treeHeight,
-          0n,
-          Fr,
-        );
+        const tree = new StandardTree(store, new SHA256Trunc(), `temp_msgs_subtrees_${i}`, treeHeight, 0n, Fr);
         await tree.appendLeaves(msgs);
         return tree;
       }),
@@ -550,6 +549,9 @@ export class AztecNodeService implements AztecNode {
         .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
       2,
     );
+
+    // clear the tmp stores
+    await Promise.all(tempStores.map(store => store.delete()));
 
     return [BigInt(mergedIndex), new SiblingPath(mergedPath.length, mergedPath)];
   }
@@ -761,7 +763,9 @@ export class AztecNodeService implements AztecNode {
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
+      new DoubleSpendTxValidator(
+        new WorldStateDB(await this.worldStateSynchronizer.getLatest(), this.contractDataSource),
+      ),
     ];
 
     if (!isSimulation) {

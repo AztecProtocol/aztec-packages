@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -12,6 +13,7 @@
 #include <benchmark/benchmark.h>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
@@ -52,10 +54,10 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
 
-    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads);
-    StoreType store(name, depth, db);
-    ThreadPool workers(num_threads);
-    TreeType tree = TreeType(store, workers);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, 1024 * 1024, num_threads);
+    std::unique_ptr<StoreType> store = std::make_unique<StoreType>(name, depth, db);
+    std::shared_ptr<ThreadPool> workers = std::make_shared<ThreadPool>(num_threads);
+    TreeType tree = TreeType(std::move(store), workers);
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -69,16 +71,16 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
 
     std::filesystem::remove_all(directory);
 }
-BENCHMARK(append_only_tree_bench<Pedersen>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(2, MAX_BATCH_SIZE)
-    ->Iterations(100);
 BENCHMARK(append_only_tree_bench<Poseidon2>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
+BENCHMARK(append_only_tree_bench<Poseidon2>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
 
 } // namespace
 

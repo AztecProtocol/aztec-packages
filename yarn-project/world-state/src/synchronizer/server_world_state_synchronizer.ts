@@ -20,12 +20,11 @@ import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
+import { type MerkleTreeAdminDb } from '../world-state-db/merkle_tree_db.js';
 import {
   MerkleTreeAdminOperationsFacade,
   MerkleTreeOperationsFacade,
 } from '../world-state-db/merkle_tree_operations_facade.js';
-import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
-import { type MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { type WorldStateConfig } from './config.js';
 
 /**
@@ -51,7 +50,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
 
   constructor(
     store: AztecKVStore,
-    private merkleTreeDb: MerkleTrees,
+    private merkleTreeDb: MerkleTreeAdminDb,
     private l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),
@@ -64,20 +63,20 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     });
   }
 
-  public getLatest(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this.merkleTreeDb, true);
+  public getLatest(): Promise<MerkleTreeAdminOperations> {
+    return this.merkleTreeDb.getLatest();
   }
 
-  public getCommitted(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this.merkleTreeDb, false);
+  public getCommitted(): Promise<MerkleTreeAdminOperations> {
+    return this.merkleTreeDb.getCommitted();
   }
 
-  public getSnapshot(blockNumber: number): MerkleTreeAdminOperations {
-    return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
+  public getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations> {
+    return this.merkleTreeDb.getSnapshot(blockNumber);
   }
 
   public async ephemeralFork(): Promise<MerkleTreeOperationsFacade> {
-    return new MerkleTreeOperationsFacade(await this.merkleTreeDb.ephemeralFork(), true);
+    return new MerkleTreeOperationsFacade(await this.merkleTreeDb.fork(), true);
   }
 
   private async getFork(includeUncommitted: boolean): Promise<MerkleTreeAdminOperationsFacade> {
@@ -303,18 +302,13 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
   async #verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
-    const tree = new StandardTree(
-      openTmpStore(true),
-      new SHA256Trunc(),
-      'temp_in_hash_check',
-      L1_TO_L2_MSG_SUBTREE_HEIGHT,
-      0n,
-      Fr,
-    );
+    const store = openTmpStore(true);
+    const tree = new StandardTree(store, new SHA256Trunc(), 'temp_in_hash_check', L1_TO_L2_MSG_SUBTREE_HEIGHT, 0n, Fr);
     await tree.appendLeaves(l1ToL2Messages);
 
     if (!tree.getRoot(true).equals(inHash)) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
     }
+    await store.delete();
   }
 }

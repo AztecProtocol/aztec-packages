@@ -438,12 +438,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies(const bool_
     return (!(*this) || other); // P => Q is equiv. to !P || Q (not(P) or Q).
 }
 
-/**
- *      (P => Q) && (P => R)
- * <=>  (!P || Q) && (!P || R)
- * <=>  !P || (Q && R)           [by distributivity of propositional logic]
- * <=>  P => (Q && R)            [a.k.a. distribution of implication over conjunction]
- */
 template <typename Builder> void bool_t<Builder>::must_imply(const bool_t& other, std::string const& msg) const
 {
     (this->implies(other)).assert_equal(true, msg);

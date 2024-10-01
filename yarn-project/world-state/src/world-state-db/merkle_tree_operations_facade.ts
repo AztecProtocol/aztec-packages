@@ -41,7 +41,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @returns The initial header.
    */
   getInitialHeader(): Header {
-    return this.trees.getInitialHeader(this.includeUncommitted);
+    return this.trees.getInitialHeader();
   }
 
   /**
@@ -162,7 +162,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param header - The header to insert into the archive.
    */
   public updateArchive(header: Header): Promise<void> {
-    return this.trees.updateArchive(header, this.includeUncommitted);
+    return this.trees.updateArchive(header);
   }
 
   /**

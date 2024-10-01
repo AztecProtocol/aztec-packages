@@ -1,4 +1,4 @@
-import { type Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Signature } from '@aztec/foundation/eth-signature';
 
@@ -30,5 +30,9 @@ export class Secp256k1Signer {
   signMessage(message: Buffer32): Signature {
     const digest = makeEthSignDigest(message);
     return this.sign(digest);
+  }
+
+  static random(): Secp256k1Signer {
+    return new Secp256k1Signer(Buffer32.random());
   }
 }

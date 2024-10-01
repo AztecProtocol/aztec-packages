@@ -70,10 +70,16 @@ export enum WorldStateMessageType {
 
   CREATE_FORK,
   DELETE_FORK,
+
+  CLOSE = 999,
 }
 
 interface WithTreeId {
   treeId: MerkleTreeId;
+}
+
+interface WithForkId {
+  forkId: number;
 }
 
 interface WithWorldStateRevision {
@@ -138,9 +144,9 @@ interface FindLowLeafResponse {
   alreadyPresent: boolean;
 }
 
-interface AppendLeavesRequest extends WithTreeId, WithLeaves {}
+interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
 
-interface BatchInsertRequest extends WithTreeId, WithLeaves {
+interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
   subtreeDepth: number;
 }
 interface BatchInsertResponse {
@@ -153,14 +159,14 @@ interface BatchInsertResponse {
   subtree_path: Tuple<Buffer, number>;
 }
 
-interface UpdateArchiveRequest {
+interface UpdateArchiveRequest extends WithForkId {
   blockStateRef: BlockStateReference;
-  blockHash: Buffer;
+  blockHeaderHash: Buffer;
 }
 
 interface SyncBlockRequest {
   blockStateRef: BlockStateReference;
-  blockHash: Fr;
+  blockHeaderHash: Fr;
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];
@@ -207,6 +213,8 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
   [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
+
+  [WorldStateMessageType.CLOSE]: void;
 };
 
 export type WorldStateResponse = {
@@ -233,6 +241,8 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
+
+  [WorldStateMessageType.CLOSE]: void;
 };
 
 export type WorldStateRevision = {

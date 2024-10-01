@@ -87,7 +87,8 @@ describe('e2e_fees/private_refunds', () => {
     // the randomness.
     const refundNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(transactionFee!));
     const aliceNpkMHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const aliceRefundNote = new Note([refundNoteValue, aliceNpkMHash, aliceRandomness]);
+    // Amount has lo and hi limbs, hence the 0.
+    const aliceRefundNote = new Note([refundNoteValue, Fr.ZERO, aliceNpkMHash, aliceRandomness]);
 
     // 5. If the refund flow worked it should have added emitted a note hash of the note we constructed above and we
     // should be able to add the note to our PXE. Just calling `pxe.addNote(...)` is enough of a check that the note
@@ -110,7 +111,8 @@ describe('e2e_fees/private_refunds', () => {
     // Note that FPC emits randomness as unencrypted log and the tx fee is publicly know so Bob is able to reconstruct
     // his note just from on-chain data.
     const bobNpkMHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const bobFeeNote = new Note([new Fr(transactionFee!), bobNpkMHash, bobRandomness]);
+    // Amount has lo and hi limbs, hence the 0.
+    const bobFeeNote = new Note([new Fr(transactionFee!), Fr.ZERO, bobNpkMHash, bobRandomness]);
 
     // 7. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
     // TODO(#8238): Implement proper note delivery

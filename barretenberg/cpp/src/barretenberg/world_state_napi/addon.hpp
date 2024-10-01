@@ -52,7 +52,10 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
 
     bool sync_block(msgpack::object& obj, msgpack::sbuffer& buffer);
 
-    // static WorldStateRevision revision_from_input(int input);
+    bool create_fork(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool delete_fork(msgpack::object& obj, msgpack::sbuffer& buffer);
+
+    bool close(msgpack::object& obj, msgpack::sbuffer& buffer);
 };
 
 } // namespace bb::world_state

@@ -5,19 +5,14 @@ source:
 
   # Install nargo
   COPY ../noir/+nargo/nargo /usr/bin/nargo
-  # Install bb
-  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   # Install world state napi
-  COPY ../barretenberg/cpp/+preset-release-pic/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
+  COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
 
   WORKDIR /usr/src/noir-projects
 
   # Copy source.
   COPY package.json yarn.lock mega_honk_circuits.json .
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
-
-  # for debugging rebuilds
-  RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 build-contracts:
   FROM +source
@@ -124,3 +119,12 @@ gates-report:
   RUN ./gates_report.sh
 
   SAVE ARTIFACT ./noir-protocol-circuits/gates_report.json gates_report.json
+
+public-functions-report:
+  FROM +build-contracts
+  WORKDIR /usr/src/noir-projects
+
+  RUN cd noir-contracts && node publicFunctionsSizeReport.js ./target/
+
+  SAVE ARTIFACT ./noir-contracts/public_functions_report.json public_functions_report.json
+

@@ -26,8 +26,6 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
     LMDBTreeWriteTransaction& operator=(LMDBTreeWriteTransaction&& other) = delete;
     ~LMDBTreeWriteTransaction() override;
 
-    void put_node(uint32_t level, index_t index, std::vector<uint8_t>& data, const LMDBDatabase& db);
-
     template <typename T> void put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
 
     void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db);

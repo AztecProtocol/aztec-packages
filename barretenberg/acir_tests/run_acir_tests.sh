@@ -41,7 +41,8 @@ SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
     # Insert the new item into the array
-    SKIP_ARRAY+=(verify_honk_proof)
+    # TODO https://github.com/AztecProtocol/barretenberg/issues/1108
+    SKIP_ARRAY+=(verify_honk_proof regression_5045)
 fi
 
 function test() {

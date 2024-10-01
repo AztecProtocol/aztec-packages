@@ -14,7 +14,7 @@ use dep::types::{
     messaging::l2_to_l1_message::ScopedL2ToL1Message
 };
 
-struct TailOutputComposer {
+pub struct TailOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
 }
 

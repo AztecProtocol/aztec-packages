@@ -52,15 +52,6 @@ bool LMDBTreeWriteTransaction::get_value(std::vector<uint8_t>& key,
     return true;
 }
 
-void LMDBTreeWriteTransaction::put_node(uint32_t level,
-                                        index_t index,
-                                        std::vector<uint8_t>& data,
-                                        const LMDBDatabase& db)
-{
-    NodeKeyType key = get_key_for_node(level, index);
-    put_value(key, data, db);
-}
-
 void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
 {
     MDB_val dbKey;

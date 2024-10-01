@@ -68,16 +68,16 @@ export interface WorldStateSynchronizer {
   /**
    * Returns an instance of MerkleTreeAdminOperations that will include uncommitted data.
    */
-  getLatest(): MerkleTreeAdminOperations;
+  getLatest(): Promise<MerkleTreeAdminOperations>;
 
   /**
    * Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data.
    */
-  getCommitted(): MerkleTreeAdminOperations;
+  getCommitted(): Promise<MerkleTreeAdminOperations>;
 
   /**
    * Returns a readonly instance of MerkleTreeAdminOperations where the state is as it was at the given block number
    * @param block - The block number to look at
    */
-  getSnapshot(block: number): MerkleTreeOperations;
+  getSnapshot(block: number): Promise<MerkleTreeOperations>;
 }

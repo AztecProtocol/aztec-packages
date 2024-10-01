@@ -11,6 +11,7 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  EthAddress,
   Fr,
   Header,
   MAX_NOTE_HASHES_PER_TX,
@@ -25,15 +26,18 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import bindings from 'bindings';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
+import { join } from 'path';
 import { isAnyArrayBuffer } from 'util/types';
 
-import { type MerkleTreeDb, type TreeSnapshots } from '../world-state-db/merkle_tree_db.js';
+import { type MerkleTreeAdminDb, type MerkleTreeDb } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreeAdminOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import {
   MessageHeader,
@@ -58,11 +62,13 @@ addExtension({
   write: fr => fr.toBuffer(),
 });
 
+const ROLLUP_ADDRESS_FILE = 'rollup_address';
+
 export interface NativeInstance {
   call(msg: Buffer | Uint8Array): Promise<any>;
 }
 
-export class NativeWorldStateService implements MerkleTreeDb {
+export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb {
   private nextMessageId = 1;
   private initialHeader: Header | undefined;
 
@@ -79,22 +85,37 @@ export class NativeWorldStateService implements MerkleTreeDb {
   });
 
   protected constructor(
-    private instance: NativeInstance,
+    private instance: NativeInstance | undefined,
     private queue: SerialQueue,
-    private forkId?: number,
+    private forkId: number = 0,
     private blockNumber?: number,
+    private log = createDebugLogger('aztec:world-state:database'),
   ) {}
 
   static async create(
+    rollupAddress: EthAddress,
     dataDir: string,
     libraryName = 'world_state_napi',
     className = 'WorldState',
   ): Promise<NativeWorldStateService> {
+    const log = createDebugLogger('aztec:world-state:database');
+    const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
+    const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
+    const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr) : undefined;
+
+    if (currentRollupAddress && !rollupAddress.equals(currentRollupAddress)) {
+      log.warn('Rollup address changed, deleting database');
+      await rm(dataDir, { recursive: true, force: true });
+    }
+
+    await mkdir(dataDir, { recursive: true });
+    await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
+
     const library = bindings(libraryName);
-    const instance = new library[className](dataDir);
+    const instance = new library[className](join(dataDir, 'trees'));
     const queue = new SerialQueue();
     queue.start();
-    const worldState = new NativeWorldStateService(instance, queue);
+    const worldState = new NativeWorldStateService(instance, queue, undefined, undefined, log);
     await worldState.init();
     return worldState;
   }
@@ -108,8 +129,18 @@ export class NativeWorldStateService implements MerkleTreeDb {
     }
   }
 
-  public asLatest(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, true);
+  public getLatest(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, true));
+  }
+
+  public getCommitted(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, false));
+  }
+
+  public async getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations> {
+    const ws = new NativeWorldStateService(this.instance, this.queue, 0, blockNumber);
+    await ws.init();
+    return new MerkleTreeAdminOperationsFacade(ws, false);
   }
 
   async buildInitialHeader(): Promise<Header> {
@@ -124,6 +155,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     await this.call(WorldStateMessageType.APPEND_LEAVES, {
       leaves: leaves.map(leaf => leaf as any),
+      forkId: this.forkId,
       treeId,
     });
   }
@@ -134,7 +166,12 @@ export class NativeWorldStateService implements MerkleTreeDb {
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     const leaves = rawLeaves.map((leaf: Buffer) => hydrateLeaf(treeId, leaf)).map(serializeLeaf);
-    const resp = await this.call(WorldStateMessageType.BATCH_INSERT, { leaves, treeId, subtreeDepth: subtreeHeight });
+    const resp = await this.call(WorldStateMessageType.BATCH_INSERT, {
+      leaves,
+      treeId,
+      forkId: this.forkId,
+      subtreeDepth: subtreeHeight,
+    });
 
     return {
       newSubtreeSiblingPath: new SiblingPath<SubtreeSiblingPathHeight>(
@@ -256,10 +293,6 @@ export class NativeWorldStateService implements MerkleTreeDb {
     return new SiblingPath(siblingPath.length, siblingPath);
   }
 
-  getSnapshot(_block: number): Promise<TreeSnapshots> {
-    return Promise.reject(new Error('getSnapshot not implemented'));
-  }
-
   async getStateReference(includeUncommitted: boolean): Promise<StateReference> {
     const resp = await this.call(WorldStateMessageType.GET_STATE_REFERENCE, {
       revision: this.buildWorldStateRevision(includeUncommitted),
@@ -334,7 +367,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
     }
 
     return await this.call(WorldStateMessageType.SYNC_BLOCK, {
-      blockHash: l2Block.hash(),
+      blockHeaderHash: l2Block.header.hash(),
       paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
       paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
       paddedNullifiers: paddedNullifiers.map(serializeLeaf),
@@ -347,9 +380,10 @@ export class NativeWorldStateService implements MerkleTreeDb {
     await this.call(WorldStateMessageType.ROLLBACK, void 0);
   }
 
-  async updateArchive(header: Header, _includeUncommitted: boolean): Promise<void> {
+  async updateArchive(header: Header): Promise<void> {
     await this.call(WorldStateMessageType.UPDATE_ARCHIVE, {
-      blockHash: header.hash().toBuffer(),
+      forkId: this.forkId,
+      blockHeaderHash: header.hash().toBuffer(),
       blockStateRef: blockStateReference(header.state),
     });
   }
@@ -362,11 +396,24 @@ export class NativeWorldStateService implements MerkleTreeDb {
     return Promise.reject(new Error('Method not implemented'));
   }
 
+  async closeRootDatabase(): Promise<void> {
+    if (this.forkId || this.blockNumber) {
+      throw new Error('Closing a fork or a snapshot or fork is forbidden');
+    }
+
+    await this.call(WorldStateMessageType.CLOSE, void 0);
+    this.instance = undefined;
+  }
+
   private call<T extends WorldStateMessageType>(
     messageType: T,
     body: WorldStateRequest[T],
   ): Promise<WorldStateResponse[T]> {
     return this.queue.put(async () => {
+      if (!this.instance) {
+        throw new Error('NativeWorldStateService is stopped');
+      }
+
       const request = new TypedMessage(messageType, new MessageHeader({ messageId: this.nextMessageId++ }), body);
 
       const encodedRequest = this.encoder.encode(request);
@@ -410,6 +457,11 @@ export class NativeWorldStateService implements MerkleTreeDb {
   }
 
   public async stop(): Promise<void> {
+    if (this.forkId !== 0 || this.blockNumber !== undefined) {
+      throw new Error('Stopping a fork or a snapshot is forbidden');
+    }
+
+    // only the canonical fork can stop the queue
     await this.queue.end();
   }
 
@@ -419,7 +471,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
     }
   }
 
-  public async fork(): Promise<MerkleTreeDb> {
+  public async fork(): Promise<MerkleTreeAdminDb> {
     const resp = await this.call(WorldStateMessageType.CREATE_FORK, { blockNumber: 0 });
     const ws = new NativeWorldStateService(this.instance, this.queue, resp.forkId, 0);
     await ws.init();

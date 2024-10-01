@@ -12,7 +12,7 @@ use noirc_errors::debug_info::DebugInfo;
 use crate::bit_traits::bits_needed_for;
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
-    SECOND_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
+    SECOND_OPERAND_INDIRECT, THIRD_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
@@ -467,7 +467,7 @@ fn handle_external_call(
         // (left to right)
         //   * selector direct
         //   * success offset direct
-        //   * (n/a) ret size is an immeadiate
+        //   * (n/a) ret size is an immediate
         //   * ret offset INDIRECT
         //   * arg size offset direct
         //   * args offset INDIRECT
@@ -732,6 +732,23 @@ fn handle_getter_instruction(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
+    enum EnvironmentVariable {
+        ADDRESS,
+        STORAGEADDRESS,
+        SENDER,
+        FUNCTIONSELECTOR,
+        TRANSACTIONFEE,
+        CHAINID,
+        VERSION,
+        BLOCKNUMBER,
+        TIMESTAMP,
+        FEEPERL2GAS,
+        FEEPERDAGAS,
+        ISSTATICCALL,
+        L2GASLEFT,
+        DAGASLEFT,
+    }
+
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
     assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
@@ -742,28 +759,31 @@ fn handle_getter_instruction(
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
-    let opcode = match function {
-        "avmOpcodeAddress" => AvmOpcode::ADDRESS,
-        "avmOpcodeStorageAddress" => AvmOpcode::STORAGEADDRESS,
-        "avmOpcodeSender" => AvmOpcode::SENDER,
-        "avmOpcodeFeePerL2Gas" => AvmOpcode::FEEPERL2GAS,
-        "avmOpcodeFeePerDaGas" => AvmOpcode::FEEPERDAGAS,
-        "avmOpcodeTransactionFee" => AvmOpcode::TRANSACTIONFEE,
-        "avmOpcodeChainId" => AvmOpcode::CHAINID,
-        "avmOpcodeVersion" => AvmOpcode::VERSION,
-        "avmOpcodeBlockNumber" => AvmOpcode::BLOCKNUMBER,
-        "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
-        "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
-        "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
-        "avmOpcodeFunctionSelector" => AvmOpcode::FUNCTIONSELECTOR,
-        // "callStackDepth" => AvmOpcode::CallStackDepth,
-        _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
+    let var_idx = match function {
+        "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
+        "avmOpcodeStorageAddress" => EnvironmentVariable::STORAGEADDRESS,
+        "avmOpcodeSender" => EnvironmentVariable::SENDER,
+        "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
+        "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,
+        "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
+        "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
+        "avmOpcodeVersion" => EnvironmentVariable::VERSION,
+        "avmOpcodeBlockNumber" => EnvironmentVariable::BLOCKNUMBER,
+        "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
+        "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
+        "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
+        "avmOpcodeFunctionSelector" => EnvironmentVariable::FUNCTIONSELECTOR,
+        "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
+        _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
 
     avm_instrs.push(AvmInstruction {
-        opcode,
+        opcode: AvmOpcode::GETENVVAR_16,
         indirect: Some(ALL_DIRECT),
-        operands: vec![AvmOperand::U32 { value: dest_offset as u32 }],
+        operands: vec![
+            AvmOperand::U8 { value: var_idx as u8 },
+            AvmOperand::U16 { value: dest_offset as u16 },
+        ],
         ..Default::default()
     });
 }
@@ -865,19 +885,24 @@ fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> Avm
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
-        BlackBoxOp::Sha256 { message, output } => {
-            let message_offset = message.pointer.0;
-            let message_size_offset = message.size.0;
-            let dest_offset = output.pointer.0;
-            assert_eq!(output.size, 32, "SHA256 output size must be 32!");
+        BlackBoxOp::Sha256Compression { input, hash_values, output } => {
+            let inputs_offset = input.pointer.0;
+            let inputs_size_offset = input.size.0;
+            let state_offset = hash_values.pointer.0;
+            let state_size_offset = hash_values.size.0;
+            let output_offset = output.pointer.0;
 
             avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::SHA256,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                opcode: AvmOpcode::SHA256COMPRESSION,
+                indirect: Some(
+                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | THIRD_OPERAND_INDIRECT,
+                ),
                 operands: vec![
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
+                    AvmOperand::U32 { value: output_offset as u32 },
+                    AvmOperand::U32 { value: state_offset as u32 },
+                    AvmOperand::U32 { value: state_size_offset as u32 },
+                    AvmOperand::U32 { value: inputs_offset as u32 },
+                    AvmOperand::U32 { value: inputs_size_offset as u32 },
                 ],
                 ..Default::default()
             });

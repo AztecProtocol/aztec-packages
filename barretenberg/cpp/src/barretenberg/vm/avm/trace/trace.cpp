@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -275,7 +276,7 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces and initialize gas values.
  */
-AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
+AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs<FF> public_inputs,
                                  ExecutionHints execution_hints_,
                                  uint32_t side_effect_counter,
                                  std::vector<FF> calldata)
@@ -1271,6 +1272,59 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
     };
 }
 
+void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
+{
+    ASSERT(env_var < static_cast<int>(EnvironmentVariable::MAX_ENV_VAR));
+    EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+
+    switch (var) {
+    case EnvironmentVariable::ADDRESS:
+        op_address(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::STORAGEADDRESS:
+        op_storage_address(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::SENDER:
+        op_sender(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::FUNCTIONSELECTOR:
+        op_function_selector(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::TRANSACTIONFEE:
+        op_transaction_fee(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::CHAINID:
+        op_chain_id(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::VERSION:
+        op_version(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::BLOCKNUMBER:
+        op_block_number(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::TIMESTAMP:
+        op_timestamp(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::FEEPERL2GAS:
+        op_fee_per_l2_gas(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::FEEPERDAGAS:
+        op_fee_per_da_gas(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::ISSTATICCALL:
+        op_is_static_call(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::L2GASLEFT:
+        op_l2gasleft(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::DAGASLEFT:
+        op_dagasleft(indirect, dst_offset);
+        break;
+    default:
+        throw std::runtime_error("Invalid environment variable");
+    }
+}
+
 void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -1279,7 +1333,7 @@ void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_address = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::ADDRESS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1292,7 +1346,7 @@ void AvmTraceBuilder::op_storage_address(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_storage_address = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::STORAGEADDRESS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1305,7 +1359,7 @@ void AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_sender = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::SENDER);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1318,7 +1372,7 @@ void AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_offset
     row.main_sel_op_function_selector = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::FUNCTIONSELECTOR);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1331,7 +1385,20 @@ void AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_transaction_fee = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::TRANSACTIONFEE);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    FF ia_value = kernel_trace_builder.op_is_static_call(clk);
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    row.main_sel_op_is_static_call = FF(1);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1348,7 +1415,7 @@ void AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_chain_id = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::CHAINID);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1361,7 +1428,7 @@ void AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_version = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::VERSION);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1374,7 +1441,7 @@ void AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_block_number = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::BLOCKNUMBER);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1387,7 +1454,7 @@ void AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_timestamp = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::TIMESTAMP);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1400,7 +1467,7 @@ void AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::FEEPERL2GAS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1413,7 +1480,7 @@ void AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_fee_per_da_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::FEEPERDAGAS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1503,20 +1570,20 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
  **************************************************************************************************/
 
 // Helper for "gas left" related opcodes
-void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset)
+void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset)
 {
-    assert(opcode == OpCode::L2GASLEFT || opcode == OpCode::DAGASLEFT);
+    assert(var == EnvironmentVariable::L2GASLEFT || var == EnvironmentVariable::DAGASLEFT);
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_dst] = unpack_indirects<1>(indirect, { dst_offset });
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, opcode);
+    gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
 
     uint32_t gas_remaining = 0;
 
-    if (opcode == OpCode::L2GASLEFT) {
+    if (var == EnvironmentVariable::L2GASLEFT) {
         gas_remaining = gas_trace_builder.get_l2_gas_left();
     } else {
         gas_remaining = gas_trace_builder.get_da_gas_left();
@@ -1538,8 +1605,8 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U0)),
         .main_rwa = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_op_dagasleft = (opcode == OpCode::DAGASLEFT) ? FF(1) : FF(0),
-        .main_sel_op_l2gasleft = (opcode == OpCode::L2GASLEFT) ? FF(1) : FF(0),
+        .main_sel_op_dagasleft = (var == EnvironmentVariable::DAGASLEFT) ? FF(1) : FF(0),
+        .main_sel_op_l2gasleft = (var == EnvironmentVariable::L2GASLEFT) ? FF(1) : FF(0),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(is_operand_indirect(indirect, 0))),
         .main_tag_err = FF(static_cast<uint32_t>(!write_dst.tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)), // TODO: probably will be U32 in final version
@@ -1549,12 +1616,12 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
 
 void AvmTraceBuilder::op_l2gasleft(uint8_t indirect, uint32_t dst_offset)
 {
-    execute_gasleft(OpCode::L2GASLEFT, indirect, dst_offset);
+    execute_gasleft(EnvironmentVariable::L2GASLEFT, indirect, dst_offset);
 }
 
 void AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
 {
-    execute_gasleft(OpCode::DAGASLEFT, indirect, dst_offset);
+    execute_gasleft(EnvironmentVariable::DAGASLEFT, indirect, dst_offset);
 }
 
 /**************************************************************************************************
@@ -2493,18 +2560,67 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
                                               uint32_t log_offset,
                                               [[maybe_unused]] uint32_t log_size_offset)
 {
+    std::vector<uint8_t> bytes_to_hash;
+
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // FIXME: read (and constrain) log_size_offset
     auto [resolved_log_offset, resolved_log_size_offset] =
         unpack_indirects<2>(indirect, { log_offset, log_size_offset });
-    auto log_size = unconstrained_read_from_memory(resolved_log_size_offset);
 
-    // FIXME: we need to constrain the log_size_offset mem read (and tag check), not just one field!
-    // FIXME: we shouldn't pass resolved_log_offset.offset; we should modify create_kernel_output_opcode to take an
-    // addresswithmode.
-    Row row = create_kernel_output_opcode(indirect, clk, resolved_log_offset.offset);
-    kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, row.main_ia);
+    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_SELECTOR];
+    std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
+
+    // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
+    bytes_to_hash.insert(bytes_to_hash.end(),
+                         std::make_move_iterator(contract_address_bytes.begin()),
+                         std::make_move_iterator(contract_address_bytes.end()));
+
+    uint32_t log_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_log_size_offset));
+    // The size is in fields of 32 bytes, the length used for the hash is in terms of bytes
+    uint32_t num_bytes = log_size * 32;
+    std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
+    // Add the log size to the hash to bytes
+    bytes_to_hash.insert(bytes_to_hash.end(),
+                         std::make_move_iterator(log_size_bytes.begin()),
+                         std::make_move_iterator(log_size_bytes.end()));
+
+    // Load the log values from memory
+    // This first read might be indirect which subsequent reads should not be
+    FF initial_direct_addr = resolved_log_offset.mode == AddressingMode::DIRECT
+                                 ? resolved_log_offset.offset
+                                 : unconstrained_read_from_memory(resolved_log_offset.offset);
+
+    AddressWithMode direct_field_addr = AddressWithMode(static_cast<uint32_t>(initial_direct_addr));
+    // We need to read the rest of the log_size number of elements
+    std::vector<uint8_t> log_value_bytes;
+    for (uint32_t i = 0; i < log_size; i++) {
+        FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
+        std::vector<uint8_t> log_value_byte = log_value.to_buffer();
+        bytes_to_hash.insert(bytes_to_hash.end(),
+                             std::make_move_iterator(log_value_byte.begin()),
+                             std::make_move_iterator(log_value_byte.end()));
+    }
+
+    std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
+    // Truncate the hash to 31 bytes so it will be a valid field element
+    FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+
+    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and is
+    // prefixed to message see toBuffer in unencrypted_l2_log.ts
+    FF length_of_preimage = num_bytes + 32 + 4;
+    // The + 4 is because the kernels store the length of the
+    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need to
+    // add four to the length here. [Copied from unencrypted_l2_log.ts]
+    FF metadata_log_length = length_of_preimage + 4;
+    Row row = Row{
+        .main_clk = clk,
+        .main_ia = trunc_hash,
+        .main_ib = metadata_log_length,
+        .main_internal_return_ptr = internal_return_ptr,
+        .main_pc = pc++,
+    };
+    kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
     row.main_sel_op_emit_unencrypted_log = FF(1);
 
     // Constrain gas cost
@@ -2539,34 +2655,19 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
  *                            CONTROL FLOW - CONTRACT CALLS
  **************************************************************************************************/
 
-/**
- * @brief External Call with direct or indirect memory access.
- *
- * TODO: Use the indirect later to support all the indirect accesses
- * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
- * call in one vm circuit
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
- * @param addr_offset An index in memory pointing to the target contract address
- * @param args_offset An index in memory pointing to the first value of the input array for the external call
- * @param args_size The number of values in the input array for the external call
- * @param ret_offset An index in memory pointing to where the first value of the external calls return value should
- * be stored.
- * @param ret_size The number of values in the return array
- * @param success_offset An index in memory pointing to where the success flag (U1) of the external call should be
- * stored
- * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
- */
-void AvmTraceBuilder::op_call(uint8_t indirect,
-                              uint32_t gas_offset,
-                              uint32_t addr_offset,
-                              uint32_t args_offset,
-                              uint32_t args_size_offset,
-                              uint32_t ret_offset,
-                              uint32_t ret_size,
-                              uint32_t success_offset,
-                              [[maybe_unused]] uint32_t function_selector_offset)
+// Helper/implementation for CALL and STATICCALL
+void AvmTraceBuilder::constrain_external_call(OpCode opcode,
+                                              uint8_t indirect,
+                                              uint32_t gas_offset,
+                                              uint32_t addr_offset,
+                                              uint32_t args_offset,
+                                              uint32_t args_size_offset,
+                                              uint32_t ret_offset,
+                                              uint32_t ret_size,
+                                              uint32_t success_offset,
+                                              [[maybe_unused]] uint32_t function_selector_offset)
 {
+    ASSERT(opcode == OpCode::CALL || opcode == OpCode::STATICCALL);
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
 
@@ -2593,12 +2694,12 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
     // TODO: constrain this
     auto args_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset));
 
-    gas_trace_builder.constrain_gas_for_external_call(clk,
-                                                      /*dyn_gas_multiplier=*/args_size + ret_size,
-                                                      static_cast<uint32_t>(hint.l2_gas_used),
-                                                      static_cast<uint32_t>(hint.da_gas_used));
+    gas_trace_builder.constrain_gas(clk,
+                                    opcode,
+                                    /*dyn_gas_multiplier=*/args_size + ret_size,
+                                    static_cast<uint32_t>(hint.l2_gas_used),
+                                    static_cast<uint32_t>(hint.da_gas_used));
 
-    // We read the input and output addresses in one row as they should contain FF elements
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_ia = read_gas_l2.val, /* gas_offset_l2 */
@@ -2619,7 +2720,8 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_mem_op_d = FF(1),
-        .main_sel_op_external_call = FF(1),
+        .main_sel_op_external_call = static_cast<uint8_t>(opcode == OpCode::CALL),
+        .main_sel_op_static_call = static_cast<uint8_t>(opcode == OpCode::STATICCALL),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_gas_l2.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(read_addr.is_indirect)),
         .main_sel_resolve_ind_addr_d = FF(static_cast<uint32_t>(read_args.is_indirect)),
@@ -2634,8 +2736,88 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
     write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U1, std::vector<FF>{ hint.success });
     external_call_counter++;
 
-    // Adjust the side_effect_counter to the value at the end of the external call.
-    side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
+    // Adjust the side_effect_counter to the value at the end of the external call but not static call.
+    if (opcode == OpCode::CALL) {
+        side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
+    }
+}
+
+/**
+ * @brief External Call with direct or indirect memory access.
+ *
+ * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+ * call in one vm circuit
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
+ * @param addr_offset An index in memory pointing to the target contract address
+ * @param args_offset An index in memory pointing to the first value of the input array for the external call
+ * @param args_size The number of values in the input array for the external call
+ * @param ret_offset An index in memory pointing to where the first value of the external calls return value should
+ * be stored.
+ * @param ret_size The number of values in the return array
+ * @param success_offset An index in memory pointing to where the success flag (U1) of the external call should be
+ * stored
+ * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
+ */
+void AvmTraceBuilder::op_call(uint8_t indirect,
+                              uint32_t gas_offset,
+                              uint32_t addr_offset,
+                              uint32_t args_offset,
+                              uint32_t args_size_offset,
+                              uint32_t ret_offset,
+                              uint32_t ret_size,
+                              uint32_t success_offset,
+                              [[maybe_unused]] uint32_t function_selector_offset)
+{
+    return constrain_external_call(OpCode::CALL,
+                                   indirect,
+                                   gas_offset,
+                                   addr_offset,
+                                   args_offset,
+                                   args_size_offset,
+                                   ret_offset,
+                                   ret_size,
+                                   success_offset,
+                                   function_selector_offset);
+}
+
+/**
+ * @brief Static Call with direct or indirect memory access.
+ *
+ * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+ * call in one vm circuit
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
+ * @param addr_offset An index in memory pointing to the target contract address
+ * @param args_offset An index in memory pointing to the first value of the input array for the external call
+ * @param args_size The number of values in the input array for the static call
+ * @param ret_offset An index in memory pointing to where the first value of the static call return value should
+ * be stored.
+ * @param ret_size The number of values in the return array
+ * @param success_offset An index in memory pointing to where the success flag (U8) of the static call should be
+ * stored
+ * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
+ */
+void AvmTraceBuilder::op_static_call(uint8_t indirect,
+                                     uint32_t gas_offset,
+                                     uint32_t addr_offset,
+                                     uint32_t args_offset,
+                                     uint32_t args_size_offset,
+                                     uint32_t ret_offset,
+                                     uint32_t ret_size,
+                                     uint32_t success_offset,
+                                     [[maybe_unused]] uint32_t function_selector_offset)
+{
+    return constrain_external_call(OpCode::STATICCALL,
+                                   indirect,
+                                   gas_offset,
+                                   addr_offset,
+                                   args_offset,
+                                   args_size_offset,
+                                   ret_offset,
+                                   ret_size,
+                                   success_offset,
+                                   function_selector_offset);
 }
 
 /**
@@ -2741,12 +2923,12 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
     auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
         unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
 
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK);
-
     // Read the input length first
     auto input_length_read = constrained_read_from_memory(
         call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK, static_cast<uint32_t>(input_length_read.val));
 
     // Store the clock time that we will use to line up the gadget later
     auto keccak_op_clk = clk;
@@ -2915,61 +3097,6 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
 }
 
 /**
- * @brief SHA256 Hash with direct or indirect memory access.
- * This function is temporary until we have transitioned to sha256Compression
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param output_offset An index in memory pointing to where the first U32 value of the output array should be
- * stored.
- * @param input_offset An index in memory pointing to the first U8 value of the state array to be used in the next
- * instance of sha256.
- * @param input_size_offset An index in memory pointing to the U32 value of the input size.
- */
-void AvmTraceBuilder::op_sha256(uint8_t indirect,
-                                uint32_t output_offset,
-                                uint32_t input_offset,
-                                uint32_t input_size_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
-
-    gas_trace_builder.constrain_gas(clk, OpCode::SHA256);
-
-    auto input_length_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
-
-    // Store the clock time that we will use to line up the gadget later
-    auto sha256_op_clk = clk;
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ib = input_length_read.val, // Message Length
-        .main_ind_addr_b = FF(input_length_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_b = FF(input_length_read.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_sel_mem_op_b = FF(1),
-        .main_sel_op_sha256 = FF(1),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(input_length_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_length_read.tag_match)),
-    });
-    clk++;
-
-    std::vector<uint8_t> input;
-    input.reserve(uint32_t(input_length_read.val));
-    read_slice_from_memory<uint8_t>(resolved_input_offset, uint32_t(input_length_read.val), input);
-
-    std::array<uint8_t, 32> result = sha256_trace_builder.sha256(input, sha256_op_clk);
-
-    std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 32; i++) {
-        ff_result.emplace_back(result[i]);
-    }
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U8, ff_result);
-}
-
-/**
  * @brief Pedersen Hash with direct or indirect memory access.
  * @param indirect byte encoding information about indirect/direct memory access.
  * @param gen_ctx_offset An index in memory pointing to where the u32 offset for the pedersen hash generators.
@@ -2996,7 +3123,8 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN);
+    // TODO(dbanks12): need tag check u32 here on input size
+    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN, static_cast<uint32_t>(input_size_read));
 
     // We read the input and output addresses in one row as they should contain FF elements
     main_trace.push_back(Row{
@@ -3014,8 +3142,8 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     });
 
     std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, uint32_t(input_size_read), inputs);
-    FF output = pedersen_trace_builder.pedersen_hash(inputs, uint32_t(gen_ctx_read), clk);
+    read_slice_from_memory<FF>(resolved_input_offset, static_cast<uint32_t>(input_size_read), inputs);
+    FF output = pedersen_trace_builder.pedersen_hash(inputs, static_cast<uint32_t>(gen_ctx_read), clk);
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
 }
 
@@ -3158,7 +3286,9 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM);
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     AddressWithMode output_offset_direct =
@@ -3196,7 +3326,9 @@ void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT);
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT, static_cast<uint32_t>(input_length_read));
 
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     AddressWithMode output_offset_direct =
@@ -3303,7 +3435,7 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
  * @brief SHA256 Compression with direct or indirect memory access.
  *
  * @param indirect byte encoding information about indirect/direct memory access.
- * @param h_init_offset An index in memory pointing to the first U32 value of the state array to be used in the next
+ * @param state_offset An index in memory pointing to the first U32 value of the state array to be used in the next
  * instance of sha256 compression.
  * @param input_offset An index in memory pointing to the first U32 value of the input array to be used in the next
  * instance of sha256 compression.
@@ -3312,21 +3444,28 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
  */
 void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
                                             uint32_t output_offset,
-                                            uint32_t h_init_offset,
-                                            uint32_t input_offset)
+                                            uint32_t state_offset,
+                                            uint32_t state_size_offset,
+                                            uint32_t inputs_offset,
+                                            uint32_t inputs_size_offset)
 {
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
-    auto [resolved_h_init_offset, resolved_input_offset, resolved_output_offset] =
-        unpack_indirects<3>(indirect, { h_init_offset, input_offset, output_offset });
+    auto [resolved_output_offset,
+          resolved_state_offset,
+          resolved_state_size_offset,
+          resolved_inputs_offset,
+          resolved_inputs_size_offset] =
+        unpack_indirects<5>(indirect,
+                            { output_offset, state_offset, state_size_offset, inputs_offset, inputs_size_offset });
 
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_h_init_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
+        call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
+        call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // Constrain gas cost
@@ -3368,9 +3507,9 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     // Input for hash is expanded to 512 bits
     std::vector<uint32_t> input_vec;
     // Read results are written to h_init array.
-    read_slice_from_memory<uint32_t>(resolved_h_init_offset, 8, h_init_vec);
+    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
     // Read results are written to input array
-    read_slice_from_memory<uint32_t>(resolved_input_offset, 16, input_vec);
+    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
     // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the
@@ -3489,15 +3628,16 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
+    size_t kernel_trace_size = kernel_trace_builder.size();
 
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
     size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,       main_trace_size + 1,   alu_trace_size,
-                                        range_check_size,     conv_trace_size,       sha256_trace_size,
-                                        poseidon2_trace_size, pedersen_trace_size,   gas_trace_size + 1,
-                                        KERNEL_INPUTS_LENGTH, KERNEL_OUTPUTS_LENGTH, fixed_gas_table.size(),
-                                        slice_trace_size,     calldata.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,         main_trace_size + 1,   alu_trace_size,
+                                        range_check_size,       conv_trace_size,       sha256_trace_size,
+                                        poseidon2_trace_size,   pedersen_trace_size,   gas_trace_size + 1,
+                                        KERNEL_INPUTS_LENGTH,   KERNEL_OUTPUTS_LENGTH, kernel_trace_size,
+                                        fixed_gas_table.size(), slice_trace_size,      calldata.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // Before making any changes to the main trace, mark the real rows.
@@ -3905,7 +4045,17 @@ std::vector<Row> AvmTraceBuilder::finalize()
           "\n\trange_check_trace_size: ",
           range_entries.size(),
           "\n\tcmp_trace_size: ",
-          cmp_trace_size);
+          cmp_trace_size,
+          "\n\tkeccak_trace_size: ",
+          keccak_trace_size,
+          "\n\tkernel_trace_size: ",
+          kernel_trace_size,
+          "\n\tKERNEL_INPUTS_LENGTH: ",
+          KERNEL_INPUTS_LENGTH,
+          "\n\tKERNEL_OUTPUTS_LENGTH: ",
+          KERNEL_OUTPUTS_LENGTH,
+          "\n\tcalldata_size: ",
+          calldata.size());
     reset();
 
     return trace;

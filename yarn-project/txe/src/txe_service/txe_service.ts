@@ -4,9 +4,7 @@ import {
   Fr,
   FunctionSelector,
   Header,
-  KeyValidationRequest,
   PUBLIC_DATA_SUBTREE_HEIGHT,
-  Point,
   PublicDataTreeLeaf,
   computePartialAddress,
   getContractInstanceFromDeployParams,
@@ -56,11 +54,6 @@ export class TXEService {
 
   async getPrivateContextInputs(blockNumber: ForeignCallSingle) {
     const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(fromSingle(blockNumber).toNumber());
-    return toForeignCallResult(inputs.toFields().map(toSingle));
-  }
-
-  getPublicContextInputs() {
-    const inputs = (this.typedOracle as TXE).getPublicContextInputs();
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
@@ -143,7 +136,7 @@ export class TXEService {
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = fromSingle(contractAddress);
-    const db = trees.asLatest();
+    const db = await trees.getLatest();
 
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
@@ -311,6 +304,16 @@ export class TXEService {
   avmOpcodeFunctionSelector() {
     const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
     return toForeignCallResult([toSingle(functionSelector.toField())]);
+  }
+
+  setIsStaticCall(isStaticCall: ForeignCallSingle) {
+    (this.typedOracle as TXE).setIsStaticCall(fromSingle(isStaticCall).toBool());
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeIsStaticCall() {
+    const isStaticCall = (this.typedOracle as TXE).getIsStaticCall();
+    return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
   async avmOpcodeChainId() {
@@ -607,40 +610,6 @@ export class TXEService {
   async getKeyValidationRequest(pkMHash: ForeignCallSingle) {
     const keyValidationRequest = await this.typedOracle.getKeyValidationRequest(fromSingle(pkMHash));
     return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
-  }
-
-  computeEncryptedNoteLog(
-    contractAddress: ForeignCallSingle,
-    storageSlot: ForeignCallSingle,
-    noteTypeId: ForeignCallSingle,
-    ovskApp: ForeignCallSingle,
-    ovpkMX: ForeignCallSingle,
-    ovpkMY: ForeignCallSingle,
-    ovpkMIsInfinite: ForeignCallSingle,
-    ivpkMX: ForeignCallSingle,
-    ivpkMY: ForeignCallSingle,
-    ivpkMIsInfinite: ForeignCallSingle,
-    recipient: ForeignCallSingle,
-    preimage: ForeignCallArray,
-  ) {
-    const ovpkM = new Point(fromSingle(ovpkMX), fromSingle(ovpkMY), !fromSingle(ovpkMIsInfinite).isZero());
-    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(fromSingle(ovskApp).toString()));
-    const ivpkM = new Point(fromSingle(ivpkMX), fromSingle(ivpkMY), !fromSingle(ivpkMIsInfinite).isZero());
-    const encLog = this.typedOracle.computeEncryptedNoteLog(
-      AztecAddress.fromString(fromSingle(contractAddress).toString()),
-      Fr.fromString(fromSingle(storageSlot).toString()),
-      NoteSelector.fromField(Fr.fromString(fromSingle(noteTypeId).toString())),
-      ovKeys,
-      ivpkM,
-      AztecAddress.fromString(fromSingle(recipient).toString()),
-      fromArray(preimage),
-    );
-    const bytes: Fr[] = [];
-
-    encLog.forEach(v => {
-      bytes.push(new Fr(v));
-    });
-    return toForeignCallResult([toArray(bytes)]);
   }
 
   emitEncryptedLog(

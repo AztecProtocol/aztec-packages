@@ -1,102 +1,63 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { EthAddress, Fr } from '@aztec/circuits.js';
 
-import { jest } from '@jest/globals';
-import { decode, encode } from 'msgpackr';
+import { mkdir, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-import {
-  MessageHeader,
-  TypedMessage,
-  WorldStateMessageType,
-  type WorldStateRequest,
-  type WorldStateResponse,
-  worldStateRevision,
-} from './message.js';
-import { type NativeInstance, NativeWorldStateService } from './native_world_state.js';
+import { NativeWorldStateService } from './native_world_state.js';
 
 describe('NativeWorldState', () => {
-  let call: jest.MockedFunction<NativeInstance['call']>;
-  let worldState: WorldStateWithMockedInstance;
+  let dataDir: string;
+  let rollupAddress: EthAddress;
 
-  beforeEach(() => {
-    call = jest.fn();
-    worldState = new WorldStateWithMockedInstance({ call });
+  beforeAll(async () => {
+    dataDir = join(tmpdir(), 'world-state-test');
+    await mkdir(dataDir, { recursive: true });
+    rollupAddress = EthAddress.random();
   });
 
-  afterEach(async () => {
-    await worldState.stop();
+  afterAll(async () => {
+    await rm(dataDir, { recursive: true });
   });
 
-  it('encodes responses', async () => {
-    const expectedResponse: WorldStateResponse[WorldStateMessageType.GET_TREE_INFO] = {
-      treeId: MerkleTreeId.NULLIFIER_TREE,
-      depth: 20,
-      root: new Fr(42).toBuffer(),
-      size: 128n,
-    };
+  describe('persistence', () => {
+    let committedNote: Fr;
+    let uncommittedNote: Fr;
+    beforeAll(async () => {
+      committedNote = Fr.random();
+      uncommittedNote = Fr.random();
+      const ws = await NativeWorldStateService.create(rollupAddress, dataDir);
 
-    call.mockResolvedValueOnce(
-      encode(
-        new TypedMessage(WorldStateMessageType.GET_TREE_INFO, new MessageHeader({ requestId: 1 }), expectedResponse),
-      ),
-    );
+      await ws.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [committedNote]);
+      await ws.commit();
 
-    const treeInfo = await worldState.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, false);
-    expect(treeInfo).toEqual(expectedResponse);
-  });
+      await ws.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [uncommittedNote]);
 
-  it.each([true, false])('encodes messages with includeUncommitted=%s', async includeUncommitted => {
-    const expectedResponse: WorldStateResponse[WorldStateMessageType.GET_TREE_INFO] = {
-      treeId: MerkleTreeId.NULLIFIER_TREE,
-      depth: 20,
-      root: new Fr(42).toBuffer(),
-      size: 128n,
-    };
+      await ws.closeRootDatabase();
+    });
 
-    call.mockResolvedValueOnce(
-      encode(
-        new TypedMessage(WorldStateMessageType.GET_TREE_INFO, new MessageHeader({ requestId: 1 }), expectedResponse),
-      ),
-    );
+    it('correctly restores committed state', async () => {
+      const ws = await NativeWorldStateService.create(rollupAddress, dataDir);
+      // committed state should be restored
+      await expect(ws.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, 0n, false)).resolves.toEqual(committedNote);
 
-    await worldState.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, includeUncommitted);
-    expect(call).toHaveBeenCalled();
+      // but uncommitted state will be lost
+      await expect(ws.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, uncommittedNote, true)).resolves.toBeUndefined();
+    });
 
-    const msg: TypedMessage<
-      WorldStateMessageType.GET_TREE_INFO,
-      WorldStateRequest[WorldStateMessageType.GET_TREE_INFO]
-    > = decode(call.mock.calls[0][0]);
+    it('clears the database if the rollup is different', async () => {
+      // open ws against the same data dir but a different rollup
+      let ws = await NativeWorldStateService.create(EthAddress.random(), dataDir);
+      // db should be empty
+      await expect(ws.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, committedNote, false)).resolves.toBeUndefined();
 
-    expect(msg.msgType).toBe(WorldStateMessageType.GET_TREE_INFO);
-    expect(msg.header.messageId).toBeGreaterThan(0);
-    expect(msg.value).toEqual({
-      treeId: MerkleTreeId.NULLIFIER_TREE,
-      revision: worldStateRevision(includeUncommitted),
+      await ws.closeRootDatabase();
+
+      // later on, open ws against the original rollup and same data dir
+      // db should be empty because we wiped all its files earlier
+      ws = await NativeWorldStateService.create(rollupAddress, dataDir);
+      await expect(ws.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, committedNote, false)).resolves.toBeUndefined();
     });
   });
-
-  it.each([
-    [encode(undefined), 'Invalid response: expected TypedMessageLike, got undefined'],
-    [undefined, 'Invalid encoded response: expected Buffer or ArrayBuffer, got undefined'],
-    [encode(null), 'Invalid response: expected TypedMessageLike, got null'],
-    [null, 'Invalid encoded response: expected Buffer or ArrayBuffer, got null'],
-    [encode({}), 'Invalid response: expected TypedMessageLike, got object'],
-    [
-      encode(new TypedMessage(WorldStateMessageType.GET_TREE_INFO, new MessageHeader({ requestId: 100 }), {})),
-      'Response ID does not match request',
-    ],
-    [
-      encode(new TypedMessage(WorldStateMessageType.COMMIT, new MessageHeader({ requestId: 1 }), {})),
-      'Invalid response message type',
-    ],
-  ])('rejects invalid responses', async (resp, expectedError) => {
-    call.mockResolvedValueOnce(resp);
-    await expect(worldState.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, false)).rejects.toThrow(expectedError);
-  });
 });
-
-class WorldStateWithMockedInstance extends NativeWorldStateService {
-  constructor(instance: NativeInstance) {
-    super(instance);
-  }
-}

@@ -1,12 +1,12 @@
 #pragma once
 
+#include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <exception>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <type_traits>
@@ -40,17 +41,20 @@ template <typename LeafValueType> struct BatchInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
-const uint64_t NULLIFIER_TREE_HEIGHT = 20;
-const uint64_t NOTE_HASH_TREE_HEIGHT = 32;
-const uint64_t PUBLIC_DATA_TREE_HEIGHT = 40;
-const uint64_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
-const uint64_t ARCHIVE_TREE_HEIGHT = 16;
-
 const uint64_t CANONICAL_FORK_ID = 0;
 
+/**
+ * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
+ *
+ * @note This class makes no checks against the rollup address being used. It is the responsibility of the caller to
+ * erase the underlying data directory if the rollup address changes _before_ opening the database.
+ */
 class WorldState {
   public:
-    WorldState(uint64_t threads, const std::string& data_dir, uint64_t map_size_kb);
+    WorldState(const std::string& data_dir, uint64_t map_size, uint64_t thread_pool_size);
+    WorldState(const std::string& data_dir,
+               const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+               uint64_t thread_pool_size);
 
     /**
      * @brief Get tree metadata for a particular tree
@@ -149,7 +153,8 @@ class WorldState {
      * @param tree_id The ID of the Merkle Tree.
      * @param leaves The leaves to append.
      */
-    template <typename T> void append_leaves(MerkleTreeId tree_id, const std::vector<T>& leaves);
+    template <typename T>
+    void append_leaves(MerkleTreeId tree_id, const std::vector<T>& leaves, Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Batch inserts a set of leaves into an indexed Merkle Tree.
@@ -162,14 +167,27 @@ class WorldState {
     template <typename T>
     BatchInsertionResult<T> batch_insert_indexed_leaves(MerkleTreeId tree_id,
                                                         const std::vector<T>& leaves,
-                                                        uint32_t subtree_depth);
+                                                        uint32_t subtree_depth,
+                                                        Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Updates a leaf in an existing Merkle Tree.
      *
      * @param new_value The new value of the leaf.
      */
-    void update_public_data(const crypto::merkle_tree::PublicDataLeafValue& new_value);
+    void update_public_data(const crypto::merkle_tree::PublicDataLeafValue& new_value,
+                            Fork::Id fork_id = CANONICAL_FORK_ID);
+
+    /**
+     * @brief Updates the archive tree with a new block.
+     *
+     * @param block_state_ref The state reference of the block.
+     * @param block_hash The hash of the block.
+     * @param fork_id The fork ID to update.
+     */
+    void update_archive(const StateReference& block_state_ref,
+                        fr block_header_hash,
+                        Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Commits the current state of the world state.
@@ -187,25 +205,28 @@ class WorldState {
      * @param block The block to synchronize with.
      */
     bool sync_block(StateReference& block_state_ref,
-                    fr block_hash,
+                    fr block_header_hash,
                     const std::vector<bb::fr>& notes,
                     const std::vector<bb::fr>& l1_to_l2_messages,
                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                     const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
+    uint64_t create_fork(index_t blockNumber);
+    void delete_fork(uint64_t forkId);
+
   private:
-    bb::ThreadPool _workers;
+    std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
     mutable std::mutex mtx;
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
     uint64_t _forkId = 0;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
-    void create_canonical_fork(const std::string& dataDir, uint64_t dbSize, uint64_t maxReaders);
+    void create_canonical_fork(const std::string& dataDir,
+                               const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                               uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
-    void add_fork(index_t blockNumber);
-    void delete_fork(uint64_t forkId);
     Fork::SharedPtr create_new_fork(index_t blockNumber);
 
     static bool include_uncommitted(WorldStateRevision rev);
@@ -332,27 +353,31 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
     return index;
 }
 
-template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves)
+template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
 {
     using namespace crypto::merkle_tree;
 
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
 
     Signal signal;
 
     bool success = false;
-    auto callback = [&signal, &success](const auto& resp) {
-        success = resp.success;
-        signal.signal_level(0);
-    };
 
     if constexpr (std::is_same_v<bb::fr, T>) {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
+        auto callback = [&signal, &success](const auto& resp) {
+            success = resp.success;
+            signal.signal_level(0);
+        };
         wrapper.tree->add_values(leaves, callback);
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+        typename Tree::AddCompletionCallbackWithWitness callback = [&signal, &success](const auto& resp) {
+            success = resp.success;
+            signal.signal_level(0);
+        };
         wrapper.tree->add_or_update_values(leaves, 0, callback);
     }
 
@@ -366,13 +391,14 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
 template <typename T>
 BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
                                                                 const std::vector<T>& leaves,
-                                                                uint32_t subtree_depth)
+                                                                uint32_t subtree_depth,
+                                                                Fork::Id fork_id)
 {
     using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
 
     Signal signal;
     BatchInsertionResult<T> result;

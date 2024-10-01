@@ -40,7 +40,7 @@ describe('aztec node', () => {
     merkleTreeOps = mock<MerkleTreeAdminOperations>();
 
     const worldState = mock<WorldStateSynchronizer>({
-      getLatest: () => merkleTreeOps,
+      getLatest: () => Promise.resolve(merkleTreeOps),
     });
 
     const l2BlockSource = mock<L2BlockSource>({

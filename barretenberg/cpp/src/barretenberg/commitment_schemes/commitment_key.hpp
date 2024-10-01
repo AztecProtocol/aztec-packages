@@ -124,19 +124,19 @@ template <class Curve> class CommitmentKey {
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial spann.
+        // with our polynomial span.
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
         // Define structures needed to multithread the extraction of non-zero inputs
-        const size_t num_threads = poly_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
-        const size_t block_size = poly_size / num_threads;
+        const size_t num_threads = calculate_num_threads(poly_size);
+        const size_t block_size = (poly_size + num_threads - 1) / num_threads; // round up
         std::vector<std::vector<Fr>> thread_scalars(num_threads);
         std::vector<std::vector<G1>> thread_points(num_threads);
 
         // Loop over all polynomial coefficients and keep {point, scalar} pairs for which scalar != 0
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = thread_idx * block_size;
-            const size_t end = (thread_idx + 1) * block_size;
+            const size_t end = std::min(poly_size, (thread_idx + 1) * block_size);
 
             for (size_t idx = start; idx < end; ++idx) {
 

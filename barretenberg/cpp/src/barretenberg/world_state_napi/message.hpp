@@ -36,6 +36,8 @@ enum WorldStateMessageType {
 
     CREATE_FORK,
     DELETE_FORK,
+
+    CLOSE = 999,
 };
 
 struct TreeIdOnlyRequest {
@@ -142,31 +144,34 @@ struct FindLowLeafResponse {
 template <typename T> struct AppendLeavesRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
-    MSGPACK_FIELDS(treeId, leaves);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, forkId);
 };
 
 template <typename T> struct BatchInsertRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
     uint32_t subtreeDepth;
-    MSGPACK_FIELDS(treeId, leaves, subtreeDepth);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, subtreeDepth, forkId);
 };
 
 struct UpdateArchiveRequest {
     StateReference blockStateRef;
-    bb::fr blockHash;
-    MSGPACK_FIELDS(blockStateRef, blockHash);
+    bb::fr blockHeaderHash;
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(blockStateRef, blockHeaderHash, forkId);
 };
 
 struct SyncBlockRequest {
     StateReference blockStateRef;
-    bb::fr blockHash;
+    bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
     std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>> batchesOfPaddedPublicDataWrites;
 
     MSGPACK_FIELDS(blockStateRef,
-                   blockHash,
+                   blockHeaderHash,
                    paddedNoteHashes,
                    paddedL1ToL2Messages,
                    paddedNullifiers,

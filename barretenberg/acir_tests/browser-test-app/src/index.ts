@@ -9,34 +9,21 @@ async function runTest(
   witness: Uint8Array,
   threads?: number
 ) {
-  const { Barretenberg, RawBuffer, Crs } = await import("@aztec/bb.js");
-  const CIRCUIT_SIZE = 2 ** 19;
+  const { UltraPlonkBackend, BarretenbergVerifier } = await import("@aztec/bb.js");
 
   debug("starting test...");
-  const api = await Barretenberg.new({ threads });
+  const backend = new UltraPlonkBackend(bytecode, { threads });
+  const proof = await backend.generateProof(witness);
 
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-  await api.commonInitSlabAllocator(CIRCUIT_SIZE);
+  const verificationKey = await backend.getVerificationKey();
+  await backend.destroy();
 
-  // Plus 1 needed!
-  const crs = await Crs.new(CIRCUIT_SIZE + 1);
-  await api.srsInitSrs(
-    new RawBuffer(crs.getG1Data()),
-    crs.numPoints,
-    new RawBuffer(crs.getG2Data())
-  );
-
-  const acirComposer = await api.acirNewAcirComposer(CIRCUIT_SIZE);
-  const proof = await api.acirCreateProof(
-    acirComposer,
-    bytecode,
-    witness,
-  );
   debug(`verifying...`);
-  const verified = await api.acirVerifyProof(acirComposer, proof);
+  const verifier = new BarretenbergVerifier({ threads });
+  const verified = await verifier.verifyUltraplonkProof(proof, verificationKey);
   debug(`verified: ${verified}`);
 
-  await api.destroy();
+  await verifier.destroy();
 
   debug("test complete.");
   return verified;

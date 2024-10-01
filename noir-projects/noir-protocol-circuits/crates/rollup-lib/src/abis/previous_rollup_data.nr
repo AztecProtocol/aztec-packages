@@ -6,7 +6,7 @@ use dep::types::{
     utils::arrays::find_index_hint
 };
 
-struct PreviousRollupData{
+pub struct PreviousRollupData{
     base_or_merge_rollup_public_inputs : BaseOrMergeRollupPublicInputs,
     proof : NestedRecursiveProof,
     vk : VerificationKey,

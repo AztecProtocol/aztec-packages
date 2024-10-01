@@ -1,6 +1,6 @@
 use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Serialize, Empty}};
 
-struct GasFees {
+pub struct GasFees {
     fee_per_da_gas: Field,
     fee_per_l2_gas: Field,
 }

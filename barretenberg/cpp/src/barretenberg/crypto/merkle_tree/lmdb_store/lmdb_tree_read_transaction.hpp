@@ -37,8 +37,6 @@ class LMDBTreeReadTransaction : public LMDBTransaction {
 
     template <typename T> bool get_value_or_previous(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
-    bool get_node(uint32_t level, index_t index, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
-
     template <typename T> bool get_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
     bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
