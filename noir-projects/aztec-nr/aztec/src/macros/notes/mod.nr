@@ -164,7 +164,7 @@ pub(crate) comptime fn generate_note_export(
     for field in fields {
         let (name, index, nullable) = field;
         note_fields = note_fields.push_back(quote { $name: aztec::note::note_field::NoteField });
-        note_field_constructors = note_field_constructors.push_back(quote { aztec::note::note_field::NoteField { index: $index, nullable: $nullable }});
+        note_field_constructors = note_field_constructors.push_back(quote { $name: aztec::note::note_field::NoteField { index: $index, nullable: $nullable }});
     }
 
     let note_fields = note_fields.join(quote {,});
