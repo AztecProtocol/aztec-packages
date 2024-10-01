@@ -146,18 +146,13 @@ void show_trace_info(const auto& trace)
 } // namespace
 
 // Needed for dependency injection in tests.
-Execution::TraceBuilderConstructor Execution::trace_builder_constructor =
-    [](VmPublicInputs public_inputs,
-       ExecutionHints execution_hints,
-       uint32_t side_effect_counter,
-       std::vector<FF> calldata,
-       std::vector<std::vector<uint8_t>> all_contract_bytecode) {
-        return AvmTraceBuilder(std::move(public_inputs),
-                               std::move(execution_hints),
-                               side_effect_counter,
-                               std::move(calldata),
-                               all_contract_bytecode);
-    };
+Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs public_inputs,
+                                                                             ExecutionHints execution_hints,
+                                                                             uint32_t side_effect_counter,
+                                                                             std::vector<FF> calldata) {
+    return AvmTraceBuilder(
+        std::move(public_inputs), std::move(execution_hints), side_effect_counter, std::move(calldata));
+};
 
 /**
  * @brief Temporary routine to generate default public inputs (gas values) until we get
@@ -180,8 +175,7 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  * @throws runtime_error exception when the bytecode is invalid.
  * @return The verifier key and zk proof of the execution.
  */
-std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<uint8_t> const& bytecode,
-                                                                   std::vector<FF> const& calldata,
+std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<FF> const& calldata,
                                                                    std::vector<FF> const& public_inputs_vec,
                                                                    ExecutionHints const& execution_hints)
 {
@@ -190,8 +184,8 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     }
 
     std::vector<FF> returndata;
-    std::vector<Row> trace = AVM_TRACK_TIME_V(
-        "prove/gen_trace", gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints));
+    std::vector<Row> trace =
+        AVM_TRACK_TIME_V("prove/gen_trace", gen_trace(calldata, public_inputs_vec, returndata, execution_hints));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -268,15 +262,13 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @param public_inputs expressed as a vector of finite field elements.
  * @return The trace as a vector of Row.
  */
-std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
-                                      std::vector<FF> const& calldata,
+std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec,
                                       std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints)
 
 {
-    std::vector<Instruction> instructions = Deserialization::parse(bytecode);
-    vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
+
     vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
@@ -284,15 +276,23 @@ std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
     uint32_t start_side_effect_counter =
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
                                    : 0;
-    std::vector<std::vector<uint8_t>> all_contract_bytecode;
-    all_contract_bytecode.reserve(execution_hints.externalcall_hints.size() + 1);
-    // Start with the main, top-level contract bytecode
-    all_contract_bytecode.push_back(bytecode);
-    for (const auto& externalcall_hint : execution_hints.externalcall_hints) {
-        all_contract_bytecode.emplace_back(externalcall_hint.bytecode);
-    }
-    AvmTraceBuilder trace_builder = Execution::trace_builder_constructor(
-        public_inputs, execution_hints, start_side_effect_counter, calldata, all_contract_bytecode);
+
+    // This address is the top-level contract address
+    vinfo("Length of all contract bytecode: ", execution_hints.all_contract_bytecode.size());
+
+    FF contract_address = std::get<0>(public_inputs)[ADDRESS_SELECTOR];
+    vinfo("Top level contract address: ", contract_address);
+    // We use it to extract the bytecode we need to execute
+    std::vector<uint8_t> bytecode =
+        std::find_if(execution_hints.all_contract_bytecode.begin(),
+                     execution_hints.all_contract_bytecode.end(),
+                     [&](auto& contract) { return contract.contract_instance.address == contract_address; })
+            ->bytecode;
+
+    std::vector<Instruction> instructions = Deserialization::parse(bytecode);
+    vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
+    AvmTraceBuilder trace_builder =
+        Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution

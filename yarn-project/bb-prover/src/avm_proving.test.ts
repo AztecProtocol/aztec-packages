@@ -1,4 +1,5 @@
 import { AvmCircuitInputs, AvmVerificationKeyData, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
+import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
@@ -68,29 +69,30 @@ const proveAndVerifyAvmTestContract = async (
   }).withAddress(environment.address);
   worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
 
+  const contractClass = makeContractClassPublic();
+  worldStateDB.getContractClass.mockResolvedValue(Promise.resolve(contractClass));
+
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
+  const bytecode = getAvmTestContractBytecode(functionName);
+  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(bytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
-  // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode(functionName);
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // First we simulate (though it's not needed in this simple case).
   const simulator = new AvmSimulator(context);
-  const avmResult = await simulator.executeBytecode(bytecode);
+  const avmResult = await simulator.execute();
 
   if (assertionErrString == undefined) {
     expect(avmResult.reverted).toBe(false);
@@ -112,7 +114,6 @@ const proveAndVerifyAvmTestContract = async (
 
   const avmCircuitInputs = new AvmCircuitInputs(
     functionName,
-    /*bytecode=*/ simulator.getBytecode()!, // uncompressed bytecode
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,

@@ -1,4 +1,4 @@
-import { type Gas } from '@aztec/circuits.js';
+import { type ContractClassIdPreimage, type Gas } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
@@ -8,6 +8,11 @@ import { type TracedContractInstance } from './side_effect_trace.js';
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   getCounter(): number;
+  traceGetBytecode(
+    bytecode: Buffer,
+    contractInstance: TracedContractInstance,
+    contractClass: ContractClassIdPreimage,
+  ): void;
   tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
   tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr): void;
   traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;

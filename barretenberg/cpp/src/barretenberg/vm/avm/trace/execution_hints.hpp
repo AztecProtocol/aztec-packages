@@ -12,7 +12,7 @@ struct ExternalCallHint {
     uint32_t l2_gas_used;
     uint32_t da_gas_used;
     FF end_side_effect_counter;
-    std::vector<uint8_t> bytecode;
+    FF contract_address;
 };
 
 // Add support for deserialization of ExternalCallHint. This is implicitly used by serialize::read
@@ -25,12 +25,26 @@ inline void read(uint8_t const*& it, ExternalCallHint& hint)
     read(it, hint.l2_gas_used);
     read(it, hint.da_gas_used);
     read(it, hint.end_side_effect_counter);
-    read(it, hint.bytecode);
+    read(it, hint.contract_address);
+}
+
+struct ContractClassIdHint {
+    FF artifact_hash;
+    FF private_fn_root;
+    FF public_bytecode_commitment;
+};
+
+inline void read(uint8_t const*& it, ContractClassIdHint& preimage)
+{
+    using serialize::read;
+    read(it, preimage.artifact_hash);
+    read(it, preimage.private_fn_root);
+    read(it, preimage.public_bytecode_commitment);
 }
 
 struct ContractInstanceHint {
     FF address;
-    FF instance_found_in_address;
+    bool exists; // Useful for membership checks
     FF salt;
     FF deployer_addr;
     FF contract_class_id;
@@ -43,12 +57,38 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
 {
     using serialize::read;
     read(it, hint.address);
-    read(it, hint.instance_found_in_address);
+    read(it, hint.exists);
     read(it, hint.salt);
     read(it, hint.deployer_addr);
     read(it, hint.contract_class_id);
     read(it, hint.initialisation_hash);
     read(it, hint.public_key_hash);
+}
+
+struct AvmContractBytecode {
+    std::vector<uint8_t> bytecode;
+    ContractInstanceHint contract_instance;
+    ContractClassIdHint contract_class_id_preimage;
+
+    AvmContractBytecode() = default;
+    AvmContractBytecode(std::vector<uint8_t> bytecode,
+                        ContractInstanceHint contract_instance,
+                        ContractClassIdHint contract_class_id_preimage)
+        : bytecode(std::move(bytecode))
+        , contract_instance(contract_instance)
+        , contract_class_id_preimage(contract_class_id_preimage)
+    {}
+    AvmContractBytecode(std::vector<uint8_t> bytecode)
+        : bytecode(std::move(bytecode))
+    {}
+};
+
+inline void read(uint8_t const*& it, AvmContractBytecode& bytecode)
+{
+    using serialize::read;
+    read(it, bytecode.bytecode);
+    read(it, bytecode.contract_instance);
+    read(it, bytecode.contract_class_id_preimage);
 }
 
 struct ExecutionHints {
@@ -58,6 +98,8 @@ struct ExecutionHints {
     std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints;
     std::vector<ExternalCallHint> externalcall_hints;
     std::map<FF, ContractInstanceHint> contract_instance_hints;
+    // We could make this address-indexed
+    std::vector<AvmContractBytecode> all_contract_bytecode;
 
     ExecutionHints() = default;
 
@@ -90,6 +132,11 @@ struct ExecutionHints {
     ExecutionHints& with_contract_instance_hints(std::map<FF, ContractInstanceHint> contract_instance_hints)
     {
         this->contract_instance_hints = std::move(contract_instance_hints);
+        return *this;
+    }
+    ExecutionHints& with_avm_contract_bytecode(std::vector<AvmContractBytecode> all_contract_bytecode)
+    {
+        this->all_contract_bytecode = std::move(all_contract_bytecode);
         return *this;
     }
 
@@ -144,14 +191,18 @@ struct ExecutionHints {
             contract_instance_hints[instance.address] = instance;
         }
 
+        std::vector<AvmContractBytecode> all_contract_bytecode;
+        read(it, all_contract_bytecode);
+
         if (it != data.data() + data.size()) {
-            throw_or_abort("Failed to deserialize ExecutionHints: only read" + std::to_string(it - data.data()) +
+            throw_or_abort("Failed to deserialize ExecutionHints: only read " + std::to_string(it - data.data()) +
                            " bytes out of " + std::to_string(data.size()) + " bytes");
         }
 
         return { std::move(storage_value_hints),    std::move(note_hash_exists_hints),
                  std::move(nullifier_exists_hints), std::move(l1_to_l2_message_exists_hints),
-                 std::move(externalcall_hints),     std::move(contract_instance_hints) };
+                 std::move(externalcall_hints),     std::move(contract_instance_hints),
+                 std::move(all_contract_bytecode) };
     }
 
   private:
@@ -160,13 +211,15 @@ struct ExecutionHints {
                    std::vector<std::pair<FF, FF>> nullifier_exists_hints,
                    std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints,
                    std::vector<ExternalCallHint> externalcall_hints,
-                   std::map<FF, ContractInstanceHint> contract_instance_hints)
+                   std::map<FF, ContractInstanceHint> contract_instance_hints,
+                   std::vector<AvmContractBytecode> all_contract_bytecode)
         : storage_value_hints(std::move(storage_value_hints))
         , note_hash_exists_hints(std::move(note_hash_exists_hints))
         , nullifier_exists_hints(std::move(nullifier_exists_hints))
         , l1_to_l2_message_exists_hints(std::move(l1_to_l2_message_exists_hints))
         , externalcall_hints(std::move(externalcall_hints))
         , contract_instance_hints(std::move(contract_instance_hints))
+        , all_contract_bytecode(std::move(all_contract_bytecode))
     {}
 };
 

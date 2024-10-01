@@ -147,6 +147,7 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  AvmContractBytecodeHints,
   EnqueuedCallData,
   PublicAccumulatedDataArrayLengths,
   PublicDataLeafHint,
@@ -1420,8 +1421,20 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    makeBytes((seed % 100) + 10, seed + 0x400),
+    new Fr(seed + 0x400),
   );
+}
+
+export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
+  const instance = makeAvmContractInstanceHint(seed);
+  const { artifactHash, privateFunctionsRoot, packedBytecode } = makeContractClassPublic(seed);
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
+
+  return new AvmContractBytecodeHints(packedBytecode, instance, {
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+  });
 }
 
 /**
@@ -1432,7 +1445,7 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
     new Fr(seed),
-    new Fr(seed + 0x1),
+    true /* exists */,
     new Fr(seed + 0x2),
     new Fr(seed + 0x3),
     new Fr(seed + 0x4),
@@ -1461,6 +1474,7 @@ export function makeAvmExecutionHints(
     l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
     externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    contractBytecodeHints: makeVector(baseLength + 6, makeAvmBytecodeHints, seed + 0x4800),
     ...overrides,
   });
 }
@@ -1473,7 +1487,6 @@ export function makeAvmExecutionHints(
 export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
   return AvmCircuitInputs.from({
     functionName: `function${seed}`,
-    bytecode: makeBytes((seed % 100) + 100, seed),
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
     avmHints: makeAvmExecutionHints(seed + 0x3000),

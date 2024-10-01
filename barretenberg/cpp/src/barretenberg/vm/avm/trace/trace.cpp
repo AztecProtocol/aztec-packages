@@ -280,14 +280,13 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
 AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
                                  ExecutionHints execution_hints_,
                                  uint32_t side_effect_counter,
-                                 std::vector<FF> calldata,
-                                 const std::vector<std::vector<uint8_t>>& all_contract_bytecode)
+                                 std::vector<FF> calldata)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : calldata(std::move(calldata))
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
-    , bytecode_trace_builder(all_contract_bytecode)
+    , bytecode_trace_builder(execution_hints_.all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
@@ -2545,7 +2544,7 @@ void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t addres
     ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
 
     // NOTE: we don't write the first entry (the contract instance's address/key) to memory
-    std::vector<FF> contract_instance_vec = { contract_instance.instance_found_in_address,
+    std::vector<FF> contract_instance_vec = { contract_instance.exists ? FF::one() : FF::zero(),
                                               contract_instance.salt,
                                               contract_instance.deployer_addr,
                                               contract_instance.contract_class_id,
