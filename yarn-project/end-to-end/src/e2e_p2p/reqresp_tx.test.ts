@@ -11,21 +11,23 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
+const BOOT_NODE_UDP_PORT = 40800;
+
+const DATA_DIR = './data/data-reqresp';
 
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;
 
-  beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_reqresp_tx', NUM_NODES);
+  beforeAll(async () => {
+    t = await P2PNetworkTest.create('e2e_p2p_reqresp_tx', NUM_NODES, BOOT_NODE_UDP_PORT);
     await t.applyBaseSnapshots();
     await t.setup();
   });
 
-  afterEach(async () => await t.teardown());
-
-  afterAll(() => {
+  afterAll(async () => {
+    await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`./data-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
     }
   });
 
@@ -51,16 +53,21 @@ describe('e2e_p2p_reqresp_tx', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
     const contexts: NodeContext[] = [];
+
+    t.logger.info('Creating nodes');
     const nodes: AztecNodeService[] = await createNodes(
       t.ctx.aztecNodeConfig,
       t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+      DATA_DIR,
     );
 
     // wait a bit for peers to discover each other
     await sleep(4000);
 
+    t.logger.info('Turning off tx gossip');
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
     // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
     // We have chosen nodes 0,3 as they do not get chosen to be the sequencer in this test.
@@ -73,6 +80,7 @@ describe('e2e_p2p_reqresp_tx', () => {
         });
     }
 
+    t.logger.info('Submitting transactions');
     // Only submit transactions to the first two nodes, so that we avoid our sequencer with a mocked p2p layer being picked to produce a block.
     // If the shuffling algorithm changes, then this will need to be updated.
     for (let i = 0; i < 2; i++) {
@@ -80,6 +88,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       contexts.push(context);
     }
 
+    t.logger.info('Waiting for transactions to be mined');
     await Promise.all(
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
@@ -90,7 +99,7 @@ describe('e2e_p2p_reqresp_tx', () => {
         }),
       ),
     );
-
+    t.logger.info('All transactions mined');
     await t.stopNodes(nodes);
   });
 });

@@ -4,7 +4,6 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { getRandomPort } from '@aztec/foundation/testing';
 import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -12,6 +11,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
+import getPort from 'get-port';
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -48,13 +48,15 @@ export async function createNodes(
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort?: number,
+  dataDirectory?: string,
 ): Promise<AztecNodeService[]> {
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
-    // TODO(md): explain
-    const port = bootNodePort ? bootNodePort + i + 1 : (await getRandomPort()) || 40401 + i;
+    // We run on ports from the bootnode upwards if a port if provided, otherwise we get a random port
+    const port = bootNodePort ? bootNodePort + i + 1 : await getPort();
 
-    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i);
+    const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
+    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir);
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);
@@ -93,7 +95,7 @@ export async function createValidatorConfig(
   dataDirectory?: string,
 ) {
   peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
-  port = port ?? (await getRandomPort()!);
+  port = port ?? await getPort();
 
   const privateKey = getPrivateKeyFromIndex(accountIndex);
   const privateKeyHex: `0x${string}` = `0x${privateKey!.toString('hex')}`;

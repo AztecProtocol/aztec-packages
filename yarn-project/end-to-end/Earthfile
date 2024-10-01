@@ -2,7 +2,7 @@ VERSION 0.8
 
 e2e-p2p:
   LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/e2e_p2p_network.test.ts
+  RUN "./scripts/e2e_test.sh ./src/e2e_p2p/ --runInBand"
 
 e2e-l1-with-wall-time:
   LOCALLY

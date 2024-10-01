@@ -12,20 +12,21 @@ const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40400;
 
+const DATA_DIR = './data/rediscovery';
+
 describe('e2e_p2p_rediscovery', () => {
   let t: P2PNetworkTest;
 
-  beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_rediscovery', NUM_NODES);
+  beforeAll(async () => {
+    t = await P2PNetworkTest.create('e2e_p2p_rediscovery', NUM_NODES, BOOT_NODE_UDP_PORT);
     await t.applyBaseSnapshots();
     await t.setup();
   });
 
-  afterEach(async () => await t.teardown());
-
-  afterAll(() => {
+  afterAll(async () => {
+    await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`./data-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
     }
   });
 
@@ -37,6 +38,7 @@ describe('e2e_p2p_rediscovery', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      DATA_DIR,
     );
 
     // wait a bit for peers to discover each other
@@ -61,7 +63,7 @@ describe('e2e_p2p_rediscovery', () => {
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
-        `./data-${i}`,
+        `${DATA_DIR}-${i}`,
       );
       t.logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);

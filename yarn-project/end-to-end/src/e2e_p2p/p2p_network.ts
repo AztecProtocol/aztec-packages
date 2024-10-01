@@ -2,7 +2,6 @@ import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { EthCheatCodes } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { getRandomPort } from '@aztec/foundation/testing';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type BootstrapNode } from '@aztec/p2p';
 
@@ -17,10 +16,8 @@ import {
 } from '../fixtures/setup_p2p_test.js';
 import { type ISnapshotManager, type SubsystemsContext, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import getPort from 'get-port';
 
-const BOOT_NODE_UDP_PORT = 404000;
-
-// TODO: use this eventually
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
   private baseAccount;
@@ -43,6 +40,7 @@ export class P2PNetworkTest {
   ) {
     this.logger = createDebugLogger(`aztec:e2e_p2p:${testName}`);
 
+    // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
     this.nodePrivateKeys = generateNodePrivateKeys(1, numberOfNodes);
     this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfNodes);
@@ -59,8 +57,8 @@ export class P2PNetworkTest {
     });
   }
 
-  static async create(testName: string, numberOfNodes: number) {
-    const port = (await getRandomPort()) || BOOT_NODE_UDP_PORT;
+  static async create(testName: string, numberOfNodes: number, basePort?: number) {
+    const port = basePort || await getPort();
     const bootstrapNode = await createBootstrapNode(port);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
@@ -123,10 +121,12 @@ export class P2PNetworkTest {
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
+    this.logger.info('Stopping nodes');
     for (const node of nodes) {
       await node.stop();
     }
     await this.bootstrapNode.stop();
+    this.logger.info('Nodes stopped');
   }
 
   async teardown() {
