@@ -32,6 +32,13 @@ impl MemoryAddress {
             MemoryAddress::Relative(offset) => offset,
         }
     }
+
+    pub fn to_usize(self) -> usize {
+        match self {
+            MemoryAddress::Direct(address) => address,
+            MemoryAddress::Relative(offset) => offset,
+        }
+    }
 }
 
 /// Describes the memory layout for an array/vector element

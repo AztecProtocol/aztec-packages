@@ -31,7 +31,7 @@ pub fn brillig_to_avm(
         match brillig_instr {
             BrilligOpcode::BinaryFieldOp { destination, op, lhs, rhs } => {
                 let bits_needed =
-                    [lhs.0, rhs.0, destination.0].iter().map(bits_needed_for).max().unwrap();
+                    [*lhs, *rhs, *destination].iter().map(bits_needed_for).max().unwrap();
 
                 assert!(
                     bits_needed == 8 || bits_needed == 16,
@@ -86,9 +86,9 @@ pub fn brillig_to_avm(
                     indirect: Some(ALL_DIRECT),
                     tag: Some(AvmTypeTag::FIELD),
                     operands: vec![
-                        make_operand(bits_needed, &lhs.0),
-                        make_operand(bits_needed, &rhs.0),
-                        make_operand(bits_needed, &destination.0),
+                        make_operand(bits_needed, &lhs.to_usize()),
+                        make_operand(bits_needed, &rhs.to_usize()),
+                        make_operand(bits_needed, &destination.to_usize()),
                     ],
                 });
             }
@@ -99,7 +99,7 @@ pub fn brillig_to_avm(
                     brillig_instr
                 );
                 let bits_needed =
-                    [lhs.0, rhs.0, destination.0].iter().map(bits_needed_for).max().unwrap();
+                    [*lhs, *rhs, *destination].iter().map(bits_needed_for).max().unwrap();
                 assert!(
                     bits_needed == 8 || bits_needed == 16,
                     "BinaryIntOp only support 8 or 16 bit encodings, got: {}",
@@ -173,9 +173,9 @@ pub fn brillig_to_avm(
                     indirect: Some(ALL_DIRECT),
                     tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
-                        make_operand(bits_needed, &lhs.0),
-                        make_operand(bits_needed, &rhs.0),
-                        make_operand(bits_needed, &destination.0),
+                        make_operand(bits_needed, &lhs.to_usize()),
+                        make_operand(bits_needed, &rhs.to_usize()),
+                        make_operand(bits_needed, &destination.to_usize()),
                     ],
                 });
             }
@@ -186,7 +186,7 @@ pub fn brillig_to_avm(
                     brillig_instr
                 );
                 let bits_needed =
-                    [source.0, destination.0].iter().map(bits_needed_for).max().unwrap();
+                    [*source, *destination].iter().map(bits_needed_for).max().unwrap();
                 assert!(
                     bits_needed == 8 || bits_needed == 16,
                     "Not only support 8 or 16 bit encodings, got: {}",
@@ -197,8 +197,8 @@ pub fn brillig_to_avm(
                     opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
                     indirect: Some(ALL_DIRECT),
                     operands: vec![
-                        make_operand(bits_needed, &source.0),
-                        make_operand(bits_needed, &destination.0),
+                        make_operand(bits_needed, &source.to_usize()),
+                        make_operand(bits_needed, &destination.to_usize()),
                     ],
                     tag: None,
                 });
@@ -232,7 +232,10 @@ pub fn brillig_to_avm(
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_16,
                     indirect: Some(ALL_DIRECT),
-                    operands: vec![make_operand(16, &avm_loc), make_operand(16, &condition.0)],
+                    operands: vec![
+                        make_operand(16, &avm_loc),
+                        make_operand(16, &condition.to_usize()),
+                    ],
                     ..Default::default()
                 });
             }
@@ -298,11 +301,11 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Trap { revert_data } => {
-                let bits_needed = [revert_data.pointer.0, revert_data.size]
-                    .iter()
-                    .map(bits_needed_for)
-                    .max()
-                    .unwrap();
+                let bits_needed =
+                    *[bits_needed_for(&revert_data.pointer), bits_needed_for(&revert_data.size)]
+                        .iter()
+                        .max()
+                        .unwrap();
                 let avm_opcode = match bits_needed {
                     8 => AvmOpcode::REVERT_8,
                     16 => AvmOpcode::REVERT_16,
@@ -312,7 +315,7 @@ pub fn brillig_to_avm(
                     opcode: avm_opcode,
                     indirect: Some(ZEROTH_OPERAND_INDIRECT),
                     operands: vec![
-                        make_operand(bits_needed, &revert_data.pointer.0),
+                        make_operand(bits_needed, &revert_data.pointer.to_usize()),
                         make_operand(bits_needed, &revert_data.size),
                     ],
                     ..Default::default()
@@ -429,7 +432,7 @@ fn handle_external_call(
     let gas_offset = match gas {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
             assert!(size == 2, "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)");
-            pointer.0 as u32
+            pointer.to_usize() as u32
         }
         ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 2 (`[l2Gas, daGas]`)!"),
         _ => panic!("Call instruction's gas input should be a HeapArray"),
@@ -444,7 +447,9 @@ fn handle_external_call(
     // Observe that below, we use `inputs[3]` and therefore skip the length field.
     let args = inputs[3];
     let (args_offset, args_size_offset) = match args {
-        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer.0 as u32, size.0 as u32),
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => {
+            (pointer.to_usize() as u32, size.to_usize() as u32)
+        }
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
     let function_selector_offset = match &inputs[4] {
@@ -454,7 +459,7 @@ fn handle_external_call(
 
     let ret_offset_maybe = destinations[0];
     let (ret_offset, ret_size) = match ret_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u32, size as u32),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.to_usize() as u32, size as u32),
         ValueOrArray::HeapVector(_) => panic!("Call instruction's return data must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`let returnData: [Field; <size>] = ...`)!"),
         _ => panic!("Call instruction's returnData destination should be a HeapArray input"),
     };
@@ -551,7 +556,9 @@ fn handle_emit_unencrypted_log(
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
     // The length field is redundant and we skipt it.
     let (message_offset, message_size_offset) = match &inputs[1] {
-        ValueOrArray::HeapVector(vec) => (vec.pointer.to_usize() as u32, vec.size.0 as u32),
+        ValueOrArray::HeapVector(vec) => {
+            (vec.pointer.to_usize() as u32, vec.size.to_usize() as u32)
+        }
         _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
@@ -755,7 +762,7 @@ fn handle_getter_instruction(
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.to_usize(),
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
@@ -886,11 +893,11 @@ fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> Avm
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
-            let inputs_offset = input.pointer.0;
-            let inputs_size_offset = input.size.0;
-            let state_offset = hash_values.pointer.0;
-            let state_size_offset = hash_values.size.0;
-            let output_offset = output.pointer.0;
+            let inputs_offset = input.pointer.to_usize();
+            let inputs_size_offset = input.size.to_usize();
+            let state_offset = hash_values.pointer.to_usize();
+            let state_size_offset = hash_values.size.to_usize();
+            let output_offset = output.pointer.to_usize();
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::SHA256COMPRESSION,
@@ -908,11 +915,11 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             });
         }
         BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
-            let message_offset = inputs.pointer.0;
-            let message_size_offset = inputs.size.0;
+            let message_offset = inputs.pointer.to_usize();
+            let message_size_offset = inputs.size.to_usize();
 
-            let index_offset = domain_separator.0;
-            let dest_offset = output.0;
+            let index_offset = domain_separator.to_usize();
+            let dest_offset = output.to_usize();
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
@@ -933,8 +940,8 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         } => {
             // We'd love to validate the input size, but it's not known at compile time.
             assert_eq!(output.size, 4, "Poseidon2Permutation output size must be 4!");
-            let input_state_offset = message.pointer.0;
-            let output_state_offset = output.pointer.0;
+            let input_state_offset = message.pointer.to_usize();
+            let output_state_offset = output.pointer.to_usize();
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::POSEIDON2,
@@ -947,9 +954,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             });
         }
         BlackBoxOp::Keccak256 { message, output } => {
-            let message_offset = message.pointer.0;
-            let message_size_offset = message.size.0;
-            let dest_offset = output.pointer.0;
+            let message_offset = message.pointer.to_usize();
+            let message_size_offset = message.size.to_usize();
+            let dest_offset = output.pointer.to_usize();
             assert_eq!(output.size, 32, "Keccak256 output size must be 32!");
 
             avm_instrs.push(AvmInstruction {
@@ -964,9 +971,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             });
         }
         BlackBoxOp::Keccakf1600 { message, output } => {
-            let message_offset = message.pointer.0;
-            let message_size_offset = message.size.0;
-            let dest_offset = output.pointer.0;
+            let message_offset = message.pointer.to_usize();
+            let message_size_offset = message.size.to_usize();
+            let dest_offset = output.pointer.to_usize();
             assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
 
             avm_instrs.push(AvmInstruction {
@@ -982,9 +989,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         }
         BlackBoxOp::ToRadix { input, radix, output, output_bits } => {
             let num_limbs = output.size as u32;
-            let input_offset = input.0 as u32;
-            let output_offset = output.pointer.0 as u32;
-            let radix_offset = radix.0 as u32;
+            let input_offset = input.to_usize() as u32;
+            let output_offset = output.pointer.to_usize() as u32;
+            let radix_offset = radix.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXLE,
@@ -1013,13 +1020,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             // The result (SIXTH operand) is indirect.
             indirect: Some(0b1000000),
             operands: vec![
-                AvmOperand::U32 { value: p1_x_offset.0 as u32 },
-                AvmOperand::U32 { value: p1_y_offset.0 as u32 },
-                AvmOperand::U32 { value: p1_infinite_offset.0 as u32 },
-                AvmOperand::U32 { value: p2_x_offset.0 as u32 },
-                AvmOperand::U32 { value: p2_y_offset.0 as u32 },
-                AvmOperand::U32 { value: p2_infinite_offset.0 as u32 },
-                AvmOperand::U32 { value: result.pointer.0 as u32 },
+                AvmOperand::U32 { value: p1_x_offset.to_usize() as u32 },
+                AvmOperand::U32 { value: p1_y_offset.to_usize() as u32 },
+                AvmOperand::U32 { value: p1_infinite_offset.to_usize() as u32 },
+                AvmOperand::U32 { value: p2_x_offset.to_usize() as u32 },
+                AvmOperand::U32 { value: p2_y_offset.to_usize() as u32 },
+                AvmOperand::U32 { value: p2_infinite_offset.to_usize() as u32 },
+                AvmOperand::U32 { value: result.pointer.to_usize() as u32 },
             ],
             ..Default::default()
         }),
@@ -1027,12 +1034,12 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
             // The length of the scalars vector is 2x the length of the points vector due to limb
             // decomposition
-            let points_offset = points.pointer.0;
-            let num_points = points.size.0;
-            let scalars_offset = scalars.pointer.0;
+            let points_offset = points.pointer.to_usize();
+            let num_points = points.size.to_usize();
+            let scalars_offset = scalars.pointer.to_usize();
             // Output array is fixed to 3
             assert_eq!(outputs.size, 3, "Output array size must be equal to 3");
-            let outputs_offset = outputs.pointer.0;
+            let outputs_offset = outputs.pointer.to_usize();
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::MSM,
                 indirect: Some(
@@ -1049,10 +1056,10 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         }
         // Temporary while we dont have efficient noir implementations (again)
         BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-            let input_offset = inputs.pointer.0;
-            let input_size_offset = inputs.size.0;
-            let index_offset = domain_separator.0;
-            let output_offset = output.pointer.0;
+            let input_offset = inputs.pointer.to_usize();
+            let input_size_offset = inputs.size.to_usize();
+            let index_offset = domain_separator.to_usize();
+            let output_offset = output.pointer.to_usize();
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSENCOMMITMENT,
                 indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
@@ -1082,13 +1089,17 @@ fn handle_debug_log(
         );
     }
     let (message_offset, message_size) = match &inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u32, *size as u32),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
+            (pointer.to_usize() as u32, *size as u32)
+        }
         _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
     };
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
     // The length field is redundant and we skipt it.
     let (fields_offset_ptr, fields_size_ptr) = match &inputs[2] {
-        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer.0 as u32, size.0 as u32),
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => {
+            (pointer.to_usize() as u32, size.to_usize() as u32)
+        }
         _ => panic!("List of fields for ForeignCall::DEBUGLOG should be a HeapVector (slice)."),
     };
     avm_instrs.push(AvmInstruction {
@@ -1122,17 +1133,17 @@ fn handle_calldata_copy(
     assert!(destinations.len() == 1);
 
     let cd_offset = match inputs[0] {
-        ValueOrArray::MemoryAddress(address) => address.0,
+        ValueOrArray::MemoryAddress(address) => address.to_usize(),
         _ => panic!("CalldataCopy offset should be a memory address"),
     };
 
     let copy_size_offset = match inputs[1] {
-        ValueOrArray::MemoryAddress(address) => address.0,
+        ValueOrArray::MemoryAddress(address) => address.to_usize(),
         _ => panic!("CalldataCopy size should be a memory address"),
     };
 
     let (dest_offset, ..) = match destinations[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.to_usize(), size),
         _ => panic!("CalldataCopy destination should be an array"),
     };
 
@@ -1164,7 +1175,9 @@ fn handle_return(
 
     // First arg is the size, which is ignored because it's redundant.
     let (return_data_offset, return_data_size) = match inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u32, size as u32),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
+            (pointer.to_usize() as u32, size as u32)
+        }
         _ => panic!("Return instruction's args input should be a HeapArray"),
     };
 
@@ -1191,13 +1204,13 @@ fn handle_storage_write(
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.to_usize(),
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
     let src_offset_maybe = inputs[1];
     let src_offset = match src_offset_maybe {
-        ValueOrArray::MemoryAddress(src_offset) => src_offset.0,
+        ValueOrArray::MemoryAddress(src_offset) => src_offset.to_usize(),
         _ => panic!("ForeignCall address source should be a single value"),
     };
 
@@ -1223,13 +1236,13 @@ fn handle_get_contract_instance(
 
     let address_offset_maybe = inputs[0];
     let address_offset = match address_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.to_usize(),
         _ => panic!("GETCONTRACTINSTANCE address should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer.0,
+        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer.to_usize(),
         _ => panic!("GETCONTRACTINSTANCE destination should be an array"),
     };
 
@@ -1256,13 +1269,13 @@ fn handle_storage_read(
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.to_usize(),
         _ => panic!("ForeignCall address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.to_usize(),
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
