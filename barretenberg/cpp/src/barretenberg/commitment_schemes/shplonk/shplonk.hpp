@@ -285,24 +285,9 @@ template <typename Curve> class ShplonkVerifier_ {
         std::vector<Fr> inverted_denominators;
         inverted_denominators.reserve(num_gemini_claims);
         inverted_denominators.emplace_back((shplonk_eval_challenge - gemini_eval_challenge_powers[0]).invert());
-        size_t i = 0;
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
-            bool is_dummy_round = i > num_gemini_claims;
             Fr round_inverted_denominator = (shplonk_eval_challenge + gemini_eval_challenge_power).invert();
-            if constexpr (Curve::is_stdlib_type) {
-                auto builder = shplonk_eval_challenge.get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
-                Fr zero = Fr(0);
-                zero.convert_constant_to_fixed_witness(builder);
-                round_inverted_denominator = Fr::conditional_assign(dummy_round, zero, round_inverted_denominator);
-            } else {
-                if (is_dummy_round) {
-                    round_inverted_denominator = 0;
-                }
-            }
             inverted_denominators.emplace_back(round_inverted_denominator);
-            i++;
         }
         return inverted_denominators;
     }
