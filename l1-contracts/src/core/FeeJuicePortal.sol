@@ -42,13 +42,14 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
     override(IFeeJuicePortal)
     onlyOwner
   {
-    if (address(registry) != address(0) || address(underlying) != address(0) || l2TokenAddress != 0)
-    {
-      revert Errors.FeeJuicePortal__AlreadyInitialized();
-    }
-    if (_registry == address(0) || _underlying == address(0) || _l2TokenAddress == 0) {
-      revert Errors.FeeJuicePortal__InvalidInitialization();
-    }
+    require(
+      address(registry) == address(0) && address(underlying) == address(0) && l2TokenAddress == 0,
+      Errors.FeeJuicePortal__AlreadyInitialized()
+    );
+    require(
+      _registry != address(0) && _underlying != address(0) && _l2TokenAddress != 0,
+      Errors.FeeJuicePortal__InvalidInitialization()
+    );
 
     registry = IRegistry(_registry);
     underlying = IERC20(_underlying);
@@ -100,9 +101,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
    * @param _amount - The amount to pay them
    */
   function distributeFees(address _to, uint256 _amount) external override(IFeeJuicePortal) {
-    if (msg.sender != address(registry.getRollup())) {
-      revert Errors.FeeJuicePortal__Unauthorized();
-    }
+    require(msg.sender == registry.getRollup(), Errors.FeeJuicePortal__Unauthorized());
     underlying.safeTransfer(_to, _amount);
   }
 }

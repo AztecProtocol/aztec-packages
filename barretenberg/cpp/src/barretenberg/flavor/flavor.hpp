@@ -129,7 +129,10 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
                 std::shared_ptr<CommitmentKey_> commitment_key = nullptr)
     {
         if (commitment_key == nullptr) {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("init commitment key");
+#endif
             this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size);
         } else {
             // Don't create another commitment key if we already have one

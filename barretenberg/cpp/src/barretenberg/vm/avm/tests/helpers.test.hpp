@@ -25,14 +25,14 @@ using FF = bb::AvmFlavorSettings::FF;
 using Row = bb::AvmFullRow<bb::fr>;
 using ThreeOpParam = std::array<FF, 3>;
 using ThreeOpParamRow = std::tuple<ThreeOpParam, bb::avm_trace::AvmMemoryTag>;
-using VmPublicInputs = bb::avm_trace::VmPublicInputs;
+using VmPublicInputsNT = bb::avm_trace::VmPublicInputs<FF>;
 
 // If the test is expecting a relation to fail, then use validate_trace_check_circuit.
 // Otherwise, use validate_trace with a single argument. If the proving needs to be
 // enabled all the time in a given test, use validate_trace with setting with_proof = true.
 void validate_trace_check_circuit(std::vector<Row>&& trace);
 void validate_trace(std::vector<Row>&& trace,
-                    VmPublicInputs const& public_inputs = {},
+                    VmPublicInputsNT const& public_inputs = {},
                     std::vector<FF> const& calldata = {},
                     std::vector<FF> const& returndata = {},
                     bool with_proof = false,
@@ -46,6 +46,6 @@ void update_slice_registers(Row& row, uint256_t a);
 std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<std::array<FF, 3>> operands,
                                                  std::vector<bb::avm_trace::AvmMemoryTag> mem_tags);
 
-VmPublicInputs generate_base_public_inputs();
+VmPublicInputsNT generate_base_public_inputs();
 
 } // namespace tests_avm

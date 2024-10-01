@@ -30,9 +30,9 @@ class AvmKernelNegativeTests : public AvmKernelTests {
 using KernelInputs = std::array<FF, KERNEL_INPUTS_LENGTH>;
 const size_t INITIAL_GAS = 10000;
 
-VmPublicInputs get_base_public_inputs()
+VmPublicInputsNT get_base_public_inputs()
 {
-    VmPublicInputs public_inputs = {};
+    VmPublicInputsNT public_inputs = {};
 
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs;
     for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
@@ -49,9 +49,9 @@ VmPublicInputs get_base_public_inputs()
     return public_inputs;
 }
 
-VmPublicInputs get_public_inputs_with_output(uint32_t output_offset, FF value, FF side_effect_counter, FF metadata)
+VmPublicInputsNT get_public_inputs_with_output(uint32_t output_offset, FF value, FF side_effect_counter, FF metadata)
 {
-    VmPublicInputs public_inputs = get_base_public_inputs();
+    VmPublicInputsNT public_inputs = get_base_public_inputs();
 
     std::get<KERNEL_OUTPUTS_VALUE>(public_inputs)[output_offset] = value;
     std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[output_offset] = side_effect_counter;
@@ -66,7 +66,7 @@ using CheckFunc = std::function<void(bool, const std::vector<Row>&)>;
 void test_kernel_lookup(bool indirect,
                         OpcodesFunc apply_opcodes,
                         CheckFunc check_trace,
-                        VmPublicInputs public_inputs = get_base_public_inputs(),
+                        VmPublicInputsNT public_inputs = get_base_public_inputs(),
                         ExecutionHints execution_hints = {})
 {
     auto trace_builder = AvmTraceBuilder(public_inputs, std::move(execution_hints))
@@ -608,7 +608,7 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
                                               FF incorrect_ia,
                                               auto expected_message)
 {
-    VmPublicInputs public_inputs = get_base_public_inputs();
+    VmPublicInputsNT public_inputs = get_base_public_inputs();
     auto trace_builder =
         AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false);
 
@@ -956,7 +956,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, /*metadata=*/0);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, /*metadata*/ 0);
     test_kernel_lookup(false, direct_apply_opcodes, checks, public_inputs);
     test_kernel_lookup(true, indirect_apply_opcodes, checks, public_inputs);
@@ -1000,7 +1000,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, /*metadata=*/0);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, /*metadata*/ 0);
     test_kernel_lookup(false, direct_apply_opcodes, checks, public_inputs);
     test_kernel_lookup(true, indirect_apply_opcodes, checks, public_inputs);
@@ -1051,7 +1051,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, /*metadata=*/recipient);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, recipient);
     test_kernel_lookup(false, direct_apply_opcodes, checks, std::move(public_inputs));
     test_kernel_lookup(true, indirect_apply_opcodes, checks, std::move(public_inputs));
@@ -1093,7 +1093,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
         check_kernel_outputs(trace.at(output_offset), value, 0, slot);
     };
 
-    VmPublicInputs public_inputs = get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, slot);
+    VmPublicInputsNT public_inputs =
+        get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, slot);
     test_kernel_lookup(false, direct_apply_opcodes, checks, public_inputs);
     test_kernel_lookup(true, indirect_apply_opcodes, checks, public_inputs);
 }
@@ -1137,7 +1138,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, slot);
     };
 
-    VmPublicInputs public_inputs = get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, slot);
+    VmPublicInputsNT public_inputs =
+        get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, slot);
     test_kernel_lookup(false, apply_opcodes, checks, std::move(public_inputs), execution_hints);
 }
 
@@ -1179,7 +1181,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, slot);
     };
 
-    VmPublicInputs public_inputs = get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, slot);
+    VmPublicInputsNT public_inputs =
+        get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, slot);
     test_kernel_lookup(false, apply_opcodes, checks, std::move(public_inputs));
 }
 
@@ -1228,7 +1231,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, exists);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, exists);
     test_kernel_lookup(false, direct_apply_opcodes, checks, public_inputs, execution_hints);
     test_kernel_lookup(true, indirect_apply_opcodes, checks, public_inputs, execution_hints);
@@ -1268,7 +1271,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, exists);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, exists);
     test_kernel_lookup(false, apply_opcodes, checks, std::move(public_inputs), execution_hints);
 }
@@ -1307,7 +1310,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, exists);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, exists);
     test_kernel_lookup(false, apply_opcodes, checks, std::move(public_inputs), execution_hints);
 }
@@ -1348,7 +1351,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
         check_kernel_outputs(trace.at(output_offset), value, /*side_effect_counter=*/0, exists);
     };
 
-    VmPublicInputs public_inputs =
+    VmPublicInputsNT public_inputs =
         get_public_inputs_with_output(output_offset, value, /*side_effect_counter=*/0, exists);
     test_kernel_lookup(false, apply_opcodes, checks, std::move(public_inputs), execution_hints);
 }

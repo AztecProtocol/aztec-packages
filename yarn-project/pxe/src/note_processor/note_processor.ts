@@ -1,4 +1,4 @@
-import { type AztecNode, L1NotePayload, type L2Block, TaggedLog } from '@aztec/circuit-types';
+import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
@@ -142,30 +142,26 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const incomingTaggedNote = TaggedLog.decryptAsIncoming(log.data, ivskM)!;
-            const outgoingTaggedNote = TaggedLog.decryptAsOutgoing(log.data, ovskM)!;
+            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, ivskM);
+            const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
 
-            if (incomingTaggedNote || outgoingTaggedNote) {
-              if (
-                incomingTaggedNote &&
-                outgoingTaggedNote &&
-                !incomingTaggedNote.payload.equals(outgoingTaggedNote.payload)
-              ) {
+            if (incomingNotePayload || outgoingNotePayload) {
+              if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
                 throw new Error(
                   `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
-                    incomingTaggedNote.payload,
-                  )}, Outgoing: ${JSON.stringify(outgoingTaggedNote.payload)}`,
+                    incomingNotePayload,
+                  )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
                 );
               }
 
-              const payload = incomingTaggedNote?.payload || outgoingTaggedNote?.payload;
+              const payload = incomingNotePayload || outgoingNotePayload;
 
               const txHash = block.body.txEffects[indexOfTxInABlock].txHash;
               const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
                 this.simulator,
-                incomingTaggedNote ? this.ivpkM : undefined,
-                outgoingTaggedNote ? this.ovpkM : undefined,
-                payload,
+                incomingNotePayload ? this.ivpkM : undefined,
+                outgoingNotePayload ? this.ovpkM : undefined,
+                payload!,
                 txHash,
                 noteHashes,
                 dataStartIndexForTx,

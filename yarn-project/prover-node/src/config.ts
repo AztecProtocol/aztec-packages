@@ -16,14 +16,18 @@ import {
 } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
 
-import { type TxProviderConfig, getTxProviderConfigFromEnv, txProviderConfigMappings } from './tx-provider/config.js';
+import {
+  type ProverCoordinationConfig,
+  getTxProviderConfigFromEnv,
+  proverCoordinationConfigMappings,
+} from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
-  TxProviderConfig & {
+  ProverCoordinationConfig & {
     proverNodeDisableAutomaticProving?: boolean;
     proverNodeMaxPendingJobs?: number;
     proverNodeEpochSize?: number;
@@ -55,7 +59,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
-  ...txProviderConfigMappings,
+  ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 
