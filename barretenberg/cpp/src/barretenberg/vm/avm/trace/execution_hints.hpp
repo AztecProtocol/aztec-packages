@@ -67,8 +67,8 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
 
 struct AvmContractBytecode {
     std::vector<uint8_t> bytecode;
-    ContractInstanceHint contract_instance;
-    ContractClassIdHint contract_class_id_preimage;
+    ContractInstanceHint contract_instance{};
+    ContractClassIdHint contract_class_id_preimage{};
 
     AvmContractBytecode() = default;
     AvmContractBytecode(std::vector<uint8_t> bytecode,

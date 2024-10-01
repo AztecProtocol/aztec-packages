@@ -958,6 +958,7 @@ void avm_prove(const std::filesystem::path& calldata_path,
     vinfo("hints.l1_to_l2_message_exists_hints size: ", avm_hints.l1_to_l2_message_exists_hints.size());
     vinfo("hints.externalcall_hints size: ", avm_hints.externalcall_hints.size());
     vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
+    vinfo("hints.contrate_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
 
     vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
     init_bn254_crs(avm_trace::Execution::SRS_SIZE);

@@ -2,13 +2,16 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
 import {
   type ContractClassPublic,
+  type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   type PublicFunction,
+  SerializableContractInstance,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
@@ -34,6 +37,7 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
+  GeneratorIndex,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -135,6 +139,7 @@ import {
   VerificationKey,
   VerificationKeyAsFields,
   VerificationKeyData,
+  computeAddress,
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
@@ -1359,12 +1364,12 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export function makeContractClassPublic(seed = 0): ContractClassPublic {
+export function makeContractClassPublic(seed = 0, publicFunction?: PublicFunction): ContractClassPublic {
   const artifactHash = fr(seed + 1);
-  const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
+  const publicFunctions = publicFunction ? [publicFunction] : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
   const packedBytecode = packBytecode(publicFunctions);
-  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(publicFunction!.bytecode);
   const id = computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
     id,
@@ -1425,12 +1430,48 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
   );
 }
 
+export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
+  const salt = new Fr(seed);
+  const initializationHash = new Fr(seed + 1);
+  const deployer = new Fr(seed + 2);
+  const publicKeysHash = new Fr(seed + 3);
+
+  const saltedInitializationHash = poseidon2HashWithSeparator(
+    [salt, initializationHash, deployer],
+    GeneratorIndex.PARTIAL_ADDRESS,
+  );
+  const partialAddress = poseidon2HashWithSeparator(
+    [classId, saltedInitializationHash],
+    GeneratorIndex.PARTIAL_ADDRESS,
+  );
+  const address = computeAddress(publicKeysHash, partialAddress);
+  return new SerializableContractInstance({
+    version: 1,
+    salt,
+    deployer,
+    contractClassId: classId,
+    initializationHash,
+    publicKeysHash,
+  }).withAddress(address);
+}
+
 export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
-  const instance = makeAvmContractInstanceHint(seed);
-  const { artifactHash, privateFunctionsRoot, packedBytecode } = makeContractClassPublic(seed);
+  const { artifactHash, privateFunctionsRoot, packedBytecode, id } = makeContractClassPublic(seed);
+  const instance = makeContractInstanceFromClassId(id, seed + 0x1000);
+
+  const avmHintInstance = new AvmContractInstanceHint(
+    instance.address,
+    true,
+    instance.salt,
+    instance.deployer,
+    instance.contractClassId,
+    instance.initializationHash,
+    instance.publicKeysHash,
+  );
+
   const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
 
-  return new AvmContractBytecodeHints(packedBytecode, instance, {
+  return new AvmContractBytecodeHints(packedBytecode, avmHintInstance, {
     artifactHash,
     privateFunctionsRoot,
     publicBytecodeCommitment,

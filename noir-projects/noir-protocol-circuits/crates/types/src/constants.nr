@@ -327,7 +327,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3842;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3897;
 global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**

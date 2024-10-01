@@ -277,18 +277,8 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
                                    : 0;
 
-    // This address is the top-level contract address
-    vinfo("Length of all contract bytecode: ", execution_hints.all_contract_bytecode.size());
-
-    FF contract_address = std::get<0>(public_inputs)[ADDRESS_SELECTOR];
-    vinfo("Top level contract address: ", contract_address);
-    // We use it to extract the bytecode we need to execute
-    std::vector<uint8_t> bytecode =
-        std::find_if(execution_hints.all_contract_bytecode.begin(),
-                     execution_hints.all_contract_bytecode.end(),
-                     [&](auto& contract) { return contract.contract_instance.address == contract_address; })
-            ->bytecode;
-
+    // We should use the public input address, but for now we just take the first element in the list
+    std::vector<uint8_t> bytecode = execution_hints.all_contract_bytecode.at(0).bytecode;
     std::vector<Instruction> instructions = Deserialization::parse(bytecode);
     vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
     AvmTraceBuilder trace_builder =

@@ -91,26 +91,20 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     contractInstance: TracedContractInstance,
     contractClass: ContractClassIdPreimage,
   ) {
-    // Deduplicate - we might want a map here to make this more efficient
-    const idx = this.avmCircuitHints.contractBytecodeHints.items.findIndex(
-      hint => hint.contractInstanceHint.address === contractInstance.address,
+    const instance = new AvmContractInstanceHint(
+      contractInstance.address,
+      contractInstance.exists,
+      contractInstance.salt,
+      contractInstance.deployer,
+      contractInstance.contractClassId,
+      contractInstance.initializationHash,
+      contractInstance.publicKeysHash,
     );
-    // If this is the first time we have seen the contract instance, add it to the hints
-    if (idx === -1) {
-      const instance = new AvmContractInstanceHint(
-        contractInstance.address,
-        contractInstance.exists,
-        contractInstance.salt,
-        contractInstance.deployer,
-        contractInstance.contractClassId,
-        contractInstance.initializationHash,
-        contractInstance.publicKeysHash,
-      );
-      this.avmCircuitHints.contractBytecodeHints.items.push(
-        new AvmContractBytecodeHints(bytecode, instance, contractClass),
-      );
-      this.logger.debug(`Traced New Contract Bytecode deployed at ${contractInstance.address}`);
-    }
+    // We need to deduplicate the contract instances based on addresses
+    this.avmCircuitHints.contractBytecodeHints.items.push(
+      new AvmContractBytecodeHints(bytecode, instance, contractClass),
+    );
+    this.logger.debug(`New contract instance execution traced: ${contractInstance.address} added`);
   }
 
   public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
