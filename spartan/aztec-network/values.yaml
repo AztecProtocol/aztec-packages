@@ -1,14 +1,8 @@
-test: "sample"
-scenario: "default"
-
 network:
   public: false
   enableBots: true
 
 images:
-  test:
-    image: aztecprotocol/end-to-end
-    pullPolicy: IfNotPresent
   aztec:
     image: aztecprotocol/aztec
     pullPolicy: IfNotPresent
@@ -183,3 +177,7 @@ metrics:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+
+# for local KIND tests we want to contact nodes with simple direct IP
+ingress:
+  enabled: false

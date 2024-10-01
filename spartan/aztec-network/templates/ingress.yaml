@@ -1,0 +1,19 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+# Meant ONLY for KIND testing, otherwise we configure a load balancer in e.g. EKS
+kind: Ingress
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-local-ingress
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "aztec-network.fullname" . }}-pxe
+            port:
+              number: 8080
+{{- end }}
