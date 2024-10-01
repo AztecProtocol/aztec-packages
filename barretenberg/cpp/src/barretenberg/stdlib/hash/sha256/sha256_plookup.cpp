@@ -213,6 +213,10 @@ field_t<Builder> majority(sparse_value<Builder>& a, const sparse_value<Builder>&
 
     field_pt rotation_result =
         lookup[ColumnIdx::C3][0]; // last index of first row gives accumulating sum of "non-trival" wraps
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4df65a2a27 (optimization for stdlib sha256 function)
     a.sparse = lookup[ColumnIdx::C2][0];
     // use these values to compute trivial wraps somehow
     field_pt sparse_accumulator_2 = lookup[ColumnIdx::C2][1];
@@ -271,11 +275,26 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
     /**
      * Initialize round variables with previous block output
      **/
+<<<<<<< HEAD
     auto a = map_into_maj_sparse_form(h_init[0]);
     auto b = map_into_maj_sparse_form(h_init[1]);
     auto c = map_into_maj_sparse_form(h_init[2]);
     auto d = map_into_maj_sparse_form(h_init[3]);
     auto e = map_into_choose_sparse_form(h_init[4]);
+=======
+    /**
+     * We can initialize round variables a and c and put value h_init[0] and
+     * h_init[4] in .normal, and don't do lookup for maj_output, because majority and choose
+     * functions will do that next step
+     **/
+    sparse_value<Builder> a = sparse_value<Builder>();
+    a.normal = h_init[0];
+    auto b = map_into_maj_sparse_form(h_init[1]);
+    auto c = map_into_maj_sparse_form(h_init[2]);
+    auto d = map_into_maj_sparse_form(h_init[3]);
+    sparse_value<Builder> e = sparse_value<Builder>();
+    e.normal = h_init[4];
+>>>>>>> 4df65a2a27 (optimization for stdlib sha256 function)
     auto f = map_into_choose_sparse_form(h_init[5]);
     auto g = map_into_choose_sparse_form(h_init[6]);
     auto h = map_into_choose_sparse_form(h_init[7]);
