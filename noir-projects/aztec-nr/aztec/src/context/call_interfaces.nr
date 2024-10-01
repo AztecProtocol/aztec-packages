@@ -371,11 +371,16 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
+        // Public functions should be routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let dispatch_args = &[self.selector.to_field()].append(self.args);
+        pack_arguments(dispatch_args);
+        let args_hash = hash_args(dispatch_args);
         context.call_public_function_with_packed_args(
             self.target_contract,
-            self.selector,
+            dispatch_selector,
             args_hash,
             /*static=*/ true,
             /*delegate=*/ false
@@ -411,11 +416,16 @@ impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
+        // Public functions should be routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let dispatch_args = &[self.selector.to_field()].append(self.args);
+        pack_arguments(dispatch_args);
+        let args_hash = hash_args(dispatch_args);
         context.call_public_function_with_packed_args(
             self.target_contract,
-            self.selector,
+            dispatch_selector,
             args_hash,
             /*static=*/ true,
             /*delegate=*/ false

@@ -430,7 +430,7 @@ impl PrivateContext {
         let dispatch_args = array_concat([function_selector.to_field()], args);
         let args_hash = hash_args_array(dispatch_args);
         arguments::pack_arguments_array(dispatch_args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
+        self.call_public_function_with_packed_args(contract_address, dispatch_selector, args_hash, true, false)
     }
 
     pub fn delegate_call_public_function<let ARGS_COUNT: u32>(
@@ -446,32 +446,32 @@ impl PrivateContext {
         let dispatch_args = array_concat([function_selector.to_field()], args);
         let args_hash = hash_args_array(dispatch_args);
         arguments::pack_arguments_array(dispatch_args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
+        self.call_public_function_with_packed_args(contract_address, dispatch_selector, args_hash, false, true)
     }
 
-    pub fn call_public_function_no_args(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
-    }
+    // pub fn call_public_function_no_args(
+    //     &mut self,
+    //     contract_address: AztecAddress,
+    //     function_selector: FunctionSelector
+    // ) {
+    //     self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
+    // }
 
-    pub fn static_call_public_function_no_args(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
-    }
+    // pub fn static_call_public_function_no_args(
+    //     &mut self,
+    //     contract_address: AztecAddress,
+    //     function_selector: FunctionSelector
+    // ) {
+    //     self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
+    // }
 
-    pub fn delegate_call_public_function_no_args(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
-    }
+    // pub fn delegate_call_public_function_no_args(
+    //     &mut self,
+    //     contract_address: AztecAddress,
+    //     function_selector: FunctionSelector
+    // ) {
+    //     self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
+    // }
 
     pub fn call_public_function_with_packed_args(
         &mut self,
@@ -517,7 +517,7 @@ impl PrivateContext {
         let dispatch_args = array_concat([function_selector.to_field()], args);
         let args_hash = hash_args_array(dispatch_args);
         arguments::pack_arguments_array(dispatch_args);
-        self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        self.set_public_teardown_function_with_packed_args(contract_address, dispatch_selector, args_hash, false, false)
     }
 
     pub fn set_public_teardown_function_with_packed_args(
