@@ -10,13 +10,18 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import {
+  MOCK_MAX_COMMITMENTS_PER_TX,
   MockAppCreatorCircuit,
   MockAppReaderCircuit,
   MockPrivateKernelInitCircuit,
   MockPrivateKernelInnerCircuit,
+  MockPrivateKernelResetCircuit,
+  MockPrivateKernelTailCircuit,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
+  witnessGenMockPrivateKernelResetCircuit,
+  witnessGenMockPrivateKernelTailCircuit,
   witnessGenReaderAppMockCircuit,
 } from './index.js';
 
@@ -124,19 +129,19 @@ describe('Client IVC Integration', () => {
 
     // TODO: https://github.com/AztecProtocol/barretenberg/issues/1111 - Add back reset and tail when this is fixed.
 
-    // const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
-    //   prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
-    //   commitment_read_hints: [
-    //     '0x1', // Reader reads commitment 0x2, which is at index 1 of the created commitments
-    //     MOCK_MAX_COMMITMENTS_PER_TX.toString(), // Pad with no-ops
-    //     MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-    //     MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-    //   ],
-    // });
+    const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
+      prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
+      commitment_read_hints: [
+        '0x1', // Reader reads commitment 0x2, which is at index 1 of the created commitments
+        MOCK_MAX_COMMITMENTS_PER_TX.toString(), // Pad with no-ops
+        MOCK_MAX_COMMITMENTS_PER_TX.toString(),
+        MOCK_MAX_COMMITMENTS_PER_TX.toString(),
+      ],
+    });
 
-    // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-    //   prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-    // });
+    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
+      prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
+    });
 
     // Create client IVC proof
     const bytecodes = [
@@ -144,16 +149,16 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockAppReaderCircuit.bytecode,
       MockPrivateKernelInnerCircuit.bytecode,
-      // MockPrivateKernelResetCircuit.bytecode,
-      // MockPrivateKernelTailCircuit.bytecode,
+      MockPrivateKernelResetCircuit.bytecode,
+      MockPrivateKernelTailCircuit.bytecode,
     ];
     const witnessStack = [
       creatorAppWitnessGenResult.witness,
       initWitnessGenResult.witness,
       readerAppWitnessGenResult.witness,
       innerWitnessGenResult.witness,
-      // resetWitnessGenResult.witness,
-      // tailWitnessGenResult.witness,
+      resetWitnessGenResult.witness,
+      tailWitnessGenResult.witness,
     ];
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);

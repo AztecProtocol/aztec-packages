@@ -120,6 +120,7 @@ void ClientIVC::process_recursive_merge_verification_queue(ClientCircuit& circui
  */
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
+    info("IVC: Complete kernel.");
     circuit.databus_propagation_data.is_kernel = true;
 
     // Instantiate stdlib verifier inputs from their native counterparts
@@ -148,6 +149,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  */
 void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
 {
+    info("IVC: Accumulate.");
     if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
         complete_kernel_circuit_logic(circuit);
     }
