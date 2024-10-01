@@ -46,8 +46,8 @@ function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));
 
-    string memory message = string(abi.encodePacked(name, " ", i, " x: ", x, " y: ", y));
-    console2.log(message);
+    string memory message = string(abi.encodePacked(" x: ", x, " y: ", y));
+    console2.log(name, i, message);
 }
 
 function logUint(string memory name, uint256 value) pure {

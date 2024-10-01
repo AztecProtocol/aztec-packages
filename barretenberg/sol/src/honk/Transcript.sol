@@ -394,6 +394,16 @@ library TranscriptLib {
             y_1: uint256(bytes32(proof[boundary + 0x60:boundary + 0x80]))
         });
 
+        boundary = boundary + 0x80;
+
+        // KZG
+        p.kzgQuotient = Honk.G1ProofPoint({
+            x_0: uint256(bytes32(proof[boundary:boundary + 0x20])),
+            x_1: uint256(bytes32(proof[boundary + 0x20:boundary + 0x40])),
+            y_0: uint256(bytes32(proof[boundary + 0x40:boundary + 0x60])),
+            y_1: uint256(bytes32(proof[boundary + 0x60:boundary + 0x80]))
+        });
+
         return p;
     }
 }
