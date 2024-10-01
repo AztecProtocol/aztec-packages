@@ -228,9 +228,9 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 439;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 439;
-  uint256 internal constant TUBE_PROOF_LENGTH = 439;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 463;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 463;
+  uint256 internal constant TUBE_PROOF_LENGTH = 463;
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant MEM_TAG_U1 = 1;
   uint256 internal constant MEM_TAG_U8 = 2;
