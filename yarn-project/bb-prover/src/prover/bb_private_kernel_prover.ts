@@ -24,6 +24,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
+  ClientCircuitVks,
   type ClientProtocolArtifact,
   ProtocolCircuitVks,
   convertPrivateKernelInitInputsToWitnessMap,
@@ -277,11 +278,9 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
+    const verificationKey = ClientCircuitVks[circuitType].keyAsFields;
     const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
-    // TODO(#7410) we dont need to generate vk's for these circuits, they are in the vk tree
-    const { verificationKey } = await this.runInDirectory(dir =>
-      this.computeVerificationKey(dir, bytecode, circuitType),
-    );
+
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
       verificationKey,

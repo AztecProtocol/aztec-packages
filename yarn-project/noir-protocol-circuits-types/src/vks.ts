@@ -47,7 +47,7 @@ import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocol
 import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from './private_kernel_reset_data.js';
 import { keyJsonToVKData } from './utils/vk_json.js';
 
-const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
+export const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   EmptyNestedArtifact: keyJsonToVKData(EmptyNestedVkJson),
   PrivateKernelEmptyArtifact: keyJsonToVKData(PrivateKernelEmptyVkJson),
   PublicKernelInnerArtifact: keyJsonToVKData(PublicKernelInnerVkJson),
@@ -63,7 +63,7 @@ const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
 };
 
-const ClientCircuitVks: Record<ClientProtocolArtifact, VerificationKeyData> = {
+export const ClientCircuitVks: Record<ClientProtocolArtifact, VerificationKeyData> = {
   PrivateKernelInitArtifact: keyJsonToVKData(PrivateKernelInitVkJson),
   PrivateKernelInnerArtifact: keyJsonToVKData(PrivateKernelInnerVkJson),
   PrivateKernelTailArtifact: keyJsonToVKData(PrivateKernelTailVkJson),
