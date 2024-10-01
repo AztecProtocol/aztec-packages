@@ -8,10 +8,10 @@ import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import getPort from 'get-port';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
-import getPort from 'get-port';
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -95,7 +95,7 @@ export async function createValidatorConfig(
   dataDirectory?: string,
 ) {
   peerIdPrivateKey = peerIdPrivateKey ?? generatePeerIdPrivateKey();
-  port = port ?? await getPort();
+  port = port ?? (await getPort());
 
   const privateKey = getPrivateKeyFromIndex(accountIndex);
   const privateKeyHex: `0x${string}` = `0x${privateKey!.toString('hex')}`;

@@ -5,6 +5,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type BootstrapNode } from '@aztec/p2p';
 
+import getPort from 'get-port';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -16,7 +17,6 @@ import {
 } from '../fixtures/setup_p2p_test.js';
 import { type ISnapshotManager, type SubsystemsContext, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import getPort from 'get-port';
 
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
@@ -58,7 +58,7 @@ export class P2PNetworkTest {
   }
 
   static async create(testName: string, numberOfNodes: number, basePort?: number) {
-    const port = basePort || await getPort();
+    const port = basePort || (await getPort());
     const bootstrapNode = await createBootstrapNode(port);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
