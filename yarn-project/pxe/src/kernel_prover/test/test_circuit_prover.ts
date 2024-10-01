@@ -24,6 +24,8 @@ import {
   executeReset,
   executeTail,
   executeTailForPublic,
+  getPrivateKernelResetArtifactName,
+  maxPrivateKernelResetDimensions,
 } from '@aztec/noir-protocol-circuits-types';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -78,7 +80,10 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
       inputSize: variantPrivateInputs.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
-    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelResetArtifact');
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(
+      result,
+      getPrivateKernelResetArtifactName(maxPrivateKernelResetDimensions),
+    );
   }
 
   public async simulateProofTail(

@@ -8,9 +8,13 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
 
+import { createPrivateKernelResetTag, maxPrivateKernelResetDimensions } from '../utils/private_kernel_reset.js';
+
 const log = createConsoleLogger('aztec:autogenerate');
 
 const outputFilename = './src/private_kernel_reset_data.ts';
+
+const maxDimensionsTag = createPrivateKernelResetTag(maxPrivateKernelResetDimensions);
 
 function generateImports() {
   return `
@@ -20,8 +24,8 @@ function generateImports() {
   `;
 }
 
-function generateArtifactImports(resetVariantTags: string[]) {
-  return resetVariantTags
+function generateArtifactImports(importTags: string[]) {
+  return importTags
     .map(
       tag =>
         `import PrivateKernelResetJson${tag} from '../artifacts/private_kernel_reset${tag}.json' assert { type: 'json' };`,
@@ -29,8 +33,8 @@ function generateArtifactImports(resetVariantTags: string[]) {
     .join('\n');
 }
 
-function generateSimulatedArtifactImports(resetVariantTags: string[]) {
-  return resetVariantTags
+function generateSimulatedArtifactImports(importTags: string[]) {
+  return importTags
     .map(
       tag =>
         `import PrivateKernelResetSimulatedJson${tag} from '../artifacts/private_kernel_reset_simulated${tag}.json' assert { type: 'json' };`,
@@ -38,8 +42,8 @@ function generateSimulatedArtifactImports(resetVariantTags: string[]) {
     .join('\n');
 }
 
-function generateVksImports(resetVariantTags: string[]) {
-  return resetVariantTags
+function generateVksImports(importTags: string[]) {
+  return importTags
     .map(
       tag =>
         `import PrivateKernelResetVkJson${tag} from '../artifacts/keys/private_kernel_reset${tag}.vk.data.json' assert { type: 'json' };`,
@@ -56,9 +60,9 @@ function generateArtifactNames(resetVariantTags: string[]) {
   return `export type PrivateResetArtifact = ${artifacts.join('|')};`;
 }
 
-function generateArtifacts(resetVariantTags: string[]) {
+function generateArtifacts(resetVariantTags: string[], importTags: string[]) {
   const artifacts = resetVariantTags.map(
-    tag => `${getArtifactName(tag)}: PrivateKernelResetJson${tag} as NoirCompiledCircuit,`,
+    (tag, i) => `${getArtifactName(tag)}: PrivateKernelResetJson${importTags[i]} as NoirCompiledCircuit,`,
   );
   return `
     export const PrivateKernelResetArtifacts: Record<PrivateResetArtifact, NoirCompiledCircuit> = {
@@ -67,9 +71,9 @@ function generateArtifacts(resetVariantTags: string[]) {
   `;
 }
 
-function generateSimulatedArtifacts(resetVariantTags: string[]) {
+function generateSimulatedArtifacts(resetVariantTags: string[], importTags: string[]) {
   const artifacts = resetVariantTags.map(
-    tag => `${getArtifactName(tag)}: PrivateKernelResetSimulatedJson${tag} as NoirCompiledCircuit,`,
+    (tag, i) => `${getArtifactName(tag)}: PrivateKernelResetSimulatedJson${importTags[i]} as NoirCompiledCircuit,`,
   );
   return `
     export const PrivateKernelResetSimulatedArtifacts: Record<PrivateResetArtifact, NoirCompiledCircuit> = {
@@ -78,9 +82,9 @@ function generateSimulatedArtifacts(resetVariantTags: string[]) {
   `;
 }
 
-function generateVks(resetVariantTags: string[]) {
+function generateVks(resetVariantTags: string[], importTags: string[]) {
   const artifacts = resetVariantTags.map(
-    tag => `${getArtifactName(tag)}: keyJsonToVKData(PrivateKernelResetVkJson${tag}),`,
+    (tag, i) => `${getArtifactName(tag)}: keyJsonToVKData(PrivateKernelResetVkJson${importTags[i]}),`,
   );
   return `
     export const PrivateKernelResetVks: Record<PrivateResetArtifact, VerificationKeyData> = {
@@ -108,9 +112,16 @@ function checkDimensionNames(config: PrivateKernelResetDimensionsConfig) {
   }
 }
 
-function checkVkTreeSize(tags: string[]) {
+function checkMaxDimensions(config: PrivateKernelResetDimensionsConfig) {
+  const maxValues = maxPrivateKernelResetDimensions.toValues();
+  if (!config.specialCases.some(dimensions => dimensions.every((v, i) => v === maxValues[i]))) {
+    throw new Error(`Max dimensions is not defined in the config. Expect: ${maxValues}`);
+  }
+}
+
+function checkVkTreeSize(numResetCircuits: number) {
   const treeSize = 2 ** VK_TREE_HEIGHT;
-  const maxIndex = tags.length + PRIVATE_KERNEL_RESET_INDEX;
+  const maxIndex = numResetCircuits + PRIVATE_KERNEL_RESET_INDEX;
   if (maxIndex >= treeSize) {
     throw new Error(
       `Insufficient VK tree height. Maximum private kernel reset index: ${maxIndex}. Required tree height at lease: ${Math.ceil(
@@ -127,33 +138,35 @@ const main = async () => {
 
   checkDimensionNames(config);
 
+  checkMaxDimensions(config);
+
   const dimensionsList = JSON.parse(
     await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as number[][];
 
-  const resetVariantTags = [
-    '', // Empty tag for the full PrivateKernelReset.
-    ...dimensionsList.map(dimensions => dimensions.join('_')).map((tag: string) => `_${tag}`),
-  ];
+  checkVkTreeSize(dimensionsList.length);
 
-  checkVkTreeSize(resetVariantTags);
+  const resetVariantTags = dimensionsList.map(dimensions => `_${dimensions.join('_')}`);
+  const importTags = dimensionsList
+    .map(dimensions => dimensions.join('_'))
+    .map(tag => (tag === maxDimensionsTag ? '' : `_${tag}`));
 
   const content = `
     /* eslint-disable camelcase */
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:reset-data\`
 
     ${generateImports()}
-    ${generateArtifactImports(resetVariantTags)}
-    ${generateSimulatedArtifactImports(resetVariantTags)}
-    ${generateVksImports(resetVariantTags)}
+    ${generateArtifactImports(importTags)}
+    ${generateSimulatedArtifactImports(importTags)}
+    ${generateVksImports(importTags)}
 
     ${generateArtifactNames(resetVariantTags)}
 
-    ${generateArtifacts(resetVariantTags)}
+    ${generateArtifacts(resetVariantTags, importTags)}
 
-    ${generateSimulatedArtifacts(resetVariantTags)}
+    ${generateSimulatedArtifacts(resetVariantTags, importTags)}
 
-    ${generateVks(resetVariantTags)}
+    ${generateVks(resetVariantTags, importTags)}
 
     ${generateVkIndexes(resetVariantTags)}
 

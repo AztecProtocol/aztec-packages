@@ -10,6 +10,8 @@ import { findPrivateKernelResetDimensions } from './find_private_kernel_reset_di
 
 describe('findPrivateKernelResetDimensions', () => {
   let config: PrivateKernelResetDimensionsConfig;
+  let isInner = false;
+  let allowRemainder = false;
 
   beforeEach(() => {
     config = {
@@ -62,10 +64,18 @@ describe('findPrivateKernelResetDimensions', () => {
       },
       specialCases: [],
     };
+
+    isInner = false;
+    allowRemainder = false;
   });
 
-  const getDimensions = (requestedDimensions: Partial<FieldsOf<PrivateKernelResetDimensions>> = {}, isInner = false) =>
-    findPrivateKernelResetDimensions(PrivateKernelResetDimensions.from(requestedDimensions), config, isInner);
+  const getDimensions = (requestedDimensions: Partial<FieldsOf<PrivateKernelResetDimensions>> = {}) =>
+    findPrivateKernelResetDimensions(
+      PrivateKernelResetDimensions.from(requestedDimensions),
+      config,
+      isInner,
+      allowRemainder,
+    );
 
   const expectEqualDimensions = (
     dimensions: PrivateKernelResetDimensions,
@@ -117,25 +127,37 @@ describe('findPrivateKernelResetDimensions', () => {
       expectEqualDimensions(dimensions);
     });
 
-    it('finds the cheapest option', () => {
+    it('finds the cheapest option for all dimensions', () => {
       const dimensions = getDimensions({
+        NOTE_HASH_PENDING_AMOUNT: 1,
+        NOTE_HASH_SETTLED_AMOUNT: 3,
         NULLIFIER_PENDING_AMOUNT: 4,
-        NULLIFIER_KEYS: 7,
+        NULLIFIER_SETTLED_AMOUNT: 5,
+        NULLIFIER_KEYS: 6,
+        TRANSIENT_DATA_AMOUNT: 4,
+        NOTE_HASH_SILOING_AMOUNT: 9,
         NULLIFIER_SILOING_AMOUNT: 11,
+        ENCRYPTED_LOG_SILOING_AMOUNT: 7,
       });
 
       expectEqualDimensions(dimensions, {
+        NOTE_HASH_PENDING_AMOUNT: 1,
+        NOTE_HASH_SETTLED_AMOUNT: 4,
         NULLIFIER_PENDING_AMOUNT: 6,
+        NULLIFIER_SETTLED_AMOUNT: 8,
         NULLIFIER_KEYS: 10,
+        TRANSIENT_DATA_AMOUNT: 6,
+        NOTE_HASH_SILOING_AMOUNT: 14,
         NULLIFIER_SILOING_AMOUNT: 16,
+        ENCRYPTED_LOG_SILOING_AMOUNT: 9,
       });
     });
 
-    it('finds the option that can reset the most values', () => {
+    it('finds the cheapest option for partial dimensions', () => {
       const dimensions = getDimensions({
-        NULLIFIER_PENDING_AMOUNT: 88,
-        NULLIFIER_KEYS: 88,
-        NULLIFIER_SILOING_AMOUNT: 88,
+        NULLIFIER_PENDING_AMOUNT: 7,
+        NULLIFIER_KEYS: 7,
+        NULLIFIER_SILOING_AMOUNT: 11,
       });
 
       expectEqualDimensions(dimensions, {
@@ -190,16 +212,6 @@ describe('findPrivateKernelResetDimensions', () => {
       expectEqualSpecialCase(dimensions, 1);
     });
 
-    it('finds the option that can reset the most values', () => {
-      const dimensions = getDimensions({
-        NULLIFIER_PENDING_AMOUNT: 111,
-        NULLIFIER_KEYS: 111,
-        NULLIFIER_SILOING_AMOUNT: 111,
-      });
-
-      expectEqualSpecialCase(dimensions, 1);
-    });
-
     it('picks cheapest option among variants', () => {
       const dimensions = getDimensions({
         NULLIFIER_PENDING_AMOUNT: 5,
@@ -224,13 +236,11 @@ describe('findPrivateKernelResetDimensions', () => {
   });
 
   describe('is inner', () => {
-    const isInner = true;
-
     it('returns the option that does not perform siloing', () => {
       // Increase the cost so it's more expensive running a key verification check.
       config.dimensions.NULLIFIER_KEYS.cost = 9999;
 
-      // Is not inner.
+      isInner = false;
       {
         const dimensions = getDimensions({
           NULLIFIER_KEYS: 4,
@@ -239,30 +249,51 @@ describe('findPrivateKernelResetDimensions', () => {
         expectEqualDimensions(dimensions, { NULLIFIER_KEYS: 5 });
       }
 
-      // Is inner.
+      isInner = true;
       {
-        const dimensions = getDimensions(
-          {
-            NULLIFIER_KEYS: 8,
-          },
-          isInner,
-        );
+        const dimensions = getDimensions({
+          NULLIFIER_KEYS: 8,
+        });
 
         expectEqualStandalone(dimensions, 'NULLIFIER_KEYS', 15);
       }
     });
   });
 
-  describe('not found', () => {
-    it('throw if no valid option is found', () => {
-      expect(() =>
-        getDimensions(
-          {
-            ENCRYPTED_LOG_SILOING_AMOUNT: 2,
-          },
-          true, // isInner
-        ),
-      ).toThrow();
+  describe('allow remainder', () => {
+    const request = {
+      NULLIFIER_PENDING_AMOUNT: 88,
+      NULLIFIER_KEYS: 88,
+      NULLIFIER_SILOING_AMOUNT: 88,
+    };
+
+    it('finds the option that can reset the most values', () => {
+      allowRemainder = false;
+      expect(() => getDimensions(request)).toThrow();
+
+      allowRemainder = true;
+      {
+        const dimensions = getDimensions(request);
+
+        expectEqualDimensions(dimensions, {
+          NULLIFIER_PENDING_AMOUNT: 9,
+          NULLIFIER_KEYS: 10,
+          NULLIFIER_SILOING_AMOUNT: 16,
+        });
+      }
+    });
+
+    it('finds the option in special cases that can reset the most values', () => {
+      config.specialCases = [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [77, 77, 77, 77, 77, 77, 77, 77, 77],
+      ];
+
+      allowRemainder = false;
+      expect(() => getDimensions(request)).toThrow();
+
+      allowRemainder = true;
+      expectEqualSpecialCase(getDimensions(request), 1);
     });
   });
 });

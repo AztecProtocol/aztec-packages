@@ -151,10 +151,17 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const isInner = !!this.nextIteration;
+
+    // "final" reset must be done at most once.
+    // Because the code that silo note hashes can't be run repeatedly.
+    // The dimensions found must be big enough to reset all values, i.e. empty remainder.
+    const allowRemainder = isInner;
+
     const dimensions = findPrivateKernelResetDimensions(
       this.requestedDimensions,
       privateKernelResetDimensionsConfig,
       isInner,
+      allowRemainder,
     );
 
     const previousVkMembershipWitness = await oracle.getVkMembershipWitness(this.previousKernelOutput.verificationKey);
@@ -229,10 +236,10 @@ export class PrivateKernelResetPrivateInputsBuilder {
     resetStates.pendingReadHints = resetStates.pendingReadHints.slice(0, maxPending);
   }
 
-  private needsResetNoteHashReadRequests() {
+  private needsResetNoteHashReadRequests(forceResetAll = false) {
     const numCurr = countAccumulatedItems(this.previousKernel.validationRequests.noteHashReadRequests);
     const numNext = this.nextIteration ? countAccumulatedItems(this.nextIteration.noteHashReadRequests) : 0;
-    const maxAmountToKeep = !this.nextIteration ? 0 : MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
+    const maxAmountToKeep = !this.nextIteration || forceResetAll ? 0 : MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
     if (numCurr + numNext <= maxAmountToKeep) {
       return false;
     }
@@ -282,10 +289,10 @@ export class PrivateKernelResetPrivateInputsBuilder {
     return true;
   }
 
-  private needsResetNullifierReadRequests() {
+  private needsResetNullifierReadRequests(forceResetAll = false) {
     const numCurr = countAccumulatedItems(this.previousKernel.validationRequests.nullifierReadRequests);
     const numNext = this.nextIteration ? countAccumulatedItems(this.nextIteration.nullifierReadRequests) : 0;
-    const maxAmountToKeep = !this.nextIteration ? 0 : MAX_NULLIFIER_READ_REQUESTS_PER_TX;
+    const maxAmountToKeep = !this.nextIteration || forceResetAll ? 0 : MAX_NULLIFIER_READ_REQUESTS_PER_TX;
     if (numCurr + numNext <= maxAmountToKeep) {
       return false;
     }
@@ -356,34 +363,36 @@ export class PrivateKernelResetPrivateInputsBuilder {
     // Initialize this to 0 so that needsSilo can be run.
     this.numTransientData = 0;
 
-    {
-      // Check if note hashes will overflow.
-      const maxAmountToKeep = !this.nextIteration ? 0 : MAX_NOTE_HASHES_PER_TX;
-      const numCurr = countAccumulatedItems(this.previousKernel.end.noteHashes);
-      const numNext = this.nextIteration ? countAccumulatedItems(this.nextIteration.noteHashes) : 0;
-      if (numCurr + numNext <= maxAmountToKeep) {
-        return false;
-      }
-    }
-    {
-      // Check if nullifiers will overflow.
-      const maxAmountToKeep = !this.nextIteration ? 0 : MAX_NULLIFIERS_PER_TX;
-      const numCurr = countAccumulatedItems(this.previousKernel.end.nullifiers);
-      const numNext = this.nextIteration ? countAccumulatedItems(this.nextIteration.nullifiers) : 0;
-      if (numCurr + numNext <= maxAmountToKeep) {
-        return false;
-      }
+    const nextAccumNoteHashes =
+      countAccumulatedItems(this.previousKernel.end.noteHashes) +
+      countAccumulatedItems(this.nextIteration?.noteHashes ?? []);
+    const noteHashWillOverflow = nextAccumNoteHashes > MAX_NOTE_HASHES_PER_TX;
+    const nextAccumNullifiers =
+      countAccumulatedItems(this.previousKernel.end.nullifiers) +
+      countAccumulatedItems(this.nextIteration?.nullifiers ?? []);
+    const nullifierWillOverflow = nextAccumNullifiers > MAX_NULLIFIERS_PER_TX;
+    if (this.nextIteration && !noteHashWillOverflow && !nullifierWillOverflow) {
+      return false;
     }
 
     const futureNoteHashReads = collectNestedReadRequests(
       this.executionStack,
       executionResult => executionResult.callStackItem.publicInputs.noteHashReadRequests,
     );
-
     const futureNullifierReads = collectNestedReadRequests(
       this.executionStack,
       executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
     );
+    if (this.nextIteration) {
+      // If it's not the final reset, only one dimension will be reset at a time.
+      // The note hashes and nullifiers for the remaining read requests can't be squashed.
+      futureNoteHashReads.push(
+        ...this.previousKernel.validationRequests.noteHashReadRequests.filter(r => !r.isEmpty()),
+      );
+      futureNullifierReads.push(
+        ...this.previousKernel.validationRequests.nullifierReadRequests.filter(r => !r.isEmpty()),
+      );
+    }
 
     const { numTransientData, hints: transientDataIndexHints } = buildTransientDataHints(
       this.previousKernel.end.noteHashes,
@@ -395,6 +404,20 @@ export class PrivateKernelResetPrivateInputsBuilder {
       MAX_NOTE_HASHES_PER_TX,
       MAX_NULLIFIERS_PER_TX,
     );
+
+    if (this.nextIteration && !numTransientData) {
+      const forceResetAll = true;
+      const canClearReadRequests =
+        (noteHashWillOverflow && this.needsResetNoteHashReadRequests(forceResetAll)) ||
+        (nullifierWillOverflow && this.needsResetNullifierReadRequests(forceResetAll));
+      if (!canClearReadRequests) {
+        const overflownData = noteHashWillOverflow ? 'note hashes' : 'nullifiers';
+        throw new Error(`Number of ${overflownData} exceeds the limit.`);
+      }
+      // Clearing the read requests might not be enough to squash the overflown data.
+      // In this case, the next iteration will fail at the above check.
+      return true;
+    }
 
     this.numTransientData = numTransientData;
     this.transientDataIndexHints = transientDataIndexHints;

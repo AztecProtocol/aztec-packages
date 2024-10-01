@@ -26,6 +26,10 @@ function areValidDimensions(dimensions) {
   );
 }
 
+function isFullDimensions(dimensions) {
+  return dimensions.every((v, i) => v === aliases.full[i]);
+}
+
 function getDimensionsList(allowedVariants) {
   if (allowedVariants.length) {
     // allowedVariant can be a key in aliases, or a tag.
@@ -80,6 +84,11 @@ function generateCircuits(dimensionsList, nargoToml, isSimulated) {
   const originalName = originalNargoToml.package.name;
 
   for (const dimensions of dimensionsList) {
+    // The default private-kernel-reset(-simulated) has full dimensions.
+    if (isFullDimensions(dimensions)) {
+      continue;
+    }
+
     const variantNargoToml = structuredClone(originalNargoToml);
 
     const tag = getResetTag(dimensions);

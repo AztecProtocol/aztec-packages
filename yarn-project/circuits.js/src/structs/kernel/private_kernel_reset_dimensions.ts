@@ -74,7 +74,7 @@ export interface DimensionConfig {
   cost: number;
 }
 
-// Must match the config in noir-protocol-circuits/private_kernel_reset_config.json
+// Must match the config in noir-projects/noir-protocol-circuits/private_kernel_reset_config.json
 export interface PrivateKernelResetDimensionsConfig {
   dimensions: { [K in DimensionName]: DimensionConfig };
   specialCases: number[][];

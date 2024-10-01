@@ -137,14 +137,21 @@ export function findPrivateKernelResetDimensions(
   requestedDimensions: PrivateKernelResetDimensions,
   config: PrivateKernelResetDimensionsConfig,
   isInner = false,
+  allowRemainder = false,
 ) {
-  const isQualified = !isInner
+  const requestedValues = requestedDimensions.toValues();
+  const isEnough = allowRemainder
     ? () => true
-    : // If inner is true, it's a reset to prevent overflow. The following must be zero because siloing can't be done at the moment.
+    : (dimensions: PrivateKernelResetDimensions) => dimensions.toValues().every((v, i) => v >= requestedValues[i]);
+
+  const isQualified = !isInner
+    ? isEnough
+    : // If isInner is true, it's a reset to prevent overflow. The following must be zero because siloing can't be done at the moment.
       (dimensions: PrivateKernelResetDimensions) =>
         dimensions.NOTE_HASH_SILOING_AMOUNT === 0 &&
         dimensions.NULLIFIER_SILOING_AMOUNT === 0 &&
-        dimensions.ENCRYPTED_LOG_SILOING_AMOUNT === 0;
+        dimensions.ENCRYPTED_LOG_SILOING_AMOUNT === 0 &&
+        isEnough(dimensions);
 
   const options = [
     findVariant(requestedDimensions, config, isQualified),
