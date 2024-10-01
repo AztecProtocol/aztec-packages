@@ -1912,7 +1912,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     FF expected_hash = FF(std::string("0x006db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
-    // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case)
+    // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
     EXPECT_EQ(emit_log_row->main_ib, 40);
 
     uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
