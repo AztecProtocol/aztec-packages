@@ -16,6 +16,8 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: metrics
     spec:
+      securityContext:
+        fsGroup: 472 # required for Grafana write access to storage volume
       containers:
         - name: otel-collector
           image: "{{ .Values.images.otelCollector.image }}"
@@ -57,6 +59,8 @@ spec:
               subPath: grafana-sources.yaml
             - name: grafana-storage
               mountPath: /var/lib/grafana
+          securityContext:
+            runAsUser: 472 # required for Grafana write access to storage volume
 
         - name: jaeger
           image: "{{ .Values.images.jaeger.image }}"

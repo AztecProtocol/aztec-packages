@@ -123,7 +123,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
+  type: ClusterIP
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
@@ -132,3 +132,22 @@ spec:
       name: p2p
     - port: {{ .Values.validator.service.nodePort }}
       name: node
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
+    - port: {{ .Values.validator.service.p2pPort }}
+      name: p2p
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+{{ end }}
