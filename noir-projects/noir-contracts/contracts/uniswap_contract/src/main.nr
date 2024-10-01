@@ -161,16 +161,20 @@ contract Uniswap {
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
         let nonce = 0xdeadbeef;
 
-        let selector = comptime {
-            FunctionSelector::from_signature("burn_public((Field),Field,Field)")
+        // Public functions are routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let target_selector = comptime {
+            FunctionSelector::from_signature("burn_public((Field),Field,Field)").to_field()
         };
         let message_hash = compute_authwit_message_hash_from_call(
             token_bridge,
             token,
             context.chain_id(),
             context.version(),
-            selector,
-            [context.this_address().to_field(), amount, nonce]
+            dispatch_selector,
+            [target_selector, context.this_address().to_field(), amount, nonce]
         );
 
         // We need to make a call to update it.
