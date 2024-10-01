@@ -360,7 +360,7 @@ contract BlakeHonkVerifier is IVerifier {
                 mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
 
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldUnivariates[i]);
+            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
