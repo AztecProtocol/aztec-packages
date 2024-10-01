@@ -10,7 +10,7 @@ comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 // A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fixed_fields, nullable_fields).
 // The fixed and nullable fields contain the name of the struct member and the index of where it starts in
 // the serialized note.
-comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32)], [(Quoted, u32)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
@@ -152,7 +152,6 @@ pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: F
     let global_export_name = f"{name}_EXPORTS".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
-    // the #[abi( tag below seems to result in the note being exported to the ABI
     quote {
         #[abi(notes)]
         global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id,$note_name_as_str);
@@ -297,14 +296,19 @@ comptime fn register_note(
     fixed_fields: [(Quoted, Type, u32)],
     nullable_fields: [(Quoted, Type, u32)]
 ) {
-    // We omit the Type as we don't need it in the ABI. In the ABI we only care about the name and the start index
-    // in the serialized note array.
-    let fixed_fields_without_type = fixed_fields.map(| (name, _, index): (Quoted, Type, u32) | (name, index));
-    let nullable_fields_without_type = nullable_fields.map(| (name, _, index): (Quoted, Type, u32) | (name, index));
+    let mut fields = &[];
+    for field in fixed_fields {
+        let (name, _, index) = field;
+        fields = fields.push_back((name, index, false));
+    }
+    for field in nullable_fields {
+        let (name, _, index) = field;
+        fields = fields.push_back((name, index, true));
+    }
 
     NOTES.insert(
         note.as_type(),
-        (note, note_serialized_len, note_type_id, fixed_fields_without_type, nullable_fields_without_type)
+        (note, note_serialized_len, note_type_id, fields)
     );
 }
 

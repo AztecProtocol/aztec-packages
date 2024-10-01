@@ -110,14 +110,14 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
     let notes = NOTES.entries();
     let body = if notes.len() > 0 {
-        max_note_length = notes.fold(0, | acc, (_, (_, len, _, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32)], [(Quoted, u32)])) | {
+        max_note_length = notes.fold(0, | acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)])) | {
             acc + len
         });
 
         let mut if_statements_list = &[];
 
         for i in 0..notes.len() {
-            let (typ, (_, _, _, _, _)) = notes[i];
+            let (typ, (_, _, _, _)) = notes[i];
             let if_or_else_if = if i == 0 {
                 quote { if }
             } else {
@@ -164,7 +164,7 @@ comptime fn generate_note_exports() -> Quoted {
     // Second value in each tuple is `note_serialized_len` and that is ignored because it's only used when
     // generating the `compute_note_hash_and_optionally_a_nullifier` function.
     notes.map(
-        | (s, _, note_type_id, _, _): (StructDefinition, u32, Field, [(Quoted, u32)], [(Quoted, u32)]) | {
+        | (s, _, note_type_id, _): (StructDefinition, u32, Field, [(Quoted, u32, bool)]) | {
             generate_note_export(s, note_type_id)
         }
     ).join(quote {})
