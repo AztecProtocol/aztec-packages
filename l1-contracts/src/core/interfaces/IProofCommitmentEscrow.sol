@@ -9,12 +9,12 @@ interface IProofCommitmentEscrow {
   event StartWithdraw(address indexed withdrawer, uint256 amount, Timestamp executableAt);
   event ExecuteWithdraw(address indexed withdrawer, uint256 amount);
   event StakeBond(address indexed prover, uint256 amount);
-  event UnstakeBond(address indexed prover);
+  event UnstakeBond(address indexed prover, uint256 amount);
 
   function deposit(uint256 _amount) external;
   function startWithdraw(uint256 _amount) external;
   function executeWithdraw() external;
-  function stakeBond(uint256 _bondAmount, address _prover) external;
-  function unstakeBond() external;
+  function stakeBond(address _prover, uint256 _amount) external;
+  function unstakeBond(address _prover, uint256 _amount) external;
   function minBalanceAtTime(Timestamp _timestamp, address _prover) external view returns (uint256);
 }

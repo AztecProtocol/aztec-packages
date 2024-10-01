@@ -18,11 +18,11 @@ contract MockProofCommitmentEscrow is IProofCommitmentEscrow {
     // do nothing
   }
 
-  function unstakeBond() external override {
+  function unstakeBond(address _prover, uint256 _amount) external override {
     // do nothing
   }
 
-  function stakeBond(uint256 _amount, address _prover) external override {
+  function stakeBond(address _prover, uint256 _amount) external override {
     // do nothing
   }
 

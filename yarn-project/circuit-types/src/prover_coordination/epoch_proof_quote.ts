@@ -32,6 +32,7 @@ export class EpochProofQuote extends Gossipable {
     return new EpochProofQuote(reader.readObject(EpochProofQuotePayload), reader.readObject(Signature));
   }
 
+  // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
   /**
    * Creates a new quote with a signature.
    * The digest provided must match what the rollup contract will produce i.e. `_hashTypedDataV4(EpochProofQuoteLib.hash(quote))`

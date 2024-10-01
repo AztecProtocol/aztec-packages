@@ -117,16 +117,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
   }
 
-  function verifySignedQuote(EpochProofQuoteLib.SignedEpochProofQuote memory signedQuote)
-    public
-    view
-    override(IRollup)
-  {
-    bytes32 digest = quoteToDigest(signedQuote.quote);
-    address recoveredSigner = ECDSA.recover(digest, SignatureLib.toBytes(signedQuote.signature));
-    require(recoveredSigner == signedQuote.quote.prover);
-  }
-
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
@@ -358,7 +348,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.prover, _quote.quote.bondAmount);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
@@ -586,7 +576,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     view
     override(IRollup)
   {
-    verifySignedQuote(_quote);
+    SignatureLib.verify(_quote.signature, _quote.quote.prover, quoteToDigest(_quote.quote));
 
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();

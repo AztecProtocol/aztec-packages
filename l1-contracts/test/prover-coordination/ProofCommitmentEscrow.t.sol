@@ -13,51 +13,45 @@ import {TestERC20} from "../TestERC20.sol";
 // solhint-disable comprehensive-interface
 
 contract TestProofCommitmentEscrow is Test {
-  ProofCommitmentEscrow internal _escrow;
-  TestERC20 internal _token;
+  // solhint-disable-next-line var-name-mixedcase
+  ProofCommitmentEscrow internal ESCROW;
+  // solhint-disable-next-line var-name-mixedcase
+  TestERC20 internal TOKEN;
   address internal prover;
   uint256 internal depositAmount;
 
-  modifier setup() {
-    _token = new TestERC20();
-    _escrow = new ProofCommitmentEscrow(_token, address(this));
-    _;
-  }
-
   modifier setupWithApproval(address _prover, uint256 _depositAmount) {
-    _token = new TestERC20();
-    _escrow = new ProofCommitmentEscrow(_token, address(this));
-
-    _token.mint(_prover, _depositAmount);
+    TOKEN.mint(_prover, _depositAmount);
     vm.prank(_prover);
-    _token.approve(address(_escrow), _depositAmount);
+    TOKEN.approve(address(ESCROW), _depositAmount);
 
     prover = _prover;
     depositAmount = _depositAmount;
     _;
   }
 
+  function setUp() public {
+    TOKEN = new TestERC20();
+    ESCROW = new ProofCommitmentEscrow(TOKEN, address(this));
+  }
+
   function testDeposit() public setupWithApproval(address(42), 100) {
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
+    ESCROW.deposit(depositAmount);
 
     assertEq(
-      _token.balanceOf(address(_escrow)),
-      depositAmount,
-      "Escrow balance should match deposit amount"
+      TOKEN.balanceOf(address(ESCROW)), depositAmount, "Escrow balance should match deposit amount"
     );
-    assertEq(_token.balanceOf(prover), 0, "Prover balance should be 0 after deposit");
+    assertEq(TOKEN.balanceOf(prover), 0, "Prover balance should be 0 after deposit");
   }
 
   function testCannotWithdrawWithoutMatureRequest() public setupWithApproval(address(42), 100) {
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
-    uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
-
-    _mintAndDeposit(prover, depositAmount);
+    ESCROW.deposit(depositAmount);
+    uint256 withdrawReadyAt = block.timestamp + ESCROW.WITHDRAW_DELAY();
 
     vm.prank(prover);
-    _escrow.startWithdraw(depositAmount);
+    ESCROW.startWithdraw(depositAmount);
 
     vm.prank(prover);
     vm.expectRevert(
@@ -67,9 +61,9 @@ contract TestProofCommitmentEscrow is Test {
         withdrawReadyAt
       )
     );
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
 
-    vm.warp(block.timestamp + _escrow.WITHDRAW_DELAY() - 1);
+    vm.warp(block.timestamp + ESCROW.WITHDRAW_DELAY() - 1);
     vm.prank(prover);
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -78,115 +72,108 @@ contract TestProofCommitmentEscrow is Test {
         withdrawReadyAt
       )
     );
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
   }
 
   function testWithdrawAfterDelay() public setupWithApproval(address(42), 100) {
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
+    ESCROW.deposit(depositAmount);
     uint256 withdrawAmount = 50;
-    uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
-
-    _mintAndDeposit(prover, depositAmount);
+    uint256 withdrawReadyAt = block.timestamp + ESCROW.WITHDRAW_DELAY();
 
     vm.prank(prover);
-    _escrow.startWithdraw(withdrawAmount);
+    ESCROW.startWithdraw(withdrawAmount);
 
     vm.warp(withdrawReadyAt);
 
     vm.prank(prover);
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
 
     assertEq(
-      _token.balanceOf(address(_escrow)),
+      TOKEN.balanceOf(address(ESCROW)),
       depositAmount - withdrawAmount,
       "Escrow balance should be reduced after withdrawal"
     );
-    assertEq(_token.balanceOf(prover), withdrawAmount, "Prover balance should match deposit amount");
+    assertEq(TOKEN.balanceOf(prover), withdrawAmount, "Prover balance should match deposit amount");
   }
 
-  function testCannotReplayWithdrawRequest() public setupWithApproval(address(42), 100) {
+  function testCannotReplayWithdrawRequest(uint256 _withdrawAmount)
+    public
+    setupWithApproval(address(42), 100)
+  {
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
-    uint256 withdrawAmount = 50;
-    uint256 withdrawReadyAt = block.timestamp + _escrow.WITHDRAW_DELAY();
-
-    _mintAndDeposit(prover, depositAmount);
+    ESCROW.deposit(depositAmount);
+    uint256 withdrawAmount = bound(_withdrawAmount, 1, depositAmount);
+    uint256 withdrawReadyAt = block.timestamp + ESCROW.WITHDRAW_DELAY();
 
     vm.prank(prover);
-    _escrow.startWithdraw(withdrawAmount);
+    ESCROW.startWithdraw(withdrawAmount);
     vm.warp(withdrawReadyAt);
 
     vm.prank(prover);
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
 
     vm.prank(prover);
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
 
     assertEq(
-      _token.balanceOf(address(_escrow)),
+      TOKEN.balanceOf(address(ESCROW)),
       depositAmount - withdrawAmount,
       "Escrow balance should be reduced after withdrawal"
     );
   }
 
-  function testOnlyOwnerCanStake(address nonOwner) public setup {
+  function testOnlyOwnerCanStake(address nonOwner) public {
     vm.assume(nonOwner != address(this));
     vm.prank(nonOwner);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.ProofCommitmentEscrow__NotOwner.selector, nonOwner)
     );
-    _escrow.stakeBond(0, address(0));
+    ESCROW.stakeBond(address(0), 0);
   }
 
   function testCannotStakeMoreThanProverBalance() public setupWithApproval(address(42), 100) {
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
+    ESCROW.deposit(depositAmount);
     uint256 stakeAmount = depositAmount + 1;
 
-    _mintAndDeposit(prover, depositAmount);
-
     vm.expectRevert();
-    _escrow.stakeBond(stakeAmount, prover);
+    ESCROW.stakeBond(prover, stakeAmount);
 
     assertEq(
-      _token.balanceOf(address(_escrow)),
-      depositAmount,
-      "Escrow balance should match deposit amount"
+      TOKEN.balanceOf(address(ESCROW)), depositAmount, "Escrow balance should match deposit amount"
     );
-    assertEq(_escrow.deposits(prover), depositAmount, "Prover balance should match deposit amount");
+    assertEq(ESCROW.deposits(prover), depositAmount, "Prover balance should match deposit amount");
   }
 
-  function testOnlyOwnerCanUnstake(address nonOwner) public setup {
+  function testOnlyOwnerCanUnstake(address nonOwner) public {
     vm.assume(nonOwner != address(this));
     vm.prank(nonOwner);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.ProofCommitmentEscrow__NotOwner.selector, nonOwner)
     );
-    _escrow.unstakeBond();
+    ESCROW.unstakeBond(address(0), 0);
   }
 
   function testStakeAndUnstake() public setupWithApproval(address(42), 100) {
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
+    ESCROW.deposit(depositAmount);
     uint256 stakeAmount = 50;
 
-    _mintAndDeposit(prover, depositAmount);
-
-    _escrow.stakeBond(stakeAmount, prover);
+    ESCROW.stakeBond(prover, stakeAmount);
 
     assertEq(
-      _escrow.deposits(prover), depositAmount - stakeAmount, "Prover balance should be reduced"
+      ESCROW.deposits(prover), depositAmount - stakeAmount, "Prover balance should be reduced"
     );
 
-    _escrow.unstakeBond();
+    ESCROW.unstakeBond(prover, stakeAmount);
 
     assertEq(
-      _escrow.deposits(prover), depositAmount, "Prover balance should be restored after unstake"
+      ESCROW.deposits(prover), depositAmount, "Prover balance should be restored after unstake"
     );
   }
 
-  function testOverwritingStakeSlashesPreviousProver() public setup {
+  function testOverwritingStakeSlashesPreviousProver() public {
     address proverA = address(42);
     address proverB = address(43);
     uint256 depositAmountA = 100;
@@ -194,64 +181,62 @@ contract TestProofCommitmentEscrow is Test {
     uint256 depositAmountB = 200;
     uint256 stakeAmountB = 100;
 
-    _token.mint(proverA, depositAmountA);
+    TOKEN.mint(proverA, depositAmountA);
     vm.prank(proverA);
-    _token.approve(address(_escrow), depositAmountA);
+    TOKEN.approve(address(ESCROW), depositAmountA);
     vm.prank(proverA);
-    _escrow.deposit(depositAmountA);
+    ESCROW.deposit(depositAmountA);
 
-    _token.mint(proverB, depositAmountB);
+    TOKEN.mint(proverB, depositAmountB);
     vm.prank(proverB);
-    _token.approve(address(_escrow), depositAmountB);
+    TOKEN.approve(address(ESCROW), depositAmountB);
     vm.prank(proverB);
-    _escrow.deposit(depositAmountB);
+    ESCROW.deposit(depositAmountB);
 
-    // Prover A deposits and is staked
-    _escrow.stakeBond(stakeAmountA, proverA);
+    // Prover A is staked
+    ESCROW.stakeBond(proverA, stakeAmountA);
 
-    // Prover B deposits and owner overwrites the stake
-    _escrow.stakeBond(stakeAmountB, proverB);
+    // Prover B is staked
+    ESCROW.stakeBond(proverB, stakeAmountB);
 
-    // Prover A cannot recover the staked amount
+    // Prover A is missing the stake
     uint256 expectedDepositA = depositAmountA - stakeAmountA;
     assertEq(
-      _escrow.deposits(proverA),
+      ESCROW.deposits(proverA),
       expectedDepositA,
       "Prover A's deposit should reflect the slashed stake"
     );
 
-    // Owner cannot unstake Prover A's stake anymore
-    _escrow.unstakeBond();
+    // Prover B gets unstaked
+    ESCROW.unstakeBond(proverB, stakeAmountB);
     assertEq(
-      _escrow.deposits(proverB),
+      ESCROW.deposits(proverB),
       depositAmountB,
       "Prover B's deposit should be restored after unstake"
     );
     assertEq(
-      _escrow.deposits(proverA),
-      expectedDepositA,
-      "Prover A's deposit remains slashed after unstake"
+      ESCROW.deposits(proverA), expectedDepositA, "Prover A's deposit remains slashed after unstake"
     );
   }
 
   function testWithdrawRequestOverwriting() public setupWithApproval(address(42), 100) {
     uint256 withdrawAmountA = 40;
     uint256 withdrawAmountB = 60;
-    uint256 withdrawReadyAtA = block.timestamp + _escrow.WITHDRAW_DELAY();
-    uint256 withdrawReadyAtB = block.timestamp + 2 * _escrow.WITHDRAW_DELAY();
+    uint256 withdrawReadyAtA = block.timestamp + ESCROW.WITHDRAW_DELAY();
+    uint256 withdrawReadyAtB = block.timestamp + 2 * ESCROW.WITHDRAW_DELAY();
 
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
+    ESCROW.deposit(depositAmount);
 
     // Prover starts first withdraw request
     vm.prank(prover);
-    _escrow.startWithdraw(withdrawAmountA);
+    ESCROW.startWithdraw(withdrawAmountA);
 
     // Prover starts second withdraw request before executing first
     vm.warp(withdrawReadyAtA);
 
     vm.prank(prover);
-    _escrow.startWithdraw(withdrawAmountB);
+    ESCROW.startWithdraw(withdrawAmountB);
 
     // Attempt to execute first withdraw request after its delay
     vm.prank(prover);
@@ -262,51 +247,51 @@ contract TestProofCommitmentEscrow is Test {
         withdrawReadyAtB
       )
     );
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
 
     // Execute second withdraw request after its delay
     vm.warp(withdrawReadyAtB);
     vm.prank(prover);
-    _escrow.executeWithdraw();
+    ESCROW.executeWithdraw();
 
     // Assert
     assertEq(
-      _escrow.deposits(prover),
+      ESCROW.deposits(prover),
       depositAmount - withdrawAmountB,
       "Prover's deposit should be reduced by the withdrawn amount"
     );
   }
 
-  function testMinBalanceAtSlot() public setupWithApproval(address(42), 100) {
+  function testMinBalanceAtTime() public setupWithApproval(address(42), 100) {
     uint256 withdrawAmount = 25;
-    Timestamp withdrawReadyAt = Timestamp.wrap(block.timestamp + _escrow.WITHDRAW_DELAY());
+    Timestamp withdrawReadyAt = Timestamp.wrap(block.timestamp + ESCROW.WITHDRAW_DELAY());
 
     vm.prank(prover);
-    _escrow.deposit(depositAmount);
+    ESCROW.deposit(depositAmount);
 
     assertEq(
-      _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
+      ESCROW.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
       depositAmount,
       "Min balance should match deposit amount before any withdraw request"
     );
 
     assertEq(
-      _escrow.minBalanceAtTime(withdrawReadyAt - Timestamp.wrap(1), prover),
+      ESCROW.minBalanceAtTime(withdrawReadyAt - Timestamp.wrap(1), prover),
       depositAmount,
       "Min balance should match deposit amount before withdraw request matures"
     );
 
     vm.prank(prover);
-    _escrow.startWithdraw(withdrawAmount);
+    ESCROW.startWithdraw(withdrawAmount);
 
     assertEq(
-      _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
+      ESCROW.minBalanceAtTime(Timestamp.wrap(block.timestamp), prover),
       depositAmount,
       "Min balance should be unaffected by pending withdraw request before maturity"
     );
 
     assertEq(
-      _escrow.minBalanceAtTime(Timestamp.wrap(block.timestamp + _escrow.WITHDRAW_DELAY()), prover),
+      ESCROW.minBalanceAtTime(Timestamp.wrap(block.timestamp + ESCROW.WITHDRAW_DELAY()), prover),
       0,
       "Min balance should be 0 at or beyond the delay window"
     );
@@ -314,17 +299,15 @@ contract TestProofCommitmentEscrow is Test {
     vm.warp(block.timestamp + 1);
 
     assertEq(
-      _escrow.minBalanceAtTime(withdrawReadyAt, prover),
+      ESCROW.minBalanceAtTime(withdrawReadyAt, prover),
       depositAmount - withdrawAmount,
       "Min balance should be 75 after withdraw request matures"
     );
 
     assertEq(
-      _escrow.minBalanceAtTime(withdrawReadyAt + Timestamp.wrap(1), prover),
+      ESCROW.minBalanceAtTime(withdrawReadyAt + Timestamp.wrap(1), prover),
       0,
       "Min balance should be 0 at or beyond the delay window"
     );
   }
-
-  function _mintAndDeposit(address _prover, uint256 _amount) internal {}
 }

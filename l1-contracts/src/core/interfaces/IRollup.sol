@@ -96,9 +96,6 @@ interface IRollup {
     external
     view
     returns (bytes32);
-  function verifySignedQuote(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
-    external
-    view;
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);

@@ -13,11 +13,6 @@ import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   using SafeERC20 for IERC20;
 
-  struct Stake {
-    uint256 amount;
-    address prover;
-  }
-
   struct WithdrawRequest {
     uint256 amount;
     Timestamp executableAt;
@@ -29,7 +24,6 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   mapping(address => uint256) public deposits;
   mapping(address => WithdrawRequest) public withdrawRequests;
   IERC20 public immutable token;
-  Stake public stake;
 
   modifier onlyRollup() {
     require(msg.sender == ROLLUP, Errors.ProofCommitmentEscrow__NotOwner(msg.sender));
@@ -103,9 +97,8 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *          The prover must have sufficient balance
    *          The prover's balance will be reduced by the bond amount
    */
-  function stakeBond(uint256 _amount, address _prover) external override onlyRollup {
+  function stakeBond(address _prover, uint256 _amount) external override onlyRollup {
     deposits[_prover] -= _amount;
-    stake = Stake({amount: _amount, prover: _prover});
 
     emit StakeBond(_prover, _amount);
   }
@@ -115,9 +108,10 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *
    * @dev     Only callable by the owner
    */
-  function unstakeBond() external override onlyRollup {
-    deposits[stake.prover] += stake.amount;
-    delete stake;
+  function unstakeBond(address _prover, uint256 _amount) external override onlyRollup {
+    deposits[_prover] += _amount;
+
+    emit UnstakeBond(_prover, _amount);
   }
 
   /**
