@@ -1,4 +1,4 @@
-import { type L1NotePayload, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
+import { L1NotePayload, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type Logger } from '@aztec/foundation/log';
@@ -7,6 +7,7 @@ import { type AcirSimulator, ContractNotFoundError } from '@aztec/simulator';
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { type PxeDatabase } from '../database/pxe_database.js';
 
 /**
  * Decodes a note from a transaction that we know was intended for us.
@@ -28,6 +29,7 @@ import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
  */
 export async function produceNoteDaos(
   simulator: AcirSimulator,
+  pxeDb: PxeDatabase,
   ivpkM: PublicKey | undefined,
   ovpkM: PublicKey | undefined,
   payload: L1NotePayload,
@@ -107,22 +109,21 @@ export async function produceNoteDaos(
           // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
           // of Fr.SIZE_IN_BYTES as the partial fields should be simply concatenated.
           if (data.length % Fr.SIZE_IN_BYTES === 0) {
-            const partialFields = [];
+            const nullableFields = [];
             for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
               const chunk = data.subarray(i, i + Fr.SIZE_IN_BYTES);
-              partialFields.push(Fr.fromBuffer(chunk));
+              nullableFields.push(Fr.fromBuffer(chunk));
             }
 
-            // We concatenate the partial fields with the rest of the fields of the note and we try to produce
-            // the note dao again
-            const payloadWithPartialFields = JSON.parse(JSON.stringify(payload));
-            payloadWithPartialFields.note.items.push(...partialFields);
+            // We insert the nullable fields into the note and then we try to produce the note dao again
+            const payloadWithNullableFields = await addNullableFieldsToPayload(pxeDb, payload, nullableFields);
 
             ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
               simulator,
+              pxeDb,
               ivpkM,
               undefined, // We only care about incoming notes in this case as that is where the partial flow got triggered.
-              payloadWithPartialFields,
+              payloadWithNullableFields,
               txHash,
               noteHashes,
               dataStartIndexForTx,
@@ -130,12 +131,21 @@ export async function produceNoteDaos(
               logger,
               UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
             ));
-            if (incomingNote || incomingDeferredNote) {
+            if (incomingDeferredNote) {
+              // This should not happen as we should first get contract not found error before the blackbox func error.
+              throw new Error('Partial notes should never be deferred.');
+            }
+
+            if (incomingNote) {
               // We managed to complete the partial note so we terminate the search.
               break;
             }
           }
         }
+      }
+
+      if (!incomingNote) {
+        logger.error(`Could not process note because of "${e}". Discarding note...`);
       }
     } else {
       logger.error(`Could not process note because of "${e}". Discarding note...`);
@@ -211,22 +221,21 @@ export async function produceNoteDaos(
           // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
           // of Fr.SIZE_IN_BYTES as the partial fields should be simply concatenated.
           if (data.length % Fr.SIZE_IN_BYTES === 0) {
-            const partialFields = [];
+            const nullableFields = [];
             for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
               const chunk = data.subarray(i, i + Fr.SIZE_IN_BYTES);
-              partialFields.push(Fr.fromBuffer(chunk));
+              nullableFields.push(Fr.fromBuffer(chunk));
             }
 
-            // We concatenate the partial fields with the rest of the fields of the note and we try to produce
-            // the note dao again
-            const payloadWithPartialFields = JSON.parse(JSON.stringify(payload));
-            payloadWithPartialFields.note.items.push(...partialFields);
+            // We insert the nullable fields into the note and then we try to produce the note dao again
+            const payloadWithNullableFields = await addNullableFieldsToPayload(pxeDb, payload, nullableFields);
 
             ({ outgoingNote, outgoingDeferredNote } = await produceNoteDaos(
               simulator,
+              pxeDb,
               undefined, // We only care about outgoing notes in this case as that is where the partial flow got triggered.
               ovpkM,
-              payloadWithPartialFields,
+              payloadWithNullableFields,
               txHash,
               noteHashes,
               dataStartIndexForTx,
@@ -321,4 +330,51 @@ async function findNoteIndexAndNullifier(
     noteHash: noteHash!,
     siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
   };
+}
+
+async function addNullableFieldsToPayload(
+  pxeDb: PxeDatabase,
+  payload: L1NotePayload,
+  nullableFields: Fr[],
+): Promise<L1NotePayload> {
+  const instance = await pxeDb.getContractInstance(payload.contractAddress);
+  if (!instance) {
+    throw new ContractNotFoundError(
+      `Could not find instance for ${payload.contractAddress.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
+    );
+  }
+
+  const artifact = await pxeDb.getContractArtifact(instance.contractClassId);
+  if (!artifact) {
+    throw new Error(
+      `Could not find artifact for contract class ${instance.contractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
+    );
+  }
+
+  const noteFields = Object.values(artifact.notes).find(note => note.id.equals(payload.noteTypeId))?.fields;
+
+  if (!noteFields) {
+    throw new Error(`Could not find note fields for note type ${payload.noteTypeId.toString()}.`);
+  }
+
+  // Now we insert the nullable fields into the note
+  const modifiedNote = JSON.parse(JSON.stringify(payload.note));
+  let indexInNullable = 0;
+  for (let i = 0; i < noteFields.length; i++) {
+    const noteField = noteFields[i];
+    if (noteField.nullable) {
+      if (i == nullableFields.length - 1) {
+        // We are processing the last field so we simply insert the rest of the nullable fields at the end
+        modifiedNote.items.push(...nullableFields.slice(indexInNullable));
+      } else {
+        const noteFieldLength = noteFields[i + 1].index - noteField.index;
+        const nullableFieldsToInsert = nullableFields.slice(indexInNullable, indexInNullable + noteFieldLength);
+        indexInNullable += noteFieldLength;
+        // Now we insert the nullable fields at the note field index
+        modifiedNote.items.splice(noteField.index, 0, ...nullableFieldsToInsert);
+      }
+    }
+  }
+
+  return new L1NotePayload(modifiedNote, payload.contractAddress, payload.storageSlot, payload.noteTypeId);
 }

@@ -159,6 +159,7 @@ export class NoteProcessor {
               const txEffect = block.body.txEffects[indexOfTxInABlock];
               const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
                 this.simulator,
+                this.db,
                 incomingNotePayload ? this.ivpkM : undefined,
                 outgoingNotePayload ? this.ovpkM : undefined,
                 payload!,
@@ -320,6 +321,7 @@ export class NoteProcessor {
 
       const { incomingNote, outgoingNote } = await produceNoteDaos(
         this.simulator,
+        this.db,
         isIncoming ? this.ivpkM : undefined,
         isOutgoing ? this.ovpkM : undefined,
         payload,

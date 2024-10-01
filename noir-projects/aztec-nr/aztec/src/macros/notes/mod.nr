@@ -160,7 +160,7 @@ pub(crate) comptime fn generate_note_export(
     s.as_type().hash(&mut hasher);
     let hash = hasher.finish() as u32;
     let global_export_name = f"{name}_{hash}_EXPORTS".quoted_contents();
-    let note_fields_name = f"{name}Fields".quoted_contents();
+    let note_fields_name = f"{name}Fields_{hash}".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
 
