@@ -17,8 +17,6 @@ use dispatch::generate_public_dispatch;
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
 ///
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
-/// The difference between a module and a regular struct or functionn annotation is that module annotations inject
-/// the code inside the module instead of directly below the annotated element.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
     let unconstrained_functions = m.functions().filter(
