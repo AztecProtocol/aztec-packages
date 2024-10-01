@@ -298,9 +298,9 @@ e2e-cli-wallet:
 network-smoke:
   ARG values_file
   LOCALLY
-  RUN NAMESPACE=smoke FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+  RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
 network-transfer:
   ARG values_file
   LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts

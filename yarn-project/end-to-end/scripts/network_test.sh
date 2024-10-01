@@ -43,6 +43,8 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
+JEST_ARGS="--runInBand $TEST"
+
 # Install the Helm chart
 helm install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
@@ -50,7 +52,7 @@ helm install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
       --values "$(git rev-parse --show-toplevel)/spartan/aztec-network/values/$VALUES_FILE" \
       --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set test="$TEST" \
+      --set test="$JEST_ARGS" \
       --wait \
       --debug \
       --wait-for-jobs=true \
