@@ -43,7 +43,7 @@ export class DebugLog extends Instruction {
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
 
     const memoryOperations = { reads: 1 + fieldsSize + this.messageSize, writes: 0, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);
     const fields = memory.getSlice(fieldsOffset, fieldsSize);

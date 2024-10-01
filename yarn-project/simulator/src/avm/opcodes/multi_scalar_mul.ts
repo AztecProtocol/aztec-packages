@@ -68,7 +68,7 @@ export class MultiScalarMul extends Instruction {
       writes: 3 /* output triplet */,
       indirect: this.indirect,
     };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: pointsReadLength }));
+    context.machineState.consumeGas(this.gasCost(pointsReadLength));
     // Get the unrolled scalar (lo & hi) representing the scalars
     const scalarsVector = memory.getSlice(scalarsOffset, scalarReadLength);
     memory.checkTagsRange(TypeTag.FIELD, scalarsOffset, scalarReadLength);

@@ -43,7 +43,7 @@ export class JumpI extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [condOffset] = Addressing.fromWire(this.indirect).resolve([this.condOffset], memory);
     const condition = memory.getAs<IntegralValue>(condOffset);
