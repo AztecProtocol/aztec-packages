@@ -1,5 +1,6 @@
 use crate::{
     components::{
+    previous_kernel_validator::PreviousKernelValidator,
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
@@ -10,21 +11,13 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
     private_kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData
 },
-    constants::{
-    PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
-    PRIVATE_KERNEL_RESET_TINY_INDEX
-}
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX}
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_INIT_INDEX,
     PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX,
-    PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
-    PRIVATE_KERNEL_RESET_SMALL_INDEX,
-    PRIVATE_KERNEL_RESET_TINY_INDEX,
+    PRIVATE_KERNEL_RESET_INDEX,
 ];
 
 pub struct PrivateKernelInnerCircuitPrivateInputs {
@@ -47,6 +40,9 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         };
 
         // Validate inputs.
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
         let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
         let private_call_stack_size = previous_kernel_array_lengths.private_call_stack;
@@ -54,10 +50,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
         private_call_data_validator.validate(output.end.note_hashes);
-        if !std::runtime::is_unconstrained() {
-            // TODO(#7410) currently stubbed out until tube vk handled
-            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
