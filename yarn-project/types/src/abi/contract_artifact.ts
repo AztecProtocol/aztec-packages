@@ -256,7 +256,23 @@ function getStorageLayout(input: NoirCompiledContract) {
 function getNoteTypes(input: NoirCompiledContract) {
   type t = {
     kind: string;
-    fields: [{ kind: string; sign: boolean; value: string }, { kind: string; value: string }];
+    fields: [
+      { kind: string; sign: boolean; value: string },
+      { kind: string; value: string },
+      {
+        fields: {
+          name: string;
+          value: {
+            kind: string;
+            value: string | boolean;
+            fields: [
+              { name: string; value: { kind: string; sign: boolean; value: string } },
+              { name: string; value: { kind: string; value: boolean } },
+            ];
+          };
+        }[];
+      },
+    ];
   };
 
   const notes = input.outputs.globals.notes as t[];
@@ -269,9 +285,17 @@ function getNoteTypes(input: NoirCompiledContract) {
     const name = note.fields[1].value as string;
     // Note id is encoded as a hex string
     const id = NoteSelector.fromField(Fr.fromString(note.fields[0].value));
+    const fields = note.fields[2].fields.map(field => {
+      return {
+        name: field.name,
+        index: Number(field.value.fields[0].value.value), // TODO: is this hex or decimal?
+        nullable: field.value.fields[1].value.value,
+      };
+    });
     acc[name] = {
       id,
       typ: name,
+      fields,
     };
     return acc;
   }, {});
