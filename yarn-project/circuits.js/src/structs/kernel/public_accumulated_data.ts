@@ -21,9 +21,9 @@ import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
-import { Nullifier } from '../nullifier.js';
+import { ScopedNullifier } from '../nullifier.js';
 import { PublicCallRequest } from '../public_call_request.js';
-import { PublicDataUpdateRequest } from '../public_data_update_request.js';
+import { ContractStorageUpdateRequest } from '../contract_storage_update_request.js';
 
 export class PublicAccumulatedData {
   constructor(
@@ -34,7 +34,7 @@ export class PublicAccumulatedData {
     /**
      * The new nullifiers made in this transaction.
      */
-    public readonly nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
+    public readonly nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
@@ -58,7 +58,7 @@ export class PublicAccumulatedData {
      * All the public data update requests made in this transaction.
      */
     public readonly publicDataUpdateRequests: Tuple<
-      PublicDataUpdateRequest,
+      ContractStorageUpdateRequest,
       typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
     /**
@@ -164,12 +164,12 @@ export class PublicAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new this(
       reader.readArray(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
       reader.readObject(Gas),
     );
@@ -179,12 +179,12 @@ export class PublicAccumulatedData {
     const reader = FieldReader.asReader(fields);
     return new this(
       reader.readArray(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
       reader.readObject(Gas),
     );
@@ -202,12 +202,12 @@ export class PublicAccumulatedData {
   static empty() {
     return new this(
       makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
-      makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty),
+      makeTuple(MAX_NULLIFIERS_PER_TX, ScopedNullifier.empty),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
       Gas.empty(),
     );

@@ -14,10 +14,10 @@ import {
   NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS,
 } from '../constants.gen.js';
 import { countAccumulatedItems } from '../utils/index.js';
-import { PublicDataRead } from './public_data_read.js';
 import { ScopedReadRequest } from './read_request.js';
 import { RollupValidationRequests } from './rollup_validation_requests.js';
 import { TreeLeafReadRequest } from './tree_leaf_read_request.js';
+import { ContractStorageRead } from './contract_storage_read.js';
 
 /**
  * Validation requests accumulated during the execution of the transaction.
@@ -45,7 +45,7 @@ export class PublicValidationRequests {
     /**
      * All the public data reads made in this transaction.
      */
-    public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
+    public publicDataReads: Tuple<ContractStorageRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
   getSize() {
@@ -82,7 +82,7 @@ export class PublicValidationRequests {
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, TreeLeafReadRequest),
-      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
+      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, ContractStorageRead),
     );
   }
 
@@ -99,7 +99,7 @@ export class PublicValidationRequests {
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, TreeLeafReadRequest),
-      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
+      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, ContractStorageRead),
     );
   }
 
@@ -119,7 +119,7 @@ export class PublicValidationRequests {
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, TreeLeafReadRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, ContractStorageRead.empty),
     );
   }
 

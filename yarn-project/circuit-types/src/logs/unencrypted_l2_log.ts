@@ -9,11 +9,6 @@ export class UnencryptedL2Log {
   constructor(
     /**
      * Address of the contract that emitted the event
-     * NOTE: It would make sense to have the address only in `FunctionL2Logs` because contract address is shared for all
-     * function logs. I didn't do this because it would require us to have 2 FunctionL2Logs classes (one with contract
-     * address and one without) for unencrypted and encrypted because encrypted logs can't expose the address in an
-     * unencrypted form. For this reason separating the classes seems like a premature optimization.
-     * TODO: Optimize this once it makes sense.
      */
     public readonly contractAddress: AztecAddress,
     /** The data contents of the log. */

@@ -113,7 +113,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     return this.sideEffectCounter;
   }
 
-  private incrementSideEffectCounter() {
+  // TODO(dbanks12): make private when dual trace is removed
+  public incrementSideEffectCounter() {
     this.sideEffectCounter++;
   }
 

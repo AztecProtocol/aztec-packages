@@ -67,6 +67,7 @@ import { accumulateReturnValues } from '../common/index.js';
 import { type PublicExecutionResult, collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { assert } from 'console';
 
 function makeAvmProvingRequest(
   inputs: PublicKernelInnerCircuitPrivateInputs,
@@ -133,9 +134,9 @@ export class EnqueuedCallSimulator {
     );
     const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
 
-    const result = await this.publicExecutor.simulate(
+    const [result, vmCircuitPublicInputs] = await this.publicExecutor.simulate(
       executionRequest,
-      this.globalVariables,
+      previousPublicKernelOutput.constants,
       availableGas,
       tx.data.constants.txContext,
       pendingNullifiers,
@@ -168,7 +169,9 @@ export class EnqueuedCallSimulator {
       result.reverted,
     );
 
-    return await this.combineNestedExecutionResults(result, startVMCircuitOutput);
+    const enqueuedCallResults = await this.combineNestedExecutionResults(result, startVMCircuitOutput);
+    assert(JSON.stringify(enqueuedCallResults.kernelOutput) == JSON.stringify(vmCircuitPublicInputs));
+    return enqueuedCallResults;
   }
 
   private async combineNestedExecutionResults(

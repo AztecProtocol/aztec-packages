@@ -1,14 +1,16 @@
 import { type PublicExecutionRequest } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  CombinedConstantData, 
   Fr,
   Gas,
   type GlobalVariables,
   type Header,
-  type Nullifier,
   PublicAccumulatedDataArrayLengths,
   PublicValidationRequestArrayLengths,
+  type ScopedNullifier,
   type TxContext,
+  VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -23,6 +25,8 @@ import { type PublicExecutionResult } from './execution.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
+import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
+import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 
 /**
  * Handles execution of public functions.
@@ -49,15 +53,15 @@ export class PublicExecutor {
    */
   public async simulate(
     executionRequest: PublicExecutionRequest,
-    globalVariables: GlobalVariables,
+    constants: CombinedConstantData,
     availableGas: Gas,
     _txContext: TxContext,
-    pendingSiloedNullifiers: Nullifier[],
+    pendingSiloedNullifiers: ScopedNullifier[],
     transactionFee: Fr = Fr.ZERO,
     startSideEffectCounter: number = 0,
     previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths = PublicValidationRequestArrayLengths.empty(),
     previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.empty(),
-  ): Promise<PublicExecutionResult> {
+  ): Promise<[PublicExecutionResult, VMCircuitPublicInputs]> {
     const address = executionRequest.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
     const fnName = (await this.worldStateDB.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
@@ -65,11 +69,14 @@ export class PublicExecutor {
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();
 
-    const trace = new PublicSideEffectTrace(
+    const innerCallTrace = new PublicSideEffectTrace(
       startSideEffectCounter,
       previousValidationRequestArrayLengths,
       previousAccumulatedDataArrayLengths,
     );
+    // TODO(dbanks12): add previous lengths to enqueued call trace
+    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(startSideEffectCounter);
+    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
     const avmPersistableState = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
       this.worldStateDB,
       trace,
@@ -79,7 +86,7 @@ export class PublicExecutor {
     const avmExecutionEnv = createAvmExecutionEnvironment(
       executionRequest,
       this.header,
-      globalVariables,
+      constants.globalVariables,
       transactionFee,
     );
 
@@ -122,7 +129,15 @@ export class PublicExecutor {
       this.metrics.recordFunctionSimulation(bytecode.length, timer.ms());
     }
 
-    return publicExecutionResult;
+    const vmCircuitPublicInputs = enqueuedCallTrace.toVMCircuitPublicInputs(
+      constants,
+      avmExecutionEnv,
+      /*startGasLeft=*/ availableGas,
+      /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
+      avmResult,
+    );
+
+    return [publicExecutionResult, vmCircuitPublicInputs];
   }
 }
 

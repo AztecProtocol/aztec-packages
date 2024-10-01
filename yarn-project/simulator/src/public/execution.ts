@@ -1,4 +1,5 @@
 import {
+    UnencryptedL2Log,
   type PublicExecutionRequest,
   type SimulationError,
   type UnencryptedFunctionL2Logs,
@@ -15,9 +16,14 @@ import {
   type Nullifier,
   PublicCallStackItemCompressed,
   PublicInnerCallRequest,
-  type ReadRequest,
   RevertCode,
   type TreeLeafReadRequest,
+  ScopedNoteHash,
+  ScopedL2ToL1Message,
+  ScopedNullifier,
+  ScopedReadRequest,
+  ScopedLogHash,
+  ReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
