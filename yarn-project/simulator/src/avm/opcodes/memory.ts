@@ -64,7 +64,7 @@ export class Set extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], memory);
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
@@ -101,7 +101,7 @@ export class CMov extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 3, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [aOffset, bOffset, condOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.aOffset, this.bOffset, this.condOffset, this.dstOffset],
@@ -146,7 +146,7 @@ export class Cast extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
 
@@ -185,7 +185,7 @@ export class Mov extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
 
@@ -230,7 +230,7 @@ export class CalldataCopy extends Instruction {
     const cdStart = memory.get(cdStartOffset).toNumber();
     const copySize = memory.get(copySizeOffset).toNumber();
     const memoryOperations = { reads: 2, writes: copySize, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: copySize }));
+    context.machineState.consumeGas(this.gasCost(copySize));
 
     const transformedData = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
 
