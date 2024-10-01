@@ -7,9 +7,10 @@ use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
-// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fixed_fields, nullable_fields).
-// The fixed and nullable fields contain the name of the struct member and the index of where it starts in
-// the serialized note.
+// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
+// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
+// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
+// whether the field is nullable or not.
 comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 comptime fn compute_note_type_id(name: Quoted) -> Field {
@@ -147,8 +148,8 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     }
 }
 
-/// Generates note export for a given note struct. The export is a global variable that contains the note type id,
-/// the note name and information about note fields.
+/// Generates note export for a given note struct. The export is a global variable that contains note type id,
+/// note name and information about note fields (field name, index and whether the field is nullable or not).
 pub(crate) comptime fn generate_note_export(
     s: StructDefinition,
     note_type_id: Field,
