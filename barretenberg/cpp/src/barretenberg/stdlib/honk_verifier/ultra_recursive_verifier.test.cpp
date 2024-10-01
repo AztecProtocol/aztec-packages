@@ -170,14 +170,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         size_t block_idx = 0;
         for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
             info("block index: ", block_idx);
-            size_t sel_idx = 0;
             EXPECT_TRUE(b_10.selectors.size() == 13);
             EXPECT_TRUE(b_11.selectors.size() == 13);
             for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-
-                info("sel index: ", sel_idx);
                 check_eq(p_10, p_11);
-                sel_idx++;
             }
             block_idx++;
         }
@@ -215,10 +211,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        typename RecursiveFlavor::CommitmentLabels commitment_labels;
-        for (auto [label, key] : zip_view(commitment_labels.get_precomputed(), verifier.key->get_all())) {
-            info("label: ", label, " value: ", key.get_value());
-        }
+
         aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
             init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
         auto pairing_points = verifier.verify_proof(inner_proof, agg_obj);

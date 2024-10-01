@@ -527,7 +527,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
                 FF zero = FF(0);
-                zero.convert_constant_to_fixed_witness(builder);
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, is_dummy_round);
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): is it kosher to reassign like this?
                 scalar = FF::conditional_assign(dummy_round, zero, scalar);
