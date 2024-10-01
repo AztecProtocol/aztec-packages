@@ -177,7 +177,3 @@ metrics:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-
-# for local KIND tests we want to contact nodes with simple direct IP
-ingress:
-  enabled: false

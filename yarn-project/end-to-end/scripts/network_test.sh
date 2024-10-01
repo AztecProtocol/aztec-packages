@@ -46,9 +46,10 @@ fi
 JEST_ARGS="--runInBand $TEST"
 
 function show_status_until_pxe_ready() {
+  set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100} ; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "transfer" --timeout=5s 2>/dev/null ; then
+    if kubectl wait pod -l app==pxe --for=condition=Ready -n "transfer" --timeout=20s 2>/dev/null ; then
       break # we are up, stop showing status
     fi
     # show startup status
@@ -56,7 +57,7 @@ function show_status_until_pxe_ready() {
   done
 }
 
-show_status_until_pxe_ready
+show_status_until_pxe_ready &
 
 # Install the Helm chart
 helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
