@@ -48,13 +48,8 @@ contract Outbox is IOutbox {
     external
     override(IOutbox)
   {
-    if (msg.sender != address(ROLLUP)) {
-      revert Errors.Outbox__Unauthorized();
-    }
-
-    if (_root == bytes32(0)) {
-      revert Errors.Outbox__InsertingInvalidRoot();
-    }
+    require(msg.sender == address(ROLLUP), Errors.Outbox__Unauthorized());
+    require(_root != bytes32(0), Errors.Outbox__InsertingInvalidRoot());
 
     roots[_l2BlockNumber].root = _root;
     roots[_l2BlockNumber].minHeight = _minHeight;
@@ -81,38 +76,33 @@ contract Outbox is IOutbox {
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external override(IOutbox) {
-    if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
-      revert Errors.Outbox__BlockNotProven(_l2BlockNumber);
-    }
+    require(
+      _l2BlockNumber <= ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockNotProven(_l2BlockNumber)
+    );
 
-    if (msg.sender != _message.recipient.actor) {
-      revert Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender);
-    }
+    require(
+      msg.sender == _message.recipient.actor,
+      Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender)
+    );
 
-    if (block.chainid != _message.recipient.chainId) {
-      revert Errors.Outbox__InvalidChainId();
-    }
+    require(block.chainid == _message.recipient.chainId, Errors.Outbox__InvalidChainId());
 
     RootData storage rootData = roots[_l2BlockNumber];
 
     bytes32 blockRoot = rootData.root;
 
-    if (blockRoot == 0) {
-      revert Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber);
-    }
+    require(blockRoot != bytes32(0), Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber));
 
-    if (rootData.nullified[_leafIndex]) {
-      revert Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex);
-    }
+    require(
+      !rootData.nullified[_leafIndex], Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
+    );
     // TODO(#7218): We will eventually move back to a balanced tree and constrain the path length
     // to be equal to height - for now we just check the min
 
     // Min height = height of rollup layers
     // The smallest num of messages will require a subtree of height 1
     uint256 minHeight = rootData.minHeight;
-    if (minHeight > _path.length) {
-      revert Errors.Outbox__InvalidPathLength(minHeight, _path.length);
-    }
+    require(minHeight <= _path.length, Errors.Outbox__InvalidPathLength(minHeight, _path.length));
 
     bytes32 messageHash = _message.sha256ToField();
 

@@ -21,7 +21,6 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -40,7 +39,13 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalRouter, getPrivateKeyFromIndex } from './utils.js';
+import {
+  type SetupOptions,
+  deployCanonicalAuthRegistry,
+  deployCanonicalRouter,
+  getPrivateKeyFromIndex,
+  startAnvil,
+} from './utils.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 export type SubsystemsContext = {
@@ -65,7 +70,7 @@ type SnapshotEntry = {
 export function createSnapshotManager(
   testName: string,
   dataPath?: string,
-  config: Partial<AztecNodeConfig> = {},
+  config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
@@ -143,11 +148,8 @@ class SnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private dataPath: string,
-    private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
-      initialValidators: [],
-    },
+    private config: Partial<SetupOptions> = {},
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
@@ -292,7 +294,7 @@ export async function createAndSyncProverNode(
 async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
-  config: Partial<AztecNodeConfig> = {},
+  opts: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
@@ -302,22 +304,14 @@ async function setupFromFresh(
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
+  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
-  const anvil = await retry(
-    async () => {
-      const ethereumHostPort = await getPort();
-      aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-      const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
-      await anvil.start();
-      return anvil;
-    },
-    'Start anvil',
-    makeBackoff([5, 5, 5]),
-  );
+  const res = await startAnvil(opts.l1BlockTime);
+  const anvil = res.anvil;
+  aztecNodeConfig.l1RpcUrl = res.rpcUrl;
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
@@ -331,12 +325,17 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const deployL1ContractsValues = await setupL1Contracts(
-    aztecNodeConfig.l1RpcUrl,
-    hdAccount,
-    logger,
-    deployL1ContractsArgs,
-  );
+  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+
+  if (opts.l1StartTime) {
+    await ethCheatCodes.warp(opts.l1StartTime);
+  }
+
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+    salt: opts.salt,
+    initialValidators: opts.initialValidators,
+    ...deployL1ContractsArgs,
+  });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 

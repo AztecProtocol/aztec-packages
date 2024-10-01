@@ -1,6 +1,6 @@
 import { type Tx, mockTx } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, GasSettings } from '@aztec/circuits.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 
@@ -37,7 +37,7 @@ describe('GasTxValidator', () => {
       inclusionFee: new Fr(TX_FEE),
     });
     payer = tx.data.feePayer;
-    expectedBalanceSlot = pedersenHash([FeeJuiceContract.storage.balances.slot, payer]);
+    expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
 
     expect(tx.data.constants.txContext.gasSettings.getFeeLimit()).toEqual(new Fr(TX_FEE));
   });

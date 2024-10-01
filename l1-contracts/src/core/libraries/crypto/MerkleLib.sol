@@ -47,9 +47,10 @@ library MerkleLib {
       indexAtHeight >>= 1;
     }
 
-    if (subtreeRoot != _expectedRoot) {
-      revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot, _leaf, _index);
-    }
+    require(
+      subtreeRoot == _expectedRoot,
+      Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot, _leaf, _index)
+    );
   }
 
   /**

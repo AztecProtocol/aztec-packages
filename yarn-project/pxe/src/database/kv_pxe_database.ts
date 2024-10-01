@@ -495,7 +495,9 @@ export class KVPxeDatabase implements PxeDatabase {
     return true;
   }
 
-  addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+  async addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+    await this.#addScope(completeAddress.address);
+
     return this.#db.transaction(() => {
       const addressString = completeAddress.address.toString();
       const buffer = completeAddress.toBuffer();
