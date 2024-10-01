@@ -2,11 +2,9 @@ import { EthAddress } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { inspect } from 'util';
 
-import { type Signable } from '../p2p/signature_utils.js';
-
-export class EpochProofQuotePayload implements Signable {
+export class EpochProofQuotePayload {
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
@@ -50,17 +48,23 @@ export class EpochProofQuotePayload implements Signable {
     );
   }
 
-  getPayloadToSign(): Buffer {
-    const abi = parseAbiParameters('uint256, uint256, uint256, address, uint32');
-    const encodedData = encodeAbiParameters(abi, [
-      this.epochToProve,
-      this.validUntilSlot,
-      this.bondAmount,
-      this.prover.toString(),
-      this.basisPointFee,
-    ] as const);
+  toViemArgs(): {
+    epochToProve: bigint;
+    validUntilSlot: bigint;
+    bondAmount: bigint;
+    prover: `0x${string}`;
+    basisPointFee: number;
+  } {
+    return {
+      epochToProve: this.epochToProve,
+      validUntilSlot: this.validUntilSlot,
+      bondAmount: this.bondAmount,
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
 
-    // NOTE: trim the first two bytes to get rid of the `0x` prefix
-    return Buffer.from(encodedData.slice(2), 'hex');
+  [inspect.custom](): string {
+    return `EpochProofQuotePayload { epochToProve: ${this.epochToProve}, validUntilSlot: ${this.validUntilSlot}, bondAmount: ${this.bondAmount}, prover: ${this.prover}, basisPointFee: ${this.basisPointFee} }`;
   }
 }
