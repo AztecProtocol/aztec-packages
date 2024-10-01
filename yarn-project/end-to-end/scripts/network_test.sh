@@ -49,7 +49,7 @@ function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100} ; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "transfer" --timeout=20s 2>/dev/null ; then
+    if kubectl wait pod -l app==pxe --for=condition=Ready -n "transfer" --timeout=20s >/dev/null 2>/dev/null ; then
       break # we are up, stop showing status
     fi
     # show startup status
@@ -70,7 +70,28 @@ helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-n
       --wait-for-jobs=true \
       --timeout=30m
 
-#      --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
-#      --set test="$JEST_ARGS" \
+# for local debugging:
+# helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+# helm repo add elastic https://helm.elastic.co
+# helm repo update
+# helm dependency build "$(git rev-parse --show-toplevel)/spartan/metrics/"
+# kubectl create -f https://download.elastic.co/downloads/eck/2.14.0/crds.yaml
+# helm upgrade --install metrics "$(git rev-parse --show-toplevel)/spartan/metrics/" --namespace metrics --create-namespace
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
+
+function forward_pxe_k8s_port() {
+  # NOTE we fail silently, and work in the background
+  kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true
+}
+# tunnel in to get access directly to our PXE service in k8s
+(kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+
+# run our test in the host network namespace (so we can access the above with localhost)
+docker run --rm --network=host \
+  -e SCENARIO=default \
+  -e PXE_URL=http://localhost:9082 \
+  -e DEBUG="aztec:*" \
+  -e LOG_LEVEL=debug \
+  -e LOG_JSON=1 \
+  aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
