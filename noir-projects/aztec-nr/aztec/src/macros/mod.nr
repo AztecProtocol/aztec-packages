@@ -164,8 +164,8 @@ comptime fn generate_note_exports() -> Quoted {
     // Second value in each tuple is `note_serialized_len` and that is ignored because it's only used when
     // generating the `compute_note_hash_and_optionally_a_nullifier` function.
     notes.map(
-        | (s, _, note_type_id, _): (StructDefinition, u32, Field, [(Quoted, u32, bool)]) | {
-            generate_note_export(s, note_type_id)
+        | (s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)]) | {
+            generate_note_export(s, note_type_id, fields)
         }
     ).join(quote {})
 }

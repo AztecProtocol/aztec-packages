@@ -147,14 +147,36 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     }
 }
 
-pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: Field) -> Quoted {
+/// Generates note export for a given note struct. The export is a global variable that contains the note type id,
+/// the note name and information about note fields.
+pub(crate) comptime fn generate_note_export(
+    s: StructDefinition,
+    note_type_id: Field,
+    fields: [(Quoted, u32, bool)]
+) -> Quoted {
     let name = s.name();
     let global_export_name = f"{name}_EXPORTS".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
+
+    let mut note_fields = &[];
+    let mut note_field_constructors = &[];
+    for field in fields {
+        let (name, index, nullable) = field;
+        note_fields = note_fields.push_back(quote { $name: aztec::note::note_field::NoteField });
+        note_field_constructors = note_field_constructors.push_back(quote { aztec::note::note_field::NoteField { index: $index, nullable: $nullable }});
+    }
+
+    let note_fields = note_fields.join(quote {,});
+    let note_field_constructors = note_field_constructors.join(quote {,});
+
     quote {
+        struct NoteFields {
+            $note_fields
+        }
+
         #[abi(notes)]
-        global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id,$note_name_as_str);
+        global $global_export_name: (Field, str<$note_name_str_len>, NoteFields) = ($note_type_id,$note_name_as_str, NoteFields { $note_field_constructors });
     }
 }
 
