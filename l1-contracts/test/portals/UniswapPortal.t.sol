@@ -90,7 +90,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
-      )
+        )
     });
 
     return message.sha256ToField();
@@ -122,7 +122,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-      )
+        )
     });
 
     return message.sha256ToField();
@@ -153,7 +153,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-      )
+        )
     });
 
     return message.sha256ToField();

@@ -143,7 +143,7 @@ global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de503
 global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
 
 // CONTRACT CLASS CONSTANTS
-global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 20000;
+global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
@@ -210,11 +210,11 @@ global L2_GAS_PER_LOG_BYTE: u32 = 4;
 global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
 
 // CANONICAL CONTRACT ADDRESSES
-global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x2ace300b02ca5ab0a25052b1e852913a47292096997ca09f758c0e3624e84560);
-global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x25d93dc07b5baaf53a98caeae2679df3528cb83e11e2640a57a0a53abbaaadb9);
-global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x1b6d5873cef5a35f681ab9468527f356c96e09b3c64603aef404ec2ad80aa3a9);
-global FEE_JUICE_ADDRESS = AztecAddress::from_field(0x1abe6c7f5c4caf04cbf7556495e08ad9c0a225a5f9d33554ae07285b13c494d7);
-global ROUTER_ADDRESS = AztecAddress::from_field(0x1d8f25db3e8faa6a96cb1ecf57876a2ee04581deb3c4f181488ccd817abcbdb0);
+global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x30539494e4c86792ef4265203db5434af9a2a39f02cb16627ea990a31c93bb3a);
+global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x2f4777538e15d064071a53d91bbb6d6881fdd71505bd786c368091aff228af17);
+global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x1764ce12e414933685cbdeb8e9781c2a63dc7df5e775580d306aa8044323b31c);
+global FEE_JUICE_ADDRESS = AztecAddress::from_field(0x2c5b3e3edf047c3f6f7a54593796997e9e7c1eeb7be4603bee7a6bf0acde76fc);
+global ROUTER_ADDRESS = AztecAddress::from_field(0x1eca73fe37e2e759f257a4a2d5aeff9561c4d3dd549f8edecd4f19a8adc9a49c);
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH: u32 = 1;
@@ -327,7 +327,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3842;
 global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**

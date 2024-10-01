@@ -129,6 +129,10 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.binary_op_id.set_if_valid_index(i, rows[i].binary_op_id);
                 polys.binary_sel_bin.set_if_valid_index(i, rows[i].binary_sel_bin);
                 polys.binary_start.set_if_valid_index(i, rows[i].binary_start);
+                polys.bytecode_end_latch.set_if_valid_index(i, rows[i].bytecode_end_latch);
+                polys.bytecode_length_remaining.set_if_valid_index(i, rows[i].bytecode_length_remaining);
+                polys.bytecode_packed.set_if_valid_index(i, rows[i].bytecode_packed);
+                polys.bytecode_running_hash.set_if_valid_index(i, rows[i].bytecode_running_hash);
                 polys.cmp_a_hi.set_if_valid_index(i, rows[i].cmp_a_hi);
                 polys.cmp_a_lo.set_if_valid_index(i, rows[i].cmp_a_lo);
                 polys.cmp_b_hi.set_if_valid_index(i, rows[i].cmp_b_hi);

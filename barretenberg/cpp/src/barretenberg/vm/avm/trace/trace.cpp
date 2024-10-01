@@ -21,6 +21,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/fixed_bytes.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
@@ -279,12 +280,14 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
 AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
                                  ExecutionHints execution_hints_,
                                  uint32_t side_effect_counter,
-                                 std::vector<FF> calldata)
+                                 std::vector<FF> calldata,
+                                 const std::vector<std::vector<uint8_t>>& all_contract_bytecode)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : calldata(std::move(calldata))
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
+    , bytecode_trace_builder(all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
@@ -2498,8 +2501,10 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 
     auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
     Row row = create_kernel_output_opcode_for_leaf_index(indirect, clk, log_offset, dest_offset, uint32_t(leaf_index));
-    kernel_trace_builder.op_l1_to_l2_msg_exists(
-        clk, uint32_t(leaf_index) /*side_effect_counter*/, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+    kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
+                                                uint32_t(leaf_index) /*side_effect_counter*/,
+                                                row.main_ia,
+                                                /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     // Constrain gas cost
@@ -2606,12 +2611,12 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     // Truncate the hash to 31 bytes so it will be a valid field element
     FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
 
-    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and is
-    // prefixed to message see toBuffer in unencrypted_l2_log.ts
+    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and
+    // is prefixed to message see toBuffer in unencrypted_l2_log.ts
     FF length_of_preimage = num_bytes + 32 + 4;
     // The + 4 is because the kernels store the length of the
-    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need to
-    // add four to the length here. [Copied from unencrypted_l2_log.ts]
+    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need
+    // to add four to the length here. [Copied from unencrypted_l2_log.ts]
     FF metadata_log_length = length_of_preimage + 4;
     Row row = Row{
         .main_clk = clk,
@@ -3350,8 +3355,8 @@ void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
  * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
- * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb <
- * radix.
+ * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb
+ * < radix.
  * @param num_limbs The number of limbs to the value into.
  * @param output_bits Should the output be U1s instead of U8s?
  */
@@ -3877,6 +3882,18 @@ std::vector<Row> AvmTraceBuilder::finalize()
     kernel_trace_builder.finalize(main_trace);
 
     /**********************************************************************************************
+     * BYTECODE TRACE INCLUSION
+     **********************************************************************************************/
+
+    bytecode_trace_builder.build_bytecode_columns();
+    // Should not have to resize in the future, but for now we do
+    if (bytecode_trace_builder.size() > main_trace_size) {
+        main_trace_size = bytecode_trace_builder.size();
+        main_trace.resize(main_trace_size);
+    }
+    bytecode_trace_builder.finalize(main_trace);
+
+    /**********************************************************************************************
      * ONLY FIXED TABLES FROM HERE ON
      **********************************************************************************************/
 
@@ -3962,7 +3979,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
     // In case the range entries are larger than the main trace, we need to resize the main trace
-    // Normally this would happen at the start of finalize, but we cannot finalize the range checks until after gas :(
+    // Normally this would happen at the start of finalize, but we cannot finalize the range checks until after gas
+    // :(
     if (range_entries.size() > new_trace_size) {
         main_trace.resize(range_entries.size(), {});
         new_trace_size = range_entries.size();

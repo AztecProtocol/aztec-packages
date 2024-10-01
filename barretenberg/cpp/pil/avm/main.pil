@@ -5,6 +5,7 @@ include "constants_gen.pil";
 include "constants_misc.pil";
 include "gas.pil";
 include "kernel.pil";
+include "bytecode.pil";
 include "fixed/powers.pil";
 include "gadgets/conversion.pil";
 include "gadgets/sha256.pil";
