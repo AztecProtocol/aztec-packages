@@ -33,7 +33,31 @@ function wipe_non_cache_docker_state {
 }
 
 EARTHLY_RUN_STATS_JSON="earthly-run-stats.json"
-EARTHLY_ARGS="--logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-}"
+# Run earthly with our necesary secrets initialized
+# AWS credentials can be blank, however we will not use the S3 cache at all if so.
+if [ "$(git rev-parse --abbrev-ref HEAD)" = master ] || [ "$(git rev-parse --abbrev-ref HEAD)" = *build-cache* ] ; then
+  # We upload to S3 on master. Meant for CI on master.
+  S3_BUILD_CACHE_UPLOAD=true
+else
+  # Don't upload to S3 on pull request branches (for now, at least)
+  S3_BUILD_CACHE_UPLOAD=false
+fi
+
+EARTHLY_ARGS=""
+
+function run_earthly() {
+  # We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
+  # we do not run with minio in CI
+  earthly --logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON \
+          --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+          --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+          --secret S3_BUILD_CACHE_MINIO_URL="" \
+          --secret S3_BUILD_CACHE_UPLOAD="$S3_BUILD_CACHE_UPLOAD" \
+          --secret S3_BUILD_CACHE_DOWNLOAD="true" \
+          --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
+          $EARTHLY_ARGS \
+          $@
+}
 
 function print_earthly_command_timings() {
   jq --version >/dev/null || return
@@ -57,7 +81,7 @@ function print_earthly_command_timings() {
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
-  if earthly $EARTHLY_ARGS $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
+  if run_earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
     print_earthly_command_timings || true
     exit 0  # Success, exit the script
   else

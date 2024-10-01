@@ -12,6 +12,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -99,8 +100,8 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getBlockRootRollupFinalProof(
-    input: BlockRootRollupInputs,
+  getEmptyBlockRootRollupProof(
+    input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;

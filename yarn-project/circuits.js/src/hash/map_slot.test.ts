@@ -12,7 +12,7 @@ describe('Map slot', () => {
     const slot = deriveStorageSlotInMap(mapSlot, key);
 
     expect(slot.toString()).toMatchInlineSnapshot(
-      `"0x2499880e2b1b831785c17286f99a0d5122fee784ce7b1c04e380c4a991da819a"`,
+      `"0x15b9fe39449affd8b377461263e9d2b610b9ad40580553500b4e41d9cbd887ac"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

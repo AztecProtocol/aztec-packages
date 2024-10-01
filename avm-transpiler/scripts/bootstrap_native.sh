@@ -9,7 +9,7 @@ export GIT_DIRTY=false
 if [ -f ".gitrepo" ]; then
   export GIT_COMMIT=$(awk '/commit =/ {print $3}' .gitrepo)
 else
-  export GIT_COMMIT=$(git rev-parse --verify HEAD)
+  export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 fi
 
 # Build native.

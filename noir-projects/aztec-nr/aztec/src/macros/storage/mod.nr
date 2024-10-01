@@ -1,4 +1,4 @@
-use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
+use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}, meta::unquote};
 
 use super::utils::get_serialized_size;
 use super::utils::is_note;
@@ -57,18 +57,25 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     let module = s.module();
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
+    let module_name_str = module_name.as_str_quote();
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
         $storage_impl
 
-        struct StorageLayout {
+        struct StorageLayoutFields {
             $storage_layout_fields
+        }
+
+        struct StorageLayout<let N: u32> {
+            contract_name: str<N>,
+            fields: StorageLayoutFields
         }
 
         #[abi(storage)]
         global $storage_layout_name = StorageLayout {
-            $storage_layout_constructors
+            contract_name: $module_name_str,
+            fields: StorageLayoutFields { $storage_layout_constructors }
         };
     }
 }

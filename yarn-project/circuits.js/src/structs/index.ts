@@ -78,6 +78,7 @@ export * from './rollup/base_or_merge_rollup_public_inputs.js';
 export * from './rollup/base_rollup.js';
 export * from './rollup/block_merge_rollup.js';
 export * from './rollup/block_root_or_block_merge_public_inputs.js';
+export * from './rollup/empty_block_root_rollup_inputs.js';
 export * from './rollup/block_root_rollup.js';
 export * from './rollup/merge_rollup.js';
 export * from './rollup/previous_rollup_block_data.js';
