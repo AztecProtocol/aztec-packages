@@ -95,7 +95,7 @@ import {
 import { getPrivateKernelResetArtifactName } from './utils/private_kernel_reset.js';
 
 export * from './artifacts.js';
-export { privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
+export { maxPrivateKernelResetDimensions, privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
 export * from './utils/private_kernel_reset.js';
 export * from './vks.js';
 

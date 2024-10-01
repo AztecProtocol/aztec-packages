@@ -1,4 +1,10 @@
 import {
+  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   PRIVATE_KERNEL_RESET_INDEX,
   type PrivateKernelResetDimensionsConfig,
   VK_TREE_HEIGHT,
@@ -8,17 +14,26 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
 
-import { createPrivateKernelResetTag, maxPrivateKernelResetDimensions } from '../utils/private_kernel_reset.js';
-
 const log = createConsoleLogger('aztec:autogenerate');
 
 const outputFilename = './src/private_kernel_reset_data.ts';
 
-const maxDimensionsTag = createPrivateKernelResetTag(maxPrivateKernelResetDimensions);
+// Must match the values in noir-projects/noir-protocol-circuits/crates/private-kernel-reset/src/main.nr
+const maxDimensions = [
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_ENCRYPTED_LOGS_PER_TX,
+];
 
 function generateImports() {
   return `
-    import { type PrivateKernelResetDimensionsConfig, type VerificationKeyData } from '@aztec/circuits.js';
+    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig, type VerificationKeyData } from '@aztec/circuits.js';
     import { type NoirCompiledCircuit } from '@aztec/types/noir';
     import { keyJsonToVKData } from './utils/vk_json.js';
   `;
@@ -113,9 +128,8 @@ function checkDimensionNames(config: PrivateKernelResetDimensionsConfig) {
 }
 
 function checkMaxDimensions(config: PrivateKernelResetDimensionsConfig) {
-  const maxValues = maxPrivateKernelResetDimensions.toValues();
-  if (!config.specialCases.some(dimensions => dimensions.every((v, i) => v === maxValues[i]))) {
-    throw new Error(`Max dimensions is not defined in the config. Expect: ${maxValues}`);
+  if (!config.specialCases.some(dimensions => dimensions.every((v, i) => v === maxDimensions[i]))) {
+    throw new Error(`Max dimensions is not defined in the config. Expected: ${maxDimensions}`);
   }
 }
 
@@ -147,6 +161,7 @@ const main = async () => {
   checkVkTreeSize(dimensionsList.length);
 
   const resetVariantTags = dimensionsList.map(dimensions => `_${dimensions.join('_')}`);
+  const maxDimensionsTag = maxDimensions.join('_');
   const importTags = dimensionsList
     .map(dimensions => dimensions.join('_'))
     .map(tag => (tag === maxDimensionsTag ? '' : `_${tag}`));
@@ -171,6 +186,10 @@ const main = async () => {
     ${generateVkIndexes(resetVariantTags)}
 
     export const privateKernelResetDimensionsConfig: PrivateKernelResetDimensionsConfig = ${JSON.stringify(config)};
+
+    export const maxPrivateKernelResetDimensions = PrivateKernelResetDimensions.fromValues([${maxDimensions.join(
+      ',',
+    )}]);
   `;
 
   await fs.writeFile(outputFilename, content);
