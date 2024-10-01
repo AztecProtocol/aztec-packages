@@ -51,6 +51,7 @@ helm install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
       --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
       --set test="$TEST" \
+      --debug \
       --wait \
       --wait-for-jobs=true \
       --timeout=30m
