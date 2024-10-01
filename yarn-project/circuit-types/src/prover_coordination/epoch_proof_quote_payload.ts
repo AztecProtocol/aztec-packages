@@ -1,15 +1,10 @@
 import { EthAddress } from '@aztec/circuits.js';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256 } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
-import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
-import { type Signable } from '../p2p/signature_utils.js';
-
-export class EpochProofQuotePayload implements Signable {
+export class EpochProofQuotePayload {
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
@@ -51,29 +46,6 @@ export class EpochProofQuotePayload implements Signable {
       fields.prover,
       fields.basisPointFee,
     );
-  }
-
-  static TYPE_HASH = Buffer32.fromBuffer(
-    keccak256(
-      Buffer.from(
-        'EpochProofQuote(uint256 epochToProve,uint256 validUntilSlot,uint256 bondAmount,address prover,uint32 basisPointFee)',
-      ),
-    ),
-  );
-
-  getPayloadToSign(): Buffer {
-    const abi = parseAbiParameters('bytes32, uint256, uint256, uint256, address, uint32');
-    const encodedData = encodeAbiParameters(abi, [
-      EpochProofQuotePayload.TYPE_HASH.to0xString(),
-      this.epochToProve,
-      this.validUntilSlot,
-      this.bondAmount,
-      this.prover.toString(),
-      this.basisPointFee,
-    ] as const);
-
-    // NOTE: trim the first two bytes to get rid of the `0x` prefix
-    return Buffer.from(encodedData.slice(2), 'hex');
   }
 
   toViemArgs(): {

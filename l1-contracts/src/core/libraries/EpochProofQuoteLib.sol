@@ -48,17 +48,4 @@ library EpochProofQuoteLib {
       )
     );
   }
-
-  function toDigest(EpochProofQuote memory quote, bytes32 domainSeparator)
-    internal
-    pure
-    returns (bytes32)
-  {
-    return keccak256(abi.encodePacked("\x19\x01", domainSeparator, hash(quote)));
-  }
-
-  function verify(SignedEpochProofQuote memory quote, bytes32 domainSeparator) internal pure {
-    bytes32 digest = toDigest(quote.quote, domainSeparator);
-    SignatureLib.verify(quote.signature, quote.quote.prover, digest);
-  }
 }

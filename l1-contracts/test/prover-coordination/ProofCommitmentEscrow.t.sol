@@ -8,16 +8,16 @@ import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
-import {EscrowERC20} from "./EscrowERC20.sol";
+import {TestERC20} from "../TestERC20.sol";
 
 // solhint-disable comprehensive-interface
 
 contract TestProofCommitmentEscrow is Test {
   ProofCommitmentEscrow internal _escrow;
-  EscrowERC20 internal _token;
+  TestERC20 internal _token;
 
   modifier setup() {
-    _token = new EscrowERC20();
+    _token = new TestERC20();
     _escrow = new ProofCommitmentEscrow(_token, address(this));
     _;
   }
