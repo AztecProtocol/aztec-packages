@@ -79,7 +79,7 @@ export async function deploy(
         partialAddress: partialAddress.toString(),
         initializationHash: instance.initializationHash.toString(),
         salt: salt.toString(),
-        transactionFee: deployed.transactionFee,
+        transactionFee: deployed.transactionFee?.toString(),
       });
     } else {
       log(`Contract deployed at ${address.toString()}`);
