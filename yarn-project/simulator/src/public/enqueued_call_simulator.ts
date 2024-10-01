@@ -123,6 +123,16 @@ export class EnqueuedCallSimulator {
   ): Promise<EnqueuedCallResult> {
     const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
     const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
+
+    const prevAccumulatedData =
+      phase === PublicKernelPhase.SETUP
+        ? previousPublicKernelOutput.endNonRevertibleData
+        : previousPublicKernelOutput.end;
+    const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
+      previousPublicKernelOutput.validationRequests,
+    );
+    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
+
     const result = await this.publicExecutor.simulate(
       executionRequest,
       this.globalVariables,
@@ -131,25 +141,25 @@ export class EnqueuedCallSimulator {
       pendingNullifiers,
       transactionFee,
       startSideEffectCounter,
+      previousValidationRequestArrayLengths,
+      previousAccumulatedDataArrayLengths,
     );
 
     const callStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
     callStack[0].item.contractAddress = callRequest.contractAddress;
     callStack[0].item.callContext = callRequest.callContext;
     callStack[0].item.argsHash = callRequest.argsHash;
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
+
     const accumulatedData = PublicAccumulatedData.empty();
     accumulatedData.publicCallStack[0] = callRequest;
+
     const startVMCircuitOutput = new VMCircuitPublicInputs(
       previousPublicKernelOutput.constants,
       callRequest,
       callStack,
-      PublicValidationRequestArrayLengths.new(previousPublicKernelOutput.validationRequests),
+      previousValidationRequestArrayLengths,
       PublicValidationRequests.empty(),
-      PublicAccumulatedDataArrayLengths.new(prevAccumulatedData),
+      previousAccumulatedDataArrayLengths,
       accumulatedData,
       startSideEffectCounter,
       startSideEffectCounter,

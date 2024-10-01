@@ -1,6 +1,15 @@
 import { type PublicExecutionRequest } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import {
+  Fr,
+  Gas,
+  type GlobalVariables,
+  type Header,
+  type Nullifier,
+  PublicAccumulatedDataArrayLengths,
+  PublicValidationRequestArrayLengths,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -46,6 +55,8 @@ export class PublicExecutor {
     pendingSiloedNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
     startSideEffectCounter: number = 0,
+    previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths = PublicValidationRequestArrayLengths.empty(),
+    previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.empty(),
   ): Promise<PublicExecutionResult> {
     const address = executionRequest.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
@@ -54,7 +65,11 @@ export class PublicExecutor {
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();
 
-    const trace = new PublicSideEffectTrace(startSideEffectCounter);
+    const trace = new PublicSideEffectTrace(
+      startSideEffectCounter,
+      previousValidationRequestArrayLengths,
+      previousAccumulatedDataArrayLengths,
+    );
     const avmPersistableState = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
       this.worldStateDB,
       trace,

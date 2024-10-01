@@ -14,6 +14,8 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
+  PublicAccumulatedDataArrayLengths,
+  PublicValidationRequestArrayLengths,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { SerializableContractInstance } from '@aztec/types/contracts';
@@ -363,6 +365,61 @@ describe('Side Effect Trace', () => {
         SideEffectLimitReachedError,
       );
       // NOTE: also cannot do a existent check once non-existent checks have filled up
+      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: true })).toThrow(
+        SideEffectLimitReachedError,
+      );
+    });
+
+    it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', () => {
+      trace = new PublicSideEffectTrace(
+        0,
+        new PublicValidationRequestArrayLengths(
+          MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+          MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+          MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+          MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+          MAX_PUBLIC_DATA_READS_PER_TX,
+        ),
+        new PublicAccumulatedDataArrayLengths(
+          MAX_NOTE_HASHES_PER_TX,
+          MAX_NULLIFIERS_PER_TX,
+          MAX_L2_TO_L1_MSGS_PER_TX,
+          0,
+          0,
+          MAX_UNENCRYPTED_LOGS_PER_TX,
+          MAX_PUBLIC_DATA_READS_PER_TX,
+          0,
+        ),
+      );
+      expect(() => trace.tracePublicStorageRead(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.tracePublicStorageWrite(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceNoteHashCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), false, true)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceNewNullifier(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceL1ToL2MessageCheck(new Fr(42), new Fr(42), new Fr(42), true)).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceNewL2ToL1Message(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceUnencryptedLog(new Fr(42), [new Fr(42), new Fr(42)])).toThrow(
+        SideEffectLimitReachedError,
+      );
+      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: false })).toThrow(
+        SideEffectLimitReachedError,
+      );
       expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: true })).toThrow(
         SideEffectLimitReachedError,
       );
