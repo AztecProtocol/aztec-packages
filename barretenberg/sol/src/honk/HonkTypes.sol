@@ -140,5 +140,6 @@ library Honk {
         Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
         Honk.G1ProofPoint shplonkQ;
+        Honk.G1ProofPoint kzgQuotient;
     }
 }
