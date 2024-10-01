@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727706010619,
+  "lastUpdate": 1727789414434,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "5a8f716c8ccaba8eb73420b6770d167c6337820a",
-          "message": "chore(master): Release 0.55.1",
-          "timestamp": "2024-09-17T14:58:32Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8533/commits/5a8f716c8ccaba8eb73420b6770d167c6337820a"
-        },
-        "date": 1726585793605,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13345.780553999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9197.849723 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5874.508230000018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4650.927584000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38117.038974,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38117039000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16944.340642,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16944341000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3605569186,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3605569186 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135711274,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135711274 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2954511877,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2954511877 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 112496803,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 112496803 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126591970,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126591970 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d8d04f6f0b9ca0aa36008dc53dde2562dc3afa63",
+          "message": "feat: ultra honk on Shplemini (#8886)\n\nSwitch UltraHonk to Shplemini, ensure recursive verifier are entirely\r\nthe same by resolving `conditional_assign` usage that was causing\r\ndifferent sigma polynomials for different circuit sizes, update\r\nnecessary constants and Prover.toml file for e2e.\r\n\r\nProof size goes from 439 to 463 Frs (Zeromorph had 28 + 1 commitments as\r\npart of the proof, each representing 4 Frs, Shplemini has 27 commitments\r\nand 28 evaluations from Gemini and 1 commitment from Shplonk)\r\n\r\nUltraHonk recursive verifier size goes from 1370662 to 953211 with\r\nconstant proofs",
+          "timestamp": "2024-10-01T13:03:43Z",
+          "tree_id": "4bcbc3c7d6893e754ffe18af5e5c906805b5bf82",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d8d04f6f0b9ca0aa36008dc53dde2562dc3afa63"
+        },
+        "date": 1727789406322,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31138.485177999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28706.887753 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5381.946073999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5011.4008189999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92495.310726,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92495313000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15208.748772999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15208749000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8279163612,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8279163612 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151756802,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151756802 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6782291979,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6782291979 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126219431,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126219431 ns\nthreads: 1"
           }
         ]
       }
