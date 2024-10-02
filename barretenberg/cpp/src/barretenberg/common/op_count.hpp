@@ -24,18 +24,11 @@
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_CYCLES_NAME(name) (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_CYCLES() (void)0
-#ifndef TRACY_TIME
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name) (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define BB_OP_COUNT_CYCLES() (void)0
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME() (void)0
-#else
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TIME_NAME(name) ZoneScopedN(name)
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TIME() BB_OP_COUNT_TIME_NAME(__func__)
-#endif
 #else
 /**
  * Provides an abstraction that counts operations based on function names.
