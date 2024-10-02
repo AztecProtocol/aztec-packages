@@ -5,8 +5,12 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
+  MockProofCommitmentEscrowAbi,
+  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
+  ProofCommitmentEscrowAbi,
+  ProofCommitmentEscrowBytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
@@ -26,7 +30,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators'>,
+  args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators' | 'useRealProofCommitmentEscrow'>,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -52,6 +56,12 @@ export const setupL1Contracts = async (
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
+    },
+    proofCommitmentEscrow: {
+      contractAbi: args.useRealProofCommitmentEscrow ? ProofCommitmentEscrowAbi : MockProofCommitmentEscrowAbi,
+      contractBytecode: args.useRealProofCommitmentEscrow
+        ? ProofCommitmentEscrowBytecode
+        : MockProofCommitmentEscrowBytecode,
     },
   };
 
