@@ -1,5 +1,6 @@
 use dep::aztec::{prelude::{NullifiableNote, PrivateContext}, macros::notes::note};
 
+// TODO(benesjan): Once nuking this nuke hack in contract_artifact.ts
 // This note has to have the same name as the standard `NFTNote` so that we get the same note type id.
 #[note]
 struct NFTNote {

@@ -1,4 +1,4 @@
-import { L1NotePayload, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
+import { L1NotePayload, Note, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type Logger } from '@aztec/foundation/log';
@@ -107,7 +107,7 @@ export async function produceNoteDaos(
         for (const log of functionLogs.logs) {
           const { data } = log;
           // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
-          // of Fr.SIZE_IN_BYTES as the partial fields should be simply concatenated.
+          // of Fr.SIZE_IN_BYTES as the nullable fields should be simply concatenated.
           if (data.length % Fr.SIZE_IN_BYTES === 0) {
             const nullableFields = [];
             for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
@@ -219,7 +219,7 @@ export async function produceNoteDaos(
         for (const log of functionLogs.logs) {
           const { data } = log;
           // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
-          // of Fr.SIZE_IN_BYTES as the partial fields should be simply concatenated.
+          // of Fr.SIZE_IN_BYTES as the nullable fields should be simply concatenated.
           if (data.length % Fr.SIZE_IN_BYTES === 0) {
             const nullableFields = [];
             for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
@@ -358,23 +358,28 @@ async function addNullableFieldsToPayload(
   }
 
   // Now we insert the nullable fields into the note
-  const modifiedNote = JSON.parse(JSON.stringify(payload.note));
+  const modifiedNoteItems = [...payload.note.items];
   let indexInNullable = 0;
   for (let i = 0; i < noteFields.length; i++) {
     const noteField = noteFields[i];
     if (noteField.nullable) {
-      if (i == nullableFields.length - 1) {
+      if (i == noteFields.length - 1) {
         // We are processing the last field so we simply insert the rest of the nullable fields at the end
-        modifiedNote.items.push(...nullableFields.slice(indexInNullable));
+        modifiedNoteItems.push(...nullableFields.slice(indexInNullable));
       } else {
         const noteFieldLength = noteFields[i + 1].index - noteField.index;
         const nullableFieldsToInsert = nullableFields.slice(indexInNullable, indexInNullable + noteFieldLength);
         indexInNullable += noteFieldLength;
         // Now we insert the nullable fields at the note field index
-        modifiedNote.items.splice(noteField.index, 0, ...nullableFieldsToInsert);
+        modifiedNoteItems.splice(noteField.index, 0, ...nullableFieldsToInsert);
       }
     }
   }
 
-  return new L1NotePayload(modifiedNote, payload.contractAddress, payload.storageSlot, payload.noteTypeId);
+  return new L1NotePayload(
+    new Note(modifiedNoteItems),
+    payload.contractAddress,
+    payload.storageSlot,
+    payload.noteTypeId,
+  );
 }
