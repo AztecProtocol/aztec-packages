@@ -4,19 +4,26 @@ import { ContractNotFoundError } from '@aztec/simulator';
 
 import { type PxeDatabase } from '../database/pxe_database.js';
 
+/**
+ * Inserts publicly delivered nullable fields into the note payload.
+ * @param db - PXE database used to fetch contract instance and artifact.
+ * @param payload - Note payload to which nullable fields should be added.
+ * @param nullableFields - List of nullable fields to be added to the note payload.
+ * @returns Note payload with nullable fields added.
+ */
 export async function addNullableFieldsToPayload(
-  pxeDb: PxeDatabase,
+  db: PxeDatabase,
   payload: L1NotePayload,
   nullableFields: Fr[],
 ): Promise<L1NotePayload> {
-  const instance = await pxeDb.getContractInstance(payload.contractAddress);
+  const instance = await db.getContractInstance(payload.contractAddress);
   if (!instance) {
     throw new ContractNotFoundError(
       `Could not find instance for ${payload.contractAddress.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
     );
   }
 
-  const artifact = await pxeDb.getContractArtifact(instance.contractClassId);
+  const artifact = await db.getContractArtifact(instance.contractClassId);
   if (!artifact) {
     throw new Error(
       `Could not find artifact for contract class ${instance.contractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
@@ -29,7 +36,10 @@ export async function addNullableFieldsToPayload(
     throw new Error(`Could not find note fields for note type ${payload.noteTypeId.toString()}.`);
   }
 
-  // Now we insert the nullable fields into the note
+  // We sort note fields by index so that we can iterate over them in order.
+  noteFields.sort((a, b) => a.index - b.index);
+
+  // Now we insert the nullable fields into the note based on its indices defined in the ABI.
   const modifiedNoteItems = [...payload.note.items];
   let indexInNullable = 0;
   for (let i = 0; i < noteFields.length; i++) {

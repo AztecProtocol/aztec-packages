@@ -46,6 +46,8 @@ export async function produceNoteDaos(
   incomingDeferredNote: DeferredNoteDao | undefined;
   outgoingDeferredNote: DeferredNoteDao | undefined;
 }> {
+  // WARNING: This code is full of tech debt and will be refactored once we have final design of partial notes
+  // delivery.
   if (!ivpkM && !ovpkM) {
     throw new Error('Both ivpkM and ovpkM are undefined. Cannot create note.');
   }
@@ -98,12 +100,16 @@ export async function produceNoteDaos(
           unencryptedLogs,
         );
       }
-    } else if ((e as any).message.includes('failed to solve blackbox function: embedded_curve_add')) {
+    } else if (
+      (e as any).message.includes('failed to solve blackbox function: embedded_curve_add') ||
+      (e as any).message.includes('Could not find key prefix.')
+    ) {
       // TODO(#8769): This branch is a temporary partial notes delivery solution that should be eventually replaced.
-      // This error occurs when we are dealing with a partial note and is thrown when calling
-      // `note.compute_note_hash()` in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with
-      // partial notes because in the partial flow we receive a note log of a note that is missing some fields
-      // here and then we try to compute the note hash with MSM while some of the fields are zeroed out.
+      // Both error messages above occur only when we are dealing with a partial note and are thrown when calling
+      // `note.compute_note_hash()` or `note.compute_nullifier_without_context()`
+      // in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with partial notes because in the
+      // partial flow we receive a note log of a note that is missing some fields here and then we try to compute
+      // the note hash with MSM while some of the fields are zeroed out (or get a nsk for zero npk_m_hash).
       for (const functionLogs of unencryptedLogs.functionLogs) {
         for (const log of functionLogs.logs) {
           const { data } = log;
@@ -119,19 +125,26 @@ export async function produceNoteDaos(
             // We insert the nullable fields into the note and then we try to produce the note dao again
             const payloadWithNullableFields = await addNullableFieldsToPayload(pxeDb, payload, nullableFields);
 
-            ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
-              simulator,
-              pxeDb,
-              ivpkM,
-              undefined, // We only care about incoming notes in this case as that is where the partial flow got triggered.
-              payloadWithNullableFields,
-              txHash,
-              noteHashes,
-              dataStartIndexForTx,
-              excludedIndices,
-              logger,
-              UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
-            ));
+            try {
+              ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
+                simulator,
+                pxeDb,
+                ivpkM,
+                undefined, // We only care about incoming notes in this case as that is where the partial flow got triggered.
+                payloadWithNullableFields,
+                txHash,
+                noteHashes,
+                dataStartIndexForTx,
+                excludedIndices,
+                logger,
+                UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
+              ));
+            } catch (e) {
+              if (!(e as any).message.includes('Could not find key prefix.')) {
+                throw e;
+              }
+            }
+
             if (incomingDeferredNote) {
               // This should not happen as we should first get contract not found error before the blackbox func error.
               throw new Error('Partial notes should never be deferred.');
@@ -146,7 +159,7 @@ export async function produceNoteDaos(
       }
 
       if (!incomingNote) {
-        logger.error(`Could not process partial note because of "${e}". Discarding note...`);
+        logger.error(`Partial note note found. Discarding note...`);
       }
     } else {
       logger.error(`Could not process note because of "${e}". Discarding note...`);
@@ -210,12 +223,16 @@ export async function produceNoteDaos(
           unencryptedLogs,
         );
       }
-    } else if ((e as any).message.includes('failed to solve blackbox function: embedded_curve_add')) {
+    } else if (
+      (e as any).message.includes('failed to solve blackbox function: embedded_curve_add') ||
+      (e as any).message.includes('Could not find key prefix.')
+    ) {
       // TODO(#8769): This branch is a temporary partial notes delivery solution that should be eventually replaced.
-      // This error occurs when we are dealing with a partial note and is thrown when calling
-      // `note.compute_note_hash()` in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with
-      // partial notes because in the partial flow we receive a note log of a note that is missing some fields
-      // here and then we try to compute the note hash with MSM while some of the fields are zeroed out.
+      // Both error messages above occur only when we are dealing with a partial note and are thrown when calling
+      // `note.compute_note_hash()` or `note.compute_nullifier_without_context()`
+      // in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with partial notes because in the
+      // partial flow we receive a note log of a note that is missing some fields here and then we try to compute
+      // the note hash with MSM while some of the fields are zeroed out (or get a nsk for zero npk_m_hash).
       for (const functionLogs of unencryptedLogs.functionLogs) {
         for (const log of functionLogs.logs) {
           const { data } = log;
@@ -231,19 +248,26 @@ export async function produceNoteDaos(
             // We insert the nullable fields into the note and then we try to produce the note dao again
             const payloadWithNullableFields = await addNullableFieldsToPayload(pxeDb, payload, nullableFields);
 
-            ({ outgoingNote, outgoingDeferredNote } = await produceNoteDaos(
-              simulator,
-              pxeDb,
-              undefined, // We only care about outgoing notes in this case as that is where the partial flow got triggered.
-              ovpkM,
-              payloadWithNullableFields,
-              txHash,
-              noteHashes,
-              dataStartIndexForTx,
-              excludedIndices,
-              logger,
-              UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
-            ));
+            try {
+              ({ outgoingNote, outgoingDeferredNote } = await produceNoteDaos(
+                simulator,
+                pxeDb,
+                undefined, // We only care about outgoing notes in this case as that is where the partial flow got triggered.
+                ovpkM,
+                payloadWithNullableFields,
+                txHash,
+                noteHashes,
+                dataStartIndexForTx,
+                excludedIndices,
+                logger,
+                UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
+              ));
+            } catch (e) {
+              if (!(e as any).message.includes('Could not find key prefix.')) {
+                throw e;
+              }
+            }
+
             if (outgoingNote || outgoingDeferredNote) {
               // We managed to complete the partial note so we terminate the search.
               break;
