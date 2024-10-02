@@ -187,3 +187,4 @@ metrics:
     successThreshold: 1
     failureThreshold: 3
   storage: "8Gi"
+  fileSystemUser: 472
