@@ -1,4 +1,4 @@
-import { PROVING_STATUS, type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -35,52 +35,23 @@ describe('prover/orchestrator/failures', () => {
     });
 
     it.each([
-      [
-        'Base Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue('Base Rollup Failed');
-        },
-      ],
-      [
-        'Merge Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue('Merge Rollup Failed');
-        },
-      ],
+      ['Base Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue(msg)],
+      ['Merge Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue(msg)],
       [
         'Block Root Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue('Block Root Rollup Failed');
-        },
+        (msg: string) => jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue(msg),
       ],
       [
         'Block Merge Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue('Block Merge Rollup Failed');
-        },
+        (msg: string) => jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue(msg),
       ],
-      [
-        'Root Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue('Root Rollup Failed');
-        },
-      ],
-      [
-        'Base Parity Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue('Base Parity Failed');
-        },
-      ],
-      [
-        'Root Parity Failed',
-        () => {
-          jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue('Root Parity Failed');
-        },
-      ],
-    ] as const)('handles a %s error', async (message: string, fn: () => void) => {
-      fn();
+      ['Root Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue(msg)],
+      ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
+      ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
+    ] as const)('handles a %s error', async (message: string, fn: (msg: string) => void) => {
+      fn(message);
 
-      const epochTicket = orchestrator.startNewEpoch(1, 3);
+      orchestrator.startNewEpoch(1, 3);
 
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
@@ -90,9 +61,10 @@ describe('prover/orchestrator/failures', () => {
         for (const tx of txs) {
           await orchestrator.addNewTx(tx);
         }
+        await orchestrator.setBlockCompleted();
       }
 
-      await expect(epochTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
+      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(`Epoch proving failed: ${message}`);
     });
   });
 });

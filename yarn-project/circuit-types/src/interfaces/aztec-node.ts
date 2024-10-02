@@ -1,38 +1,33 @@
-import {
-  type ARCHIVE_HEIGHT,
-  type Header,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
+import type {
+  ARCHIVE_HEIGHT,
+  Header,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ProtocolContractAddresses,
+import type { L1ContractAddresses } from '@aztec/ethereum';
+import type { ContractArtifact } from '@aztec/foundation/abi';
+import type { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
+import type {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ProtocolContractAddresses,
 } from '@aztec/types/contracts';
 
-import { type L2Block } from '../l2_block.js';
-import {
-  type FromLogType,
-  type GetUnencryptedLogsResponse,
-  type L2BlockL2Logs,
-  type LogFilter,
-  type LogType,
-} from '../logs/index.js';
-import { type MerkleTreeId } from '../merkle_tree_id.js';
-import { type PublicDataWitness } from '../public_data_witness.js';
-import { type SiblingPath } from '../sibling_path/index.js';
-import { type PublicSimulationOutput, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
-import { type TxEffect } from '../tx_effect.js';
-import { type SequencerConfig } from './configs.js';
-import { type L2BlockNumber } from './l2_block_number.js';
-import { type NullifierMembershipWitness } from './nullifier_tree.js';
-import { type ProverConfig } from './prover-client.js';
+import type { L2Block } from '../l2_block.js';
+import type { FromLogType, GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
+import type { MerkleTreeId } from '../merkle_tree_id.js';
+import type { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
+import type { PublicDataWitness } from '../public_data_witness.js';
+import type { SiblingPath } from '../sibling_path/index.js';
+import type { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../tx/index.js';
+import type { TxEffect } from '../tx_effect.js';
+import type { SequencerConfig } from './configs.js';
+import type { L2BlockNumber } from './l2_block_number.js';
+import type { NullifierMembershipWitness } from './nullifier_tree.js';
+import type { ProverConfig } from './prover-client.js';
 
 /**
  * The aztec node.
@@ -356,4 +351,16 @@ export interface AztecNode {
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
+
+  /**
+   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
+   * @param quote - The quote to store
+   */
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
+
+  /**
+   * Returns the received quotes for a given epoch
+   * @param epoch - The epoch for which to get the quotes
+   */
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 }

@@ -72,10 +72,6 @@ library Errors {
   error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
 
-  // Registry
-  error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
-  error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
-
   //TxsDecoder
   error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
   error TxsDecoder__TxsTooLarge(uint256 expected, uint256 actual); // 0xc7d44a62
@@ -104,4 +100,9 @@ library Errors {
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
   error FeeJuicePortal__InvalidInitialization(); // 0xfd9b3208
   error FeeJuicePortal__Unauthorized(); // 0x67e3691e
+
+  // Proof Commitment Escrow
+  error ProofCommitmentEscrow__InsufficientBalance(uint256 balance, uint256 requested); // 0x09b8b789
+  error ProofCommitmentEscrow__NotOwner(address caller); // 0x2ac332c1
+  error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt); // 0xb32ab8a7
 }

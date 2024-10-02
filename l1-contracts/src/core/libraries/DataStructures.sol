@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-
-import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 /**
  * @title Data Structures Library
@@ -67,18 +65,6 @@ library DataStructures {
   }
   // docs:end:l2_to_l1_msg
 
-  // docs:start:registry_snapshot
-  /**
-   * @notice Struct for storing address of cross communication components and the block number when it was updated
-   * @param rollup - The address of the rollup contract
-   * @param blockNumber - The block number of the snapshot
-   */
-  struct RegistrySnapshot {
-    address rollup;
-    uint256 blockNumber;
-  }
-  // docs:end:registry_snapshot
-
   /**
    * @notice Struct for storing flags for block header validation
    * @param ignoreDA - True will ignore DA check, otherwise checks
@@ -87,32 +73,6 @@ library DataStructures {
   struct ExecutionFlags {
     bool ignoreDA;
     bool ignoreSignatures;
-  }
-
-  /**
-   * @notice Struct encompassing an epoch proof quote
-   * @param epochToProve - The epoch number to prove
-   * @param validUntilSlot - The deadline of the quote, denoted in L2 slots
-   * @param bondAmount - The size of the bond
-   * @param prover - The address of the prover
-   * @param basisPointFee - The fee measured in basis points
-   */
-  struct EpochProofQuote {
-    Epoch epochToProve;
-    Slot validUntilSlot;
-    uint256 bondAmount;
-    address prover;
-    uint32 basisPointFee;
-  }
-
-  /**
-   * @notice A signed quote for the epoch proof
-   * @param quote - The Epoch Proof Quote
-   * @param signature - A signature on the quote
-   */
-  struct SignedEpochProofQuote {
-    EpochProofQuote quote;
-    SignatureLib.Signature signature;
   }
 
   /**

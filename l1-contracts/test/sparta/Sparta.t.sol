@@ -8,7 +8,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -16,7 +15,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
-import {PortalERC20} from "../portals/PortalERC20.sol";
+import {TestERC20} from "../TestERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
@@ -40,13 +39,12 @@ contract SpartaTest is DecoderBase {
     bool shouldRevert;
   }
 
-  Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  PortalERC20 internal portalERC20;
+  TestERC20 internal testERC20;
 
   SignatureLib.Signature internal emptySignature;
   mapping(address validator => uint256 privateKey) internal privateKeys;
@@ -75,15 +73,10 @@ contract SpartaTest is DecoderBase {
       initialValidators[i - 1] = validator;
     }
 
-    registry = new Registry(address(this));
-    portalERC20 = new PortalERC20();
-    rollup = new Rollup(
-      registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators
-    );
+    testERC20 = new TestERC20();
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
-
-    registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();

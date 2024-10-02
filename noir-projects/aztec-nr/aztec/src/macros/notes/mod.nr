@@ -7,7 +7,11 @@ use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
-comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
+// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
+// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
+// whether the field is nullable or not.
+comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
@@ -144,14 +148,37 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     }
 }
 
-pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: Field) -> Quoted {
+/// Generates note export for a given note struct. The export is a global variable that contains note type id,
+/// note name and information about note fields (field name, index and whether the field is nullable or not).
+pub(crate) comptime fn generate_note_export(
+    s: StructDefinition,
+    note_type_id: Field,
+    fields: [(Quoted, u32, bool)]
+) -> Quoted {
     let name = s.name();
     let global_export_name = f"{name}_EXPORTS".quoted_contents();
+    let note_fields_name = f"{name}Fields".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
+
+    let mut note_fields = &[];
+    let mut note_field_constructors = &[];
+    for field in fields {
+        let (name, index, nullable) = field;
+        note_fields = note_fields.push_back(quote { $name: aztec::note::note_field::NoteField });
+        note_field_constructors = note_field_constructors.push_back(quote { $name: aztec::note::note_field::NoteField { index: $index, nullable: $nullable }});
+    }
+
+    let note_fields = note_fields.join(quote {,});
+    let note_field_constructors = note_field_constructors.join(quote {,});
+
     quote {
+        struct $note_fields_name {
+            $note_fields
+        }
+
         #[abi(notes)]
-        global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id,$note_name_as_str);
+        global $global_export_name: (Field, str<$note_name_str_len>, $note_fields_name) = ($note_type_id,$note_name_as_str, $note_fields_name { $note_field_constructors });
     }
 }
 
@@ -286,10 +313,32 @@ comptime fn generate_partial_note_impl(s: StructDefinition, hiding_point_name: Q
     }
 }
 
-comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note_type_id: Field) {
-    NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id));
+comptime fn register_note(
+    note: StructDefinition,
+    note_serialized_len: u32,
+    note_type_id: Field,
+    fixed_fields: [(Quoted, Type, u32)],
+    nullable_fields: [(Quoted, Type, u32)]
+) {
+    let mut fields = &[];
+    for field in fixed_fields {
+        let (name, _, index) = field;
+        fields = fields.push_back((name, index, false));
+    }
+    for field in nullable_fields {
+        let (name, _, index) = field;
+        fields = fields.push_back((name, index, true));
+    }
+
+    NOTES.insert(
+        note.as_type(),
+        (note, note_serialized_len, note_type_id, fields)
+    );
 }
 
+/// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
+/// starts in the serialized note. Note that each struct member can occupy multiple fields (as in Field type).
+/// An example of a struct member occupying multiple fields is `amount` in `TokenNote` that uses `U128` type.
 comptime fn index_note_fields(
     s: StructDefinition,
     nullable_fields: [Quoted]
@@ -307,6 +356,7 @@ comptime fn index_note_fields(
             }
         }
         let (flattened, _) = flatten_to_fields(name, typ, &[]);
+        // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter+=flattened.len();
     }
     (indexed_fixed_fields, indexed_nullable_fields)
@@ -329,6 +379,8 @@ comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
 
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
+    // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
+    // member in the serialized note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
 
     let (common, note_type_id) = common_note_annotation(s);
@@ -341,7 +393,13 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         indexed_nullable_fields
     );
     let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
-    register_note(s, note_serialized_len, note_type_id);
+    register_note(
+        s,
+        note_serialized_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
 
     quote {
         $common
@@ -362,7 +420,13 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
         indexed_fixed_fields,
         indexed_nullable_fields
     );
-    register_note(s, note_serialized_len, note_type_id);
+    register_note(
+        s,
+        note_serialized_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
 
     quote {
         $common
@@ -379,7 +443,14 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
 
     let note_serialized_len = note_interface_impl.expect(f"Note {name} must implement NoteInterface trait").trait_generic_args()[0].as_constant().unwrap();
 
-    register_note(s, note_serialized_len, note_type_id);
+    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
+    register_note(
+        s,
+        note_serialized_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
 
     quote {
         $common
