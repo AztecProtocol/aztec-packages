@@ -4,7 +4,7 @@ import { sleep } from '@aztec/aztec.js';
 import fs from 'fs';
 
 import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -16,14 +16,16 @@ const DATA_DIR = './data/rediscovery';
 
 describe('e2e_p2p_rediscovery', () => {
   let t: P2PNetworkTest;
+  let nodes: AztecNodeService[];
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     t = await P2PNetworkTest.create('e2e_p2p_rediscovery', NUM_NODES, BOOT_NODE_UDP_PORT);
     await t.applyBaseSnapshots();
     await t.setup();
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
+    await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
@@ -32,7 +34,7 @@ describe('e2e_p2p_rediscovery', () => {
 
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = await createNodes(
+    nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
@@ -56,7 +58,7 @@ describe('e2e_p2p_rediscovery', () => {
       await node.stop();
       t.logger.info(`Node ${i} stopped`);
       await sleep(1200);
-      // TODO: make a restart nodes function
+
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
         t.peerIdPrivateKeys[i],
@@ -68,6 +70,7 @@ describe('e2e_p2p_rediscovery', () => {
       t.logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
     }
+    nodes = newNodes;
 
     // wait a bit for peers to discover each other
     await sleep(2000);
@@ -78,16 +81,14 @@ describe('e2e_p2p_rediscovery', () => {
     }
 
     // now ensure that all txs were successfully mined
+
     await Promise.all(
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait();
+          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
-
-    // shutdown all nodes.
-    await t.stopNodes(newNodes);
   });
 });

@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -17,14 +17,16 @@ const DATA_DIR = './data/data-reqresp';
 
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;
+  let nodes: AztecNodeService[];
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     t = await P2PNetworkTest.create('e2e_p2p_reqresp_tx', NUM_NODES, BOOT_NODE_UDP_PORT);
     await t.applyBaseSnapshots();
     await t.setup();
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
+    await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
@@ -55,7 +57,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     const contexts: NodeContext[] = [];
 
     t.logger.info('Creating nodes');
-    const nodes: AztecNodeService[] = await createNodes(
+    nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
@@ -93,13 +95,12 @@ describe('e2e_p2p_reqresp_tx', () => {
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          await tx.wait();
+          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
           t.logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
           return await tx.getTxHash();
         }),
       ),
     );
     t.logger.info('All transactions mined');
-    await t.stopNodes(nodes);
   });
 });

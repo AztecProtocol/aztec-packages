@@ -1,6 +1,6 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
-import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
+import { AZTEC_SLOT_DURATION, ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { BootnodeConfig, createLibP2PPeerId, type BootstrapNode } from '@aztec/p2p';
@@ -10,10 +10,6 @@ import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
-  createBootstrapNode,
-  createBootstrapNodeConfig,
-  createBootstrapNodeConfigFromPrivateKey,
-  createBootstrapNodeFromConfig,
   createBootstrapNodeFromPrivateKey,
   createValidatorConfig,
   generateNodePrivateKeys,
@@ -23,6 +19,10 @@ import { type ISnapshotManager, type SubsystemsContext, addAccounts, createSnaps
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { SpamContract } from '@aztec/noir-contracts.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+
+// Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
+const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
+export const WAIT_FOR_TX_TIMEOUT = AZTEC_SLOT_DURATION * 3;
 
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
@@ -67,11 +67,10 @@ export class P2PNetworkTest {
     });
   }
 
-  static async create(testName: string, numberOfNodes: number, basePort?: number, baseBootnodePrivateKey?: Uint8Array) {
+  static async create(testName: string, numberOfNodes: number, basePort?: number) {
     const port = basePort || (await getPort());
-    const bootnodePrivateKey = baseBootnodePrivateKey || ( await  createLibP2PPeerId()).privateKey!;
 
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(bootnodePrivateKey, port);
+    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
@@ -79,7 +78,6 @@ export class P2PNetworkTest {
 
     return new P2PNetworkTest(
       testName,
-      // TODO: clean up all of this bootnode stuff
       bootstrapNode,
       port,
       numberOfNodes,
@@ -106,6 +104,7 @@ export class P2PNetworkTest {
 
         this.logger.debug(`Adding ${account.address} as validator`);
       }
+
       // Wait for all the transactions adding validators to be mined
       await Promise.all(
         txHashes.map(txHash =>
