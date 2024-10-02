@@ -56,6 +56,7 @@ jobs:
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
       txe: ${{ steps.filter.outputs.txe }}
+      yarn-project: ${{ steps.filter.outputs.yarn-project }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
@@ -81,6 +82,8 @@ jobs:
               - 'l1-contracts/**'
             noir-projects:
               - 'noir-projects/**'
+            yarn-project:
+              - 'yarn-project/**'
             txe:
               - 'yarn-project/txe/**'
             non-barretenberg-cpp:
@@ -793,8 +796,9 @@ jobs:
         run: echo "Can't merge drafts." && exit 1
 
   deploy-test:
-    needs: build
+    needs: [build, changes]
     runs-on: ubuntu-20.04
+    if: needs.changes.outputs.yarn-project == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
