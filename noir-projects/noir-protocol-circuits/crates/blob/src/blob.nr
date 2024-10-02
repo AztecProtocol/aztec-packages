@@ -631,7 +631,7 @@ fn test_base() {
     assert(expected_z == output.z);
 }
 
-// TODO(Miranda): match this up with ts blob test
+// All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
 #[test]
 fn test_400() {
     let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
@@ -641,9 +641,15 @@ fn test_400() {
     let mut sponge_blob = SpongeBlob::new(400);
     sponge_blob.absorb(blob, 400);
 
-    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+    let kzg_commitment_in = [
+        0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750, 0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea
+    ];
 
-    let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
+    let output = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
+
+    // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
+    let expected_y: F = BigNum { limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c] };
+    assert(expected_y == output.y);
 }
 
 #[test(should_fail_with="Found non-zero field after breakpoint")]

@@ -193,6 +193,15 @@ fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRY
     compute_tx_logs_hash(siloed_encrypted_logs)
 }
 
+/**
+ * Asserts that the first sponge blob was empty to begin with.
+ * This prevents injecting unchecked tx effects in the first base of a rollup.
+ */
+pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
+    let expected_sponge_blob = SpongeBlob::new(left.start_sponge_blob.expected_fields);
+    assert(left.start_sponge_blob.eq(expected_sponge_blob), "block's first blob sponge was not empty");
+}
+
 // Tx effects hash consists of
 // 1 field for revert code
 // 1 field for transaction fee

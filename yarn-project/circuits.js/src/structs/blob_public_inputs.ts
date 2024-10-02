@@ -1,5 +1,5 @@
-// import { BLOB_PUBLIC_INPUTS } from '../constants.gen.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { type Blob } from '@aztec/foundation/blob';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -9,11 +9,11 @@ import { type FieldsOf } from '@aztec/foundation/types';
  */
 export class BlobPublicInputs {
   constructor(
-    /** Challenge point z (= H(H(tx_effects), kzgCommmitment) */
+    /** Challenge point z (= H(H(tx_effects), kzgCommmitment). */
     public z: Fr,
-    /** Version for the L2 block. */
+    /** Evaluation y = p(z), where p() is the blob polynomial. */
     public y: bigint,
-    /** Block number of the L2 block. */
+    /** Commitment to the blob C. */
     public kzgCommitment: Tuple<Fr, 2>,
   ) {}
 
@@ -42,6 +42,19 @@ export class BlobPublicInputs {
 
   toBuffer() {
     return serializeToBuffer(...BlobPublicInputs.getFields(this));
+  }
+
+  static fromBlob(input: Blob): BlobPublicInputs {
+    return new BlobPublicInputs(input.challengeZ, toBigIntBE(input.evaluationY), input.commitmentToFields());
+  }
+
+  equals(other: BlobPublicInputs) {
+    return (
+      this.z.equals(other.z) &&
+      this.y == other.y &&
+      this.kzgCommitment[0].equals(other.kzgCommitment[0]) &&
+      this.kzgCommitment[1].equals(other.kzgCommitment[1])
+    );
   }
 
   // toFields() {

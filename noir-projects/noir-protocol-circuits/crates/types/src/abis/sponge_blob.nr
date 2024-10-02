@@ -55,6 +55,7 @@ impl SpongeBlob {
         assert(!should_add, "Given in_len to absorb is larger than the input array len");
         self.fields += in_len;
         // TODO(Miranda): add max field check(s)
+        // assert(self.fields + in_len <= expected_fields, "Attempted to overflow blob");
     }
 
     // Finalise the sponge and output poseidon2 hash of all fields absorbed

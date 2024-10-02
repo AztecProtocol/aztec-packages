@@ -75,6 +75,7 @@ impl BlockRootRollupInputs {
         components::assert_txs_filled_from_left(left, right);
         components::assert_equal_constants(left, right);
         components::assert_prev_rollups_follow_on_from_each_other(left, right);
+        components::assert_first_sponge_blob_empty(left);
 
         // Insert subtree into the l1 to l2 data tree
         let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);

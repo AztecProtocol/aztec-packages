@@ -53,4 +53,11 @@ mod tests {
 
         assert(outputs.blob_public_inputs.z == expected_z);
     }
+
+    #[test(should_fail_with = "block's first blob sponge was not empty")]
+    fn check_blob_empty() {
+        let mut inputs = default_block_root_rollup_inputs();
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob.fields = 1;
+        let _ = inputs.block_root_rollup_circuit();
+    }
 }

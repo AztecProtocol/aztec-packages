@@ -31,6 +31,7 @@ import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
+  BlobPublicInputs,
   ContentCommitment,
   FIELDS_PER_BLOB,
   Fr,
@@ -59,6 +60,7 @@ import {
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
@@ -866,15 +868,15 @@ export class ProvingOrchestrator implements BlockProver {
     }
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
-    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    const txEffects = padArrayEnd(
-      this.extractTxEffects()
-        .map(tx => tx.toFields())
-        .flat(),
-      Fr.ZERO,
-      FIELDS_PER_BLOB,
-    );
-    // TODO(Miranda): Create little blob lib in foundation and add real commitment here
+    let txEffectsFields = this.extractTxEffects()
+      .map(tx => tx.toFields())
+      .flat();
+    if (txEffectsFields.length < this.spongeBlobState!.expectedFields) {
+      // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+      txEffectsFields = padArrayEnd(txEffectsFields, Fr.ZERO, this.spongeBlobState!.expectedFields);
+    }
+
+    const blob = new Blob(txEffectsFields);
 
     const inputs = await getBlockRootRollupInput(
       mergeInputData.inputs[0]!,
@@ -889,8 +891,9 @@ export class ProvingOrchestrator implements BlockProver {
       provingState.messageTreeRootSiblingPath,
       this.db,
       this.proverId,
-      txEffects,
-      [Fr.ONE, Fr.ZERO],
+      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      padArrayEnd(txEffectsFields, Fr.ZERO, FIELDS_PER_BLOB),
+      blob.commitmentToFields(),
     );
 
     this.deferredProving(
@@ -907,6 +910,17 @@ export class ProvingOrchestrator implements BlockProver {
       result => {
         provingState.blockRootRollupPublicInputs = result.inputs;
         provingState.finalProof = result.proof.binaryProof;
+        const blobOutputs = result.inputs.blobPublicInputs;
+
+        // TODO(Miranda): Move the below checks to wherever the ts blob struct will live
+        if (!blobOutputs.equals(BlobPublicInputs.fromBlob(blob))) {
+          throw new Error(
+            `Rollup circuits produced mismatched blob evaluation:
+            z: ${blobOutputs.z} == ${blob.challengeZ},
+            y: ${blobOutputs.y.toString(16)} == ${blob.evaluationY.toString('hex')},
+            C: ${blobOutputs.kzgCommitment} == ${blob.commitmentToFields()}`,
+          );
+        }
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
