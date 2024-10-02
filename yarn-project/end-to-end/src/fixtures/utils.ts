@@ -49,12 +49,12 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { AuthRegistryContract, RouterContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -113,7 +113,9 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: { salt?: number; initialValidators?: EthAddress[] } = {},
+  args: { salt?: number; initialValidators?: EthAddress[]; assumeProvenThrough?: number } = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+  },
   chain: Chain = foundry,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
@@ -134,8 +136,8 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
@@ -148,6 +150,7 @@ export const setupL1Contracts = async (
     vkTreeRoot: getVKTreeRoot(),
     salt: args.salt,
     initialValidators: args.initialValidators,
+    assumeProvenThrough: args.assumeProvenThrough,
   });
 
   return l1Data;

@@ -4,7 +4,7 @@ import {
   type FunctionAbi,
   FunctionSelector,
   FunctionType,
-  decodeReturnValues,
+  decodeFromAbi,
   encodeArguments,
 } from '@aztec/foundation/abi';
 
@@ -110,6 +110,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         ? simulatedTx.privateReturnValues?.nested?.[0].values
         : simulatedTx.publicOutput?.publicReturnValues?.[0].values;
 
-    return rawReturnValues ? decodeReturnValues(this.functionDao.returnTypes, rawReturnValues) : [];
+    return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
   }
 }

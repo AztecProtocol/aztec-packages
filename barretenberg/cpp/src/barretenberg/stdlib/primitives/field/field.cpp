@@ -52,6 +52,7 @@ template <typename Builder> field_t<Builder>::field_t(const bool_t<Builder>& oth
         additive_constant = other.witness_inverted ? bb::fr::one() : bb::fr::zero();
         multiplicative_constant = other.witness_inverted ? bb::fr::neg_one() : bb::fr::one();
     }
+    tag = other.tag;
 }
 
 template <typename Builder>
@@ -69,6 +70,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
         result.witness_bool = (additive_constant == bb::fr::one());
         result.witness_inverted = false;
         result.witness_index = IS_CONSTANT;
+        result.set_origin_tag(tag);
         return result;
     }
     bool add_constant_check = (additive_constant == bb::fr::zero());
@@ -85,6 +87,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     result.witness_inverted = inverted_check;
     result.witness_index = witness_index;
     context->create_bool_gate(witness_index);
+    result.set_origin_tag(tag);
     return result;
 }
 
@@ -130,6 +133,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
                                bb::fr::neg_one(),
                                (additive_constant + other.additive_constant) });
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -240,6 +244,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
                                 .q_o = bb::fr::neg_one(),
                                 .q_c = q_c });
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -338,6 +343,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
                                 .q_o = q_o,
                                 .q_c = q_c });
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 /**
@@ -356,7 +362,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
             ctx->failure("field_t::pow exponent accumulator incorrect");
         }
         constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-        return get_value().pow(exponent_value & MASK_32_BITS);
+        auto result = field_t(get_value().pow(exponent_value & MASK_32_BITS));
+        result.set_origin_tag(OriginTag(get_origin_tag(), exponent.get_origin_tag()));
+        return result;
     }
 
     bool exponent_constant = exponent.is_constant();
@@ -385,6 +393,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         accumulator *= (mul_coefficient * bit + 1);
     }
     accumulator = accumulator.normalize();
+    accumulator.tag = OriginTag(tag, exponent.tag);
     return accumulator;
 }
 
@@ -458,6 +467,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
         .d_scaling = -bb::fr(1),
         .const_scaling = q_c,
     });
+    result.tag = OriginTag(tag, to_mul.tag, to_add.tag);
     return result;
 }
 
@@ -495,6 +505,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
         .d_scaling = -bb::fr(1),
         .const_scaling = q_c,
     });
+    result.tag = OriginTag(tag, add_a.tag, add_b.tag);
     return result;
 }
 
@@ -531,6 +542,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
                                .b_scaling = 0,
                                .c_scaling = bb::fr::neg_one(),
                                .const_scaling = additive_constant });
+    result.tag = tag;
     return result;
 }
 
@@ -614,7 +626,9 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
     if (witness_index == IS_CONSTANT) {
-        return bool_t(context, (get_value() == bb::fr::zero()));
+        auto result = bool_t(context, (get_value() == bb::fr::zero()));
+        result.set_origin_tag(get_origin_tag());
+        return result;
     }
 
     // To check whether a field element, k, is zero, we use the fact that, if k > 0,
@@ -668,6 +682,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
                                 .q_r = q_r,
                                 .q_o = q_o,
                                 .q_c = q_c });
+    is_zero.set_origin_tag(tag);
     return is_zero;
 }
 
@@ -686,7 +701,9 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     if (is_constant() && other.is_constant()) {
-        return (get_value() == other.get_value());
+        auto result = bool_t<Builder>((get_value() == other.get_value()));
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
 
     bb::fr fa = get_value();
@@ -707,6 +724,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
     field_t::evaluate_polynomial_identity(diff, x, result, -field_t(bb::fr::one()));
     field_t::evaluate_polynomial_identity(diff, result, field_t(bb::fr::zero()), field_t(bb::fr::zero()));
 
+    result.set_origin_tag(OriginTag(tag, other.tag));
     return result;
 }
 
@@ -719,7 +737,9 @@ template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
     if (predicate.is_constant()) {
-        return predicate.get_value() ? -(*this) : *this;
+        auto result = field_t(predicate.get_value() ? -(*this) : *this);
+        result.set_origin_tag(OriginTag(get_origin_tag(), predicate.get_origin_tag()));
+        return result;
     }
     field_t<Builder> predicate_field(predicate);
     field_t<Builder> multiplicand = -(predicate_field + predicate_field);
@@ -733,7 +753,9 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
                                                       const field_t& rhs)
 {
     if (predicate.is_constant()) {
-        return predicate.get_value() ? lhs : rhs;
+        auto result = field_t(predicate.get_value() ? lhs : rhs);
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
     }
     // if lhs and rhs are the same witness, just return it!
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
@@ -1051,6 +1073,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                                accumulator[3 * i + 1].get_value() - accumulator[3 * i + 2].get_value();
             accumulating_total = witness_t<Builder>(ctx, new_total);
         }
+        OriginTag new_tag{};
+        for (const auto& single_input : input) {
+            new_tag = OriginTag(new_tag, single_input.tag);
+        }
+        total.tag = new_tag;
         return total.normalize();
     }
     field_t<Builder> total;
@@ -1091,6 +1118,9 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
         ((hi_wit * field_t(uint256_t(1) << msb_plus_one)) + lo_wit + (slice_wit * field_t(uint256_t(1) << lsb))));
 
     std::array<field_t, 3> result = { lo_wit, slice_wit, hi_wit };
+    for (size_t i = 0; i < 3; i++) {
+        result[i].tag = tag;
+    }
     return result;
 }
 
@@ -1131,6 +1161,7 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     // Extract bit vector and show that it has the same value as `this`.
     for (size_t i = 0; i < num_bits; ++i) {
         bool_t<Builder> bit = get_bit(context, num_bits - 1 - i, val_u256);
+        bit.set_origin_tag(tag);
         result[num_bits - 1 - i] = bit;
         bb::fr scaling_factor_value = fr(2).pow(static_cast<uint64_t>(num_bits - 1 - i));
         field_t<Builder> scaling_factor(context, scaling_factor_value);

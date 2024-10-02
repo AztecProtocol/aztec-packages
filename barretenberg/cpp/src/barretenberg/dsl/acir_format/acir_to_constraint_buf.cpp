@@ -703,7 +703,8 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
     }
     for (const auto& [block_id, block] : block_id_to_block_constraint) {
         // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
-        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData) {
+        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
+            block.first.type == BlockType::CallData) {
             af.block_constraints.push_back(block.first);
             af.original_opcode_indices.block_constraints.push_back(block.second);
         }

@@ -16,6 +16,14 @@ inline const std::size_t KERNEL_OUTPUTS_LENGTH =
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL + MAX_PUBLIC_DATA_READS_PER_CALL + MAX_NOTE_HASHES_PER_CALL +
     MAX_NULLIFIERS_PER_CALL + MAX_L2_TO_L1_MSGS_PER_CALL + MAX_UNENCRYPTED_LOGS_PER_CALL;
 
+static_assert(KERNEL_INPUTS_LENGTH < AVM_PUBLIC_COLUMN_MAX_SIZE,
+              "The kernel inputs length cannot exceed the max size of a public column. This is a requirement for the "
+              "avm recursive verifier.");
+
+static_assert(KERNEL_OUTPUTS_LENGTH < AVM_PUBLIC_COLUMN_MAX_SIZE,
+              "The kernel outputs length cannot exceed the max size of a public column. This is a requirement for the "
+              "avm recursive verifier.");
+
 // START INDEXES in the PUBLIC_CIRCUIT_PUBLIC_INPUTS
 // These line up with indexes found in
 // https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/circuits.js/src/structs/public_circuit_public_inputs.ts
@@ -59,7 +67,7 @@ inline const uint32_t PCPI_PUBLIC_CALLSTACK_OFFSET =
     PCPI_PUBLIC_DATA_READ_OFFSET + (MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_LENGTH);
 
 inline const uint32_t PCPI_NEW_NOTE_HASHES_OFFSET =
-    PCPI_PUBLIC_CALLSTACK_OFFSET + (MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL * PUBLIC_CALL_REQUEST_LENGTH);
+    PCPI_PUBLIC_CALLSTACK_OFFSET + (MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL * PUBLIC_INNER_CALL_REQUEST_LENGTH);
 
 inline const uint32_t PCPI_NEW_NULLIFIERS_OFFSET =
     PCPI_NEW_NOTE_HASHES_OFFSET + (MAX_NOTE_HASHES_PER_CALL * NOTE_HASH_LENGTH);

@@ -55,7 +55,9 @@ describe('Simulator', () => {
     const storageSlot = TokenBlacklistContractArtifact.storageLayout['balances'].slot;
     const noteTypeId = TokenBlacklistContractArtifact.notes['TokenNote'].id;
 
-    const createNote = (amount = 123n) => new Note([new Fr(amount), ownerMasterNullifierPublicKey.hash(), Fr.random()]);
+    // Amount is a U128, with a lo and hi limbs
+    const createNote = (amount = 123n) =>
+      new Note([new Fr(amount), new Fr(0), ownerMasterNullifierPublicKey.hash(), Fr.random()]);
 
     it('should compute note hashes and nullifier', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);

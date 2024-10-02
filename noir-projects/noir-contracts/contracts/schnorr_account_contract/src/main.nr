@@ -2,28 +2,32 @@ mod public_key_note;
 
 // Account contract that uses Schnorr signatures for authentication.
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract SchnorrAccount {
     use dep::std;
 
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_authwit_message_hash}
     };
     use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_public_keys};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
+    use dep::aztec::macros::{storage::storage, functions::{private, initializer, view, noinitcheck}};
 
     use crate::public_key_note::PublicKeyNote;
 
-    #[aztec(storage)]
-    struct Storage {
-        signing_public_key: PrivateImmutable<PublicKeyNote>,
+    #[storage]
+    struct Storage<Context> {
+        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
     }
 
     // Constructs the contract
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
         let this_keys = get_public_keys(this);
@@ -32,20 +36,20 @@ contract SchnorrAccount {
         // important.
 
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
-        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note_with_keys(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
+        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
+    #[private]
+    #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
 
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
-    #[aztec(view)]
+    #[private]
+    #[noinitcheck]
+    #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)

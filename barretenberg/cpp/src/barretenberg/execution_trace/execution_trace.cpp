@@ -6,10 +6,33 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 namespace bb {
 
+template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
+{
+#ifdef TRACY_MEMORY
+    ZoneScopedN("populate_public_inputs_block");
+#endif
+    // Update the public inputs block
+    for (const auto& idx : builder.public_inputs) {
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            if (wire_idx < 2) { // first two wires get a copy of the public inputs
+                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
+            } else { // the remaining wires get zeros
+                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
+            }
+        }
+        for (auto& selector : builder.blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
+}
+
 template <class Flavor>
 void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
+
+#ifdef TRACY_MEMORY
     ZoneScopedN("trace populate");
+#endif
     // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
@@ -18,18 +41,27 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
     if constexpr (IsUltraPlonkOrHonk<Flavor>) {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("add_memory_records_to_proving_key");
+#endif
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
     }
 
     if constexpr (IsGoblinFlavor<Flavor>) {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("add_ecc_op_wires_to_proving_key");
+#endif
         add_ecc_op_wires_to_proving_key(builder, proving_key);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("compute_permutation_argument_polynomials");
+#endif
         compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);
     }
 }
@@ -55,11 +87,17 @@ template <class Flavor>
 typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-    ZoneScopedN("construct_trace_data");
-    TraceData trace_data{ builder, proving_key };
 
-    // Complete the public inputs execution trace block from builder.public_inputs
-    populate_public_inputs_block(builder);
+#ifdef TRACY_MEMORY
+    ZoneScopedN("construct_trace_data");
+#endif
+
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        // Complete the public inputs execution trace block from builder.public_inputs
+        populate_public_inputs_block(builder);
+    }
+
+    TraceData trace_data{ builder, proving_key };
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
@@ -70,7 +108,10 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("populating wires and copy_cycles");
+#endif
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
@@ -87,8 +128,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
         for (size_t selector_idx = 0; selector_idx < NUM_SELECTORS; selector_idx++) {
-            auto selector_poly = trace_data.selectors[selector_idx];
-            auto selector = block.selectors[selector_idx];
+            auto& selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
                 trace_data.selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
@@ -111,35 +151,19 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     return trace_data;
 }
 
-template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    ZoneScopedN("populate_public_inputs_block");
-    // Update the public inputs block
-    for (auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
-
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
                                                               typename Flavor::ProvingKey& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
-    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+
+    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
+    const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] :
          zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
-        for (size_t i = 0; i < builder.blocks.ecc_op.size(); ++i) {
+        for (size_t i = 0; i < num_ecc_ops; ++i) {
             size_t idx = i + op_wire_offset;
             ecc_op_wire.at(idx) = wire[idx];
             ecc_op_selector.at(idx) = 1; // construct selector as the indicator on the ecc op block

@@ -7,7 +7,7 @@ use crate::{
 global PARTIAL_ADDRESS_LENGTH: u32 = 1;
 
 // Partial address
-struct PartialAddress {
+pub struct PartialAddress {
     inner : Field
 }
 

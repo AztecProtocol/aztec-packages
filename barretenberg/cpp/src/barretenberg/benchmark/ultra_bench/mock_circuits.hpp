@@ -54,7 +54,9 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
         Composer composer;
         return composer.create_prover(builder);
     } else {
+#ifdef TRACY_MEMORY
         ZoneScopedN("creating prover");
+#endif
         return Prover(builder);
     }
 };

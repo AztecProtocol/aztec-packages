@@ -57,12 +57,15 @@ class UltraFlavor {
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
 
+    // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from Ultra flavor
+    // any change of ordering in this tuple needs to be reflected in the smart contract, otherwise relation accumulation
+    // will not match.
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
+                                  bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
-                                  bb::LogDerivLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;
 
@@ -139,22 +142,14 @@ class UltraFlavor {
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
-        auto get_selectors()
+        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
+        auto get_gate_selectors()
         {
-            return RefArray{ q_m,
-                             q_c,
-                             q_l,
-                             q_r,
-                             q_o,
-                             q_4,
-                             q_arith,
-                             q_delta_range,
-                             q_elliptic,
-                             q_aux,
-                             q_lookup,
-                             q_poseidon2_external,
-                             q_poseidon2_internal };
-        };
+            return RefArray{ q_arith,  q_delta_range,        q_elliptic,          q_aux,
+                             q_lookup, q_poseidon2_external, q_poseidon2_internal };
+        }
+        auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
+
         auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
         auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
         auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
@@ -239,6 +234,8 @@ class UltraFlavor {
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
+        auto get_non_gate_selectors() { return PrecomputedEntities<DataType>::get_non_gate_selectors(); }
+        auto get_gate_selectors() { return PrecomputedEntities<DataType>::get_gate_selectors(); }
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
         auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };
@@ -296,7 +293,10 @@ class UltraFlavor {
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
         {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("creating empty prover polys");
+#endif
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
                                    /*largest possible index*/ circuit_size,
@@ -346,8 +346,7 @@ class UltraFlavor {
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(circuit_size, num_public_inputs, std::move(commitment_key))
-            , polynomials(circuit_size){};
+            : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
@@ -562,7 +561,10 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("PartiallyEvaluatedMultivariates constructor");
+#endif
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {
@@ -718,10 +720,10 @@ class UltraFlavor {
         Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
+        std::vector<Commitment> gemini_fold_comms;
+        std::vector<FF> gemini_fold_evals;
+        Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
-
         Transcript() = default;
 
         // Used by verifier to initialize the transcript
@@ -775,10 +777,14 @@ class UltraFlavor {
                                                                                                  num_frs_read));
             }
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+            }
+            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+
             kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
@@ -810,10 +816,13 @@ class UltraFlavor {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
             serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(zm_cq_comms[i], proof_data);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+                serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
-            serialize_to_buffer(zm_cq_comm, proof_data);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+                serialize_to_buffer(gemini_fold_evals[i], proof_data);
+            }
+            serialize_to_buffer(shplonk_q_comm, proof_data);
             serialize_to_buffer(kzg_w_comm, proof_data);
 
             // sanity check to make sure we generate the same length of proof as before.

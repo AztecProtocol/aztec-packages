@@ -1,7 +1,8 @@
 // docs:start:imports
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { ExtendedNote, Fr, Note, computeSecretHash, createPXEClient } from '@aztec/aztec.js';
+import { ExtendedNote, Fr, Note, computeSecretHash, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { getToken } from './contracts.mjs';
 
@@ -18,8 +19,12 @@ async function showAccounts(pxe) {
 
 // docs:start:showPrivateBalances
 async function showPrivateBalances(pxe) {
+
+  const [owner] = await getInitialTestAccountsWallets(pxe);
+  const token = await getToken(owner);
+
+  // docs:start:showPrivateBalances
   const accounts = await pxe.getRegisteredAccounts();
-  const token = await getToken(pxe);
 
   for (const account of accounts) {
     // highlight-next-line:showPrivateBalances
@@ -41,19 +46,17 @@ async function mintPrivateFunds(pxe) {
   const secretHash = await computeSecretHash(secret);
   const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-  const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
-  const noteTypeId = token.artifact.notes['TransparentNote'].id;
-
   const note = new Note([new Fr(mintAmount), secretHash]);
   const extendedNote = new ExtendedNote(
     note,
     owner.getAddress(),
     token.address,
-    storageSlot,
-    noteTypeId,
+    TokenContract.storage.pending_shields.slot,
+    TokenContract.notes.TransparentNote.id,
     receipt.txHash,
   );
-  await owner.addNote(extendedNote);
+
+  await pxe.addNote(extendedNote, owner.getAddress());
 
   await token.withWallet(owner).methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
 
@@ -66,21 +69,23 @@ async function transferPrivateFunds(pxe) {
   const [owner, recipient] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
-  const tx = token.withWallet(owner).methods.transfer(recipient.getAddress(), 1n, 0).send();
-  console.log(`Sent transfer transaction ${await tx.getTxHash()}`);
   await showPrivateBalances(pxe);
+  console.log(`Sending transaction, awaiting transaction to be mined`);
+  const receipt = await token.methods.transfer(recipient.getAddress(), 1).send().wait();
 
-  console.log(`Awaiting transaction to be mined`);
-  const receipt = await tx.wait();
-  console.log(`Transaction has been mined on block ${receipt.blockNumber}`);
+  console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
   await showPrivateBalances(pxe);
 }
 // docs:end:transferPrivateFunds
 
 // docs:start:showPublicBalances
 async function showPublicBalances(pxe) {
+
+  const [owner] = await getInitialTestAccountsWallets(pxe);
+  const token = await getToken(owner);
+
+  // docs:start:showPublicBalances
   const accounts = await pxe.getRegisteredAccounts();
-  const token = await getToken(pxe);
 
   for (const account of accounts) {
     // highlight-next-line:showPublicBalances
@@ -95,13 +100,12 @@ async function mintPublicFunds(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
-  const tx = token.methods.mint_public(owner.getAddress(), 100n).send();
-  console.log(`Sent mint transaction ${await tx.getTxHash()}`);
   await showPublicBalances(pxe);
 
-  console.log(`Awaiting transaction to be mined`);
-  const receipt = await tx.wait();
-  console.log(`Transaction has been mined on block ${receipt.blockNumber}`);
+  console.log(`Sending transaction, awaiting transaction to be mined`);
+  const receipt = await token.methods.mint_public(owner.getAddress(), 100).send().wait();
+  console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
+
   await showPublicBalances(pxe);
 
   // docs:start:showLogs
@@ -115,8 +119,10 @@ async function mintPublicFunds(pxe) {
 
 async function main() {
   const pxe = createPXEClient(PXE_URL);
-  const { chainId } = await pxe.getNodeInfo();
-  console.log(`Connected to chain ${chainId}`);
+  await waitForPXE(pxe);
+
+  const { l1ChainId } = await pxe.getNodeInfo();
+  console.log(`Connected to chain ${l1ChainId}`);
 
   await showAccounts(pxe);
 

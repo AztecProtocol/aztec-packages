@@ -5,24 +5,16 @@ use crate::components::{
 };
 use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
-    constants::{
-    PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
-    PRIVATE_KERNEL_RESET_TINY_INDEX
-}
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX}
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_INIT_INDEX,
     PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX,
-    PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
-    PRIVATE_KERNEL_RESET_SMALL_INDEX,
-    PRIVATE_KERNEL_RESET_TINY_INDEX,
+    PRIVATE_KERNEL_RESET_INDEX,
 ];
 
-struct PrivateKernelTailToPublicCircuitPrivateInputs {
+pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
 }
 
@@ -38,11 +30,9 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         };
 
         // Validate inputs.
-        PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
-        if !std::runtime::is_unconstrained() {
-            // TODO(#7410) currently stubbed out until tube vk handled
-            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.validate_for_private_tail_to_public();
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -163,7 +153,7 @@ mod tests {
     fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
-        builder.previous_kernel.append_public_teardown_call_request();
+        builder.previous_kernel.set_public_teardown_call_request();
 
         builder.succeeded();
     }

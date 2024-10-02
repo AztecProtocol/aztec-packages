@@ -36,7 +36,7 @@ void validate_trace_check_circuit(std::vector<Row>&& trace)
  * @param trace The execution trace
  */
 void validate_trace(std::vector<Row>&& trace,
-                    VmPublicInputs const& public_inputs,
+                    VmPublicInputsNT const& public_inputs,
                     std::vector<FF> const& calldata,
                     std::vector<FF> const& returndata,
                     bool with_proof,
@@ -118,9 +118,9 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     mem_row->mem_val = newValue;
 };
 
-VmPublicInputs generate_base_public_inputs()
+VmPublicInputsNT generate_base_public_inputs()
 {
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
     kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
     kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;

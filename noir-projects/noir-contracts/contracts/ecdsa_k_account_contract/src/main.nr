@@ -1,10 +1,14 @@
 // Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
 // The signing key is stored in an immutable private note and should be different from the signing key.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract EcdsaKAccount {
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_public_keys
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        keys::getters::get_public_keys,
+        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}}
     };
 
     use dep::authwit::{
@@ -14,14 +18,14 @@ contract EcdsaKAccount {
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
-    #[aztec(storage)]
-    struct Storage {
-        public_key: PrivateImmutable<EcdsaPublicKeyNote>,
+    #[storage]
+    struct Storage<Context> {
+        public_key: PrivateImmutable<EcdsaPublicKeyNote, Context>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
         let this_keys = get_public_keys(this);
@@ -30,19 +34,19 @@ contract EcdsaKAccount {
         // important.
 
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
-        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note_with_keys(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
+        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
-    #[aztec(private)]
+    #[private]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
 
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
-    #[aztec(view)]
+    #[private]
+    #[noinitcheck]
+    #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)

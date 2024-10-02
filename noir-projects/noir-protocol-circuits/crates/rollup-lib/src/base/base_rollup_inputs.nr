@@ -40,7 +40,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_TAIL_INDEX,
 ];
 
-struct BaseRollupInputs {
+pub struct BaseRollupInputs {
     kernel_data: KernelData,
     start: PartialStateReference,
 
@@ -619,6 +619,12 @@ mod tests {
             inputs
         }
 
+        unconstrained fn new_with_previous_kernel(previous_vk_index: u32) -> Self {
+            let mut builder = BaseRollupInputsBuilder::new();
+            builder.kernel_data = builder.kernel_data.in_vk_tree(previous_vk_index);
+            builder
+        }
+
         fn build_fee_payer_fee_juice_balance_read_hint(
             self,
             start_public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT>
@@ -712,7 +718,7 @@ mod tests {
             )
         }
 
-        fn build_inputs(mut self) -> BaseRollupInputs {
+        unconstrained fn build_inputs(mut self) -> BaseRollupInputs {
             let mut kernel_data = self.kernel_data.to_kernel_data();
 
             let start_note_hash_tree = NonEmptyMerkleTree::new(
@@ -830,7 +836,10 @@ mod tests {
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-            self.build_inputs().base_rollup_circuit()
+            let inputs = unsafe {
+                self.build_inputs()
+            };
+            inputs.base_rollup_circuit()
         }
 
         fn succeeds(self) {
@@ -1424,24 +1433,27 @@ mod tests {
 
     #[test]
     fn valid_previous_kernel_empty() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_EMPTY_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
+        };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_tail() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_TAIL_INDEX)
+        };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_public_tail() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PUBLIC_KERNEL_TAIL_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PUBLIC_KERNEL_TAIL_INDEX)
+        };
 
         let _res = builder.execute();
     }

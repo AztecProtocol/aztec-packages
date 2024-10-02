@@ -2,6 +2,7 @@ import {
   AztecAddress,
   CallContext,
   ClientIvcProof,
+  EthAddress,
   GasSettings,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
@@ -27,12 +28,15 @@ import {
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
+import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
+import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
 
@@ -78,15 +82,15 @@ export const mockTx = (
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.item.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
       data.forPublic.publicTeardownCallRequest = request;
       const args = publicFunctionArgs.shift()!;
       publicTeardownFunctionCall = new PublicExecutionRequest(
-        request.item.contractAddress,
-        CallContext.fromFields(request.item.callContext.toFields()),
+        request.contractAddress,
+        CallContext.fromFields(request.callContext.toFields()),
         args,
       );
     }
@@ -94,8 +98,8 @@ export const mockTx = (
     enqueuedPublicFunctionCalls = publicCallRequests.map(
       (r, i) =>
         new PublicExecutionRequest(
-          r.item.contractAddress,
-          CallContext.fromFields(r.item.callContext.toFields()),
+          r.contractAddress,
+          CallContext.fromFields(r.callContext.toFields()),
           publicFunctionArgs[i],
         ),
     );
@@ -221,6 +225,24 @@ export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
     {},
   );
   return new SimulatedTx(tx, dec, output);
+};
+
+export const mockEpochProofQuote = (
+  epochToProve: bigint,
+  validUntilSlot?: bigint,
+  bondAmount?: bigint,
+  proverAddress?: EthAddress,
+  basisPointFee?: number,
+) => {
+  const quotePayload: EpochProofQuotePayload = new EpochProofQuotePayload(
+    epochToProve,
+    validUntilSlot ?? randomBigInt(10000n),
+    bondAmount ?? randomBigInt(10000n) + 1000n,
+    proverAddress ?? EthAddress.random(),
+    basisPointFee ?? randomInt(100),
+  );
+  const sig: Signature = Signature.empty();
+  return new EpochProofQuote(quotePayload, sig);
 };
 
 export const randomContractArtifact = (): ContractArtifact => ({

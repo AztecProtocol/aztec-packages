@@ -13,7 +13,7 @@ use crate::{
     traits::Empty, utils::arrays::array_to_bounded_vec
 };
 
-struct PublicAccumulatedDataBuilder {
+pub struct PublicAccumulatedDataBuilder {
     note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
     l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,

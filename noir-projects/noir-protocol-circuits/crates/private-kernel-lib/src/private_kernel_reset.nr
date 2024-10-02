@@ -1,4 +1,5 @@
 use crate::components::{
+    previous_kernel_validator::PreviousKernelValidator,
     reset_output_composer::{ResetOutputComposer, ResetOutputHints},
     reset_output_validator::ResetOutputValidator
 };
@@ -8,15 +9,17 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::private_kernel_data::PrivateKernelData,
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX}, PrivateKernelCircuitPublicInputs
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    PrivateKernelCircuitPublicInputs
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_INIT_INDEX,
     PRIVATE_KERNEL_INNER_INDEX,
+    PRIVATE_KERNEL_RESET_INDEX
 ];
 
-struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
+pub struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
@@ -24,7 +27,7 @@ struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, l
     validation_requests_split_counter: u32,
 }
 
-struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
+pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     previous_kernel: PrivateKernelData,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT>,
 }
@@ -85,10 +88,8 @@ impl<
         };
 
         // Validate inputs.
-        if !std::runtime::is_unconstrained() {
-            // TODO(#7410) currently stubbed out until tube vk handled
-            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Validate output.
         if dep::types::validate::should_validate_output() {

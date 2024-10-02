@@ -10,7 +10,7 @@ use dep::types::{
     utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
 };
 
-struct ResetOutputValidator<
+pub struct ResetOutputValidator<
     let NH_RR_PENDING: u32,
     let NH_RR_SETTLED: u32,
     let NLL_RR_PENDING: u32,
@@ -63,17 +63,7 @@ impl<
 
         self.validation_request_processor.validate(self.output.validation_requests);
 
-        verify_squashed_transient_data(
-            self.previous_kernel.end.note_hashes,
-            self.previous_kernel.end.nullifiers,
-            self.previous_kernel.end.note_encrypted_logs_hashes,
-            self.hints.kept_note_hashes,
-            self.hints.kept_nullifiers,
-            self.hints.kept_note_encrypted_log_hashes,
-            self.transient_data_index_hints,
-            self.hints.transient_or_propagated_note_hash_indexes_for_logs,
-            self.output.validation_requests.split_counter.unwrap_unchecked()
-        );
+        self.validate_transient_data();
 
         self.validate_sorted_siloed_data();
     }
@@ -94,6 +84,29 @@ impl<
         assert_eq(self.output.end.unencrypted_logs_hashes, self.previous_kernel.end.unencrypted_logs_hashes);
         assert_eq(self.output.end.public_call_requests, self.previous_kernel.end.public_call_requests);
         assert_eq(self.output.end.private_call_stack, self.previous_kernel.end.private_call_stack);
+    }
+
+    fn validate_transient_data(self) {
+        if NUM_TRANSIENT_DATA_INDEX_HINTS == 0 {
+            assert_eq(
+                self.hints.kept_note_hashes, self.previous_kernel.end.note_hashes, "mismatch kept note hashes"
+            );
+            assert_eq(
+                self.hints.kept_nullifiers, self.previous_kernel.end.nullifiers, "mismatch kept nullifiers"
+            );
+        } else {
+            verify_squashed_transient_data(
+                self.previous_kernel.end.note_hashes,
+                self.previous_kernel.end.nullifiers,
+                self.previous_kernel.end.note_encrypted_logs_hashes,
+                self.hints.kept_note_hashes,
+                self.hints.kept_nullifiers,
+                self.hints.kept_note_encrypted_log_hashes,
+                self.transient_data_index_hints,
+                self.hints.transient_or_propagated_note_hash_indexes_for_logs,
+                self.output.validation_requests.split_counter.unwrap_unchecked()
+            );
+        }
     }
 
     fn validate_sorted_siloed_data(self) {

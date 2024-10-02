@@ -1,4 +1,4 @@
-#include "gemini.hpp"
+#include "gemini_impl.hpp"
 
 #include "../commitment_key.test.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -15,21 +15,21 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
   public:
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
                                           std::vector<Fr>& multilinear_evaluations,
-                                          std::vector<Polynomial<Fr>>& multilinear_polynomials,
-                                          std::vector<Polynomial<Fr>>& multilinear_polynomials_to_be_shifted,
-                                          std::vector<GroupElement>& multilinear_commitments,
-                                          std::vector<GroupElement>& multilinear_commitments_to_be_shifted)
+                                          RefSpan<Polynomial<Fr>> multilinear_polynomials,
+                                          RefSpan<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
+                                          RefVector<GroupElement> multilinear_commitments,
+                                          RefVector<GroupElement> multilinear_commitments_to_be_shifted)
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto prover_output = GeminiProver::prove(this->commitment_key,
+        auto prover_output = GeminiProver::prove(1 << multilinear_evaluation_point.size(),
+                                                 multilinear_polynomials,
+                                                 multilinear_polynomials_to_be_shifted,
                                                  multilinear_evaluation_point,
-                                                 multilinear_evaluations,
-                                                 RefVector(multilinear_polynomials),
-                                                 RefVector(multilinear_polynomials_to_be_shifted),
+                                                 this->commitment_key,
                                                  prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
@@ -80,10 +80,10 @@ TYPED_TEST(GeminiTest, Single)
 
     this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
-                                           multilinear_polynomials,
-                                           multilinear_polynomials_to_be_shifted,
-                                           multilinear_commitments,
-                                           multilinear_commitments_to_be_shifted);
+                                           RefVector(multilinear_polynomials),
+                                           RefVector(multilinear_polynomials_to_be_shifted),
+                                           RefVector(multilinear_commitments),
+                                           RefVector(multilinear_commitments_to_be_shifted));
 }
 
 TYPED_TEST(GeminiTest, SingleShift)
@@ -111,10 +111,10 @@ TYPED_TEST(GeminiTest, SingleShift)
 
     this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
-                                           multilinear_polynomials,
-                                           multilinear_polynomials_to_be_shifted,
-                                           multilinear_commitments,
-                                           multilinear_commitments_to_be_shifted);
+                                           RefVector(multilinear_polynomials),
+                                           RefVector(multilinear_polynomials_to_be_shifted),
+                                           RefVector(multilinear_commitments),
+                                           RefVector(multilinear_commitments_to_be_shifted));
 }
 
 TYPED_TEST(GeminiTest, Double)
@@ -145,10 +145,10 @@ TYPED_TEST(GeminiTest, Double)
 
     this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
-                                           multilinear_polynomials,
-                                           multilinear_polynomials_to_be_shifted,
-                                           multilinear_commitments,
-                                           multilinear_commitments_to_be_shifted);
+                                           RefVector(multilinear_polynomials),
+                                           RefVector(multilinear_polynomials_to_be_shifted),
+                                           RefVector(multilinear_commitments),
+                                           RefVector(multilinear_commitments_to_be_shifted));
 }
 
 TYPED_TEST(GeminiTest, DoubleWithShift)
@@ -180,8 +180,8 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
-                                           multilinear_polynomials,
-                                           multilinear_polynomials_to_be_shifted,
-                                           multilinear_commitments,
-                                           multilinear_commitments_to_be_shifted);
+                                           RefVector(multilinear_polynomials),
+                                           RefVector(multilinear_polynomials_to_be_shifted),
+                                           RefVector(multilinear_commitments),
+                                           RefVector(multilinear_commitments_to_be_shifted));
 }

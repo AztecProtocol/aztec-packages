@@ -20,12 +20,12 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
@@ -108,8 +108,8 @@ export async function deployContractsToL1(
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
@@ -162,7 +162,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
+      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+    });
 
     const chain = aztecNodeConfig.l1RpcUrl
       ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
