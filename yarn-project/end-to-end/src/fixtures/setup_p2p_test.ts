@@ -126,17 +126,41 @@ export async function createValidatorConfig(
   return nodeConfig;
 }
 
-export async function createBootstrapNode(port: number) {
-  const peerId = await createLibP2PPeerId();
-  const bootstrapNode = new BootstrapNode();
-  const config: BootnodeConfig = {
+export function createBootstrapNodeConfigFromPrivateKey(privateKey: Uint8Array, port: number): BootnodeConfig{
+  return {
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+    peerIdPrivateKey: Buffer.from(privateKey).toString('hex'),
     minPeerCount: 10,
     maxPeerCount: 100,
   };
+}
+
+export async function createBootstrapNodeConfig(port: number): Promise<BootnodeConfig> {
+  const peerId = await createLibP2PPeerId();
+  return createBootstrapNodeConfigFromPrivateKey(peerId.privateKey!, port);
+}
+
+export async function createBootstrapNodeFromConfig(config: BootnodeConfig) {
+  const bootstrapNode = new BootstrapNode();
   await bootstrapNode.start(config);
 
   return bootstrapNode;
 }
+
+export async function createBootstrapNode(port: number) {
+  const bootstrapNode = new BootstrapNode();
+  const config = await createBootstrapNodeConfig(port);
+  await bootstrapNode.start(config);
+
+  return bootstrapNode;
+}
+
+export async function createBootstrapNodeFromPrivateKey(privateKey: Uint8Array, port: number): Promise<BootstrapNode> {
+  const bootstrapNode = new BootstrapNode();
+  const config = createBootstrapNodeConfigFromPrivateKey(privateKey, port);
+  await bootstrapNode.start(config);
+
+  return bootstrapNode;
+}
+

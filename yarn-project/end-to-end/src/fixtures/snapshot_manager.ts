@@ -420,7 +420,6 @@ async function setupFromFresh(
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
 
-  // Load config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),

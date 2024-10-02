@@ -519,7 +519,7 @@ export class Sequencer {
     this.log.debug(`Attesting committee length ${committee.length}`);
 
     if (committee.length === 0) {
-      this.log.debug(`Attesting committee length is 0, skipping`);
+      this.log.verbose(`Attesting committee length is 0, skipping`);
       return undefined;
     }
 

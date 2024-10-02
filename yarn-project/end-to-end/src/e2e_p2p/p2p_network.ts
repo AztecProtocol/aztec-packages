@@ -3,7 +3,7 @@ import { AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { type BootstrapNode } from '@aztec/p2p';
+import { BootnodeConfig, createLibP2PPeerId, type BootstrapNode } from '@aztec/p2p';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
@@ -11,6 +11,10 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   createBootstrapNode,
+  createBootstrapNodeConfig,
+  createBootstrapNodeConfigFromPrivateKey,
+  createBootstrapNodeFromConfig,
+  createBootstrapNodeFromPrivateKey,
   createValidatorConfig,
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
@@ -63,9 +67,11 @@ export class P2PNetworkTest {
     });
   }
 
-  static async create(testName: string, numberOfNodes: number, basePort?: number) {
+  static async create(testName: string, numberOfNodes: number, basePort?: number, baseBootnodePrivateKey?: Uint8Array) {
     const port = basePort || (await getPort());
-    const bootstrapNode = await createBootstrapNode(port);
+    const bootnodePrivateKey = baseBootnodePrivateKey || ( await  createLibP2PPeerId()).privateKey!;
+
+    const bootstrapNode = await createBootstrapNodeFromPrivateKey(bootnodePrivateKey, port);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
@@ -73,6 +79,7 @@ export class P2PNetworkTest {
 
     return new P2PNetworkTest(
       testName,
+      // TODO: clean up all of this bootnode stuff
       bootstrapNode,
       port,
       numberOfNodes,
@@ -89,11 +96,21 @@ export class P2PNetworkTest {
         client: deployL1ContractsValues.walletClient,
       });
 
+      this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+
+      const txHashes: `0x${string}`[] = [];
       for (let i = 0; i < this.numberOfNodes; i++) {
         const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
-        await rollup.write.addValidator([account.address]);
-        this.logger.debug(`Adding ${account.address} as validator`);
+        const txHash = await rollup.write.addValidator([account.address]);
+        txHashes.push(txHash);
+
+        this.logger.verbose(`Adding ${account.address} as validator`);
+        console.log("Added validator", account.address);
       }
+      await Promise.all(txHashes.map(txHash => deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+        hash: txHash
+      })));
+
 
       //@note   Now we jump ahead to the next epoch such that the validator committee is picked
       //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
@@ -115,6 +132,7 @@ export class P2PNetworkTest {
           account: this.baseAccount,
         }),
       });
+
     });
   }
 

@@ -137,10 +137,16 @@ export class LightPublicProcessor {
 
                     const allNullifiers = padArrayEnd([...nonEmptyNonRevertibleNullifiers, ...nonEmptyTxNullifiers, ...publicNullifiers], Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer());
                     const allNoteHashes = padArrayEnd([...nonEmptyNonRevertibleNoteHashes, ...nonEmptyTxNoteHashes, ...publicNoteHashes], Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
-                    const allPublicDataUpdateRequests = padArrayEnd([...nonEmptyNonRevertiblePublicDataUpdateRequests, ...nonEmptyTxPublicDataUpdateRequests, ...nonEmptyPublicDataWrites], PublicDataUpdateRequest.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+                    const allPublicDataUpdateRequests = [...nonEmptyNonRevertiblePublicDataUpdateRequests, ...nonEmptyTxPublicDataUpdateRequests, ...nonEmptyPublicDataWrites];
+                    const uniquePublicDataUpdateRequests = allPublicDataUpdateRequests.filter((leaf, index, self) =>
+                        index === self.findIndex((t) => t.leafSlot.equals(leaf.leafSlot))
+                    );
+                    const paddedUniquePublicDataUpdateRequests = padArrayEnd(uniquePublicDataUpdateRequests, PublicDataUpdateRequest.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+
+
 
                     // TODO: refactor this
-                    const allPublicDataWrites = allPublicDataUpdateRequests.map(
+                    const allPublicDataWrites = publicDataWrites.map(
                         ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
                     );
 
@@ -303,6 +309,7 @@ export class LightPublicProcessor {
             enqueuedCallNewNullifiers.push(...getNonEmptyItems(res.nullifiers).map(n => n.scope(res.executionRequest.contractAddress)));
             enqueuedCallNewNoteHashes.push(...getNonEmptyItems(res.noteHashes).map(n => n.scope(res.executionRequest.contractAddress)));
             const tempPub = getNonEmptyItems(res.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(res.executionRequest.contractAddress, req));
+            // console.log("tempPub", tempPub);
             enqueuedCallPublicDataWrites.push(...tempPub);
 
             // TODO: do for the nested executions
@@ -330,7 +337,9 @@ export class LightPublicProcessor {
         // TODO: WHY to we need to do this? yucky yucky, reversal doesnt feel quite right
         const newNullifiers = txCallNewNullifiers.reverse().flat();
         const newNoteHashes = txCallNewNoteHashes.reverse().flat();
-        const newPublicDataWrites = txCallPublicDataWrites.reverse().flat();
+        const newPublicDataWrites = txCallPublicDataWrites.flat();
+
+        console.log("newPublicDataWrites", newPublicDataWrites);
 
         const returning =  {
             nullifiers: newNullifiers.map(n => siloNullifier(n.contractAddress, n.value)),

@@ -6,6 +6,7 @@ import { inspect } from 'util';
 import { GeneratorIndex } from '../constants.gen.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
 
 /**
  * Write operations on the public data tree including the previous value.
@@ -79,7 +80,7 @@ export class PublicDataUpdateRequest {
   }
 
   static fromContractStorageUpdateRequest(contractAddress: AztecAddress, updateRequest: ContractStorageUpdateRequest) {
-    const leafSlot = poseidon2HashWithSeparator([contractAddress, updateRequest.storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, updateRequest.storageSlot);
 
     return new PublicDataUpdateRequest(leafSlot, updateRequest.newValue, updateRequest.counter);
 
