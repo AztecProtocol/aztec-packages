@@ -76,6 +76,30 @@ TEST_F(ClientIVCAutoVerifyTests, Basic)
 };
 
 /**
+ * @brief The number of circuits processed can be odd as long as the last one is a kernel
+ *
+ */
+TEST_F(ClientIVCAutoVerifyTests, BasicOdd)
+{
+    ClientIVC ivc;
+    ivc.auto_verify_mode = true;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc, /*is_kernel=*/true);
+    ivc.accumulate(circuit_1);
+
+    // Create another circuit and accumulate
+    Builder circuit_2 = create_mock_circuit(ivc, /*is_kernel=*/true);
+    ivc.accumulate(circuit_2);
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */

@@ -376,7 +376,11 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
-        circuit.databus_propagation_data.is_kernel = is_kernel;
+
+        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
+        if (!circuit.databus_propagation_data.is_kernel) {
+            circuit.databus_propagation_data.is_kernel = is_kernel;
+        }
         is_kernel = !is_kernel;
         ivc.accumulate(circuit);
     }
