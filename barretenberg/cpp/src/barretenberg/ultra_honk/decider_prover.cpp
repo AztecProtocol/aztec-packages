@@ -70,7 +70,7 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
+    PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();

@@ -168,7 +168,7 @@ template <typename Flavor> class SumcheckProverRound {
 #ifdef TRACY_MEMORY
         ZoneScopedN("compute_univariate");
 #endif
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based

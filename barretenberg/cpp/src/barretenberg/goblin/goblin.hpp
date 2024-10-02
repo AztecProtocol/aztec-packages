@@ -134,7 +134,7 @@ class GoblinProver {
      */
     PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder, MergeProof& proof) const
     {
-        BB_OP_COUNT_TIME_NAME("Goblin::merge");
+        PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
         return merge_verifier.verify_proof(proof);
     };
@@ -146,7 +146,7 @@ class GoblinProver {
      */
     MergeProof prove_merge(MegaCircuitBuilder& circuit_builder)
     {
-        BB_OP_COUNT_TIME_NAME("Goblin::merge");
+        PROFILE_THIS_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
         // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
         // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added

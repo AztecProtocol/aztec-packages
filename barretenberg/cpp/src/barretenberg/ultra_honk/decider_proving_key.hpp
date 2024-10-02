@@ -46,7 +46,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                        TraceStructure trace_structure = TraceStructure::NONE,
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
-        BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
+        PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
