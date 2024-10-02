@@ -1,5 +1,9 @@
 import {
   AuthWitness,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
@@ -18,6 +22,7 @@ import {
   TxReceipt,
   TxSimulationResult,
   UnencryptedL2BlockL2Logs,
+  UnencryptedL2Log,
   UniqueNote,
 } from '@aztec/circuit-types';
 import {
@@ -28,6 +33,7 @@ import {
   FunctionSelector,
   GrumpkinScalar,
   Point,
+  PrivateCallStackItem,
 } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -65,11 +71,17 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
     },
     {
       EncryptedNoteL2BlockL2Logs,
+      EncryptedL2NoteLog,
+      EncryptedL2Log,
+      UnencryptedL2Log,
       NoteSelector,
       NullifierMembershipWitness,
-      PrivateExecutionResult,
       TxSimulationResult,
       TxProvingResult,
+      PrivateExecutionResult,
+      PrivateCallStackItem,
+      CountedPublicExecutionRequest,
+      CountedNoteLog,
       Tx,
       TxReceipt,
       UnencryptedL2BlockL2Logs,

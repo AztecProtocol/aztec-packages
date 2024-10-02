@@ -10,7 +10,7 @@ import {
   collectSortedUnencryptedLogs,
 } from '../private_execution_result.js';
 import { type PublicExecutionResult } from '../public_execution_result.js';
-import { NestedProcessReturnValues, type PublicSimulationOutput } from './public_simulation_output.js';
+import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
 export class PrivateSimulationResult {
@@ -88,6 +88,30 @@ export class TxSimulationResult extends PrivateSimulationResult {
       publicOutput,
     );
   }
+
+  /**
+   * Convert a SimulatedTx class object to a plain JSON object.
+   * @returns A plain object with SimulatedTx properties.
+   */
+  public override toJSON() {
+    return {
+      privateExecutionResult: this.privateExecutionResult.toJSON(),
+      publicInputs: this.publicInputs.toBuffer().toString('hex'),
+      publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
+    };
+  }
+
+  /**
+   * Convert a plain JSON object to a Tx class object.
+   * @param obj - A plain Tx JSON object.
+   * @returns A Tx class object.
+   */
+  public static override fromJSON(obj: any) {
+    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
+    const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
+    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput);
+  }
 }
 
 export class TxProvingResult extends TxSimulationResult {
@@ -117,6 +141,32 @@ export class TxProvingResult extends TxSimulationResult {
       teardownPublicFunction,
     );
     return tx;
+  }
+
+  /**
+   * Convert a SimulatedTx class object to a plain JSON object.
+   * @returns A plain object with SimulatedTx properties.
+   */
+  public override toJSON() {
+    return {
+      privateExecutionResult: this.privateExecutionResult.toJSON(),
+      publicInputs: this.publicInputs.toBuffer().toString('hex'),
+      publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
+      clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
+    };
+  }
+
+  /**
+   * Convert a plain JSON object to a Tx class object.
+   * @param obj - A plain Tx JSON object.
+   * @returns A Tx class object.
+   */
+  public static override fromJSON(obj: any) {
+    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
+    const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
+    const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
+    return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof, publicOuput);
   }
 }
 

@@ -48,8 +48,8 @@ export abstract class BaseContractInteraction {
   public async prove(options: SendMethodOptions = {}): Promise<Tx> {
     const txRequest = await this.create(options);
     const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
-    const provenTx = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
-    return provenTx.toTx();
+    const txProvingResult = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    return txProvingResult.toTx();
   }
 
   /**

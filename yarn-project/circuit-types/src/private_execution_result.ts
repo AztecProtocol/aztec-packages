@@ -48,20 +48,6 @@ export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | Enc
   isEmpty(): boolean {
     return !this.log.data.length && !this.counter;
   }
-
-  toJSON() {
-    return {
-      log: this.log.toJSON(),
-      counter: this.counter,
-    };
-  }
-
-  static fromJSON<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(
-    json: any,
-    fromJSON: (json: any) => TLog,
-  ) {
-    return new CountedLog<any>(fromJSON(json.log), json.counter);
-  }
 }
 
 export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
@@ -69,7 +55,7 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
     super(log, counter);
   }
 
-  override toJSON() {
+  toJSON() {
     return {
       log: this.log.toJSON(),
       counter: this.counter,
@@ -77,8 +63,8 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
     };
   }
 
-  static override fromJSON(json: any, fromJSON: (json: any) => EncryptedL2NoteLog) {
-    return new CountedNoteLog(fromJSON(json.log), json.counter, json.noteHashCounter);
+  static fromJSON(json: any) {
+    return new CountedNoteLog(EncryptedL2NoteLog.fromJSON(json.log), json.counter, json.noteHashCounter);
   }
 }
 
@@ -97,7 +83,7 @@ export class CountedPublicExecutionRequest {
   }
 
   static fromJSON(json: any) {
-    new CountedPublicExecutionRequest(
+    return new CountedPublicExecutionRequest(
       PublicExecutionRequest.fromBuffer(Buffer.from(json.request, 'hex')),
       json.counter,
     );
@@ -164,8 +150,14 @@ export class PrivateExecutionResult {
       enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(call => call.toJSON()),
       publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
       noteEncryptedLogs: this.noteEncryptedLogs.map(log => log.toJSON()),
-      encryptedLogs: this.encryptedLogs.map(log => log.toJSON()),
-      unencryptedLogs: this.unencryptedLogs.map(log => log.toJSON()),
+      encryptedLogs: this.encryptedLogs.map(countedLog => ({
+        log: countedLog.log.toJSON(),
+        counter: countedLog.counter,
+      })),
+      unencryptedLogs: this.unencryptedLogs.map(countedLog => ({
+        log: countedLog.log.toJSON(),
+        counter: countedLog.counter,
+      })),
     };
   }
 
@@ -173,11 +165,11 @@ export class PrivateExecutionResult {
     return new PrivateExecutionResult(
       Buffer.from(json.acir, 'hex'),
       Buffer.from(json.vk, 'hex'),
-      json.partialWitness,
+      new Map(Object.entries(json.partialWitness).map(([key, value]) => [Number(key), value as string])),
       PrivateCallStackItem.fromJSON(json.callStackItem),
-      json.noteHashLeafIndexMap,
+      new Map(Object.entries(json.noteHashLeafIndexMap).map(([key, value]) => [BigInt(key), BigInt(value as string)])),
       Array.isArray(json.newNotes) ? json.newNotes.map((note: any) => NoteAndSlot.fromJSON(note)) : [],
-      json.noteHashNullifierCounterMap,
+      new Map(Object.entries(json.noteHashNullifierCounterMap).map(([key, value]) => [Number(key), Number(value)])),
       json.returnValues.map((fr: any) => new Fr(Buffer.from(fr, 'hex'))),
       Array.isArray(json.nestedExecutions)
         ? json.nestedExecutions.map((exec: any) => PrivateExecutionResult.fromJSON(exec))
@@ -187,13 +179,17 @@ export class PrivateExecutionResult {
         : [],
       PublicExecutionRequest.fromBuffer(Buffer.from(json.publicTeardownFunctionCall, 'hex')),
       Array.isArray(json.noteEncryptedLogs)
-        ? json.noteEncryptedLogs.map((log: any) => CountedNoteLog.fromJSON(log, EncryptedL2NoteLog.fromJSON))
+        ? json.noteEncryptedLogs.map((json: any) => CountedNoteLog.fromJSON(json))
         : [],
       Array.isArray(json.encryptedLogs)
-        ? json.encryptedLogs.map((log: any) => CountedLog.fromJSON(log, EncryptedL2Log.fromJSON))
+        ? json.encryptedLogs.map(
+            (json: any) => new CountedLog<EncryptedL2Log>(EncryptedL2Log.fromJSON(json.log), json.counter),
+          )
         : [],
       Array.isArray(json.unencryptedLogs)
-        ? json.unencryptedLogs.map((log: any) => CountedLog.fromJSON(log, UnencryptedL2Log.fromJSON))
+        ? json.unencryptedLogs.map(
+            (json: any) => new CountedLog<UnencryptedL2Log>(UnencryptedL2Log.fromJSON(json.log), json.counter),
+          )
         : [],
     );
   }
