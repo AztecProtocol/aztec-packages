@@ -164,6 +164,7 @@ export class PrivateExecutionResult {
       enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(call => call.toJSON()),
       publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
       noteEncryptedLogs: this.noteEncryptedLogs.map(log => log.toJSON()),
+      encryptedLogs: this.encryptedLogs.map(log => log.toJSON()),
       unencryptedLogs: this.unencryptedLogs.map(log => log.toJSON()),
     };
   }
