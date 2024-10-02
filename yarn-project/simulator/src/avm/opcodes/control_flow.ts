@@ -41,21 +41,21 @@ export class JumpI extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [condOffset] = Addressing.fromWire(this.indirect).resolve([this.condOffset], memory);
+    const operands = [this.condOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [condOffset] = addressing.resolve(operands, memory);
     const condition = memory.getAs<IntegralValue>(condOffset);
 
-    // TODO: reconsider this casting
     if (condition.toBigInt() == 0n) {
       context.machineState.incrementPc();
     } else {
       context.machineState.pc = this.loc;
     }
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1, addressing });
   }
 }
 

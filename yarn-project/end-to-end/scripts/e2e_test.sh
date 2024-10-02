@@ -12,6 +12,7 @@ shift
 
 # Default values for environment variables
 HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
+FAKE_PROOFS="${FAKE_PROOFS:-}"
 AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
 
 if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
@@ -19,4 +20,4 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
   exit 1
 fi
 
-docker run -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST" $@
+docker run -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" -e FAKE_PROOFS="$FAKE_PROOFS" --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST" $@

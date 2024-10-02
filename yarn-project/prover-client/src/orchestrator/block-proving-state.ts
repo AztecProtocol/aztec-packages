@@ -41,6 +41,7 @@ export class BlockProvingState {
   private rootParityInputs: Array<RootParityInput<typeof RECURSIVE_PROOF_LENGTH> | undefined> = [];
   private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   public blockRootRollupPublicInputs: BlockRootOrBlockMergePublicInputs | undefined;
+  public blockRootRollupStarted: boolean = false;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];
@@ -180,6 +181,7 @@ export class BlockProvingState {
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForBlockRootRollup() {
     return !(
+      this.block === undefined ||
       this.mergeRollupInputs[0] === undefined ||
       this.finalRootParityInput === undefined ||
       this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1

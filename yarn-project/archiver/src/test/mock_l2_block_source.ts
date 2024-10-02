@@ -1,5 +1,7 @@
 import { L2Block, type L2BlockSource, type TxEffect, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress, type Header } from '@aztec/circuits.js';
+
+import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
 
 /**
  * A mocked implementation of L2BlockSource to be used in p2p tests.
@@ -85,6 +87,19 @@ export class MockBlockSource implements L2BlockSource {
     );
   }
 
+  getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+    return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number : -1)?.header);
+  }
+
+  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const blocks = this.l2Blocks.filter(b => {
+      const slot = b.header.globalVariables.slotNumber.toBigInt();
+      return slot >= start && slot <= end;
+    });
+    return Promise.resolve(blocks);
+  }
+
   /**
    * Gets a tx effect.
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
@@ -118,6 +133,18 @@ export class MockBlockSource implements L2BlockSource {
       }
     }
     return Promise.resolve(undefined);
+  }
+
+  getL2EpochNumber(): Promise<bigint> {
+    throw new Error('Method not implemented.');
+  }
+
+  getL2SlotNumber(): Promise<bigint> {
+    throw new Error('Method not implemented.');
+  }
+
+  isEpochComplete(_epochNumber: bigint): Promise<boolean> {
+    throw new Error('Method not implemented.');
   }
 
   /**

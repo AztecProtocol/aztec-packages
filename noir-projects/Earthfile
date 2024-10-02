@@ -93,7 +93,7 @@ format:
   FROM +source
 
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
-  RUN yarn && node ./generate_variants.js
+  RUN yarn && node ./scripts/generate_variants.js
   RUN nargo fmt --check
 
   WORKDIR /usr/src/noir-projects/mock-protocol-circuits
@@ -113,7 +113,7 @@ gates-report:
   COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
 
-  RUN cd noir-protocol-circuits && yarn && node ./generate_variants.js && nargo compile --silence-warnings
+  RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings
 
   COPY ./gates_report.sh ./gates_report.sh
   RUN ./gates_report.sh

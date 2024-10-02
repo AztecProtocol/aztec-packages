@@ -1,5 +1,6 @@
 import {
   ConsensusPayload,
+  type EpochProofClaim,
   type EpochProofQuote,
   type L2Block,
   type TxHash,
@@ -28,7 +29,9 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
+import { inspect } from 'util';
 import {
+  type BaseError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -39,6 +42,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  getAbiItem,
   getAddress,
   getContract,
   hexToBytes,
@@ -160,8 +164,8 @@ export class L1Publisher {
     });
   }
 
-  public getSenderAddress(): Promise<EthAddress> {
-    return Promise.resolve(EthAddress.fromString(this.account.address));
+  public getSenderAddress(): EthAddress {
+    return EthAddress.fromString(this.account.address);
   }
 
   /**
@@ -187,11 +191,47 @@ export class L1Publisher {
     return await this.rollupContract.read.getEpochAtSlot([slotNumber]);
   }
 
+  public async getEpochToProve(): Promise<bigint | undefined> {
+    try {
+      return await this.rollupContract.read.getEpochToProve();
+    } catch (err: any) {
+      // If this is a revert with Rollup__NoEpochToProve, it means there is no epoch to prove, so we return undefined
+      // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
+      const errorName = tryGetCustomErrorName(err);
+      if (errorName === getAbiItem({ abi: RollupAbi, name: 'Rollup__NoEpochToProve' }).name) {
+        return undefined;
+      }
+      throw err;
+    }
+  }
+
+  public async getProofClaim(): Promise<EpochProofClaim | undefined> {
+    const [epochToProve, basisPointFee, bondAmount, bondProviderHex, proposerClaimantHex] =
+      await this.rollupContract.read.proofClaim();
+
+    const bondProvider = EthAddress.fromString(bondProviderHex);
+    const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
+
+    if (bondProvider.isZero() && proposerClaimant.isZero() && epochToProve === 0n) {
+      return undefined;
+    }
+
+    return {
+      epochToProve,
+      basisPointFee,
+      bondAmount,
+      bondProvider,
+      proposerClaimant,
+    };
+  }
+
   public async validateProofQuote(quote: EpochProofQuote): Promise<EpochProofQuote | undefined> {
     const args = [quote.toViemArgs()] as const;
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
+      const errorName = tryGetCustomErrorName(err);
+      this.log.verbose(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
     return quote;
@@ -294,54 +334,6 @@ export class L1Publisher {
       return false;
     }
 
-    {
-      const timer = new Timer();
-
-      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-      //        This means that we can avoid the simulation issues in later checks.
-      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-      //        make time consistency checks break.
-      await this.validateBlockForSubmission(block.header, {
-        digest: digest.toBuffer(),
-        signatures: attestations ?? [],
-      });
-
-      const txHash = await this.sendProposeTx(proposeTxArgs);
-
-      if (!txHash) {
-        this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
-        return false;
-      }
-
-      const receipt = await this.getTransactionReceipt(txHash);
-      if (!receipt) {
-        this.log.info(`Failed to get receipt for tx ${txHash}`, ctx);
-        return false;
-      }
-
-      // Tx was mined successfully
-      if (receipt.status) {
-        const tx = await this.getTransactionStats(txHash);
-        const stats: L1PublishBlockStats = {
-          ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-          ...pick(tx!, 'calldataGas', 'calldataSize'),
-          ...block.getStats(),
-          eventName: 'rollup-published-to-l1',
-        };
-        this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
-        this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
-        return true;
-      }
-
-      this.metrics.recordFailedTx('process');
-      this.log.error(`Rollup.process tx status failed ${receipt.transactionHash}`, {
-        ...ctx,
-        ...receipt,
-      });
-      await this.sleepOrInterrupted();
-    }
-
     const timer = new Timer();
 
     // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
@@ -353,7 +345,7 @@ export class L1Publisher {
       signatures: attestations ?? [],
     });
 
-    this.log.verbose(`Submitting propose transaction with `);
+    this.log.verbose(`Submitting propose transaction`);
 
     const txHash = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
@@ -617,6 +609,8 @@ export class L1Publisher {
         encodedData,
         L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
       );
+      this.log.info(`ProposeAndClaim`);
+      this.log.info(inspect(quote.payload));
 
       return await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
         account: this.account,
@@ -676,4 +670,19 @@ export class L1Publisher {
  */
 function getCalldataGasUsage(data: Uint8Array) {
   return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
+}
+
+function tryGetCustomErrorName(err: any) {
+  try {
+    // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
+    if (err.name === 'ViemError') {
+      const baseError = err as BaseError;
+      const revertError = baseError.walk(err => (err as Error).name === 'ContractFunctionRevertedError');
+      if (revertError) {
+        return (revertError as ContractFunctionRevertedError).data?.errorName;
+      }
+    }
+  } catch (_e) {
+    return undefined;
+  }
 }
