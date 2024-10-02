@@ -71,6 +71,18 @@ build:
     RUN yarn pack && tar zxf package.tgz && rm package.tgz
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
+<<<<<<< Updated upstream
+=======
+deploy-npm:
+    FROM +build
+    ARG VERSION
+    ARG DIST_TAG
+    RUN --secret NPM_TOKEN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > /usr/src/barretenberg/ts/.npmrc
+    WORKDIR /usr/src/barretenberg/ts
+    RUN jq --arg v $VERSION '.version = $v' package.json > _tmp.json && mv  _tmp.json package.json
+    RUN npm publish --dry-run --tag $DIST_TAG --access public
+
+>>>>>>> Stashed changes
 test:
     FROM +deps
     BUILD +test-prettier-format
