@@ -144,8 +144,7 @@
         "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
       },
       "cacheVariables": {
-        "ENABLE_TRACY": "ON",
-        "TRACY_PROFILE_TIME": "ON"
+        "ENABLE_TRACY": "ON"
       }
     },
     {
