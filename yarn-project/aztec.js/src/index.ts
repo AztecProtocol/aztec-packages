@@ -135,6 +135,7 @@ export {
   L1NotePayload,
   L1EventPayload,
   EpochProofQuote,
+  EpochProofQuotePayload,
 } from '@aztec/circuit-types';
 export { NodeInfo } from '@aztec/types/interfaces';
 
