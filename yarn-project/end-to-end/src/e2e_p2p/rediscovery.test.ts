@@ -90,6 +90,5 @@ describe('e2e_p2p_rediscovery', () => {
         }),
       ),
     );
-
   });
 });

@@ -42,7 +42,7 @@ export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   return peerIdPrivateKeys;
 }
 
-export async function createNodes(
+export function createNodes(
   config: AztecNodeConfig,
   peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
@@ -123,7 +123,7 @@ export async function createValidatorConfig(
   return nodeConfig;
 }
 
-export async function createBootstrapNodeConfig(privateKey: string, port: number): Promise<BootnodeConfig> {
+export function createBootstrapNodeConfig(privateKey: string, port: number): BootnodeConfig {
   return {
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
@@ -133,16 +133,16 @@ export async function createBootstrapNodeConfig(privateKey: string, port: number
   };
 }
 
-export async function createBootstrapNodeFromPrivateKey(privateKey: string, port: number) {
-  const config = await createBootstrapNodeConfig(privateKey, port);
-  return await startBootstrapNode(config);
+export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number): Promise<BootstrapNode> {
+  const config = createBootstrapNodeConfig(privateKey, port);
+  return startBootstrapNode(config);
 }
 
-export async function createBootstrapNode(port: number) {
+export async function createBootstrapNode(port: number): Promise<BootstrapNode> {
   const peerId = await createLibP2PPeerId();
-  const config = await createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
+  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
-  return await startBootstrapNode(config);
+  return startBootstrapNode(config);
 }
 
 async function startBootstrapNode(config: BootnodeConfig) {
@@ -150,5 +150,3 @@ async function startBootstrapNode(config: BootnodeConfig) {
   await bootstrapNode.start(config);
   return bootstrapNode;
 }
-
-
