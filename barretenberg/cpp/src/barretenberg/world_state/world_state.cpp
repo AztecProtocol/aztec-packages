@@ -370,7 +370,17 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     rollback();
 
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
-    auto decr = [&signal](const auto&) { signal.signal_decrement(); };
+    bool success = true;
+    std::string err_message;
+    auto decr = [&signal, &success, &err_message](const auto& resp) {
+        // take the first error
+        if (success && !resp.success) {
+            success = false;
+            err_message = resp.message;
+        }
+
+        signal.signal_decrement();
+    };
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
@@ -384,19 +394,27 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     }
 
     {
+        // insert public writes in batches so that we can have different transactions modifying the same slot in the
+        // same L2 block
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        std::vector<PublicDataLeafValue> leaves;
-        size_t total_leaves = 0;
-        for (const auto& batch : public_writes) {
-            total_leaves += batch.size();
-        }
+        std::shared_ptr<size_t> current_batch = std::make_shared<size_t>(0);
+        std::shared_ptr<PublicDataTree::AddCompletionCallback> completion =
+            std::make_shared<PublicDataTree::AddCompletionCallback>();
 
-        leaves.reserve(total_leaves);
-        for (const auto& batch : public_writes) {
-            leaves.insert(leaves.end(), batch.begin(), batch.end());
+        *completion = [&decr, &public_writes, &wrapper, completion, current_batch](const auto& resp) -> void {
+            (*current_batch)++;
+            if (*current_batch == public_writes.size()) {
+                decr(resp);
+            } else {
+                wrapper.tree->add_or_update_values(public_writes[*current_batch], 0, *completion);
+            }
+        };
+
+        if (public_writes.empty()) {
+            signal.signal_decrement();
+        } else {
+            wrapper.tree->add_or_update_values(public_writes[*current_batch], 0, *completion);
         }
-        PublicDataTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
-        wrapper.tree->add_or_update_values(leaves, 0, completion);
     }
 
     {
@@ -411,6 +429,11 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 
     signal.wait_for_level();
 
+    if (!success) {
+        throw std::runtime_error("Failed to sync block: " + err_message);
+    }
+
+    // TODO (alexg) check archive tree state too
     auto state_after_inserts = get_state_reference(WorldStateRevision::uncommitted());
     if (block_state_matches_world_state(block_state_ref, state_after_inserts)) {
         commit();
