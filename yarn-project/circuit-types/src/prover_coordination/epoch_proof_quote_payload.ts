@@ -38,7 +38,7 @@ export class EpochProofQuotePayload {
     );
   }
 
-  static fromFields(fields: FieldsOf<EpochProofQuotePayload>): EpochProofQuotePayload {
+  static from(fields: FieldsOf<EpochProofQuotePayload>): EpochProofQuotePayload {
     return new EpochProofQuotePayload(
       fields.epochToProve,
       fields.validUntilSlot,

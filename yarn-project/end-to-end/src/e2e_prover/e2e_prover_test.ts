@@ -3,6 +3,7 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
+  type CheatCodes,
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
@@ -76,6 +77,7 @@ export class FullProverTest {
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   pxe!: PXEService;
+  cheatCodes!: CheatCodes;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
@@ -116,7 +118,7 @@ export class FullProverTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
+        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2), false);
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
@@ -156,10 +158,10 @@ export class FullProverTest {
       aztecNode: this.aztecNode,
       proverNode: this.simulatedProverNode,
       deployL1ContractsValues: this.l1Contracts,
+      cheatCodes: this.cheatCodes,
     } = this.context);
 
     // Configure a full prover PXE
-
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
     let bbConfig: Awaited<ReturnType<typeof getBBConfig>> | undefined;
     if (this.realProofs) {
@@ -190,8 +192,13 @@ export class FullProverTest {
       });
     }
 
-    this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
+    this.logger.verbose(`Move to a clean epoch`);
+    await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
+    this.logger.verbose(`Marking current block as proven`);
+    await this.context.cheatCodes.rollup.markAsProven();
+
+    this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {
       const result = await setupPXEService(
         this.aztecNode,
@@ -235,7 +242,6 @@ export class FullProverTest {
       });
       this.provenAssets.push(asset);
     }
-
     this.logger.info(`Full prover PXE started`);
 
     // Shutdown the current, simulated prover node
@@ -243,7 +249,6 @@ export class FullProverTest {
     await this.simulatedProverNode.stop();
 
     // Creating temp store and archiver for fully proven prover node
-
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
@@ -254,7 +259,7 @@ export class FullProverTest {
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
 
-    this.logger.verbose('Starting fully proven prover node');
+    this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
       proverCoordinationNodeUrl: undefined,
@@ -264,15 +269,17 @@ export class FullProverTest {
       proverAgentConcurrency: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
+      proverNodePollingIntervalMs: 100,
+      quoteProviderBasisPointFee: 100,
+      quoteProviderBondAmount: 1000n,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
       archiver: archiver as Archiver,
     });
-    this.proverNode.start();
+    await this.proverNode.start();
 
-    this.logger.info('Prover node started');
-
+    this.logger.warn(`Proofs are now enabled`);
     return this;
   }
 

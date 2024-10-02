@@ -1,14 +1,8 @@
-test: "sample"
-scenario: "default"
-
 network:
   public: false
   enableBots: true
 
 images:
-  test:
-    image: aztecprotocol/end-to-end
-    pullPolicy: IfNotPresent
   aztec:
     image: aztecprotocol/aztec
     pullPolicy: IfNotPresent
