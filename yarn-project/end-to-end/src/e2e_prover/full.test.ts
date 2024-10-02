@@ -1,4 +1,4 @@
-import { AztecAddress, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, retryUntil } from '@aztec/aztec.js';
 
 import '@jest/globals';
 
