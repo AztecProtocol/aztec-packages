@@ -35,9 +35,11 @@ export class ProofVerifier {
   static async new(config: ProofVerifierConfig, telemetryClient: TelemetryClient): Promise<ProofVerifier> {
     const logger = createDebugLogger('aztec:block-verifier-bot');
     const verifier = await BBCircuitVerifier.new(config, [], logger);
+    logger.info(`Creating public client for ProofVerifier`);
     const client = createPublicClient({
       chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,
       transport: http(config.l1Url),
+      pollingInterval: 10_000,
     });
 
     return new ProofVerifier(config, client, verifier, telemetryClient, logger);

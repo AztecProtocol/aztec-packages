@@ -39,6 +39,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
+      pollingInterval: 10_000,
     });
 
     this.rollupContract = getContract({

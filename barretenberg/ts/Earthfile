@@ -71,6 +71,11 @@ build:
     RUN yarn pack && tar zxf package.tgz && rm package.tgz
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
+deploy-npm:
+    FROM +build
+    RUN --secret NPM_TOKEN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > /usr/src/barretenberg/ts/.npmrc
+    RUN yarn publish
+
 test:
     FROM +deps
     BUILD +test-prettier-format

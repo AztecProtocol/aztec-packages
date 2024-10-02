@@ -218,7 +218,7 @@ jobs:
 
   publish-npm:
     needs: publish-manifests
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.actor }}-x86
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
