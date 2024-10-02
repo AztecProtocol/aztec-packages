@@ -136,10 +136,27 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     override(ITestRollup)
     onlyOwner
   {
+    fakeBlockNumberAsProven(blockNumber);
+    assumeProvenThroughBlockNumber = blockNumber;
+  }
+
+  function fakeBlockNumberAsProven(uint256 blockNumber) private {
     if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
       tips.provenBlockNumber = blockNumber;
+
+      // If this results on a new epoch, create a fake claim for it
+      // Otherwise nextEpochToProve will report an old epoch
+      Epoch epoch = getEpochForBlock(blockNumber);
+      if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
+        proofClaim = DataStructures.EpochProofClaim({
+          epochToProve: epoch,
+          basisPointFee: 0,
+          bondAmount: 0,
+          bondProvider: address(0),
+          proposerClaimant: msg.sender
+        });
+      }
     }
-    assumeProvenThroughBlockNumber = blockNumber;
   }
 
   /**
@@ -425,7 +442,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
+      fakeBlockNumberAsProven(blockNumber);
 
       if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
