@@ -136,7 +136,6 @@ spec:
       resources:
         requests:
           storage: {{ .Values.bootNode.storage }}
-      storageClassName: "gp2"
 ---
 apiVersion: v1
 kind: Service

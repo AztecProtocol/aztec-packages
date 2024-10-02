@@ -104,7 +104,6 @@ spec:
       resources:
         requests:
           storage: {{ .Values.validator.storage }}
-      storageClassName: "gp2"
 ---
 apiVersion: v1
 kind: ConfigMap
