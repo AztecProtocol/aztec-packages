@@ -814,7 +814,7 @@ jobs:
           run: |
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
-            NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=3-validators.yaml ./scripts/network_test.sh ./src/spartan/transfer.test.ts
+            NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=3-validators.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   rerun-check:
     runs-on: ubuntu-20.04
