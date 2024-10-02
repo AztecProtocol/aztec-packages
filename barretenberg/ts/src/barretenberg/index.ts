@@ -14,8 +14,14 @@ export { UltraPlonkBackend, UltraHonkBackend } from './backend.js';
 const debug = createDebug('bb.js:wasm');
 
 export type BackendOptions = {
+  /** @description Number of threads to run the backend worker on */
   threads?: number;
+
+  /** @description Initial and Maximum memory to be alloted to the backend worker */
   memory?: { initial?: number; maximum?: number };
+
+  /** @description Path to download CRS files */
+  crsPath?: string;
 };
 
 /**
@@ -23,8 +29,11 @@ export type BackendOptions = {
  * It extends the generated api, and provides a static constructor "new" to compose components.
  */
 export class Barretenberg extends BarretenbergApi {
-  private constructor(private worker: any, wasm: BarretenbergWasmWorker) {
+  private options: BackendOptions;
+
+  private constructor(private worker: any, wasm: BarretenbergWasmWorker, options: BackendOptions) {
     super(wasm);
+    this.options = options;
   }
 
   /**
@@ -33,12 +42,12 @@ export class Barretenberg extends BarretenbergApi {
    * and blocking the main thread in the browser is not allowed.
    * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
    */
-  static async new({ threads: desiredThreads, memory }: BackendOptions = {}) {
+  static async new(options: BackendOptions = {}) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(desiredThreads);
-    await wasm.init(module, threads, proxy(debug), memory?.initial, memory?.maximum);
-    return new Barretenberg(worker, wasm);
+    const { module, threads } = await fetchModuleAndThreads(options.threads);
+    await wasm.init(module, threads, proxy(debug), options.memory?.initial, options.memory?.maximum);
+    return new Barretenberg(worker, wasm, options);
   }
 
   async getNumThreads() {
@@ -46,7 +55,7 @@ export class Barretenberg extends BarretenbergApi {
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
-    const crs = await Crs.new(circuitSize + Math.floor((circuitSize * 6) / 10) + 1);
+    const crs = await Crs.new(circuitSize + Math.floor((circuitSize * 6) / 10) + 1, this.options.crsPath);
     await this.commonInitSlabAllocator(circuitSize);
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }
