@@ -26,10 +26,11 @@ function k8s_pxe_port_forward() {
   # Clear any existing port forward
   ps aux | grep "kubectl port-forward" | grep 9081 | awk '{print $2}' | xargs kill || true
   # tunnel in to get access directly to our PXE service in k8s
-  kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9080:8080 || true
+  kubectl port-forward -n "$NAMESPACE" svc/spartan-aztec-network-pxe 9080:8080 || true
 }
 
-k8s_pxe_port_forward 2>/dev/null &
+# Make sure the port forwarding outlives the script
+nohup k8s_pxe_port_forward >/dev/null 2>/dev/null &
 
 # run our test in the host network namespace (so we can access the above with localhost)
 if [ "$TEST" = interactive ] ; then
@@ -41,7 +42,11 @@ if [ "$TEST" = interactive ] ; then
     -e LOG_JSON=1 \
     --entrypoint /bin/sh \
     aztecprotocol/end-to-end:$END_TO_END_DOCKER_TAG
-else
+elif ! [ "$TEST" = none ] ; then
+  if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$END_TO_END_DOCKER_TAG"; then
+    echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-end-to-end'."
+    exit 1
+  fi
   docker run --rm --network=host \
     -e SCENARIO=default \
     -e PXE_URL=http://localhost:9080 \
