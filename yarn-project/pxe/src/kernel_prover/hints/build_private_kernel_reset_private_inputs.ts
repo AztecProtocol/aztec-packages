@@ -1,4 +1,4 @@
-import { PrivateExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
+import { type PrivateExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
 import {
   type Fr,
   KeyValidationHint,
