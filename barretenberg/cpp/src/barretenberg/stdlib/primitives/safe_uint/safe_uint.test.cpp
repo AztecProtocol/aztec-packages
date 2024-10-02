@@ -300,10 +300,14 @@ TYPED_TEST(SafeUintTest, TestMinusOperator)
     field_ct a(witness_ct(&builder, 9));
     field_ct b(witness_ct(&builder, 2));
     suint_ct c(a, 4);
+    c.set_origin_tag(submitted_value_origin_tag);
     suint_ct d(b, 2);
+    d.set_origin_tag(challenge_origin_tag);
     c = c - d; // 9 - 2 = 7 should not underflow
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    // Minus operator in safe_uint merges tags
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 }
 
 /**
@@ -433,8 +437,13 @@ TYPED_TEST(SafeUintTest, TestDivideMethod)
     field_ct a1(witness_ct(&builder, 2));
     field_ct b1(witness_ct(&builder, 9));
     suint_ct c1(a1, 2);
+    c1.set_origin_tag(submitted_value_origin_tag);
     suint_ct d1(b1, 4);
+    d1.set_origin_tag(challenge_origin_tag);
     c1 = d1.divide(c1, 3, 1);
+
+    // .divide(other) merges tags
+    EXPECT_EQ(c1.get_origin_tag(), first_two_merged_tag);
 
     field_ct a2(witness_ct(&builder, engine.get_random_uint8()));
     field_ct b2(witness_ct(&builder, engine.get_random_uint32()));
@@ -512,11 +521,15 @@ TYPED_TEST(SafeUintTest, TestDivOperator)
     auto builder = Builder();
 
     suint_ct a(witness_ct(&builder, 1000), 10, "a");
+    a.set_origin_tag(submitted_value_origin_tag);
     suint_ct b(2, 2, "b");
+    b.set_origin_tag(challenge_origin_tag);
 
     a = a / b;
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    // Division operator merges tags
+    EXPECT_EQ(a.get_origin_tag(), first_two_merged_tag);
 }
 
 // / OPERATOR
@@ -603,11 +616,17 @@ TYPED_TEST(SafeUintTest, TestSlice)
     // hi=0x111101, lo=0x011, slice=0x10101001
     //
     suint_ct a(witness_ct(&builder, fr(126283)), 17);
+    a.set_origin_tag(next_challenge_tag);
     auto slice_data = a.slice(10, 3);
 
     EXPECT_EQ(slice_data[0].get_value(), fr(3));
     EXPECT_EQ(slice_data[1].get_value(), fr(169));
     EXPECT_EQ(slice_data[2].get_value(), fr(61));
+
+    // Slice preserves tags
+    EXPECT_EQ(slice_data[0].get_origin_tag(), next_challenge_tag);
+    EXPECT_EQ(slice_data[1].get_origin_tag(), next_challenge_tag);
+    EXPECT_EQ(slice_data[2].get_origin_tag(), next_challenge_tag);
 
     bool result = CircuitChecker::check(builder);
     EXPECT_TRUE(result);
@@ -745,6 +764,7 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
 
     field_ct elt = witness_ct(&builder, 0x7f6f5f4f00010203);
     suint_ct safe(elt, 63);
+    elt.set_origin_tag(next_challenge_tag);
     // safe.value is a uint256_t, so we serialize to a 32-byte array
     std::string expected = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -753,4 +773,9 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
     byte_array_ct arr(&builder);
     arr.write(static_cast<byte_array_ct>(safe));
     EXPECT_EQ(arr.get_string(), expected);
+    // Conversion to byte_array preserves tags
+    for (const auto& single_byte : arr.bytes()) {
+        EXPECT_EQ(single_byte.get_origin_tag(), next_challenge_tag);
+    }
+    EXPECT_EQ(arr.get_origin_tag(), next_challenge_tag);
 }
