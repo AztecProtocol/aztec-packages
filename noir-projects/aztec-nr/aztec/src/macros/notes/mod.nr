@@ -29,7 +29,6 @@ comptime fn compute_note_type_id(name: Quoted) -> Field {
 comptime fn generate_note_interface(
     s: StructDefinition,
     note_type_id: Field,
-    hiding_point_name: Quoted,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)]
 ) -> (Quoted, u32) {
@@ -53,8 +52,14 @@ comptime fn generate_note_interface(
         &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })]
     );
 
-    let fixed_fields_args = indexed_fixed_fields.map(| (name, _, _): (Quoted, Type, u32) | quote{ self.$name }).push_back(quote { self.get_header().storage_slot }).join(quote {,});
-    let nullable_fields_args = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| quote { self.$name }).join(quote {,});
+    // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable fields.
+    let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
+    // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
+    let merged_fields = merged_fields.map(| (name, typ, index): (Quoted, Type, u32) | (quote { self.$name }, typ, index));
+    let (new_generators_list, new_scalars_list, _, new_aux_vars) = generate_multi_scalar_mul(merged_fields);
+
+    let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) }).join(quote {,});
 
     (quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
@@ -102,7 +107,12 @@ comptime fn generate_note_interface(
             }
 
             fn compute_note_hash(self) -> Field {
-                $hiding_point_name::empty().new($fixed_fields_args).finalize($nullable_fields_args)
+                $new_aux_vars
+                let point = std::embedded_curve_ops::multi_scalar_mul(
+                    [$new_generators],
+                    [$new_scalars]
+                );
+                point.x
             }
         }
     }, content_len)
@@ -376,7 +386,7 @@ comptime fn generate_partial_payload(
 comptime fn generate_partial_note_impl(
     s: StructDefinition,
     hiding_point_name: Quoted,
-    partial_payload_name: Quoted,
+    partial_payload_name: Quoted
 ) -> Quoted {
     let name = s.name();
     quote {
@@ -464,14 +474,13 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 
     let (common, note_type_id) = common_note_annotation(s);
     let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, indexed_nullable_fields);
-    let (partial_payload_impl, partial_payload_name) = generate_partial_payload(s, hiding_point_name, indexed_fixed_fields, indexed_nullable_fields);
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+    let (partial_payload_impl, partial_payload_name) = generate_partial_payload(
         s,
-        note_type_id,
         hiding_point_name,
         indexed_fixed_fields,
         indexed_nullable_fields
     );
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
     let partial_note_impl = generate_partial_note_impl(s, hiding_point_name, partial_payload_name);
     register_note(
         s,
@@ -493,14 +502,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 pub comptime fn note(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
     let (common, note_type_id) = common_note_annotation(s);
-    let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, indexed_nullable_fields);
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
-        s,
-        note_type_id,
-        hiding_point_name,
-        indexed_fixed_fields,
-        indexed_nullable_fields
-    );
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
     register_note(
         s,
         note_serialized_len,
@@ -511,7 +513,6 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 
     quote {
         $common
-        $note_hiding_point
         $note_interface_impl
     }
 }
