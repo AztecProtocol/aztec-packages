@@ -1,5 +1,6 @@
 import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
 
+import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../index.js';
 import {
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
@@ -7,8 +8,7 @@ import {
   collectSortedEncryptedLogs,
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
-} from '../execution_result.js';
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../index.js';
+} from '../private_execution_result.js';
 import { PublicExecutionResult } from '../public_execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
@@ -16,15 +16,14 @@ import { Tx } from './tx.js';
 export class PrivateSimulationResult {
   constructor(
     public privateExecutionResult: PrivateExecutionResult,
-    public clientIvcProof: ClientIvcProof,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
   ) {}
 
-  getReturnValues() {
+  getPrivateReturnValues() {
     return accumulateReturnValues(this.privateExecutionResult);
   }
 
-  toTx(): Tx {
+  toSimulatedTx(): Tx {
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
@@ -33,7 +32,7 @@ export class PrivateSimulationResult {
 
     const tx = new Tx(
       this.publicInputs,
-      this.clientIvcProof!,
+      ClientIvcProof.empty(),
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
@@ -50,7 +49,6 @@ export class PrivateSimulationResult {
   public toJSON() {
     return {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
-      clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
       publicInputs: this.publicInputs.toBuffer().toString('hex'),
     };
   }
@@ -62,18 +60,64 @@ export class PrivateSimulationResult {
    */
   public static fromJSON(obj: any) {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    return new PrivateSimulationResult(privateExecutionResult, clientIvcProof, publicInputs);
+    return new PrivateSimulationResult(privateExecutionResult, publicInputs);
   }
 }
 
-export class TxSimulationResult {
+export class TxSimulationResult extends PrivateSimulationResult {
   constructor(
-    public tx: Tx,
-    public privateReturValues: NestedProcessReturnValues,
+    privateExecutionResult: PrivateExecutionResult,
+    publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
-  ) {}
+  ) {
+    super(privateExecutionResult, publicInputs);
+  }
+
+  getPublicReturnValues() {
+    return this.publicOutput ? this.publicOutput.publicReturnValues : [];
+  }
+
+  static fromPrivateSimulationResultAndPublicOutput(
+    privateSimulationResult: PrivateSimulationResult,
+    publicOutput?: PublicSimulationOutput,
+  ) {
+    return new TxSimulationResult(
+      privateSimulationResult.privateExecutionResult,
+      privateSimulationResult.publicInputs,
+      publicOutput,
+    );
+  }
+}
+
+export class TxProvingResult extends TxSimulationResult {
+  constructor(
+    privateExecutionResult: PrivateExecutionResult,
+    publicInputs: PrivateKernelTailCircuitPublicInputs,
+    public clientIvcProof: ClientIvcProof,
+    publicOutput?: PublicSimulationOutput,
+  ) {
+    super(privateExecutionResult, publicInputs, publicOutput);
+  }
+
+  toTx(): Tx {
+    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
+    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
+
+    const tx = new Tx(
+      this.publicInputs,
+      this.clientIvcProof,
+      noteEncryptedLogs,
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      teardownPublicFunction,
+    );
+    return tx;
+  }
 }
 
 /**

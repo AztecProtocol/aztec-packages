@@ -1,12 +1,15 @@
 import {
   type AztecNode,
+  CountedPublicExecutionRequest,
   EncryptedNoteFunctionL2Logs,
   type L1ToL2Message,
   type L2BlockNumber,
   Note,
   PackedValues,
+  PrivateExecutionResult,
   PublicExecutionRequest,
   TxExecutionRequest,
+  collectSortedEncryptedLogs,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
@@ -69,11 +72,6 @@ import { toFunctionSelector } from 'viem';
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
-import {
-  CountedPublicExecutionRequest,
-  type PrivateExecutionResult,
-  collectSortedEncryptedLogs,
-} from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 import { computeNoteHash } from './test_utils.js';
 

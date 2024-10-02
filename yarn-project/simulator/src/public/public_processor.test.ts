@@ -2,6 +2,7 @@ import {
   type ProcessedTx,
   type ProcessedTxHandler,
   PublicDataWrite,
+  PublicExecutionResult,
   PublicKernelPhase,
   SimulationError,
   type TreeInfo,
@@ -37,12 +38,7 @@ import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  type PublicExecutionResult,
-  type PublicExecutor,
-  WASMSimulator,
-  computeFeePayerBalanceLeafSlot,
-} from '@aztec/simulator';
+import { type PublicExecutor, WASMSimulator, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 

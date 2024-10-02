@@ -5,11 +5,13 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
+  PublicExecutionResult,
   PublicKernelPhase,
   type PublicProvingRequest,
   type SimulationError,
   type Tx,
   UnencryptedFunctionL2Logs,
+  accumulateReturnValues,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -63,8 +65,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { accumulateReturnValues } from '../common/index.js';
-import { type PublicExecutionResult, collectExecutionResults } from './execution.js';
+import { collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 

@@ -1,4 +1,9 @@
-import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  PublicExecutionRequest,
+  PublicExecutionResult,
+  UnencryptedFunctionL2Logs,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   AvmContractInstanceHint,
   AvmExecutionHints,
@@ -25,7 +30,7 @@ import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
+import { resultToPublicCallRequest } from './execution.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
 export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;

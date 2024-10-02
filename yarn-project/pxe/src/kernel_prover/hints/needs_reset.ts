@@ -1,3 +1,4 @@
+import { type PrivateExecutionResult } from '@aztec/circuit-types';
 import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -8,7 +9,6 @@ import {
   type PrivateKernelCircuitPublicInputs,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { type PrivateExecutionResult } from '@aztec/simulator';
 
 export function needsReset(publicInputs: PrivateKernelCircuitPublicInputs, executionStack: PrivateExecutionResult[]) {
   const nextIteration = executionStack[executionStack.length - 1];

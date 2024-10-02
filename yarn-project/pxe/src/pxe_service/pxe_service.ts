@@ -27,6 +27,7 @@ import {
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
+  TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
   UniqueNote,
@@ -504,20 +505,21 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  #simulateKernels(
+  async #simulateKernels(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    return this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
+  ): Promise<PrivateKernelTailCircuitPublicInputs> {
+    const result = await this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
+    return result.publicInputs;
   }
 
   public proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<TxProvingResult> {
     return this.jobQueue.put(async () => {
-      const provenTx = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
-      return provenTx;
+      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
+      return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     });
   }
 
@@ -531,13 +533,9 @@ export class PXEService implements PXE {
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#simulatePrivate(txRequest, msgSender, scopes);
-      const { clientIvcProof, publicInputs } = await this.#simulateKernels(txRequest, privateExecutionResult);
-      const privateSimulationResult = new PrivateSimulationResult(
-        privateExecutionResult,
-        clientIvcProof!,
-        publicInputs,
-      );
-      let simulatedTx = privateSimulationResult.toTx();
+      const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+      const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
+      let simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
         publicOutput = await this.#simulatePublicCalls(simulatedTx);
@@ -556,7 +554,7 @@ export class PXEService implements PXE {
       if (!msgSender) {
         this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
       }
-      return new TxSimulationResult(simulatedTx, accumulateReturnValues(privateExecutionResult), publicOutput);
+      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
     });
   }
 

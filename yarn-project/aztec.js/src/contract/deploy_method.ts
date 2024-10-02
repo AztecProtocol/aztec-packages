@@ -75,10 +75,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
-    if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest(await this.request(options));
-    }
-    return this.txRequest;
+    return this.wallet.createTxExecutionRequest(await this.request(options));
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other

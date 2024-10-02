@@ -1,4 +1,13 @@
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import {
+  PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/circuit-types';
 import {
   Fr,
   PrivateCallData,
@@ -20,14 +29,6 @@ import {
   PrivateResetTagToArtifactName,
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types';
-import {
-  type PrivateExecutionResult,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/simulator';
 
 import { type WitnessMap } from '@noir-lang/types';
 

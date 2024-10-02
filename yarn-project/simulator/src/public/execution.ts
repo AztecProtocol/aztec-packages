@@ -1,4 +1,4 @@
-import { type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import { PublicExecutionResult, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   type ContractStorageUpdateRequest,
   Gas,
@@ -10,8 +10,6 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-
-import { PublicExecutionResult } from '../../../circuit-types/src/public_execution_result.js';
 
 export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {
   return [result, ...result.nestedExecutions.map(collectExecutionResults)].flat();

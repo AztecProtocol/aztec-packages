@@ -1,8 +1,9 @@
+import { Gas } from '@aztec/circuit-types';
 import { type AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { type Gas, gasToGasLeft } from './avm_gas.js';
+import { gasToGasLeft } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
 

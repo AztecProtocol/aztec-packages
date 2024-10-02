@@ -29,13 +29,6 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  /**
-   * The transaction execution result. Set by prove().
-   * Made public for simple mocking.
-   */
-  public tx?: Tx;
-  protected txRequest?: TxExecutionRequest;
-
   protected log = createDebugLogger('aztec:js:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
@@ -53,9 +46,10 @@ export abstract class BaseContractInteraction {
    * @returns The resulting transaction
    */
   public async prove(options: SendMethodOptions = {}): Promise<Tx> {
-    const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
-    return this.tx;
+    const txRequest = await this.create(options);
+    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
+    const provenTx = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    return provenTx.toTx();
   }
 
   /**
@@ -69,7 +63,7 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}) {
     const promise = (async () => {
-      const tx = this.tx ?? (await this.prove(options));
+      const tx = await this.prove(options);
       return this.wallet.sendTx(tx);
     })();
 
@@ -84,15 +78,7 @@ export abstract class BaseContractInteraction {
   public async estimateGas(
     opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
-    // REFACTOR: both `this.txRequest = undefined` below are horrible, we should not be caching stuff that doesn't need to be.
-    // This also hints at a weird interface for create/request/estimate/send etc.
-
-    // Ensure we don't accidentally use a version of tx request that has estimateGas set to true, leading to an infinite loop.
-    this.txRequest = undefined;
     const txRequest = await this.create({ ...opts, estimateGas: false });
-    // Ensure we don't accidentally cache a version of tx request that has estimateGas forcefully set to false.
-    this.txRequest = undefined;
-
     const simulationResult = await this.wallet.simulateTx(txRequest, true);
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,

@@ -1,4 +1,4 @@
-import { type PublicExecutionRequest } from '@aztec/circuit-types';
+import { type PublicExecutionRequest, PublicExecutionResult } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -10,7 +10,6 @@ import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
-import { type PublicExecutionResult } from './execution.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';

@@ -1,10 +1,15 @@
 import {
   type AuthWitness,
   type AztecNode,
+  CountedLog,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
   EncryptedL2Log,
   EncryptedL2NoteLog,
   Note,
+  NoteAndSlot,
   type NoteStatus,
+  type PrivateExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -20,13 +25,6 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import {
-  CountedLog,
-  CountedNoteLog,
-  CountedPublicExecutionRequest,
-  type NoteAndSlot,
-  type PrivateExecutionResult,
-} from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -296,11 +294,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       },
       counter,
     );
-    this.newNotes.push({
-      storageSlot,
-      noteTypeId,
-      note,
-    });
+    this.newNotes.push(new NoteAndSlot(note, storageSlot, noteTypeId));
   }
 
   /**

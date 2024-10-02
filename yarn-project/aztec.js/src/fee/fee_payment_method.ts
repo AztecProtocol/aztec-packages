@@ -7,7 +7,7 @@ import { TxExecutionRequestComponent } from '../interactions/index.js';
 /**
  * Holds information about how the fee for a transaction is to be paid.
  */
-export interface FeePaymentMethod extends TxExecutionRequestComponent {
+export interface FeePaymentMethod {
   /** The asset used to pay the fee. */
   getAsset(): AztecAddress;
   /**

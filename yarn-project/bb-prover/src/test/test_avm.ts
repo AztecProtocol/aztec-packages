@@ -1,3 +1,4 @@
+import { PublicExecutionResult } from '@aztec/circuit-types';
 import {
   AztecAddress,
   ContractStorageRead,
@@ -28,7 +29,6 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type PublicExecutionResult } from '@aztec/simulator';
 
 // TODO: pub somewhere more usable - copied from abstract phase manager
 export function getPublicInputs(result: PublicExecutionResult): PublicCircuitPublicInputs {

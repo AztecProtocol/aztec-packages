@@ -33,9 +33,9 @@ export async function cancelTx(
     nonce,
     cancellable: true,
   });
-
-  const txPromise = await wallet.proveTx(txRequest, true);
-  const tx = new SentTx(wallet, wallet.sendTx(txPromise));
+  const txSimulationResult = await wallet.simulateTx(txRequest, true);
+  const provenTx = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+  const tx = new SentTx(wallet, wallet.sendTx(provenTx.toTx()));
   try {
     await tx.wait();
 

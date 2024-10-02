@@ -1,3 +1,5 @@
+import { Gas } from '@aztec/circuit-types';
+
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
@@ -89,7 +91,7 @@ export abstract class Instruction {
    * @param memoryOps Memory operations performed by the instruction.
    * @returns Gas cost.
    */
-  protected gasCost(ops: Partial<MemoryOperations & { indirect: number; dynMultiplier: number }> = {}) {
+  protected gasCost(ops: Partial<MemoryOperations & { indirect: number; dynMultiplier: number }> = {}): Gas {
     const baseGasCost = getBaseGasCost(this.opcode);
     // TODO: We are using a simplified gas model to reduce complexity in the circuit.
     // Memory accounting will probably be removed.

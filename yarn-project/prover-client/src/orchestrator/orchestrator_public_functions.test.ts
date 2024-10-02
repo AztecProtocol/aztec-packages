@@ -1,9 +1,9 @@
-import { PublicExecutionRequest, mockTx } from '@aztec/circuit-types';
+import { PublicExecutionRequest, PublicExecutionResult, mockTx } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutionResult, PublicExecutionResultBuilder } from '@aztec/simulator';
+import { PublicExecutionResultBuilder } from '@aztec/simulator';
 
 import { TestContext } from '../mocks/test_context.js';
 

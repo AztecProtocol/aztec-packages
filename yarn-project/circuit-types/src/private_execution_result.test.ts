@@ -6,7 +6,7 @@ import {
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
-} from './execution_result.js';
+} from './private_execution_result.js';
 
 function emptyExecutionResult(): PrivateExecutionResult {
   return new PrivateExecutionResult(

@@ -1,3 +1,4 @@
+import { PrivateExecutionResult } from '@aztec/circuit-types';
 import {
   type Fr,
   KeyValidationHint,
@@ -26,7 +27,6 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
-import type { PrivateExecutionResult } from '@aztec/simulator';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 

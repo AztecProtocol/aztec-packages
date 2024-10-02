@@ -1,6 +1,7 @@
 import {
   type FunctionCall,
   PublicExecutionRequest,
+  type PublicExecutionResult,
   type SimulationError,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
@@ -18,7 +19,7 @@ import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
-import { type PublicExecutionResult, resultToPublicCallRequest } from '../public/execution.js';
+import { resultToPublicCallRequest } from '../public/execution.js';
 
 export class PublicExecutionResultBuilder {
   private _executionRequest: PublicExecutionRequest;

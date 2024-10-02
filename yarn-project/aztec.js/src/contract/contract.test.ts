@@ -1,4 +1,4 @@
-import { type Tx, type TxExecutionRequest, type TxHash, type TxReceipt } from '@aztec/circuit-types';
+import { type Tx, type TxExecutionRequest, type TxHash, TxProvingResult, type TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
@@ -17,6 +17,7 @@ describe('Contract Class', () => {
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
+  const mockProvenTx = { type: 'TxProvingResult' } as any as TxProvingResult;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
@@ -130,7 +131,7 @@ describe('Contract Class', () => {
     wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
-    wallet.proveTx.mockResolvedValue(mockTx);
+    wallet.proveTx.mockResolvedValue(mockProvenTx);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 
