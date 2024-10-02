@@ -187,12 +187,13 @@ export class AvmPersistableStateManager {
 
   /**
    * Write an L2 to L1 message.
+   * @param contractAddress - L2 contract address that created this message
    * @param recipient - L1 contract address to send the message to.
    * @param content - Message content.
    */
-  public writeL2ToL1Message(recipient: Fr, content: Fr) {
-    this.log.debug(`L1Messages(${recipient}) += ${content}.`);
-    this.trace.traceNewL2ToL1Message(recipient, content);
+  public writeL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
+    this.log.debug(`L2ToL1Messages(${contractAddress}) += (recipient: ${recipient}, content: ${content}).`);
+    this.trace.traceNewL2ToL1Message(contractAddress, recipient, content);
   }
 
   /**

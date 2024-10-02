@@ -268,7 +268,7 @@ export class SendL2ToL1Message extends Instruction {
 
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();
-    context.persistableState.writeL2ToL1Message(recipient, content);
+    context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
 
     memory.assert({ reads: 2, addressing });
     context.machineState.incrementPc();
