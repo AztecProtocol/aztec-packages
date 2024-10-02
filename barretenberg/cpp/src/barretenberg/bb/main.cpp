@@ -370,7 +370,8 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
-    // WORKTODO: add issue about needeing databus in protocol circuits to do away with this
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
+    // has been integrated into noir kernel programs
     bool is_kernel = false;
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC

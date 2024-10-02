@@ -127,8 +127,6 @@ describe('Client IVC Integration', () => {
       app_inputs: readerAppWitnessGenResult.publicInputs,
     });
 
-    // TODO: https://github.com/AztecProtocol/barretenberg/issues/1111 - Add back reset and tail when this is fixed.
-
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
       prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
       commitment_read_hints: [
