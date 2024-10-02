@@ -496,8 +496,10 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
             if (id == bb::plookup::SHA256_WITNESS_SLICE_3 || id == bb::plookup::SHA256_WITNESS_SLICE_7_ROTATE_4 ||
                 id == bb::plookup::SHA256_WITNESS_SLICE_8_ROTATE_7 ||
                 id == bb::plookup::SHA256_WITNESS_SLICE_14_ROTATE_1 || id == bb::plookup::SHA256_BASE16_ROTATE2 ||
-                id == bb::plookup::SHA256_BASE16 || id == bb::plookup::SHA256_BASE28_ROTATE6 ||
-                id == bb::plookup::SHA256_BASE28_ROTATE3) {
+                id == bb::plookup::SHA256_BASE16 || id == bb::plookup::SHA256_BASE16_ROTATE6 ||
+                id == bb::plookup::SHA256_BASE16_ROTATE7 || id == bb::plookup::SHA256_BASE16_ROTATE8 ||
+                id == bb::plookup::SHA256_BASE28_ROTATE6 || id == bb::plookup::SHA256_BASE28_ROTATE3 ||
+                id == bb::plookup::SHA256_BASE28) {
                 uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
                 uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
                 if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
