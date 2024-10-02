@@ -135,7 +135,7 @@ export class EnqueuedCallSimulator {
 
     const result = await this.publicExecutor.simulate(
       executionRequest,
-      this.globalVariables,
+      previousPublicKernelOutput.constants,
       availableGas,
       tx.data.constants.txContext,
       pendingNullifiers,
