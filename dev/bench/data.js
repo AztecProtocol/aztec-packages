@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727882312493,
+  "lastUpdate": 1727903383973,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "159419107+DanielKotov@users.noreply.github.com",
-            "name": "DanielKotov",
-            "username": "DanielKotov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f2a13309f544bbd83b593e6a6207d49d9ef48b74",
-          "message": "fix: boomerang variable in sha256 hash function (#8581)\n\nStatic analyzer found boomerang variable in the function extend_witness.\r\n\r\nThe problem is that variable w_out wasn't connected with variable\r\nw_out_raw in the function extend_witness in sha256 hash function. As a\r\nresult, you can put random variable in the extend_witness.\r\n\r\nTest was created to prove this issue. You can modify a result of\r\nfunction extend_witness, and the circuit will be correct.\r\n\r\nAlso function extend_witness was patched to remove this issue.\r\n\r\n---------\r\n\r\nCo-authored-by: Rumata888 <isennovskiy@gmail.com>",
-          "timestamp": "2024-09-17T18:07:53+01:00",
-          "tree_id": "5cfec8ee948eaed5649f3ee042016ce5a4a94a1b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f2a13309f544bbd83b593e6a6207d49d9ef48b74"
-        },
-        "date": 1726593968592,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35631.49408200002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 32574.893427000006 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5797.5111220000035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4582.833249 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99487.04701299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99487048000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16605.353931999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16605354000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8489313581,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8489313581 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151350760,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151350760 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6949777854,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6949777854 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126241372,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126241372 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 128639205,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128639205 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "670af8a158633d106a3f1df82dbd28ef9a9e4ceb",
+          "message": "chore!: keccak_ultra -> ultra_keccak (#8878)\n\nIn main.cpp there are instances that list ultra_keccak and some that\r\nlist keccak_ultra, for the sake of consistency\r\nthis pr replaces keccak_ultra with the more frequently occuring\r\nultra_keccak",
+          "timestamp": "2024-10-02T21:34:22+01:00",
+          "tree_id": "80640c15e22130f500368cdf8206fdb081202f9c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/670af8a158633d106a3f1df82dbd28ef9a9e4ceb"
+        },
+        "date": 1727903376500,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31047.319907,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29119.374086 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5305.789994999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4992.055525 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94290.529824,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94290532000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15115.077844999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15115078000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8310842082,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8310842082 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 156216831,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 156216831 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6791256500,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6791256500 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127630377,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127630377 ns\nthreads: 1"
           }
         ]
       }
