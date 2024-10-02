@@ -107,7 +107,6 @@ template <class Builder> class DataBusDepot {
         // Assert equality between return data commitments propagated via the public inputs and the corresponding
         // calldata commitment
         if (propagation_data.contains_app_return_data_commitment) { // public inputs contain [R]_app
-            info("BUS: peform APP return data consistency check.");
             ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
             size_t start_idx = propagation_data.app_return_data_public_input_idx;
             Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
@@ -116,7 +115,6 @@ template <class Builder> class DataBusDepot {
         }
 
         if (propagation_data.contains_kernel_return_data_commitment) { // pub inputs contain [R]_kernel
-            info("BUS: peform KERNEL return data consistency check.");
             ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
             size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
             Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
@@ -144,11 +142,9 @@ template <class Builder> class DataBusDepot {
         // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
         auto start_idx = static_cast<uint32_t>(context->public_inputs.size());
         if (is_kernel) {
-            info("BUS: propagate kernel return data.");
             context->databus_propagation_data.contains_kernel_return_data_commitment = true;
             context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
         } else {
-            info("BUS: propagate app return data.");
             context->databus_propagation_data.contains_app_return_data_commitment = true;
             context->databus_propagation_data.app_return_data_public_input_idx = start_idx;
         }
