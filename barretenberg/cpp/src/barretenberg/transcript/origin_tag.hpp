@@ -14,6 +14,7 @@
 
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
+    const auto clear_tag = OriginTag();                                                                                \
     const auto submitted_value_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);               \
     const auto challenge_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);                    \
     const auto next_challenge_tag = OriginTag(parent_id, /*round_id=*/1, /*is_submitted=*/false);                      \

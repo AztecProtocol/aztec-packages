@@ -329,6 +329,7 @@ template <typename Builder> void byte_array<Builder>::set_bit(size_t index_rever
     const size_t bit_index = 7UL - (index % 8UL);
 
     field_t<Builder> scaled_new_bit = field_t<Builder>(new_bit) * bb::fr(uint256_t(1) << bit_index);
+    scaled_new_bit.set_origin_tag(new_bit.get_origin_tag());
     const auto new_value = slice.low.add_two(slice.high, scaled_new_bit).normalize();
     values[byte_index] = new_value;
 }
@@ -357,6 +358,10 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
         field_t<Builder> low(context, low_value);
         field_t<Builder> shifted_high(context, high_value * (uint64_t(1) << (8ULL - num_high_bits)));
         bool_t<Builder> bit(context, static_cast<bool>(bit_value));
+        auto tag = values[byte_index].get_origin_tag();
+        low.set_origin_tag(tag);
+        shifted_high.set_origin_tag(tag);
+        bit.set_origin_tag(tag);
         return { low, shifted_high, bit };
     }
     field_t<Builder> low = witness_t<Builder>(context, low_value);
