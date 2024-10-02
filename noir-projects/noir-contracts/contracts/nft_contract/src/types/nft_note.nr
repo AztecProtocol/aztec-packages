@@ -1,6 +1,6 @@
 use dep::aztec::{
-    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app,
-    oracle::unsafe_rand::unsafe_rand, prelude::{NullifiableNote, NoteHeader, PrivateContext},
+    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app, oracle::random::random,
+    prelude::{NullifiableNote, NoteHeader, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator, traits::{Empty, Eq}},
     macros::notes::partial_note
 };
@@ -42,8 +42,12 @@ impl NullifiableNote for NFTNote {
 
 impl NFTNote {
     pub fn new(token_id: Field, npk_m_hash: Field) -> Self {
+        // We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
+        // malicious sender could use non-random values to make the note less private. But they already know the full
+        // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
+        // therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe {
-            unsafe_rand()
+            random()
         };
         NFTNote { token_id, npk_m_hash, randomness, header: NoteHeader::empty() }
     }
