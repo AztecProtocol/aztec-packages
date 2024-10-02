@@ -191,7 +191,7 @@ fn get_functions_to_inline_into(
     let mut acir_entry_points = BTreeSet::default();
 
     for (func_id, function) in ssa.functions.iter() {
-        if function.runtime() == RuntimeType::Brillig {
+        if matches!(function.runtime(), RuntimeType::Brillig(_)) {
             continue;
         }
 
@@ -203,7 +203,7 @@ fn get_functions_to_inline_into(
         }
 
         for called_function_id in called_functions(function) {
-            if ssa.functions[&called_function_id].runtime() == RuntimeType::Brillig {
+            if matches!(ssa.functions[&called_function_id].runtime(), RuntimeType::Brillig(_)) {
                 brillig_entry_points.insert(called_function_id);
             }
         }
@@ -213,7 +213,7 @@ fn get_functions_to_inline_into(
         .into_iter()
         .filter(|recursive_function_id| {
             let function = &ssa.functions[&recursive_function_id];
-            function.runtime() == RuntimeType::Brillig
+            matches!(function.runtime(), RuntimeType::Brillig(_))
         })
         .collect();
 
@@ -525,7 +525,7 @@ impl<'function> PerFunctionContext<'function> {
             !inline_type.is_entry_point() && !preserve_function
         } else {
             // If the called function is brillig, we inline only if it's into brillig and the function is not recursive
-            ssa.functions[&self.context.entry_point].runtime() == RuntimeType::Brillig
+            matches!(ssa.functions[&self.context.entry_point].runtime(), RuntimeType::Brillig(_))
                 && !self.context.recursive_functions.contains(&called_func_id)
         }
     }

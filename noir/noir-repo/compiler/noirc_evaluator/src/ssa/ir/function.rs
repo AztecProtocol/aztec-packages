@@ -16,7 +16,7 @@ pub(crate) enum RuntimeType {
     // A noir function, to be compiled in ACIR and executed by ACVM
     Acir(InlineType),
     // Unconstrained function, to be compiled to brillig and executed by the Brillig VM
-    Brillig,
+    Brillig(InlineType),
 }
 
 impl RuntimeType {
@@ -27,7 +27,7 @@ impl RuntimeType {
     pub(crate) fn is_entry_point(&self) -> bool {
         match self {
             RuntimeType::Acir(inline_type) => inline_type.is_entry_point(),
-            RuntimeType::Brillig => true,
+            RuntimeType::Brillig(_) => true,
         }
     }
 }
@@ -103,7 +103,7 @@ impl Function {
     pub(crate) fn is_no_predicates(&self) -> bool {
         match self.runtime() {
             RuntimeType::Acir(inline_type) => matches!(inline_type, InlineType::NoPredicates),
-            RuntimeType::Brillig => false,
+            RuntimeType::Brillig(_) => false,
         }
     }
 
@@ -177,7 +177,7 @@ impl std::fmt::Display for RuntimeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RuntimeType::Acir(inline_type) => write!(f, "acir({inline_type})"),
-            RuntimeType::Brillig => write!(f, "brillig"),
+            RuntimeType::Brillig(inline_type) => write!(f, "brillig({inline_type})"),
         }
     }
 }

@@ -77,7 +77,7 @@ impl Ssa {
             // Loop unrolling in brillig can lead to a code explosion currently. This can
             // also be true for ACIR, but we have no alternative to unrolling in ACIR.
             // Brillig also generally prefers smaller code rather than faster code.
-            if function.runtime() == RuntimeType::Brillig {
+            if matches!(function.runtime(), RuntimeType::Brillig(_)) {
                 continue;
             }
 

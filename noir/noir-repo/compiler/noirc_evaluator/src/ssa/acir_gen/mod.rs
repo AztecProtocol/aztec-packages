@@ -377,7 +377,7 @@ impl<'a> Context<'a> {
         match function.runtime() {
             RuntimeType::Acir(inline_type) => {
                 match inline_type {
-                    InlineType::Inline => {
+                    InlineType::Inline | InlineType::InlineAlways => {
                         if function.id() != ssa.main_id {
                             panic!("ACIR function should have been inlined earlier if not marked otherwise");
                         }
@@ -390,7 +390,7 @@ impl<'a> Context<'a> {
                 // We only want to convert entry point functions. This being `main` and those marked with `InlineType::Fold`
                 Ok(Some(self.convert_acir_main(function, ssa, brillig)?))
             }
-            RuntimeType::Brillig => {
+            RuntimeType::Brillig(_) => {
                 if function.id() == ssa.main_id {
                     Ok(Some(self.convert_brillig_main(function, brillig)?))
                 } else {
@@ -816,7 +816,7 @@ impl<'a> Context<'a> {
 
                                 self.handle_ssa_call_outputs(result_ids, output_values, dfg)?;
                             }
-                            RuntimeType::Brillig => {
+                            RuntimeType::Brillig(_) => {
                                 // Check that we are not attempting to return a slice from
                                 // an unconstrained runtime to a constrained runtime
                                 for result_id in result_ids {
@@ -2924,8 +2924,8 @@ mod test {
     fn build_basic_foo_with_return(
         builder: &mut FunctionBuilder,
         foo_id: FunctionId,
-        // `InlineType` can only exist on ACIR functions, so if the option is `None` we should generate a Brillig function
-        inline_type: Option<InlineType>,
+        brillig: bool,
+        inline_type: InlineType,
     ) {
         // fn foo f1 {
         // b0(v0: Field, v1: Field):
@@ -2933,10 +2933,10 @@ mod test {
         //     constrain v2 == u1 0
         //     return v0
         // }
-        if let Some(inline_type) = inline_type {
-            builder.new_function("foo".into(), foo_id, inline_type);
+        if brillig {
+            builder.new_brillig_function("foo".into(), foo_id, inline_type);
         } else {
-            builder.new_brillig_function("foo".into(), foo_id);
+            builder.new_function("foo".into(), foo_id, inline_type);
         }
         // Set a call stack for testing whether `brillig_locations` in the `GeneratedAcir` was accurately set.
         builder.set_call_stack(vector![Location::dummy(), Location::dummy()]);
@@ -3000,7 +3000,7 @@ mod test {
         builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
         builder.terminate_with_return(vec![]);
 
-        build_basic_foo_with_return(&mut builder, foo_id, Some(inline_type));
+        build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
         let ssa = builder.finish();
 
@@ -3105,7 +3105,7 @@ mod test {
         builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
         builder.terminate_with_return(vec![]);
 
-        build_basic_foo_with_return(&mut builder, foo_id, Some(inline_type));
+        build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
         let ssa = builder.finish();
 
@@ -3205,7 +3205,7 @@ mod test {
             .to_vec();
         builder.terminate_with_return(vec![foo_call[0]]);
 
-        build_basic_foo_with_return(&mut builder, foo_id, Some(inline_type));
+        build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
         let ssa = builder.finish();
 
@@ -3327,8 +3327,8 @@ mod test {
         builder.insert_call(bar, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
         builder.terminate_with_return(vec![]);
 
-        build_basic_foo_with_return(&mut builder, foo_id, None);
-        build_basic_foo_with_return(&mut builder, bar_id, None);
+        build_basic_foo_with_return(&mut builder, foo_id, true, InlineType::default());
+        build_basic_foo_with_return(&mut builder, bar_id, true, InlineType::default());
 
         let ssa = builder.finish();
         let brillig = ssa.to_brillig(false);
@@ -3464,7 +3464,7 @@ mod test {
 
         builder.terminate_with_return(vec![]);
 
-        build_basic_foo_with_return(&mut builder, foo_id, None);
+        build_basic_foo_with_return(&mut builder, foo_id, true, InlineType::default());
 
         let ssa = builder.finish();
         // We need to generate  Brillig artifacts for the regular Brillig function and pass them to the ACIR generation pass.
@@ -3550,9 +3550,9 @@ mod test {
         builder.terminate_with_return(vec![]);
 
         // Build a Brillig function
-        build_basic_foo_with_return(&mut builder, foo_id, None);
+        build_basic_foo_with_return(&mut builder, foo_id, true, InlineType::default());
         // Build an ACIR function which has the same logic as the Brillig function above
-        build_basic_foo_with_return(&mut builder, bar_id, Some(InlineType::Fold));
+        build_basic_foo_with_return(&mut builder, bar_id, false, InlineType::Fold);
 
         let ssa = builder.finish();
         // We need to generate  Brillig artifacts for the regular Brillig function and pass them to the ACIR generation pass.

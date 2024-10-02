@@ -30,7 +30,7 @@ impl Ssa {
 /// The structure of this pass is simple:
 /// Go through each block and re-insert all instructions.
 fn remove_bit_shifts(function: &mut Function) {
-    if let RuntimeType::Brillig = function.runtime() {
+    if matches!(function.runtime(), RuntimeType::Brillig(_)) {
         return;
     }
 
