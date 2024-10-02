@@ -43,29 +43,15 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 auto key = std::make_shared<DeciderProvingKey>();
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
-                // info(prover_polynomials.ecc_op_wire_1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->proving_key.polynomials = std::move(prover_polynomials);
                 key->proving_key.circuit_size = 2;
                 key->proving_key.log_circuit_size = 1;
                 keys_data[idx] = key;
-                // info(key->proving_key.polynomials.ecc_op_wire_1);
-                // info(key->proving_key.polynomials.q_m);
-                info(key->proving_key.polynomials.w_l);
-                info(key->proving_key.polynomials.w_r);
-                info(key->proving_key.polynomials.w_o);
-                info(key->proving_key.polynomials.q_m);
-                info(key->proving_key.polynomials.q_l);
-                info(key->proving_key.polynomials.q_r);
-                info(key->proving_key.polynomials.q_o);
-                info("q_c", key->proving_key.polynomials.q_c);
-
-                info(key->proving_key.polynomials.databus_id);
             }
 
             DeciderProvingKeys keys{ keys_data };
             Fun::UnivariateRelationSeparator alphas;
-            // info(alphas[0]);
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;

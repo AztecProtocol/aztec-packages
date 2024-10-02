@@ -1,4 +1,7 @@
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/760): Delete this?
+
+# np.set_printoptions(formatter={'int': hex})
+
 import numpy as np
 
 EXTENDED_RELATION_LENGTH = 12
