@@ -32,6 +32,8 @@ import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
+import { inspect } from 'util';
+
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
@@ -491,13 +493,15 @@ export class Sequencer {
 
     const proofQuote = await proofQuotePromise;
 
+    this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
+
     try {
       await this.publishL2Block(block, attestations, txHashes, proofQuote);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
           processedTxs.length
-        } transactions duration=${workDuration}ms (Submitter: ${await this.publisher.getSenderAddress()})`,
+        } transactions duration=${workDuration}ms (Submitter: ${this.publisher.getSenderAddress()})`,
       );
     } catch (err) {
       this.metrics.recordFailedBlock();
@@ -562,6 +566,9 @@ export class Sequencer {
     // Get quotes for the epoch to be proven
     const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
     this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
+    for (const quote of quotes) {
+      this.log.verbose(inspect(quote.payload));
+    }
     // ensure these quotes are still valid for the slot and have the contract validate them
     const validQuotesPromise = Promise.all(
       quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),

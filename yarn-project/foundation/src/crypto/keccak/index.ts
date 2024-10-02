@@ -1,12 +1,17 @@
 import { Keccak } from 'sha3';
 
+import { Buffer32 } from '../../buffer/buffer32.js';
+
 /**
  * Computes the Keccak-256 hash of the given input buffer.
  *
  * @param input - The input buffer to be hashed.
  * @returns The computed Keccak-256 hash as a Buffer.
  */
-export function keccak256(input: Buffer) {
+export function keccak256(input: Buffer | Buffer32) {
+  if (input instanceof Buffer32) {
+    input = input.buffer;
+  }
   const hash = new Keccak(256);
   return hash.update(input).digest();
 }

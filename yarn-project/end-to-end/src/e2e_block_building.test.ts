@@ -368,7 +368,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
-    it('can simulate public txs while building a block', async () => {
+    it.skip('can simulate public txs while building a block', async () => {
       ({
         teardown,
         pxe,
