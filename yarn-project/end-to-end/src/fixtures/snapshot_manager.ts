@@ -6,6 +6,7 @@ import {
   type AztecAddress,
   type AztecNode,
   BatchCall,
+  CheatCodes,
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
@@ -58,6 +59,7 @@ export type SubsystemsContext = {
   deployL1ContractsValues: DeployL1Contracts;
   proverNode: ProverNode;
   watcher: AnvilTestWatcher;
+  cheatCodes: CheatCodes;
 };
 
 type SnapshotEntry = {
@@ -276,13 +278,16 @@ export async function createAndSyncProverNode(
     realProofs: false,
     proverAgentConcurrency: 2,
     publisherPrivateKey: proverNodePrivateKey,
-    proverNodeMaxPendingJobs: 100,
+    proverNodeMaxPendingJobs: 10,
+    proverNodePollingIntervalMs: 200,
+    quoteProviderBasisPointFee: 100,
+    quoteProviderBondAmount: 1000n,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,
     archiver: archiver as Archiver,
   });
-  proverNode.start();
+  await proverNode.start();
   return proverNode;
 }
 
@@ -374,6 +379,8 @@ async function setupFromFresh(
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+
   logger.verbose('Deploying auth registry...');
   await deployCanonicalAuthRegistry(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
@@ -411,6 +418,7 @@ async function setupFromFresh(
     deployL1ContractsValues,
     proverNode,
     watcher,
+    cheatCodes,
   };
 }
 
@@ -475,6 +483,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+
   return {
     aztecNodeConfig,
     anvil,
@@ -489,6 +499,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
     },
     watcher,
+    cheatCodes,
   };
 }
 
@@ -538,7 +549,7 @@ export const addAccounts =
 export async function publicDeployAccounts(
   sender: Wallet,
   accountsToDeploy: (CompleteAddress | AztecAddress)[],
-  waitUntilProven = true,
+  waitUntilProven = false,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));

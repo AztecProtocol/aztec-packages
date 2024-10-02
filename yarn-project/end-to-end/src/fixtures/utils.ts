@@ -241,7 +241,7 @@ async function setupWithRemoteEnvironment(
     walletClient,
     publicClient,
   };
-  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
@@ -462,7 +462,7 @@ export async function setup(
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
-  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {

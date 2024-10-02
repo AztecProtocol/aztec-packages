@@ -504,7 +504,7 @@ export class Sequencer {
       this.log.info(
         `Submitted rollup block ${block.number} with ${
           processedTxs.length
-        } transactions duration=${workDuration}ms (Submitter: ${await this.publisher.getSenderAddress()})`,
+        } transactions duration=${workDuration}ms (Submitter: ${this.publisher.getSenderAddress()})`,
       );
     } catch (err) {
       this.metrics.recordFailedBlock();

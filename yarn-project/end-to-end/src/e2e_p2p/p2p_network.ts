@@ -104,13 +104,16 @@ export class P2PNetworkTest {
         const txHash = await rollup.write.addValidator([account.address]);
         txHashes.push(txHash);
 
-        this.logger.verbose(`Adding ${account.address} as validator`);
-        console.log("Added validator", account.address);
+        this.logger.debug(`Adding ${account.address} as validator`);
       }
-      await Promise.all(txHashes.map(txHash => deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: txHash
-      })));
-
+      // Wait for all the transactions adding validators to be mined
+      await Promise.all(
+        txHashes.map(txHash =>
+          deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+            hash: txHash,
+          }),
+        ),
+      );
 
       //@note   Now we jump ahead to the next epoch such that the validator committee is picked
       //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
