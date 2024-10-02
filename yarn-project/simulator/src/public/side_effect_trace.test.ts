@@ -207,7 +207,7 @@ describe('Side Effect Trace', () => {
   });
 
   it('Should trace new L2ToL1 messages', () => {
-    trace.traceNewL2ToL1Message(recipient, content);
+    trace.traceNewL2ToL1Message(address, recipient, content);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -326,9 +326,11 @@ describe('Side Effect Trace', () => {
 
     it('Should enforce maximum number of new l2 to l1 messages', () => {
       for (let i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX; i++) {
-        trace.traceNewL2ToL1Message(new Fr(i), new Fr(i));
+        trace.traceNewL2ToL1Message(new Fr(i), new Fr(i), new Fr(i));
       }
-      expect(() => trace.traceNewL2ToL1Message(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNewL2ToL1Message(new Fr(42), new Fr(42), new Fr(42))).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of new logs hashes', () => {
@@ -390,7 +392,7 @@ describe('Side Effect Trace', () => {
     testCounter++;
     nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault);
     // counter does not increment for l1tol2 message checks
-    nestedTrace.traceNewL2ToL1Message(recipient, content);
+    nestedTrace.traceNewL2ToL1Message(address, recipient, content);
     testCounter++;
     nestedTrace.traceUnencryptedLog(address, log);
     testCounter++;
