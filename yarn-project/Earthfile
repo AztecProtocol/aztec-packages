@@ -278,3 +278,9 @@ prover-client-test:
     ARG test
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
+
+publish-npm:
+    FROM +build
+    ARG DIST_TAG="latest"
+    ARG VERSION
+    RUN --secret NPM_TOKEN ./.github/scripts/publish_npm.sh $DIST_TAG $VERSION

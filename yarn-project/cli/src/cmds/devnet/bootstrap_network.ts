@@ -100,13 +100,11 @@ export async function bootstrapNetwork(
  * Step 1. Deploy the L1 contracts, but don't initialize
  */
 async function deployERC20({ walletClient, publicClient }: L1Clients) {
-  const { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import(
-    '@aztec/l1-artifacts'
-  );
+  const { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import('@aztec/l1-artifacts');
 
   const erc20: ContractArtifacts = {
-    contractAbi: PortalERC20Abi,
-    contractBytecode: PortalERC20Bytecode,
+    contractAbi: TestERC20Abi,
+    contractBytecode: TestERC20Bytecode,
   };
   const portal: ContractArtifacts = {
     contractAbi: TokenPortalAbi,

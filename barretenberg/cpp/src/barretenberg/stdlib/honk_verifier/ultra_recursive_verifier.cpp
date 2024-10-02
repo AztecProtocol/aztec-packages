@@ -1,5 +1,5 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -42,7 +42,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
 
@@ -91,16 +91,16 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
 
-    // Execute ZeroMorph to produce an opening claim subsequently verified by a univariate PCS
-    auto opening_claim = ZeroMorph::verify(key->circuit_size,
-                                           commitments.get_unshifted(),
-                                           commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted(),
-                                           claimed_evaluations.get_shifted(),
-                                           multivariate_challenge,
-                                           Commitment::one(builder),
-                                           transcript);
-    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
+    auto opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
+                                                                commitments.get_unshifted(),
+                                                                commitments.get_to_be_shifted(),
+                                                                claimed_evaluations.get_unshifted(),
+                                                                claimed_evaluations.get_shifted(),
+                                                                multivariate_challenge,
+                                                                Commitment::one(builder),
+                                                                transcript);
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();

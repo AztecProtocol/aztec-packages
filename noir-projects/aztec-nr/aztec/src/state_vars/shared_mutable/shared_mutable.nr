@@ -1,4 +1,7 @@
-use dep::protocol_types::{hash::{pedersen_hash, poseidon2_hash}, address::AztecAddress, traits::{FromField, ToField}};
+use dep::protocol_types::{
+    hash::{poseidon2_hash, poseidon2_hash_with_separator}, address::AztecAddress,
+    traits::{FromField, ToField}
+};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::state_vars::{
@@ -66,15 +69,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], HASH_SEPARATOR)
     }
 }
 

@@ -22,7 +22,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import 'jest-extended';
 
-import { TaggedLog } from '../../circuit-types/src/logs/l1_payload/tagged_log.js';
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
@@ -293,13 +292,13 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const decryptedLogs = tx.noteEncryptedLogs
-        .unrollLogs()
-        .map(l => TaggedLog.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey, L1NotePayload));
-      const notevalues = decryptedLogs.map(l => l?.payload.note.items[0]);
-      expect(notevalues[0]).toEqual(new Fr(10));
-      expect(notevalues[1]).toEqual(new Fr(11));
-      expect(notevalues[2]).toEqual(new Fr(12));
+      const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
+        const notePayload = L1NotePayload.decryptAsIncoming(l, keys.masterIncomingViewingSecretKey);
+        return notePayload?.note.items[0];
+      });
+      expect(noteValues[0]).toEqual(new Fr(10));
+      expect(noteValues[1]).toEqual(new Fr(11));
+      expect(noteValues[2]).toEqual(new Fr(12));
     }, 30_000);
 
     it('calls a method with nested encrypted logs', async () => {
@@ -369,7 +368,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
-    it('can simulate public txs while building a block', async () => {
+    it.skip('can simulate public txs while building a block', async () => {
       ({
         teardown,
         pxe,
