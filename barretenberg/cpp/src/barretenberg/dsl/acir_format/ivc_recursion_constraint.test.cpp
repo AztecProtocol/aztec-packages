@@ -66,9 +66,10 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         // The proof type can be either Oink or PG
         PROOF_TYPE proof_type = input.type == QUEUE_TYPE::OINK ? OINK : PG;
 
+        // WORKTODO: start by simply clearing the proof witness indices in the output here
         return RecursionConstraint{
             .key = key_indices,
-            .proof = proof_indices,
+            .proof = {},
             .public_inputs = public_inputs_indices,
             .key_hash = 0, // not used
             .proof_type = proof_type,

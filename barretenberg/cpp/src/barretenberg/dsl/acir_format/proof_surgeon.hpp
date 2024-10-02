@@ -103,6 +103,27 @@ class ProofSurgeon {
         return public_input_witnesses;
     }
 
+    /**
+     * @brief Extract then remove a given number of public inputs from a proof
+     *
+     * @param proof_witnesses Witness values of a bberg style proof containing public inputs
+     * @param num_public_inputs The number of public inputs to extract from the proof
+     * @return std::vector<bb::fr> The extracted public input witness values
+     */
+    static std::vector<uint32_t> get_public_inputs_witness_indices_from_proof(const auto& proof_witnesses,
+                                                                              const size_t num_public_inputs_to_extract)
+    {
+        std::vector<uint32_t> public_input_witness_indices;
+        public_input_witness_indices.reserve(num_public_inputs_to_extract);
+        size_t start = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        size_t end = start + num_public_inputs_to_extract;
+        for (size_t i = start; i < end; ++i) {
+            public_input_witness_indices.push_back(proof_witnesses[i].get_witness_index());
+        }
+
+        return public_input_witness_indices;
+    }
+
     struct RecursionWitnessData {
         std::vector<uint32_t> key_indices;
         std::vector<uint32_t> proof_indices;
