@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -41,13 +42,14 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
     override(IFeeJuicePortal)
     onlyOwner
   {
-    if (address(registry) != address(0) || address(underlying) != address(0) || l2TokenAddress != 0)
-    {
-      revert Errors.FeeJuicePortal__AlreadyInitialized();
-    }
-    if (_registry == address(0) || _underlying == address(0) || _l2TokenAddress == 0) {
-      revert Errors.FeeJuicePortal__InvalidInitialization();
-    }
+    require(
+      address(registry) == address(0) && address(underlying) == address(0) && l2TokenAddress == 0,
+      Errors.FeeJuicePortal__AlreadyInitialized()
+    );
+    require(
+      _registry != address(0) && _underlying != address(0) && _l2TokenAddress != 0,
+      Errors.FeeJuicePortal__InvalidInitialization()
+    );
 
     registry = IRegistry(_registry);
     underlying = IERC20(_underlying);
@@ -74,7 +76,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
     returns (bytes32)
   {
     // Preamble
-    IInbox inbox = registry.getRollup().INBOX();
+    IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
@@ -99,9 +101,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
    * @param _amount - The amount to pay them
    */
   function distributeFees(address _to, uint256 _amount) external override(IFeeJuicePortal) {
-    if (msg.sender != address(registry.getRollup())) {
-      revert Errors.FeeJuicePortal__Unauthorized();
-    }
+    require(msg.sender == registry.getRollup(), Errors.FeeJuicePortal__Unauthorized());
     underlying.safeTransfer(_to, _amount);
   }
 }

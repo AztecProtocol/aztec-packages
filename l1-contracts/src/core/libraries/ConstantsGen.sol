@@ -1,7 +1,7 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 /**
  * @title Constants Library
@@ -32,7 +32,7 @@ library Constants {
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant ARCHIVE_HEIGHT = 16;
-  uint256 internal constant VK_TREE_HEIGHT = 5;
+  uint256 internal constant VK_TREE_HEIGHT = 6;
   uint256 internal constant FUNCTION_TREE_HEIGHT = 5;
   uint256 internal constant NOTE_HASH_TREE_HEIGHT = 32;
   uint256 internal constant PUBLIC_DATA_TREE_HEIGHT = 40;
@@ -71,30 +71,24 @@ library Constants {
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant MAX_PUBLIC_DATA_HINTS = 128;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
-  uint256 internal constant PRIVATE_KERNEL_INIT_INDEX = 0;
-  uint256 internal constant PRIVATE_KERNEL_INNER_INDEX = 1;
-  uint256 internal constant PRIVATE_KERNEL_RESET_FULL_INDEX = 2;
-  uint256 internal constant PRIVATE_KERNEL_RESET_FULL_INNER_INDEX = 3;
-  uint256 internal constant PRIVATE_KERNEL_RESET_BIG_INDEX = 4;
-  uint256 internal constant PRIVATE_KERNEL_RESET_MEDIUM_INDEX = 5;
-  uint256 internal constant PRIVATE_KERNEL_RESET_SMALL_INDEX = 6;
-  uint256 internal constant PRIVATE_KERNEL_RESET_TINY_INDEX = 7;
-  uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 10;
-  uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 11;
-  uint256 internal constant EMPTY_NESTED_INDEX = 12;
-  uint256 internal constant PRIVATE_KERNEL_EMPTY_INDEX = 13;
-  uint256 internal constant PUBLIC_KERNEL_INNER_INDEX = 15;
-  uint256 internal constant PUBLIC_KERNEL_MERGE_INDEX = 16;
-  uint256 internal constant PUBLIC_KERNEL_TAIL_INDEX = 17;
-  uint256 internal constant BASE_PARITY_INDEX = 18;
-  uint256 internal constant ROOT_PARITY_INDEX = 19;
-  uint256 internal constant BASE_ROLLUP_INDEX = 20;
-  uint256 internal constant MERGE_ROLLUP_INDEX = 21;
-  uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 22;
-  uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
-  uint256 internal constant ROOT_ROLLUP_INDEX = 24;
-  uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 25;
-  uint256 internal constant BLOCK_ROOT_ROLLUP_FINAL_INDEX = 26;
+  uint256 internal constant EMPTY_NESTED_INDEX = 0;
+  uint256 internal constant PRIVATE_KERNEL_EMPTY_INDEX = 1;
+  uint256 internal constant PRIVATE_KERNEL_INIT_INDEX = 2;
+  uint256 internal constant PRIVATE_KERNEL_INNER_INDEX = 3;
+  uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 4;
+  uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 5;
+  uint256 internal constant PUBLIC_KERNEL_MERGE_INDEX = 6;
+  uint256 internal constant PUBLIC_KERNEL_TAIL_INDEX = 7;
+  uint256 internal constant PUBLIC_KERNEL_INNER_INDEX = 8;
+  uint256 internal constant BASE_PARITY_INDEX = 10;
+  uint256 internal constant ROOT_PARITY_INDEX = 11;
+  uint256 internal constant BASE_ROLLUP_INDEX = 12;
+  uint256 internal constant MERGE_ROLLUP_INDEX = 13;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 14;
+  uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 15;
+  uint256 internal constant ROOT_ROLLUP_INDEX = 16;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 17;
+  uint256 internal constant PRIVATE_KERNEL_RESET_INDEX = 20;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
@@ -229,9 +223,9 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 439;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 439;
-  uint256 internal constant TUBE_PROOF_LENGTH = 439;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 463;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 463;
+  uint256 internal constant TUBE_PROOF_LENGTH = 463;
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant MEM_TAG_U1 = 1;
   uint256 internal constant MEM_TAG_U8 = 2;

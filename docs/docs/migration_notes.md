@@ -20,6 +20,15 @@ Since this is an `unconstrained` function, callers are already supposed to inclu
 +let random_value = unsafe { random() };
 ```
 
+### [Aztec.js] Removed `L2Block.fromFields`
+
+`L2Block.fromFields` was a syntactic sugar which is causing [issues](https://github.com/AztecProtocol/aztec-packages/issues/8340) so we've removed it.
+
+```diff
+-const l2Block = L2Block.fromFields({ header, archive, body });
++const l2Block = new L2Block(archive, header, body);
+```
+
 ### [Aztec.nr] Removed `SharedMutablePrivateGetter`
 
 This state variable was deleted due to it being difficult to use safely.
@@ -44,6 +53,19 @@ All of `TestEnvironment`'s functions are now `unconstrained`, preventing acciden
 +unconstrained fn test_my_function() {
     let env = TestEnvironment::new();
 ```
+
+### [Aztec.nr] removed `encode_and_encrypt_note` and renamed `encode_and_encrypt_note_with_keys` to `encode_and_encrypt_note`
+
+`````diff
+contract XYZ {
+-   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+....
+
+-    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
++    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+
+}
 
 ## 0.56.0
 
@@ -202,7 +224,7 @@ Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `ge
 +let owner_keys = get_current_public_keys(&mut context, owner);
 +let owner_ivpk_m = owner_keys.ivpk_m;
 +let owner_ovpk_m = owner_keys.ovpk_m;
-````
+`````
 
 If using more than one key per account, this will result in very large circuit gate count reductions.
 

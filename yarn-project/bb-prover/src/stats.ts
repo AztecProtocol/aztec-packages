@@ -35,26 +35,14 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
-    case 'PrivateKernelResetFullArtifact':
-      return 'private-kernel-reset-full';
-    case 'PrivateKernelResetFullInnerArtifact':
-      return 'private-kernel-reset-full-inner';
-    case 'PrivateKernelResetBigArtifact':
-      return 'private-kernel-reset-big';
-    case 'PrivateKernelResetMediumArtifact':
-      return 'private-kernel-reset-medium';
-    case 'PrivateKernelResetSmallArtifact':
-      return 'private-kernel-reset-small';
-    case 'PrivateKernelResetTinyArtifact':
-      return 'private-kernel-reset-tiny';
     case 'EmptyNestedArtifact':
       return 'empty-nested';
     case 'PrivateKernelEmptyArtifact':
       return 'private-kernel-empty';
-    case 'BlockRootRollupFinalArtifact':
-      return 'block-root-rollup-final';
     default: {
-      const _foo: never = artifact;
+      if (artifact.startsWith('PrivateKernelReset')) {
+        return 'private-kernel-reset';
+      }
       throw new Error(`Unknown circuit type: ${artifact}`);
     }
   }

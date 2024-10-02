@@ -87,7 +87,7 @@ import {
   type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelResetHints,
   type PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
@@ -1825,16 +1825,14 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
   NLL_RR_SETTLED extends number,
   KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_HINTS extends number,
-  TAG extends string,
 >(
-  inputs: PrivateKernelResetCircuitPrivateInputs<
+  inputs: PrivateKernelResetCircuitPrivateInputsVariants<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
     KEY_VALIDATION_REQUESTS,
-    NUM_TRANSIENT_DATA_HINTS,
-    TAG
+    NUM_TRANSIENT_DATA_HINTS
   >,
 ): PrivateKernelResetCircuitPrivateInputsNoir<
   NH_RR_PENDING,
@@ -2334,7 +2332,6 @@ export function mapEmptyBlockRootRollupInputsToNoir(
     archive: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.archive),
     block_hash: mapFieldToNoir(rootRollupInputs.blockHash),
     global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
-    out_hash: mapFieldToNoir(rootRollupInputs.outHash),
     vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };

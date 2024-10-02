@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -8,7 +8,10 @@ import {NaiveMerkle} from "./Naive.sol";
 import {FrontierMerkle} from "../harnesses/Frontier.sol";
 
 contract FrontierTest is Test {
-  function setUp() public {}
+  function setUp() public {
+    // Pause gas metering as calculating the root on each insert is expensive
+    vm.pauseGasMetering();
+  }
 
   function testFrontier() public {
     uint256 depth = 10;

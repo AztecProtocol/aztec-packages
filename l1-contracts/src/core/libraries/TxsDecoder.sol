@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -184,33 +184,30 @@ library TxsDecoder {
 
         // We throw to ensure that the byte len we charge for DA gas in the kernels matches the actual chargable log byte len
         // Without this check, the user may provide the kernels with a lower log len than reality
-        if (
+        require(
           uint256(bytes32(slice(_body, offsets.noteEncryptedLogsLength, 0x20)))
-            != vars.kernelNoteEncryptedLogsLength
-        ) {
-          revert Errors.TxsDecoder__InvalidLogsLength(
+            == vars.kernelNoteEncryptedLogsLength,
+          Errors.TxsDecoder__InvalidLogsLength(
             uint256(bytes32(slice(_body, offsets.noteEncryptedLogsLength, 0x20))),
             vars.kernelNoteEncryptedLogsLength
-          );
-        }
-        if (
+          )
+        );
+        require(
           uint256(bytes32(slice(_body, offsets.encryptedLogsLength, 0x20)))
-            != vars.kernelEncryptedLogsLength
-        ) {
-          revert Errors.TxsDecoder__InvalidLogsLength(
+            == vars.kernelEncryptedLogsLength,
+          Errors.TxsDecoder__InvalidLogsLength(
             uint256(bytes32(slice(_body, offsets.encryptedLogsLength, 0x20))),
             vars.kernelEncryptedLogsLength
-          );
-        }
-        if (
+          )
+        );
+        require(
           uint256(bytes32(slice(_body, offsets.unencryptedLogsLength, 0x20)))
-            != vars.kernelUnencryptedLogsLength
-        ) {
-          revert Errors.TxsDecoder__InvalidLogsLength(
+            == vars.kernelUnencryptedLogsLength,
+          Errors.TxsDecoder__InvalidLogsLength(
             uint256(bytes32(slice(_body, offsets.unencryptedLogsLength, 0x20))),
             vars.kernelUnencryptedLogsLength
-          );
-        }
+          )
+        );
 
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(

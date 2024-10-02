@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 /**
  * @title Data Structures Library
@@ -65,18 +65,6 @@ library DataStructures {
   }
   // docs:end:l2_to_l1_msg
 
-  // docs:start:registry_snapshot
-  /**
-   * @notice Struct for storing address of cross communication components and the block number when it was updated
-   * @param rollup - The address of the rollup contract
-   * @param blockNumber - The block number of the snapshot
-   */
-  struct RegistrySnapshot {
-    address rollup;
-    uint256 blockNumber;
-  }
-  // docs:end:registry_snapshot
-
   /**
    * @notice Struct for storing flags for block header validation
    * @param ignoreDA - True will ignore DA check, otherwise checks
@@ -88,32 +76,6 @@ library DataStructures {
   }
 
   /**
-   * @notice Struct encompassing an epoch proof quote
-   * @param epochToProve - The epoch number to prove
-   * @param validUntilSlot - The deadline of the quote, denoted in L2 slots
-   * @param bondAmount - The size of the bond
-   * @param prover - The address of the prover
-   * @param basisPointFee - The fee measured in basis points
-   */
-  struct EpochProofQuote {
-    uint256 epochToProve;
-    uint256 validUntilSlot;
-    uint256 bondAmount;
-    address prover;
-    uint32 basisPointFee;
-  }
-
-  /**
-   * @notice A signed quote for the epoch proof
-   * @param quote - The Epoch Proof Quote
-   * @param signature - A signature on the quote
-   */
-  struct SignedEpochProofQuote {
-    EpochProofQuote quote;
-    SignatureLib.Signature signature;
-  }
-
-  /**
    * @notice Struct containing the Epoch Proof Claim
    * @param epochToProve - the epoch that the bond provider is claiming to prove
    * @param basisPointFee the fee that the bond provider will receive as a percentage of the block rewards
@@ -122,7 +84,7 @@ library DataStructures {
    * @param proposerClaimant - the address of the proposer that submitted the claim
    */
   struct EpochProofClaim {
-    uint256 epochToProve;
+    Epoch epochToProve;
     uint256 basisPointFee;
     uint256 bondAmount;
     address bondProvider;

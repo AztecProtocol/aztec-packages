@@ -1,10 +1,10 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import "forge-std/Test.sol";
 
 // Rollup Processor
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -52,8 +52,7 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup =
-      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();
@@ -66,7 +65,7 @@ contract UniswapPortalTest is Test {
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
+    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber + 1));
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn
@@ -91,7 +90,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
-        )
+      )
     });
 
     return message.sha256ToField();
@@ -123,7 +122,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-        )
+      )
     });
 
     return message.sha256ToField();
@@ -154,7 +153,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-        )
+      )
     });
 
     return message.sha256ToField();

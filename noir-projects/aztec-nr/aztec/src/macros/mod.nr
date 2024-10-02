@@ -1,3 +1,4 @@
+mod dispatch;
 mod functions;
 mod utils;
 mod notes;
@@ -10,26 +11,28 @@ use notes::{NOTES, generate_note_export};
 
 use functions::transform_unconstrained;
 use utils::module_has_storage;
+use dispatch::generate_public_dispatch;
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
+///
+/// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-
     let unconstrained_functions = m.functions().filter(
         | f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
     );
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }
-
     let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
-
+    let public_dispatch = generate_public_dispatch(m);
     quote {
         $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
+        $public_dispatch
     }
 }
 
@@ -46,8 +49,8 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     let storage_layout_getter = if has_storage_layout {
         let storage_layout_name = STORAGE_LAYOUT_NAME.get(m).unwrap();
         quote {
-            pub fn storage_layout() -> StorageLayout {
-                $storage_layout_name
+            pub fn storage_layout() -> StorageLayoutFields {
+                $storage_layout_name.fields
             }
         }
     } else {
@@ -105,14 +108,14 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
     let notes = NOTES.entries();
     let body = if notes.len() > 0 {
-        max_note_length = notes.fold(0, | acc, (_, (_, len, _)): (Type, (StructDefinition, u32, Field)) | {
+        max_note_length = notes.fold(0, | acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)])) | {
             acc + len
         });
 
         let mut if_statements_list = &[];
 
         for i in 0..notes.len() {
-            let (typ, (_, _, _)) = notes[i];
+            let (typ, (_, _, _, _)) = notes[i];
             let if_or_else_if = if i == 0 {
                 quote { if }
             } else {
@@ -156,9 +159,11 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 
 comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
+    // Second value in each tuple is `note_serialized_len` and that is ignored here because it's only used when
+    // generating the `compute_note_hash_and_optionally_a_nullifier` function.
     notes.map(
-        | (s, _, note_type_id): (StructDefinition, u32, Field) | {
-            generate_note_export(s, note_type_id)
+        | (s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)]) | {
+            generate_note_export(s, note_type_id, fields)
         }
     ).join(quote {})
 }
