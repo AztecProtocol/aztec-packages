@@ -22,7 +22,7 @@ import {
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
-import { getUltraHonkFlavorForCircuit } from '../honk.js';
+import { type UltraKeccakHonkProtocolArtifact, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -127,7 +127,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
   }
 
-  public async generateSolidityContract(circuit: ProtocolArtifact, contractName: string) {
+  public async generateSolidityContract(circuit: UltraKeccakHonkProtocolArtifact, contractName: string) {
     const result = await generateContractForCircuit(
       this.config.bbBinaryPath,
       this.config.bbWorkingDirectory,

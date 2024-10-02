@@ -7,11 +7,12 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 interface ITestRollup {
-  function setVerifier(address _verifier) external;
+  function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
@@ -30,7 +31,7 @@ interface IRollup {
 
   function prune() external;
 
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,
@@ -41,12 +42,14 @@ interface IRollup {
     bytes calldata _body
   ) external;
 
-  function submitBlockRootProof(
+  function proposeAndClaim(
     bytes calldata _header,
     bytes32 _archive,
-    bytes32 _proverId,
-    bytes calldata _aggregationObject,
-    bytes calldata _proof
+    bytes32 _blockHash,
+    bytes32[] memory _txHashes,
+    SignatureLib.Signature[] memory _signatures,
+    bytes calldata _body,
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(
@@ -85,25 +88,30 @@ interface IRollup {
       bytes32 provenArchive,
       uint256 pendingBlockNumber,
       bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock
+      bytes32 archiveOfMyBlock,
+      Epoch provenEpochNumber
     );
 
-  // TODO(#7346): Integrate batch rollups
-  // function submitRootProof(
-  //   bytes32 _previousArchive,
-  //   bytes32 _archive,
-  //   bytes32 outHash,
-  //   address[32] calldata coinbases,
-  //   uint256[32] calldata fees,
-  //   bytes32 _proverId,
-  //   bytes calldata _aggregationObject,
-  //   bytes calldata _proof
-  // ) external;
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+    external
+    view
+    returns (bytes32);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
+  function nextEpochToClaim() external view returns (Epoch);
+  function getEpochForBlock(uint256 blockNumber) external view returns (Epoch);
+  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
+    external
+    view;
+  function getEpochProofPublicInputs(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject
+  ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

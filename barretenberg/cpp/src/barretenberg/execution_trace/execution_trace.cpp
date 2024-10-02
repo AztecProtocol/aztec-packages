@@ -8,7 +8,9 @@ namespace bb {
 
 template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
 {
+#ifdef TRACY_MEMORY
     ZoneScopedN("populate_public_inputs_block");
+#endif
     // Update the public inputs block
     for (const auto& idx : builder.public_inputs) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
@@ -27,7 +29,10 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 template <class Flavor>
 void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
+
+#ifdef TRACY_MEMORY
     ZoneScopedN("trace populate");
+#endif
     // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
@@ -36,18 +41,27 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
     if constexpr (IsUltraPlonkOrHonk<Flavor>) {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("add_memory_records_to_proving_key");
+#endif
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
     }
 
     if constexpr (IsGoblinFlavor<Flavor>) {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("add_ecc_op_wires_to_proving_key");
+#endif
         add_ecc_op_wires_to_proving_key(builder, proving_key);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("compute_permutation_argument_polynomials");
+#endif
         compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);
     }
 }
@@ -73,7 +87,10 @@ template <class Flavor>
 typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
+
+#ifdef TRACY_MEMORY
     ZoneScopedN("construct_trace_data");
+#endif
 
     if constexpr (IsPlonkFlavor<Flavor>) {
         // Complete the public inputs execution trace block from builder.public_inputs
@@ -91,7 +108,10 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("populating wires and copy_cycles");
+#endif
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array

@@ -1,7 +1,7 @@
 // REFACTOR: This file has been shamelessly copied from yarn-project/end-to-end/src/shared/gas_portal_test_harness.ts
 // We should make this a shared utility in the aztec.js package.
 import { type AztecAddress, type DebugLogger, type EthAddress, Fr, type PXE, computeSecretHash } from '@aztec/aztec.js';
-import { FeeJuicePortalAbi, PortalERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 
 import {
   type Account,
@@ -31,7 +31,7 @@ function generateClaimSecret(): [Fr, Fr] {
 }
 
 class L1TokenManager {
-  private contract: GetContractReturnType<typeof PortalERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
+  private contract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
 
   public constructor(
     public readonly address: EthAddress,
@@ -41,7 +41,7 @@ class L1TokenManager {
   ) {
     this.contract = getContract({
       address: this.address.toString(),
-      abi: PortalERC20Abi,
+      abi: TestERC20Abi,
       client: this.walletClient,
     });
   }

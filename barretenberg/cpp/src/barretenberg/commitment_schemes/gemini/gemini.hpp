@@ -267,17 +267,15 @@ template <typename Curve> class GeminiVerifier_ {
             // Divide by the denominator
             batched_eval_round_acc *= (challenge_power * (Fr(1) - u) + u).invert();
 
-            bool is_dummy_round = (l > num_variables);
-
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
                 batched_eval_accumulator =
                     Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
 
             } else {
-                if (!is_dummy_round) {
+                if (l <= num_variables) {
                     batched_eval_accumulator = batched_eval_round_acc;
                 }
             }

@@ -1,9 +1,9 @@
 import {
+  type EpochProverManager,
   type L1ToL2MessageSource,
   type L2BlockSource,
   type MerkleTreeAdminOperations,
-  type ProverClient,
-  type TxProvider,
+  type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
@@ -14,36 +14,36 @@ import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type BlockProvingJob } from './job/block-proving-job.js';
+import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ProverNode } from './prover-node.js';
 
 describe('prover-node', () => {
-  let prover: MockProxy<ProverClient>;
+  let prover: MockProxy<EpochProverManager>;
   let publisher: MockProxy<L1Publisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let txProvider: MockProxy<TxProvider>;
+  let txProvider: MockProxy<ProverCoordination>;
   let simulator: MockProxy<SimulationProvider>;
 
   let proverNode: TestProverNode;
 
   // List of all jobs ever created by the test prover node and their dependencies
   let jobs: {
-    job: MockProxy<BlockProvingJob>;
-    cleanUp: (job: BlockProvingJob) => Promise<void>;
+    job: MockProxy<EpochProvingJob>;
+    cleanUp: (job: EpochProvingJob) => Promise<void>;
     db: MerkleTreeAdminOperations;
   }[];
 
   beforeEach(() => {
-    prover = mock<ProverClient>();
+    prover = mock<EpochProverManager>();
     publisher = mock<L1Publisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
-    txProvider = mock<TxProvider>();
+    txProvider = mock<ProverCoordination>();
     simulator = mock<SimulationProvider>();
     const telemetryClient = new NoopTelemetryClient();
 
@@ -61,7 +61,7 @@ describe('prover-node', () => {
       txProvider,
       simulator,
       telemetryClient,
-      { maxPendingJobs: 3, pollingIntervalMs: 10 },
+      { maxPendingJobs: 3, pollingIntervalMs: 10, epochSize: 2 },
     );
   });
 
@@ -82,13 +82,12 @@ describe('prover-node', () => {
     await proverNode.work();
     await proverNode.work();
 
-    expect(jobs.length).toEqual(2);
-    expect(jobs[0].job.run).toHaveBeenCalledWith(4, 4);
-    expect(jobs[1].job.run).toHaveBeenCalledWith(5, 5);
+    expect(jobs.length).toEqual(1);
+    expect(jobs[0].job.run).toHaveBeenCalledWith(4, 5);
   });
 
   it('stops proving when maximum jobs are reached', async () => {
-    setBlockNumbers(10, 3);
+    setBlockNumbers(20, 3);
 
     await proverNode.work();
     await proverNode.work();
@@ -96,13 +95,13 @@ describe('prover-node', () => {
     await proverNode.work();
 
     expect(jobs.length).toEqual(3);
-    expect(jobs[0].job.run).toHaveBeenCalledWith(4, 4);
-    expect(jobs[1].job.run).toHaveBeenCalledWith(5, 5);
-    expect(jobs[2].job.run).toHaveBeenCalledWith(6, 6);
+    expect(jobs[0].job.run).toHaveBeenCalledWith(4, 5);
+    expect(jobs[1].job.run).toHaveBeenCalledWith(6, 7);
+    expect(jobs[2].job.run).toHaveBeenCalledWith(8, 9);
   });
 
   it('reports on pending jobs', async () => {
-    setBlockNumbers(5, 3);
+    setBlockNumbers(8, 3);
 
     await proverNode.work();
     await proverNode.work();
@@ -116,7 +115,7 @@ describe('prover-node', () => {
   });
 
   it('cleans up jobs when completed', async () => {
-    setBlockNumbers(10, 3);
+    setBlockNumbers(20, 3);
 
     await proverNode.work();
     await proverNode.work();
@@ -124,10 +123,6 @@ describe('prover-node', () => {
     await proverNode.work();
 
     expect(jobs.length).toEqual(3);
-    expect(jobs[0].job.run).toHaveBeenCalledWith(4, 4);
-    expect(jobs[1].job.run).toHaveBeenCalledWith(5, 5);
-    expect(jobs[2].job.run).toHaveBeenCalledWith(6, 6);
-
     expect(proverNode.getJobs().length).toEqual(3);
 
     // Clean up the first job
@@ -138,7 +133,7 @@ describe('prover-node', () => {
     // Request another job to run and ensure it gets pushed
     await proverNode.work();
     expect(jobs.length).toEqual(4);
-    expect(jobs[3].job.run).toHaveBeenCalledWith(7, 7);
+    expect(jobs[3].job.run).toHaveBeenCalledWith(10, 11);
     expect(proverNode.getJobs().length).toEqual(3);
     expect(proverNode.getJobs().map(({ uuid }) => uuid)).toEqual(['1', '2', '3']);
   });
@@ -147,7 +142,7 @@ describe('prover-node', () => {
     setBlockNumbers(10, 3);
 
     // We trigger an error by setting world state past the block that the prover node will try proving
-    worldState.status.mockResolvedValue({ syncedToL2Block: 5, state: WorldStateRunningState.RUNNING });
+    worldState.status.mockResolvedValue({ syncedToL2Block: 7, state: WorldStateRunningState.RUNNING });
 
     // These two calls should return in failures
     await proverNode.work();
@@ -157,16 +152,16 @@ describe('prover-node', () => {
     // But now the prover node should move forward
     await proverNode.work();
     expect(jobs.length).toEqual(1);
-    expect(jobs[0].job.run).toHaveBeenCalledWith(6, 6);
+    expect(jobs[0].job.run).toHaveBeenCalledWith(8, 9);
   });
 
   class TestProverNode extends ProverNode {
-    protected override doCreateBlockProvingJob(
+    protected override doCreateEpochProvingJob(
       db: MerkleTreeAdminOperations,
       _publicProcessorFactory: PublicProcessorFactory,
-      cleanUp: (job: BlockProvingJob) => Promise<void>,
-    ): BlockProvingJob {
-      const job = mock<BlockProvingJob>({ getState: () => 'processing' });
+      cleanUp: (job: EpochProvingJob) => Promise<void>,
+    ): EpochProvingJob {
+      const job = mock<EpochProvingJob>({ getState: () => 'processing' });
       job.getId.mockReturnValue(jobs.length.toString());
       jobs.push({ job, cleanUp, db });
       return job;

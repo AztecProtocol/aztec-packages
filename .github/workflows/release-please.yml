@@ -22,6 +22,15 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
 
+      - name: Dispatch to publish Aztec packages workflow
+        uses: benc-uk/workflow-dispatch@v1
+        if: ${{ steps.release.outputs.tag_name }}
+        with:
+          workflow: publish-aztec-packages.yml
+          ref: master
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}", "publish": true }'
+
       - name: Dispatch to publish BB workflow
         uses: benc-uk/workflow-dispatch@v1
         if: ${{ steps.release.outputs.tag_name }}

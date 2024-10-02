@@ -70,12 +70,12 @@ function check_toolchains {
   fi
   # Check foundry version.
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep de33b6a > /dev/null; then
+    if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
       encourage_dev_container
-      echo "$tool not in PATH or incorrect version (requires de33b6af53005037b463318d2628b5cfcaf39916)."
+      echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
       echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.75)"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -b de33b6af53005037b463318d2628b5cfcaf39916"
+      echo "  foundryup -b 25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
     fi
   done
