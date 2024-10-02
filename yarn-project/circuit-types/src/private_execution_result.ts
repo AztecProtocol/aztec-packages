@@ -140,11 +140,14 @@ export class PrivateExecutionResult {
     return {
       acir: this.acir.toString('hex'),
       vk: this.vk.toString('hex'),
-      partialWitness: this.partialWitness,
+      partialWitness: Array.from(this.partialWitness.entries()),
       callStackItem: this.callStackItem.toJSON(),
-      noteHashLeafIndexMap: this.noteHashLeafIndexMap,
+      noteHashLeafIndexMap: Array.from(this.noteHashLeafIndexMap.entries()).map(([key, value]) => [
+        key.toString(),
+        value.toString(),
+      ]),
       newNotes: this.newNotes.map(note => note.toJSON()),
-      noteHashNullifierCounterMap: this.noteHashNullifierCounterMap,
+      noteHashNullifierCounterMap: Array.from(this.noteHashNullifierCounterMap.entries()),
       returnValues: this.returnValues.map(fr => fr.toBuffer().toString('hex')),
       nestedExecutions: this.nestedExecutions.map(exec => exec.toJSON()),
       enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(call => call.toJSON()),
@@ -165,11 +168,17 @@ export class PrivateExecutionResult {
     return new PrivateExecutionResult(
       Buffer.from(json.acir, 'hex'),
       Buffer.from(json.vk, 'hex'),
-      new Map(Object.entries(json.partialWitness).map(([key, value]) => [Number(key), value as string])),
+      Array.isArray(json.partialWitness)
+        ? new Map(json.partialWitness.map(([key, value]: any[]) => [Number(key), value as string]))
+        : new Map(),
       PrivateCallStackItem.fromJSON(json.callStackItem),
-      new Map(Object.entries(json.noteHashLeafIndexMap).map(([key, value]) => [BigInt(key), BigInt(value as string)])),
+      Array.isArray(json.noteHashLeafIndexMap)
+        ? new Map(json.noteHashLeafIndexMap.map(([key, value]: any[]) => [BigInt(key), BigInt(value)]))
+        : new Map(),
       Array.isArray(json.newNotes) ? json.newNotes.map((note: any) => NoteAndSlot.fromJSON(note)) : [],
-      new Map(Object.entries(json.noteHashNullifierCounterMap).map(([key, value]) => [Number(key), Number(value)])),
+      Array.isArray(json.noteHashNullifierCounterMap)
+        ? new Map(json.noteHashNullifierCounterMap.map(([key, value]: any[]) => [Number(key), Number(value)]))
+        : new Map(),
       json.returnValues.map((fr: any) => new Fr(Buffer.from(fr, 'hex'))),
       Array.isArray(json.nestedExecutions)
         ? json.nestedExecutions.map((exec: any) => PrivateExecutionResult.fromJSON(exec))
