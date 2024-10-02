@@ -100,6 +100,133 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
     pt.q_c = uint256_t(arg.q_c);
     return pt;
 }
+
+void assign_linear_term(mul_quad_<fr>& gate, int i, uint32_t w, fr const& scaling)
+{
+    switch (i) {
+    case 0:
+        gate.a = w;
+        gate.a_scaling = scaling;
+        break;
+    case 1:
+        gate.b = w;
+        gate.b_scaling = scaling;
+        break;
+    case 2:
+        gate.c = w;
+        gate.c_scaling = scaling;
+        break;
+    case 3:
+        gate.d = w;
+        gate.d_scaling = scaling;
+        break;
+    default:
+        ASSERT(false);
+    }
+}
+
+/// Accumulate the input expression into a serie of quad gates
+std::vector<mul_quad_<fr>> serialize_big_add_gate(Program::Expression const& arg)
+{
+    std::vector<mul_quad_<fr>> result;
+    auto current_mul_term = arg.mul_terms.begin();
+    auto current_linear_term = arg.linear_combinations.begin();
+
+    // number of wires to use in the intermediate gate
+    int max_size = 4;
+    bool done = false;
+    // the intermediate 'big add' gates. The first one contains the constant term.
+    mul_quad_<fr> mul_gate = { .a = 0,
+                               .b = 0,
+                               .c = 0,
+                               .d = 0,
+                               .mul_scaling = fr::zero(),
+                               .a_scaling = fr::zero(),
+                               .b_scaling = fr::zero(),
+                               .c_scaling = fr::zero(),
+                               .d_scaling = fr::zero(),
+                               .const_scaling = fr(uint256_t(arg.q_c)) };
+
+    // list of witnesses that are part of mul terms
+    std::set<uint32_t> all_mul_terms;
+    for (auto const& term : arg.mul_terms) {
+        all_mul_terms.insert(std::get<1>(term).value);
+        all_mul_terms.insert(std::get<2>(term).value);
+    }
+    // The 'mul term' witnesses that have been processed
+    std::set<uint32_t> processed_mul_terms;
+
+    while (!done) {
+        int i = 0; // index of the current free wire in the new intermediate gate
+
+        // we add a mul term (if there are some) to every intermediate gate
+        if (current_mul_term != arg.mul_terms.end()) {
+            mul_gate.mul_scaling = fr(uint256_t(std::get<0>(*current_mul_term)));
+            mul_gate.a = std::get<1>(*current_mul_term).value;
+            mul_gate.b = std::get<2>(*current_mul_term).value;
+            mul_gate.a_scaling = fr::zero();
+            mul_gate.b_scaling = fr::zero();
+            // Try to add corresponding linear terms, only if they were not already added
+            if (!processed_mul_terms.contains(mul_gate.a) || !processed_mul_terms.contains(mul_gate.b)) {
+                for (auto lin_term : arg.linear_combinations) {
+                    auto w = std::get<1>(lin_term).value;
+                    if (w == mul_gate.a) {
+                        if (!processed_mul_terms.contains(mul_gate.a)) {
+                            mul_gate.a_scaling = fr(uint256_t(std::get<0>(lin_term)));
+                            processed_mul_terms.insert(w);
+                        }
+                        if (mul_gate.a == mul_gate.b) {
+                            break;
+                        }
+                    } else if (w == mul_gate.b) {
+                        if (!processed_mul_terms.contains(mul_gate.b)) {
+                            mul_gate.b_scaling = fr(uint256_t(std::get<0>(lin_term)));
+                            processed_mul_terms.insert(w);
+                        }
+                        break;
+                    }
+                }
+            }
+            i = 2; // a and b are used because of the mul term
+            current_mul_term = std::next(current_mul_term);
+        }
+        // We need to process all the mul terms before being done.
+        done = current_mul_term == arg.mul_terms.end();
+
+        // Assign available wires with the remaining linear terms which are not also a 'mul term'
+        while (current_linear_term != arg.linear_combinations.end()) {
+            auto w = std::get<1>(*current_linear_term).value;
+            if (!all_mul_terms.contains(w)) {
+                if (i < max_size) {
+                    assign_linear_term(mul_gate, i, w, fr(uint256_t(std::get<0>(*current_linear_term)))); // * fr(-1)));
+                    ++i;
+                } else {
+                    // No more available wire, but there is still some linear terms; we need another mul_gate
+                    done = false;
+                    break;
+                }
+            }
+            current_linear_term = std::next(current_linear_term);
+        }
+
+        // Index 4 of the next gate will be used
+        max_size = 3;
+        result.push_back(mul_gate);
+        mul_gate = { .a = 0,
+                     .b = 0,
+                     .c = 0,
+                     .d = 0,
+                     .mul_scaling = fr::zero(),
+                     .a_scaling = fr::zero(),
+                     .b_scaling = fr::zero(),
+                     .c_scaling = fr::zero(),
+                     .d_scaling = fr::zero(),
+                     .const_scaling = fr::zero() };
+    }
+
+    return result;
+}
+
 mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
@@ -135,7 +262,6 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
         b_set = true;
     }
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
-    ASSERT(arg.linear_combinations.size() <= 4); // We can only accommodate 4 linear terms
     for (const auto& linear_term : arg.linear_combinations) {
         fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
@@ -162,7 +288,17 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
             quad.d_scaling = selector_value;
             d_set = true;
         } else {
-            throw_or_abort("Cannot assign linear term to a constraint of width 4");
+            // We cannot assign linear term to a constraint of width 4
+            return { .a = 0,
+                     .b = 0,
+                     .c = 0,
+                     .d = 0,
+                     .mul_scaling = 0,
+                     .a_scaling = 0,
+                     .b_scaling = 0,
+                     .c_scaling = 0,
+                     .d_scaling = 0,
+                     .const_scaling = 0 };
         }
     }
 
@@ -203,7 +339,8 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Program::Opcode::AssertZero const&
 
 void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
-    if (arg.value.linear_combinations.size() <= 3) {
+    // If the expression fits in a polytriple, we use it.
+    if (arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1) {
         poly_triple pt = serialize_arithmetic_gate(arg.value);
 
         auto assert_equal = is_assert_equal(arg, pt, af);
@@ -255,12 +392,29 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
             af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
         }
     } else {
-        af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
-        af.original_opcode_indices.quad_constraints.push_back(opcode_index);
+        std::vector<mul_quad_<fr>> mul_quads;
+        // We try to use a single mul_quad gate to represent the expression.
+        if (arg.value.mul_terms.size() <= 1) {
+            auto quad = serialize_mul_quad_gate(arg.value);
+            // add it to the result vector if it worked
+            if (quad.a != 0 || !(quad.mul_scaling == fr(0)) || !(quad.a_scaling == fr(0))) {
+                mul_quads.push_back(quad);
+            }
+        }
+        if (mul_quads.empty()) {
+            // If not, we need to split the expression into multiple gates
+            mul_quads = serialize_big_add_gate(arg.value);
+        }
+        if (mul_quads.size() == 1) {
+            af.quad_constraints.push_back(mul_quads[0]);
+            af.original_opcode_indices.quad_constraints.push_back(opcode_index);
+        }
+        if (mul_quads.size() > 1) {
+            af.big_quad_constraints.push_back(mul_quads);
+        }
     }
     constrain_witnesses(arg, af);
 }
-
 uint32_t get_witness_from_function_input(Program::FunctionInput input)
 {
     auto input_witness = std::get<Program::ConstantOrWitnessEnum::Witness>(input.input.value);
@@ -513,9 +667,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
                 auto proof_type_in = arg.proof_type;
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
-                // the only means for setting the proof type. use of honk_recursion flag in this context can go away
-                // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will
+                // be the only means for setting the proof type. use of honk_recursion flag in this context can go
+                // away once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
                 if (honk_recursion && proof_type_in != HONK && proof_type_in != AVM) {
                     proof_type_in = HONK;
                 }

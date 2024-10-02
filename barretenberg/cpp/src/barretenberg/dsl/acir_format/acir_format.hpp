@@ -116,6 +116,7 @@ struct AcirFormat {
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
     bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
     bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -153,6 +154,8 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    ivc_recursion_constraints,
                    poly_triple_constraints,
+                   quad_constraints,
+                   big_quad_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
                    bigint_to_le_bytes_constraints,
