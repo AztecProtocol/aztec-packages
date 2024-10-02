@@ -68,6 +68,18 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
 }
 
 /**
+ * Generates parseEnv and default values for a numerical config value.
+ * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
+ * @returns Object with parseEnv and default values for a numerical config value
+ */
+export function bigintConfigHelper(defaultVal: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string) => BigInt(val),
+    defaultValue: defaultVal,
+  };
+}
+
+/**
  * Generates parseEnv for an optional numerical config value.
  */
 export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {

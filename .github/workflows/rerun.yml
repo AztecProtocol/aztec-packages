@@ -34,12 +34,6 @@ jobs:
           BRANCH_NAME=$(echo "$RUN_INFO" | jq -r '.headBranch')
           EVENT_TYPE=$(echo "$RUN_INFO" | jq -r '.event')
 
-          # Only proceed if the event is a pull_request
-          if [[ "$EVENT_TYPE" != "pull_request" ]]; then
-            echo "Event type is $EVENT_TYPE. Skipping rerun."
-            exit 0
-          fi
-
           # Get the latest commit SHA on the branch
           LATEST_COMMIT_SHA=$(gh api repos/${{ github.repository }}/commits/$BRANCH_NAME --jq .sha)
 

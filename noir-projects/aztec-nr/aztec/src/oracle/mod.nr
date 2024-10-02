@@ -13,7 +13,7 @@ mod get_membership_witness;
 mod keys;
 mod key_validation_request;
 mod get_sibling_path;
-mod unsafe_rand;
+mod random;
 mod enqueue_public_function_call;
 mod header;
 mod notes;
