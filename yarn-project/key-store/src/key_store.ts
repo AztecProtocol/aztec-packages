@@ -10,7 +10,6 @@ import {
   KeyValidationRequest,
   type PartialAddress,
   Point,
-  computeAddress,
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
@@ -54,35 +53,34 @@ export class KeyStore {
       publicKeys,
     } = deriveKeys(sk);
 
-    const publicKeysHash = publicKeys.hash();
-    const account = computeAddress(publicKeysHash, partialAddress);
+    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
-    await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
 
-    await this.#keys.set(`${account.toString()}-npk_m`, publicKeys.masterNullifierPublicKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.masterIncomingViewingPublicKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-ovpk_m`, publicKeys.masterOutgoingViewingPublicKey.toBuffer());
-    await this.#keys.set(`${account.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-npk_m`, publicKeys.masterNullifierPublicKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-ivpk_m`, publicKeys.masterIncomingViewingPublicKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-ovpk_m`, publicKeys.masterOutgoingViewingPublicKey.toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
 
     // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
-    await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.masterNullifierPublicKey.hash().toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-npk_m_hash`, publicKeys.masterNullifierPublicKey.hash().toBuffer());
     await this.#keys.set(
-      `${account.toString()}-ivpk_m_hash`,
+      `${completeAddress.address.toString()}-ivpk_m_hash`,
       publicKeys.masterIncomingViewingPublicKey.hash().toBuffer(),
     );
     await this.#keys.set(
-      `${account.toString()}-ovpk_m_hash`,
+      `${completeAddress.address.toString()}-ovpk_m_hash`,
       publicKeys.masterOutgoingViewingPublicKey.hash().toBuffer(),
     );
-    await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
+    await this.#keys.set(`${completeAddress.address.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(new CompleteAddress(account, publicKeys, partialAddress));
+    return Promise.resolve(completeAddress);
   }
 
   /**

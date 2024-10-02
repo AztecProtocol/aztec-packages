@@ -43,7 +43,7 @@ describe(`deploys and transfers a private only token`, () => {
 
     logger.info(`Deploying accounts.`);
 
-    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2], { interval: 0.1, timeout: 300 });
+    const accounts = await createAccounts(pxe, 2, [[secretKey1, secretKey1], [secretKey2, secretKey2]], { interval: 0.1, timeout: 300 });
 
     logger.info(`Accounts deployed, deploying token.`);
 

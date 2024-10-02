@@ -31,12 +31,24 @@ export class AccountManager {
   public readonly salt: Fr;
 
   // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
-  private completeAddress?: CompleteAddress;
-  private instance?: ContractInstanceWithAddress;
+  private completeAddress: CompleteAddress;
+  private instance: ContractInstanceWithAddress;
   private publicKeysHash?: Fr;
 
   constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
     this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
+
+    const { publicKeys } = deriveKeys(secretKey);
+
+    this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
+      constructorArgs: this.accountContract.getDeploymentArgs(),
+      salt: this.salt,
+      publicKeys,
+    });
+
+    this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
+
+    this.instance.address = this.completeAddress.address;
   }
 
   protected getPublicKeysHash() {
@@ -84,13 +96,6 @@ export class AccountManager {
    * @returns ContractInstance instance.
    */
   public getInstance(): ContractInstanceWithAddress {
-    if (!this.instance) {
-      this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
-        constructorArgs: this.accountContract.getDeploymentArgs(),
-        salt: this.salt,
-        publicKeysHash: this.getPublicKeysHash(),
-      });
-    }
     return this.instance;
   }
 

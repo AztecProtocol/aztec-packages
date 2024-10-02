@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -19,6 +19,7 @@ export interface ContractInstance {
   initializationHash: Fr;
   /** Optional hash of the struct of public keys used for encryption and nullifying by this contract. */
   publicKeysHash: Fr;
+  ivpkM: Point;
 }
 
 export type ContractInstanceWithAddress = ContractInstance & { address: AztecAddress };
@@ -30,6 +31,7 @@ export class SerializableContractInstance {
   public readonly contractClassId: Fr;
   public readonly initializationHash: Fr;
   public readonly publicKeysHash: Fr;
+  public readonly ivpkM: Point;
 
   constructor(instance: ContractInstance) {
     if (instance.version !== VERSION) {
@@ -40,6 +42,7 @@ export class SerializableContractInstance {
     this.contractClassId = instance.contractClassId;
     this.initializationHash = instance.initializationHash;
     this.publicKeysHash = instance.publicKeysHash;
+    this.ivpkM = instance.ivpkM;
   }
 
   public toBuffer() {
@@ -50,6 +53,7 @@ export class SerializableContractInstance {
       this.contractClassId,
       this.initializationHash,
       this.publicKeysHash,
+      this.ivpkM,
     );
   }
 
@@ -67,6 +71,7 @@ export class SerializableContractInstance {
       contractClassId: reader.readObject(Fr),
       initializationHash: reader.readObject(Fr),
       publicKeysHash: reader.readObject(Fr),
+      ivpkM: reader.readObject(Point),
     });
   }
 
@@ -78,6 +83,7 @@ export class SerializableContractInstance {
       contractClassId: Fr.random(),
       initializationHash: Fr.random(),
       publicKeysHash: Fr.random(),
+      ivpkM: Point.random(),
       ...opts,
     });
   }
@@ -90,6 +96,7 @@ export class SerializableContractInstance {
       contractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
       publicKeysHash: Fr.zero(),
+      ivpkM: Point.ZERO,
     });
   }
 }

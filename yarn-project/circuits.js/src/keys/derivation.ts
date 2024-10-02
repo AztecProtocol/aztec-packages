@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { type Fq, type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, type Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
@@ -44,6 +44,14 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
 export function computeAddress(publicKeysHash: Fr, partialAddress: Fr) {
   const addressFr = poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
   return AztecAddress.fromField(addressFr);
+}
+
+export function computeAddressFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Point) {
+  const curve = new Grumpkin();
+  const preaddressPoint = derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt()));
+  const addressPoint = curve.add(preaddressPoint, ivpkM);
+
+  return AztecAddress.fromField(addressPoint.x);
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {

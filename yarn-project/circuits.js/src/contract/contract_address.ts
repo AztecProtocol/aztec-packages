@@ -6,7 +6,7 @@ import { type ContractInstance } from '@aztec/types/contracts';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { computeVarArgsHash } from '../hash/hash.js';
-import { computeAddress } from '../keys/index.js';
+import { computeAddress, computeAddressFromPreaddressAndIvpkM } from '../keys/index.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
@@ -22,11 +22,12 @@ import { computeAddress } from '../keys/index.js';
 export function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
+    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'> & Pick<ContractInstance, 'ivpkM'>),
 ): AztecAddress {
   const partialAddress = computePartialAddress(instance);
   const publicKeysHash = instance.publicKeysHash;
-  return computeAddress(publicKeysHash, partialAddress);
+  const preAddress = computeAddress(publicKeysHash, partialAddress);
+  return computeAddressFromPreaddressAndIvpkM(preAddress, instance.ivpkM);
 }
 
 /**

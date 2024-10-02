@@ -308,6 +308,10 @@ export class Fr extends BaseField {
       value: this.toString(),
     };
   }
+
+  toFq() {
+    return new Fq(this.toBigInt());
+  }
 }
 
 // For deserializing JSON.
@@ -386,6 +390,11 @@ export class Fq extends BaseField {
       type: 'Fq',
       value: this.toString(),
     };
+  }
+
+  // Can I do this ?
+  add(rhs: Fq) {
+    return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
   }
 }
 

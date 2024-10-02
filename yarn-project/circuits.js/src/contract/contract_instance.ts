@@ -5,7 +5,7 @@ import {
   getDefaultInitializer,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -15,6 +15,7 @@ import {
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
+import { type PublicKeys } from '../types/public_keys.js';
 
 /**
  * Generates a Contract Instance from the deployment params.
@@ -29,7 +30,7 @@ export function getContractInstanceFromDeployParams(
     constructorArgs?: any[];
     skipArgsDecoding?: boolean;
     salt?: Fr;
-    publicKeysHash?: Fr;
+    publicKeys?: PublicKeys;
     deployer?: AztecAddress;
   },
 ): ContractInstanceWithAddress {
@@ -46,12 +47,12 @@ export function getContractInstanceFromDeployParams(
           args,
         )
       : computeInitializationHash(constructorArtifact, args);
-  const publicKeysHash = opts.publicKeysHash ?? Fr.ZERO;
 
   const instance: ContractInstance = {
     contractClassId,
     initializationHash,
-    publicKeysHash,
+    publicKeysHash: opts.publicKeys?.hash() ?? Fr.ZERO,
+    ivpkM: opts.publicKeys?.masterIncomingViewingPublicKey ?? Point.ZERO,
     salt,
     deployer,
     version: 1,

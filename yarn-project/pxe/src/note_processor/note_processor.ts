@@ -1,6 +1,6 @@
 import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { type AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
+import { type CompleteAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -47,7 +47,7 @@ export class NoteProcessor {
   };
 
   private constructor(
-    public readonly account: AztecAddress,
+    public readonly account: CompleteAddress,
     /** The public counterpart to the secret key to be used in the decryption of incoming note logs. */
     private readonly ivpkM: PublicKey,
     /** The public counterpart to the secret key to be used in the decryption of outgoing note logs. */
@@ -61,7 +61,7 @@ export class NoteProcessor {
   ) {}
 
   public static async create(
-    account: AztecAddress,
+    account: CompleteAddress,
     keyStore: KeyStore,
     db: PxeDatabase,
     node: AztecNode,
@@ -69,8 +69,8 @@ export class NoteProcessor {
     simulator = getAcirSimulator(db, node, keyStore),
     log = createDebugLogger('aztec:note_processor'),
   ) {
-    const ivpkM = await keyStore.getMasterIncomingViewingPublicKey(account);
-    const ovpkM = await keyStore.getMasterOutgoingViewingPublicKey(account);
+    const ivpkM = await keyStore.getMasterIncomingViewingPublicKey(account.address);
+    const ovpkM = await keyStore.getMasterOutgoingViewingPublicKey(account.address);
 
     return new NoteProcessor(account, ivpkM, ovpkM, keyStore, db, node, startingBlock, simulator, log);
   }
@@ -115,6 +115,8 @@ export class NoteProcessor {
     const deferredOutgoingNotes: DeferredNoteDao[] = [];
 
     const ivskM = await this.keyStore.getMasterSecretKey(this.ivpkM);
+    const addressIvskM = ivskM.add(this.account.getPreAddress().toFq());
+
     const ovskM = await this.keyStore.getMasterSecretKey(this.ovpkM);
 
     // Iterate over both blocks and encrypted logs.
@@ -142,7 +144,7 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, ivskM);
+            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, addressIvskM);
             const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
 
             if (incomingNotePayload || outgoingNotePayload) {
@@ -225,7 +227,7 @@ export class NoteProcessor {
     const incomingNotes = blocksAndNotes.flatMap(b => b.incomingNotes);
     const outgoingNotes = blocksAndNotes.flatMap(b => b.outgoingNotes);
     if (incomingNotes.length || outgoingNotes.length) {
-      await this.db.addNotes(incomingNotes, outgoingNotes, this.account);
+      await this.db.addNotes(incomingNotes, outgoingNotes, this.account.address);
       incomingNotes.forEach(noteDao => {
         this.log.verbose(
           `Added incoming note for contract ${noteDao.contractAddress} at slot ${

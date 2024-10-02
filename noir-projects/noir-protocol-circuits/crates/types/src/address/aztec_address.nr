@@ -5,6 +5,14 @@ use crate::{
     utils
 };
 
+global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
+
+// We do below because `use crate::point::Point;` does not work
+use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+
+use std::ec::{sqrt, pow};
+use crate::debug_log::debug_log_format;
+
 // Aztec address
 pub struct AztecAddress {
     inner : Field
@@ -71,6 +79,32 @@ impl AztecAddress {
     pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
         let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
         Self { inner: result }
+    }
+
+    pub fn to_point(self) -> Point {
+        // Calculate y^2 = x^3 - 17
+        let y_squared = pow(self.inner, 3) - 17;
+
+        // We can see if y is square first, or we can soft fail with just sqrt(y_squared);
+        // If y is not square, the x-coordinate is not on the curve
+        // Do we throw here or soft continue ?
+        // let y_is_square = is_square(y_squared);
+        // assert(y_is_square);
+
+        let mut y = sqrt(y_squared);
+
+        // We can NOT do a check like the below. We do not have access to the sign, and this derivation produces "both" points
+        // assert(y.lt(BN254_FR_MODULUS_DIV_2) | y.eq(BN254_FR_MODULUS_DIV_2));
+
+        if (!(y.lt(BN254_FR_MODULUS_DIV_2) | y.eq(BN254_FR_MODULUS_DIV_2))) {
+            y = (BN254_FR_MODULUS_DIV_2 + BN254_FR_MODULUS_DIV_2 + 1) - y;
+        }
+
+        Point {
+            x: self.inner,
+            y,
+            is_infinite: false
+        }
     }
 }
 
