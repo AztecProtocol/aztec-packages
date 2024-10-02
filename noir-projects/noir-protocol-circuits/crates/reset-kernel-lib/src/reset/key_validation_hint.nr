@@ -77,13 +77,13 @@ pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS:
     let mut num_propagated = 0;
     for i in 0..REQUEST_LEN {
         let hint_index = hint_indexes[i];
-        if hint_index == NUM_HINTS {
+        if (hint_index != NUM_HINTS) & (NUM_HINTS != 0) {
+            assert_eq(hints[hint_index].request_index, i, "wrong verified request index hint");
+        } else {
             assert_eq(
                 unverified_requests[num_propagated], key_validation_requests[i], "mismatch propagated key validation request"
             );
             num_propagated += 1;
-        } else {
-            assert_eq(hints[hint_index].request_index, i, "wrong verified request index hint");
         }
     }
 }
