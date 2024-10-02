@@ -486,13 +486,13 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
-    // Connect the proof/public_input witness indices from each constraint to the corresponding proof witnesses in the
-    // internal verification queue. This ensures that the witnesses utlized in constraints generated based on acir are
-    // properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
+    // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
+    // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
 
-        // Reconstruct complete proof indices from acir constraint data (in which proof is stripped of public inputs)
+        // Get the witness indices for the public inputs contained within the proof in the verification queue
         std::vector<uint32_t> public_input_indices = ProofSurgeon::get_public_inputs_witness_indices_from_proof(
             queue_entry.proof, constraint.public_inputs.size());
 
