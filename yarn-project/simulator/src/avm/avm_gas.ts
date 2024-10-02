@@ -1,4 +1,4 @@
-import { Gas } from '@aztec/circuit-types';
+import { type Gas } from '@aztec/circuit-types';
 import * as c from '@aztec/circuits.js/constants';
 
 import { TypeTag } from './avm_memory_types.js';

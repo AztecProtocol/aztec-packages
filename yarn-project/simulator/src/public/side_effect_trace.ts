@@ -1,6 +1,6 @@
 import {
   PublicExecutionRequest,
-  PublicExecutionResult,
+  type PublicExecutionResult,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';

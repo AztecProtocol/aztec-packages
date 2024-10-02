@@ -1,4 +1,4 @@
-import { Gas } from '@aztec/circuit-types';
+import { type Gas } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
 
 import { GAS_DIMENSIONS } from './avm_gas.js';

@@ -2,7 +2,7 @@ import {
   type ProcessedTx,
   type ProcessedTxHandler,
   PublicDataWrite,
-  PublicExecutionResult,
+  type PublicExecutionResult,
   PublicKernelPhase,
   SimulationError,
   type TreeInfo,

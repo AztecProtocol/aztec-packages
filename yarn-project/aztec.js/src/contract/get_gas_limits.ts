@@ -7,7 +7,7 @@ import { Gas } from '@aztec/circuits.js';
  * @param pad - Percentage to pad the suggested gas limits by, defaults to 10%.
  */
 export function getGasLimits(simulationResult: TxSimulationResult, simulationTeardownGasLimits: Gas, pad = 0.1) {
-  let simulatedTx = simulationResult.toSimulatedTx();
+  const simulatedTx = simulationResult.toSimulatedTx();
   const privateGasUsed = simulatedTx.data.publicInputs.end.gasUsed
     .sub(simulationTeardownGasLimits)
     .add(simulatedTx.data.forPublic?.endNonRevertibleData.gasUsed ?? Gas.empty());

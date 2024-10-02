@@ -1,4 +1,4 @@
-import { PrivateExecutionResult } from '@aztec/circuit-types';
+import { type PrivateExecutionResult } from '@aztec/circuit-types';
 import {
   type Fr,
   KeyValidationHint,

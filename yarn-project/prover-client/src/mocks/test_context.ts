@@ -4,7 +4,7 @@ import {
   type ProcessedTx,
   type ProcessedTxHandler,
   type PublicExecutionRequest,
-  PublicExecutionResult,
+  type PublicExecutionResult,
   type ServerCircuitProver,
   type Tx,
   type TxValidator,

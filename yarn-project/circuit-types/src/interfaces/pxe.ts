@@ -24,10 +24,10 @@ import {
 } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
-import { PrivateExecutionResult } from '../private_execution_result.js';
+import { type PrivateExecutionResult } from '../private_execution_result.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
-import { type Tx, type TxHash, TxProvingResult, type TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { type Tx, type TxHash, type TxProvingResult, type TxReceipt, type TxSimulationResult } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
 import { type SyncStatus } from './sync-status.js';

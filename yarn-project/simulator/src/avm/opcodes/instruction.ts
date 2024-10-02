@@ -1,4 +1,4 @@
-import { Gas } from '@aztec/circuit-types';
+import { type Gas } from '@aztec/circuit-types';
 
 import { strict as assert } from 'assert';
 

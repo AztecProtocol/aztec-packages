@@ -6,7 +6,7 @@ import {
   type L2BlockNumber,
   Note,
   PackedValues,
-  PrivateExecutionResult,
+  type PrivateExecutionResult,
   PublicExecutionRequest,
   TxExecutionRequest,
   collectSortedEncryptedLogs,

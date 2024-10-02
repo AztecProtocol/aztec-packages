@@ -1,4 +1,4 @@
-import { PublicExecutionRequest, PublicExecutionResult, mockTx } from '@aztec/circuit-types';
+import { PublicExecutionRequest, type PublicExecutionResult, mockTx } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';

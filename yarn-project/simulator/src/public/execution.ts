@@ -1,4 +1,4 @@
-import { PublicExecutionResult, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import { type PublicExecutionResult, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   type ContractStorageUpdateRequest,
   Gas,

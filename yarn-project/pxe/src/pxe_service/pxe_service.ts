@@ -1,8 +1,6 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
   type EventMetadata,
   EventType,
   type ExtendedNote,
@@ -16,14 +14,14 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
-  PrivateExecutionResult,
+  type PrivateExecutionResult,
   type PrivateKernelProver,
-  PrivateKernelSimulateOutput,
+  type PrivateKernelSimulateOutput,
   PrivateSimulationResult,
-  PublicSimulationOutput,
+  type PublicSimulationOutput,
   type SiblingPath,
   SimulationError,
-  Tx,
+  type Tx,
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
@@ -31,18 +29,16 @@ import {
   type TxReceipt,
   TxSimulationResult,
   UniqueNote,
-  accumulateReturnValues,
   getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
-  ClientIvcProof,
   type CompleteAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
-  PrivateKernelTailCircuitPublicInputs,
+  type PrivateKernelTailCircuitPublicInputs,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
@@ -535,7 +531,7 @@ export class PXEService implements PXE {
       const privateExecutionResult = await this.#simulatePrivate(txRequest, msgSender, scopes);
       const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-      let simulatedTx = privateSimulationResult.toSimulatedTx();
+      const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
         publicOutput = await this.#simulatePublicCalls(simulatedTx);

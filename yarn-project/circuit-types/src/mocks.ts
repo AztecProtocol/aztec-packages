@@ -34,23 +34,13 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
-import { mock } from 'node:test';
-
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
 import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
-import {
-  NestedProcessReturnValues,
-  PublicSimulationOutput,
-  Tx,
-  TxHash,
-  TxProvingResult,
-  TxSimulationResult,
-  accumulateReturnValues,
-} from './tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulateReturnValues } from './tx/index.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 

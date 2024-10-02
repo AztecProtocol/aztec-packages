@@ -1,4 +1,4 @@
-import { type PublicExecutionRequest, PublicExecutionResult } from '@aztec/circuit-types';
+import { type PublicExecutionRequest, type PublicExecutionResult } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';

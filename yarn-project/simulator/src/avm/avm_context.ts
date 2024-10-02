@@ -1,4 +1,4 @@
-import { Gas } from '@aztec/circuit-types';
+import { type Gas } from '@aztec/circuit-types';
 import { type AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 

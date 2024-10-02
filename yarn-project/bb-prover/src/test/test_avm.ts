@@ -1,4 +1,4 @@
-import { PublicExecutionResult } from '@aztec/circuit-types';
+import { type PublicExecutionResult } from '@aztec/circuit-types';
 import {
   AztecAddress,
   ContractStorageRead,

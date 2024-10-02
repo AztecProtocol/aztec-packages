@@ -5,7 +5,7 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
-  PublicExecutionResult,
+  type PublicExecutionResult,
   PublicKernelPhase,
   type PublicProvingRequest,
   type SimulationError,

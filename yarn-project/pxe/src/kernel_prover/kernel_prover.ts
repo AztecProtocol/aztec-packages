@@ -1,5 +1,5 @@
 import {
-  PrivateExecutionResult,
+  type PrivateExecutionResult,
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
   collectEnqueuedPublicFunctionCalls,
