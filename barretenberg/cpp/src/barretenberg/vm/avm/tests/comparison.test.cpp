@@ -93,7 +93,7 @@ class AvmCmpTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
     AvmTraceBuilder trace_builder;
 };
 
