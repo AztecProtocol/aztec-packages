@@ -46,9 +46,10 @@ bootNode:
     limits:
       memory: "4Gi"
       cpu: "4"
+  storage: "8Gi"
 
 validator:
-  replicas: 0
+  replicas: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -68,6 +69,7 @@ validator:
     limits:
       memory: "28Gi"
       cpu: "7"
+  storage: "8Gi"
 
 proverNode:
   replicas: 1
@@ -84,6 +86,7 @@ proverNode:
     limits:
       memory: "120Gi"
       cpu: "15"
+  storage: "8Gi"
 
 pxe:
   logLevel: "debug"
@@ -177,3 +180,5 @@ metrics:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  storage: "8Gi"
+  fileSystemUser: 472
