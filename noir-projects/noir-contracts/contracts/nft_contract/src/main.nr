@@ -150,7 +150,15 @@ contract NFT {
         // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
         let to_npk_m_hash = get_public_keys(to).npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
-        let hiding_point = NFTNote::hiding_point().new(to_npk_m_hash, note_randomness, to_note_slot);
+        let note_partial_payload = NFTNote::partial_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+
+        // // We need this:
+        // // 1) user populates the values only once,
+        // // 2) the log does not produce gates when not needed,
+
+        // // The following instantiates normal note but populates the empty values with zero.
+        // let (hiding_point, _) = NFTNote::get_partial_payload(to_npk_m_hash, note_randomness, to_note_slot);
+        // // emit_partial_note_log(context, note, ovpk, ivpk, recipient); // (or emit_partial_note_log_unconstrained)
 
         // ####### HACKY PARTIAL NOTE EMISSION CODE (to be replaced in a followup PR with proper macro support) #######
         // TODO(#8769): The following is a temporary partial notes delivery solution that should be eventually replaced.
@@ -193,7 +201,7 @@ contract NFT {
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(hiding_point.inner, slot).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point.inner, slot).enqueue(&mut context);
     }
 
     #[public]
