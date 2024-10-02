@@ -63,17 +63,12 @@ helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-n
       --create-namespace \
       --values "$(git rev-parse --show-toplevel)/spartan/aztec-network/values/$VALUES_FILE" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set ingress.enabled=true \
       --wait \
       --wait-for-jobs=true \
       --timeout=30m
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-function forward_pxe_k8s_port() {
-  # NOTE we fail silently, and work in the background
-  kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true
-}
 # tunnel in to get access directly to our PXE service in k8s
 (kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
 
