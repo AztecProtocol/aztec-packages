@@ -5,11 +5,13 @@ CACHE:
   ARG command
   ARG build_artifacts
   ARG prefix
-  DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
-    --prefix="bb.js-$prefix" \
-    --command="$command" \
-    --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
-    --build_artifacts="$build_artifacts"
+  # TODO(#8929): reinstate bb.js caching
+  RUN $command
+  # DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
+  #   --prefix="bb.js-$prefix" \
+  #   --command="$command" \
+  #   --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
+  #   --build_artifacts="$build_artifacts"
 
 deps:
     FROM ../../build-images+from-registry

@@ -49,15 +49,13 @@ export class HintsBuilder {
     nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
   ) {
-    return (
-      await buildSiloedNullifierReadRequestHints(
-        this,
-        nullifierReadRequests,
-        pendingNullifiers,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      )
-    ).hints;
+    return await buildSiloedNullifierReadRequestHints(
+      this,
+      nullifierReadRequests,
+      pendingNullifiers,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    );
   }
 
   getNullifierNonExistentReadRequestHints(

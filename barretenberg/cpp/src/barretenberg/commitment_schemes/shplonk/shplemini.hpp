@@ -338,28 +338,26 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Initialize batching challenge as ν²
         Fr current_batching_challenge = shplonk_batching_challenge.sqr();
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N - 1; ++j) {
-            bool is_dummy_round = j >= (log_circuit_size - 1);
             // Compute the scaling factor  (ν²⁺ⁱ) / (z + r²⁽ⁱ⁺²⁾) for i = 0, … , d-2
             Fr scaling_factor = current_batching_challenge * inverse_vanishing_evals[j + 2];
+
+            // Add Aᵢ(−r²ⁱ) for i = 1, … , n-1 to the constant term accumulator
+            constant_term_accumulator += scaling_factor * gemini_evaluations[j + 1];
+
+            // Update the batching challenge
+            current_batching_challenge *= shplonk_batching_challenge;
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = shplonk_batching_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= (log_circuit_size - 1));
                 Fr zero = Fr(0);
-                zero.convert_constant_to_fixed_witness(builder);
                 scaling_factor = Fr::conditional_assign(dummy_round, zero, scaling_factor);
             } else {
-                if (is_dummy_round) {
+                if (j >= (log_circuit_size - 1)) {
                     scaling_factor = 0;
                 }
             }
-
-            // Add Aᵢ(−r²ⁱ) for i = 1, … , n-1 to the constant term accumulator
-            constant_term_accumulator += scaling_factor * gemini_evaluations[j + 1];
-            // Update the batching challenge
-            current_batching_challenge *= shplonk_batching_challenge;
-
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-scaling_factor);
             // Move com(Aᵢ) to the 'commitments' vector
