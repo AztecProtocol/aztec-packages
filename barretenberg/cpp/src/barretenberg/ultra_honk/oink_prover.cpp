@@ -15,43 +15,38 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 {
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("execute_preamble_round");
-#endif
+        PROFILE_THIS_NAME("execute_preamble_round");
+
         // Add circuit size public input size and public inputs to transcript->
         execute_preamble_round();
     }
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("execute_wire_commitments_round");
-#endif
+        PROFILE_THIS_NAME("execute_wire_commitments_round");
+
         // Compute first three wire commitments
         execute_wire_commitments_round();
     }
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("execute_sorted_list_accumulator_round");
-#endif
+        PROFILE_THIS_NAME("execute_sorted_list_accumulator_round");
+
         // Compute sorted list accumulator and commitment
         execute_sorted_list_accumulator_round();
     }
 
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("execute_log_derivative_inverse_round");
-#endif
+        PROFILE_THIS_NAME("execute_log_derivative_inverse_round");
+
         // Fiat-Shamir: beta & gamma
         execute_log_derivative_inverse_round();
     }
 
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("execute_grand_product_computation_round");
-#endif
+        PROFILE_THIS_NAME("execute_grand_product_computation_round");
+
         // Compute grand product(s) and commitments.
         execute_grand_product_computation_round();
     }

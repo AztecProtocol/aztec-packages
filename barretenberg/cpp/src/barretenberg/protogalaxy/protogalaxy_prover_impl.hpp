@@ -12,9 +12,8 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_k
                                                                                    const std::string& domain_separator)
 {
 
-#ifdef TRACY_MEMORY
-    ZoneScopedN("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-#endif
+    PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+
     OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
     oink_prover.prove();
 }
@@ -163,10 +162,8 @@ template <class DeciderProvingKeys>
 FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::prove()
 {
 
-#ifdef TRACY_MEMORY
-    ZoneScopedN("ProtogalaxyProver::prove");
-#endif
     PROFILE_THIS_NAME("ProtogalaxyProver::prove");
+
     // Ensure keys are all of the same size
     for (size_t idx = 0; idx < DeciderProvingKeys::NUM - 1; ++idx) {
         if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {
