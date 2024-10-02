@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727869374688,
+  "lastUpdate": 1727882312493,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c7b06d6621d9873f84147b2b7f1f22bf21bbacb",
-          "message": "feat: use new IVC scheme (#8480)\n\nReplaces the old `ClientIvc` with `AztecIvc` (renamed to `ClientIVC`).\r\nThis was facilitated by the introduction of `auto_verify_mode` which\r\nmakes the new class behave a bit like the old one by automatically\r\n\"completing\" the kernel circuits with recursive verifiers if\r\n`auto_verify_mode == true`. (Note: a notable difference is that the old\r\nmodel appended recursion logic to _any_ circuit, not just kernels. This\r\nchange means that it does not make sense to accumulate an odd number of\r\ncircuits into the IVC).",
-          "timestamp": "2024-09-17T10:07:10-07:00",
-          "tree_id": "2559931c3439b30ce63d7ea3a89142e652f18121",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c7b06d6621d9873f84147b2b7f1f22bf21bbacb"
-        },
-        "date": 1726593872758,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34453.184685999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31931.99281900001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5111.101091999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4694.678341000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100513.030599,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100513031000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14607.624747000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14607623000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8682744319,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8682744319 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152341570,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152341570 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6949782032,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6949782032 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128306188,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128306188 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126724228,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126724228 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b8d87f12224ac7e1c4e0bf0e353ddc902bf82fd4",
+          "message": "chore: Protogalaxy only instantiated with Mega (#8949)\n\n* removed instantiations of Protogalaxy with Ultra\r\n* fixed CombinerOn2Keys test: now it's working with Mega",
+          "timestamp": "2024-10-02T10:52:33-04:00",
+          "tree_id": "99daafc05d93c052f012c026e37f0a4ff745ce8e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b8d87f12224ac7e1c4e0bf0e353ddc902bf82fd4"
+        },
+        "date": 1727882304444,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31250.15423800002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28750.195759000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5356.254743999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5045.897765999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93412.843842,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93412846000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15156.574219000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15156575000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8249261053,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8249261053 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152354623,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152354623 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6712830579,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6712830579 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128639205,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128639205 ns\nthreads: 1"
           }
         ]
       }
