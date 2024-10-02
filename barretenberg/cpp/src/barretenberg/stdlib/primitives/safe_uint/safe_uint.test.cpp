@@ -212,10 +212,14 @@ TYPED_TEST(SafeUintTest, TestSubtract)
     field_ct a(witness_ct(&builder, 2));
     field_ct b(witness_ct(&builder, 9));
     suint_ct c(a, 2);
+    c.set_origin_tag(submitted_value_origin_tag);
     suint_ct d(b, 4);
+    d.set_origin_tag(challenge_origin_tag);
     c = d.subtract(c, 3); // result is 7, which fits in 3 bits and does not fail the range constraint
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    // Subtract merges tags
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 }
 
 /**
