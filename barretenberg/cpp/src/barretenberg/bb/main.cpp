@@ -370,9 +370,13 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
+    // WORKTODO: add issue about needeing databus in protocol circuits to do away with this
+    bool is_kernel = false;
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+        circuit.databus_propagation_data.is_kernel = is_kernel;
+        is_kernel = !is_kernel;
         ivc.accumulate(circuit);
     }
 
