@@ -291,11 +291,11 @@ comptime fn generate_note_hiding_point(
 comptime fn generate_partial_payload(
     s: StructDefinition,
     hiding_point_name: Quoted,
-    indexed_fixed_fields: [(Quoted, Type, u32)]
+    indexed_fixed_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, Type, u32)]
 ) -> (Quoted, Quoted) {
     let name = s.name();
     let partial_payload_name = f"{name}PartialPayload".quoted_contents();
-
 
     let (new_generators_list, new_scalars_list, new_args_list, new_aux_vars) = generate_multi_scalar_mul(indexed_fixed_fields);
 
@@ -304,6 +304,20 @@ comptime fn generate_partial_payload(
     let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(storage_slot) }).join(quote {,});
 
     let buffer_length = indexed_fixed_fields.len() * 32 + 64;
+
+    // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
+    // to the flatten_to_fields function but we omit the NoteHeader and the nullable fields.
+    let typ = s.as_type();
+    let mut to_omit = indexed_nullable_fields.map(| (name, _, _): (Quoted, Type, u32) | name);
+    to_omit = to_omit.push_back(quote { header });
+    let (fields, aux_vars) = flatten_to_fields(quote { }, typ, to_omit);
+    let aux_vars_for_serialization = if aux_vars.len() > 0 {
+        let joint = aux_vars.join(quote {;});
+        quote { $joint; }
+    } else {
+        quote {}
+    };
+    let serialized_fields = fields.join(quote {,});
 
     // indexed_fixed_fields has preserved order so we can used to serialize the note to log
     let partial_note_buffer = quote {
@@ -316,6 +330,9 @@ comptime fn generate_partial_payload(
             buffer[i] = storage_slot_bytes[i];
             buffer[32 + i] = note_type_id_bytes[i];
         }
+
+        $aux_vars_for_serialization
+        let serialized_note = [$serialized_fields];
 
         for i in 0..serialized_note.len() {
             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
@@ -405,7 +422,7 @@ comptime fn index_note_fields(
     s: StructDefinition,
     nullable_fields: [Quoted]
 ) -> ([(Quoted, Type, u32)], [(Quoted, Type, u32)]) {
-    let mut indexed_fixed_fields = &[];
+    let mut indexed_fixed_fields: [(Quoted, Type, u32)] = &[];
     let mut indexed_nullable_fields = &[];
     let mut counter: u32 = 0;
     for field in s.fields() {
@@ -447,7 +464,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 
     let (common, note_type_id) = common_note_annotation(s);
     let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, indexed_nullable_fields);
-    let (partial_payload_impl, partial_payload_name) = generate_partial_payload(s, hiding_point_name, indexed_fixed_fields);
+    let (partial_payload_impl, partial_payload_name) = generate_partial_payload(s, hiding_point_name, indexed_fixed_fields, indexed_nullable_fields);
     let (note_interface_impl, note_serialized_len) = generate_note_interface(
         s,
         note_type_id,
