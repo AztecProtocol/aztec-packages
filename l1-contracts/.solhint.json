@@ -1,10 +1,7 @@
 {
   "extends": "solhint:recommended",
   "rules": {
-    "compiler-version": [
-      "error",
-      ">=0.8.27"
-    ],
+    "compiler-version": ["error", ">=0.8.27"],
     "no-inline-assembly": "off",
     "gas-custom-errors": "off",
     "func-visibility": [
@@ -14,12 +11,8 @@
       }
     ],
     "no-empty-blocks": "off",
-    "no-unused-vars": [
-      "error"
-    ],
-    "state-visibility": [
-      "error"
-    ],
+    "no-unused-vars": ["error"],
+    "state-visibility": ["error"],
     "not-rely-on-time": "off",
     "const-name-snakecase": [
       "error",
@@ -39,29 +32,13 @@
         "allowPrefix": true
       }
     ],
-    "private-func-leading-underscore": [
-      "error"
-    ],
-    "private-vars-no-leading-underscore": [
-      "error"
-    ],
-    "func-param-name-leading-underscore": [
-      "error"
-    ],
-    "func-param-name-mixedcase": [
-      "error"
-    ],
-    "strict-override": [
-      "error"
-    ],
-    "strict-import": [
-      "error"
-    ],
-    "ordering": [
-      "error"
-    ],
-    "comprehensive-interface": [
-      "error"
-    ]
+    "private-func-leading-underscore": ["error"],
+    "private-vars-no-leading-underscore": ["error"],
+    "func-param-name-leading-underscore": ["error"],
+    "func-param-name-mixedcase": ["error"],
+    "strict-override": ["error"],
+    "strict-import": ["error"],
+    "ordering": ["error"],
+    "comprehensive-interface": ["error"]
   }
 }

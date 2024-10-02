@@ -32,9 +32,9 @@ This imports relevant files including the interfaces used by the Aztec rollup. A
 
 Create a basic ERC20 contract that can mint tokens to anyone. We will use this to test.
 
-Create a file `PortalERC20.sol` in the same folder and add:
+Create a file `TestERC20.sol` in the same folder and add:
 
-#include_code contract /l1-contracts/test/portals/PortalERC20.sol solidity
+#include_code contract /l1-contracts/test/TestERC20.sol solidity
 
 Replace the openzeppelin import with this:
 

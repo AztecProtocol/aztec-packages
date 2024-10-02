@@ -226,3 +226,14 @@ export function getFinalMinRevertibleSideEffectCounter(execResult: ExecutionResu
     return nestedCounter ? nestedCounter : counter;
   }, execResult.callStackItem.publicInputs.minRevertibleSideEffectCounter.toNumber());
 }
+
+export function collectNested<T>(
+  executionStack: ExecutionResult[],
+  extractExecutionItems: (execution: ExecutionResult) => T[],
+): T[] {
+  const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
+
+  return thisExecutionReads.concat(
+    executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
+  );
+}
