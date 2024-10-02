@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727857391039,
+  "lastUpdate": 1727869374688,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3ea298fd1f7326199e6e35b3523aadb2b12a925",
-          "message": "chore: add more cases for assert_equal conversion (#8446)\n\nTransform arithmetic gate of the kind a==b into a copy constraint\r\nbetween a and b, as long as a or b is already constrained. In that case,\r\nwe mark both a and b as constrained.",
-          "timestamp": "2024-09-17T17:49:53+02:00",
-          "tree_id": "6ca9b61c67acbf3e0dcf2b009bbbf916af64ecd7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3ea298fd1f7326199e6e35b3523aadb2b12a925"
-        },
-        "date": 1726588979631,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12810.924122000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9271.810128000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5117.173107,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4744.052311 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38350.723408,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38350724000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14579.198445,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14579199000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3619040250,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3619040250 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135328941,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135328941 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2978075314,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2978075314 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 113060849,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 113060849 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126870562,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126870562 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "159419107+DanielKotov@users.noreply.github.com",
+            "name": "DanielKotov",
+            "username": "DanielKotov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd3a27e5dc66fc47c34c077ca8124efe6fbea900",
+          "message": "chore: reduce number of gates in stdlib/sha256 hash function (#8905)\n\nWe can reduce number of gates for round variables a and e in sha256.\r\n\r\nAt the start of the round variables a and e were converted in maj and ch\r\nform respectively. But after that their .sparse form was replaced in\r\nfunctions majority and choose with the same values, and this procedure\r\nadded some unnecessary gates.\r\n\r\nWe can fix this by just initializing a and e using default constructors\r\nand put in .normal part values of h_init[0] and h_init[4]. After that\r\nfunctions majority and choose will add in .sparse values of lookup\r\nautomatically\r\n\r\nAll tests for stdlib/sha256 have passed after this patch. As a result,\r\nnumber of gates from sha256_nist_vector_five were reduced from 65194 to\r\n65104.\r\n\r\n---------\r\n\r\nCo-authored-by: Rumata888 <isennovskiy@gmail.com>",
+          "timestamp": "2024-10-02T12:02:06+01:00",
+          "tree_id": "2b60cc2771c13cca401901df52d87709677d8451",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dd3a27e5dc66fc47c34c077ca8124efe6fbea900"
+        },
+        "date": 1727869366814,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31232.096049000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28858.022785 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5350.360688000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4960.595332000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94521.820242,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94521822000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15177.618943,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15177619000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8295380391,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8295380391 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151970561,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151970561 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6749013898,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6749013898 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126724228,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126724228 ns\nthreads: 1"
           }
         ]
       }
