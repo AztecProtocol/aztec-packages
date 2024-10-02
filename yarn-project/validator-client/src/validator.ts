@@ -102,7 +102,7 @@ export class ValidatorClient implements Validator {
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
       } else {
-        // TODO(md): this is a catch all error handler
+        // Catch all error handler
         this.log.error(`Failed to attest to proposal: ${error.message}`);
       }
       return undefined;
@@ -115,57 +115,62 @@ export class ValidatorClient implements Validator {
     return this.validationService.attestToProposal(proposal);
   }
 
-  // We do not want to run the private state updates until we know if the public has failed or not
+  /**
+   * Re-execute the transactions in the proposal and check that the state updates match the header state
+   * @param proposal - The proposal to re-execute
+   */
   async reExecuteTransactions(proposal: BlockProposal) {
-    // TODO(md): currently we are not running the rollups, so cannot calcualte the archive
-    // - use pallas new work to do this
     const {header, txHashes} = proposal.payload;
 
-    const txs = await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)));
-    const filteredTransactions = txs.filter(tx => tx !== undefined);
+    const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(tx => tx !== undefined);
 
-    // TODO: messy af - think about this more
-    if (filteredTransactions.length !== txHashes.length) {
+    // If we cannot request all of the transactions, then we should fail
+    if (txs.length !== txHashes.length) {
       this.log.error(`Failed to get transactions from the network: ${txHashes.join(', ')}`);
       throw new TransactionsNotAvailableError(txHashes);
     }
 
+      // Assertion: This check will fail if re-execution is not enabled
       if (!this.lightPublicProcessorFactory) {
         throw new PublicProcessorNotProvidedError();
       }
 
       // TODO(md): make the transaction validator here
       // TODO(md): for now breaking the rules and makeing the world state sync public on the factory
-
       const txValidator = new DoubleSpendTxValidator((this.lightPublicProcessorFactory as any).worldStateSynchronizer);
-      // We force the state to be synced here
-      const targetBlockNumber = header.globalVariables.blockNumber.toNumber() - 1;
 
+      // We sync the state to the previous block as the public processor will not process the current block
+      const targetBlockNumber = header.globalVariables.blockNumber.toNumber() - 1;
       this.log.verbose(`Re-ex: Syncing state to block number ${targetBlockNumber}`);
+
       const lightProcessor = await this.lightPublicProcessorFactory.createWithSyncedState(targetBlockNumber, undefined, header.globalVariables, txValidator);
 
       this.log.verbose(`Re-ex: Re-executing transactions`);
       const timer = new Timer();
-      await lightProcessor.process(filteredTransactions as Tx[]);
+      await lightProcessor.process(txs as Tx[]);
       this.log.verbose(`Re-ex: Re-execution complete ${timer.ms()}ms`);
 
-      // TODO(md): update this to check the archive matches
+      // This function will throw an error if state updates do not match
+      await this.checkReExecutedStateRoots(header, lightProcessor);
+  }
 
+  /**
+   * Check that the state updates match the header state
+   *
+   * TODO(md):
+   *  - Check archive
+   *  - Check l1 to l2 messages
+   *
+   * @param header - The header to check
+   * @param lightProcessor - The light processor to check
+   */
+  private async checkReExecutedStateRoots(header: Header, lightProcessor: LightPublicProcessor) {
       const [
         newNullifierTree,
         newNoteHashTree,
         newPublicDataTree,
-        // newL1ToL2MessageTree,
       ] = await lightProcessor.getTreeSnapshots();
 
-      // Check the header has this information
-      // TODO: replace with archive check once we have it
-
-      // TODO: l1 to l2 messages need to be inserted separately at the start
-      // if (header.state.l1ToL2MessageTree.root.toBuffer() !== (await newL1ToL2MessageTree).root) {
-      //   this.log.error(`Re-ex: l1ToL2MessageTree does not match`);
-      //   throw new ReExStateMismatchError();
-      // }
       if (!header.state.partial.nullifierTree.root.toBuffer().equals(newNullifierTree.root)) {
         this.log.error(`Re-ex: nullifierTree does not match, ${header.state.partial.nullifierTree.root.toBuffer().toString('hex')} !== ${newNullifierTree.root.toString('hex')}`);
         throw new ReExStateMismatchError();
