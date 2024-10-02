@@ -336,3 +336,14 @@ export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecut
     return nestedCounter ? nestedCounter : counter;
   }, execResult.callStackItem.publicInputs.minRevertibleSideEffectCounter.toNumber());
 }
+
+export function collectNested<T>(
+  executionStack: PrivateExecutionResult[],
+  extractExecutionItems: (execution: PrivateExecutionResult) => T[],
+): T[] {
+  const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
+
+  return thisExecutionReads.concat(
+    executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
+  );
+}
