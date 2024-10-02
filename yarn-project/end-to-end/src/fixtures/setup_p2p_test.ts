@@ -30,7 +30,7 @@ export function generateNodePrivateKeys(startIndex: number, numberOfNodes: numbe
 }
 
 export function generatePeerIdPrivateKey(): string {
-  // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
+  // magic number is multiaddr prefix: https://multiformats.io/multiaddr/ for secp256k1
   return '08021220' + generatePrivateKey().substr(2, 66);
 }
 
@@ -47,13 +47,13 @@ export async function createNodes(
   peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
   numNodes: number,
-  bootNodePort?: number,
+  bootNodePort: number,
   dataDirectory?: string,
 ): Promise<AztecNodeService[]> {
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
     // We run on ports from the bootnode upwards if a port if provided, otherwise we get a random port
-    const port = bootNodePort ? bootNodePort + i + 1 : await getPort();
+    const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
     const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir);
@@ -123,17 +123,32 @@ export async function createValidatorConfig(
   return nodeConfig;
 }
 
-export async function createBootstrapNode(port: number) {
-  const peerId = await createLibP2PPeerId();
-  const bootstrapNode = new BootstrapNode();
-  const config: BootnodeConfig = {
+export async function createBootstrapNodeConfig(privateKey: string, port: number): Promise<BootnodeConfig> {
+  return {
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+    peerIdPrivateKey: privateKey,
     minPeerCount: 10,
     maxPeerCount: 100,
   };
-  await bootstrapNode.start(config);
+}
 
+export async function createBootstrapNodeFromPrivateKey(privateKey: string, port: number) {
+  const config = await createBootstrapNodeConfig(privateKey, port);
+  return await startBootstrapNode(config);
+}
+
+export async function createBootstrapNode(port: number) {
+  const peerId = await createLibP2PPeerId();
+  const config = await createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
+
+  return await startBootstrapNode(config);
+}
+
+async function startBootstrapNode(config: BootnodeConfig) {
+  const bootstrapNode = new BootstrapNode();
+  await bootstrapNode.start(config);
   return bootstrapNode;
 }
+
+
