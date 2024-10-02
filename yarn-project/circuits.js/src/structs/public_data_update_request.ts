@@ -4,8 +4,8 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { inspect } from 'util';
 import { GeneratorIndex } from '../constants.gen.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
 
 /**

@@ -5,12 +5,12 @@ import { generatePrivateKey } from 'viem/accounts';
 import { type ValidatorClientConfig } from './config.js';
 import { ValidatorClient } from './validator.js';
 import { LightPublicProcessorFactory } from '@aztec/simulator';
-import { ArchiveSource } from '@aztec/archiver';
+import { type ArchiveSource } from '@aztec/archiver';
 import { createWorldStateSynchronizer } from '../../world-state/dest/synchronizer/factory.js';
-import { TelemetryClient } from '../../telemetry-client/src/telemetry.js';
+import { type TelemetryClient } from '../../telemetry-client/src/telemetry.js';
 import { WorldStateConfig } from '../../world-state/dest/synchronizer/config.js';
 import { DataStoreConfig } from '@aztec/kv-store/utils';
-import { WorldStateSynchronizer } from '@aztec/circuit-types';
+import { type WorldStateSynchronizer } from '@aztec/circuit-types';
 
 // TODO: TODO: make the archiver optional???
 export async function createValidatorClient(config: ValidatorClientConfig, p2pClient: P2P, worldStateSynchronizer: WorldStateSynchronizer, archiver: ArchiveSource, telemetry: TelemetryClient) {

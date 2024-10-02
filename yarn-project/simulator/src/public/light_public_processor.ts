@@ -1,13 +1,13 @@
 // A minimal version of the public processor - that does not have the fluff
 
-import { MerkleTreeId, PublicDataWrite, Tx, TxValidator, WorldStateSynchronizer } from "@aztec/circuit-types";
-import { AztecAddress, Gas, getNonEmptyItems, GlobalVariables, Header, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NoteHash, Nullifier, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PublicDataTreeLeaf, PublicDataUpdateRequest, ScopedNoteHash, ScopedNullifier } from "@aztec/circuits.js";
-import { MerkleTreeOperations } from "@aztec/world-state";
+import { MerkleTreeId, PublicDataWrite, Tx, type TxValidator, type WorldStateSynchronizer } from "@aztec/circuit-types";
+import { AztecAddress, Gas, getNonEmptyItems, type GlobalVariables, type Header, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NoteHash, type Nullifier, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PublicDataTreeLeaf, PublicDataUpdateRequest, type ScopedNoteHash, type ScopedNullifier } from "@aztec/circuits.js";
+import { type MerkleTreeOperations } from "@aztec/world-state";
 import { WorldStateDB } from "./public_db_sources.js";
 import { PublicExecutor } from "./executor.js";
-import { TelemetryClient } from "@aztec/telemetry-client";
-import { PublicExecutionResult } from "./execution.js";
-import { ContractDataSource } from "@aztec/types/contracts";
+import { type TelemetryClient } from "@aztec/telemetry-client";
+import { type PublicExecutionResult } from "./execution.js";
+import { type ContractDataSource } from "@aztec/types/contracts";
 import { padArrayEnd } from "@aztec/foundation/collection";
 import { Fr } from "@aztec/foundation/fields";
 import { siloNoteHash, siloNullifier } from "@aztec/circuits.js/hash";
@@ -144,7 +144,7 @@ export class LightPublicProcessor {
     // will fail
     // This will change whenever the vm is changed to be able to revert
     public async applyPrivateStateUpdates(tx: Tx) {
-        let insertionPromises: Promise<any>[] = [];
+        const insertionPromises: Promise<any>[] = [];
         if (tx.data.forRollup) {
             const {nullifiers, noteHashes} = tx.data.forRollup.end;
             if (nullifiers) {
@@ -248,7 +248,7 @@ export class LightPublicProcessor {
         const nonRevertiblePublicExecutionResults: PublicExecutionResult[] = [];
         const publicExecutionResults: PublicExecutionResult[] = [];
 
-        let publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
+        const publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
         let startSideEffectCounter = publicKernelOutput.endSideEffectCounter + 1;
 
         // Execute the non revertible calls
@@ -308,14 +308,14 @@ export class LightPublicProcessor {
     // This is just getting the private state updates after executing them
     // TODO(md): think about these
     aggregatePublicExecutionResults(results: PublicExecutionResult[]) {
-        let txCallNewNullifiers: ScopedNullifier[][] = [];
-        let txCallNewNoteHashes: ScopedNoteHash[][] = [];
-        let txCallPublicDataWrites: PublicDataUpdateRequest[][] = [];
+        const txCallNewNullifiers: ScopedNullifier[][] = [];
+        const txCallNewNoteHashes: ScopedNoteHash[][] = [];
+        const txCallPublicDataWrites: PublicDataUpdateRequest[][] = [];
 
         for (const res of results) {
-            let enqueuedCallNewNullifiers = [];
-            let enqueuedCallNewNoteHashes = [];
-            let enqueuedCallPublicDataWrites = [];
+            const enqueuedCallNewNullifiers = [];
+            const enqueuedCallNewNoteHashes = [];
+            const enqueuedCallPublicDataWrites = [];
 
             // Scope the nullifiers, note hashes and public data writes to the contract address
             enqueuedCallNewNullifiers.push(...getNonEmptyItems(res.nullifiers).map(n => n.scope(res.executionRequest.contractAddress)));

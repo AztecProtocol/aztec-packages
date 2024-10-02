@@ -6,7 +6,7 @@ import { makeHeader } from '@aztec/circuits.js/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
-import { LightPublicProcessor, LightPublicProcessorFactory } from '@aztec/simulator';
+import { type LightPublicProcessor, type LightPublicProcessorFactory } from '@aztec/simulator';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

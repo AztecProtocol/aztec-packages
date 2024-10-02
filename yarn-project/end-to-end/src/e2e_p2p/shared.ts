@@ -7,7 +7,7 @@ import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig 
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
 import { expect } from '@jest/globals';
-import { SpamContract } from '@aztec/noir-contracts.js';
+import { type SpamContract } from '@aztec/noir-contracts.js';
 
  // submits a set of transactions to the provided Private eXecution Environment (PXE)
  export const submitComplexTxsTo = async (logger: DebugLogger, spamContract: SpamContract, numTxs: number) => {

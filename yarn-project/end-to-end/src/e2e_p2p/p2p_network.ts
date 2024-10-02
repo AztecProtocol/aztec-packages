@@ -1,5 +1,5 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';

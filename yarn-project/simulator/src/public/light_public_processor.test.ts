@@ -1,9 +1,9 @@
 import {
   PublicDataWrite,
-  PublicExecutionRequest,
+  type PublicExecutionRequest,
   SimulationError,
   type TreeInfo,
-  TxValidator,
+  type TxValidator,
   mockTx,
 } from '@aztec/circuit-types';
 import {
@@ -34,7 +34,7 @@ import {
   LightPublicProcessor,
   type PublicExecutionResult,
   type PublicExecutor,
-  WorldStateDB,
+  type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations } from '@aztec/world-state';
