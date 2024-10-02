@@ -21,6 +21,7 @@ import {
   type NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
   PrivateCircuitPublicInputs,
   PrivateContextInputs,
   PublicDataTreeLeaf,
@@ -746,7 +747,7 @@ export class TXE implements TypedOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
     const currentMessageSender = AztecAddress.fromField(this.msgSender);
@@ -757,12 +758,13 @@ export class TXE implements TypedOracle {
 
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;
-    callContext.functionSelector = this.functionSelector;
+    callContext.functionSelector = FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR));
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
     callContext.isDelegateCall = isDelegateCall;
 
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
+    const newArgsHash = this.packedValuesCache.pack(args);
 
     const executionResult = await this.executePublicFunction(
       targetContractAddress,
@@ -780,6 +782,8 @@ export class TXE implements TypedOracle {
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
     this.setFunctionSelector(currentFunctionSelector);
+
+    return newArgsHash;
   }
 
   async setPublicTeardownFunctionCall(
@@ -789,10 +793,10 @@ export class TXE implements TypedOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
     // Definitely not right, in that the teardown should always be last.
     // But useful for executing flows.
-    await this.enqueuePublicFunctionCall(
+    return await this.enqueuePublicFunctionCall(
       targetContractAddress,
       functionSelector,
       argsHash,

@@ -8,7 +8,14 @@ import {
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { CallContext, FunctionSelector, type Header, PrivateContextInputs, type TxContext } from '@aztec/circuits.js';
+import {
+  CallContext,
+  FunctionSelector,
+  type Header,
+  PUBLIC_DISPATCH_SELECTOR,
+  PrivateContextInputs,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -528,16 +535,23 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO():
+    // WARNING:
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'enqueued',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
       isDelegateCall,
     );
+    return newArgsHash;
   }
 
   /**
@@ -558,16 +572,23 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO():
+    // WARNING:
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'teardown',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
       isDelegateCall,
     );
+    return newArgsHash;
   }
 
   public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
