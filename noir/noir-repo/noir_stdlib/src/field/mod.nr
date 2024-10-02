@@ -19,7 +19,7 @@ impl Field {
 
     /// Decomposes `self` into its little endian bit decomposition as a `[u1; N]` array.
     /// This slice will be zero padded should not all bits be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^N` as the resulting slice will not
     /// be able to represent the original `Field`.
@@ -35,7 +35,7 @@ impl Field {
 
     /// Decomposes `self` into its big endian bit decomposition as a `[u1; N]` array.
     /// This array will be zero padded should not all bits be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^N` as the resulting slice will not
     /// be able to represent the original `Field`.
@@ -51,7 +51,7 @@ impl Field {
 
     /// Decomposes `self` into its little endian byte decomposition as a `[u8]` slice of length `byte_size`.
     /// This slice will be zero padded should not all bytes be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^{8*byte_size}` as the resulting slice will not
     /// be able to represent the original `Field`.
@@ -68,7 +68,7 @@ impl Field {
 
     /// Decomposes `self` into its big endian byte decomposition as a `[u8]` slice of length `byte_size`.
     /// This slice will be zero padded should not all bytes be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^{8*byte_size}` as the resulting slice will not
     /// be able to represent the original `Field`.
@@ -180,6 +180,10 @@ fn lt_fallback(x: Field, y: Field) -> bool {
         }
     }
     x_is_lt
+}
+
+unconstrained fn is_equal_hint(x: Field, y: Field) -> bool {
+    x == y
 }
 
 mod tests {
