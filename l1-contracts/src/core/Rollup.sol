@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
+
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -11,6 +14,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
@@ -32,9 +36,8 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
  * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
  */
-contract Rollup is Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
-
   using SlotLib for Slot;
   using EpochLib for Epoch;
 
@@ -105,16 +108,22 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     setupEpoch();
   }
 
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+    public
+    view
+    override(IRollup)
+    returns (bytes32)
+  {
+    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
+  }
+
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
   function prune() external override(IRollup) {
-    if (!_canPrune()) {
-      revert Errors.Rollup__NothingToPrune();
-    }
-
+    require(_canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
   }
 
@@ -172,7 +181,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.SignedEpochProofQuote calldata _quote
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
     claimEpochProofRight(_quote);
@@ -211,9 +220,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
 
-    if (!epochProofVerifier.verify(_proof, publicInputs)) {
-      revert Errors.Rollup__InvalidProof();
-    }
+    require(epochProofVerifier.verify(_proof, publicInputs), Errors.Rollup__InvalidProof());
 
     tips.provenBlockNumber = endBlockNumber;
 
@@ -273,15 +280,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     Slot slot = getSlotAt(_ts);
 
     Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
-    if (slot <= lastSlot) {
-      revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
-    }
+
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     // Make sure that the proposer is up to date
     bytes32 tipArchive = archive();
-    if (tipArchive != _archive) {
-      revert Errors.Rollup__InvalidArchive(tipArchive, _archive);
-    }
+    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     SignatureLib.Signature[] memory sigs = new SignatureLib.Signature[](0);
     DataStructures.ExecutionFlags memory flags =
@@ -332,7 +336,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return TxsDecoder.decode(_body);
   }
 
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote)
+  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     public
     override(IRollup)
   {
@@ -344,7 +348,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.prover, _quote.quote.bondAmount);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
@@ -406,9 +410,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     bytes32 inHash = INBOX.consume(blockNumber);
-    if (header.contentCommitment.inHash != inHash) {
-      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
-    }
+    require(
+      header.contentCommitment.inHash == inHash,
+      Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash)
+    );
 
     // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
     // Min size = smallest path of the rollup tree + 1
@@ -468,25 +473,28 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     {
       // We do it this way to provide better error messages than passing along the storage values
       bytes32 expectedPreviousArchive = blocks[previousBlockNumber].archive;
-      if (expectedPreviousArchive != _args[0]) {
-        revert Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0]);
-      }
+      require(
+        expectedPreviousArchive == _args[0],
+        Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0])
+      );
 
       bytes32 expectedEndArchive = blocks[endBlockNumber].archive;
-      if (expectedEndArchive != _args[1]) {
-        revert Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1]);
-      }
+      require(
+        expectedEndArchive == _args[1], Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
+      );
 
       bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
       // TODO: Remove 0 check once we inject the proper genesis block hash
-      if (expectedPreviousBlockHash != 0 && expectedPreviousBlockHash != _args[2]) {
-        revert Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2]);
-      }
+      require(
+        expectedPreviousBlockHash == 0 || expectedPreviousBlockHash == _args[2],
+        Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2])
+      );
 
       bytes32 expectedEndBlockHash = blocks[endBlockNumber].blockHash;
-      if (expectedEndBlockHash != _args[3]) {
-        revert Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3]);
-      }
+      require(
+        expectedEndBlockHash == _args[3],
+        Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3])
+      );
     }
 
     bytes32[] memory publicInputs = new bytes32[](
@@ -563,44 +571,50 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     public
     view
     override(IRollup)
   {
+    SignatureLib.verify(_quote.signature, _quote.quote.prover, quoteToDigest(_quote.quote));
+
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     Epoch epochToProve = getEpochToProve();
 
-    if (currentProposer != address(0) && currentProposer != msg.sender) {
-      revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
-    }
+    require(
+      currentProposer == address(0) || currentProposer == msg.sender,
+      Errors.Leonidas__InvalidProposer(currentProposer, msg.sender)
+    );
 
-    if (_quote.quote.epochToProve != epochToProve) {
-      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve);
-    }
+    require(
+      _quote.quote.epochToProve == epochToProve,
+      Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve)
+    );
 
-    if (currentSlot.positionInEpoch() >= CLAIM_DURATION_IN_L2_SLOTS) {
-      revert Errors.Rollup__NotInClaimPhase(
-        currentSlot.positionInEpoch(), CLAIM_DURATION_IN_L2_SLOTS
-      );
-    }
+    require(
+      currentSlot.positionInEpoch() < CLAIM_DURATION_IN_L2_SLOTS,
+      Errors.Rollup__NotInClaimPhase(currentSlot.positionInEpoch(), CLAIM_DURATION_IN_L2_SLOTS)
+    );
 
     // if the epoch to prove is not the one that has been claimed,
     // then whatever is in the proofClaim is stale
-    if (proofClaim.epochToProve == epochToProve && proofClaim.proposerClaimant != address(0)) {
-      revert Errors.Rollup__ProofRightAlreadyClaimed();
-    }
+    require(
+      proofClaim.epochToProve != epochToProve || proofClaim.proposerClaimant == address(0),
+      Errors.Rollup__ProofRightAlreadyClaimed()
+    );
 
-    if (_quote.quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
-      revert Errors.Rollup__InsufficientBondAmount(
+    require(
+      _quote.quote.bondAmount >= PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST,
+      Errors.Rollup__InsufficientBondAmount(
         PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
-      );
-    }
+      )
+    );
 
-    if (_quote.quote.validUntilSlot < currentSlot) {
-      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot);
-    }
+    require(
+      _quote.quote.validUntilSlot >= currentSlot,
+      Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot)
+    );
   }
 
   /**
@@ -621,9 +635,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (Epoch) {
-    if (blockNumber > tips.pendingBlockNumber) {
-      revert Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, blockNumber);
-    }
+    require(
+      blockNumber <= tips.pendingBlockNumber,
+      Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, blockNumber)
+    );
     return getEpochAt(getTimestampForSlot(blocks[blockNumber].slotNumber));
   }
 
@@ -637,11 +652,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @return uint256 - The epoch to prove
    */
   function getEpochToProve() public view override(IRollup) returns (Epoch) {
-    if (tips.provenBlockNumber == tips.pendingBlockNumber) {
-      revert Errors.Rollup__NoEpochToProve();
-    } else {
-      return getEpochForBlock(getProvenBlockNumber() + 1);
-    }
+    require(tips.provenBlockNumber != tips.pendingBlockNumber, Errors.Rollup__NoEpochToProve());
+    return getEpochForBlock(getProvenBlockNumber() + 1);
   }
 
   /**
@@ -751,9 +763,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   ) internal view {
     // Ensure that the slot proposed is NOT in the future
     Slot currentSlot = getSlotAt(_currentTime);
-    if (_slot != currentSlot) {
-      revert Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot);
-    }
+    require(_slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot));
 
     // @note  We are currently enforcing that the slot is in the current epoch
     //        If this is not the case, there could potentially be a weird reorg
@@ -762,9 +772,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     Epoch epochNumber = getEpochAt(getTimestampForSlot(_slot));
     Epoch currentEpoch = getEpochAt(_currentTime);
-    if (epochNumber != currentEpoch) {
-      revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
-    }
+    require(epochNumber == currentEpoch, Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber));
 
     _validateLeonidas(_slot, _signatures, _digest, _flags);
   }
@@ -792,51 +800,51 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    if (block.chainid != _header.globalVariables.chainId) {
-      revert Errors.Rollup__InvalidChainId(block.chainid, _header.globalVariables.chainId);
-    }
+    require(
+      block.chainid == _header.globalVariables.chainId,
+      Errors.Rollup__InvalidChainId(block.chainid, _header.globalVariables.chainId)
+    );
 
-    if (_header.globalVariables.version != VERSION) {
-      revert Errors.Rollup__InvalidVersion(VERSION, _header.globalVariables.version);
-    }
+    require(
+      _header.globalVariables.version == VERSION,
+      Errors.Rollup__InvalidVersion(VERSION, _header.globalVariables.version)
+    );
 
-    if (_header.globalVariables.blockNumber != tips.pendingBlockNumber + 1) {
-      revert Errors.Rollup__InvalidBlockNumber(
+    require(
+      _header.globalVariables.blockNumber == tips.pendingBlockNumber + 1,
+      Errors.Rollup__InvalidBlockNumber(
         tips.pendingBlockNumber + 1, _header.globalVariables.blockNumber
-      );
-    }
+      )
+    );
 
     bytes32 tipArchive = archive();
-    if (tipArchive != _header.lastArchive.root) {
-      revert Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root);
-    }
+    require(
+      tipArchive == _header.lastArchive.root,
+      Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root)
+    );
 
     Slot slot = Slot.wrap(_header.globalVariables.slotNumber);
     Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
-    if (slot <= lastSlot) {
-      revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
-    }
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Timestamp timestamp = getTimestampForSlot(slot);
-    if (Timestamp.wrap(_header.globalVariables.timestamp) != timestamp) {
-      revert Errors.Rollup__InvalidTimestamp(
-        timestamp, Timestamp.wrap(_header.globalVariables.timestamp)
-      );
-    }
+    require(
+      Timestamp.wrap(_header.globalVariables.timestamp) == timestamp,
+      Errors.Rollup__InvalidTimestamp(timestamp, Timestamp.wrap(_header.globalVariables.timestamp))
+    );
 
-    if (timestamp > _currentTime) {
-      // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
-      //        from the value that we have in the constants.
-      //        When you are encountering this, it will likely be as the sequencer expects to be able to include
-      //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
-      //        from the last block. However, if the actual will only be 1 second in the future, you will end up
-      //        expecting this value to be in the future.
-      revert Errors.Rollup__TimestampInFuture(_currentTime, timestamp);
-    }
+    // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
+    //        from the value that we have in the constants.
+    //        When you are encountering this, it will likely be as the sequencer expects to be able to include
+    //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
+    //        from the last block. However, if the actual will only be 1 second in the future, you will end up
+    //        expecting this value to be in the future.
+    require(timestamp <= _currentTime, Errors.Rollup__TimestampInFuture(_currentTime, timestamp));
 
     // Check if the data is available
-    if (!_flags.ignoreDA && _header.contentCommitment.txsEffectsHash != _txsEffectsHash) {
-      revert Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash);
-    }
+    require(
+      _flags.ignoreDA || _header.contentCommitment.txsEffectsHash == _txsEffectsHash,
+      Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash)
+    );
   }
 }

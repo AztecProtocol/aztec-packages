@@ -2,6 +2,7 @@ import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
+import { Addressing, AddressingMode } from './addressing_mode.js';
 import { Add, Div, FieldDiv, Mul, Sub } from './arithmetic.js';
 
 describe('Arithmetic Instructions', () => {
@@ -52,6 +53,32 @@ describe('Arithmetic Instructions', () => {
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
       });
+    });
+
+    it('Should add in relative indirect mode', async () => {
+      const a = new Field(1n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(10, a);
+      context.machineState.memory.set(11, b);
+
+      context.machineState.memory.set(0, new Uint32(30)); // stack pointer
+      context.machineState.memory.set(32, new Uint32(5)); // indirect
+
+      await new Add(
+        /*indirect=*/ new Addressing([
+          /*aOffset*/ AddressingMode.DIRECT,
+          /*bOffset*/ AddressingMode.DIRECT,
+          /*dstOffset*/ AddressingMode.INDIRECT | AddressingMode.RELATIVE,
+        ]).toWire(),
+        /*inTag=*/ TypeTag.FIELD,
+        /*aOffset=*/ 10,
+        /*bOffset=*/ 11,
+        /*dstOffset=*/ 2, // We expect the result to be stored at MEM[30 + 2] = 5
+      ).execute(context);
+
+      const actual = context.machineState.memory.get(5);
+      expect(actual).toEqual(new Field(3n));
     });
 
     describe.each([

@@ -437,7 +437,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Assemble the L2 block
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
-    const l2Block = L2Block.fromFields({ archive: newArchive, header, body });
+    const l2Block = new L2Block(newArchive, header, body);
 
     if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
       throw new Error(

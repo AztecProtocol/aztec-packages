@@ -1,5 +1,5 @@
 # adapted from https://github.com/orgs/community/discussions/67654
-# altered to not rerun if we are not the newest commit in the run's branch
+# altered to not rerun if we are not the newest commit in the run's branch (exception for master/main)
 on:
   workflow_dispatch:
     inputs:
@@ -34,18 +34,12 @@ jobs:
           BRANCH_NAME=$(echo "$RUN_INFO" | jq -r '.headBranch')
           EVENT_TYPE=$(echo "$RUN_INFO" | jq -r '.event')
 
-          # Only proceed if the event is a pull_request
-          if [[ "$EVENT_TYPE" != "pull_request" ]]; then
-            echo "Event type is $EVENT_TYPE. Skipping rerun."
-            exit 0
-          fi
-
           # Get the latest commit SHA on the branch
           LATEST_COMMIT_SHA=$(gh api repos/${{ github.repository }}/commits/$BRANCH_NAME --jq .sha)
 
           # Compare the SHAs
-          if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]]; then
-            echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA). Skipping rerun."
+          if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]] && [[ "$BRANCH_NAME" != "master" && "$BRANCH_NAME" != "main" ]] ; then
+            echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA) and the branch is not master/main. Skipping rerun."
           else
             echo "Commit $COMMIT_SHA is the latest on branch $BRANCH_NAME. Proceeding with rerun."
             gh run rerun ${{ inputs.run_id }} --failed
