@@ -43,8 +43,6 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-JEST_ARGS="--runInBand $TEST"
-
 function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
@@ -69,14 +67,6 @@ helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-n
       --wait \
       --wait-for-jobs=true \
       --timeout=30m
-
-# for local debugging:
-# helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-# helm repo add elastic https://helm.elastic.co
-# helm repo update
-# helm dependency build "$(git rev-parse --show-toplevel)/spartan/metrics/"
-# kubectl create -f https://download.elastic.co/downloads/eck/2.14.0/crds.yaml
-# helm upgrade --install metrics "$(git rev-parse --show-toplevel)/spartan/metrics/" --namespace metrics --create-namespace
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
