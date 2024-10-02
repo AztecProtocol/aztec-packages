@@ -21,22 +21,18 @@ export class LightPublicProcessorFactory {
         private telemetryClient: TelemetryClient
     ) {}
 
-    // TODO: using the same interface as the orther public processor factory
-    // But can probably do alot better here in debt cleanup
     public async createWithSyncedState(
         targetBlockNumber: number,
         maybeHistoricalHeader: Header | undefined,
         globalVariables: GlobalVariables,
         txValidator: TxValidator
     ) {
-        // TODO: should this be here?
-        // TODO: is this safe?
         // Make sure the world state synchronizer is synced
         await this.worldStateSynchronizer.syncImmediate(targetBlockNumber);
 
+        // We will sync again whenever the block is created
+        // This could be an inefficiency
         const merkleTrees = await this.worldStateSynchronizer.ephemeralFork();
-
-        // TODO(md): we need to first make sure that we are synced
         const historicalHeader = maybeHistoricalHeader ?? merkleTrees.getInitialHeader();
         const worldStateDB = new WorldStateDB(merkleTrees, this.contractDataSource);
 
@@ -51,15 +47,25 @@ export class InvalidTransactionsFound extends Error {
     }
 }
 
+type NewStateUpdates = {
+    nullifiers: Fr[];
+    noteHashes: Fr[];
+    publicDataWrites: PublicDataUpdateRequest[];
+}
+
 /**
  * A variant of the public processor that does not run the kernel circuits
+ *
+ * TODO(make issues):
+ * - Gas accounting is not complete
+ * - Calculating the state root (archive) is not complete
  */
 export class LightPublicProcessor {
 
     public publicExecutor: PublicExecutor;
 
-
     // State
+    // TODO(md): not used
     private blockGasLeft: Gas;
     private pendingNullifiers: Nullifier[];
 
@@ -80,6 +86,10 @@ export class LightPublicProcessor {
 
     }
 
+    addNullifiers(nullifiers: Nullifier[]) {
+        this.pendingNullifiers.push(...nullifiers);
+    }
+
     // NOTE: does not have the archive
     public async getTreeSnapshots() {
         return Promise.all([
@@ -90,76 +100,25 @@ export class LightPublicProcessor {
         ]);
     }
 
-    // Execution invariants
-    // If any of the public calls are invalid, then we need to roll them back
+    /**
+     * Process a list of transactions
+     *
+     * If any of the transactions are invalid, then we throw an error
+     * @param txs - The transactions to process
+     */
     public async process(txs: Tx[]) {
-        // TODO(md): Note these will need to padded to a power of 2
+        // TODO(md): do we need dummy transactions?
         txs = txs.map(tx => Tx.clone(tx));
 
-        // TODO: maybe there is some extra validation to make sure that we do not overrun
-        // the checks that the kernel should have been doing?
-        // If not we add them to the vm execution
-        // TODO(md): skiping tx validation for now as validator is not well defined
-        // const [_, invalidTxs] = await this.txValidator.validateTxs(txs);
+        this.validateTransactions(txs);
 
-        // // If any of the transactions are invalid, we throw an error
-        // if (invalidTxs.length > 0) {
-        //     console.log("invalid txs found");
-        //     throw new InvalidTransactionsFound();
-        // }
         for (const tx of txs) {
             if (tx.hasPublicCalls()) {
-                const publicExecutionResults = await this.executePublicCalls(tx);
-                    // TODO: handle this
-                if (!publicExecutionResults) {
-                    throw new Error("Public execution results are undefined");
-                }
-
-                // TODO: throw if this is not defined
-                if (tx.data.forPublic) {
-                    // tODO: put this in a function
-                    const {nullifiers, newNoteHashes, publicDataWrites} = publicExecutionResults;
-                    const {nullifiers: nonRevertibleNullifiers, noteHashes: nonRevertibleNoteHashes, publicDataUpdateRequests: nonRevertiblePublicDataUpdateRequests} = tx.data.forPublic!.endNonRevertibleData;
-                    const {nullifiers: txNullifiers, noteHashes: txNoteHashes, publicDataUpdateRequests: txPublicDataUpdateRequests} = tx.data.forPublic!.end;
-
-                    // tODO: make sure not RE removing empty items
-                    const nonEmptyNonRevertibleNullifiers = getNonEmptyItems(nonRevertibleNullifiers).map(n => n.value);
-                    const nonEmptyTxNullifiers = getNonEmptyItems(txNullifiers).map(n => n.value);
-                    const publicNullifiers = getNonEmptyItems(nullifiers);
-
-                    const nonEmptyNonRevertibleNoteHashes = getNonEmptyItems(nonRevertibleNoteHashes).map(n => n.value);
-                    const nonEmptyTxNoteHashes = getNonEmptyItems(txNoteHashes).map(n => n.value);
-                    const publicNoteHashes = getNonEmptyItems(newNoteHashes);
-
-                    const nonEmptyTxPublicDataUpdateRequests = txPublicDataUpdateRequests.filter(p => !p.isEmpty());
-                    const nonEmptyNonRevertiblePublicDataUpdateRequests = nonRevertiblePublicDataUpdateRequests.filter(p => !p.isEmpty());
-                    const nonEmptyPublicDataWrites = publicDataWrites.filter(p => !p.isEmpty());
-
-                    const allNullifiers = padArrayEnd([...nonEmptyNonRevertibleNullifiers, ...nonEmptyTxNullifiers, ...publicNullifiers], Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer());
-                    const allNoteHashes = padArrayEnd([...nonEmptyNonRevertibleNoteHashes, ...nonEmptyTxNoteHashes, ...publicNoteHashes], Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
-                    const allPublicDataUpdateRequests = [...nonEmptyNonRevertiblePublicDataUpdateRequests, ...nonEmptyTxPublicDataUpdateRequests, ...nonEmptyPublicDataWrites];
-                    const uniquePublicDataUpdateRequests = allPublicDataUpdateRequests.filter((leaf, index, self) =>
-                        index === self.findIndex((t) => t.leafSlot.equals(leaf.leafSlot))
-                    );
-                    const paddedUniquePublicDataUpdateRequests = padArrayEnd(uniquePublicDataUpdateRequests, PublicDataUpdateRequest.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-
-
-
-                    // TODO: refactor this
-                    const allPublicDataWrites = publicDataWrites.map(
-                        ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
-                    );
-
-                    await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, allNoteHashes);
-                    await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, allNullifiers, NULLIFIER_SUBTREE_HEIGHT);
-
-                    const beingWritten = allPublicDataWrites.map(x => x.toBuffer());
-                    await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, beingWritten, PUBLIC_DATA_SUBTREE_HEIGHT);
-
-                }
+                await this.executeEnqueuedCallsAndApplyStateUpdates(tx);
             } else {
                 await this.applyPrivateStateUpdates(tx);
 
+                // TODO(md): do i need to do this?
                 // Apply empty public data writes
                 const emptyPublicDataWrites = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => PublicDataTreeLeaf.empty());
                 await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, emptyPublicDataWrites.map(x => x.toBuffer()), PUBLIC_DATA_SUBTREE_HEIGHT);
@@ -168,27 +127,27 @@ export class LightPublicProcessor {
 
     }
 
-    // Ok: this is going to be done in the larger light block builder????
-    // Theres no point in doing it here
-    // If the public part fails, then we need to rollback the trees here
-    // Can the public part use commitments that have just been created?
+    validateTransactions(txs: Tx[]) {
+        // TODO: Run tx validator checks
+        // const [_, invalidTxs] = await this.txValidator.validateTxs(txs);
+
+        // TODO(md): check the last valid block number is close
+
+        // If any of the transactions are invalid, we throw an error
+        // if (invalidTxs.length > 0) {
+        //     console.log("invalid txs found");
+        //     throw new InvalidTransactionsFound();
+    }
 
     // There is an assumption based on how the block builder works, that the transactions
     // provided here CANNOT revert, else they are not added to the block as the kernels
     // will fail
     // This will change whenever the vm is changed to be able to revert
     public async applyPrivateStateUpdates(tx: Tx) {
-        // TODO(md): do the last block number check???
-
-        // TODO: read this from forPublic or forRollup???
-        // We could probably run this after if the tx reverts
-        // Does the rollup currently insert reverted transactions??
         let insertionPromises: Promise<any>[] = [];
         if (tx.data.forRollup) {
-            // TODO: do we insert all or just non empty??
             const {nullifiers, noteHashes} = tx.data.forRollup.end;
             if (nullifiers) {
-                // TODO: note this returns a few things for the circuits to use
                 insertionPromises.push(this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, nullifiers.map(n => n.toBuffer()), NULLIFIER_SUBTREE_HEIGHT));
             }
 
@@ -200,11 +159,74 @@ export class LightPublicProcessor {
         await Promise.all(insertionPromises);
     }
 
+    async executeEnqueuedCallsAndApplyStateUpdates(tx: Tx) {
+        const publicExecutionResults = await this.executePublicCalls(tx);
+        // TODO: handle this
+        if (!publicExecutionResults) {
+            throw new Error("Public execution results are undefined");
+        }
+
+        if (tx.data.forPublic) {
+            // tODO: put this in a function
+            const stateUpdates = this.accumulateTransactionAndExecutedStateUpdates(tx, publicExecutionResults);
+            await this.writeStateUpdates(stateUpdates);
+        } else {
+            throw new Error("Transaction does not have public calls");
+        }
+    }
+
+    /**
+     * Take the state updates from each of the transactions and merge them together
+     *
+     * 1. Non Revertible calls come first
+     * 2. Private updates come second
+     * 3. Public updates come third
+     */
+    accumulateTransactionAndExecutedStateUpdates(tx: Tx, publicExecutionResults: NewStateUpdates) {
+        const {nullifiers, noteHashes, publicDataWrites} = publicExecutionResults;
+        const {nullifiers: nonRevertibleNullifiers, noteHashes: nonRevertibleNoteHashes, publicDataUpdateRequests: nonRevertiblePublicDataUpdateRequests} = tx.data.forPublic!.endNonRevertibleData;
+        const {nullifiers: txNullifiers, noteHashes: txNoteHashes, publicDataUpdateRequests: txPublicDataUpdateRequests} = tx.data.forPublic!.end;
+
+        const nonEmptyNonRevertibleNullifiers = getNonEmptyItems(nonRevertibleNullifiers).map(n => n.value);
+        const nonEmptyTxNullifiers = getNonEmptyItems(txNullifiers).map(n => n.value);
+        const publicNullifiers = getNonEmptyItems(nullifiers);
+
+        const nonEmptyNonRevertibleNoteHashes = getNonEmptyItems(nonRevertibleNoteHashes).map(n => n.value);
+        const nonEmptyTxNoteHashes = getNonEmptyItems(txNoteHashes).map(n => n.value);
+        const publicNoteHashes = getNonEmptyItems(noteHashes);
+
+        const nonEmptyTxPublicDataUpdateRequests = txPublicDataUpdateRequests.filter(p => !p.isEmpty());
+        const nonEmptyNonRevertiblePublicDataUpdateRequests = nonRevertiblePublicDataUpdateRequests.filter(p => !p.isEmpty());
+        const nonEmptyPublicDataWrites = publicDataWrites.filter(p => !p.isEmpty());
+
+        const allNullifiers = padArrayEnd([...nonEmptyNonRevertibleNullifiers, ...nonEmptyTxNullifiers, ...publicNullifiers], Fr.ZERO, MAX_NULLIFIERS_PER_TX);
+        const allNoteHashes = padArrayEnd([...nonEmptyNonRevertibleNoteHashes, ...nonEmptyTxNoteHashes, ...publicNoteHashes], Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
+        const allPublicDataUpdateRequests = [...nonEmptyNonRevertiblePublicDataUpdateRequests, ...nonEmptyTxPublicDataUpdateRequests, ...nonEmptyPublicDataWrites];
+
+        return {
+            nullifiers: allNullifiers,
+            noteHashes: allNoteHashes,
+            publicDataWrites: allPublicDataUpdateRequests
+        }
+    }
+
+    async writeStateUpdates(stateUpdates: NewStateUpdates) {
+        const {nullifiers, noteHashes, publicDataWrites} = stateUpdates;
+
+        // Convert public state toto the tree leaves
+        const allPublicDataWrites = publicDataWrites.map(
+            ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
+        );
+
+        await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
+        await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, nullifiers.map(n => n.toBuffer()), NULLIFIER_SUBTREE_HEIGHT);
+        await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, allPublicDataWrites.map(x => x.toBuffer()), PUBLIC_DATA_SUBTREE_HEIGHT);
+
+    }
+
     // NOTES:
     // - gas accounting needs to be done here and
-
     // - maybe make another transaction context that stores the gas for a trnsactions
-
     public async executePublicCalls(tx: Tx) {
         // Transactions are split up into a number of parts
         // 1. Non revertible calls - these run with the public kernel setup
@@ -219,26 +241,24 @@ export class LightPublicProcessor {
         const publicCalls = tx.getRevertiblePublicExecutionRequests();
         const teardownCall = tx.getPublicTeardownExecutionRequest()!;
 
-        // TODO(md): use exceptions to manage differing control flow of reverts
-
-        // TODO: there is some other stuff done in the public processor
-        // rationalise it and find out where else it can be done
+        // TODO(md): gas
         const transactionGas = tx.data.constants.txContext.gasSettings.getLimits();
 
         // Store the successful results for db insertions
-        // TODO: do we write the new state updates inbetween the calls?
+        const nonRevertiblePublicExecutionResults: PublicExecutionResult[] = [];
         const publicExecutionResults: PublicExecutionResult[] = [];
 
-        // TODO: Check is trnasaction gas updated where it should?
+        let publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
+        let startSideEffectCounter = publicKernelOutput.endSideEffectCounter + 1;
 
         // Execute the non revertible calls
-
         for (const call of nonRevertibleCalls) {
-            const res = await this.publicExecutor.simulate(call, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers);
+            const res = await this.publicExecutor.simulate(call, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers, Fr.ZERO, startSideEffectCounter);
+            startSideEffectCounter = Number(res.endSideEffectCounter.toBigInt()) + 1;
 
             if (!this.temporaryDidCallOrNestedCallRevert(res)) {
                 this.addNullifiers(res.nullifiers);
-                publicExecutionResults.push(res);
+                nonRevertiblePublicExecutionResults.push(res);
                 this.worldStateDB.checkpoint();
             } else {
                 await this.worldStateDB.removeNewContracts(tx);
@@ -252,9 +272,9 @@ export class LightPublicProcessor {
 
         for (const call of publicCalls) {
             // Execute the non revertible calls
-            const res = await this.publicExecutor.simulate(call, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers);
+            const res = await this.publicExecutor.simulate(call, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers, Fr.ZERO, startSideEffectCounter);
+            startSideEffectCounter = Number(res.endSideEffectCounter.toBigInt()) + 1;
 
-            // TODO: tidy this up and below
             if (!this.temporaryDidCallOrNestedCallRevert(res)) {
                 this.addNullifiers(res.nullifiers);
                 publicExecutionResults.push(res);
@@ -267,27 +287,22 @@ export class LightPublicProcessor {
         }
 
         if (teardownCall) {
-            const res = await this.publicExecutor.simulate(teardownCall, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers);
+            const res = await this.publicExecutor.simulate(teardownCall, this.globalVariables, transactionGas, tx.data.constants.txContext, this.pendingNullifiers, Fr.ZERO, startSideEffectCounter);
 
             if (!this.temporaryDidCallOrNestedCallRevert(res)) {
                 this.addNullifiers(res.nullifiers);
                 publicExecutionResults.push(res);
             } else {
-                // Similarly, if a teardown call fails, it will revert
+                // Similarly, if a public calls fail, it will revert
                 // back to the setup state
                 await this.worldStateDB.removeNewContracts(tx);
                 await this.worldStateDB.rollbackToCheckpoint();
             }
         }
 
-        // TODO(md): think about bringing the journal model into this
         await this.worldStateDB.commit();
 
-        // On success lower the block gas left -- add a check!!!
-        this.blockGasLeft = this.blockGasLeft.sub(transactionGas);
-
-
-        return this.aggregatePublicExecutionResults(publicExecutionResults);
+        return this.aggregateResults(nonRevertiblePublicExecutionResults, publicExecutionResults);
     }
 
     // This is just getting the private state updates after executing them
@@ -297,36 +312,15 @@ export class LightPublicProcessor {
         let txCallNewNoteHashes: ScopedNoteHash[][] = [];
         let txCallPublicDataWrites: PublicDataUpdateRequest[][] = [];
 
-        let j = 0;
-        // TODO: sort these by side effect counter per request
-        // THE later ones then go first - which does not make sense to me here
         for (const res of results) {
             let enqueuedCallNewNullifiers = [];
             let enqueuedCallNewNoteHashes = [];
             let enqueuedCallPublicDataWrites = [];
 
-            // TODO: I assume that these will need to be ordered by their side effect counter
+            // Scope the nullifiers, note hashes and public data writes to the contract address
             enqueuedCallNewNullifiers.push(...getNonEmptyItems(res.nullifiers).map(n => n.scope(res.executionRequest.contractAddress)));
             enqueuedCallNewNoteHashes.push(...getNonEmptyItems(res.noteHashes).map(n => n.scope(res.executionRequest.contractAddress)));
-            const tempPub = getNonEmptyItems(res.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(res.executionRequest.contractAddress, req));
-            // console.log("tempPub", tempPub);
-            enqueuedCallPublicDataWrites.push(...tempPub);
-
-            // TODO: do for the nested executions
-            let i = 0;
-            for (const nested of res.nestedExecutions) {
-
-                const newNullifiers = getNonEmptyItems(nested.nullifiers).map(n => n.scope(nested.executionRequest.contractAddress));
-                const newNoteHashes = getNonEmptyItems(nested.noteHashes).map(n => n.scope(nested.executionRequest.contractAddress));
-
-                enqueuedCallNewNullifiers.push(...newNullifiers);
-                enqueuedCallNewNoteHashes.push(...newNoteHashes);
-                enqueuedCallPublicDataWrites.push(...getNonEmptyItems(nested.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(nested.executionRequest.contractAddress, req)));
-            }
-
-            enqueuedCallNewNullifiers = this.sortBySideEffectCounter(enqueuedCallNewNullifiers);
-            enqueuedCallNewNoteHashes = this.sortBySideEffectCounter(enqueuedCallNewNoteHashes);
-            enqueuedCallPublicDataWrites = this.sortBySideEffectCounter(enqueuedCallPublicDataWrites);
+            enqueuedCallPublicDataWrites.push(...getNonEmptyItems(res.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(res.executionRequest.contractAddress, req)));
 
             txCallNewNullifiers.push(enqueuedCallNewNullifiers);
             txCallNewNoteHashes.push(enqueuedCallNewNoteHashes);
@@ -335,37 +329,81 @@ export class LightPublicProcessor {
 
         // Reverse
         // TODO: WHY to we need to do this? yucky yucky, reversal doesnt feel quite right
-        const newNullifiers = txCallNewNullifiers.reverse().flat();
-        const newNoteHashes = txCallNewNoteHashes.reverse().flat();
+        let newNullifiers = txCallNewNullifiers.reverse().flat();
+        let newNoteHashes = txCallNewNoteHashes.reverse().flat();
         const newPublicDataWrites = txCallPublicDataWrites.flat();
 
-        console.log("newPublicDataWrites", newPublicDataWrites);
+        // Squash data writes
+        let uniquePublicDataWrites = this.removeDuplicatesFromStart(newPublicDataWrites);
+        uniquePublicDataWrites = this.sortBySideEffectCounter(uniquePublicDataWrites);
+
+        newNullifiers = this.sortBySideEffectCounter(newNullifiers);
+        newNoteHashes = this.sortBySideEffectCounter(newNoteHashes);
 
         const returning =  {
             nullifiers: newNullifiers.map(n => siloNullifier(n.contractAddress, n.value)),
             newNoteHashes: newNoteHashes.map(n => siloNoteHash(n.contractAddress, n.value)),
-            publicDataWrites: newPublicDataWrites
+            publicDataWrites: uniquePublicDataWrites
         };
         return returning;
     }
 
-    // Sort by side effect counter, where the lowest is first
-    // TODO: refactor
+    collectNestedExecutions(result: PublicExecutionResult) {
+        const nestedExecutions: PublicExecutionResult[] = [];
+        for (const res of result.nestedExecutions) {
+            nestedExecutions.push(...this.collectNestedExecutions(res));
+        }
+        return [result, ...nestedExecutions];
+    }
+
+
+    aggregateResults(nonRevertibleResults: PublicExecutionResult[], revertibleResults: PublicExecutionResult[]) {
+        const nonRevertibleNestedExecutions = nonRevertibleResults.flatMap(res => this.collectNestedExecutions(res));
+        const nonRevertible =  this.aggregatePublicExecutionResults(nonRevertibleNestedExecutions);
+
+        const revertibleNestedExecutions = revertibleResults.flatMap(res => this.collectNestedExecutions(res));
+        const revertible = this.aggregatePublicExecutionResults(revertibleNestedExecutions);
+
+        return {
+            nullifiers: [...nonRevertible.nullifiers, ...revertible.nullifiers],
+            noteHashes: [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes],
+            publicDataWrites: [...nonRevertible.publicDataWrites, ...revertible.publicDataWrites]
+        }
+    }
+
+    /**
+     * Sort by side effect counter, where the lowest is first
+     * @param items
+     * @returns
+     */
     sortBySideEffectCounter<T extends {counter: number}>(items: T[]) {
         return items.sort((a, b) => a.counter - b.counter);
     }
 
-    addNullifiers(nullifiers: Nullifier[]) {
-        this.pendingNullifiers.push(...nullifiers);
+    /**
+     * Remove duplicates keeping the oldest item, where duplicates are defined by the leaf slot and side effect counter
+     * @param items
+     * @returns
+     */
+    removeDuplicatesFromStart(items: PublicDataUpdateRequest[]) {
+        const slotMap: Map<bigint, PublicDataUpdateRequest> = new Map();
+
+        for (const obj of items) {
+          const { leafSlot, sideEffectCounter } = obj;
+
+          if (!slotMap.has(leafSlot.toBigInt())) {
+            slotMap.set(leafSlot.toBigInt(), obj);
+          }
+          if (sideEffectCounter > slotMap.get(leafSlot.toBigInt())!.sideEffectCounter) {
+            // Remove the first instance
+            slotMap.delete(leafSlot.toBigInt());
+            slotMap.set(leafSlot.toBigInt(), obj);
+          }
+        }
+
+        return Array.from(slotMap.values());
     }
 
-    async checkpointOrRollback(reverted: boolean): Promise<void> {
-        if (reverted) {
-            await this.worldStateDB.rollbackToCheckpoint();
-        } else {
-            await this.worldStateDB.checkpoint();
-        }
-    }
 
     // This is a temporary method, in our current kernel model,
     // nested calls will trigger an entire execution reversion

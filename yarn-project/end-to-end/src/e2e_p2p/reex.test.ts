@@ -12,8 +12,8 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { getContract } from 'viem';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 2;
-const NUM_TXS_PER_NODE = 2;
+const NUM_NODES = 4;
+const NUM_TXS_PER_NODE = 1;
 const BOOT_NODE_UDP_PORT = 41000;
 
 const DATA_DIR = './data/re-ex';
