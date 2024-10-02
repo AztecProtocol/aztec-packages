@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 
 #[partial_note(quote { token_id})]
-struct NFTNote {
+pub struct NFTNote {
     // ID of the token
     token_id: Field,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
