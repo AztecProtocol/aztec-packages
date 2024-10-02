@@ -107,8 +107,8 @@ describe('full_prover', () => {
       return;
     }
 
-    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
-    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
+    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 0);
+    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 0, 0);
 
     const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
     const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
