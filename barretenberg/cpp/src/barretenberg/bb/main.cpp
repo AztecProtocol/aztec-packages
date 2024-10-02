@@ -370,12 +370,9 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
-    bool is_kernel = false;
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
-        circuit.databus_propagation_data.is_kernel = is_kernel;
-        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
         ivc.accumulate(circuit);
     }
 
@@ -511,12 +508,15 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
                                            // assumes that folding is never done with ultrahonk.
 
     // Accumulate the entire program stack into the IVC
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
         auto circuit = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        circuit.databus_propagation_data.is_kernel = is_kernel;
+        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
 
         ivc.accumulate(circuit);
 
