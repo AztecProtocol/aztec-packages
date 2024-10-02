@@ -1,8 +1,8 @@
 use dep::aztec::{
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    note::utils::compute_note_hash_for_nullify, oracle::random::random,
-    keys::getters::get_nsk_app, macros::notes::note
+    note::utils::compute_note_hash_for_nullify, oracle::random::random, keys::getters::get_nsk_app,
+    macros::notes::note
 };
 
 trait OwnedNote {
@@ -61,7 +61,9 @@ impl OwnedNote for TokenNote {
         // malicious sender could use non-random values to make the note less private. But they already know the full
         // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
         // therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe { random() };
+        let randomness = unsafe {
+            random()
+        };
         Self { amount, npk_m_hash: owner_npk_m_hash, randomness, header: NoteHeader::empty() }
     }
 
