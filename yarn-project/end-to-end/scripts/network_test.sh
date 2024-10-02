@@ -33,14 +33,6 @@ k8s_pxe_port_forward 2>/dev/null &
 
 # run our test in the host network namespace (so we can access the above with localhost)
 if [ "$TEST" = interactive ] ; then
-  docker run --rm --network=host \
-    -e SCENARIO=default \
-    -e PXE_URL=http://localhost:9080 \
-    -e DEBUG="aztec:*" \
-    -e LOG_LEVEL=debug \
-    -e LOG_JSON=1 \
-    aztecprotocol/end-to-end:$END_TO_END_DOCKER_TAG $TEST
-else
   docker run --rm -it --network=host \
     -e SCENARIO=default \
     -e PXE_URL=http://localhost:9080 \
@@ -49,4 +41,12 @@ else
     -e LOG_JSON=1 \
     --entrypoint /bin/sh \
     aztecprotocol/end-to-end:$END_TO_END_DOCKER_TAG
+else
+  docker run --rm --network=host \
+    -e SCENARIO=default \
+    -e PXE_URL=http://localhost:9080 \
+    -e DEBUG="aztec:*" \
+    -e LOG_LEVEL=debug \
+    -e LOG_JSON=1 \
+    aztecprotocol/end-to-end:$END_TO_END_DOCKER_TAG $TEST
 fi
