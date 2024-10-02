@@ -1,12 +1,14 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, GENERATOR_INDEX__FUNCTION_ARGS},
-    point::Point, traits::Hash,
-    hash::{sha256_to_field, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice}
+    point::Point, traits::Hash, hash::sha256_to_field
 };
 use crate::utils::to_bytes::{arr_to_be_bytes_arr, str_to_be_bytes_arr};
 
-pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
+pub use dep::protocol_types::hash::{
+    compute_siloed_nullifier, pedersen_hash, poseidon2_hash, poseidon2_hash_with_separator,
+    poseidon2_hash_with_separator_slice
+};
 
 pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
     std::hash::pedersen_commitment_with_separator(inputs, hash_index)

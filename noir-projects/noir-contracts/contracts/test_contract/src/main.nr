@@ -19,7 +19,7 @@ contract Test {
     use dep::aztec::keys::getters::get_public_keys;
 
     use dep::aztec::{
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher}, keys::public_keys::IvpkM,
+        hash::{poseidon2_hash, compute_secret_hash, ArgsHasher}, keys::public_keys::IvpkM,
         note::{
         lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
@@ -466,7 +466,7 @@ contract Test {
         }
 
         fn get_commitment(self) -> Field {
-            pedersen_hash([self.amount, self.secret_hash], 0)
+            poseidon2_hash([self.amount, self.secret_hash])
         }
     }
 

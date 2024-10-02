@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract CardGame {
     use dep::aztec::protocol_types::address::AztecAddress;
-    use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
+    use dep::aztec::{hash::poseidon2_hash, state_vars::{Map, PublicMutable}};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -99,7 +99,7 @@ contract CardGame {
 
         let mut collection = storage.collections.at(player);
         let _inserted_cards = collection.add_cards(cards, player);
-        CardGame::at(context.this_address()).on_cards_claimed(game, player, pedersen_hash(cards_fields, 0)).enqueue(&mut context);
+        CardGame::at(context.this_address()).on_cards_claimed(game, player, poseidon2_hash(cards_fields)).enqueue(&mut context);
     }
 
     #[public]
@@ -111,7 +111,7 @@ contract CardGame {
         assert(!game_data.claimed, "Already claimed");
         game_data.claimed = true;
 
-        assert_eq(cards_hash, pedersen_hash(game_data.rounds_cards.map(|card: Card| card.to_field()), 0));
+        assert_eq(cards_hash, poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())));
 
         let winner = game_data.winner();
         assert(player.eq(winner.address), "Not the winner");
