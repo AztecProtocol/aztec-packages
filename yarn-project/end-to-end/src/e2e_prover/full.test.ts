@@ -1,4 +1,4 @@
-import { retryUntil } from '@aztec/aztec.js';
+import { AztecAddress, retryUntil } from '@aztec/aztec.js';
 
 import '@jest/globals';
 
@@ -12,14 +12,19 @@ process.env.AVM_PROVING_STRICT = '1';
 describe('full_prover', () => {
   const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
   const t = new FullProverTest('full_prover', 1, realProofs);
+
   let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
+  let sender: AztecAddress;
+  let recipient: AztecAddress;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     await t.deployVerifier();
+
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
+    [sender, recipient] = accounts.map(a => a.address);
   });
 
   afterAll(async () => {
@@ -36,20 +41,15 @@ describe('full_prover', () => {
       logger.info(`Starting test for public and private transfer`);
 
       // Create the two transactions
-      const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
-      const privateSendAmount = privateBalance / 2n;
+      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+      const privateSendAmount = privateBalance / 10n;
       expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(accounts[1].address, privateSendAmount);
+      const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
-      const publicBalance = await provenAssets[1].methods.balance_of_public(accounts[0].address).simulate();
-      const publicSendAmount = publicBalance / 2n;
+      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+      const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAssets[1].methods.transfer_public(
-        accounts[0].address,
-        accounts[1].address,
-        publicSendAmount,
-        0,
-      );
+      const publicInteraction = provenAssets[1].methods.transfer_public(sender, recipient, publicSendAmount, 0);
 
       // Prove them
       logger.info(`Proving txs`);
@@ -68,8 +68,8 @@ describe('full_prover', () => {
       await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: false })));
 
       // Flag the transfers on the token simulator
-      tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
-      tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
+      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+      tokenSim.transferPublic(sender, recipient, publicSendAmount);
 
       // Warp to the next epoch
       const epoch = await cheatCodes.rollup.getEpoch();
@@ -84,10 +84,10 @@ describe('full_prover', () => {
       // so the prover node starts proving
       logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
       await provenAssets[0].methods
-        .transfer(accounts[1].address, privateSendAmount)
+        .transfer(recipient, privateSendAmount)
         .send(sendOpts)
         .wait({ timeout: 300, interval: 10 });
-      tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
+      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
 
       // Expect the block to have a claim
       const claim = await cheatCodes.rollup.getProofClaim();
@@ -107,8 +107,8 @@ describe('full_prover', () => {
       return;
     }
 
-    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 0);
-    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 0, 0);
+    const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
+    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(sender, recipient, 1n, 0);
 
     const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
     const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
