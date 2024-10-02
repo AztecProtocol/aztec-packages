@@ -100,7 +100,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
         await this.handleEpochCompleted(epochNumber);
       } else if (claim && claim.bondProvider.equals(this.publisher.getSenderAddress())) {
         const lastEpochProven = await this.l2BlockSource.getProvenL2EpochNumber();
-        if (!lastEpochProven || lastEpochProven < claim.epochToProve) {
+        if (lastEpochProven === undefined || lastEpochProven < claim.epochToProve) {
           await this.handleClaim(claim);
         }
       }
