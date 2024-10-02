@@ -17,6 +17,7 @@ import { addNullableFieldsToPayload } from './add_nullable_field_to_payload.js';
  * Inserts the index of the note into the excludedIndices set if the note is successfully decoded.
  *
  * @param simulator - An instance of AcirSimulator.
+ * @param db - An instance of PxeDatabase.
  * @param ivpkM - The public counterpart to the secret key to be used in the decryption of incoming note logs.
  * @param ovpkM - The public counterpart to the secret key to be used in the decryption of outgoing note logs.
  * @param payload - An instance of l1NotePayload.
@@ -30,7 +31,7 @@ import { addNullableFieldsToPayload } from './add_nullable_field_to_payload.js';
  */
 export async function produceNoteDaos(
   simulator: AcirSimulator,
-  pxeDb: PxeDatabase,
+  db: PxeDatabase,
   ivpkM: PublicKey | undefined,
   ovpkM: PublicKey | undefined,
   payload: L1NotePayload,
@@ -123,12 +124,12 @@ export async function produceNoteDaos(
             }
 
             // We insert the nullable fields into the note and then we try to produce the note dao again
-            const payloadWithNullableFields = await addNullableFieldsToPayload(pxeDb, payload, nullableFields);
+            const payloadWithNullableFields = await addNullableFieldsToPayload(db, payload, nullableFields);
 
             try {
               ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
                 simulator,
-                pxeDb,
+                db,
                 ivpkM,
                 undefined, // We only care about incoming notes in this case as that is where the partial flow got triggered.
                 payloadWithNullableFields,
@@ -246,12 +247,12 @@ export async function produceNoteDaos(
             }
 
             // We insert the nullable fields into the note and then we try to produce the note dao again
-            const payloadWithNullableFields = await addNullableFieldsToPayload(pxeDb, payload, nullableFields);
+            const payloadWithNullableFields = await addNullableFieldsToPayload(db, payload, nullableFields);
 
             try {
               ({ outgoingNote, outgoingDeferredNote } = await produceNoteDaos(
                 simulator,
-                pxeDb,
+                db,
                 undefined, // We only care about outgoing notes in this case as that is where the partial flow got triggered.
                 ovpkM,
                 payloadWithNullableFields,
