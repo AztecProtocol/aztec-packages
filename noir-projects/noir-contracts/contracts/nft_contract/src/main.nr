@@ -201,7 +201,7 @@ contract NFT {
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point.inner, slot).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point.to_point(), slot).enqueue(&mut context);
     }
 
     #[public]

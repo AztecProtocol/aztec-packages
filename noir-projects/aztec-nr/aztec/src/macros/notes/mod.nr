@@ -269,6 +269,10 @@ comptime fn generate_note_hiding_point(
             fn finalize($finalize_args) -> Field {
                 $finalize_body
             }
+
+            fn to_point(self) -> aztec::protocol_types::point::Point {
+                self.inner
+            }
         }
 
         impl aztec::protocol_types::traits::Serialize<aztec::protocol_types::point::POINT_LENGTH> for $hiding_point_name {
@@ -365,7 +369,7 @@ comptime fn generate_partial_payload(
                     [$new_generators],
                     [$new_scalars]
                 );
-                let hiding_point = $hiding_point_name::from_point(point);
+                let hiding_point = $hiding_point_name::empty().from_point(point);
                 $partial_note_buffer
 
                 $partial_payload_name {
