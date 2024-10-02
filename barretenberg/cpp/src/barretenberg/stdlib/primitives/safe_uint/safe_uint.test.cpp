@@ -763,8 +763,8 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
     auto builder = Builder();
 
     field_ct elt = witness_ct(&builder, 0x7f6f5f4f00010203);
-    suint_ct safe(elt, 63);
     elt.set_origin_tag(next_challenge_tag);
+    suint_ct safe(elt, 63);
     // safe.value is a uint256_t, so we serialize to a 32-byte array
     std::string expected = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
