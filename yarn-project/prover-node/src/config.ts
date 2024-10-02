@@ -36,6 +36,7 @@ export type ProverNodeConfig = ArchiverConfig &
 export type QuoteProviderConfig = {
   quoteProviderBasisPointFee: number;
   quoteProviderBondAmount: bigint;
+  quoteProviderUrl?: string;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<
@@ -63,6 +64,11 @@ const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
     env: 'QUOTE_PROVIDER_BOND_AMOUNT',
     description: 'The bond amount to charge for providing quotes',
     ...bigintConfigHelper(1000n),
+  },
+  quoteProviderUrl: {
+    env: 'QUOTE_PROVIDER_URL',
+    description:
+      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
   },
 };
 

@@ -116,7 +116,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
   async handleEpochCompleted(epochNumber: bigint): Promise<void> {
     try {
       const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
-      const partialQuote = await this.quoteProvider.getQuote(blocks);
+      const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
         this.log.verbose(`No quote produced for epoch ${epochNumber}`);
         return;

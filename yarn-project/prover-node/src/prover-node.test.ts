@@ -150,7 +150,7 @@ describe('prover-node', () => {
     it('sends a quote on a finished epoch', async () => {
       await proverNode.handleEpochCompleted(10n);
 
-      expect(quoteProvider.getQuote).toHaveBeenCalledWith(blocks);
+      expect(quoteProvider.getQuote).toHaveBeenCalledWith(10, blocks);
       expect(quoteSigner.sign).toHaveBeenCalledWith(expect.objectContaining(partialQuote));
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
 
