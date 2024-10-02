@@ -110,8 +110,8 @@ describe('full_prover', () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
-    const sentPrivateTx = privateInteraction.send();
-    const sentPublicTx = publicInteraction.send();
+    const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
+    const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
 
     const results = await Promise.allSettled([
       sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
