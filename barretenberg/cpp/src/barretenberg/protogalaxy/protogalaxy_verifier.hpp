@@ -2,7 +2,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 

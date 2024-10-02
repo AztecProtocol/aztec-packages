@@ -52,28 +52,13 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1109): Remove this hack once the verifier runs on
-    // Shplemini for all Ultra flavors
-    OpeningClaim prover_opening_claim;
-    if constexpr (bb::IsAnyOf<Flavor, UltraKeccakFlavor>) {
-
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                                              proving_key->proving_key.polynomials.get_unshifted(),
-                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                              sumcheck_output.challenge,
-                                                              commitment_key,
-                                                              transcript);
-    } else {
-
-        prover_opening_claim = ZeroMorphProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                                              proving_key->proving_key.polynomials.get_unshifted(),
-                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                              sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                              sumcheck_output.claimed_evaluations.get_shifted(),
-                                                              sumcheck_output.challenge,
-                                                              commitment_key,
-                                                              transcript);
-    }
+    const OpeningClaim prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                       proving_key->proving_key.polynomials.get_unshifted(),
+                                       proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                       sumcheck_output.challenge,
+                                       commitment_key,
+                                       transcript);
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 

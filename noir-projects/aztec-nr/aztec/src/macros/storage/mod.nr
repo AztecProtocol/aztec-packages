@@ -30,6 +30,9 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         let (name, typ) = field;
         let (storage_field_constructor, serialized_size) = generate_storage_field_constructor(typ, quote { $slot }, false);
         storage_vars_constructors = storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
+        // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
+        // because that way a dev gets a more reasonable error if he defines a struct with the same name in
+        // a contract.
         storage_layout_fields = storage_layout_fields.push_back(quote { $name: dep::aztec::prelude::Storable });
         storage_layout_constructors = storage_layout_constructors.push_back(quote { $name: dep::aztec::prelude::Storable { slot: $slot } });
         //let with_context_generic = add_context_generic(typ, context_generic);
