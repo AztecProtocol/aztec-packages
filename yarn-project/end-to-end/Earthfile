@@ -172,6 +172,11 @@ e2e-token-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_token_contract
 
+# https://github.com/AztecProtocol/aztec-packages/issues/8925
+# e2e-prover-coordination:
+#   LOCALLY
+#   RUN ./scripts/e2e_test.sh ./src/prover-coordination/e2e_json_coordination.test.ts
+
 e2e-public-testnet:
   ARG L1_CHAIN_ID="31337"
   # automatically exported as ENV variables for below

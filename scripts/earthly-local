@@ -14,7 +14,7 @@ function start_minio() {
   docker run -d -p 12000:9000 -p 12001:12001 -v ~/.minio/data:/data \
     quay.io/minio/minio server /data --console-address ":12001"
   # make our cache bucket
-  aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
+  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
 }
 
 S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}

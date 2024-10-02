@@ -28,6 +28,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
+import { inspect } from 'util';
 import {
   ContractFunctionRevertedError,
   type GetContractReturnType,
@@ -292,54 +293,6 @@ export class L1Publisher {
     if (this.interrupted) {
       this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
       return false;
-    }
-
-    {
-      const timer = new Timer();
-
-      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-      //        This means that we can avoid the simulation issues in later checks.
-      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-      //        make time consistency checks break.
-      await this.validateBlockForSubmission(block.header, {
-        digest: digest.toBuffer(),
-        signatures: attestations ?? [],
-      });
-
-      const txHash = await this.sendProposeTx(proposeTxArgs);
-
-      if (!txHash) {
-        this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
-        return false;
-      }
-
-      const receipt = await this.getTransactionReceipt(txHash);
-      if (!receipt) {
-        this.log.info(`Failed to get receipt for tx ${txHash}`, ctx);
-        return false;
-      }
-
-      // Tx was mined successfully
-      if (receipt.status) {
-        const tx = await this.getTransactionStats(txHash);
-        const stats: L1PublishBlockStats = {
-          ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-          ...pick(tx!, 'calldataGas', 'calldataSize'),
-          ...block.getStats(),
-          eventName: 'rollup-published-to-l1',
-        };
-        this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
-        this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
-        return true;
-      }
-
-      this.metrics.recordFailedTx('process');
-      this.log.error(`Rollup.process tx status failed ${receipt.transactionHash}`, {
-        ...ctx,
-        ...receipt,
-      });
-      await this.sleepOrInterrupted();
     }
 
     const timer = new Timer();
@@ -617,6 +570,8 @@ export class L1Publisher {
         encodedData,
         L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
       );
+      this.log.info(`ProposeAndClaim`);
+      this.log.info(inspect(quote.payload));
 
       return await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
         account: this.account,

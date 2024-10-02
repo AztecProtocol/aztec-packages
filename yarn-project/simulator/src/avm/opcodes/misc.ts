@@ -33,16 +33,14 @@ export class DebugLog extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [messageOffset, fieldsOffset, fieldsSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset],
-      memory,
-    );
+    const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
 
-    const memoryOperations = { reads: 1 + fieldsSize + this.messageSize, writes: 0, indirect: this.indirect };
     context.machineState.consumeGas(this.gasCost());
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);
@@ -57,7 +55,7 @@ export class DebugLog extends Instruction {
 
     DebugLog.logger.verbose(formattedStr);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1 + fieldsSize + this.messageSize, addressing });
     context.machineState.incrementPc();
   }
 }

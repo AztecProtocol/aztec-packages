@@ -35,13 +35,6 @@ function wipe_non_cache_docker_state {
 EARTHLY_RUN_STATS_JSON="earthly-run-stats.json"
 # Run earthly with our necesary secrets initialized
 # AWS credentials can be blank, however we will not use the S3 cache at all if so.
-if [ "$(git rev-parse --abbrev-ref HEAD)" = master ] || [ "$(git rev-parse --abbrev-ref HEAD)" = *build-cache* ] ; then
-  # We upload to S3 on master. Meant for CI on master.
-  S3_BUILD_CACHE_UPLOAD=true
-else
-  # Don't upload to S3 on pull request branches (for now, at least)
-  S3_BUILD_CACHE_UPLOAD=false
-fi
 
 EARTHLY_ARGS=""
 
@@ -52,7 +45,7 @@ function run_earthly() {
           --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
           --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
           --secret S3_BUILD_CACHE_MINIO_URL="" \
-          --secret S3_BUILD_CACHE_UPLOAD="$S3_BUILD_CACHE_UPLOAD" \
+          --secret S3_BUILD_CACHE_UPLOAD="true" \
           --secret S3_BUILD_CACHE_DOWNLOAD="true" \
           --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
           $EARTHLY_ARGS \
