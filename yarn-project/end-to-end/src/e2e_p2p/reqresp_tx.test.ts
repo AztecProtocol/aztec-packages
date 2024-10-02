@@ -85,7 +85,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Submitting transactions');
     // Only submit transactions to the first two nodes, so that we avoid our sequencer with a mocked p2p layer being picked to produce a block.
     // If the shuffling algorithm changes, then this will need to be updated.
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < NUM_NODES; i++) {
       const context = await createPXEServiceAndSubmitTransactions(t.logger, nodes[i], NUM_TXS_PER_NODE);
       contexts.push(context);
     }
