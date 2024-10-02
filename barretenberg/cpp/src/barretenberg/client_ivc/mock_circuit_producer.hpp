@@ -98,7 +98,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
   public:
     /**
-     * @brief Create a the next circuit (app/kernel) in a mocked private function execution stack
+     * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
     ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
     {
