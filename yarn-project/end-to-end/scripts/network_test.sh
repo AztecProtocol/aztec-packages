@@ -69,13 +69,19 @@ helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-n
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# tunnel in to get access directly to our PXE service in k8s
-(kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+function k8s_pxe_port_forward() {
+  # Clear any existing port forward
+  ps aux | grep "kubectl port-forward" | grep 9081 | awk '{print $2}' | xargs kill || true
+  # tunnel in to get access directly to our PXE service in k8s
+  kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9080:8080 || true
+}
+
+k8s_pxe_port_forward 2>/dev/null &
 
 # run our test in the host network namespace (so we can access the above with localhost)
 docker run --rm --network=host \
   -e SCENARIO=default \
-  -e PXE_URL=http://localhost:9082 \
+  -e PXE_URL=http://localhost:9080 \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \
   -e LOG_JSON=1 \

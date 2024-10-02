@@ -39,7 +39,7 @@ describe('token transfer test', () => {
   const TOKEN_DECIMALS = 18n;
   const MINT_AMOUNT = 20n;
 
-  const WALLET_COUNT = 1;
+  const WALLET_COUNT = 20;
   const ROUNDS = 5n;
 
   let pxe: PXE;
@@ -93,7 +93,7 @@ describe('token transfer test', () => {
     logger.verbose(`Minting ${MINT_AMOUNT} public assets to the ${wallets.length} wallets...`);
 
     await Promise.all(
-      wallets.map(w => tokenAdminWallet.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 })),
+      wallets.slice(0, 1).map(w => tokenAdminWallet.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 })),
     );
 
     logger.verbose(`Minting complete.`);
