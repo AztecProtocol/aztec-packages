@@ -179,7 +179,7 @@ jobs:
         with:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish aztec manifests
-        if: ${{ github.event.inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
           VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
 
@@ -220,7 +220,7 @@ jobs:
   publish-npm:
     needs: publish-manifests
     runs-on: ${{ github.actor }}-x86
-    if: ${{ github.event.inputs.publish }}
+    if: ${{ github.event.inputs.publish == 'true' }}
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
