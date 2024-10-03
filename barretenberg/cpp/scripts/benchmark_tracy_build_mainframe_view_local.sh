@@ -13,7 +13,7 @@ USER=${1:-$USER}
 BOX=$USER-box
 BENCHMARK=${2:-client_ivc_bench}
 COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=ClientIVCBench/Full/6"\$"}
-
+HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-time-instrumented}
 
@@ -30,7 +30,7 @@ ssh $BOX "
 	sleep 0.1 ;
 	cd ~/aztec-packages/barretenberg/cpp/build-$PRESET ;
 	ninja $BENCHMARK ;
-	taskset -c 0-15 $COMMAND ;
+	HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY $COMMAND ;
 " &
 wait # TODO(AD) hack - not sure why needed
 ! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy
