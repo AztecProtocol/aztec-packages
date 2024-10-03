@@ -64,7 +64,6 @@ describe('NFT', () => {
     // it would be the uniswap contract.
     const recipient = user1Wallet.getAddress();
     const sender = recipient;
-    const noteRandomness = Fr.random();
     const transientStorageSlotRandomness = Fr.random();
     const transferPreparerStorageSlotCommitment = pedersenHash(
       [user1Wallet.getAddress(), transientStorageSlotRandomness],
@@ -73,7 +72,7 @@ describe('NFT', () => {
 
     const { debugInfo } = await new BatchCall(user1Wallet, [
       nftContractAsUser1.methods
-        .prepare_transfer_to_private(sender, recipient, noteRandomness, transientStorageSlotRandomness)
+        .prepare_transfer_to_private(sender, recipient, transientStorageSlotRandomness)
         .request(),
       nftContractAsUser1.methods
         .finalize_transfer_to_private(TOKEN_ID, transferPreparerStorageSlotCommitment)
