@@ -185,9 +185,9 @@ void TranslatorProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          commitment_key,
                          transcript,
-                         key->polynomials.get_concatenated_constraints(),
-                         sumcheck_output.claimed_evaluations.get_concatenated_constraints(),
-                         key->polynomials.get_concatenation_groups());
+                         key->polynomials.get_concatenated(),
+                         sumcheck_output.claimed_evaluations.get_concatenated(),
+                         key->polynomials.get_groups_to_be_concatenated());
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
