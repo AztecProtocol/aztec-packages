@@ -94,6 +94,7 @@ describe('Kernel Prover', () => {
       publicInputs,
       verificationKey: VerificationKeyAsFields.makeEmpty(),
       outputWitness: new Map(),
+      bytecode: Buffer.from([]),
     };
   };
 
@@ -109,6 +110,7 @@ describe('Kernel Prover', () => {
       publicInputs,
       outputWitness: new Map(),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
+      bytecode: Buffer.from([]),
     };
   };
 
@@ -154,9 +156,6 @@ describe('Kernel Prover', () => {
     });
 
     proofCreator = mock<PrivateKernelProver>();
-    proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
-      Promise.resolve(publicInputs.noteHashes.map(com => createFakeSiloedCommitment(com.value))),
-    );
     proofCreator.simulateProofInit.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateProofInner.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateProofReset.mockResolvedValue(simulateProofOutput([]));

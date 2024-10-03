@@ -38,23 +38,21 @@ export class EcAdd extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 6, writes: 3, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
+    const operands = [
+      this.p1XOffset,
+      this.p1YOffset,
+      this.p1IsInfiniteOffset,
+      this.p2XOffset,
+      this.p2YOffset,
+      this.p2IsInfiniteOffset,
+      this.dstOffset,
+    ];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [p1XOffset, p1YOffset, p1IsInfiniteOffset, p2XOffset, p2YOffset, p2IsInfiniteOffset, dstOffset] =
-      Addressing.fromWire(this.indirect).resolve(
-        [
-          this.p1XOffset,
-          this.p1YOffset,
-          this.p1IsInfiniteOffset,
-          this.p2XOffset,
-          this.p2YOffset,
-          this.p2IsInfiniteOffset,
-          this.dstOffset,
-        ],
-        memory,
-      );
+      addressing.resolve(operands, memory);
 
     const p1X = memory.get(p1XOffset);
     const p1Y = memory.get(p1YOffset);
@@ -86,7 +84,7 @@ export class EcAdd extends Instruction {
     // Check representation of infinity for grumpkin
     memory.set(dstOffset + 2, new Field(dest.equals(Point.ZERO) ? 1 : 0));
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 6, writes: 3, addressing });
     context.machineState.incrementPc();
   }
 }

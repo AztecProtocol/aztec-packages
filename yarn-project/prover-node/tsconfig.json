@@ -16,10 +16,16 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../l1-artifacts"
     },
     {
       "path": "../prover-client"
