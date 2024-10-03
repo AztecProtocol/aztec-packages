@@ -1763,11 +1763,23 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
                          // TODO THIS IS UGLY WHY CAN'T WE JUST DO (*THIS) = REDUCED?
         uint256_t reduced_value = (get_value() % modulus_u512).lo;
         bigfield reduced(context, uint256_t(reduced_value));
+        // Save tags
+        const auto origin_tags = std::vector({ binary_basis_limbs[0].element.get_origin_tag(),
+                                               binary_basis_limbs[1].element.get_origin_tag(),
+                                               binary_basis_limbs[2].element.get_origin_tag(),
+                                               binary_basis_limbs[3].element.get_origin_tag(),
+                                               prime_basis_limb.get_origin_tag() });
         binary_basis_limbs[0] = reduced.binary_basis_limbs[0];
         binary_basis_limbs[1] = reduced.binary_basis_limbs[1];
         binary_basis_limbs[2] = reduced.binary_basis_limbs[2];
         binary_basis_limbs[3] = reduced.binary_basis_limbs[3];
         prime_basis_limb = reduced.prime_basis_limb;
+        // Preserve origin tags (useful in simulator)
+        binary_basis_limbs[0].element.set_origin_tag(origin_tags[0]);
+        binary_basis_limbs[1].element.set_origin_tag(origin_tags[1]);
+        binary_basis_limbs[2].element.set_origin_tag(origin_tags[2]);
+        binary_basis_limbs[3].element.set_origin_tag(origin_tags[3]);
+        prime_basis_limb.set_origin_tag(origin_tags[4]);
         return;
     }
 
