@@ -48,6 +48,26 @@ export class EpochProofQuotePayload {
     );
   }
 
+  toJSON() {
+    return {
+      epochToProve: this.epochToProve.toString(),
+      validUntilSlot: this.validUntilSlot.toString(),
+      bondAmount: this.bondAmount.toString(),
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
+  static fromJSON(obj: any) {
+    return new EpochProofQuotePayload(
+      BigInt(obj.epochToProve),
+      BigInt(obj.validUntilSlot),
+      BigInt(obj.bondAmount),
+      EthAddress.fromString(obj.prover),
+      obj.basisPointFee,
+    );
+  }
+
   toViemArgs(): {
     epochToProve: bigint;
     validUntilSlot: bigint;
