@@ -91,7 +91,7 @@ export async function deployInitialTestAccounts(pxe: PXE) {
     return tx.send();
   });
   await Promise.all(
-    sentTxs.map(async tx => {
+    sentTxs.map(tx => {
       return tx.wait();
     }),
   );

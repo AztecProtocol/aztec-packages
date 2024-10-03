@@ -1,11 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type DebugLogger, Fr, GrumpkinScalar, type PXE, type SentTx, TxStatus } from '@aztec/aztec.js';
+import { type DebugLogger, Fr, GrumpkinScalar, type PXE, TxStatus } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type PXEService } from '@aztec/pxe';
 
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { ProvenTx } from '../../aztec.js/src/contract/proven_tx.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_l1_with_wall_time', () => {
@@ -50,7 +49,7 @@ describe('e2e_l1_with_wall_time', () => {
     }
     const sentTxs = await Promise.all(
       provenTxs.map(async provenTx => {
-        const tx = await provenTx.send();
+        const tx = provenTx.send();
         const txHash = await tx.getTxHash();
 
         logger.info(`Tx sent with hash ${txHash}`);

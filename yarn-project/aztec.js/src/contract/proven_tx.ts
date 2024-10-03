@@ -1,15 +1,18 @@
 import { Tx } from '@aztec/circuit-types';
 
 import {
-  AztecAddress,
-  Contract,
-  ContractBase,
-  ContractInstanceWithAddress,
+  type AztecAddress,
+  type Contract,
+  type ContractBase,
+  type ContractInstanceWithAddress,
   DeploySentTx,
   SentTx,
-  Wallet,
+  type Wallet,
 } from '../index.js';
 
+/**
+ * A proven transaction that can be sent to the network. Returned by the `prove` method of a contract interaction.
+ */
 export class ProvenTx extends Tx {
   constructor(protected wallet: Wallet, tx: Tx) {
     super(
@@ -23,8 +26,11 @@ export class ProvenTx extends Tx {
     );
   }
 
+  /**
+   * Sends the transaction to the network via the provided wallet.
+   */
   public send(): SentTx {
-    const promise = (async () => {
+    const promise = (() => {
       return this.wallet.sendTx(this);
     })();
 
@@ -32,6 +38,9 @@ export class ProvenTx extends Tx {
   }
 }
 
+/**
+ * A proven transaction that can be sent to the network. Returned by the `prove` method of a contract deployment.
+ */
 export class DeployProvenTx<TContract extends ContractBase = Contract> extends ProvenTx {
   constructor(
     wallet: Wallet,
@@ -42,8 +51,11 @@ export class DeployProvenTx<TContract extends ContractBase = Contract> extends P
     super(wallet, tx);
   }
 
+  /**
+   * Sends the transaction to the network via the provided wallet.
+   */
   public override send(): DeploySentTx<TContract> {
-    const promise = (async () => {
+    const promise = (() => {
       return this.wallet.sendTx(this);
     })();
 

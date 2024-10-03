@@ -1,4 +1,4 @@
-import { type FunctionCall, type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
   computePartialAddress,
@@ -18,7 +18,7 @@ import { type Contract } from './contract.js';
 import { type ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
-import { DeployProvenTx, ProvenTx } from './proven_tx.js';
+import { DeployProvenTx } from './proven_tx.js';
 
 /**
  * Options for deploying a contract on the Aztec network.

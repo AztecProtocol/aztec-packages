@@ -1,6 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type DebugLogger, type SentTx } from '@aztec/aztec.js';
+import { type DebugLogger } from '@aztec/aztec.js';
 import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
