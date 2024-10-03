@@ -24,7 +24,7 @@ allow_list=(
   "e2e-static-calls"
   "integration-l1-publisher"
   "e2e-cheat-codes"
-  "e2e-prover-with-padding"
+  "e2e-prover-fake-proofs"
   "e2e-lending-contract"
 )
 
