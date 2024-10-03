@@ -480,7 +480,9 @@ impl PrivateContext {
         );
 
         // Public calls are rerouted through the dispatch function.
-        let function_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
+        let function_selector = comptime {
+            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
+        };
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
@@ -525,7 +527,9 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let function_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
+        let function_selector = comptime {
+            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
+        };
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
