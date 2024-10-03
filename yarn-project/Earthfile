@@ -214,6 +214,7 @@ end-to-end-base:
     ENV CHROME_BIN="/usr/bin/chromium"
     ENV PATH=/opt/foundry/bin:$PATH
     ENV HARDWARE_CONCURRENCY=""
+    ENV FAKE_PROOFS=""
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
@@ -282,3 +283,9 @@ prover-client-test:
     ARG test
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
+
+publish-npm:
+    FROM +build
+    ARG DIST_TAG="latest"
+    ARG VERSION
+    RUN --secret NPM_TOKEN ./.github/scripts/publish_npm.sh $DIST_TAG $VERSION

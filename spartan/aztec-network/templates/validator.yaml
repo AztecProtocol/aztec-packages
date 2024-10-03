@@ -91,12 +91,19 @@ spec:
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
       volumes:
-        - name: shared-volume
-          emptyDir: {}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-configure-validator-env
-
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "aztec-network.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.validator.storage }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -115,7 +122,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  clusterIP: None
+  type: ClusterIP
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
@@ -124,3 +131,22 @@ spec:
       name: p2p
     - port: {{ .Values.validator.service.nodePort }}
       name: node
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
+    - port: {{ .Values.validator.service.p2pPort }}
+      name: p2p
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+{{ end }}

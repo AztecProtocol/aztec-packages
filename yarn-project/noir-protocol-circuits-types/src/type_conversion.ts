@@ -14,6 +14,7 @@ import {
   ContentCommitment,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
+  type EmptyBlockRootRollupInputs,
   type EmptyNestedData,
   EncryptedLogHash,
   type EnqueuedCallData,
@@ -86,7 +87,7 @@ import {
   type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelResetHints,
   type PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
@@ -158,6 +159,7 @@ import type {
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
+  EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
   EncryptedLogHash as EncryptedLogHashNoir,
   EnqueuedCallData as EnqueuedCallDataNoir,
@@ -1823,16 +1825,14 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
   NLL_RR_SETTLED extends number,
   KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_HINTS extends number,
-  TAG extends string,
 >(
-  inputs: PrivateKernelResetCircuitPrivateInputs<
+  inputs: PrivateKernelResetCircuitPrivateInputsVariants<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
     KEY_VALIDATION_REQUESTS,
-    NUM_TRANSIENT_DATA_HINTS,
-    TAG
+    NUM_TRANSIENT_DATA_HINTS
   >,
 ): PrivateKernelResetCircuitPrivateInputsNoir<
   NH_RR_PENDING,
@@ -2316,6 +2316,23 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
+    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
+  };
+}
+
+/**
+ * Maps the empty block root rollup inputs to noir.
+ * @param rootRollupInputs - The circuits.js block root rollup inputs.
+ * @returns The noir block root rollup inputs.
+ */
+export function mapEmptyBlockRootRollupInputsToNoir(
+  rootRollupInputs: EmptyBlockRootRollupInputs,
+): EmptyBlockRootRollupInputsNoir {
+  return {
+    archive: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.archive),
+    block_hash: mapFieldToNoir(rootRollupInputs.blockHash),
+    global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
+    vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }

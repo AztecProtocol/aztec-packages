@@ -10,7 +10,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import { type Fr, type Header } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
@@ -20,7 +20,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { type DataRetrieval, type SingletonDataRetrieval } from './structs/data_retrieval.js';
+import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
 
 /**
@@ -48,12 +48,29 @@ export interface ArchiverDataStore {
   addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
 
   /**
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
+   */
+  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
+
+  /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]>;
+
+  /**
+   * Gets up to `limit` amount of L2 block headers starting from `from`.
+   * @param from - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested L2 block headers.
+   */
+  getBlockHeaders(from: number, limit: number): Promise<Header[]>;
 
   /**
    * Gets a tx effect.
@@ -75,6 +92,7 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(blocks: L2Block[]): Promise<boolean>;
+  deleteLogs(blocks: L2Block[]): Promise<boolean>;
 
   /**
    * Append L1 to L2 messages to the store.
@@ -97,6 +115,12 @@ export interface ArchiverDataStore {
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
   getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined>;
+
+  /**
+   * Get the total number of L1 to L2 messages
+   * @returns The number of L1 to L2 messages in the store
+   */
+  getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.
@@ -131,10 +155,22 @@ export interface ArchiverDataStore {
   getProvenL2BlockNumber(): Promise<number>;
 
   /**
+   * Gets the number of the latest proven L2 epoch.
+   * @returns The number of the latest proven L2 epoch.
+   */
+  getProvenL2EpochNumber(): Promise<number | undefined>;
+
+  /**
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
-  setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void>;
+  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
+
+  /**
+   * Stores the number of the latest proven L2 epoch.
+   * @param l2EpochNumber - The number of the latest proven L2 epoch.
+   */
+  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void>;
 
   /**
    * Stores the l1 block number that blocks have been synched until
@@ -161,6 +197,8 @@ export interface ArchiverDataStore {
    */
   addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
 
+  deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+
   /**
    * Returns a contract class given its id, or undefined if not exists.
    * @param id - Id of the contract class.
@@ -174,6 +212,7 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+  deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
    * Adds private functions to a contract class.

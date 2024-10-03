@@ -2,6 +2,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <functional>
 
 namespace bb::stdlib {
@@ -70,6 +71,7 @@ template <typename Builder> class field_t {
         , additive_constant(other.additive_constant)
         , multiplicative_constant(other.multiplicative_constant)
         , witness_index(other.witness_index)
+        , tag(other.tag)
     {}
 
     field_t(field_t&& other) noexcept
@@ -77,6 +79,7 @@ template <typename Builder> class field_t {
         , additive_constant(other.additive_constant)
         , multiplicative_constant(other.multiplicative_constant)
         , witness_index(other.witness_index)
+        , tag(other.tag)
     {}
 
     field_t(const bool_t<Builder>& other);
@@ -99,6 +102,7 @@ template <typename Builder> class field_t {
         multiplicative_constant = other.multiplicative_constant;
         witness_index = other.witness_index;
         context = (other.context == nullptr ? nullptr : other.context);
+        tag = other.tag;
         return *this;
     }
 
@@ -108,6 +112,7 @@ template <typename Builder> class field_t {
         multiplicative_constant = other.multiplicative_constant;
         witness_index = other.witness_index;
         context = (other.context == nullptr ? nullptr : other.context);
+        tag = other.tag;
         return *this;
     }
 
@@ -115,6 +120,7 @@ template <typename Builder> class field_t {
     {
         auto result = field_t<Builder>(witness_t<Builder>(&context, other.get_value()));
         result.assert_equal(other, "field_t::copy_as_new_witness, assert_equal");
+        result.tag = other.tag;
         return result;
     }
 
@@ -186,6 +192,9 @@ template <typename Builder> class field_t {
 
         return result;
     }
+
+    void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
+    OriginTag get_origin_tag() const { return tag; };
 
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
@@ -430,6 +439,8 @@ template <typename Builder> class field_t {
      * TLDR: witness_index is a pseudo pointer to a circuit witness
      **/
     mutable uint32_t witness_index = IS_CONSTANT;
+
+    mutable OriginTag tag{};
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, field_t<Builder> const& v)

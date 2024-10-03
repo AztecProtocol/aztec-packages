@@ -12,11 +12,12 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
-import { PortalERC20Abi } from '@aztec/l1-artifacts';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 import {
   AppSubscriptionContract,
   TokenContract as BananaCoin,
@@ -99,6 +100,13 @@ export class FeesTest {
 
   async teardown() {
     await this.snapshotManager.teardown();
+  }
+
+  async catchUpProvenChain() {
+    const bn = await this.aztecNode.getBlockNumber();
+    while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
+      await sleep(1000);
+    }
   }
 
   /** Alice mints Token  */
@@ -332,7 +340,7 @@ export class FeesTest {
           const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1FeeJuiceAddress.toString(),
-            abi: PortalERC20Abi,
+            abi: TestERC20Abi,
             client: walletClient,
           });
           return await gasL1.read.balanceOf([this.coinbase.toString()]);

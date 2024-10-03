@@ -1,5 +1,6 @@
 import {
   type BlockAttestation,
+  type EpochProofQuote,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
@@ -10,7 +11,7 @@ import {
   type WorldStateStatus,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import { type AllowedElement, BlockProofError } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -31,10 +32,12 @@ import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
+import { inspect } from 'util';
+
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
-import { prettyLogVeimError } from '../publisher/utils.js';
+import { prettyLogViemError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -311,7 +314,7 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      prettyLogVeimError(err, this.log);
+      prettyLogViemError(err, this.log);
       throw err;
     }
   }
@@ -404,6 +407,14 @@ export class Sequencer {
 
     const newGlobalVariables = proposalHeader.globalVariables;
 
+    // Kick off the process of collecting and validating proof quotes here so it runs alongside block building
+    const proofQuotePromise = this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt()).catch(
+      e => {
+        this.log.warn(`Failed to create proof claim quote ${e}`);
+        return undefined;
+      },
+    );
+
     this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
@@ -424,7 +435,7 @@ export class Sequencer {
 
     const blockBuildingTimer = new Timer();
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
-    const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+    await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
@@ -443,23 +454,15 @@ export class Sequencer {
         processedTxsCount: processedTxs.length,
       })
     ) {
-      blockBuilder.cancel();
+      // TODO: Roll back changes to world state
       throw new Error('Should not propose the block');
     }
 
     // All real transactions have been added, set the block as full and complete the proving.
-    await blockBuilder.setBlockCompleted();
+    const block = await blockBuilder.setBlockCompleted();
 
-    // Here we are now waiting for the block to be proven (using simulated[fake] proofs).
     // TODO(@PhilWindle) We should probably periodically check for things like another
     // block being published before ours instead of just waiting on our block
-    const result = await blockTicket.provingPromise;
-    if (result.status === PROVING_STATUS.FAILURE) {
-      throw new Error(`Block proving failed, reason: ${result.reason}`);
-    }
-
-    // Block is ready, now finalise
-    const { block } = await blockBuilder.finaliseBlock();
 
     await this.publisher.validateBlockForSubmission(block.header);
 
@@ -488,13 +491,17 @@ export class Sequencer {
     const attestations = await this.collectAttestations(block, txHashes);
     this.log.verbose('Attestations collected');
 
+    const proofQuote = await proofQuotePromise;
+
+    this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
+
     try {
-      await this.publishL2Block(block, attestations, txHashes);
+      await this.publishL2Block(block, attestations, txHashes, proofQuote);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
           processedTxs.length
-        } transactions duration=${workDuration}ms (Submitter: ${await this.publisher.getSenderAddress()})`,
+        } transactions duration=${workDuration}ms (Submitter: ${this.publisher.getSenderAddress()})`,
       );
     } catch (err) {
       this.metrics.recordFailedBlock();
@@ -540,6 +547,45 @@ export class Sequencer {
     return orderAttestations(attestations, committee);
   }
 
+  protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
+    // Find out which epoch we are currently in
+    const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
+    if (epochForBlock < 1n) {
+      // It's the 0th epoch, nothing to be proven yet
+      this.log.verbose(`First epoch has no claim`);
+      return undefined;
+    }
+    const epochToProve = epochForBlock - 1n;
+    // Find out the next epoch that can be claimed
+    const canClaim = await this.publisher.nextEpochToClaim();
+    if (canClaim != epochToProve) {
+      // It's not the one we are looking to claim
+      this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
+      return undefined;
+    }
+    // Get quotes for the epoch to be proven
+    const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
+    this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
+    for (const quote of quotes) {
+      this.log.verbose(inspect(quote.payload));
+    }
+    // ensure these quotes are still valid for the slot and have the contract validate them
+    const validQuotesPromise = Promise.all(
+      quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),
+    );
+
+    const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
+    if (!validQuotes.length) {
+      this.log.verbose(`Failed to find any valid proof quotes`);
+      return undefined;
+    }
+    // pick the quote with the lowest fee
+    const sortedQuotes = validQuotes.sort(
+      (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
+    );
+    return sortedQuotes[0];
+  }
+
   /**
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.
@@ -547,11 +593,16 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]) {
+  protected async publishL2Block(
+    block: L2Block,
+    attestations?: Signature[],
+    txHashes?: TxHash[],
+    proofQuote?: EpochProofQuote,
+  ) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes);
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

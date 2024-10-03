@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-import {SignatureLib} from "../libraries/SignatureLib.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 interface IProofCommitmentEscrow {
+  event Deposit(address indexed depositor, uint256 amount);
+  event StartWithdraw(address indexed withdrawer, uint256 amount, Timestamp executableAt);
+  event ExecuteWithdraw(address indexed withdrawer, uint256 amount);
+  event StakeBond(address indexed prover, uint256 amount);
+  event UnstakeBond(address indexed prover, uint256 amount);
+
   function deposit(uint256 _amount) external;
-  function withdraw(uint256 _amount) external;
-  function stakeBond(uint256 _bondAmount, address _prover) external;
-  function unstakeBond(uint256 _bondAmount, address _prover) external;
+  function startWithdraw(uint256 _amount) external;
+  function executeWithdraw() external;
+  function stakeBond(address _prover, uint256 _amount) external;
+  function unstakeBond(address _prover, uint256 _amount) external;
+  function minBalanceAtTime(Timestamp _timestamp, address _prover) external view returns (uint256);
 }

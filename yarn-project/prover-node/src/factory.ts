@@ -1,6 +1,9 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNode } from '@aztec/circuit-types';
+import { createEthereumChain } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { createSimulationProvider } from '@aztec/simulator';
@@ -8,10 +11,15 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type ProverNodeConfig } from './config.js';
+import { createPublicClient, getAddress, getContract, http } from 'viem';
+
+import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
+import { ClaimsMonitor } from './monitors/claims-monitor.js';
+import { EpochMonitor } from './monitors/epoch-monitor.js';
+import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNode } from './prover-node.js';
-import { AztecNodeTxProvider } from './tx-provider/aztec-node-tx-provider.js';
-import { createTxProvider } from './tx-provider/factory.js';
+import { SimpleQuoteProvider } from './quote-provider/simple.js';
+import { QuoteSigner } from './quote-signer.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
@@ -39,9 +47,17 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = new L1Publisher(config, telemetry);
 
-  const txProvider = deps.aztecNodeTxProvider
-    ? new AztecNodeTxProvider(deps.aztecNodeTxProvider)
-    : createTxProvider(config);
+  const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config);
+  const quoteProvider = createQuoteProvider(config);
+  const quoteSigner = createQuoteSigner(config);
+
+  const proverNodeConfig = {
+    maxPendingJobs: config.proverNodeMaxPendingJobs,
+    pollingIntervalMs: config.proverNodePollingIntervalMs,
+  };
+
+  const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);
+  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig);
 
   return new ProverNode(
     prover!,
@@ -52,10 +68,26 @@ export async function createProverNode(
     worldStateSynchronizer,
     txProvider,
     simulationProvider,
+    quoteProvider,
+    quoteSigner,
+    claimsMonitor,
+    epochMonitor,
     telemetry,
-    {
-      disableAutomaticProving: config.proverNodeDisableAutomaticProving,
-      maxPendingJobs: config.proverNodeMaxPendingJobs,
-    },
+    proverNodeConfig,
   );
+}
+
+function createQuoteProvider(config: QuoteProviderConfig) {
+  return new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);
+}
+
+function createQuoteSigner(config: ProverNodeConfig) {
+  // REFACTOR: We need a package that just returns an instance of a rollup contract ready to use
+  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, l1Contracts } = config;
+  const chain = createEthereumChain(rpcUrl, chainId);
+  const client = createPublicClient({ chain: chain.chainInfo, transport: http(chain.rpcUrl) });
+  const address = getAddress(l1Contracts.rollupAddress.toString());
+  const rollupContract = getContract({ address, abi: RollupAbi, client });
+  const privateKey = config.publisherPrivateKey;
+  return QuoteSigner.new(Buffer32.fromString(privateKey), rollupContract);
 }

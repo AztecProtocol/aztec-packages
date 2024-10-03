@@ -16,7 +16,7 @@ if [ -n "$CMD" ]; then
 fi
 
 yarn
-node ./generate_variants.js
+node ./scripts/generate_variants.js
 
 echo "Compiling protocol circuits..."
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}

@@ -11,8 +11,7 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
-  type BlockSimulator,
-  PROVING_STATUS,
+  type BlockBuilder,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
@@ -90,7 +89,7 @@ describe('L1Publisher integration', () => {
 
   let publisher: L1Publisher;
 
-  let builder: BlockSimulator;
+  let builder: BlockBuilder;
   let builderDb: MerkleTrees;
 
   // The header of the last block
@@ -126,6 +125,7 @@ describe('L1Publisher integration', () => {
       config.l1RpcUrl,
       deployerAccount,
       logger,
+      { assumeProvenThrough: undefined },
     ));
 
     ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
@@ -251,6 +251,7 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        blockHash: `0x${block.hash().toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
@@ -312,11 +313,11 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
-    return blockTicket;
+    return builder.setBlockCompleted();
   };
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
@@ -363,11 +364,8 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
-      const result = await ticket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.finaliseBlock();
-      const block = blockResult.block;
+
+      const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
@@ -471,12 +469,7 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      await builder.setBlockCompleted();
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.finaliseBlock();
-      const block = blockResult.block;
+      const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);

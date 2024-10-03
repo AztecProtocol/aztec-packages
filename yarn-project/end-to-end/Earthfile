@@ -8,6 +8,10 @@ e2e-l1-with-wall-time:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_l1_with_wall_time.test.ts
 
+e2e-synching:
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_synching.test.ts
+
 e2e-2-pxes:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_2_pxes.test.ts
@@ -20,9 +24,9 @@ e2e-prover-full:
   LOCALLY
   RUN HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32} ./scripts/e2e_test.sh ./src/e2e_prover/full
 
-e2e-prover-with-padding:
+e2e-prover-fake-proofs:
   LOCALLY
-  RUN HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32} ./scripts/e2e_test.sh ./src/e2e_prover/with_padding
+  RUN FAKE_PROOFS=1 ./scripts/e2e_test.sh ./src/e2e_prover/full
 
 e2e-account-contracts:
   LOCALLY
@@ -67,10 +71,6 @@ e2e-delegate-calls:
 e2e-deploy-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_deploy_contract
-
-e2e-encryption:
-  LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/e2e_encryption.test.ts
 
 e2e-escrow-contract:
   LOCALLY
@@ -120,10 +120,6 @@ e2e-private-voting-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_private_voting_contract.test.ts
 
-e2e-prover-node:
-  LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/e2e_prover_node.test.ts
-
 e2e-fees-private-payments:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_fees/private_payments.test.ts
@@ -140,9 +136,9 @@ e2e-fees-dapp-subscription:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_fees/dapp_subscription.test.ts
 
-# e2e-fees-failures:
-#   LOCALLY
-#   RUN ./scripts/e2e_test.sh ./src/e2e_fees/failures.test.ts
+e2e-fees-failures:
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_fees/failures.test.ts
 
 e2e-fees-fee-juice-payments:
   LOCALLY
@@ -171,6 +167,11 @@ e2e-static-calls:
 e2e-token-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_token_contract
+
+# https://github.com/AztecProtocol/aztec-packages/issues/8925
+# e2e-prover-coordination:
+#   LOCALLY
+#   RUN ./scripts/e2e_test.sh ./src/prover-coordination/e2e_json_coordination.test.ts
 
 e2e-public-testnet:
   ARG L1_CHAIN_ID="31337"
@@ -222,15 +223,18 @@ guides-dapp-testing:
   LOCALLY
   RUN ./scripts/e2e_compose_test.sh guides/dapp_testing.test.ts
 
-# TODO intermittent failure
-# guides-sample-dapp:
-#   LOCALLY
-#   RUN ./scripts/e2e_compose_test.sh sample-dapp
+# The two tests below need to be separated, because there is some crosstalk between the two. TODO (#8813): Figure out why.
+guides-sample-dapp-ci:
+  LOCALLY
+  RUN ./scripts/e2e_compose_test.sh sample-dapp/ci/index.test.mjs
 
-# TODO currently hangs for hour+
-# guides-up-quick-start:
-#   LOCALLY
-#   RUN ./scripts/e2e_compose_test.sh guides/up_quick_start.test.ts
+guides-sample-dapp:
+  LOCALLY
+  RUN ./scripts/e2e_compose_test.sh sample-dapp/index.test.mjs
+
+guides-up-quick-start:
+  LOCALLY
+  RUN ./scripts/e2e_compose_test.sh guides/up_quick_start.test.ts
 
 bench-publish-rollup:
   LOCALLY
@@ -289,9 +293,11 @@ e2e-cli-wallet:
   RUN COMPOSE_FILE=scripts/docker-compose-wallet.yml ./scripts/e2e_compose_test.sh e2e_cli_wallet
 
 network-smoke:
+  ARG values_file
   LOCALLY
-  RUN NAMESPACE=smoke FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+  RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
 network-transfer:
+  ARG values_file
   LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts

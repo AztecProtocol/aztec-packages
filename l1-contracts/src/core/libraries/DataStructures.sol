@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {SignatureLib} from "./SignatureLib.sol";
+import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 /**
  * @title Data Structures Library
@@ -65,37 +65,29 @@ library DataStructures {
   }
   // docs:end:l2_to_l1_msg
 
-  // docs:start:registry_snapshot
   /**
-   * @notice Struct for storing address of cross communication components and the block number when it was updated
-   * @param rollup - The address of the rollup contract
-   * @param blockNumber - The block number of the snapshot
+   * @notice Struct for storing flags for block header validation
+   * @param ignoreDA - True will ignore DA check, otherwise checks
+   * @param ignoreSignature - True will ignore the signatures, otherwise checks
    */
-  struct RegistrySnapshot {
-    address rollup;
-    uint256 blockNumber;
-  }
-  // docs:end:registry_snapshot
-
   struct ExecutionFlags {
     bool ignoreDA;
     bool ignoreSignatures;
   }
 
-  struct EpochProofQuote {
-    SignatureLib.Signature signature;
-    uint256 epochToProve;
-    uint256 validUntilSlot;
-    uint256 bondAmount;
-    address prover;
-    uint32 basisPointFee;
-  }
-
+  /**
+   * @notice Struct containing the Epoch Proof Claim
+   * @param epochToProve - the epoch that the bond provider is claiming to prove
+   * @param basisPointFee the fee that the bond provider will receive as a percentage of the block rewards
+   * @param bondAmount - the size of the bond
+   * @param bondProvider - the address that put up the bond
+   * @param proposerClaimant - the address of the proposer that submitted the claim
+   */
   struct EpochProofClaim {
-    uint256 epochToProve; // the epoch that the bond provider is claiming to prove
-    uint256 basisPointFee; // the fee that the bond provider will receive as a percentage of the block rewards
-    uint256 bondAmount; // the amount of escrowed funds that the bond provider will stake. Must be at least PROOF_COMMITMENT_BOND_AMOUNT
-    address bondProvider; // the address that has deposited funds in the escrow contract
-    address proposerClaimant; // the address of the proposer that submitted the claim
+    Epoch epochToProve;
+    uint256 basisPointFee;
+    uint256 bondAmount;
+    address bondProvider;
+    address proposerClaimant;
   }
 }

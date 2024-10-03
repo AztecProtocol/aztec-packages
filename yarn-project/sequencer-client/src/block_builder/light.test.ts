@@ -26,6 +26,7 @@ import {
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
+  VK_TREE_HEIGHT,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -60,7 +61,7 @@ describe('LightBlockBuilder', () => {
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyVk: VerificationKeyData;
-  let emptyVkWitness: MembershipWitness<5>;
+  let emptyVkWitness: MembershipWitness<typeof VK_TREE_HEIGHT>;
 
   beforeAll(() => {
     logger = createDebugLogger('aztec:sequencer-client:test:block-builder');
@@ -68,7 +69,7 @@ describe('LightBlockBuilder', () => {
     vkRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyVk = VerificationKeyData.makeFake();
-    emptyVkWitness = makeEmptyMembershipWitness(5);
+    emptyVkWitness = makeEmptyMembershipWitness(VK_TREE_HEIGHT);
   });
 
   beforeEach(async () => {
@@ -169,9 +170,8 @@ describe('LightBlockBuilder', () => {
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
-    await builder.setBlockCompleted();
-    const result = await builder.finaliseBlock();
-    return result.block.header;
+    const { header } = await builder.setBlockCompleted();
+    return header;
   };
 
   // Builds the block header using circuit outputs
