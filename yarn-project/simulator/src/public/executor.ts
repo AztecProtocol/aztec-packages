@@ -1,6 +1,6 @@
 import { type PublicExecutionRequest } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import { Fr, Gas, type GlobalVariables, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -21,7 +21,7 @@ import { PublicSideEffectTrace } from './side_effect_trace.js';
 export class PublicExecutor {
   metrics: ExecutorMetrics;
 
-  constructor(private readonly worldStateDB: WorldStateDB, private readonly header: Header, client: TelemetryClient) {
+  constructor(private readonly worldStateDB: WorldStateDB, client: TelemetryClient) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
   }
 
@@ -61,12 +61,7 @@ export class PublicExecutor {
       pendingSiloedNullifiers.map(n => n.value),
     );
 
-    const avmExecutionEnv = createAvmExecutionEnvironment(
-      executionRequest,
-      this.header,
-      globalVariables,
-      transactionFee,
-    );
+    const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, globalVariables, transactionFee);
 
     const avmMachineState = new AvmMachineState(availableGas);
     const avmContext = new AvmContext(avmPersistableState, avmExecutionEnv, avmMachineState);
@@ -120,7 +115,6 @@ export class PublicExecutor {
  */
 function createAvmExecutionEnvironment(
   executionRequest: PublicExecutionRequest,
-  header: Header,
   globalVariables: GlobalVariables,
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
@@ -131,7 +125,6 @@ function createAvmExecutionEnvironment(
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
-    header,
     globalVariables,
     executionRequest.callContext.isStaticCall,
     executionRequest.callContext.isDelegateCall,
