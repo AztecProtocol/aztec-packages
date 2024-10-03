@@ -6,7 +6,6 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { Fr, type GasSettings } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { type PrivateFPCContract, type TokenContract } from '@aztec/noir-contracts.js';
 
@@ -52,11 +51,7 @@ describe('e2e_fees/private_refunds', () => {
   });
 
   it('can do private payments and refunds', async () => {
-    // 1. We generate randomness for Alice and derive randomness for Bob.
-    const aliceRandomness = Fr.random(); // Called user_randomness in contracts
-    const bobRandomness = siloNullifier(privateFPC.address, aliceRandomness); // Called fee_payer_randomness in contracts
-
-    // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
+    // 1. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
     const { transactionFee } = await token.methods
       .private_get_name()
       .send({
@@ -66,8 +61,6 @@ describe('e2e_fees/private_refunds', () => {
             token.address,
             privateFPC.address,
             aliceWallet,
-            aliceRandomness,
-            bobRandomness,
             t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
           ),
         },
@@ -88,11 +81,7 @@ describe('e2e_fees/private_refunds', () => {
 
   // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
   it('insufficient funded amount is correctly handled', async () => {
-    // 1. We generate randomness for Alice and derive randomness for Bob.
-    const aliceRandomness = Fr.random(); // Called user_randomness in contracts
-    const bobRandomness = siloNullifier(privateFPC.address, aliceRandomness); // Called fee_payer_randomness in contracts
-
-    // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
+    // 1. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
     await expect(
       token.methods.private_get_name().prove({
         fee: {
@@ -101,8 +90,6 @@ describe('e2e_fees/private_refunds', () => {
             token.address,
             privateFPC.address,
             aliceWallet,
-            aliceRandomness,
-            bobRandomness,
             t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
             true, // We set max fee/funded amount to 1 to trigger the error.
           ),
@@ -127,18 +114,6 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
      * An auth witness provider to authorize fee payments
      */
     private wallet: Wallet,
-
-    /**
-     * A randomness to mix in with the generated refund note for the sponsored user.
-     * Use this to reconstruct note preimages for the PXE.
-     */
-    private userRandomness: Fr,
-
-    /**
-     * A randomness to mix in with the generated fee note for the fee payer.
-     * Use this to reconstruct note preimages for the PXE.
-     */
-    private feePayerRandomness: Fr,
 
     /**
      * Address that the FPC sends notes it receives to.
@@ -178,14 +153,8 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [
-          this.feeRecipient,
-          this.wallet.getCompleteAddress().address,
-          maxFee,
-          this.userRandomness,
-          this.feePayerRandomness,
-        ],
-        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field,Field)'),
+        args: [this.feeRecipient, this.wallet.getCompleteAddress().address, maxFee],
+        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: this.asset,
@@ -197,10 +166,10 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
       {
         name: 'fund_transaction_privately',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fund_transaction_privately(Field,(Field),Field)'),
+        selector: FunctionSelector.fromSignature('fund_transaction_privately(Field,(Field))'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset, this.userRandomness],
+        args: [maxFee, this.asset],
         returnTypes: [],
       },
     ];

@@ -20,6 +20,7 @@ contract Token {
 
     use dep::aztec::{
         context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
+        oracle::random::random,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress, FunctionSelector},
         encrypted_logs::{
         encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained, encrypt_and_emit_partial_log},
@@ -457,9 +458,7 @@ contract Token {
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
         user: AztecAddress, // A user for which we are setting up the fee refund.
-        funded_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
-        user_randomness: Field, // A randomness to mix in with the generated refund note for the sponsored user.
-        fee_payer_randomness: Field // A randomness to mix in with the generated fee note for the fee payer.
+        funded_amount: Field // The amount the user funded the fee payer with (represents fee limit).
     ) {
         // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
         // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
@@ -487,6 +486,15 @@ contract Token {
         );
 
         // 4. Now we get the partial payloads
+        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
+        // notes we could just inject it in macros.
+        let fee_payer_randomness = unsafe {
+            random()
+        };
+        let user_randomness = unsafe {
+            random()
+        };
+
         let fee_payer_partial_payload = TokenNote::partial_payload().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
