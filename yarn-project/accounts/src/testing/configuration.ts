@@ -81,6 +81,7 @@ export async function deployInitialTestAccounts(pxe: PXE) {
       const deployMethod = await x.account.getDeployMethod();
       await deployMethod.create({
         contractAddressSalt: x.account.salt,
+        universalDeploy: true,
       });
       return deployMethod;
     }),
