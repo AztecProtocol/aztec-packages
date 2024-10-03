@@ -11,6 +11,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
 #include <memory>
 #include <utility>
@@ -29,6 +30,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+STANDARD_TESTING_TAGS
 template <typename Builder> class stdlib_bigfield : public testing::Test {
 
     typedef stdlib::bn254<Builder> bn254;
@@ -84,6 +86,25 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     }
 
   public:
+    static void test_basic_tag_logic()
+    {
+        auto builder = Builder();
+        auto input = fq::random_element();
+        fq_ct a(witness_ct(&builder, fr(uint256_t(input).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                witness_ct(&builder, fr(uint256_t(input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+        a.binary_basis_limbs[0].element.set_origin_tag(submitted_value_origin_tag);
+        a.binary_basis_limbs[1].element.set_origin_tag(challenge_origin_tag);
+        a.prime_basis_limb.set_origin_tag(next_challenge_tag);
+
+        EXPECT_EQ(a.get_origin_tag(), all_merged_tag);
+
+        a.set_origin_tag(clear_tag);
+        EXPECT_EQ(a.binary_basis_limbs[0].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a.binary_basis_limbs[1].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a.binary_basis_limbs[2].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a.binary_basis_limbs[3].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a.prime_basis_limb.get_origin_tag(), clear_tag);
+    }
     static void test_mul()
     {
         auto builder = Builder();
@@ -93,11 +114,15 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                     witness_ct(&builder,
                                fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            a.set_origin_tag(submitted_value_origin_tag);
             fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                     witness_ct(&builder,
                                fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            b.set_origin_tag(challenge_origin_tag);
+
             uint64_t before = builder.get_num_gates();
             fq_ct c = a * b;
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
             uint64_t after = builder.get_num_gates();
             // Don't profile 1st repetition. It sets up a lookup table, cost is not representative of a typical mul
             if (i == num_repetitions - 2) {
@@ -922,6 +947,10 @@ TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 TYPED_TEST(stdlib_bigfield, badmul)
 {
     TestFixture::test_division_formula_bug();
+}
+TYPED_TEST(stdlib_bigfield, basic_tag_logic)
+{
+    TestFixture::test_basic_tag_logic();
 }
 TYPED_TEST(stdlib_bigfield, mul)
 {

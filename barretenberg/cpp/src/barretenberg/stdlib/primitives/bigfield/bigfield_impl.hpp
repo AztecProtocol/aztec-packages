@@ -703,6 +703,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) cons
     // If operands are constant, define result as a constant value and return
     if (is_constant() && other.is_constant()) {
         remainder = bigfield(ctx, uint256_t(remainder_value.lo));
+        remainder.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return remainder;
     } else {
         // when writing a*b = q*p + r we wish to enforce r<2^s for smallest s such that p<2^s
