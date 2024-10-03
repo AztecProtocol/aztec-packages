@@ -1182,6 +1182,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .indirect_operand(&points.pointer)
                         .indirect_operand(&scalars.pointer)
                         .indirect_operand(&outputs.pointer)
+                        .direct_operand(&points.size)
                         .build(),
                 ),
                 operands: vec![
