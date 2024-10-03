@@ -53,6 +53,35 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 };
 
 /**
+ * @brief Accumulate a set of circuits that includes consecutive kernels
+ * @details In practice its common to have multiple consecutive kernels without intermittent apps e.g. an inner followed
+ * immediately by a reset, or an inner-reset-tail sequence. This test ensures that such cases are handled correctly.
+ *
+ */
+TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
+{
+    ClientIVC ivc;
+    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+
+    MockCircuitProducer circuit_producer;
+
+    // Accumulate a series of mocked circuits (app, kernel, app, kernel)
+    size_t NUM_CIRCUITS = 4;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        Builder circuit = circuit_producer.create_next_circuit(ivc);
+        ivc.accumulate(circuit);
+    }
+
+    // Cap the IVC with two more kernels (say, a 'reset' and a 'tail') without intermittent apps
+    Builder reset_kernel = circuit_producer.create_next_circuit(ivc, /*force_is_kernel=*/true);
+    ivc.accumulate(reset_kernel);
+    Builder tail_kernel = circuit_producer.create_next_circuit(ivc, /*force_is_kernel=*/true);
+    ivc.accumulate(tail_kernel);
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
  * @brief Prove and verify accumulation of a set of mocked private function execution circuits with precomputed
  * verification keys
  *

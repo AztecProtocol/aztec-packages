@@ -214,6 +214,7 @@ end-to-end-base:
     ENV CHROME_BIN="/usr/bin/chromium"
     ENV PATH=/opt/foundry/bin:$PATH
     ENV HARDWARE_CONCURRENCY=""
+    ENV FAKE_PROOFS=""
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
