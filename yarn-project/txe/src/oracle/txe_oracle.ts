@@ -679,24 +679,14 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  async executePublicFunction(
-    targetContractAddress: AztecAddress,
-    args: Fr[],
-    callContext: CallContext,
-    counter: number,
-  ) {
-    const header = Header.empty();
-    header.state = await this.trees.getStateReference(true);
-    header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
-
+  executePublicFunction(targetContractAddress: AztecAddress, args: Fr[], callContext: CallContext, counter: number) {
     const executor = new PublicExecutor(
       new TXEWorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
-      header,
       new NoopTelemetryClient(),
     );
     const execution = new PublicExecutionRequest(targetContractAddress, callContext, args);
 
-    return executor.simulate(
+    const executionResult = executor.simulate(
       execution,
       GlobalVariables.empty(),
       Gas.test(),
@@ -705,6 +695,7 @@ export class TXE implements TypedOracle {
       /* transactionFee */ Fr.ONE,
       counter,
     );
+    return Promise.resolve(executionResult);
   }
 
   async avmOpcodeCall(
