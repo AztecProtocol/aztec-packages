@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727970779101,
+  "lastUpdate": 1727976077609,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d5695fcde93cbfda3e45bfa03988a9e72f2dcb59",
-          "message": "feat(avm)!: remove tag in NOT (#8606)\n\nCase study to see how it goes.",
-          "timestamp": "2024-09-18T10:41:49+01:00",
-          "tree_id": "0f528b965dc1ad57d0a3559e674b4dcfb299bf9e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5695fcde93cbfda3e45bfa03988a9e72f2dcb59"
-        },
-        "date": 1726653561994,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34503.17599899998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31996.355271999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5169.986967,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4775.445253 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99411.364821,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99411365000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14789.694274,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14789694000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8609099582,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8609099582 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 150947481,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 150947481 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 7019058224,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 7019058224 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125413310,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125413310 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 125831618,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125831618 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3e05e22d8d9fc73c1225570342392dda5661403f",
+          "message": "feat: Add support for unlimited width in ACIR (#8960)\n\nHandle ACIR AssertZero opcodes of any width, by creating intermediate\r\nquad gates using w4_omega.\r\n'fixes' https://github.com/noir-lang/noir/issues/6085, but we still need\r\nto have Noir using the unlimited width.",
+          "timestamp": "2024-10-03T16:58:53Z",
+          "tree_id": "59ad40e91ce1a2f7e8ca3ae7cc62c7c7a77939c2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3e05e22d8d9fc73c1225570342392dda5661403f"
+        },
+        "date": 1727976070191,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31273.527811000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28827.375152 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5368.7198460000045,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5072.3152740000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94026.864928,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94026867000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15200.187321,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15200188000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8339660556,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8339660556 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153342757,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153342757 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6805550519,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6805550519 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126467280,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126467280 ns\nthreads: 1"
           }
         ]
       }
