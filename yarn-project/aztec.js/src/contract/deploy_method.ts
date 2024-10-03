@@ -18,7 +18,7 @@ import { type Contract } from './contract.js';
 import { type ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
-import { ProvenTx } from './proven_tx.js';
+import { DeployProvenTx, ProvenTx } from './proven_tx.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -234,8 +234,12 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns The proven tx.
    */
-  public override prove(options: DeployOptions): Promise<ProvenTx> {
-    return super.prove(options);
+  public override async prove(options: DeployOptions): Promise<DeployProvenTx> {
+    const txRequest = await this.create(options);
+    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
+    const txProvingResult = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    const instance = this.getInstance(options);
+    return new DeployProvenTx(this.wallet, txProvingResult.toTx(), this.postDeployCtor, instance);
   }
 
   /**

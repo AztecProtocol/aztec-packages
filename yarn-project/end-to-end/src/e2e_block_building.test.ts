@@ -85,10 +85,9 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      // TODO: How did this work before? The receipt does NOT contain a contract
-      // const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
-      // const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
-      // expect(areDeployed).toEqual(times(TX_COUNT, () => true));
+      const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
+      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
+      expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {
