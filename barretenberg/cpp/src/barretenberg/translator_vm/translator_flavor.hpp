@@ -305,14 +305,16 @@ class TranslatorFlavor {
         };
 
         /**
-         * @brief Getter for entities constructed by concatenation
+         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
          *
+         * @return auto
          */
         auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
 
         /**
-         * @brief Get the polynomials that are concatenated for the permutation relation
+         * @brief Get the entities concatenated for the permutation relation
          *
+         * @return std::vector<auto>
          */
         std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
@@ -501,34 +503,43 @@ class TranslatorFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
-         * @brief Get the polynomials concatenated for the permutation relation
+         * @brief Get entities concatenated for the permutation relation
          *
-         * @details Each group is concatenated into a single polynomial
          */
         std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
             return WitnessEntities<DataType>::get_groups_to_be_concatenated();
         }
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
+         * @brief Getter for entities constructed by concatenation
+         */
+        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
+        /**
+         * @brief Get the polynomials from the grand product denominator
          *
          * @return auto
          */
-        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
+        auto get_ordered_constraints()
+        {
+            return RefArray{ this->ordered_range_constraints_0,
+                             this->ordered_range_constraints_1,
+                             this->ordered_range_constraints_2,
+                             this->ordered_range_constraints_3,
+                             this->ordered_range_constraints_4 };
+        };
 
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
+        // Gemini-specific getters.
+        auto get_unshifted()
+        {
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
+        }
+        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled
+        // separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -538,7 +549,7 @@ class TranslatorFlavor {
         // get_to_be_shifted is inherited
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // this getter is necessary for more uniform zk verifiers
-        auto get_shifted_witnesses() { return get_shifted(); };
+        auto get_shifted_witnesses() { return this->get_shifted(); };
         auto get_wires_and_ordered_range_constraints()
         {
             return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
@@ -580,8 +591,8 @@ class TranslatorFlavor {
         // Next power of 2
         const size_t mini_circuit_dyadic_size = builder.get_circuit_subgroup_size(total_num_gates);
 
-        // The actual circuit size is several times bigger than the trace in the builder, because we use concatenation
-        // to bring the degree of relations down, while extending the length.
+        // The actual circuit size is several times bigger than the trace in the builder, because we use
+        // concatenation to bring the degree of relations down, while extending the length.
         return mini_circuit_dyadic_size * CONCATENATION_GROUP_SIZE;
     }
 
@@ -699,15 +710,15 @@ class TranslatorFlavor {
         /**
          * @brief Compute the extra numerator for Goblin range constraint argument
          *
-         * @details Goblin proves that several polynomials contain only values in a certain range through 2 relations:
-         * 1) A grand product which ignores positions of elements (TranslatorPermutationRelation)
-         * 2) A relation enforcing a certain ordering on the elements of the given polynomial
+         * @details Goblin proves that several polynomials contain only values in a certain range through 2
+         * relations: 1) A grand product which ignores positions of elements (TranslatorPermutationRelation) 2) A
+         * relation enforcing a certain ordering on the elements of the given polynomial
          * (TranslatorDeltaRangeConstraintRelation)
          *
-         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from MAX_VALUE
-         * to 0. We order these polynomials and use them in the denominator of the grand product, at the same time
-         * checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an extra range
-         * constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
+         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from
+         * MAX_VALUE to 0. We order these polynomials and use them in the denominator of the grand product, at the
+         * same time checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an
+         * extra range constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
          *
          */
         inline void compute_extra_range_constraint_numerator()

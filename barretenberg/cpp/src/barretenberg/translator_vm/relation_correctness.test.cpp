@@ -224,8 +224,8 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
                    prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
                    [](uint64_t in) { return FF(in); });
 
-    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but we
-    // only need to check the correctness of the relation and it acts independently on each polynomial)
+    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but
+    // we only need to check the correctness of the relation and it acts independently on each polynomial)
     parallel_for(4, [&](size_t i) {
         std::copy(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
                   prover_polynomials.ordered_range_constraints_0.coeffs().end(),
