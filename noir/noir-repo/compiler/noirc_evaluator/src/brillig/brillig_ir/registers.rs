@@ -63,7 +63,7 @@ impl RegisterAllocator for Stack {
 
     fn allocate_register(&mut self) -> MemoryAddress {
         let allocated = MemoryAddress::relative(self.storage.allocate_register());
-        assert!(Self::is_within_bounds(allocated), "Stack too deep");
+        assert!(Self::is_within_bounds(allocated), "Stack frame too deep");
         allocated
     }
 
