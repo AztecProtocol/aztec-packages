@@ -135,7 +135,7 @@ contract NFT {
     }
 
     /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
-    /// finalization by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
+    /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
     /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
     #[private]
