@@ -171,7 +171,6 @@ jobs:
         build-cli-wallet-arm,
       ]
     runs-on: ${{ github.actor }}-x86
-    if: ${{ github.event.inputs.publish }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,6 +179,7 @@ jobs:
         with:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish aztec manifests
+        if: ${{ github.event.inputs.publish }}
         run: |
           VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
 
@@ -238,6 +238,7 @@ jobs:
             ./yarn-project+publish-npm \
             --DIST_TAG=latest \
             --VERSION=$VERSION
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish bb.js NPM package
         run: |
@@ -248,3 +249,4 @@ jobs:
             ./barretenberg/ts+publish-npm \
             --DIST_TAG=latest \
             --VERSION=$VERSION
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
