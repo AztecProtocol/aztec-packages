@@ -472,6 +472,8 @@ impl PrivateContext {
         // WARNING: This is insecure and should be temporary!
         // The oracle repacks the arguments and returns a new args_hash.
         // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        // b) this is only temporary.
         let args_hash = enqueue_public_function_call_internal(
             contract_address,
             function_selector,
@@ -522,6 +524,8 @@ impl PrivateContext {
         // WARNING: This is insecure and should be temporary!
         // The oracle repacks the arguments and returns a new args_hash.
         // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        // b) this is only temporary.
         let args_hash = set_public_teardown_function_call_internal(
             contract_address,
             function_selector,
