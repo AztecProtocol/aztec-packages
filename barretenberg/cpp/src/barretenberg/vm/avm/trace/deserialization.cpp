@@ -192,8 +192,9 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
-    { OperandType::INDIRECT8, 1 }, { OperandType::TAG, 1 },    { OperandType::UINT8, 1 },    { OperandType::UINT16, 2 },
-    { OperandType::UINT32, 4 },    { OperandType::UINT64, 8 }, { OperandType::UINT128, 16 }, { OperandType::FF, 32 }
+    { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
+    { OperandType::UINT8, 1 },     { OperandType::UINT16, 2 },     { OperandType::UINT32, 4 },
+    { OperandType::UINT64, 8 },    { OperandType::UINT128, 16 },   { OperandType::FF, 32 }
 };
 
 } // Anonymous namespace
