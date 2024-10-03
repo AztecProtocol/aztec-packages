@@ -1,9 +1,11 @@
 import { type WaitOpts } from '@aztec/aztec.js';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
+import { registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { type AccountWalletWithSecretKey, SignerlessWallet } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 
-import { getSchnorrAccount } from '../schnorr/index.js';
+import { SchnorrAccountContractArtifact, getSchnorrAccount } from '../schnorr/index.js';
 
 /**
  * Deploys and registers a new account using random private keys and returns the associated Schnorr account wallet. Useful for testing.
@@ -55,6 +57,11 @@ export async function createAccounts(
     );
     accounts.push(account);
   }
+
+  // Register contract class to avoid duplicate nullifier errors
+  const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
+  const deployWallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+  await (await registerContractClass(deployWallet, SchnorrAccountContractArtifact)).send().wait();
 
   // Send them and await them to be mined
   const txs = await Promise.all(accounts.map(account => account.deploy()));

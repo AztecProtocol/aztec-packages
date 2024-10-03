@@ -110,12 +110,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     };
 
     if (options.estimateGas) {
-      // Why do we call this seemingly idempotent getter method here, without using its return value?
-      // This call pushes a capsule required for contract class registration under the hood. And since
-      // capsules are a stack, when we run the simulation for estimating gas, we consume the capsule
-      // that was meant for the actual call. So we need to push it again here. Hopefully this design
-      // will go away soon.
-      await this.getDeploymentFunctionCalls(options);
       request.fee = await this.getFeeOptionsFromEstimatedGas(request);
     }
 

@@ -1,15 +1,5 @@
-import {
-  PublicKernelPhase,
-  type PublicSimulationOutput,
-  type TxSimulationResult,
-  mockSimulatedTx,
-} from '@aztec/circuit-types';
-import {
-  type CombinedAccumulatedData,
-  Gas,
-  PartialPrivateTailPublicInputsForPublic,
-  PublicAccumulatedData,
-} from '@aztec/circuits.js';
+import { PublicKernelPhase, type TxSimulationResult, mockSimulatedTx } from '@aztec/circuit-types';
+import { Gas, PartialPrivateTailPublicInputsForPublic } from '@aztec/circuits.js';
 
 import { getGasLimits } from './get_gas_limits.js';
 
