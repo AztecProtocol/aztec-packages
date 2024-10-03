@@ -91,67 +91,10 @@ fn multi_scalar_mul_circuit() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 93, 141, 11, 10, 0, 32, 8, 67, 43, 181, 15, 221, 255,
-        186, 145, 210, 130, 149, 240, 112, 234, 212, 156, 78, 12, 39, 67, 71, 158, 142, 80, 29, 44,
-        228, 66, 90, 168, 119, 189, 74, 115, 131, 174, 78, 115, 58, 124, 70, 254, 130, 59, 74, 253,
-        68, 255, 255, 221, 39, 54, 29, 134, 27, 102, 193, 0, 0, 0,
-    ];
-
-    assert_eq!(bytes, expected_serialization)
-}
-
-#[test]
-fn schnorr_verify_circuit() {
-    let public_key_x = FunctionInput::witness(Witness(1), FieldElement::max_num_bits());
-    let public_key_y = FunctionInput::witness(Witness(2), FieldElement::max_num_bits());
-    let signature: [FunctionInput<FieldElement>; 64] = (3..(3 + 64))
-        .map(|i| FunctionInput::witness(Witness(i), 8))
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-    let message =
-        ((3 + 64)..(3 + 64 + 10)).map(|i| FunctionInput::witness(Witness(i), 8)).collect();
-    let output = Witness(3 + 64 + 10);
-    let last_input = output.witness_index() - 1;
-
-    let schnorr = Opcode::BlackBoxFuncCall(BlackBoxFuncCall::SchnorrVerify {
-        public_key_x,
-        public_key_y,
-        signature: Box::new(signature),
-        message,
-        output,
-    });
-
-    let circuit: Circuit<FieldElement> = Circuit {
-        current_witness_index: 100,
-        opcodes: vec![schnorr],
-        private_parameters: BTreeSet::from_iter((1..=last_input).map(Witness)),
-        return_values: PublicInputs(BTreeSet::from([output])),
-        ..Circuit::default()
-    };
-    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
-
-    let bytes = Program::serialize_program(&program);
-
-    let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 85, 211, 103, 78, 2, 81, 24, 70, 225, 193, 130, 96, 239,
-        189, 96, 239, 189, 35, 34, 34, 34, 34, 238, 130, 253, 47, 129, 192, 9, 223, 36, 7, 146,
-        201, 60, 209, 31, 144, 123, 207, 155, 73, 250, 159, 118, 239, 201, 132, 121, 103, 227, 205,
-        211, 137, 247, 144, 60, 220, 123, 114, 225, 17, 121, 84, 206, 202, 99, 114, 78, 206, 203,
-        227, 242, 132, 60, 41, 79, 201, 211, 242, 140, 60, 43, 207, 201, 243, 242, 130, 188, 40,
-        47, 201, 203, 242, 138, 188, 42, 175, 201, 235, 242, 134, 188, 41, 111, 201, 219, 242, 142,
-        92, 144, 119, 229, 61, 121, 95, 62, 144, 15, 229, 35, 249, 88, 62, 145, 79, 229, 51, 249,
-        92, 190, 144, 47, 229, 43, 249, 90, 190, 145, 111, 229, 59, 249, 94, 126, 144, 31, 229, 39,
-        249, 89, 126, 145, 95, 229, 162, 252, 38, 151, 228, 119, 185, 44, 127, 200, 21, 249, 83,
-        174, 134, 233, 52, 137, 191, 125, 233, 255, 53, 249, 91, 174, 203, 63, 114, 67, 254, 149,
-        155, 242, 159, 220, 10, 255, 199, 247, 183, 244, 59, 216, 38, 155, 100, 139, 108, 144, 237,
-        165, 155, 203, 199, 111, 102, 83, 108, 137, 13, 177, 29, 54, 195, 86, 216, 8, 219, 96, 19,
-        108, 129, 13, 208, 62, 205, 211, 58, 141, 211, 54, 77, 211, 50, 13, 211, 46, 205, 22, 146,
-        126, 163, 180, 73, 147, 180, 72, 131, 180, 71, 115, 180, 70, 99, 180, 69, 83, 180, 68, 67,
-        180, 67, 51, 180, 66, 35, 180, 65, 19, 180, 64, 3, 220, 61, 119, 206, 93, 115, 199, 197,
-        184, 211, 82, 220, 97, 57, 238, 172, 18, 119, 84, 141, 187, 168, 197, 217, 215, 227, 172,
-        27, 113, 182, 205, 56, 203, 244, 204, 210, 115, 75, 116, 158, 3, 159, 46, 43, 32, 188, 53,
-        25, 5, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 93, 141, 11, 10, 0, 32, 8, 67, 43, 181, 223, 253, 207,
+        27, 41, 45, 88, 9, 15, 167, 78, 205, 233, 196, 112, 50, 116, 228, 233, 8, 213, 193, 66, 46,
+        164, 133, 122, 215, 171, 52, 55, 232, 234, 52, 167, 195, 103, 228, 47, 184, 163, 212, 79,
+        244, 255, 223, 125, 98, 3, 85, 236, 192, 195, 193, 0, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)

@@ -1,35 +1,14 @@
 use crate::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
-
-#[foreign(schnorr_verify)]
 // docs:start:schnorr_verify
 pub fn verify_signature<let N: u32>(
-    public_key_x: Field,
-    public_key_y: Field,
-    signature: [u8; 64],
-    message: [u8; N]
-) -> bool
-// docs:end:schnorr_verify
-{}
-
-#[foreign(schnorr_verify)]
-// docs:start:schnorr_verify_slice
-pub fn verify_signature_slice(
-    public_key_x: Field,
-    public_key_y: Field,
-    signature: [u8; 64],
-    message: [u8]
-) -> bool
-// docs:end:schnorr_verify_slice
-{}
-
-pub fn verify_signature_noir<let N: u32>(
     public_key: EmbeddedCurvePoint,
     signature: [u8; 64],
     message: [u8; N]
 ) -> bool {
+    // docs:end:schnorr_verify
     //scalar lo/hi from bytes
-    let sig_s = EmbeddedCurveScalar::from_bytes(signature, 0);
-    let sig_e = EmbeddedCurveScalar::from_bytes(signature, 32);
+    let sig_s = from_bytes_reduce_unsafe(signature, 0);
+    let sig_e = from_bytes_reduce_unsafe(signature, 32);
     // pub_key is on Grumpkin curve
     let mut is_ok = (public_key.y * public_key.y == public_key.x * public_key.x * public_key.x - 17)
         & (!public_key.is_infinite);
@@ -51,8 +30,8 @@ pub fn assert_valid_signature<let N: u32>(
     message: [u8; N]
 ) {
     //scalar lo/hi from bytes
-    let sig_s = EmbeddedCurveScalar::from_bytes(signature, 0);
-    let sig_e = EmbeddedCurveScalar::from_bytes(signature, 32);
+    let sig_s = from_bytes_reduce_unsafe(signature, 0);
+    let sig_e = from_bytes_reduce_unsafe(signature, 32);
 
     // assert pub_key is on Grumpkin curve
     assert(public_key.y * public_key.y == public_key.x * public_key.x * public_key.x - 17);
@@ -91,4 +70,29 @@ fn calculate_signature_challenge<let N: u32>(
 
     let result = crate::hash::blake2s(hash_input);
     (r.is_infinite, result)
+}
+
+// Same as EmbeddedCurveScalar::from_bytes but produces a result 'optimistically reduced':
+// if the hints are correct, it will be properly reduced.
+#[field(bn254)]
+    fn from_bytes_reduce_unsafe(bytes: [u8; 64], offset: u32) -> EmbeddedCurveScalar {
+    let mut result = EmbeddedCurveScalar::from_bytes(bytes, offset);
+    let modulus = EmbeddedCurveScalar { lo: 201385395114098847380338600778089168199, hi: 64323764613183177041862057485226039389 };
+    let hi = unsafe {
+        crate::field::bn254::lt_32_hint(modulus.hi, result.hi)
+    };
+    let lo = unsafe {
+        crate::field::bn254::lt_32_hint(result.lo, modulus.lo)
+    };
+    let eq = unsafe {
+        crate::field::is_equal_hint(result.hi, modulus.hi)
+    };
+    if (hi | eq) & !lo {
+        result.hi -= modulus.hi;
+        result.lo -= modulus.lo;
+    } else if hi & lo {
+        result.hi -= modulus.hi + 1;
+        result.lo += crate::field::bn254::TWO_POW_128 - modulus.lo;
+    }
+    result
 }
