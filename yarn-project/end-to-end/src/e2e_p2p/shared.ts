@@ -31,31 +31,34 @@ export const createPXEServiceAndSubmitTransactions = async (
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 const submitTxsTo = async (logger: DebugLogger, pxe: PXEService, numTxs: number) => {
-  const txs: SentTx[] = [];
+  const provenTxs = [];
   for (let i = 0; i < numTxs; i++) {
     const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.create({
+    const tx = await deployMethod.prove({
       contractAddressSalt: accountManager.salt,
       skipClassRegistration: true,
       skipPublicDeployment: true,
       universalDeploy: true,
     });
-    await deployMethod.prove({});
-    const tx = deployMethod.send();
-
-    const txHash = await tx.getTxHash();
-
-    logger.info(`Tx sent with hash ${txHash}`);
-    const receipt = await tx.getReceipt();
-    expect(receipt).toEqual(
-      expect.objectContaining({
-        status: TxStatus.PENDING,
-        error: '',
-      }),
-    );
-    logger.info(`Receipt received for ${txHash}`);
-    txs.push(tx);
+    provenTxs.push(tx);
   }
-  return txs;
+  const sentTxs = await Promise.all(
+    provenTxs.map(async provenTx => {
+      const tx = provenTx.send();
+      const txHash = await tx.getTxHash();
+
+      logger.info(`Tx sent with hash ${txHash}`);
+      const receipt = await tx.getReceipt();
+      expect(receipt).toEqual(
+        expect.objectContaining({
+          status: TxStatus.PENDING,
+          error: '',
+        }),
+      );
+      logger.info(`Receipt received for ${txHash}`);
+      return tx;
+    }),
+  );
+  return sentTxs;
 };

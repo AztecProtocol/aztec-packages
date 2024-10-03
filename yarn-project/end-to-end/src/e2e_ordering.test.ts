@@ -62,7 +62,7 @@ describe('e2e_ordering', () => {
           const action = parent.methods[method](child.address, pubSetValueSelector);
           const tx = await action.prove();
 
-          await action.send().wait();
+          await tx.send().wait();
 
           // There are two enqueued calls
           const enqueuedPublicCalls = tx.enqueuedPublicFunctionCalls;

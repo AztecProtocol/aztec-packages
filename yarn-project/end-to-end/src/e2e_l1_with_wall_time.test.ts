@@ -5,7 +5,7 @@ import { type PXEService } from '@aztec/pxe';
 
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { SendableTx } from '../../aztec.js/src/contract/sendable_tx.js';
+import { ProvenTx } from '../../aztec.js/src/contract/proven_tx.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_l1_with_wall_time', () => {
@@ -36,7 +36,7 @@ describe('e2e_l1_with_wall_time', () => {
 
   // submits a set of transactions to the provided Private eXecution Environment (PXE)
   const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
-    const toSend: SendableTx[] = [];
+    const provenTxs = [];
     for (let i = 0; i < numTxs; i++) {
       const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
       const deployMethod = await accountManager.getDeployMethod();
@@ -46,11 +46,11 @@ describe('e2e_l1_with_wall_time', () => {
         skipPublicDeployment: true,
         universalDeploy: true,
       });
-      toSend.push(tx);
+      provenTxs.push(tx);
     }
     const sentTxs = await Promise.all(
-      toSend.map(async sendable => {
-        const tx = await sendable.send();
+      provenTxs.map(async provenTx => {
+        const tx = await provenTx.send();
         const txHash = await tx.getTxHash();
 
         logger.info(`Tx sent with hash ${txHash}`);

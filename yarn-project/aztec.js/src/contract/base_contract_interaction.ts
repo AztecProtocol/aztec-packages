@@ -5,7 +5,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
 import { getGasLimits } from './get_gas_limits.js';
-import { SendableTx } from './sendable_tx.js';
+import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
 /**
@@ -46,11 +46,11 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<SendableTx> {
+  public async prove(options: SendMethodOptions = {}) {
     const txRequest = await this.create(options);
     const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
     const txProvingResult = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
-    return new SendableTx(this.wallet, txProvingResult.toTx());
+    return new ProvenTx(this.wallet, txProvingResult.toTx());
   }
 
   /**
@@ -64,8 +64,16 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}) {
     const promise = (async () => {
-      const tx = await this.prove(options);
-      return this.wallet.sendTx(tx);
+      // Don't call this.prove() to avoid the serialization of the ProvenTx object.
+      const txRequest = await this.create(options);
+      const txSimulationResult = await this.wallet.simulateTx(
+        txRequest,
+        !options.skipPublicSimulation,
+        undefined,
+        true,
+      );
+      const txProvingResult = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+      return this.wallet.sendTx(txProvingResult.toTx());
     })();
     return new SentTx(this.wallet, promise);
   }

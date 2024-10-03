@@ -2,7 +2,7 @@ import { Tx } from '@aztec/circuit-types';
 
 import { SentTx, Wallet } from '../index.js';
 
-export class SendableTx extends Tx {
+export class ProvenTx extends Tx {
   constructor(private wallet: Wallet, private tx: Tx) {
     super(
       tx.data,
