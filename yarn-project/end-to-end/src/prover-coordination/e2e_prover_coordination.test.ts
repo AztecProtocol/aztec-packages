@@ -33,7 +33,7 @@ import {
   createSnapshotManager,
 } from '../fixtures/snapshot_manager.js';
 
-describe('e2e_json_coordination', () => {
+describe('e2e_prover_coordination', () => {
   let ctx: SubsystemsContext;
   let wallet: AccountWalletWithSecretKey;
   let recipient: AztecAddress;

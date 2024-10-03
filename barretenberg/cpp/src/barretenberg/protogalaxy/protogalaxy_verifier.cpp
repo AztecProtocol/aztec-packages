@@ -137,7 +137,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     return next_accumulator;
 }
 
-template class ProtogalaxyVerifier_<DeciderVerificationKeys_<UltraFlavor, 2>>;
 template class ProtogalaxyVerifier_<DeciderVerificationKeys_<MegaFlavor, 2>>;
 
 } // namespace bb

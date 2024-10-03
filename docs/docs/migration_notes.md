@@ -8,7 +8,20 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Renamed `unsafe_rand` to `random`
+
+Since this is an `unconstrained` function, callers are already supposed to include an `unsafe` block, so this function has been renamed for reduced verbosity.
+
+```diff
+-use aztec::oracle::unsafe_rand::unsafe_rand;
++use aztec::oracle::random::random;
+
+-let random_value = unsafe { unsafe_rand() };
++let random_value = unsafe { random() };
+```
+
 ### [Aztec.js] Removed `L2Block.fromFields`
+
 `L2Block.fromFields` was a syntactic sugar which is causing [issues](https://github.com/AztecProtocol/aztec-packages/issues/8340) so we've removed it.
 
 ```diff
@@ -43,11 +56,11 @@ All of `TestEnvironment`'s functions are now `unconstrained`, preventing acciden
 
 ### [Aztec.nr] removed `encode_and_encrypt_note` and renamed `encode_and_encrypt_note_with_keys` to `encode_and_encrypt_note`
 
-````diff
+```diff
 contract XYZ {
 -   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
 +   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-....
+...
 
 -    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
 +    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
@@ -190,7 +203,7 @@ export LOG_LEVEL="debug"
 
 `is_valid_impl` method in account contract asserted if signature was true. Instead now we will return the verification to give flexibility to developers to handle it as they please.
 
-````diff
+```diff
 - let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
 - assert(verification == true);
 - true
@@ -211,7 +224,7 @@ Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `ge
 +let owner_keys = get_current_public_keys(&mut context, owner);
 +let owner_ivpk_m = owner_keys.ivpk_m;
 +let owner_ovpk_m = owner_keys.ovpk_m;
-````
+```
 
 If using more than one key per account, this will result in very large circuit gate count reductions.
 

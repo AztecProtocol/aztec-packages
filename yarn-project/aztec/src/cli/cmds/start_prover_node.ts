@@ -84,7 +84,7 @@ export const startProverNode = async (
   signalHandlers.push(proverNode.stop);
 
   // Automatically start proving unproven blocks
-  proverNode.start();
+  await proverNode.start();
 
   return services;
 };

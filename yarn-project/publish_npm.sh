@@ -12,7 +12,7 @@ cat .npmrc
 DIST_TAG=${1:-"latest"}
 VERSION=$2
 
-DRY_DEPLOY=${DRY_DEPLOY:-0}
+DRY_DEPLOY=${3:-0}
 
 if [ -z "$VERSION" ]; then
   echo "No version provided, exiting."
