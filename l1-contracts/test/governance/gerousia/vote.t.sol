@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGerousia} from "@aztec/governance/interfaces/IGerousia.sol";
 import {GerousiaBase} from "./Base.t.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
@@ -10,7 +11,7 @@ import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 contract VoteTest is GerousiaBase {
   using SlotLib for Slot;
 
-  address internal proposal = address(0xdeadbeef);
+  IPayload internal proposal = IPayload(address(0xdeadbeef));
   address internal proposer = address(0);
   Leonidas internal leonidas;
 
@@ -21,7 +22,7 @@ contract VoteTest is GerousiaBase {
   }
 
   modifier whenProposalHoldCode() {
-    proposal = address(this);
+    proposal = IPayload(address(this));
     _;
   }
 
@@ -93,14 +94,14 @@ contract VoteTest is GerousiaBase {
 
     Slot currentSlot = leonidas.getCurrentSlot();
     uint256 round = gerousia.computeRound(currentSlot);
-    (Slot lastVote, address leader, bool executed) = gerousia.rounds(address(leonidas), round);
+    (Slot lastVote, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), round);
     assertEq(
       gerousia.yeaCount(address(leonidas), round, leader),
       votesOnProposal,
       "invalid number of votes"
     );
     assertFalse(executed);
-    assertEq(leader, proposal);
+    assertEq(address(leader), address(proposal));
     assertEq(currentSlot.unwrap(), lastVote.unwrap());
 
     vm.warp(
@@ -142,19 +143,19 @@ contract VoteTest is GerousiaBase {
 
     // Check the new instance
     {
-      (Slot lastVote, address leader, bool executed) =
+      (Slot lastVote, IPayload leader, bool executed) =
         gerousia.rounds(address(freshInstance), freshRound);
       assertEq(
         gerousia.yeaCount(address(freshInstance), freshRound, leader), 1, "invalid number of votes"
       );
       assertFalse(executed);
-      assertEq(leader, proposal);
+      assertEq(address(leader), address(proposal));
       assertEq(freshSlot.unwrap(), lastVote.unwrap(), "invalid slot [FRESH]");
     }
 
     // The old instance
     {
-      (Slot lastVote, address leader, bool executed) =
+      (Slot lastVote, IPayload leader, bool executed) =
         gerousia.rounds(address(leonidas), leonidasRound);
       assertEq(
         gerousia.yeaCount(address(leonidas), leonidasRound, proposal),
@@ -162,7 +163,7 @@ contract VoteTest is GerousiaBase {
         "invalid number of votes"
       );
       assertFalse(executed);
-      assertEq(leader, proposal);
+      assertEq(address(leader), address(proposal));
       assertEq(leonidasSlot.unwrap(), lastVote.unwrap() + 1, "invalid slot [LEONIDAS]");
     }
   }
@@ -207,12 +208,12 @@ contract VoteTest is GerousiaBase {
     emit IGerousia.VoteCast(proposal, round, proposer);
     assertTrue(gerousia.vote(proposal));
 
-    (Slot lastVote, address leader, bool executed) = gerousia.rounds(address(leonidas), round);
+    (Slot lastVote, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), round);
     assertEq(
       gerousia.yeaCount(address(leonidas), round, leader), yeaBefore + 1, "invalid number of votes"
     );
     assertFalse(executed);
-    assertEq(leader, proposal);
+    assertEq(address(leader), address(proposal));
     assertEq(currentSlot.unwrap(), lastVote.unwrap());
   }
 
@@ -235,20 +236,22 @@ contract VoteTest is GerousiaBase {
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(gerousia));
-    emit IGerousia.VoteCast(address(leonidas), round, proposer);
-    assertTrue(gerousia.vote(address(leonidas)));
+    emit IGerousia.VoteCast(IPayload(address(leonidas)), round, proposer);
+    assertTrue(gerousia.vote(IPayload(address(leonidas))));
 
-    (Slot lastVote, address leader, bool executed) = gerousia.rounds(address(leonidas), round);
+    (Slot lastVote, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), round);
     assertEq(
       gerousia.yeaCount(address(leonidas), round, leader),
       leaderYeaBefore,
       "invalid number of votes"
     );
     assertEq(
-      gerousia.yeaCount(address(leonidas), round, address(leonidas)), 1, "invalid number of votes"
+      gerousia.yeaCount(address(leonidas), round, IPayload(address(leonidas))),
+      1,
+      "invalid number of votes"
     );
     assertFalse(executed);
-    assertEq(leader, proposal);
+    assertEq(address(leader), address(proposal));
     assertEq(currentSlot.unwrap(), lastVote.unwrap());
   }
 
@@ -273,8 +276,8 @@ contract VoteTest is GerousiaBase {
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
       vm.prank(proposer);
       vm.expectEmit(true, true, true, true, address(gerousia));
-      emit IGerousia.VoteCast(address(leonidas), round, proposer);
-      assertTrue(gerousia.vote(address(leonidas)));
+      emit IGerousia.VoteCast(IPayload(address(leonidas)), round, proposer);
+      assertTrue(gerousia.vote(IPayload(address(leonidas))));
 
       vm.warp(
         Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
@@ -282,14 +285,14 @@ contract VoteTest is GerousiaBase {
     }
 
     {
-      (Slot lastVote, address leader, bool executed) = gerousia.rounds(address(leonidas), round);
+      (Slot lastVote, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), round);
       assertEq(
-        gerousia.yeaCount(address(leonidas), round, address(leonidas)),
+        gerousia.yeaCount(address(leonidas), round, IPayload(address(leonidas))),
         leaderYeaBefore + 1,
         "invalid number of votes"
       );
       assertFalse(executed);
-      assertEq(leader, address(leonidas));
+      assertEq(address(leader), address(leonidas));
       assertEq(
         gerousia.yeaCount(address(leonidas), round, proposal),
         leaderYeaBefore,

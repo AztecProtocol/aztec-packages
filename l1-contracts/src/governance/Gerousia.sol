@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 import {IGerousia} from "@aztec/governance/interfaces/IGerousia.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
@@ -21,9 +22,9 @@ contract Gerousia is IGerousia {
 
   struct RoundAccounting {
     Slot lastVote;
-    address leader;
+    IPayload leader;
     bool executed;
-    mapping(address proposal => uint256 count) yeaCount;
+    mapping(IPayload proposal => uint256 count) yeaCount;
   }
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
@@ -57,8 +58,8 @@ contract Gerousia is IGerousia {
    *
    * @return True if executed successfully, false otherwise
    */
-  function vote(address _proposal) external override(IGerousia) returns (bool) {
-    require(_proposal.code.length > 0, Errors.Gerousia__ProposalHaveNoCode(_proposal));
+  function vote(IPayload _proposal) external override(IGerousia) returns (bool) {
+    require(address(_proposal).code.length > 0, Errors.Gerousia__ProposalHaveNoCode(_proposal));
 
     address instance = REGISTRY.getRollup();
     require(instance.code.length > 0, Errors.Gerousia__InstanceHaveNoCode(instance));
@@ -112,7 +113,7 @@ contract Gerousia is IGerousia {
 
     RoundAccounting storage round = rounds[instance][_roundNumber];
     require(!round.executed, Errors.Gerousia__ProposalAlreadyExecuted(_roundNumber));
-    require(round.leader != address(0), Errors.Gerousia__ProposalCannotBeAddressZero());
+    require(round.leader != IPayload(address(0)), Errors.Gerousia__ProposalCannotBeAddressZero());
     require(round.yeaCount[round.leader] >= N, Errors.Gerousia__InsufficientVotes());
 
     round.executed = true;
@@ -128,11 +129,11 @@ contract Gerousia is IGerousia {
    *
    * @param _instance - The address of the instance
    * @param _round - The round to lookup
-   * @param _proposal - The address of the proposal
+   * @param _proposal - The proposal
    *
    * @return The number of yea votes
    */
-  function yeaCount(address _instance, uint256 _round, address _proposal)
+  function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view
     override(IGerousia)

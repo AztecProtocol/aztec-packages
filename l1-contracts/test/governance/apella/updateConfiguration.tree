@@ -1,0 +1,9 @@
+UpdateConfigurationTest
+├── when caller is not self
+│   └── it revert
+└── when caller is self
+    ├── when configuration is invalid
+    │   └── it revert
+    └── when configuration is valid
+        ├── it updates the configuration
+        └── it emits {ConfigurationUpdates} event

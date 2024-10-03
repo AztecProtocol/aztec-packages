@@ -1,0 +1,11 @@
+IsStableStateTest
+├── given state is Executed
+│   └── it return true
+├── given state is Dropped
+│   └── it return true
+├── given state is Expired
+│   └── it return true
+├── given state is Rejected
+│   └── it return true
+└── given state not in above
+    └── it return false

@@ -1,0 +1,14 @@
+ExecuteTest
+├── given state is not executable
+│   └── it revert
+└── given state is executable
+    ├── given payload call asset
+    │   └── it revert
+    └── given payload don't call asset
+        ├── given a payload call fails
+        │   └── it revert
+        └── given all payload call succeeds
+            ├── it updates state to Executed
+            ├── it executes the calls
+            ├── it emits {ProposalExecuted} event
+            └── it return true
