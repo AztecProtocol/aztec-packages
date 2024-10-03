@@ -204,7 +204,7 @@ class WorldState {
      *
      * @param block The block to synchronize with.
      */
-    bool sync_block(StateReference& block_state_ref,
+    bool sync_block(const StateReference& block_state_ref,
                     fr block_header_hash,
                     const std::vector<bb::fr>& notes,
                     const std::vector<bb::fr>& l1_to_l2_messages,
@@ -228,6 +228,8 @@ class WorldState {
 
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
     Fork::SharedPtr create_new_fork(index_t blockNumber);
+
+    bool is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const;
 
     static bb::fr compute_initial_archive(StateReference initial_state_ref);
 

@@ -226,15 +226,23 @@ StateReference WorldState::get_initial_state_reference() const
 
 StateReference WorldState::get_state_reference(WorldStateRevision revision, Fork::SharedPtr fork, bool initial_state)
 {
-    if (revision.forkId != 0 && fork->_forkId != revision.forkId) {
+    if (fork->_forkId != revision.forkId) {
         throw std::runtime_error("Fork does not match revision");
     }
 
-    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::vector<MerkleTreeId> tree_ids{
+        MerkleTreeId::NULLIFIER_TREE,
+        MerkleTreeId::NOTE_HASH_TREE,
+        MerkleTreeId::PUBLIC_DATA_TREE,
+        MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+    };
+
+    Signal signal(static_cast<uint32_t>(tree_ids.size()));
     StateReference state_reference;
     std::mutex state_ref_mutex;
 
-    for (const auto& [id, tree] : fork->_trees) {
+    for (auto id : tree_ids) {
+        const auto& tree = fork->_trees.at(id);
         auto callback = [&signal, &state_reference, &state_ref_mutex, initial_state, id](
                             const TypedResponse<TreeMetaResponse>& meta) {
             {
@@ -344,7 +352,7 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-bool WorldState::sync_block(StateReference& block_state_ref,
+bool WorldState::sync_block(const StateReference& block_state_ref,
                             fr block_header_hash,
                             const std::vector<bb::fr>& notes,
                             const std::vector<bb::fr>& l1_to_l2_messages,
@@ -353,16 +361,8 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 {
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     auto current_state = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, current_state)) {
-        // TODO (alexg) remove commit & rollback. All modifications should happen on forks
-        // Synching a block should always be done on top of a clean state
-        // so committing partial writes like we're doing here shouldn't be possible
-        //
-        // Disable updating the archive tree. Why? The only way to commit dirty state when synching a block is if the
-        // current node _built_ the block. If that's the case then the archive tree has already been updated by the
-        // node's orchestrator.
-        // append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
-        // just commit the dirty state
+    if (block_state_matches_world_state(block_state_ref, current_state) &&
+        is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
         commit();
         return true;
     }
@@ -433,9 +433,9 @@ bool WorldState::sync_block(StateReference& block_state_ref,
         throw std::runtime_error("Failed to sync block: " + err_message);
     }
 
-    // TODO (alexg) check archive tree state too
     auto state_after_inserts = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, state_after_inserts)) {
+    if (block_state_matches_world_state(block_state_ref, state_after_inserts) &&
+        is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
         commit();
         return false;
     }
@@ -526,6 +526,18 @@ bool WorldState::block_state_matches_world_state(const StateReference& block_sta
 
     return std::all_of(
         tree_ids.begin(), tree_ids.end(), [=](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
+}
+
+bool WorldState::is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const
+{
+    std::optional<index_t> leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
+
+    if (!leaf_index.has_value()) {
+        return false;
+    }
+
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    return archive_state.meta.size == leaf_index.value() + 1;
 }
 
 } // namespace bb::world_state
