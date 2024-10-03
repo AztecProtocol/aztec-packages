@@ -4,22 +4,26 @@ import {
   type TxSimulationResult,
   mockSimulatedTx,
 } from '@aztec/circuit-types';
-import { type CombinedAccumulatedData, Gas } from '@aztec/circuits.js';
+import {
+  type CombinedAccumulatedData,
+  Gas,
+  PartialPrivateTailPublicInputsForPublic,
+  PublicAccumulatedData,
+} from '@aztec/circuits.js';
 
 import { getGasLimits } from './get_gas_limits.js';
 
 describe('getGasLimits', () => {
   let txSimulationResult: TxSimulationResult;
-  let publicOutput: PublicSimulationOutput;
   let simulationTeardownGasLimits: Gas;
 
   beforeEach(() => {
     txSimulationResult = mockSimulatedTx();
 
-    const data: CombinedAccumulatedData = txSimulationResult.publicInputs.forRollup!.end as CombinedAccumulatedData;
+    const data = txSimulationResult.publicInputs.forPublic?.end as any;
     data.gasUsed = Gas.from({ daGas: 100, l2Gas: 200 });
-    txSimulationResult.publicInputs.forRollup!.end = data;
-    publicOutput.gasUsed = {
+    (txSimulationResult.publicInputs.forPublic as PartialPrivateTailPublicInputsForPublic).end = data;
+    txSimulationResult.publicOutput!.gasUsed = {
       [PublicKernelPhase.SETUP]: Gas.from({ daGas: 10, l2Gas: 20 }),
       [PublicKernelPhase.APP_LOGIC]: Gas.from({ daGas: 20, l2Gas: 40 }),
       [PublicKernelPhase.TEARDOWN]: Gas.from({ daGas: 10, l2Gas: 20 }),

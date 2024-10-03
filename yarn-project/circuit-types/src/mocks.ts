@@ -280,7 +280,6 @@ export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boole
 
 export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
   const privateExecutionResult = mockPrivateExecutionResult(seed, hasLogs);
-  const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
   const tx = mockTx(seed, { hasLogs });
   const output = new PublicSimulationOutput(
     tx.encryptedLogs,
@@ -291,7 +290,7 @@ export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
     [accumulateReturnValues(privateExecutionResult)],
     {},
   );
-  return new TxSimulationResult(privateExecutionResult, publicInputs, output);
+  return new TxSimulationResult(privateExecutionResult, tx.data, output);
 };
 
 export const mockEpochProofQuote = (

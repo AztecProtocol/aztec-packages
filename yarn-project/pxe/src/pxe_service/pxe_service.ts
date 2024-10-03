@@ -528,7 +528,7 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
-      const privateExecutionResult = await this.#simulatePrivate(txRequest, msgSender, scopes);
+      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
       const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
@@ -690,7 +690,7 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulatePrivate(
+  async #executePrivate(
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
     scopes?: AztecAddress[],
