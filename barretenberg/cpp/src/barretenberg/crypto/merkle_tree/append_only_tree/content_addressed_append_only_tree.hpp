@@ -325,7 +325,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(index_t
                 store_->get_meta(response.inner.meta, *tx, includeUncommitted);
 
                 BlockPayload blockData;
-                store_->get_block_data(blockNumber, blockData, *tx);
+                if (!store_->get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+
                 response.inner.meta.size = blockData.size;
                 response.inner.meta.committedSize = blockData.size;
                 response.inner.meta.root = blockData.root;

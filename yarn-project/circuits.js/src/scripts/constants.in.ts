@@ -78,8 +78,6 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
 
-  '',
-
   'NULLIFIER_TREE_HEIGHT',
   'MAX_NULLIFIERS_PER_TX',
   'NOTE_HASH_TREE_HEIGHT',
@@ -87,6 +85,7 @@ const CPP_CONSTANTS = [
   'MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
   'L1_TO_L2_MSG_TREE_HEIGHT',
   'ARCHIVE_HEIGHT',
+  'GENESIS_ARCHIVE_ROOT',
 ];
 
 const CPP_GENERATORS = ['BLOCK_HASH'];
@@ -179,7 +178,8 @@ function processConstantsCpp(
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
-      code.push(`#define ${key} ${value}`);
+      // stringify large numbers
+      code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
     }
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {

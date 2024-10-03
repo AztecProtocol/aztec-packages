@@ -131,6 +131,8 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
         throw new Error("Archive tree can't be empty");
       }
 
+      // the initial header _must_ be the first element in the archive tree
+      // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
       const initialHeaderIndex = await this.findLeafIndex(MerkleTreeId.ARCHIVE, this.initialHeader.hash(), false);
       assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
     }

@@ -102,7 +102,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     }
     {
         std::vector<bb::fr> initial_leaves{ compute_initial_archive(
-            get_state_reference(WorldStateRevision::committed(), fork)) };
+            get_state_reference(WorldStateRevision::committed(), fork, true)) };
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), ARCHIVE_HEIGHT, _persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers, initial_leaves);
@@ -458,6 +458,7 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
 bb::fr WorldState::compute_initial_archive(StateReference initial_state_ref)
 {
+    // NOTE: this hash operations needs to match the one in yarn-project/circuits.js/src/structs/header.ts
     return HashPolicy::hash({ GENERATOR_INDEX__BLOCK_HASH, // separator
                                                            // last archive - which, at genesis, is all 0s
                               0,
