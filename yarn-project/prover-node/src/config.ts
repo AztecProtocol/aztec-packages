@@ -16,6 +16,7 @@ import {
 } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
 
+import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import {
   type ProverCoordinationConfig,
   getTxProviderConfigFromEnv,
@@ -28,6 +29,7 @@ export type ProverNodeConfig = ArchiverConfig &
   PublisherConfig &
   TxSenderConfig &
   ProverCoordinationConfig &
+  ProverBondManagerConfig &
   QuoteProviderConfig & {
     proverNodeMaxPendingJobs: number;
     proverNodePollingIntervalMs: number;
@@ -80,6 +82,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
   ...quoteProviderConfigMappings,
+  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 
@@ -93,5 +96,6 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
     ...getTxProviderConfigFromEnv(),
     ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
+    ...getConfigFromMappings(proverBondManagerConfigMappings),
   };
 }
