@@ -11,8 +11,8 @@
 set -eux
 USER=${1:-$USER}
 BOX=$USER-box
-BENCHMARK=${2:-client_ivc_bench}
-COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=ClientIVCBench/Full/6"\$"}
+BENCHMARK=${2:-commit_bench}
+COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=bench_commit_random.*20.*}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-time-instrumented}
