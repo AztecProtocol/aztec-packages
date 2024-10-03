@@ -2,7 +2,6 @@ import {
   type Fr,
   type Header,
   type NullifierLeaf,
-  type NullifierLeafPreimage,
   type PublicDataTreeLeaf,
   type StateReference,
 } from '@aztec/circuits.js';
@@ -165,14 +164,6 @@ export interface MerkleTreeOperations {
    * @param index - The index of the leaf required.
    */
   getLeafPreimage<ID extends IndexedTreeId>(treeId: ID, index: bigint): Promise<IndexedTreeLeafPreimage | undefined>;
-
-  /**
-   * Update the leaf data at the given index.
-   * @param treeId - The tree for which leaf data should be edited.
-   * @param leaf - The updated leaf value.
-   * @param index - The index of the leaf to be updated.
-   */
-  updateLeaf<ID extends IndexedTreeId>(treeId: ID, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
 
   /**
    * Returns the index containing a leaf value.

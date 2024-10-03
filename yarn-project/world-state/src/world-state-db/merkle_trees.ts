@@ -42,7 +42,6 @@ import {
   Poseidon,
   StandardIndexedTree,
   StandardTree,
-  type UpdateOnlyTree,
   getTreeMeta,
   loadTree,
   newTree,
@@ -443,17 +442,6 @@ export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
   }
 
   /**
-   * Updates a leaf in a tree at a given index.
-   * @param treeId - The ID of the tree.
-   * @param leaf - The new leaf value.
-   * @param index - The index to insert into.
-   * @returns Empty promise.
-   */
-  public async updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
-    return await this.synchronize(() => this.#updateLeaf(treeId, leaf, index));
-  }
-
-  /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
@@ -558,14 +546,6 @@ export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
     }
     // TODO #5448 fix "as any"
     return await tree.appendLeaves(leaves as any[]);
-  }
-
-  async #updateLeaf(treeId: IndexedTreeId, leaf: MerkleTreeLeafType<typeof treeId>, index: bigint): Promise<void> {
-    const tree = this.trees[treeId];
-    if (!('updateLeaf' in tree)) {
-      throw new Error('Tree does not support `updateLeaf` method');
-    }
-    return await (tree as UpdateOnlyTree<typeof leaf>).updateLeaf(leaf, index);
   }
 
   /**

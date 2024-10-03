@@ -397,14 +397,6 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     });
   }
 
-  updateLeaf<ID extends IndexedTreeId>(
-    _treeId: ID,
-    _leaf: NullifierLeafPreimage | Buffer,
-    _index: bigint,
-  ): Promise<void> {
-    return Promise.reject(new Error('Method not implemented'));
-  }
-
   async closeRootDatabase(): Promise<void> {
     if (this.forkId || this.blockNumber) {
       throw new Error('Closing a fork or a snapshot or fork is forbidden');

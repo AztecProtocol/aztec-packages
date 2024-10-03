@@ -32,7 +32,7 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
 /**
  * Defines the names of the setters on Merkle Trees.
  */
-type MerkleTreeSetters = 'appendLeaves' | 'updateLeaf' | 'batchInsert' | 'updateArchive' | 'getInitialHeader';
+type MerkleTreeSetters = 'appendLeaves' | 'batchInsert' | 'updateArchive' | 'getInitialHeader';
 
 type MerkleTreeAdmin = 'commit' | 'rollback' | 'handleL2BlockAndMessages';
 

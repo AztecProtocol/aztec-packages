@@ -7,7 +7,7 @@ import {
   type MerkleTreeOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
+import { type Fr, type Header, type StateReference } from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type MerkleTreeAdminDb, type MerkleTreeDb } from './merkle_tree_db.js';
@@ -89,17 +89,6 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
     | undefined
   > {
     return this.trees.getPreviousValueIndex(treeId, value, this.includeUncommitted);
-  }
-
-  /**
-   * Updates a leaf in a tree at a given index.
-   * @param treeId - The ID of the tree.
-   * @param leaf - The new leaf value.
-   * @param index - The index to insert into.
-   * @returns Empty promise.
-   */
-  updateLeaf<ID extends IndexedTreeId>(treeId: ID, leaf: NullifierLeafPreimage, index: bigint): Promise<void> {
-    return this.trees.updateLeaf(treeId, leaf, index);
   }
 
   /**
