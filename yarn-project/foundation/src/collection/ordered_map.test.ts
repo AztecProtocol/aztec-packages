@@ -67,14 +67,21 @@ describe('OrderedMap', () => {
     orderedMap.set('a', 1);
     orderedMap.set('b', 2);
     orderedMap.set('c', 3);
-    expect(Array.from(orderedMap)).toEqual([['a', 1], ['b', 2], ['c', 3]]);
+    expect(Array.from(orderedMap)).toEqual([
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+    ]);
   });
 
   it('iterator should reflect the updated order after re-insertion', () => {
     orderedMap.set('a', 1);
     orderedMap.set('b', 2);
     orderedMap.set('a', 3);
-    expect(Array.from(orderedMap)).toEqual([['b', 2], ['a', 3]]);
+    expect(Array.from(orderedMap)).toEqual([
+      ['b', 2],
+      ['a', 3],
+    ]);
   });
 
   it('multiple operations should maintain correct order and values', () => {
@@ -85,6 +92,10 @@ describe('OrderedMap', () => {
     orderedMap.set('d', 4);
     orderedMap.set('a', 5);
     expect(Array.from(orderedMap.values())).toEqual([3, 4, 5]);
-    expect(Array.from(orderedMap)).toEqual([['c', 3], ['d', 4], ['a', 5]]);
+    expect(Array.from(orderedMap)).toEqual([
+      ['c', 3],
+      ['d', 4],
+      ['a', 5],
+    ]);
   });
 });

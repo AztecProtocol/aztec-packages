@@ -1,4 +1,4 @@
-import { MerkleTreeId, type Tx, type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
+import { type Tx, type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
@@ -10,7 +10,6 @@ import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
-  FailedToReExecuteTransactionsError,
   InvalidValidatorPrivateKeyError,
   PublicProcessorNotProvidedError,
   TransactionsNotAvailableError,
@@ -18,7 +17,7 @@ import {
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
-import { LightPublicProcessor, type LightPublicProcessorFactory } from '@aztec/simulator';
+import { type LightPublicProcessor, type LightPublicProcessorFactory } from '@aztec/simulator';
 import { Timer } from '@aztec/foundation/timer';
 
 export interface Validator {

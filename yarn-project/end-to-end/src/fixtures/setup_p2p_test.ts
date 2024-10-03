@@ -11,9 +11,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import getPort from 'get-port';
 import { generatePrivateKey } from 'viem/accounts';
 
-
 import { getPrivateKeyFromIndex } from './utils.js';
-
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -152,5 +150,3 @@ async function startBootstrapNode(config: BootnodeConfig) {
   await bootstrapNode.start(config);
   return bootstrapNode;
 }
-
-

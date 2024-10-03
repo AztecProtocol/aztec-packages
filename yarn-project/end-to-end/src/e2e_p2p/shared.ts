@@ -3,24 +3,25 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { type DebugLogger, type SentTx } from '@aztec/aztec.js';
 import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { type SpamContract } from '@aztec/noir-contracts.js';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
-import { type NodeContext } from '../fixtures/setup_p2p_test.js';
 import { expect } from '@jest/globals';
-import { type SpamContract } from '@aztec/noir-contracts.js';
 
- // submits a set of transactions to the provided Private eXecution Environment (PXE)
- export const submitComplexTxsTo = async (logger: DebugLogger, spamContract: SpamContract, numTxs: number) => {
+import { type NodeContext } from '../fixtures/setup_p2p_test.js';
+
+// submits a set of transactions to the provided Private eXecution Environment (PXE)
+export const submitComplexTxsTo = async (logger: DebugLogger, spamContract: SpamContract, numTxs: number) => {
   const txs: SentTx[] = [];
 
-  const seed = 1234n
-  const spamCount = 15
+  const seed = 1234n;
+  const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
     // TODO: check out batch call for deployments
 
     // Send a public mint tx - this will be minted from the token contract to the pxe account
     // const tx = token.methods.mint_public(accountManager.getCompleteAddress().address, 1n).send()
-    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, false, true ).send()
+    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, false, true).send();
     const txHash = await tx.getTxHash();
 
     logger.info(`Tx sent with hash ${txHash}`);

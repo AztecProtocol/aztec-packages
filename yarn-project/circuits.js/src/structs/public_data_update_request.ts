@@ -1,12 +1,11 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
-import { GeneratorIndex } from '../constants.gen.js';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+
 import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
+import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 
 /**
  * Write operations on the public data tree including the previous value.
@@ -83,7 +82,6 @@ export class PublicDataUpdateRequest {
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, updateRequest.storageSlot);
 
     return new PublicDataUpdateRequest(leafSlot, updateRequest.newValue, updateRequest.counter);
-
   }
 
   static empty() {

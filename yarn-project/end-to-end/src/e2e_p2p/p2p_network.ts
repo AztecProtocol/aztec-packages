@@ -1,9 +1,11 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
 import { AZTEC_SLOT_DURATION, ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { BootnodeConfig, createLibP2PPeerId, type BootstrapNode } from '@aztec/p2p';
+import { SpamContract } from '@aztec/noir-contracts.js';
+import { type BootstrapNode } from '@aztec/p2p';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
@@ -15,10 +17,13 @@ import {
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
-import { type ISnapshotManager, type SubsystemsContext, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import {
+  type ISnapshotManager,
+  type SubsystemsContext,
+  addAccounts,
+  createSnapshotManager,
+} from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { SpamContract } from '@aztec/noir-contracts.js';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
@@ -134,33 +139,40 @@ export class P2PNetworkTest {
           account: this.baseAccount,
         }),
       });
-
     });
   }
 
-    async setupAccount() {
-      await this.snapshotManager.snapshot("setup-account", addAccounts(1, this.logger, false), async ({accountKeys}, ctx) => {
+  async setupAccount() {
+    await this.snapshotManager.snapshot(
+      'setup-account',
+      addAccounts(1, this.logger, false),
+      async ({ accountKeys }, ctx) => {
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
-      await Promise.all(accountManagers.map(a => a.register()));
-      const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.wallet = wallets[0];
-    });
+        await Promise.all(accountManagers.map(a => a.register()));
+        const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.wallet = wallets[0];
+      },
+    );
   }
 
   async deploySpamContract() {
-    await this.snapshotManager.snapshot("add-spam-contract", async () => {
-      if (!this.wallet) {
-        throw new Error('Call snapshot t.setupAccount before deploying account contract');
-      }
+    await this.snapshotManager.snapshot(
+      'add-spam-contract',
+      async () => {
+        if (!this.wallet) {
+          throw new Error('Call snapshot t.setupAccount before deploying account contract');
+        }
 
-      const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
-      return {contractAddress: spamContract.address};
-    }, async ({contractAddress}) => {
-      if (!this.wallet) {
-        throw new Error('Call snapshot t.setupAccount before deploying account contract');
-      }
-      this.spamContract = await SpamContract.at(contractAddress, this.wallet);
-    });
+        const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
+        return { contractAddress: spamContract.address };
+      },
+      async ({ contractAddress }) => {
+        if (!this.wallet) {
+          throw new Error('Call snapshot t.setupAccount before deploying account contract');
+        }
+        this.spamContract = await SpamContract.at(contractAddress, this.wallet);
+      },
+    );
   }
 
   async setup() {

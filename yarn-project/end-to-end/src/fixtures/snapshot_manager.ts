@@ -23,6 +23,7 @@ import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -33,8 +34,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import getPort from 'get-port';
 import { join } from 'path';
-import { getContract, type Hex } from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { type Hex, getContract } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
@@ -47,7 +48,6 @@ import {
   getPrivateKeyFromIndex,
   startAnvil,
 } from './utils.js';
-import { RollupAbi } from '@aztec/l1-artifacts';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -406,7 +406,6 @@ async function setupFromFresh(
     const txHash = await rollup.write.removeValidator([deployL1ContractsArgs.initialValidators[0].toString()]);
     await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
   }
-
 
   return {
     aztecNodeConfig,

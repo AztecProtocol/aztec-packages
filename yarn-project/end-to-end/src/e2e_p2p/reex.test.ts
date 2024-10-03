@@ -1,17 +1,13 @@
-
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 
+import { beforeAll, describe, it } from '@jest/globals';
 import fs from 'fs';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
-import { afterEach, beforeAll, describe, it } from '@jest/globals';
-import { RollupAbi } from '@aztec/l1-artifacts';
-import { getContract } from 'viem';
 
-// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
 const BOOT_NODE_UDP_PORT = 41000;
@@ -22,12 +18,16 @@ describe('e2e_p2p_reex', () => {
   let t: P2PNetworkTest;
   beforeAll(async () => {
     t = await P2PNetworkTest.create('e2e_p2p_reex', NUM_NODES, BOOT_NODE_UDP_PORT);
+
     t.logger.verbose('Setup account');
     await t.setupAccount();
+
     t.logger.verbose('Deploy spam contract');
     await t.deploySpamContract();
+
     t.logger.verbose('Apply base snapshots');
     await t.applyBaseSnapshots();
+
     t.logger.verbose('Setup nodes');
     await t.setup();
   });
@@ -45,24 +45,22 @@ describe('e2e_p2p_reex', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    // TODO(md): make this part of a snapshot
-
     t.ctx.aztecNodeConfig.validatorReEx = true;
 
     const nodes: AztecNodeService[] = await createNodes(
       t.ctx.aztecNodeConfig,
       t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
-        NUM_NODES,
-        BOOT_NODE_UDP_PORT,
-      );
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
 
     // wait a bit for peers to discover each other
     await sleep(4000);
 
     // tODO: use a tx with nested calls
     nodes.forEach(node => {
-      node.getSequencer()?.updateSequencerConfig( {
+      node.getSequencer()?.updateSequencerConfig({
         minTxsPerBlock: NUM_TXS_PER_NODE,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       });
@@ -72,13 +70,12 @@ describe('e2e_p2p_reex', () => {
     // now ensure that all txs were successfully mined
     await Promise.all(
       txs.map(async (tx, i) => {
-          t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({timeout: WAIT_FOR_TX_TIMEOUT});
-        }),
+        t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
+        return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+      }),
     );
 
     // shutdown all nodes.
     await t.stopNodes(nodes);
   });
 });
-

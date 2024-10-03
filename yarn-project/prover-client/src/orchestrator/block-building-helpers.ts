@@ -44,7 +44,6 @@ import {
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  getNonEmptyItems,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
