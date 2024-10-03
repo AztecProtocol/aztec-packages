@@ -315,8 +315,6 @@ comptime fn generate_finalization_payload(
     let name = s.name();
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
-    let log_plaintext_length = indexed_nullable_fields.len() * 32;
-
     // Now we compute serialization of the nullable fields. We do that by passing the whole note struct
     // to the flatten_to_fields function but we omit the NoteHeader and the fixed fields.
     let typ = s.as_type();
@@ -329,6 +327,7 @@ comptime fn generate_finalization_payload(
     } else {
         quote {}
     };
+    let log_plaintext_length = fields.len();
     let serialized_fields = fields.join(quote {,});
 
     let (finalize_generators_list, finalize_scalars_list, finalize_args_list, finalize_aux_vars) = generate_multi_scalar_mul(indexed_nullable_fields);
@@ -338,30 +337,16 @@ comptime fn generate_finalization_payload(
     let finalize_generators = finalize_generators_list.join(quote {,});
     let finalize_scalars = finalize_scalars_list.join(quote {,});
 
-    let finalization_partial_note_log = quote {
-        let mut log_plaintext: [u8; $log_plaintext_length] = [0; $log_plaintext_length];
-
-        $aux_vars_for_serialization
-        let serialized_note = [$serialized_fields];
-
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-            for j in 0..32 {
-                log_plaintext[i * 32 + j] = bytes[j];
-            }
-        }
-    };
-
     (quote {
         struct $finalization_payload_name {
-            log_plaintext: [u8; $log_plaintext_length],
+            log_plaintext: [Field; $log_plaintext_length],
             note_hash: Field,
         }
 
         impl $finalization_payload_name {
             fn new(mut self, hiding_point: aztec::protocol_types::point::Point, $finalize_args) -> $finalization_payload_name {
-                $finalization_partial_note_log
-                self.log_plaintext = log_plaintext;
+                $aux_vars_for_serialization
+                self.log_plaintext = [$serialized_fields];
 
                 $finalize_aux_vars
                 let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(

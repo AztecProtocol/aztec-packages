@@ -565,11 +565,8 @@ contract Token {
 
         // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
         // to reconstruct the note.
-        // TODO(#7728): Nuke the manual serialization on the next 2 lines
-        let serialized_tx_fee = [tx_fee.lo, tx_fee.hi];
-        let serialized_refund_amount = [refund_amount.lo, refund_amount.hi];
-        context.emit_unencrypted_log(serialized_tx_fee);
-        context.emit_unencrypted_log(serialized_refund_amount);
+        context.emit_unencrypted_log(fee_payer_finalization_payload.log_plaintext);
+        context.emit_unencrypted_log(user_finalization_payload.log_plaintext);
 
         // 5. At last we emit the note hashes.
         context.push_note_hash(fee_payer_finalization_payload.note_hash);
