@@ -26,10 +26,18 @@ template <typename Curve> class ShpleminiProver_ {
                               RefSpan<Polynomial> g_polynomials,
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                              const std::shared_ptr<Transcript>& transcript)
+                              const std::shared_ptr<Transcript>& transcript,
+                              RefSpan<Polynomial> concatenated_polynomials = {},
+                              const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
-        std::vector<OpeningClaim> opening_claims = GeminiProver::prove(
-            circuit_size, f_polynomials, g_polynomials, multilinear_challenge, commitment_key, transcript);
+        std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
+                                                                       f_polynomials,
+                                                                       g_polynomials,
+                                                                       multilinear_challenge,
+                                                                       commitment_key,
+                                                                       transcript,
+                                                                       concatenated_polynomials,
+                                                                       groups_to_be_concatenated);
 
         OpeningClaim batched_claim = ShplonkProver::prove(commitment_key, opening_claims, transcript);
         return batched_claim;
@@ -99,14 +107,18 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     template <typename Transcript>
-    static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr N,
-                                                                RefSpan<Commitment> unshifted_commitments,
-                                                                RefSpan<Commitment> shifted_commitments,
-                                                                RefSpan<Fr> unshifted_evaluations,
-                                                                RefSpan<Fr> shifted_evaluations,
-                                                                const std::vector<Fr>& multivariate_challenge,
-                                                                const Commitment& g1_identity,
-                                                                const std::shared_ptr<Transcript>& transcript)
+    static BatchOpeningClaim<Curve> compute_batch_opening_claim(
+        const Fr N,
+        RefSpan<Commitment> unshifted_commitments,
+        RefSpan<Commitment> shifted_commitments,
+        RefSpan<Fr> unshifted_evaluations,
+        RefSpan<Fr> shifted_evaluations,
+        const std::vector<Fr>& multivariate_challenge,
+        const Commitment& g1_identity,
+        const std::shared_ptr<Transcript>& transcript,
+        [[maybe_unused]] const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        [[maybe_unused]] RefSpan<Fr> concatenated_evaluations = {})
+
     {
 
         // Extract log_circuit_size
@@ -260,6 +272,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                   RefSpan<Commitment> shifted_commitments,
                                                   RefSpan<Fr> unshifted_evaluations,
                                                   RefSpan<Fr> shifted_evaluations,
+                                                  RefSpan<Fr> concatenated_evaluations,
                                                   const Fr& multivariate_batching_challenge,
                                                   const Fr& unshifted_scalar,
                                                   const Fr& shifted_scalar,

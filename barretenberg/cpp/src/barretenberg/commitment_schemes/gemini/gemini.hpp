@@ -115,7 +115,10 @@ template <typename Curve> class GeminiProver_ {
                                     RefSpan<Polynomial> g_polynomials,
                                     std::span<Fr> multilinear_challenge,
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                                    const std::shared_ptr<Transcript>& transcript);
+                                    const std::shared_ptr<Transcript>& transcript,
+                                    RefSpan<Polynomial> concatenated_polynomials = {},
+                                    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {});
+
 }; // namespace bb
 
 template <typename Curve> class GeminiVerifier_ {
@@ -136,11 +139,15 @@ template <typename Curve> class GeminiVerifier_ {
      * @return Fold polynomial opening claims: (r, A₀(r), C₀₊), (-r, A₀(-r), C₀₋), and
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
-    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<Fr> multilinear_challenge,
-                                                                std::span<Fr> multilinear_evaluations,
-                                                                RefSpan<GroupElement> unshifted_commitments,
-                                                                RefSpan<GroupElement> to_be_shifted_commitments,
-                                                                auto& transcript)
+    static std::vector<OpeningClaim<Curve>> reduce_verification(
+        std::span<Fr> multilinear_challenge,
+        std::span<Fr> multilinear_evaluations,
+        RefSpan<GroupElement> unshifted_commitments,
+        RefSpan<GroupElement> to_be_shifted_commitments,
+        auto& transcript,
+        [[]] const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        [[maybe_unused]] RefSpan<Fr> concatenated_evaluations = {})
+
     {
         const size_t num_variables = multilinear_challenge.size();
 

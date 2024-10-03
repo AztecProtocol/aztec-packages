@@ -47,28 +47,50 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     RefSpan<Polynomial> g_polynomials, // to-be-shifted
     std::span<Fr> multilinear_challenge,
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-    const std::shared_ptr<Transcript>& transcript)
+    const std::shared_ptr<Transcript>& transcript,
+    RefSpan<Polynomial> concatenated_polynomials,
+    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated)
+
 {
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     size_t n = 1 << log_n;
 
     Fr rho = transcript->template get_challenge<Fr>("rho");
-    std::vector<Fr> rhos = gemini::powers_of_rho(rho, f_polynomials.size() + g_polynomials.size());
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
     Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
 
-    const size_t num_unshifted = f_polynomials.size();
-    const size_t num_to_be_shifted = g_polynomials.size();
-    for (size_t i = 0; i < num_unshifted; i++) {
-        Fr rho_challenge = rhos[i];
+    Fr rho_challenge{ 1 };
+    for (size_t i = 0; i < f_polynomials.size(); i++) {
         batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
+        rho_challenge *= rho;
     }
-    for (size_t i = 0; i < num_to_be_shifted; i++) {
-        Fr rho_challenge = rhos[num_unshifted + i];
+    for (size_t i = 0; i < g_polynomials.size(); i++) {
         batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
+        rho_challenge *= rho;
     }
+
+    size_t num_groups = groups_to_be_concatenated.size();
+    size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
+    // Concatenated polynomials
+    Polynomial batched_concatenated(n);
+
+    // construct concatention_groups_batched
+    std::vector<Polynomial> batched_groups_to_be_concatenated;
+    for (size_t i = 0; i < num_chunks_per_group; ++i) {
+        batched_groups_to_be_concatenated.push_back(Polynomial(n));
+    }
+    // for each group
+    for (size_t i = 0; i < num_groups; ++i) {
+        batched_concatenated.add_scaled(concatenated_polynomials[i], rho_challenge);
+        // for each element in a group
+        for (size_t j = 0; j < num_chunks_per_group; ++j) {
+            batched_groups_to_be_concatenated[j].add_scaled(groups_to_be_concatenated[i][j], rho_challenge);
+        }
+        rho_challenge *= rho;
+    }
+    batched_unshifted += batched_concatenated;
 
     auto fold_polynomials = compute_fold_polynomials(
         log_n, multilinear_challenge, std::move(batched_unshifted), std::move(batched_to_be_shifted));
@@ -229,8 +251,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
 
     // Compute first opening pair {r, A₀(r)}
     Fr evaluation = fold_polynomials[0].evaluate(r_challenge);
-    opening_claims.emplace_back(
-        Claim{ fold_polynomials[0], { r_challenge, fold_polynomials[0].evaluate(r_challenge) } });
+    opening_claims.emplace_back(Claim{ fold_polynomials[0], { r_challenge, evaluation } });
     // Compute the remaining m opening pairs {−r^{2ˡ}, Aₗ(−r^{2ˡ})}, l = 0, ..., m-1.
     for (size_t l = 0; l < num_variables; ++l) {
         evaluation = fold_polynomials[l + 1].evaluate(-r_squares[l]);
