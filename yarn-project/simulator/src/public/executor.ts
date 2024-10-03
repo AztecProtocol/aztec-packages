@@ -1,6 +1,6 @@
 import { type PublicExecutionRequest } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import { Fr, Gas, type GlobalVariables, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -61,11 +61,7 @@ export class PublicExecutor {
       pendingSiloedNullifiers.map(n => n.value),
     );
 
-    const avmExecutionEnv = createAvmExecutionEnvironment(
-      executionRequest,
-      globalVariables,
-      transactionFee,
-    );
+    const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, globalVariables, transactionFee);
 
     const avmMachineState = new AvmMachineState(availableGas);
     const avmContext = new AvmContext(avmPersistableState, avmExecutionEnv, avmMachineState);
