@@ -678,7 +678,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -686,7 +686,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public async setPublicTeardownFunctionCall(
@@ -697,7 +697,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -705,7 +705,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
