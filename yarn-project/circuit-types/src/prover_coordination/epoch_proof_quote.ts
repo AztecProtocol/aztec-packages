@@ -4,9 +4,12 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+
+
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
+
 
 export class EpochProofQuote extends Gossipable {
   static override p2pTopic: string = createTopicString(TopicType.epoch_proof_quote);
@@ -25,6 +28,21 @@ export class EpochProofQuote extends Gossipable {
 
   override toBuffer(): Buffer {
     return serializeToBuffer(...EpochProofQuote.getFields(this));
+  }
+
+  /**
+   * Returns a string representation of the EpochProofQuote object.
+   */
+  override toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+  /**
+   * Deserializes a EpochProofQuote object from a string.
+   * @param str - String to deserialize.
+   * @returns An instance of EpochProofQuote.
+   */
+  static fromString(str: string) {
+    return EpochProofQuote.fromBuffer(Buffer.from(str, 'hex'));
   }
 
   static fromBuffer(buf: Buffer | BufferReader): EpochProofQuote {

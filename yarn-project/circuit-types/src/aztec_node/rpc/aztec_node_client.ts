@@ -19,6 +19,7 @@ import { PublicDataWitness } from '../../public_data_witness.js';
 import { SiblingPath } from '../../sibling_path/index.js';
 import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
+import { EpochProofQuote } from '../../prover_coordination/epoch_proof_quote.js';
 
 /**
  * Creates a JSON-RPC client to remotely talk to an Aztec Node.
@@ -33,6 +34,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       AztecAddress,
       Buffer32,
       EthAddress,
+      EpochProofQuote,
       EventSelector,
       ExtendedUnencryptedL2Log,
       Fr,

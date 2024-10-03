@@ -798,7 +798,7 @@ jobs:
   deploy-test:
     needs: [build, changes]
     runs-on: ubuntu-20.04
-    if: needs.changes.outputs.yarn-project == 'true'
+    if: needs.changes.outputs.yarn-project == 'true' || needs.changes.outputs.l1-contracts == 'true' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }

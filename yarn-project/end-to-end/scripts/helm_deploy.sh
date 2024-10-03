@@ -39,7 +39,7 @@ fi
 function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
-  for i in {1..100} ; do
+  for i in {1..200} ; do
     if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null ; then
       break # we are up, stop showing status
     fi
