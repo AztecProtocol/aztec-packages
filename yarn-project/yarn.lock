@@ -572,7 +572,7 @@ __metadata:
     process: ^0.11.10
     puppeteer: ^22.2
     resolve-typescript-plugin: ^2.0.1
-    solc: ^0.8.25
+    solc: ^0.8.27
     stream-browserify: ^3.0.0
     string-argv: ^0.3.2
     ts-loader: ^9.4.4
@@ -14484,23 +14484,6 @@ __metadata:
     ip-address: ^9.0.5
     smart-buffer: ^4.2.0
   checksum: 7a6b7f6eedf7482b9e4597d9a20e09505824208006ea8f2c49b71657427f3c137ca2ae662089baa73e1971c62322d535d9d0cf1c9235cf6f55e315c18203eadd
-  languageName: node
-  linkType: hard
-
-"solc@npm:^0.8.25":
-  version: 0.8.25
-  resolution: "solc@npm:0.8.25"
-  dependencies:
-    command-exists: ^1.2.8
-    commander: ^8.1.0
-    follow-redirects: ^1.12.1
-    js-sha3: 0.8.0
-    memorystream: ^0.3.1
-    semver: ^5.5.0
-    tmp: 0.0.33
-  bin:
-    solcjs: solc.js
-  checksum: dce5d31c24be940c2486949dd1eb6ee12f3ebcaa11e60fb51a07b3bfaf74818d503f4eb1aef83e72302b3203a00edf42b91609364d5daa94c35dde20953326ae
   languageName: node
   linkType: hard
 
