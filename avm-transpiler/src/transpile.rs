@@ -86,7 +86,7 @@ pub fn brillig_to_avm(
                             .direct_operand(lhs)
                             .direct_operand(rhs)
                             .direct_operand(destination)
-                            .build_u8(),
+                            .build(),
                     ),
                     tag: Some(AvmTypeTag::FIELD),
                     operands: vec![
@@ -179,7 +179,7 @@ pub fn brillig_to_avm(
                             .direct_operand(lhs)
                             .direct_operand(rhs)
                             .direct_operand(destination)
-                            .build_u8(),
+                            .build(),
                     ),
                     tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
@@ -209,7 +209,7 @@ pub fn brillig_to_avm(
                         AddressingModeBuilder::default()
                             .direct_operand(source)
                             .direct_operand(destination)
-                            .build_u8(),
+                            .build(),
                     ),
                     operands: vec![
                         make_operand(bits_needed, &source.to_usize()),
@@ -226,7 +226,7 @@ pub fn brillig_to_avm(
                             .direct_operand(offset_address)
                             .direct_operand(size_address)
                             .direct_operand(destination_address)
-                            .build_u8(),
+                            .build(),
                     ),
                     operands: vec![
                         AvmOperand::U32 {
@@ -253,7 +253,7 @@ pub fn brillig_to_avm(
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_16,
                     indirect: Some(
-                        AddressingModeBuilder::default().direct_operand(condition).build_u8(),
+                        AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![
                         make_operand(16, &avm_loc),
@@ -274,7 +274,7 @@ pub fn brillig_to_avm(
                         AddressingModeBuilder::default()
                             .direct_operand(source)
                             .direct_operand(destination)
-                            .build_u8(),
+                            .build(),
                     ),
                     source.to_usize() as u32,
                     destination.to_usize() as u32,
@@ -289,7 +289,7 @@ pub fn brillig_to_avm(
                             .direct_operand(source_b)
                             .direct_operand(condition)
                             .direct_operand(destination)
-                            .build_u8(),
+                            .build(),
                     ),
                     operands: vec![
                         AvmOperand::U32 { value: source_a.to_usize() as u32 },
@@ -306,7 +306,7 @@ pub fn brillig_to_avm(
                         AddressingModeBuilder::default()
                             .indirect_operand(source_pointer)
                             .direct_operand(destination)
-                            .build_u8(),
+                            .build(),
                     ),
                     source_pointer.to_usize() as u32,
                     destination.to_usize() as u32,
@@ -318,7 +318,7 @@ pub fn brillig_to_avm(
                         AddressingModeBuilder::default()
                             .direct_operand(source)
                             .indirect_operand(destination_pointer)
-                            .build_u8(),
+                            .build(),
                     ),
                     source.to_usize() as u32,
                     destination_pointer.to_usize() as u32,
@@ -337,7 +337,7 @@ pub fn brillig_to_avm(
             BrilligOpcode::Stop { return_data_offset, return_data_size } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::RETURN,
-                    indirect: Some(AddressingModeBuilder::default().build_u8()),
+                    indirect: Some(AddressingModeBuilder::default().build()),
                     operands: vec![
                         AvmOperand::U32 { value: *return_data_offset as u32 },
                         AvmOperand::U32 { value: *return_data_size as u32 },
@@ -361,7 +361,7 @@ pub fn brillig_to_avm(
                     indirect: Some(
                         AddressingModeBuilder::default()
                             .indirect_operand(&revert_data.pointer)
-                            .build_u8(),
+                            .build(),
                     ),
                     operands: vec![
                         make_operand(bits_needed, &revert_data.pointer.to_usize()),
@@ -398,7 +398,7 @@ pub fn brillig_to_avm(
     // This should therefore not affect the program's execution.
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::MOV_16,
-        indirect: Some(AddressingModeBuilder::default().build_u8()),
+        indirect: Some(AddressingModeBuilder::default().build()),
         operands: vec![AvmOperand::U16 { value: 0x18ca }, AvmOperand::U16 { value: 0x18ca }],
         ..Default::default()
     });
@@ -533,7 +533,7 @@ fn handle_external_call(
                 .indirect_operand(&ret_offset)
                 .direct_operand(success_offset)
                 .direct_operand(function_selector_offset)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: gas_offset.to_usize() as u32 },
@@ -588,7 +588,7 @@ fn handle_note_hash_exists(
                 .direct_operand(note_hash_offset_operand)
                 .direct_operand(leaf_index_offset_operand)
                 .direct_operand(exists_offset_operand)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: note_hash_offset_operand.to_usize() as u32 },
@@ -625,7 +625,7 @@ fn handle_emit_unencrypted_log(
             AddressingModeBuilder::default()
                 .indirect_operand(&message_size_offset)
                 .direct_operand(&message_size_offset)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: message_offset.to_usize() as u32 },
@@ -663,7 +663,7 @@ fn handle_emit_note_hash_or_nullifier(
     };
     avm_instrs.push(AvmInstruction {
         opcode: if is_nullifier { AvmOpcode::EMITNULLIFIER } else { AvmOpcode::EMITNOTEHASH },
-        indirect: Some(AddressingModeBuilder::default().direct_operand(offset_operand).build_u8()),
+        indirect: Some(AddressingModeBuilder::default().direct_operand(offset_operand).build()),
         operands: vec![AvmOperand::U32 { value: offset_operand.to_usize() as u32 }],
         ..Default::default()
     });
@@ -699,7 +699,7 @@ fn handle_nullifier_exists(
                 .direct_operand(nullifier_offset_operand)
                 .direct_operand(address_offset_operand)
                 .direct_operand(exists_offset_operand)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: nullifier_offset_operand.to_usize() as u32 },
@@ -750,7 +750,7 @@ fn handle_l1_to_l2_msg_exists(
                 .direct_operand(msg_hash_offset_operand)
                 .direct_operand(msg_leaf_index_offset_operand)
                 .direct_operand(exists_offset_operand)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: msg_hash_offset_operand.to_usize() as u32 },
@@ -794,7 +794,7 @@ fn handle_send_l2_to_l1_msg(
             AddressingModeBuilder::default()
                 .direct_operand(recipient_offset_operand)
                 .direct_operand(content_offset_operand)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: recipient_offset_operand.to_usize() as u32 },
@@ -865,7 +865,7 @@ fn handle_getter_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETENVVAR_16,
-        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build_u8()),
+        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
         operands: vec![
             AvmOperand::U8 { value: var_idx as u8 },
             AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
@@ -911,9 +911,9 @@ fn generate_set_instruction(
     AvmInstruction {
         opcode: set_opcode,
         indirect: if indirect {
-            Some(AddressingModeBuilder::default().indirect_operand(dest).build_u8())
+            Some(AddressingModeBuilder::default().indirect_operand(dest).build())
         } else {
-            Some(AddressingModeBuilder::default().direct_operand(dest).build_u8())
+            Some(AddressingModeBuilder::default().direct_operand(dest).build())
         },
         tag: Some(tag),
         operands: vec![
@@ -952,7 +952,7 @@ fn generate_cast_instruction(
 
     AvmInstruction {
         opcode: avm_opcode,
-        indirect: Some(indirect_flags.build_u8()),
+        indirect: Some(indirect_flags.build()),
         tag: Some(dst_tag),
         operands: vec![
             make_operand(bits_needed, &(source.to_usize())),
@@ -1001,7 +1001,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .indirect_operand(&output.pointer)
                         .indirect_operand(&hash_values.pointer)
                         .indirect_operand(&input.pointer)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: output_offset as u32 },
@@ -1026,7 +1026,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .direct_operand(output)
                         .indirect_operand(&inputs.pointer)
                         .direct_operand(&inputs.size)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: index_offset as u32 },
@@ -1053,7 +1053,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AddressingModeBuilder::default()
                         .indirect_operand(&message.pointer)
                         .indirect_operand(&output.pointer)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: input_state_offset as u32 },
@@ -1075,7 +1075,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .indirect_operand(&output.pointer)
                         .indirect_operand(&message.pointer)
                         .direct_operand(&message.size)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: dest_offset as u32 },
@@ -1098,7 +1098,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .indirect_operand(&output.pointer)
                         .indirect_operand(&message.pointer)
                         .direct_operand(&message.size)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: dest_offset as u32 },
@@ -1121,7 +1121,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .direct_operand(input)
                         .indirect_operand(&output.pointer)
                         .direct_operand(radix)
-                        .build_u8(),
+                        .build(),
                 ),
                 tag: None,
                 operands: vec![
@@ -1154,7 +1154,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     .direct_operand(p2_y_offset)
                     .direct_operand(p2_infinite_offset)
                     .indirect_operand(&result.pointer)
-                    .build_u8(),
+                    .build(),
             ),
             operands: vec![
                 AvmOperand::U32 { value: p1_x_offset.to_usize() as u32 },
@@ -1184,7 +1184,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .indirect_operand(&points.pointer)
                         .indirect_operand(&scalars.pointer)
                         .indirect_operand(&outputs.pointer)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: points_offset as u32 },
@@ -1209,7 +1209,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .indirect_operand(&output.pointer)
                         .direct_operand(&inputs.size)
                         .direct_operand(domain_separator)
-                        .build_u8(),
+                        .build(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: input_offset as u32 },
@@ -1258,7 +1258,7 @@ fn handle_debug_log(
                 .direct_operand(message_offset)
                 .indirect_operand(fields_offset_ptr)
                 .direct_operand(fields_size_ptr)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: message_offset.to_usize() as u32 },
@@ -1304,7 +1304,7 @@ fn handle_calldata_copy(
                 .direct_operand(&cd_offset)
                 .direct_operand(&copy_size_offset)
                 .indirect_operand(&dest_offset)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 {
@@ -1338,7 +1338,7 @@ fn handle_return(
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::RETURN,
         indirect: Some(
-            AddressingModeBuilder::default().indirect_operand(&return_data_offset).build_u8(),
+            AddressingModeBuilder::default().indirect_operand(&return_data_offset).build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: return_data_offset.to_usize() as u32 },
@@ -1376,7 +1376,7 @@ fn handle_storage_write(
             AddressingModeBuilder::default()
                 .direct_operand(&src_offset)
                 .direct_operand(&slot_offset)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: src_offset.to_usize() as u32 },
@@ -1413,7 +1413,7 @@ fn handle_get_contract_instance(
             AddressingModeBuilder::default()
                 .direct_operand(&address_offset)
                 .indirect_operand(&dest_offset)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: address_offset.to_usize() as u32 },
@@ -1451,7 +1451,7 @@ fn handle_storage_read(
             AddressingModeBuilder::default()
                 .direct_operand(&slot_offset)
                 .direct_operand(&dest_offset)
-                .build_u8(),
+                .build(),
         ),
         operands: vec![
             AvmOperand::U32 { value: slot_offset.to_usize() as u32 },
