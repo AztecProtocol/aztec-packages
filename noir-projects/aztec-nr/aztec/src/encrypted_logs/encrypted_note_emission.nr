@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::{getters::get_ovsk_app, public_keys::{OvpkM, IvpkM}},
+    keys::{getters::get_ovsk_app, public_keys::{PublicKeys, OvpkM, IvpkM}},
     encrypted_logs::payload::compute_encrypted_log
 };
 use dep::protocol_types::{hash::sha256_to_field, address::AztecAddress, abis::note_hash::NoteHash};
@@ -91,20 +91,23 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     }
 }
 
+/// Encrypts a partial log and emits it. Takes recipient keys on the input and encrypts both the outgoing and incoming
+/// logs for the recipient. This is necessary because in the partial notes flow the outgoing always has to be the same
+/// as the incoming to not leak any information (typically the `from` party finalizing the partial note in public does
+/// not know who the recipient is).
 pub fn encrypt_and_emit_partial_log<let M: u32>(
     context: &mut PrivateContext,
     log_plaintext: [u8; M],
-    ovpk: OvpkM,
-    ivpk: IvpkM,
+    recipient_keys: PublicKeys,
     recipient: AztecAddress
 ) {
-    let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
+    let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
     let encrypted_log: [u8; 352 + M] = compute_encrypted_log(
         context.this_address(),
         ovsk_app,
-        ovpk,
-        ivpk,
+        recipient_keys.ovpk_m,
+        recipient_keys.ivpk_m,
         recipient,
         log_plaintext
     );

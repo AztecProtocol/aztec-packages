@@ -153,15 +153,8 @@ contract NFT {
         // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
         let note_partial_payload = NFTNote::partial_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
-        // `from` cannot receive any logs here as that would leak information of who is the note recipient. For this
-        // reason we encrypt outgoing to `to`.
-        encrypt_and_emit_partial_log(
-            &mut context,
-            note_partial_payload.log_plaintext,
-            to_keys.ovpk_m,
-            to_keys.ivpk_m,
-            to
-        );
+        // We encrypt and emit the partial note log
+        encrypt_and_emit_partial_log(&mut context, note_partial_payload.log_plaintext, to_keys, to);
 
         // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
         // non-sender's slots
