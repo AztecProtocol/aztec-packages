@@ -321,23 +321,23 @@ mod tests {
                     source: MemoryAddress::relative(10)
                 }, // Temporary
                 Opcode::Mov {
-                    destination: MemoryAddress::relative(14),
-                    source: MemoryAddress::relative(13)
-                }, // Branch
-                Opcode::Mov {
                     destination: MemoryAddress::relative(10),
                     source: MemoryAddress::relative(12)
-                }, // Loop
+                }, // Branch
                 Opcode::Mov {
                     destination: MemoryAddress::relative(12),
                     source: MemoryAddress::relative(11)
                 }, // Loop
                 Opcode::Mov {
-                    destination: MemoryAddress::relative(13),
+                    destination: MemoryAddress::relative(14),
+                    source: MemoryAddress::relative(13)
+                }, // Loop
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(11),
                     source: MemoryAddress::relative(1)
                 }, // Finish branch
                 Opcode::Mov {
-                    destination: MemoryAddress::relative(11),
+                    destination: MemoryAddress::relative(13),
                     source: MemoryAddress::relative(1)
                 } // Finish loop
             ]
