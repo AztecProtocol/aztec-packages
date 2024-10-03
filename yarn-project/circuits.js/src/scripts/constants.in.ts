@@ -85,7 +85,10 @@ const CPP_CONSTANTS = [
   'MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
   'L1_TO_L2_MSG_TREE_HEIGHT',
   'ARCHIVE_HEIGHT',
+  'GENESIS_ARCHIVE_ROOT',
 ];
+
+const CPP_GENERATORS = ['BLOCK_HASH'];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -168,11 +171,20 @@ function processConstantsTS(constants: { [key: string]: string }): string {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsCpp(constants: { [key: string]: string }): string {
+function processConstantsCpp(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
-      code.push(`#define ${key} ${value}`);
+      // stringify large numbers
+      code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
+    }
+  });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    if (CPP_GENERATORS.includes(key)) {
+      code.push(`#define GENERATOR_INDEX__${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -248,11 +260,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 #pragma once
 
-${processConstantsCpp(constants)}
+${processConstantsCpp(constants, generatorIndexEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);

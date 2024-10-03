@@ -152,12 +152,10 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
     }
 
     {
-        // TODO (alexg) this should be the tree _after_ we insert the initial header
-        // currently it's the root of an empty tree
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
-        EXPECT_EQ(info.meta.size, 0);
+        EXPECT_EQ(info.meta.size, 1);
         EXPECT_EQ(info.meta.depth, ARCHIVE_HEIGHT);
-        EXPECT_EQ(info.meta.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
+        EXPECT_EQ(info.meta.root, bb::fr(GENESIS_ARCHIVE_ROOT));
     }
 }
 
@@ -194,11 +192,8 @@ TEST_F(WorldStateTest, GetInitialStateReference)
     }
 
     {
-        // TODO (alexg) this should be the tree _after_ we insert the initial header
-        // currently it's the root of an empty tree
         auto snapshot = state_ref.at(MerkleTreeId::ARCHIVE);
-        EXPECT_EQ(snapshot,
-                  std::make_pair(bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"), 0UL));
+        EXPECT_EQ(snapshot, std::make_pair(bb::fr(GENESIS_ARCHIVE_ROOT), 1UL));
     }
 }
 
@@ -206,7 +201,8 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
 {
     WorldState ws(data_dir, map_size, thread_pool_size);
 
-    std::vector tree_ids{ MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::L1_TO_L2_MESSAGE_TREE, MerkleTreeId::ARCHIVE };
+    // the trees that start out empty
+    std::vector tree_ids{ MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::L1_TO_L2_MESSAGE_TREE };
 
     for (auto tree_id : tree_ids) {
         auto initial = ws.get_tree_info(WorldStateRevision::committed(), tree_id);
@@ -263,7 +259,11 @@ TEST_F(WorldStateTest, AppendOnlyAllowDuplicates)
 {
     WorldState ws(data_dir, map_size, thread_pool_size);
 
-    std::vector tree_ids{ MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::L1_TO_L2_MESSAGE_TREE, MerkleTreeId::ARCHIVE };
+    // the trees that start out empty
+    std::vector tree_ids{
+        MerkleTreeId::NOTE_HASH_TREE,
+        MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+    };
 
     for (auto tree_id : tree_ids) {
         ws.append_leaves<fr>(tree_id, { fr(42), fr(42) });
@@ -405,7 +405,7 @@ TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(42));
-    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 0, fr(42));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 1, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 128, NullifierLeafValue(142));
     assert_leaf_value(
         ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, 128, PublicDataLeafValue(142, 1));
@@ -450,7 +450,7 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 128, NullifierLeafValue(144));
     assert_leaf_value(
         ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, 128, PublicDataLeafValue(145, 1));
-    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 0, fr(1));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 1, fr(1));
 
     auto state_ref = ws.get_state_reference(WorldStateRevision::committed());
     for (const auto& [tree_id, snapshot] : block_state_ref) {
@@ -491,7 +491,7 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 128, NullifierLeafValue(144));
     assert_leaf_value(
         ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, 128, PublicDataLeafValue(145, 1));
-    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 0, fr(1));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 1, fr(1));
 
     auto state_ref = ws.get_state_reference(WorldStateRevision::committed());
     for (const auto& [tree_id, snapshot] : block_state_ref) {
@@ -529,7 +529,7 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
     EXPECT_EQ(sync_res, true);
 
-    assert_leaf_value(ws, WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE, 0, fr(1));
+    assert_leaf_value(ws, WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE, 1, fr(1));
 
     auto state_ref = ws.get_state_reference(WorldStateRevision::committed());
     for (const auto& [tree_id, snapshot] : block_state_ref) {
@@ -624,8 +624,8 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
     EXPECT_EQ(canonical_archive_state_after_commit.meta.size, canonical_archive_state_after_insert.meta.size);
 
     // canonical should have value 1 as the first leaf (committed state)
-    assert_leaf_value<bb::fr>(ws, WorldStateRevision{ .includeUncommitted = false }, MerkleTreeId::ARCHIVE, 0, 1);
+    assert_leaf_value<bb::fr>(ws, WorldStateRevision{ .includeUncommitted = false }, MerkleTreeId::ARCHIVE, 1, 1);
     // fork should still have value 2 as the first leaf (uncommitted)
     assert_leaf_value<bb::fr>(
-        ws, WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, MerkleTreeId::ARCHIVE, 0, 2);
+        ws, WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, MerkleTreeId::ARCHIVE, 1, 2);
 }

@@ -6,6 +6,7 @@
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -47,7 +48,9 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using RollbackCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
-    ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store, std::shared_ptr<ThreadPool> workers);
+    ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
+                                   std::shared_ptr<ThreadPool> workers,
+                                   const std::vector<fr>& initial_values = {});
     ContentAddressedAppendOnlyTree(ContentAddressedAppendOnlyTree const& other) = delete;
     ContentAddressedAppendOnlyTree(ContentAddressedAppendOnlyTree&& other) = delete;
     ContentAddressedAppendOnlyTree& operator=(ContentAddressedAppendOnlyTree const& other) = delete;
@@ -118,6 +121,14 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param on_completion Callback to be called on completion
      */
     void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion) const;
+
+    /**
+     * @brief Returns the tree meta data
+     * @param blockNumber The block number of the tree to use as a reference
+     * @param includeUncommitted Whether to include uncommitted changes
+     * @param on_completion Callback to be called on completion
+     */
+    void get_meta_data(index_t blockNumber, bool includeUncommitted, const MetaDataCallback& on_completion) const;
 
     /**
      * @brief Returns the leaf value at the provided index
@@ -225,7 +236,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
 template <typename Store, typename HashingPolicy>
 ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnlyTree(
-    std::unique_ptr<Store> store, std::shared_ptr<ThreadPool> workers)
+    std::unique_ptr<Store> store, std::shared_ptr<ThreadPool> workers, const std::vector<fr>& initial_values)
     : store_(std::move(store))
     , workers_(workers)
 {
@@ -248,15 +259,43 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
     zero_hashes_[0] = current;
     // std::cout << "Zero root: " << current << std::endl;
 
-    // The root of the empty tree has not yet been set, initialise the tree with roots
-    if (meta.root == fr::zero()) {
-        // if the tree is empty then we want to write some initial state
-        meta.initialRoot = meta.root = current;
-        meta.initialSize = meta.size = 0;
+    max_size_ = numeric::pow64(2, depth_);
+    // if root is non-zero it means the tree has already been initialized
+    if (meta.root != fr::zero()) {
+        return;
+    }
+
+    // if the tree is empty then we want to write some initial state
+    meta.initialRoot = meta.root = current;
+    meta.initialSize = meta.size = 0;
+    store_->put_meta(meta);
+    store_->commit(false);
+
+    // if we were given initial values to insert then we do that now
+    if (!initial_values.empty()) {
+        Signal signal(1);
+        TypedResponse<AddDataResponse> result;
+        add_values(initial_values, [&](const TypedResponse<AddDataResponse>& resp) {
+            result = resp;
+            signal.signal_level(0);
+        });
+
+        signal.wait_for_level(0);
+        if (!result.success) {
+            throw std::runtime_error("Failed to initialise tree: " + result.message);
+        }
+
+        {
+            ReadTransactionPtr tx = store_->create_read_transaction();
+            store_->get_meta(meta, *tx, true);
+        }
+
+        meta.initialRoot = meta.root = result.inner.root;
+        meta.initialSize = meta.size = result.inner.size;
+
         store_->put_meta(meta);
         store_->commit(false);
     }
-    max_size_ = numeric::pow64(2, depth_);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -268,6 +307,31 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool in
             [=, this](TypedResponse<TreeMetaResponse>& response) {
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 store_->get_meta(response.inner.meta, *tx, includeUncommitted);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(index_t blockNumber,
+                                                                         bool includeUncommitted,
+                                                                         const MetaDataCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<TreeMetaResponse>(
+            [=, this](TypedResponse<TreeMetaResponse>& response) {
+                ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(response.inner.meta, *tx, includeUncommitted);
+
+                BlockPayload blockData;
+                if (!store_->get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+
+                response.inner.meta.size = blockData.size;
+                response.inner.meta.committedSize = blockData.size;
+                response.inner.meta.root = blockData.root;
             },
             on_completion);
     };

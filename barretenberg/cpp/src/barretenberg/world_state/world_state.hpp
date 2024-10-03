@@ -229,7 +229,12 @@ class WorldState {
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
     Fork::SharedPtr create_new_fork(index_t blockNumber);
 
-    static bool include_uncommitted(WorldStateRevision rev);
+    static bb::fr compute_initial_archive(StateReference initial_state_ref);
+
+    static StateReference get_state_reference(WorldStateRevision revision,
+                                              Fork::SharedPtr fork,
+                                              bool initial_state = false);
+
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);
 };
@@ -259,7 +264,7 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
         if (rev.blockNumber) {
             wrapper->tree->get_leaf(leaf, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
-            wrapper->tree->get_leaf(leaf, include_uncommitted(rev), callback);
+            wrapper->tree->get_leaf(leaf, rev.includeUncommitted, callback);
         }
         signal.wait_for_level();
 
@@ -276,17 +281,22 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleT
 
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
 
-    bool uncommitted = include_uncommitted(revision);
     std::optional<T> leaf;
     Signal signal;
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
-        wrapper.tree->get_leaf(leaf_index, uncommitted, [&signal, &leaf](const TypedResponse<GetLeafResponse>& resp) {
+        auto callback = [&signal, &leaf](const TypedResponse<GetLeafResponse>& resp) {
             if (resp.inner.leaf.has_value()) {
                 leaf = resp.inner.leaf.value();
             }
             signal.signal_level();
-        });
+        };
+
+        if (revision.blockNumber) {
+            wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
+        } else {
+            wrapper.tree->get_leaf(leaf_index, revision.includeUncommitted, callback);
+        }
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
@@ -300,9 +310,9 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleT
         };
 
         if (revision.blockNumber) {
-            wrapper.tree->get_leaf(leaf_index, revision.blockNumber, uncommitted, callback);
+            wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
-            wrapper.tree->get_leaf(leaf_index, uncommitted, callback);
+            wrapper.tree->get_leaf(leaf_index, revision.includeUncommitted, callback);
         }
     }
 
@@ -317,7 +327,6 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
                                                    index_t start_index) const
 {
     using namespace crypto::merkle_tree;
-    bool uncommitted = include_uncommitted(rev);
     std::optional<index_t> index;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
@@ -332,9 +341,9 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, uncommitted, callback);
+            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
+            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
         }
 
     } else {
@@ -343,9 +352,9 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, uncommitted, callback);
+            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
+            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
         }
     }
 
