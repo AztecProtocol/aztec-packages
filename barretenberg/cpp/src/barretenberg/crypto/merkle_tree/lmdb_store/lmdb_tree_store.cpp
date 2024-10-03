@@ -1,4 +1,5 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
@@ -14,6 +15,7 @@
 #include <lmdb.h>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
@@ -39,10 +41,23 @@ int block_key_cmp(const MDB_val* a, const MDB_val* b)
     return value_cmp<uint64_t>(a, b);
 }
 
+int index_key_cmp(const MDB_val* a, const MDB_val* b)
+{
+    return value_cmp<uint64_t>(a, b);
+}
+
+std::ostream& operator<<(std::ostream& os, const StatsMap& stats)
+{
+    for (const auto& it : stats) {
+        os << it.second << std::endl;
+    }
+    return os;
+}
+
 LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
     : _name(std::move(name))
     , _directory(std::move(directory))
-    , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 4, maxNumReaders))
+    , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 5, maxNumReaders))
 {
 
     {
@@ -72,6 +87,13 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
             _environment, tx, _name + std::string("leaf pre-images"), false, false, fr_key_cmp);
         tx.commit();
     }
+
+    {
+        LMDBDatabaseCreationTransaction tx(_environment);
+        _leafIndexToKeyDatabase = std::make_unique<LMDBDatabase>(
+            _environment, tx, _name + std::string("leaf keys"), false, false, index_key_cmp);
+        tx.commit();
+    }
 }
 
 LMDBTreeStore::WriteTransaction::Ptr LMDBTreeStore::create_write_transaction() const
@@ -82,6 +104,24 @@ LMDBTreeStore::ReadTransaction::Ptr LMDBTreeStore::create_read_transaction()
 {
     _environment->wait_for_reader();
     return std::make_unique<LMDBTreeReadTransaction>(_environment);
+}
+
+void LMDBTreeStore::get_stats(StatsMap& stats, ReadTransaction& tx)
+{
+
+    MDB_stat stat;
+    MDB_envinfo info;
+    call_lmdb_func(mdb_env_info, _environment->underlying(), &info);
+    call_lmdb_func(mdb_stat, tx.underlying(), _blockDatabase->underlying(), &stat);
+    stats["blocks"] = DBStats("block", info, stat);
+    call_lmdb_func(mdb_stat, tx.underlying(), _leafHashToPreImageDatabase->underlying(), &stat);
+    stats["leaf preimages"] = DBStats("leaf preimages", info, stat);
+    call_lmdb_func(mdb_stat, tx.underlying(), _leafValueToIndexDatabase->underlying(), &stat);
+    stats["leaf indices"] = DBStats("leaf indices", info, stat);
+    call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
+    stats["nodes"] = DBStats("nodes", info, stat);
+    call_lmdb_func(mdb_stat, tx.underlying(), _leafIndexToKeyDatabase->underlying(), &stat);
+    stats["leaf keys"] = DBStats("leaf keys", info, stat);
 }
 
 void LMDBTreeStore::write_block_data(uint64_t blockNumber,
@@ -138,7 +178,15 @@ void LMDBTreeStore::write_leaf_indices(const fr& leafValue, const Indices& indic
     msgpack::pack(buffer, indices);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
     FrKeyType key(leafValue);
+    // std::cout << "Writing leaf indices by key " << key << std::endl;
     tx.put_value<FrKeyType>(key, encoded, *_leafValueToIndexDatabase);
+}
+
+void LMDBTreeStore::delete_leaf_indices(const fr& leafValue, LMDBTreeStore::WriteTransaction& tx)
+{
+    FrKeyType key(leafValue);
+    // std::cout << "Deleting leaf indices by key " << key << std::endl;
+    tx.delete_value(key, *_leafValueToIndexDatabase);
 }
 
 bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)
@@ -163,7 +211,7 @@ void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTran
         throw std::runtime_error("Failed to find node when attempting to increases reference count");
     }
     ++nodePayload.ref;
-    std::cout << "Incrementing siblng at " << nodeHash << ", to " << nodePayload.ref << std::endl;
+    // std::cout << "Incrementing siblng at " << nodeHash << ", to " << nodePayload.ref << std::endl;
     write_node(nodeHash, nodePayload, tx);
 }
 
@@ -176,7 +224,7 @@ void LMDBTreeStore::set_or_increment_node_reference_count(const fr& nodeHash,
     get_node_data(nodeHash, nodeData, tx);
     // Increment now to the correct value
     ++nodeData.ref;
-    std::cout << "Setting node at " << nodeHash << ", to " << nodeData.ref << std::endl;
+    // std::cout << "Setting node at " << nodeHash << ", to " << nodeData.ref << std::endl;
     write_node(nodeHash, nodeData, tx);
 }
 
@@ -187,11 +235,11 @@ void LMDBTreeStore::decrement_node_reference_count(const fr& nodeHash, NodePaylo
         throw std::runtime_error("Failed to find node when attempting to increases reference count");
     }
     if (--nodeData.ref == 0) {
-        std::cout << "Deleting node at " << nodeHash << std::endl;
+        // std::cout << "Deleting node at " << nodeHash << std::endl;
         tx.delete_value(nodeHash, *_nodeDatabase);
         return;
     }
-    std::cout << "Updating node at " << nodeHash << " ref is now " << nodeData.ref << std::endl;
+    // std::cout << "Updating node at " << nodeHash << " ref is now " << nodeData.ref << std::endl;
     write_node(nodeHash, nodeData, tx);
 }
 
@@ -221,6 +269,19 @@ fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
     }
     return key;
+}
+
+void LMDBTreeStore::write_leaf_key_by_index(const fr& leafKey, const index_t& index, WriteTransaction& tx)
+{
+    std::vector<uint8_t> data = to_buffer(leafKey);
+    LeafIndexKeyType key(index);
+    tx.put_value<LeafIndexKeyType>(key, data, *_leafIndexToKeyDatabase);
+}
+
+void LMDBTreeStore::delete_all_leaf_keys_after_index(const index_t& index, WriteTransaction& tx)
+{
+    LeafIndexKeyType key(index);
+    tx.delete_all_values_greater_or_equal_key(key, *_leafIndexToKeyDatabase);
 }
 
 } // namespace bb::crypto::merkle_tree

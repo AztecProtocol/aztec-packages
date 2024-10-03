@@ -333,12 +333,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (!leaf_hash.has_value()) {
+                    std::cout << "Here " << std::endl;
                     response.success = false;
                     return;
                 }
                 std::optional<IndexedLeafValueType> leaf =
                     store_->get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
                 if (!leaf.has_value()) {
+                    std::cout << "Or Here " << std::endl;
                     response.success = false;
                     return;
                 }
@@ -1041,6 +1043,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
                         //           << std::endl;
 
+                        // std::cout << "Low leaf found at index " << low_leaf_index << " index of new leaf "
+                        //           << index_of_new_leaf << std::endl;
+
                         store_->put_cached_leaf_by_index(low_leaf_index, low_leaf);
                         // leaves_pre[low_leaf_index] = low_leaf;
                         insertion.low_leaf = low_leaf;
@@ -1051,9 +1056,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         // Update the current leaf's value, don't change it's link
                         IndexedLeafValueType replacement_leaf =
                             IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextValue);
-                        IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
-                        // don't update the index for this empty leaf
-                        store_->set_leaf_key_at_index(index_of_new_leaf, empty_leaf);
+                        // IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
+                        //  don't update the index for this empty leaf
+                        // std::cout << "Low leaf updated at index " << low_leaf_index << " index of new leaf "
+                        //           << index_of_new_leaf << std::endl;
+                        // store_->set_leaf_key_at_index(index_of_new_leaf, empty_leaf);
                         store_->put_cached_leaf_by_index(low_leaf_index, replacement_leaf);
                         insertion.low_leaf = replacement_leaf;
                         // The set of appended leaves already has an empty leaf in the slot at index

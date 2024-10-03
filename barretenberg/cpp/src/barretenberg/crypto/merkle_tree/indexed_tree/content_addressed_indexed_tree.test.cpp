@@ -283,10 +283,13 @@ void check_historic_sibling_path(TypeOfTree& tree,
                                  index_t index,
                                  index_t blockNumber,
                                  const fr_sibling_path& expected_sibling_path,
-                                 bool includeUncommitted = true)
+                                 bool includeUncommitted = true,
+                                 bool expected_success = true)
 {
-    fr_sibling_path path = get_historic_sibling_path(tree, blockNumber, index, includeUncommitted);
-    EXPECT_EQ(path, expected_sibling_path);
+    fr_sibling_path path = get_historic_sibling_path(tree, blockNumber, index, includeUncommitted, expected_success);
+    if (expected_success) {
+        EXPECT_EQ(path, expected_sibling_path);
+    }
 }
 
 template <typename TypeOfTree>
@@ -340,11 +343,45 @@ template <typename LeafValueType, typename TypeOfTree>
 void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values)
 {
     Signal signal;
-    auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>&) -> void {
-        signal.signal_level();
-    };
+    auto completion = [&](const TypedResponse<AddDataResponse>&) -> void { signal.signal_level(); };
 
     tree.add_or_update_values(values, completion);
+    signal.wait_for_level();
+}
+
+template <typename TypeOfTree>
+void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.remove_historic_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
+template <typename TypeOfTree>
+void unwind_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.unwind_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
+template <typename TypeOfTree> void check_block_height(TypeOfTree& tree, index_t expected_block_height)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.meta.blockHeight, expected_block_height);
+        signal.signal_level();
+    };
+    tree.get_meta_data(true, completion);
     signal.wait_for_level();
 }
 
@@ -1617,4 +1654,711 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_histo
 
     // It should be impossible to commit using the image
     commit_tree(treeAtBlock2, false);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       0       0        0       0       0       0
+     *  val       0       0       0       0        0       0       0       0
+     *  nextIdx   1       0       0       0        0       0       0       0
+     *  nextVal   1       0       0       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType zero_leaf = create_indexed_public_data_leaf(0, 0, 1, 1);
+    IndexedPublicDataLeafType one_leaf = create_indexed_public_data_leaf(1, 0, 0, 0);
+    check_size(tree, current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), zero_leaf);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), one_leaf);
+
+    /**
+     * Add new slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 5));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+
+    auto leaf1AtBlock1 = PublicDataLeafValue(1, 0);
+    check_block_and_size_data(db, 1, current_size, true);
+
+    /**
+     * Add new slot:value 10:20:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10        0       0       0       0
+     *  val       0       0       5       20        0       0       0       0
+     *  nextIdx   1       3       0       2         0       0       0       0
+     *  nextVal   1       10      0       30        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(10, 20));
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+
+    check_block_and_size_data(db, 2, current_size, true);
+
+    auto leaf2AtBlock2 = PublicDataLeafValue(30, 5);
+    check_historic_leaf(tree, leaf1AtBlock1, 1, 1, true);
+
+    // shoudl find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    /**
+     * Update value at slot 30 to 6:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       0       0       0
+     *  val       0       0       6       20       0       0       0       0
+     *  nextIdx   1       3       0       2        0       0       0       0
+     *  nextVal   1       10      0       30       0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 6));
+    // The size still increases as we pad with an empty leaf
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+
+    check_block_and_size_data(db, 3, current_size, true);
+
+    auto leaf2AtBlock3 = PublicDataLeafValue(30, 6);
+    check_historic_leaf(tree, leaf2AtBlock2, 2, 2, true);
+
+    // should find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    /**
+     * Add new value slot:value 50:8:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       50      0       0
+     *  val       0       0       6       20       0       8       0       0
+     *  nextIdx   1       3       5       2        0       0       0       0
+     *  nextVal   1       10      50      30       0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(50, 8));
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 5, 50));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 5), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+    check_block_and_size_data(db, 4, current_size, true);
+
+    check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
+
+    // should not be found at block 1
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
+    // should be found at block
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
+
+    GetLowIndexedLeafResponse lowLeaf = get_historic_low_leaf(tree, 1, PublicDataLeafValue(20, 0));
+    EXPECT_EQ(lowLeaf.index, 1);
+
+    lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(20, 0));
+    EXPECT_EQ(lowLeaf.index, 3);
+
+    lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(60, 0));
+    EXPECT_EQ(lowLeaf.index, 2);
+
+    // remove historical block 1
+    remove_historic_block(tree, 1);
+
+    // Historic queries against block 1 should no longer work
+    check_historic_leaf(tree, leaf1AtBlock1, 1, 1, false);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, false);
+
+    // Queries against block 2 should work
+    check_historic_leaf(tree, leaf2AtBlock2, 2, 2, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    // now remove block 2 and queries against it should no longer work
+    remove_historic_block(tree, 2);
+    check_historic_leaf(tree, leaf2AtBlock2, 2, 2, false);
+
+    // size doesn't matter, should fail to find the data
+    check_block_and_size_data(db, 1, current_size, false);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       0       0        0       0       0       0
+     *  val       0       0       0       0        0       0       0       0
+     *  nextIdx   1       0       0       0        0       0       0       0
+     *  nextVal   1       0       0       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType zero_leaf = create_indexed_public_data_leaf(0, 0, 1, 1);
+    IndexedPublicDataLeafType one_leaf = create_indexed_public_data_leaf(1, 0, 0, 0);
+    check_size(tree, current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), zero_leaf);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), one_leaf);
+
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+
+    check_indices_data(db, 0, 0, true, true);
+    check_indices_data(db, 1, 1, true, true);
+
+    /**
+     * Add new slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 5));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+
+    check_block_and_size_data(db, 1, current_size, true);
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+
+    check_indices_data(db, 30, 2, true, true);
+
+    auto leaf1AtBlock1 = PublicDataLeafValue(1, 0);
+
+    /**
+     * Add new slot:value 10:20:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10        0       0       0       0
+     *  val       0       0       5       20        0       0       0       0
+     *  nextIdx   1       3       0       2         0       0       0       0
+     *  nextVal   1       10      0       30        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(10, 20));
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 3, 10), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(10, 20, 2, 30), true);
+
+    check_indices_data(db, 10, 3, true, true);
+
+    check_block_and_size_data(db, 2, current_size, true);
+
+    auto leaf2AtBlock2 = PublicDataLeafValue(30, 5);
+    check_historic_leaf(tree, leaf1AtBlock1, 1, 1, true);
+
+    // shoudl find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    /**
+     * Update value at slot 30 to 6:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       0       0       0
+     *  val       0       0       6       20       0       0       0       0
+     *  nextIdx   1       3       0       2        0       0       0       0
+     *  nextVal   1       10      0       30       0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 6));
+    // The size still increases as we pad with an empty leaf
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 3, 10), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(10, 20, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 6, 0, 0), true);
+
+    // Zero leaves should not have their indices added
+    check_indices_data(db, 0, 4, true, false);
+
+    check_block_and_size_data(db, 3, current_size, true);
+
+    auto leaf2AtBlock3 = PublicDataLeafValue(30, 6);
+    check_historic_leaf(tree, leaf2AtBlock2, 2, 2, true);
+
+    // should find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    /**
+     * Add new value slot:value 50:8:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       50      0       0
+     *  val       0       0       6       20       0       8       0       0
+     *  nextIdx   1       3       5       2        0       0       0       0
+     *  nextVal   1       10      50      30       0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(50, 8));
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 5, 50));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 5), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+    check_indices_data(db, 50, 5, true, true);
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 3, 10), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(10, 20, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 6, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(50, 8, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 6, 5, 50), true);
+
+    check_block_and_size_data(db, 4, current_size, true);
+
+    check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
+
+    // should not be found at block 1
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
+    // should be found at block
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
+
+    GetLowIndexedLeafResponse lowLeaf = get_historic_low_leaf(tree, 1, PublicDataLeafValue(20, 0));
+    EXPECT_EQ(lowLeaf.index, 1);
+
+    lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(20, 0));
+    EXPECT_EQ(lowLeaf.index, 3);
+
+    lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(60, 0));
+    EXPECT_EQ(lowLeaf.index, 2);
+
+    unwind_block(tree, 4);
+
+    // Index 5 should be removed
+    check_indices_data(db, 50, 5, false, false);
+    // The pre-images created before block 4 should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 3, 10), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(10, 20, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 6, 0, 0), true);
+
+    // The pre-images created in block 4 should be gone
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(50, 8, 0, 0), false);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 6, 5, 50), false);
+
+    check_size(tree, --current_size);
+
+    // should fail to find block 4
+    check_block_and_size_data(db, 4, current_size, false);
+
+    // block 3 should work
+    check_block_and_size_data(db, 3, current_size, true);
+
+    // should fail to find the leaf at index 5
+    check_find_leaf_index(tree, PublicDataLeafValue(50, 8), 5, false);
+    check_find_leaf_index_from(tree, PublicDataLeafValue(50, 8), 0, 5, false);
+
+    // the leaf at index 2 should no longer be as it was after block 5
+    EXPECT_NE(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 5, 50));
+
+    // it should be as it was after block 4
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+
+    unwind_block(tree, 3);
+
+    // The pre-images created before block 3 should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 3, 10), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(10, 20, 2, 30), true);
+
+    check_size(tree, --current_size);
+
+    // the leaf at index 2 should no longer be as it was after block 4
+    EXPECT_NE(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+
+    // it should be as it was after block 3
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_duplicate_block)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       0       0        0       0       0       0
+     *  val       0       0       0       0        0       0       0       0
+     *  nextIdx   1       0       0       0        0       0       0       0
+     *  nextVal   1       0       0       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType zero_leaf = create_indexed_public_data_leaf(0, 0, 1, 1);
+    IndexedPublicDataLeafType one_leaf = create_indexed_public_data_leaf(1, 0, 0, 0);
+    check_size(tree, current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), zero_leaf);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), one_leaf);
+
+    print_store_data(db, std::cout);
+
+    /**
+     * Add new slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 5));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+    fr rootAfterBlock1 = get_root(tree, false);
+    fr_sibling_path pathAfterBlock1 = get_sibling_path(tree, 0, false);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+
+    check_block_and_size_data(db, 1, current_size, true);
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+
+    check_indices_data(db, 30, 2, true, true);
+
+    print_store_data(db, std::cout);
+
+    /**
+     * Update slot:value 30:8:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       8       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 8));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+    fr rootAfterBlock2 = get_root(tree, false);
+    fr_sibling_path pathAfterBlock2 = get_sibling_path(tree, 0, false);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 8, 0, 0));
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 8, 0, 0), true);
+
+    check_indices_data(db, 30, 2, true, true);
+
+    print_store_data(db, std::cout);
+
+    /**
+     * Revert slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 5));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 8, 0, 0), true);
+
+    check_indices_data(db, 30, 2, true, true);
+
+    print_store_data(db, std::cout);
+
+    // Unwind block 3 and the state should be reverted back to block 2
+    unwind_block(tree, 3);
+
+    std::cout << "AFTER UNWIND" << std::endl;
+    print_store_data(db, std::cout);
+
+    check_root(tree, rootAfterBlock2);
+    check_sibling_path(tree, 0, pathAfterBlock2, false);
+    check_size(tree, --current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 8, 0, 0));
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 8, 0, 0), true);
+
+    check_indices_data(db, 30, 2, true, true);
+
+    // Unwind block 2 and the state should be reverted back to block 1
+    unwind_block(tree, 2);
+
+    std::cout << "AFTER UNWIND" << std::endl;
+    print_store_data(db, std::cout);
+
+    check_root(tree, rootAfterBlock1);
+    check_sibling_path(tree, 0, pathAfterBlock1, false);
+    check_size(tree, --current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+
+    // All historical pre-images should be present
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, zero_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, one_leaf, true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(1, 0, 2, 30), true);
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 5, 0, 0), true);
+
+    // Check the pre-image was removed
+    check_leaf_by_hash<PublicDataLeafValue, HashPolicy>(db, create_indexed_public_data_leaf(30, 8, 0, 0), false);
+
+    check_indices_data(db, 30, 2, true, true);
+
+    // Now apply block 2 again and it should be moved forward back tot where it was
+    add_value(tree, PublicDataLeafValue(30, 8));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+    check_root(tree, rootAfterBlock2);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 8, 0, 0));
+}
+
+void test_nullifier_tree_unwind(std::string directory,
+                                std::string name,
+                                uint64_t mapSize,
+                                uint64_t maxReaders,
+                                uint32_t depth,
+                                uint32_t blockSize,
+                                uint32_t numBlocks,
+                                uint32_t numBlocksToUnwind,
+                                std::vector<fr> values)
+{
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, mapSize, maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(8);
+    TreeType tree(std::move(store), pool, blockSize);
+    NullifierMemoryTree<Poseidon2HashPolicy> memdb(depth, blockSize);
+
+    uint32_t batchSize = blockSize;
+
+    std::vector<fr_sibling_path> historicPathsZeroIndex;
+    std::vector<fr_sibling_path> historicPathsMaxIndex;
+    std::vector<fr> roots;
+
+    fr initialRoot = memdb.root();
+    fr_sibling_path initialPath = memdb.get_sibling_path(0);
+
+    std::vector<NullifierLeafValue> leafValues;
+    leafValues.reserve(values.size());
+    for (const fr& v : values) {
+        leafValues.emplace_back(v);
+    }
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<NullifierLeafValue> to_add;
+
+        for (size_t j = 0; j < batchSize; ++j) {
+            size_t ind = i * batchSize + j;
+            memdb.update_element(values[ind]);
+            to_add.push_back(leafValues[ind]);
+        }
+        // Indexed trees have an initial 'batch' inserted at startup
+        index_t expected_size = (i + 2) * batchSize;
+        add_values(tree, to_add);
+        commit_tree(tree);
+
+        historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
+        historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
+        roots.push_back(memdb.root());
+        check_root(tree, memdb.root());
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
+        check_size(tree, expected_size);
+        check_block_and_size_data(db, i + 1, expected_size, true);
+        check_block_and_root_data(db, i + 1, memdb.root(), true);
+    }
+
+    const uint32_t blocksToRemove = numBlocksToUnwind;
+    for (uint32_t i = 0; i < blocksToRemove; i++) {
+        const index_t blockNumber = numBlocks - i;
+
+        std::cout << "UNWIND FOR BLOCK " << blockNumber << std::endl;
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
+        unwind_block(tree, blockNumber);
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+
+        const index_t previousValidBlock = blockNumber - 1;
+        // Indexed trees have an initial 'batch' inserted at startup
+        index_t deletedBlockStartIndex = (1 + previousValidBlock) * batchSize;
+        index_t deletedBlockStartIndexIntoLocalValues = previousValidBlock * batchSize;
+
+        check_block_height(tree, previousValidBlock);
+        check_size(tree, deletedBlockStartIndex);
+        check_root(tree, previousValidBlock == 0 ? initialRoot : roots[previousValidBlock - 1]);
+
+        // The zero index sibling path should be as it was at the previous block
+        check_sibling_path(tree,
+                           0,
+                           previousValidBlock == 0 ? initialPath : historicPathsZeroIndex[previousValidBlock - 1],
+                           false,
+                           true);
+
+        // Trying to find leaves appended in the block that was removed should fail
+        get_leaf<NullifierLeafValue>(tree, 1 + deletedBlockStartIndex, false, false);
+
+        check_find_leaf_index(
+            tree, leafValues[1 + deletedBlockStartIndexIntoLocalValues], 1 + deletedBlockStartIndex, false);
+
+        for (index_t j = 0; j < numBlocks; j++) {
+            index_t historicBlockNumber = j + 1;
+            bool expectedSuccess = historicBlockNumber <= previousValidBlock;
+            std::cout << "CHECK HERE " << historicBlockNumber << " prev " << previousValidBlock << " expected "
+                      << expectedSuccess << std::endl;
+            check_historic_sibling_path(
+                tree, 0, historicBlockNumber, historicPathsZeroIndex[j], false, expectedSuccess);
+            index_t maxSizeAtBlock = ((j + 2) * batchSize) - 1;
+            check_historic_sibling_path(
+                tree, maxSizeAtBlock, historicBlockNumber, historicPathsMaxIndex[j], false, expectedSuccess);
+
+            const index_t leafIndex = 1;
+            const index_t expectedIndexInTree = leafIndex + batchSize;
+            check_historic_leaf(
+                tree, leafValues[leafIndex], expectedIndexInTree, historicBlockNumber, expectedSuccess, false);
+            check_historic_find_leaf_index(
+                tree, leafValues[leafIndex], historicBlockNumber, expectedIndexInTree, expectedSuccess, false);
+            check_historic_find_leaf_index_from(
+                tree, leafValues[leafIndex], historicBlockNumber, 0, expectedIndexInTree, expectedSuccess, false);
+        }
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_large_blocks)
+{
+
+    constexpr uint32_t numBlocks = 8;
+    constexpr uint32_t numBlocksToUnwind = 4;
+    std::vector<uint32_t> blockSizes = { 2, 4, 8, 16, 32 };
+    for (const uint32_t& size : blockSizes) {
+        uint32_t actualSize = size * 1024;
+        std::vector<fr> values = create_values(actualSize * numBlocks);
+        std::stringstream ss;
+        ss << "DB " << actualSize;
+        test_nullifier_tree_unwind(
+            _directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
 }

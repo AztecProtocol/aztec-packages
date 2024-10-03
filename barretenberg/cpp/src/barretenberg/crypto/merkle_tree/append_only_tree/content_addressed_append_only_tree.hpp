@@ -413,7 +413,7 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
             // std::cout << "No child" << std::endl;
             return std::nullopt;
         }
-        // std::cout << "Found child" << std::endl;
+        // std::cout << "Found child " << child.value() << std::endl;
 
         hash = child.value();
 
@@ -674,7 +674,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
                 if (blockNumber == 0) {
                     throw std::runtime_error("Invalid block number");
                 }
-                store_.remove_block(blockNumber, false);
+                store_->remove_block(blockNumber, false);
             },
             on_completion);
     };
@@ -691,7 +691,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
                 if (blockNumber == 0) {
                     throw std::runtime_error("Invalid block number");
                 }
-                store_.remove_block(blockNumber, true);
+                store_->remove_block(blockNumber, true);
             },
             on_completion);
     };
