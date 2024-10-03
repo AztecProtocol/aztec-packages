@@ -189,16 +189,19 @@ function getDefaultAllowedSetupFunctions(): AllowedElement[] {
     // needed for claiming on the same tx as a spend
     {
       address: FeeJuiceAddress,
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
     // needed for private transfers via FPC
     {
       classId: getContractClassFromArtifact(TokenContractArtifact).id,
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
     },
   ];
 }

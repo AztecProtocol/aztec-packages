@@ -480,6 +480,11 @@ contract AvmTest {
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 
+    #[public]
+    fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
+        AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
+    }
+
     /**
      * Enqueue a public call from private
      */
