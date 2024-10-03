@@ -46,7 +46,7 @@ export async function createAccounts(
     // the results get stored within the account object. By calling it here we increase the probability of all the
     // accounts being deployed in the same block because it makes the deploy() method basically instant.
     await account.getDeployMethod().then(d =>
-      d.prove({
+      d.create({
         contractAddressSalt: account.salt,
         skipClassRegistration: true,
         skipPublicDeployment: true,
