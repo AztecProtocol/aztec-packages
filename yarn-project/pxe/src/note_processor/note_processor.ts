@@ -12,7 +12,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { produceNoteDaos } from './produce_note_dao.js';
+import { produceNoteDaos } from './utils/produce_note_daos.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.

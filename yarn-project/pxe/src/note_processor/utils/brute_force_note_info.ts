@@ -1,6 +1,6 @@
 import { type L1NotePayload, type TxHash } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { Fr } from '@aztec/foundation/fields';
 import { type AcirSimulator } from '@aztec/simulator';
 
 export interface NoteInfo {

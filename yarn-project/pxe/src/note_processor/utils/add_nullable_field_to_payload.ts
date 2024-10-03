@@ -2,7 +2,7 @@ import { L1NotePayload, Note } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/foundation/fields';
 import { ContractNotFoundError } from '@aztec/simulator';
 
-import { type PxeDatabase } from '../database/pxe_database.js';
+import { type PxeDatabase } from '../../database/pxe_database.js';
 
 /**
  * Inserts publicly delivered nullable fields into the note payload.
