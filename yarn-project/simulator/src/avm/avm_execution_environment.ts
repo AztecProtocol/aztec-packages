@@ -14,7 +14,7 @@ export class AvmExecutionEnvironment {
     public readonly functionSelector: FunctionSelector, // may be temporary (#7224)
     public readonly contractCallDepth: Fr,
     public readonly transactionFee: Fr,
-    public readonly historicalHeader: Header,
+    public readonly header: Header,
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
     public readonly isDelegateCall: boolean,
@@ -35,7 +35,7 @@ export class AvmExecutionEnvironment {
       functionSelector,
       this.contractCallDepth.add(Fr.ONE),
       this.transactionFee,
-      this.historicalHeader,
+      this.header,
       this.globals,
       isStaticCall,
       isDelegateCall,

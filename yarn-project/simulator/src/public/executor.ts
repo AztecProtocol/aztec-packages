@@ -23,7 +23,7 @@ export class PublicExecutor {
 
   constructor(
     private readonly worldStateDB: WorldStateDB,
-    private readonly historicalHeader: Header,
+    private readonly header: Header,
     client: TelemetryClient,
   ) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
@@ -68,7 +68,7 @@ export class PublicExecutor {
 
     const avmExecutionEnv = createAvmExecutionEnvironment(
       executionRequest,
-      this.historicalHeader,
+      this.header,
       globalVariables,
       transactionFee,
     );
@@ -125,7 +125,7 @@ export class PublicExecutor {
  */
 function createAvmExecutionEnvironment(
   executionRequest: PublicExecutionRequest,
-  historicalHeader: Header,
+  header: Header,
   globalVariables: GlobalVariables,
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
@@ -136,7 +136,7 @@ function createAvmExecutionEnvironment(
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
-    historicalHeader,
+    header,
     globalVariables,
     executionRequest.callContext.isStaticCall,
     executionRequest.callContext.isDelegateCall,
