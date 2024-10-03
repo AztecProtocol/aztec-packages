@@ -2,7 +2,6 @@ mod types;
 
 use dep::aztec::macros::aztec;
 
-
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 #[aztec]
 contract Spam {
@@ -32,7 +31,12 @@ contract Spam {
     }
 
     #[private]
-    fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool, call_recursive_spam: bool) {
+    fn spam(
+        nullifier_seed: Field,
+        nullifier_count: u32,
+        call_public: bool,
+        call_recursive_spam: bool
+    ) {
         let caller = context.msg_sender();
         let caller_keys = get_public_keys(caller);
         let amount = U128::from_integer(1);
