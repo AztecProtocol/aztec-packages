@@ -18,6 +18,7 @@ import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNode } from './prover-node.js';
+import { HttpQuoteProvider } from './quote-provider/http.js';
 import { SimpleQuoteProvider } from './quote-provider/simple.js';
 import { QuoteSigner } from './quote-signer.js';
 
@@ -78,7 +79,9 @@ export async function createProverNode(
 }
 
 function createQuoteProvider(config: QuoteProviderConfig) {
-  return new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);
+  return config.quoteProviderUrl
+    ? new HttpQuoteProvider(config.quoteProviderUrl)
+    : new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);
 }
 
 function createQuoteSigner(config: ProverNodeConfig) {
