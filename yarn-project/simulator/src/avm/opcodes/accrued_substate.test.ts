@@ -362,7 +362,7 @@ describe('Accrued Substate', () => {
         /*contentOffset=*/ value1Offset,
       ).execute(context);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(/*recipient=*/ value0, /*content=*/ value1);
+      expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(address, /*recipient=*/ value0, /*content=*/ value1);
     });
   });
 

@@ -2,7 +2,7 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
 
 use crate::{types::transparent_note::TransparentNote, Token};
@@ -43,7 +43,7 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
