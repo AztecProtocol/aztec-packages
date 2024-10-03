@@ -1,16 +1,10 @@
 use std::fmt::{self, Display};
 use std::fmt::{Debug, Formatter};
 
+use acvm::acir::brillig::MemoryAddress;
 use acvm::{AcirField, FieldElement};
 
 use crate::opcodes::AvmOpcode;
-
-/// Common values of the indirect instruction flag
-pub const ALL_DIRECT: u8 = 0b00000000;
-pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
-pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
-pub const SECOND_OPERAND_INDIRECT: u8 = 0b00000100;
-pub const THIRD_OPERAND_INDIRECT: u8 = 0b00001000;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
@@ -143,5 +137,62 @@ impl AvmOperand {
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::FF { value } => value.to_be_bytes(),
         }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct AddressingModeBuilder {
+    indirect: Vec<bool>,
+    relative: Vec<bool>,
+}
+
+impl AddressingModeBuilder {
+    fn is_relative(&self, address: &MemoryAddress) -> bool {
+        match address {
+            MemoryAddress::Relative(_) => true,
+            MemoryAddress::Direct(_) => false,
+        }
+    }
+
+    pub(crate) fn direct_operand(mut self, address: &MemoryAddress) -> Self {
+        self.relative.push(self.is_relative(address));
+        self.indirect.push(false);
+
+        self
+    }
+
+    pub(crate) fn indirect_operand(mut self, address: &MemoryAddress) -> Self {
+        self.relative.push(self.is_relative(address));
+        self.indirect.push(true);
+
+        self
+    }
+
+    fn build(self) -> u128 {
+        let num_operands = self.indirect.len();
+        assert!(num_operands <= 64);
+
+        let mut result = 0;
+        for (i, (indirect, relative)) in
+            self.indirect.into_iter().zip(self.relative.into_iter()).enumerate()
+        {
+            if indirect {
+                result |= 1 << i;
+            }
+            if relative {
+                result |= 1 << (num_operands + i);
+            }
+        }
+        result
+    }
+
+    pub(crate) fn build_u8(self) -> u8 {
+        // assert!(self.indirect.len() <= 4);
+        self.build() as u8
+    }
+
+    pub(crate) fn build_u16(self) -> u16 {
+        assert!(self.indirect.len() <= 8);
+        self.build() as u16
     }
 }

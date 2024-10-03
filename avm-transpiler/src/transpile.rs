@@ -10,10 +10,7 @@ use acvm::FieldElement;
 use noirc_errors::debug_info::DebugInfo;
 
 use crate::bit_traits::bits_needed_for;
-use crate::instructions::{
-    AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
-    SECOND_OPERAND_INDIRECT, THIRD_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
-};
+use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
@@ -81,9 +78,16 @@ pub fn brillig_to_avm(
                         _ => unreachable!(),
                     },
                 };
+
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(lhs)
+                            .direct_operand(rhs)
+                            .direct_operand(destination)
+                            .build_u8(),
+                    ),
                     tag: Some(AvmTypeTag::FIELD),
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
@@ -170,7 +174,13 @@ pub fn brillig_to_avm(
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(lhs)
+                            .direct_operand(rhs)
+                            .direct_operand(destination)
+                            .build_u8(),
+                    ),
                     tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
@@ -195,7 +205,12 @@ pub fn brillig_to_avm(
 
                 avm_instrs.push(AvmInstruction {
                     opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source)
+                            .direct_operand(destination)
+                            .build_u8(),
+                    ),
                     operands: vec![
                         make_operand(bits_needed, &source.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
@@ -206,7 +221,13 @@ pub fn brillig_to_avm(
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(offset_address)
+                            .direct_operand(size_address)
+                            .direct_operand(destination_address)
+                            .build_u8(),
+                    ),
                     operands: vec![
                         AvmOperand::U32 {
                             value: offset_address.to_usize() as u32, // cdOffset (calldata offset)
@@ -231,7 +252,9 @@ pub fn brillig_to_avm(
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_16,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default().direct_operand(condition).build_u8(),
+                    ),
                     operands: vec![
                         make_operand(16, &avm_loc),
                         make_operand(16, &condition.to_usize()),
@@ -247,7 +270,12 @@ pub fn brillig_to_avm(
             }
             BrilligOpcode::Mov { destination, source } => {
                 avm_instrs.push(generate_mov_instruction(
-                    Some(ALL_DIRECT),
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source)
+                            .direct_operand(destination)
+                            .build_u8(),
+                    ),
                     source.to_usize() as u32,
                     destination.to_usize() as u32,
                 ));
@@ -255,7 +283,14 @@ pub fn brillig_to_avm(
             BrilligOpcode::ConditionalMov { source_a, source_b, condition, destination } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CMOV,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_a)
+                            .direct_operand(source_b)
+                            .direct_operand(condition)
+                            .direct_operand(destination)
+                            .build_u8(),
+                    ),
                     operands: vec![
                         AvmOperand::U32 { value: source_a.to_usize() as u32 },
                         AvmOperand::U32 { value: source_b.to_usize() as u32 },
@@ -267,14 +302,24 @@ pub fn brillig_to_avm(
             }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(
-                    Some(ZEROTH_OPERAND_INDIRECT),
+                    Some(
+                        AddressingModeBuilder::default()
+                            .indirect_operand(source_pointer)
+                            .direct_operand(destination)
+                            .build_u8(),
+                    ),
                     source_pointer.to_usize() as u32,
                     destination.to_usize() as u32,
                 ));
             }
             BrilligOpcode::Store { destination_pointer, source } => {
                 avm_instrs.push(generate_mov_instruction(
-                    Some(FIRST_OPERAND_INDIRECT),
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source)
+                            .indirect_operand(destination_pointer)
+                            .build_u8(),
+                    ),
                     source.to_usize() as u32,
                     destination_pointer.to_usize() as u32,
                 ));
@@ -292,7 +337,7 @@ pub fn brillig_to_avm(
             BrilligOpcode::Stop { return_data_offset, return_data_size } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::RETURN,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AddressingModeBuilder::default().build_u8()),
                     operands: vec![
                         AvmOperand::U32 { value: *return_data_offset as u32 },
                         AvmOperand::U32 { value: *return_data_size as u32 },
@@ -313,7 +358,11 @@ pub fn brillig_to_avm(
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(ZEROTH_OPERAND_INDIRECT),
+                    indirect: Some(
+                        AddressingModeBuilder::default()
+                            .indirect_operand(&revert_data.pointer)
+                            .build_u8(),
+                    ),
                     operands: vec![
                         make_operand(bits_needed, &revert_data.pointer.to_usize()),
                         make_operand(bits_needed, &revert_data.size),
@@ -349,7 +398,7 @@ pub fn brillig_to_avm(
     // This should therefore not affect the program's execution.
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::MOV_16,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AddressingModeBuilder::default().build_u8()),
         operands: vec![AvmOperand::U16 { value: 0x18ca }, AvmOperand::U16 { value: 0x18ca }],
         ..Default::default()
     });
@@ -432,13 +481,13 @@ fn handle_external_call(
     let gas_offset = match gas {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
             assert!(size == 2, "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)");
-            pointer.to_usize() as u32
+            pointer
         }
         ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 2 (`[l2Gas, daGas]`)!"),
         _ => panic!("Call instruction's gas input should be a HeapArray"),
     };
     let address_offset = match &inputs[1] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's target address input should be a basic MemoryAddress",),
     };
     // The args are a slice, and this is represented as a (Field, HeapVector).
@@ -447,47 +496,54 @@ fn handle_external_call(
     // Observe that below, we use `inputs[3]` and therefore skip the length field.
     let args = inputs[3];
     let (args_offset, args_size_offset) = match args {
-        ValueOrArray::HeapVector(HeapVector { pointer, size }) => {
-            (pointer.to_usize() as u32, size.to_usize() as u32)
-        }
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
     let function_selector_offset = match &inputs[4] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's function selector input should be a basic MemoryAddress",),
     };
 
     let ret_offset_maybe = destinations[0];
     let (ret_offset, ret_size) = match ret_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.to_usize() as u32, size as u32),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
         ValueOrArray::HeapVector(_) => panic!("Call instruction's return data must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`let returnData: [Field; <size>] = ...`)!"),
         _ => panic!("Call instruction's returnData destination should be a HeapArray input"),
     };
     let success_offset = match &destinations[1] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
     };
     avm_instrs.push(AvmInstruction {
         opcode,
-        // (left to right)
-        //   * selector direct
-        //   * success offset direct
-        //   * (n/a) ret size is an immediate
-        //   * ret offset INDIRECT
-        //   * arg size offset direct
-        //   * args offset INDIRECT
-        //   * address offset direct
         //   * gas offset INDIRECT
-        indirect: Some(0b00010101),
+        //   * address offset direct
+        //   * args offset INDIRECT
+        //   * arg size offset direct
+        //   * ret offset INDIRECT
+        //   * (n/a) ret size is an immediate
+        //   * success offset direct
+        //   * selector direct
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .indirect_operand(&gas_offset)
+                .direct_operand(address_offset)
+                .indirect_operand(&args_offset)
+                .direct_operand(&args_size_offset)
+                .indirect_operand(&ret_offset)
+                .direct_operand(success_offset)
+                .direct_operand(function_selector_offset)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: gas_offset },
-            AvmOperand::U32 { value: address_offset },
-            AvmOperand::U32 { value: args_offset },
-            AvmOperand::U32 { value: args_size_offset },
-            AvmOperand::U32 { value: ret_offset },
+            AvmOperand::U32 { value: gas_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: address_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: args_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: args_size_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: ret_offset.to_usize() as u32 },
             AvmOperand::U32 { value: ret_size },
-            AvmOperand::U32 { value: success_offset },
-            AvmOperand::U32 { value: function_selector_offset },
+            AvmOperand::U32 { value: success_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: function_selector_offset.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -499,11 +555,8 @@ fn handle_cast(
     destination: &MemoryAddress,
     bit_size: BitSize,
 ) {
-    let source_offset = source.to_usize() as u32;
-    let dest_offset = destination.to_usize() as u32;
-
     let tag = tag_from_bit_size(bit_size);
-    avm_instrs.push(generate_cast_instruction(source_offset, false, dest_offset, false, tag));
+    avm_instrs.push(generate_cast_instruction(source, false, destination, false, tag));
 }
 
 /// Handle an AVM NOTEHASHEXISTS instruction
@@ -517,24 +570,30 @@ fn handle_note_hash_exists(
         [
             ValueOrArray::MemoryAddress(nh_offset),
             ValueOrArray::MemoryAddress(li_offset)
-        ] => (nh_offset.to_usize() as u32, li_offset.to_usize() as u32),
+        ] => (nh_offset, li_offset),
         _ => panic!(
             "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 2 inputs of type MemoryAddress, got {:?}", inputs
         ),
     };
     let exists_offset_operand = match &destinations[..] {
-        [ValueOrArray::MemoryAddress(offset)] => offset.to_usize() as u32,
+        [ValueOrArray::MemoryAddress(offset)] => offset,
         _ => panic!(
             "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 1 output of type MemoryAddress, got {:?}", destinations
         ),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NOTEHASHEXISTS,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(note_hash_offset_operand)
+                .direct_operand(leaf_index_offset_operand)
+                .direct_operand(exists_offset_operand)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: note_hash_offset_operand },
-            AvmOperand::U32 { value: leaf_index_offset_operand },
-            AvmOperand::U32 { value: exists_offset_operand },
+            AvmOperand::U32 { value: note_hash_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: leaf_index_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: exists_offset_operand.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -556,18 +615,21 @@ fn handle_emit_unencrypted_log(
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
     // The length field is redundant and we skipt it.
     let (message_offset, message_size_offset) = match &inputs[1] {
-        ValueOrArray::HeapVector(vec) => {
-            (vec.pointer.to_usize() as u32, vec.size.to_usize() as u32)
-        }
+        ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
         _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
         // The message array from Brillig is indirect.
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .indirect_operand(&message_size_offset)
+                .direct_operand(&message_size_offset)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: message_offset },
-            AvmOperand::U32 { value: message_size_offset },
+            AvmOperand::U32 { value: message_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: message_size_offset.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -593,7 +655,7 @@ fn handle_emit_note_hash_or_nullifier(
         );
     }
     let offset_operand = match &inputs[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
             "Transpiler does not know how to handle ForeignCall::{} with HeapArray/Vector inputs",
             function_name
@@ -601,8 +663,8 @@ fn handle_emit_note_hash_or_nullifier(
     };
     avm_instrs.push(AvmInstruction {
         opcode: if is_nullifier { AvmOpcode::EMITNULLIFIER } else { AvmOpcode::EMITNOTEHASH },
-        indirect: Some(ALL_DIRECT),
-        operands: vec![AvmOperand::U32 { value: offset_operand }],
+        indirect: Some(AddressingModeBuilder::default().direct_operand(offset_operand).build_u8()),
+        operands: vec![AvmOperand::U32 { value: offset_operand.to_usize() as u32 }],
         ..Default::default()
     });
 }
@@ -619,24 +681,30 @@ fn handle_nullifier_exists(
         panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}", destinations.len(), inputs.len());
     }
     let nullifier_offset_operand = match &inputs[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
     };
     let address_offset_operand = match &inputs[1] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
     };
     let exists_offset_operand = match &destinations[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NULLIFIEREXISTS,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(nullifier_offset_operand)
+                .direct_operand(address_offset_operand)
+                .direct_operand(exists_offset_operand)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: nullifier_offset_operand },
-            AvmOperand::U32 { value: address_offset_operand },
-            AvmOperand::U32 { value: exists_offset_operand },
+            AvmOperand::U32 { value: nullifier_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: address_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: exists_offset_operand.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -658,30 +726,36 @@ fn handle_l1_to_l2_msg_exists(
         );
     }
     let msg_hash_offset_operand = match &inputs[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
             "Transpiler does not know how to handle ForeignCall::L1TOL2MSGEXISTS with HeapArray/Vector inputs",
         ),
     };
     let msg_leaf_index_offset_operand = match &inputs[1] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
             "Transpiler does not know how to handle ForeignCall::L1TOL2MSGEXISTS with HeapArray/Vector inputs",
         ),
     };
     let exists_offset_operand = match &destinations[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
             "Transpiler does not know how to handle ForeignCall::L1TOL2MSGEXISTS with HeapArray/Vector inputs",
         ),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::L1TOL2MSGEXISTS,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(msg_hash_offset_operand)
+                .direct_operand(msg_leaf_index_offset_operand)
+                .direct_operand(exists_offset_operand)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: msg_hash_offset_operand },
-            AvmOperand::U32 { value: msg_leaf_index_offset_operand },
-            AvmOperand::U32 { value: exists_offset_operand },
+            AvmOperand::U32 { value: msg_hash_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: msg_leaf_index_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: exists_offset_operand.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -703,23 +777,28 @@ fn handle_send_l2_to_l1_msg(
         );
     }
     let recipient_offset_operand = match &inputs[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
             "Transpiler does not know how to handle ForeignCall::SENDL2TOL1MSG with HeapArray/Vector inputs",
         ),
     };
     let content_offset_operand = match &inputs[1] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!(
             "Transpiler does not know how to handle ForeignCall::SENDL2TOL1MSG with HeapArray/Vector inputs",
         ),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SENDL2TOL1MSG,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(recipient_offset_operand)
+                .direct_operand(content_offset_operand)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: recipient_offset_operand },
-            AvmOperand::U32 { value: content_offset_operand },
+            AvmOperand::U32 { value: recipient_offset_operand.to_usize() as u32 },
+            AvmOperand::U32 { value: content_offset_operand.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -762,7 +841,7 @@ fn handle_getter_instruction(
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.to_usize(),
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset,
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
@@ -786,10 +865,10 @@ fn handle_getter_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETENVVAR_16,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build_u8()),
         operands: vec![
             AvmOperand::U8 { value: var_idx as u8 },
-            AvmOperand::U16 { value: dest_offset as u16 },
+            AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -804,19 +883,18 @@ fn handle_const(
     indirect: bool,
 ) {
     let tag = tag_from_bit_size(*bit_size);
-    let dest = destination.to_usize() as u32;
-    avm_instrs.push(generate_set_instruction(tag, dest, value, indirect));
+    avm_instrs.push(generate_set_instruction(tag, destination, value, indirect));
 }
 
 /// Generates an AVM SET instruction.
 fn generate_set_instruction(
     tag: AvmTypeTag,
-    dest: u32,
+    dest: &MemoryAddress,
     value: &FieldElement,
     indirect: bool,
 ) -> AvmInstruction {
     let bits_needed_val = bits_needed_for(value);
-    let bits_needed_mem = if bits_needed_val >= 16 { 16 } else { bits_needed_for(&dest) };
+    let bits_needed_mem = if bits_needed_val >= 16 { 16 } else { bits_needed_for(dest) };
     assert!(bits_needed_mem <= 16);
     let bits_needed_opcode = bits_needed_val.max(bits_needed_mem);
 
@@ -832,41 +910,54 @@ fn generate_set_instruction(
 
     AvmInstruction {
         opcode: set_opcode,
-        indirect: if indirect { Some(ZEROTH_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
+        indirect: if indirect {
+            Some(AddressingModeBuilder::default().indirect_operand(dest).build_u8())
+        } else {
+            Some(AddressingModeBuilder::default().direct_operand(dest).build_u8())
+        },
         tag: Some(tag),
         operands: vec![
             make_operand(bits_needed_opcode, value),
-            make_operand(bits_needed_mem, &dest),
+            make_operand(bits_needed_mem, &(dest.to_usize())),
         ],
     }
 }
 
 /// Generates an AVM CAST instruction.
 fn generate_cast_instruction(
-    source: u32,
+    source: &MemoryAddress,
     source_indirect: bool,
-    destination: u32,
+    destination: &MemoryAddress,
     destination_indirect: bool,
     dst_tag: AvmTypeTag,
 ) -> AvmInstruction {
-    let bits_needed = bits_needed_for(&source).max(bits_needed_for(&destination));
+    let bits_needed = bits_needed_for(source).max(bits_needed_for(destination));
     let avm_opcode = match bits_needed {
         8 => AvmOpcode::CAST_8,
         16 => AvmOpcode::CAST_16,
         _ => panic!("CAST only supports 8 and 16 bit encodings, needed {}", bits_needed),
     };
-    let mut indirect_flags = ALL_DIRECT;
-    if source_indirect {
-        indirect_flags |= ZEROTH_OPERAND_INDIRECT;
-    }
-    if destination_indirect {
-        indirect_flags |= FIRST_OPERAND_INDIRECT;
-    }
+    let mut indirect_flags = AddressingModeBuilder::default();
+    indirect_flags = if source_indirect {
+        indirect_flags.indirect_operand(source)
+    } else {
+        indirect_flags.direct_operand(source)
+    };
+
+    indirect_flags = if destination_indirect {
+        indirect_flags.indirect_operand(destination)
+    } else {
+        indirect_flags.direct_operand(destination)
+    };
+
     AvmInstruction {
         opcode: avm_opcode,
-        indirect: Some(indirect_flags),
+        indirect: Some(indirect_flags.build_u8()),
         tag: Some(dst_tag),
-        operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &destination)],
+        operands: vec![
+            make_operand(bits_needed, &(source.to_usize())),
+            make_operand(bits_needed, &(destination.to_usize())),
+        ],
     }
 }
 
@@ -902,7 +993,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::SHA256COMPRESSION,
                 indirect: Some(
-                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | THIRD_OPERAND_INDIRECT,
+                    AddressingModeBuilder::default()
+                        .indirect_operand(&output.pointer)
+                        .indirect_operand(&hash_values.pointer)
+                        .direct_operand(&hash_values.size)
+                        .indirect_operand(&input.pointer)
+                        .direct_operand(&input.size)
+                        .build_u8(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: output_offset as u32 },
@@ -923,7 +1020,14 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(SECOND_OPERAND_INDIRECT),
+                indirect: Some(
+                    AddressingModeBuilder::default()
+                        .direct_operand(domain_separator)
+                        .direct_operand(output)
+                        .indirect_operand(&inputs.pointer)
+                        .direct_operand(&inputs.size)
+                        .build_u8(),
+                ),
                 operands: vec![
                     AvmOperand::U32 { value: index_offset as u32 },
                     AvmOperand::U32 { value: dest_offset as u32 },
@@ -945,7 +1049,12 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::POSEIDON2,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(
+                    AddressingModeBuilder::default()
+                        .indirect_operand(&message.pointer)
+                        .indirect_operand(&output.pointer)
+                        .build_u8(),
+                ),
                 operands: vec![
                     AvmOperand::U32 { value: input_state_offset as u32 },
                     AvmOperand::U32 { value: output_state_offset as u32 },
@@ -961,7 +1070,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::KECCAK,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(
+                    AddressingModeBuilder::default()
+                        .indirect_operand(&output.pointer)
+                        .indirect_operand(&message.pointer)
+                        .direct_operand(&message.size)
+                        .build_u8(),
+                ),
                 operands: vec![
                     AvmOperand::U32 { value: dest_offset as u32 },
                     AvmOperand::U32 { value: message_offset as u32 },
@@ -978,7 +1093,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::KECCAKF1600,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(
+                    AddressingModeBuilder::default()
+                        .indirect_operand(&output.pointer)
+                        .indirect_operand(&message.pointer)
+                        .direct_operand(&message.size)
+                        .build_u8(),
+                ),
                 operands: vec![
                     AvmOperand::U32 { value: dest_offset as u32 },
                     AvmOperand::U32 { value: message_offset as u32 },
@@ -995,7 +1116,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXLE,
-                indirect: Some(FIRST_OPERAND_INDIRECT),
+                indirect: Some(
+                    AddressingModeBuilder::default()
+                        .direct_operand(input)
+                        .indirect_operand(&output.pointer)
+                        .direct_operand(radix)
+                        .build_u8(),
+                ),
                 tag: None,
                 operands: vec![
                     AvmOperand::U32 { value: input_offset },
@@ -1018,7 +1145,17 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
             // The result (SIXTH operand) is indirect.
-            indirect: Some(0b1000000),
+            indirect: Some(
+                AddressingModeBuilder::default()
+                    .direct_operand(p1_x_offset)
+                    .direct_operand(p1_y_offset)
+                    .direct_operand(p1_infinite_offset)
+                    .direct_operand(p2_x_offset)
+                    .direct_operand(p2_y_offset)
+                    .direct_operand(p2_infinite_offset)
+                    .indirect_operand(&result.pointer)
+                    .build_u8(),
+            ),
             operands: vec![
                 AvmOperand::U32 { value: p1_x_offset.to_usize() as u32 },
                 AvmOperand::U32 { value: p1_y_offset.to_usize() as u32 },
@@ -1043,7 +1180,11 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::MSM,
                 indirect: Some(
-                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | SECOND_OPERAND_INDIRECT,
+                    AddressingModeBuilder::default()
+                        .indirect_operand(&points.pointer)
+                        .indirect_operand(&scalars.pointer)
+                        .indirect_operand(&outputs.pointer)
+                        .build_u8(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: points_offset as u32 },
@@ -1062,7 +1203,14 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let output_offset = output.pointer.to_usize();
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSENCOMMITMENT,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(
+                    AddressingModeBuilder::default()
+                        .indirect_operand(&inputs.pointer)
+                        .indirect_operand(&output.pointer)
+                        .direct_operand(&inputs.size)
+                        .direct_operand(domain_separator)
+                        .build_u8(),
+                ),
                 operands: vec![
                     AvmOperand::U32 { value: input_offset as u32 },
                     AvmOperand::U32 { value: output_offset as u32 },
@@ -1089,17 +1237,13 @@ fn handle_debug_log(
         );
     }
     let (message_offset, message_size) = match &inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            (pointer.to_usize() as u32, *size as u32)
-        }
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, *size as u32),
         _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
     };
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
     // The length field is redundant and we skipt it.
     let (fields_offset_ptr, fields_size_ptr) = match &inputs[2] {
-        ValueOrArray::HeapVector(HeapVector { pointer, size }) => {
-            (pointer.to_usize() as u32, size.to_usize() as u32)
-        }
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("List of fields for ForeignCall::DEBUGLOG should be a HeapVector (slice)."),
     };
     avm_instrs.push(AvmInstruction {
@@ -1109,14 +1253,20 @@ fn handle_debug_log(
         //  * fields_offset_ptr INDIRECT
         //  * (N/A) message_size is an immediate
         //  * message_offset direct
-        indirect: Some(0b011),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(message_offset)
+                .indirect_operand(fields_offset_ptr)
+                .direct_operand(fields_size_ptr)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: message_offset },
+            AvmOperand::U32 { value: message_offset.to_usize() as u32 },
             AvmOperand::U32 { value: message_size },
             // indirect
-            AvmOperand::U32 { value: fields_offset_ptr },
+            AvmOperand::U32 { value: fields_offset_ptr.to_usize() as u32 },
             // indirect
-            AvmOperand::U32 { value: fields_size_ptr },
+            AvmOperand::U32 { value: fields_size_ptr.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -1133,30 +1283,36 @@ fn handle_calldata_copy(
     assert!(destinations.len() == 1);
 
     let cd_offset = match inputs[0] {
-        ValueOrArray::MemoryAddress(address) => address.to_usize(),
+        ValueOrArray::MemoryAddress(address) => address,
         _ => panic!("CalldataCopy offset should be a memory address"),
     };
 
     let copy_size_offset = match inputs[1] {
-        ValueOrArray::MemoryAddress(address) => address.to_usize(),
+        ValueOrArray::MemoryAddress(address) => address,
         _ => panic!("CalldataCopy size should be a memory address"),
     };
 
     let (dest_offset, ..) = match destinations[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.to_usize(), size),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size),
         _ => panic!("CalldataCopy destination should be an array"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::CALLDATACOPY,
-        indirect: Some(SECOND_OPERAND_INDIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(&cd_offset)
+                .direct_operand(&copy_size_offset)
+                .indirect_operand(&dest_offset)
+                .build_u8(),
+        ),
         operands: vec![
             AvmOperand::U32 {
-                value: cd_offset as u32, // cdOffset (calldata offset)
+                value: cd_offset.to_usize() as u32, // cdOffset (calldata offset)
             },
-            AvmOperand::U32 { value: copy_size_offset as u32 }, // copy size
+            AvmOperand::U32 { value: copy_size_offset.to_usize() as u32 }, // copy size
             AvmOperand::U32 {
-                value: dest_offset as u32, // dstOffset
+                value: dest_offset.to_usize() as u32, // dstOffset
             },
         ],
         ..Default::default()
@@ -1175,18 +1331,18 @@ fn handle_return(
 
     // First arg is the size, which is ignored because it's redundant.
     let (return_data_offset, return_data_size) = match inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            (pointer.to_usize() as u32, size as u32)
-        }
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
         _ => panic!("Return instruction's args input should be a HeapArray"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::RETURN,
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default().indirect_operand(&return_data_offset).build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: return_data_offset as u32 },
-            AvmOperand::U32 { value: return_data_size as u32 },
+            AvmOperand::U32 { value: return_data_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: return_data_size },
         ],
         ..Default::default()
     });
@@ -1204,22 +1360,27 @@ fn handle_storage_write(
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.to_usize(),
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset,
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
     let src_offset_maybe = inputs[1];
     let src_offset = match src_offset_maybe {
-        ValueOrArray::MemoryAddress(src_offset) => src_offset.to_usize(),
+        ValueOrArray::MemoryAddress(src_offset) => src_offset,
         _ => panic!("ForeignCall address source should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(&src_offset)
+                .direct_operand(&slot_offset)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: src_offset as u32 },
-            AvmOperand::U32 { value: slot_offset as u32 },
+            AvmOperand::U32 { value: src_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: slot_offset.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -1236,22 +1397,27 @@ fn handle_get_contract_instance(
 
     let address_offset_maybe = inputs[0];
     let address_offset = match address_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.to_usize(),
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset,
         _ => panic!("GETCONTRACTINSTANCE address should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer.to_usize(),
+        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer,
         _ => panic!("GETCONTRACTINSTANCE destination should be an array"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETCONTRACTINSTANCE,
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(&address_offset)
+                .indirect_operand(&dest_offset)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: address_offset as u32 },
-            AvmOperand::U32 { value: dest_offset as u32 },
+            AvmOperand::U32 { value: address_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: dest_offset.to_usize() as u32 },
         ],
         ..Default::default()
     });
@@ -1269,22 +1435,27 @@ fn handle_storage_read(
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.to_usize(),
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset,
         _ => panic!("ForeignCall address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.to_usize(),
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset,
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .direct_operand(&slot_offset)
+                .direct_operand(&dest_offset)
+                .build_u8(),
+        ),
         operands: vec![
-            AvmOperand::U32 { value: slot_offset as u32 },
-            AvmOperand::U32 { value: dest_offset as u32 },
+            AvmOperand::U32 { value: slot_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: dest_offset.to_usize() as u32 },
         ],
         ..Default::default()
     });
