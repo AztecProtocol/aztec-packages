@@ -48,10 +48,6 @@ services:
       - "--node"
       - "--archiver"
       - "--sequencer"
-    deploy:
-      resources:
-        limits:
-          memory: 800M
 
   # Prover node that listens for unproven blocks on L1, and generates and submits block proofs
   # Requires one or more agents to be connected for actually generating proofs
