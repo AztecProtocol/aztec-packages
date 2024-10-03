@@ -96,12 +96,16 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
+
+        builder.databus_propagation_data.is_kernel = is_kernel;
+        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
 
         ivc.accumulate(builder);
 

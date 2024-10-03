@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
+
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -11,6 +14,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
@@ -32,9 +36,8 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
  * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
  */
-contract Rollup is Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
-
   using SlotLib for Slot;
   using EpochLib for Epoch;
 
@@ -80,13 +83,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
+    IProofCommitmentEscrow _proofCommitmentEscrow, // We should create a new instance instead of accepting one, once we remove the Mock version
     bytes32 _vkTreeRoot,
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
+    PROOF_COMMITMENT_ESCROW = _proofCommitmentEscrow;
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
@@ -103,6 +107,15 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       _addValidator(_validators[i]);
     }
     setupEpoch();
+  }
+
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+    public
+    view
+    override(IRollup)
+    returns (bytes32)
+  {
+    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
   }
 
   /**
@@ -124,10 +137,27 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     override(ITestRollup)
     onlyOwner
   {
+    fakeBlockNumberAsProven(blockNumber);
+    assumeProvenThroughBlockNumber = blockNumber;
+  }
+
+  function fakeBlockNumberAsProven(uint256 blockNumber) private {
     if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
       tips.provenBlockNumber = blockNumber;
+
+      // If this results on a new epoch, create a fake claim for it
+      // Otherwise nextEpochToProve will report an old epoch
+      Epoch epoch = getEpochForBlock(blockNumber);
+      if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
+        proofClaim = DataStructures.EpochProofClaim({
+          epochToProve: epoch,
+          basisPointFee: 0,
+          bondAmount: 0,
+          bondProvider: address(0),
+          proposerClaimant: msg.sender
+        });
+      }
     }
-    assumeProvenThroughBlockNumber = blockNumber;
   }
 
   /**
@@ -169,7 +199,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.SignedEpochProofQuote calldata _quote
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
     claimEpochProofRight(_quote);
@@ -324,7 +354,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return TxsDecoder.decode(_body);
   }
 
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote)
+  function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     public
     override(IRollup)
   {
@@ -336,7 +366,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.prover, _quote.quote.bondAmount);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
@@ -413,7 +443,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
+      fakeBlockNumberAsProven(blockNumber);
 
       if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
@@ -559,11 +589,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
     public
     view
     override(IRollup)
   {
+    SignatureLib.verify(_quote.signature, _quote.quote.prover, quoteToDigest(_quote.quote));
+
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     Epoch epochToProve = getEpochToProve();
@@ -595,6 +627,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       Errors.Rollup__InsufficientBondAmount(
         PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
       )
+    );
+
+    uint256 availableFundsInEscrow = PROOF_COMMITMENT_ESCROW.deposits(_quote.quote.prover);
+    require(
+      _quote.quote.bondAmount <= availableFundsInEscrow,
+      Errors.Rollup__InsufficientFundsInEscrow(_quote.quote.bondAmount, availableFundsInEscrow)
     );
 
     require(

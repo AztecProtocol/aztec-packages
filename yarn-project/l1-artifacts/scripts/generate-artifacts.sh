@@ -15,12 +15,15 @@ CONTRACTS=(
   "l1-contracts:Outbox"
   "l1-contracts:Rollup"
   "l1-contracts:TokenPortal"
-  "l1-contracts:PortalERC20"
+  "l1-contracts:TestERC20"
   "l1-contracts:UniswapPortal"
   "l1-contracts:IERC20"
   "l1-contracts:FeeJuicePortal"
   "l1-contracts:MockVerifier"
   "l1-contracts:IVerifier"
+  "l1-contracts:IProofCommitmentEscrow"
+  "l1-contracts:ProofCommitmentEscrow"
+  "l1-contracts:MockProofCommitmentEscrow"
 )
 
 

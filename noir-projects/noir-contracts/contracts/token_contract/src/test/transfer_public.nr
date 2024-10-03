@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::oracle::unsafe_rand::unsafe_rand;
+use dep::aztec::oracle::random::random;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 
@@ -69,7 +69,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
-    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, unsafe_rand());
+    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, random());
     // Try to transfer tokens
     env.call_public(public_transfer_call_interface);
 }

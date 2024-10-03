@@ -6,6 +6,7 @@ mod name_shadowing;
 mod references;
 mod turbofish;
 mod unused_items;
+mod visibility;
 
 // XXX: These tests repeat a lot of code
 // what we should do is have test cases which are passed to a test harness
@@ -3090,29 +3091,6 @@ fn use_numeric_generic_in_trait_method() {
     let errors = get_program_errors(src);
     println!("{errors:?}");
     assert_eq!(errors.len(), 0);
-}
-
-#[test]
-fn errors_once_on_unused_import_that_is_not_accessible() {
-    // Tests that we don't get an "unused import" here given that the import is not accessible
-    let src = r#"
-        mod moo {
-            struct Foo {}
-        }
-        use moo::Foo;
-        fn main() {
-            let _ = Foo {};
-        }
-    "#;
-
-    let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 1);
-    assert!(matches!(
-        errors[0].0,
-        CompilationError::DefinitionError(DefCollectorErrorKind::PathResolutionError(
-            PathResolutionError::Private { .. }
-        ))
-    ));
 }
 
 #[test]

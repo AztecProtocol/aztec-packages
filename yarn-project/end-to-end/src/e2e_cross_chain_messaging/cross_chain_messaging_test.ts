@@ -11,7 +11,7 @@ import {
   createDebugLogger,
 } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
-import { InboxAbi, OutboxAbi, PortalERC20Abi, RollupAbi, TokenPortalAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi, RollupAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
@@ -158,7 +158,7 @@ export class CrossChainMessagingTest {
         });
         const underlyingERC20 = getContract({
           address: crossChainContext.underlying.toString(),
-          abi: PortalERC20Abi,
+          abi: TestERC20Abi,
           client: walletClient,
         });
 

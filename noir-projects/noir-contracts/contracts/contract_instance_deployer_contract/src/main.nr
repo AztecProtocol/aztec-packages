@@ -75,6 +75,6 @@ contract ContractInstanceDeployer {
         let side_effect = LogHash { value: log_hash, counter, length: len };
         context.unencrypted_logs_hashes.push(side_effect);
 
-        let _void = emit_unencrypted_log_private_internal(contract_address, payload, counter);
+        emit_unencrypted_log_private_internal(contract_address, payload, counter);
     }
 }

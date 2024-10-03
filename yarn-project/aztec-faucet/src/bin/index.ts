@@ -2,7 +2,7 @@
 import { NULL_KEY, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { PortalERC20Abi } from '@aztec/l1-artifacts';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 
 import http from 'http';
 import Koa from 'koa';
@@ -182,7 +182,7 @@ async function transferAsset(assetName: AssetName, address: string) {
 
   try {
     const contract = getContract({
-      abi: PortalERC20Abi,
+      abi: TestERC20Abi,
       address: assetAddress,
       client: walletClient,
     });

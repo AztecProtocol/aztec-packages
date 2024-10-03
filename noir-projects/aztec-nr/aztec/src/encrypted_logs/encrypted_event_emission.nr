@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext, event::event_interface::EventInterface,
     encrypted_logs::payload::compute_encrypted_log,
-    keys::{getters::get_ovsk_app, public_keys::{OvpkM, IvpkM}}, oracle::unsafe_rand::unsafe_rand
+    keys::{getters::get_ovsk_app, public_keys::{OvpkM, IvpkM}}, oracle::random::random
 };
 use dep::protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
@@ -40,8 +40,12 @@ pub fn encode_and_encrypt_event<Event, let N: u32>(
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let randomness =  unsafe {
-            unsafe_rand()
+        // We use the randomness to preserve function privacy by making it non brute-forceable, so a malicious sender could
+        // use non-random values to reveal the plaintext. But they already know it themselves anyway, and is presumably not
+        // interested in disclosing this information. We can therefore assume that the sender will cooperate in the random
+        // value generation.
+        let randomness = unsafe {
+            random()
         };
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
         let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
@@ -56,8 +60,12 @@ pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let randomness =  unsafe {
-            unsafe_rand()
+        // We use the randomness to preserve function privacy by making it non brute-forceable, so a malicious sender could
+        // use non-random values to reveal the plaintext. But they already know it themselves anyway, and is presumably not
+        // interested in disclosing this information. We can therefore assume that the sender will cooperate in the random
+        // value generation.
+        let randomness = unsafe {
+            random()
         };
         let (encrypted_log, log_hash) =  unsafe {
             compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
