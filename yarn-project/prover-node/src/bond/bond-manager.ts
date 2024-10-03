@@ -7,8 +7,8 @@ export class BondManager {
   private logger = createDebugLogger('aztec:prover-node:bond-manager');
 
   constructor(
-    private readonly tokenContract: TokenContract,
-    private readonly escrowContract: EscrowContract,
+    public readonly tokenContract: TokenContract,
+    public readonly escrowContract: EscrowContract,
     /** Minimum escrowed bond. A top-up will be issued once this threshold is hit. */
     public minimumAmount: bigint,
     /** Target escrowed bond. Top-up will target this value. */
