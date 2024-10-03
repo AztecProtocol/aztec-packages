@@ -43,6 +43,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = bb::Polynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
@@ -56,7 +57,9 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     params.gamma = gamma;
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials;
+    auto proving_key = std::make_shared<ProvingKey>();
+
+    ProverPolynomials& prover_polynomials = proving_key->polynomials;
     // ensure we can shift these
     for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
         prover_poly = Polynomial::shiftable(full_circuit_size);
@@ -147,7 +150,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     compute_translator_range_constraint_ordered_polynomials<Flavor>(prover_polynomials, mini_circuit_size);
 
     // Compute the fixed numerator (part of verification key)
-    prover_polynomials.compute_extra_range_constraint_numerator();
+    proving_key->compute_extra_range_constraint_numerator();
 
     // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
     compute_concatenated_polynomials<Flavor>(prover_polynomials);
@@ -221,8 +224,8 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
                    prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
                    [](uint64_t in) { return FF(in); });
 
-    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but we
-    // only need to check the correctness of the relation and it acts independently on each polynomial)
+    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but
+    // we only need to check the correctness of the relation and it acts independently on each polynomial)
     parallel_for(4, [&](size_t i) {
         std::copy(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
                   prover_polynomials.ordered_range_constraints_0.coeffs().end(),
