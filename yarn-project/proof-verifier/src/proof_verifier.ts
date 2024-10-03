@@ -39,7 +39,7 @@ export class ProofVerifier {
     const client = createPublicClient({
       chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,
       transport: http(config.l1Url),
-      pollingInterval: 10_000,
+      pollingInterval: config.viemPollingIntervalMS,
     });
 
     return new ProofVerifier(config, client, verifier, telemetryClient, logger);
