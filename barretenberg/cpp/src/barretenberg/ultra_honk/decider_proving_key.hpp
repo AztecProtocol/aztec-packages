@@ -35,6 +35,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
   public:
     ProvingKey proving_key;
 
+    bool is_structured = false;
+
     bool is_accumulator = false;
     RelationSeparator alphas; // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
@@ -50,7 +52,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
-        const bool is_structured = (trace_structure != TraceStructure::NONE);
+        is_structured = (trace_structure != TraceStructure::NONE);
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
