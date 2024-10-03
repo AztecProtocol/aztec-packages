@@ -21,11 +21,7 @@ import { PublicSideEffectTrace } from './side_effect_trace.js';
 export class PublicExecutor {
   metrics: ExecutorMetrics;
 
-  constructor(
-    private readonly worldStateDB: WorldStateDB,
-    private readonly header: Header,
-    client: TelemetryClient,
-  ) {
+  constructor(private readonly worldStateDB: WorldStateDB, private readonly header: Header, client: TelemetryClient) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
   }
 
