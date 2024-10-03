@@ -285,10 +285,6 @@ function getNoteTypes(input: NoirCompiledContract) {
         nullable: field.value.fields[1].value.value,
       };
     });
-    // TODO(benesjan): Nuke this once you nuke hacky_partial_note.nr
-    if (acc[name] && acc[name].fields.length > fields.length) {
-      return acc;
-    }
     acc[name] = {
       id: noteTypeId,
       typ: name,
