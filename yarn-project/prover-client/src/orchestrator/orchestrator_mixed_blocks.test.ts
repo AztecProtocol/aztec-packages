@@ -1,10 +1,11 @@
-import { MerkleTreeId, type MerkleTreeOperations } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTrees } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { makeBloatedProcessedTx, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
@@ -13,15 +14,16 @@ const logger = createDebugLogger('aztec:orchestrator-mixed-blocks');
 
 describe('prover/orchestrator/mixed-blocks', () => {
   let context: TestContext;
-  let expectsDb: MerkleTreeOperations;
+  let expectsDb: MerkleTreeAdminDatabase;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
-    expectsDb = await MerkleTrees.tmp().then(t => t.getLatest());
+    expectsDb = await NativeWorldStateService.tmp();
   });
 
   afterEach(async () => {
     await context.cleanup();
+    await expectsDb.close();
   });
 
   describe('blocks', () => {
@@ -61,10 +63,11 @@ describe('prover/orchestrator/mixed-blocks', () => {
       await context.orchestrator.finaliseEpoch();
       expect(block.number).toEqual(context.blockNumber);
 
-      await updateExpectedTreesFromTxs(expectsDb, txs);
+      const fork = await expectsDb.fork();
+      await updateExpectedTreesFromTxs(fork, txs);
       const noteHashTreeAfter = await context.actualDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
 
-      const expectedNoteHashTreeAfter = await expectsDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE).then(t => t.root);
+      const expectedNoteHashTreeAfter = await fork.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE).then(t => t.root);
       expect(noteHashTreeAfter.root).toEqual(expectedNoteHashTreeAfter);
     });
   });

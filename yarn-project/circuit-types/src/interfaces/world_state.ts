@@ -1,4 +1,4 @@
-import type { MerkleTreeAdminOperations, MerkleTreeOperations } from './merkle_tree_operations.js';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
 /**
  * Defines the possible states of the world state synchronizer.
@@ -58,26 +58,21 @@ export interface WorldStateSynchronizer {
    * @param forkIncludeUncommitted - Whether to include uncommitted data in the fork.
    * @returns The db forked at the requested target block number.
    */
-  syncImmediateAndFork(targetBlockNumber: number, forkIncludeUncommitted: boolean): Promise<MerkleTreeAdminOperations>;
+  syncImmediateAndFork(targetBlockNumber: number): Promise<MerkleTreeWriteOperations>;
 
   /**
    * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
    */
-  ephemeralFork(): Promise<MerkleTreeOperations>;
-
-  /**
-   * Returns an instance of MerkleTreeAdminOperations that will include uncommitted data.
-   */
-  getLatest(): Promise<MerkleTreeAdminOperations>;
+  fork(block?: number): Promise<MerkleTreeWriteOperations>;
 
   /**
    * Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data.
    */
-  getCommitted(): Promise<MerkleTreeAdminOperations>;
+  getCommitted(): MerkleTreeReadOperations;
 
   /**
    * Returns a readonly instance of MerkleTreeAdminOperations where the state is as it was at the given block number
    * @param block - The block number to look at
    */
-  getSnapshot(block: number): Promise<MerkleTreeOperations>;
+  getSnapshot(block: number): MerkleTreeReadOperations;
 }

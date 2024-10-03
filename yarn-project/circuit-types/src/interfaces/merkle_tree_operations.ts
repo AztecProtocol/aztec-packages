@@ -8,7 +8,6 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { type L2Block } from '../l2_block.js';
 import { type MerkleTreeId } from '../merkle_tree_id.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 
@@ -105,14 +104,7 @@ export type MerkleTreeLeafValue<ID extends MerkleTreeId> = LeafValueTypes[ID];
 /**
  * Defines the interface for operations on a set of Merkle Trees.
  */
-export interface MerkleTreeOperations {
-  /**
-   * Appends leaves to a given tree.
-   * @param treeId - The tree to be updated.
-   * @param leaves - The set of leaves to be appended.
-   */
-  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void>;
-
+export interface MerkleTreeReadOperations {
   /**
    * Returns information about the given tree.
    * @param treeId - The tree to be queried.
@@ -193,6 +185,15 @@ export interface MerkleTreeOperations {
     treeId: ID,
     index: bigint,
   ): Promise<MerkleTreeLeafType<typeof treeId> | undefined>;
+}
+
+export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
+  /**
+   * Appends leaves to a given tree.
+   * @param treeId - The tree to be updated.
+   * @param leaves - The set of leaves to be appended.
+   */
+  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void>;
 
   /**
    * Inserts the block hash into the archive.
@@ -213,41 +214,18 @@ export interface MerkleTreeOperations {
     leaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
+
+  /**
+   * Closes the database, discarding any uncommitted changes.
+   */
+  close(): Promise<void>;
 }
-
-/** Operations on merkle trees world state that can modify the underlying store. */
-export interface MerkleTreeAdminOperations extends MerkleTreeOperations {
-  /**
-   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
-   * @param block - The L2 block to handle.
-   * @param l1ToL2Messages - The L1 to L2 messages for the block.
-   */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
-
-  /**
-   * Commits pending changes to the underlying store.
-   */
-  commit(): Promise<void>;
-
-  /**
-   * Rolls back pending changes.
-   */
-  rollback(): Promise<void>;
-
-  /** Deletes this database. Useful for cleaning up forks. */
-  delete(): Promise<void>;
-}
-
-/** Return type for handleL2BlockAndMessages */
-export type HandleL2BlockAndMessagesResult = {
-  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
-};
 
 /**
  * Outputs a tree leaves using for debugging purposes.
  */
 export async function inspectTree(
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
   treeId: MerkleTreeId,
   log = createDebugLogger('aztec:inspect-tree'),
 ) {

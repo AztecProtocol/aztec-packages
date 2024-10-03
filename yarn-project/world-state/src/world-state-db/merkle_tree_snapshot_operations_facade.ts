@@ -1,10 +1,8 @@
 import { MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
 import {
-  type BatchInsertionResult,
-  type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
   type MerkleTreeLeafType,
-  type MerkleTreeOperations,
+  type MerkleTreeReadOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
 import { AppendOnlyTreeSnapshot, Fr, type Header, PartialStateReference, StateReference } from '@aztec/circuits.js';
@@ -17,7 +15,7 @@ import { type MerkleTrees } from './merkle_trees.js';
 /**
  * Merkle tree operations on readonly tree snapshots.
  */
-export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations {
+export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperations {
   #treesDb: MerkleTrees;
   #blockNumber: number;
   #treeSnapshots: TreeSnapshots = {} as any;
@@ -132,40 +130,6 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
         ),
       ),
     );
-  }
-
-  appendLeaves(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(): Promise<
-    BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>
-  > {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  updateArchive(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  commit(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  handleL2BlockAndMessages(): Promise<HandleL2BlockAndMessagesResult> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  rollback(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  delete(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
-  }
-
-  updateHistoricArchive(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
   getInitialHeader(): Header {

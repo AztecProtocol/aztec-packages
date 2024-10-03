@@ -1,40 +1,22 @@
 import {
   type FrTreeId,
   type IndexedTreeId,
-  L2Block,
   MerkleTreeId,
-  PublicDataWrite,
-  TxEffect,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types';
-import {
-  AppendOnlyTreeSnapshot,
-  EthAddress,
-  Fr,
-  GENESIS_ARCHIVE_ROOT,
-  Header,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NullifierLeaf,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
-} from '@aztec/circuits.js';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress, Fr, GENESIS_ARCHIVE_ROOT, NullifierLeaf, PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { elapsed } from '@aztec/foundation/timer';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { openTmpStore } from '@aztec/kv-store/utils';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type MerkleTreeDb } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { NativeWorldStateService } from './native_world_state.js';
+import { mockBlock } from './test_util.js';
 
 describe('NativeWorldState', () => {
   let nativeDataDir: string;
@@ -63,28 +45,31 @@ describe('NativeWorldState', () => {
   });
 
   it('has to expected genesis archive tree root', async () => {
-    const archive = await nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, false);
+    const archive = await nativeWS.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
     expect(new Fr(archive.root)).toEqual(new Fr(GENESIS_ARCHIVE_ROOT));
   });
 
   describe('Initial state', () => {
-    it.each(
-      allTrees.flatMap(t => [
-        [...t, false],
-        [...t, true],
-      ]),
-    )('tree %s is the same', async (_, treeId, includeUncommitted) => {
-      await assertSameTree(treeId, includeUncommitted);
+    it.each(allTrees)('tree %s is the same', async (_, treeId) => {
+      await assertSameTree(treeId, nativeWS.getCommitted(), await legacyWS.getCommitted());
     });
 
-    it.each([false, true])('includeUncommitted=%s state is the same', async includeUncommitted => {
-      await assertSameState(includeUncommitted);
+    it('initial state is the same', async () => {
+      await assertSameState(nativeWS.getCommitted(), await legacyWS.getCommitted());
     });
   });
 
   describe('Uncommitted state', () => {
+    let nativeFork: MerkleTreeWriteOperations;
+    let legacyLatest: MerkleTreeWriteOperations;
+
+    beforeEach(async () => {
+      nativeFork = await nativeWS.fork();
+      legacyLatest = await legacyWS.getLatest();
+    });
+
     afterEach(async () => {
-      await Promise.all([nativeWS.rollback(), legacyWS.rollback()]);
+      await Promise.all([nativeFork.close(), legacyWS.rollback()]);
     });
 
     it.each<[string, IndexedTreeId, Buffer[]]>([
@@ -101,8 +86,8 @@ describe('NativeWorldState', () => {
     ])('inserting 0 leaves into %s', async (_, treeId, leaves) => {
       const height = Math.ceil(Math.log2(leaves.length) | 0);
       const [native, js] = await Promise.all([
-        nativeWS.batchInsert(treeId, leaves, height),
-        legacyWS.batchInsert(treeId, leaves, height),
+        nativeFork.batchInsert(treeId, leaves, height),
+        legacyLatest.batchInsert(treeId, leaves, height),
       ]);
 
       expect(native.sortedNewLeaves.map(Fr.fromBuffer)).toEqual(js.sortedNewLeaves.map(Fr.fromBuffer));
@@ -110,16 +95,15 @@ describe('NativeWorldState', () => {
       expect(native.newSubtreeSiblingPath.toFields()).toEqual(js.newSubtreeSiblingPath.toFields());
       expect(native.lowLeavesWitnessData).toEqual(js.lowLeavesWitnessData);
 
-      await assertSameTree(treeId, true);
+      await assertSameTree(treeId, nativeFork, legacyLatest);
     });
 
     it.each<[string, FrTreeId, Fr[]]>([
       [MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE], MerkleTreeId.NOTE_HASH_TREE, Array(64).fill(Fr.ZERO)],
       [MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGE_TREE], MerkleTreeId.NOTE_HASH_TREE, Array(64).fill(Fr.ZERO)],
     ])('inserting 0 leaves into %s', async (_, treeId, leaves) => {
-      await Promise.all([nativeWS.appendLeaves(treeId, leaves), legacyWS.appendLeaves(treeId, leaves)]);
-
-      await assertSameTree(treeId, true);
+      await Promise.all([nativeFork.appendLeaves(treeId, leaves), legacyLatest.appendLeaves(treeId, leaves)]);
+      await assertSameTree(treeId, nativeFork, legacyLatest);
     });
 
     it.each<[string, IndexedTreeId, Buffer[]]>([
@@ -142,8 +126,8 @@ describe('NativeWorldState', () => {
       async (_, treeId, leaves) => {
         const height = Math.ceil(Math.log2(leaves.length) | 0);
         const [native, js] = await Promise.all([
-          nativeWS.batchInsert(treeId, leaves, height),
-          legacyWS.batchInsert(treeId, leaves, height),
+          nativeFork.batchInsert(treeId, leaves, height),
+          legacyLatest.batchInsert(treeId, leaves, height),
         ]);
 
         expect(native.sortedNewLeaves.map(Fr.fromBuffer)).toEqual(js.sortedNewLeaves.map(Fr.fromBuffer));
@@ -151,7 +135,7 @@ describe('NativeWorldState', () => {
         expect(native.newSubtreeSiblingPath.toFields()).toEqual(js.newSubtreeSiblingPath.toFields());
         expect(native.lowLeavesWitnessData).toEqual(js.lowLeavesWitnessData);
 
-        await assertSameTree(treeId, true);
+        await assertSameTree(treeId, nativeFork, legacyLatest);
       },
       60_000,
     );
@@ -160,9 +144,9 @@ describe('NativeWorldState', () => {
       [MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE], MerkleTreeId.NOTE_HASH_TREE, Array(64).fill(0).map(Fr.random)],
       [MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGE_TREE], MerkleTreeId.NOTE_HASH_TREE, Array(64).fill(0).map(Fr.random)],
     ])('inserting real leaves into %s', async (_, treeId, leaves) => {
-      await Promise.all([nativeWS.appendLeaves(treeId, leaves), legacyWS.appendLeaves(treeId, leaves)]);
+      await Promise.all([nativeFork.appendLeaves(treeId, leaves), legacyLatest.appendLeaves(treeId, leaves)]);
 
-      await assertSameTree(treeId, true);
+      await assertSameTree(treeId, nativeFork, legacyLatest);
     });
 
     it.each<[string, MerkleTreeId, number[]]>([
@@ -173,8 +157,8 @@ describe('NativeWorldState', () => {
     ])('sibling paths to initial leaves match', async (_, treeId, leafIndices) => {
       for (const index of leafIndices) {
         const [nativeSB, legacySB] = await Promise.all([
-          nativeWS.getSiblingPath(treeId, BigInt(index), true),
-          legacyWS.getSiblingPath(treeId, BigInt(index), true),
+          nativeFork.getSiblingPath(treeId, BigInt(index)),
+          legacyLatest.getSiblingPath(treeId, BigInt(index)),
         ]);
         expect(nativeSB.toFields()).toEqual(legacySB.toFields());
       }
@@ -194,17 +178,17 @@ describe('NativeWorldState', () => {
         b => PublicDataTreeLeaf.fromBuffer(b).getKey(),
       ],
     ])('inserting real leaves into %s', async (_, treeId, leaf, getKey) => {
-      await Promise.all([nativeWS.batchInsert(treeId, [leaf], 0), legacyWS.batchInsert(treeId, [leaf], 0)]);
+      await Promise.all([nativeFork.batchInsert(treeId, [leaf], 0), legacyLatest.batchInsert(treeId, [leaf], 0)]);
 
       const [nativeLeafIndex, legacyLeafIndex] = await Promise.all([
-        nativeWS.getPreviousValueIndex(treeId, getKey(leaf), true),
-        legacyWS.getPreviousValueIndex(treeId, getKey(leaf), true),
+        nativeFork.getPreviousValueIndex(treeId, getKey(leaf)),
+        legacyLatest.getPreviousValueIndex(treeId, getKey(leaf)),
       ]);
       expect(nativeLeafIndex).toEqual(legacyLeafIndex);
 
       const [nativeSB, legacySB] = await Promise.all([
-        nativeWS.getSiblingPath(treeId, nativeLeafIndex!.index, true),
-        legacyWS.getSiblingPath(treeId, legacyLeafIndex!.index, true),
+        nativeFork.getSiblingPath(treeId, nativeLeafIndex!.index),
+        legacyLatest.getSiblingPath(treeId, legacyLeafIndex!.index),
       ]);
 
       expect(nativeSB.toFields()).toEqual(legacySB.toFields());
@@ -213,8 +197,10 @@ describe('NativeWorldState', () => {
 
   describe('Block synch', () => {
     it('syncs a new block from empty state', async () => {
-      await assertSameState(false);
-      const [_blockMS, { block, messages }] = await elapsed(mockBlock(1));
+      await assertSameState(nativeWS.getCommitted(), await legacyWS.getCommitted());
+      const tempFork = await nativeWS.fork();
+      const [_blockMS, { block, messages }] = await elapsed(mockBlock(1, tempFork));
+      await tempFork.close();
 
       const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
       const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
@@ -222,133 +208,34 @@ describe('NativeWorldState', () => {
       // eslint-disable-next-line no-console
       console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
 
-      await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true);
-      await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, true);
-      await assertSameTree(MerkleTreeId.PUBLIC_DATA_TREE, true);
-      await assertSameTree(MerkleTreeId.NULLIFIER_TREE, true);
-
-      await assertSameState(false);
+      await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.PUBLIC_DATA_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.NULLIFIER_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.ARCHIVE, nativeWS.getCommitted(), await legacyWS.getCommitted());
     }, 150_000);
   });
 
-  describe('Forks', () => {
-    it('creates a fork', async () => {
-      const initialHeader = nativeWS.getInitialHeader();
-      const fork = await nativeWS.fork();
-      await assertSameState(false, fork, nativeWS);
-      await assertSameState(true, fork, nativeWS);
-
-      expect(fork.getInitialHeader()).toEqual(initialHeader);
-
-      const stateReference = await fork.getStateReference(true);
-      const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE, true);
-      const header = new Header(
-        new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-        makeContentCommitment(),
-        stateReference,
-        makeGlobalVariables(),
-        Fr.ZERO,
-      );
-
-      // canonical state should match fork at this point
-      expect(await nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, true)).toEqual(archiveInfo);
-
-      await fork.updateArchive(header);
-
-      // canonical state should not change
-      expect(await nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, true)).toEqual(archiveInfo);
-
-      expect(await fork.getTreeInfo(MerkleTreeId.ARCHIVE, true)).not.toEqual(archiveInfo);
-
-      // initial header should still work as before
-      expect(fork.getInitialHeader()).toEqual(initialHeader);
-    });
-  });
-
-  async function assertSameTree(treeId: MerkleTreeId, includeUncommitted = false) {
-    const nativeInfo = await nativeWS.getTreeInfo(treeId, includeUncommitted);
-    const jsInfo = await legacyWS.getTreeInfo(treeId, includeUncommitted);
+  async function assertSameTree(
+    treeId: MerkleTreeId,
+    forkA: MerkleTreeReadOperations,
+    forkB: MerkleTreeReadOperations,
+  ) {
+    const nativeInfo = await forkA.getTreeInfo(treeId);
+    const jsInfo = await forkB.getTreeInfo(treeId);
     expect(nativeInfo.treeId).toBe(jsInfo.treeId);
     expect(nativeInfo.depth).toBe(jsInfo.depth);
     expect(nativeInfo.size).toBe(jsInfo.size);
     expect(Fr.fromBuffer(nativeInfo.root)).toEqual(Fr.fromBuffer(jsInfo.root));
   }
 
-  async function assertSameState(
-    includeUncommitted = false,
-    _nativeWS: MerkleTreeDb = nativeWS,
-    _legacyWS: MerkleTreeDb = legacyWS,
-  ) {
-    const nativeStateRef = await _nativeWS.getStateReference(includeUncommitted);
-    const nativeArchive = await _nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, includeUncommitted);
-    const legacyStateRef = await _legacyWS.getStateReference(includeUncommitted);
-    const legacyArchive = await _legacyWS.getTreeInfo(MerkleTreeId.ARCHIVE, includeUncommitted);
+  async function assertSameState(forkA: MerkleTreeReadOperations, forkB: MerkleTreeReadOperations) {
+    const nativeStateRef = await forkA.getStateReference();
+    const nativeArchive = await forkA.getTreeInfo(MerkleTreeId.ARCHIVE);
+    const legacyStateRef = await forkB.getStateReference();
+    const legacyArchive = await forkB.getTreeInfo(MerkleTreeId.ARCHIVE);
 
     expect(nativeStateRef).toEqual(legacyStateRef);
     expect(nativeArchive).toEqual(legacyArchive);
-  }
-
-  async function mockBlock(blockNum = 1, merkleTrees?: MerkleTreeDb) {
-    merkleTrees ??= await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient());
-    const l2Block = L2Block.random(blockNum, 32); // 32 txs
-    const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
-
-    const paddedTxEffects = padArrayEnd(
-      l2Block.body.txEffects,
-      TxEffect.empty(),
-      l2Block.body.numberOfTxsIncludingPadded,
-    );
-
-    // Sync the append only trees
-    {
-      const noteHashesPadded = paddedTxEffects.flatMap(txEffect =>
-        padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-      );
-      await merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
-
-      const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-      await merkleTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-    }
-
-    // Sync the indexed trees
-    {
-      const nullifiersPadded = paddedTxEffects.flatMap(txEffect =>
-        padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-      );
-      await merkleTrees.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        nullifiersPadded.map(nullifier => nullifier.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
-
-      // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-      for (const txEffect of paddedTxEffects) {
-        const publicDataWrites = padArrayEnd(
-          txEffect.publicDataWrites,
-          PublicDataWrite.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
-
-        await merkleTrees.batchInsert(
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
-        );
-      }
-    }
-
-    // await merkleTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-    const state = await merkleTrees.getStateReference(true);
-    l2Block.header.state = state;
-    await merkleTrees.updateArchive(l2Block.header);
-
-    const archiveState = await merkleTrees.getTreeInfo(MerkleTreeId.ARCHIVE, true);
-
-    l2Block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
-
-    return {
-      block: l2Block,
-      messages: l1ToL2Messages,
-    };
   }
 });

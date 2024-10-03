@@ -1,6 +1,6 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
-  type MerkleTreeAdminOperations,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
   type PublicExecutionRequest,
@@ -8,7 +8,7 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { EthAddress, type Gas, type GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import { type Gas, type GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -28,8 +28,6 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
@@ -44,7 +42,7 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeAdminOperations,
+    public actualDb: MerkleTreeWriteOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
@@ -73,11 +71,11 @@ export class TestContext {
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
-    let actualDb: MerkleTreeAdminOperations;
+    let actualDb: MerkleTreeWriteOperations;
 
     if (worldState === 'native') {
       const ws = await NativeWorldStateService.tmp();
-      actualDb = await ws.getLatest();
+      actualDb = await ws.fork();
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);
       actualDb = await ws.getLatest();

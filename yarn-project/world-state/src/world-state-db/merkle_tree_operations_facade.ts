@@ -1,22 +1,20 @@
-import { type BatchInsertionResult, type L2Block, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
+import { type BatchInsertionResult, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
 import {
-  type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
-  type MerkleTreeAdminOperations,
   type MerkleTreeLeafType,
-  type MerkleTreeOperations,
+  type MerkleTreeWriteOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { type Fr, type Header, type StateReference } from '@aztec/circuits.js';
+import { type Header, type StateReference } from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { type MerkleTreeAdminDb, type MerkleTreeDb } from './merkle_tree_db.js';
+import { type MerkleTrees } from './merkle_trees.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
  */
-export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
-  constructor(protected trees: MerkleTreeDb, protected includeUncommitted: boolean) {}
+export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations {
+  constructor(protected trees: MerkleTrees, protected includeUncommitted: boolean) {}
 
   /**
    * Returns the tree info for the specified tree id.
@@ -168,40 +166,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
-}
 
-export class MerkleTreeAdminOperationsFacade extends MerkleTreeOperationsFacade implements MerkleTreeAdminOperations {
-  constructor(protected override trees: MerkleTreeAdminDb, includeUncommitted: boolean) {
-    super(trees, includeUncommitted);
-  }
-
-  /**
-   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
-   * @param block - The L2 block to handle.
-   * @param l1ToL2Messages - The L1 to L2 messages for the block.
-   * @returns Whether the block handled was produced by this same node.
-   */
-  public handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
-    return this.trees.handleL2BlockAndMessages(block, l1ToL2Messages);
-  }
-
-  /**
-   * Commits all pending updates.
-   * @returns Empty promise.
-   */
-  public async commit(): Promise<void> {
-    return await this.trees.commit();
-  }
-
-  /**
-   * Rolls back all pending updates.
-   * @returns Empty promise.
-   */
-  public async rollback(): Promise<void> {
-    return await this.trees.rollback();
-  }
-
-  public delete(): Promise<void> {
-    return this.trees.delete();
+  close(): Promise<void> {
+    return Promise.resolve();
   }
 }

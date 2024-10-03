@@ -1,5 +1,5 @@
-import { type MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeAdminOperations, type MerkleTreeOperations } from '@aztec/circuit-types/interfaces';
+import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
@@ -22,20 +22,6 @@ export const INITIAL_NULLIFIER_TREE_SIZE = 2 * MAX_NULLIFIERS_PER_TX;
 
 export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 
-/**
- * Adds a last boolean flag in each function on the type.
- */
-type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer Return
-  ? (...args: [...Rest, boolean]) => Return
-  : F;
-
-/**
- * Defines the names of the setters on Merkle Trees.
- */
-type MerkleTreeSetters = 'appendLeaves' | 'batchInsert' | 'updateArchive' | 'getInitialHeader';
-
-type MerkleTreeAdmin = 'commit' | 'rollback' | 'handleL2BlockAndMessages';
-
 export type TreeSnapshots = {
   [MerkleTreeId.NULLIFIER_TREE]: IndexedTreeSnapshot;
   [MerkleTreeId.NOTE_HASH_TREE]: TreeSnapshot<Fr>;
@@ -44,35 +30,41 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-/** Defines the interface for operations on a set of Merkle Trees configuring whether to return committed or uncommitted data. */
-export type MerkleTreeDb = {
-  [Property in keyof MerkleTreeOperations as Exclude<Property, MerkleTreeSetters>]: WithIncludeUncommitted<
-    MerkleTreeOperations[Property]
-  >;
-} & Pick<MerkleTreeOperations, MerkleTreeSetters> & {
-    getCommitted(): Promise<MerkleTreeOperations>;
-    getLatest(): Promise<MerkleTreeOperations>;
-    getSnapshot(blockNumber: number): Promise<MerkleTreeOperations>;
-  };
+/** Return type for handleL2BlockAndMessages */
+export type HandleL2BlockAndMessagesResult = {
+  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
+};
 
-/** Extends operations on MerkleTreeDb to include modifying the underlying store */
-export type MerkleTreeAdminDb = {
-  [Property in keyof MerkleTreeAdminOperations as Exclude<
-    Property,
-    MerkleTreeSetters | MerkleTreeAdmin
-  >]: WithIncludeUncommitted<MerkleTreeAdminOperations[Property]>;
-} & Pick<MerkleTreeAdminOperations, MerkleTreeSetters | MerkleTreeAdmin> & {
-    getCommitted(): Promise<MerkleTreeAdminOperations>;
-    getLatest(): Promise<MerkleTreeAdminOperations>;
-    getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations>;
-    /**
-     * Forks the database at its current state.
-     */
-    fork(): Promise<MerkleTreeAdminDb>;
+export interface MerkleTreeAdminDatabase {
+  /**
+   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
+   * @param block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
+   */
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
 
-    /** Deletes this database. */
-    delete(): Promise<void>;
+  /**
+   * Gets a handle that allows reading the latest committed state
+   */
+  getCommitted(): MerkleTreeReadOperations;
 
-    /** Stops the database */
-    stop(): Promise<void>;
-  };
+  /**
+   * Gets a handle that allows reading the state as it was at the given block number
+   * @param blockNumber - The block number to get the snapshot for
+   */
+  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+
+  /**
+   * Forks the database at its current state.
+   * @param blockNumber - The block number to fork at. If not provided, the current block number is used.
+   */
+  fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
+
+  /**
+   * Forks the database at the given block number.
+   */
+  fork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
+
+  /** Stops the database */
+  close(): Promise<void>;
+}

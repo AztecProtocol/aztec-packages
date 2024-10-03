@@ -16,7 +16,7 @@ import {
   mapProvingRequestTypeToCircuitName,
   toTxEffect,
 } from '@aztec/circuit-types';
-import { type EpochProver } from '@aztec/circuit-types/interfaces';
+import { type EpochProver, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AvmCircuitInputs,
@@ -59,7 +59,6 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
@@ -112,7 +111,7 @@ export class ProvingOrchestrator implements EpochProver {
   private metrics: ProvingOrchestratorMetrics;
 
   constructor(
-    private db: MerkleTreeOperations,
+    private db: MerkleTreeWriteOperations,
     private prover: ServerCircuitProver,
     telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,

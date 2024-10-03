@@ -165,6 +165,7 @@ interface UpdateArchiveRequest extends WithForkId {
 }
 
 interface SyncBlockRequest {
+  blockNumber: number;
   blockStateRef: BlockStateReference;
   blockHeaderHash: Fr;
   paddedNoteHashes: readonly SerializedLeafValue[];
