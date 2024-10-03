@@ -1,16 +1,14 @@
 import {
   type AccountWallet,
   type AztecAddress,
-  ExtendedNote,
   type FeePaymentMethod,
   type FunctionCall,
-  Note,
   type Wallet,
 } from '@aztec/aztec.js';
 import { Fr, type GasSettings } from '@aztec/circuits.js';
-import { deriveStorageSlotInMap, siloNullifier } from '@aztec/circuits.js/hash';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { type PrivateFPCContract, TokenContract } from '@aztec/noir-contracts.js';
+import { type PrivateFPCContract, type TokenContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -59,7 +57,7 @@ describe('e2e_fees/private_refunds', () => {
     const bobRandomness = siloNullifier(privateFPC.address, aliceRandomness); // Called fee_payer_randomness in contracts
 
     // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
-    const { txHash, transactionFee, debugInfo } = await token.methods
+    const { transactionFee } = await token.methods
       .private_get_name()
       .send({
         fee: {
@@ -74,60 +72,11 @@ describe('e2e_fees/private_refunds', () => {
           ),
         },
       })
-      .wait({ debug: true });
+      .wait();
 
     expect(transactionFee).toBeGreaterThan(0);
 
-    // 3. We check that randomness for Bob was correctly emitted as a nullifier (Bobs needs it to reconstruct his note).
-    const bobRandomnessFromLog = debugInfo?.nullifiers[1];
-    expect(bobRandomnessFromLog).toEqual(bobRandomness);
-
-    // 4. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
-    // the fee limit minus the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
-    // the randomness.
-    const refundNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(transactionFee!));
-    const aliceNpkMHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    // Amount has lo and hi limbs, hence the 0.
-    const aliceRefundNote = new Note([refundNoteValue, Fr.ZERO, aliceNpkMHash, aliceRandomness]);
-
-    // 5. If the refund flow worked it should have added emitted a note hash of the note we constructed above and we
-    // should be able to add the note to our PXE. Just calling `pxe.addNote(...)` is enough of a check that the note
-    // hash was emitted because the endpoint will compute the hash and then it will try to find it in the note hash
-    // tree. If the note hash is not found in the tree, an error is thrown.
-    // TODO(#8238): Implement proper note delivery
-    await t.aliceWallet.addNote(
-      new ExtendedNote(
-        aliceRefundNote,
-        t.aliceAddress,
-        token.address,
-        deriveStorageSlotInMap(TokenContract.storage.balances.slot, t.aliceAddress),
-        TokenContract.notes.TokenNote.id,
-        txHash,
-      ),
-    );
-
-    // 6. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
-    // npk_m_hash and the randomness.
-    // Note that FPC emits randomness as unencrypted log and the tx fee is publicly know so Bob is able to reconstruct
-    // his note just from on-chain data.
-    const bobNpkMHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    // Amount has lo and hi limbs, hence the 0.
-    const bobFeeNote = new Note([new Fr(transactionFee!), Fr.ZERO, bobNpkMHash, bobRandomness]);
-
-    // 7. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
-    // TODO(#8238): Implement proper note delivery
-    await t.bobWallet.addNote(
-      new ExtendedNote(
-        bobFeeNote,
-        t.bobAddress,
-        token.address,
-        deriveStorageSlotInMap(TokenContract.storage.balances.slot, t.bobAddress),
-        TokenContract.notes.TokenNote.id,
-        txHash,
-      ),
-    );
-
-    // 8. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
+    // 3. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
     await expectMapping(t.getGasBalanceFn, [privateFPC.address], [initialFPCGasBalance - transactionFee!]);
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(

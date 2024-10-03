@@ -34,11 +34,6 @@ contract PrivateFPC {
         // We use different randomness for fee payer to prevent a potential privacy leak (see description
         // of `setup_refund(...)` function in Token for details.
         let fee_payer_randomness = compute_siloed_nullifier(context.this_address(), user_randomness);
-        // We emit fee payer randomness as nullifier to ensure FPC admin can reconstruct their fee note - note that
-        // protocol circuits will perform the siloing as was done above and hence the final nullifier will be correct
-        // fee payer randomness.
-        // TODO(#8238): Implement proper note delivery
-        context.push_nullifier(user_randomness);
 
         Token::at(asset).setup_refund(
             settings.admin,
