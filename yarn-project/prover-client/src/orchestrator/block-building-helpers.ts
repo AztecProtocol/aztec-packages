@@ -123,6 +123,7 @@ export async function buildBaseRollupInput(
     tx.data.end.nullifiers.map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
+
   if (nullifierWitnessLeaves === undefined) {
     throw new Error(`Could not craft nullifier batch insertion proofs`);
   }
@@ -424,6 +425,7 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
   const allPublicDataWrites = allPublicDataUpdateRequests.map(
     ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
   );
+
   const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
     MerkleTreeId.PUBLIC_DATA_TREE,
     allPublicDataWrites.map(x => x.toBuffer()),

@@ -61,6 +61,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/simulator": "workspace:^",
     "@aztec/types": "workspace:^",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",

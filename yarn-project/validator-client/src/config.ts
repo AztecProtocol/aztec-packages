@@ -22,6 +22,9 @@ export interface ValidatorClientConfig {
 
   /** Wait for attestations timeout */
   attestationWaitTimeoutMs: number;
+
+  /** Re-execute transactions before attesting */
+  validatorReEx: boolean;
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -44,6 +47,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS',
     description: 'Wait for attestations timeout',
     ...numberConfigHelper(AZTEC_SLOT_DURATION * 1000),
+  },
+  validatorReEx: {
+    env: 'VALIDATOR_RE_EX',
+    description: 'Re-execute transactions before attesting',
+    ...booleanConfigHelper(),
   },
 };
 
