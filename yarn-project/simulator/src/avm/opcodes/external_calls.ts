@@ -15,7 +15,7 @@ abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.UINT16, // Indirect
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
