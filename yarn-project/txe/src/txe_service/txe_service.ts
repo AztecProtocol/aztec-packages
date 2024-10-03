@@ -4,9 +4,7 @@ import {
   Fr,
   FunctionSelector,
   Header,
-  KeyValidationRequest,
   PUBLIC_DATA_SUBTREE_HEIGHT,
-  Point,
   PublicDataTreeLeaf,
   computePartialAddress,
   getContractInstanceFromDeployParams,
@@ -614,40 +612,6 @@ export class TXEService {
     return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
   }
 
-  computeEncryptedNoteLog(
-    contractAddress: ForeignCallSingle,
-    storageSlot: ForeignCallSingle,
-    noteTypeId: ForeignCallSingle,
-    ovskApp: ForeignCallSingle,
-    ovpkMX: ForeignCallSingle,
-    ovpkMY: ForeignCallSingle,
-    ovpkMIsInfinite: ForeignCallSingle,
-    ivpkMX: ForeignCallSingle,
-    ivpkMY: ForeignCallSingle,
-    ivpkMIsInfinite: ForeignCallSingle,
-    recipient: ForeignCallSingle,
-    preimage: ForeignCallArray,
-  ) {
-    const ovpkM = new Point(fromSingle(ovpkMX), fromSingle(ovpkMY), !fromSingle(ovpkMIsInfinite).isZero());
-    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(fromSingle(ovskApp).toString()));
-    const ivpkM = new Point(fromSingle(ivpkMX), fromSingle(ivpkMY), !fromSingle(ivpkMIsInfinite).isZero());
-    const encLog = this.typedOracle.computeEncryptedNoteLog(
-      AztecAddress.fromString(fromSingle(contractAddress).toString()),
-      Fr.fromString(fromSingle(storageSlot).toString()),
-      NoteSelector.fromField(Fr.fromString(fromSingle(noteTypeId).toString())),
-      ovKeys,
-      ivpkM,
-      AztecAddress.fromString(fromSingle(recipient).toString()),
-      fromArray(preimage),
-    );
-    const bytes: Fr[] = [];
-
-    encLog.forEach(v => {
-      bytes.push(new Fr(v));
-    });
-    return toForeignCallResult([toArray(bytes)]);
-  }
-
   emitEncryptedLog(
     _contractAddress: ForeignCallSingle,
     _randomness: ForeignCallSingle,
@@ -714,7 +678,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -722,7 +686,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public async setPublicTeardownFunctionCall(
@@ -733,7 +697,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -741,7 +705,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {

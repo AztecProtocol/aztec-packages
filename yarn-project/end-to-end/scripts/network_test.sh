@@ -9,7 +9,7 @@
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
 
-set -eu
+set -eux
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -43,18 +43,45 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
+function show_status_until_pxe_ready() {
+  set +x # don't spam with our commands
+  sleep 15 # let helm upgrade start
+  for i in {1..100} ; do
+    if kubectl wait pod -l app==pxe --for=condition=Ready -n "transfer" --timeout=20s >/dev/null 2>/dev/null ; then
+      break # we are up, stop showing status
+    fi
+    # show startup status
+    kubectl get pods -n "$NAMESPACE"
+  done
+}
+
+show_status_until_pxe_ready &
+
 # Install the Helm chart
-helm install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
+helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       --values "$(git rev-parse --show-toplevel)/spartan/aztec-network/values/$VALUES_FILE" \
-      --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set test="$TEST" \
+      --set ingress.enabled=true \
       --wait \
       --wait-for-jobs=true \
-      --timeout=10m
+      --timeout=30m
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-helm test spartan --namespace "$NAMESPACE" --timeout 30m
+function forward_pxe_k8s_port() {
+  # NOTE we fail silently, and work in the background
+  kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true
+}
+# tunnel in to get access directly to our PXE service in k8s
+(kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+
+# run our test in the host network namespace (so we can access the above with localhost)
+docker run --rm --network=host \
+  -e SCENARIO=default \
+  -e PXE_URL=http://localhost:9082 \
+  -e DEBUG="aztec:*" \
+  -e LOG_LEVEL=debug \
+  -e LOG_JSON=1 \
+  aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST

@@ -7,6 +7,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -75,8 +76,8 @@ export enum ProvingRequestType {
 
   BASE_ROLLUP,
   MERGE_ROLLUP,
+  EMPTY_BLOCK_ROOT_ROLLUP,
   BLOCK_ROOT_ROLLUP,
-  BLOCK_ROOT_ROLLUP_FINAL,
   BLOCK_MERGE_ROLLUP,
   ROOT_ROLLUP,
 
@@ -102,10 +103,10 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Ci
       return 'base-rollup';
     case ProvingRequestType.MERGE_ROLLUP:
       return 'merge-rollup';
+    case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
+      return 'empty-block-root-rollup';
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
       return 'block-root-rollup';
-    case ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL:
-      return 'block-root-rollup-final';
     case ProvingRequestType.BLOCK_MERGE_ROLLUP:
       return 'block-merge-rollup';
     case ProvingRequestType.ROOT_ROLLUP:
@@ -165,8 +166,8 @@ export type ProvingRequest =
       inputs: BlockRootRollupInputs;
     }
   | {
-      type: ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL;
-      inputs: BlockRootRollupInputs;
+      type: ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP;
+      inputs: EmptyBlockRootRollupInputs;
     }
   | {
       type: ProvingRequestType.BLOCK_MERGE_ROLLUP;
@@ -195,8 +196,8 @@ export type ProvingRequestPublicInputs = {
 
   [ProvingRequestType.BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
-  [ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
 

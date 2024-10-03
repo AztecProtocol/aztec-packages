@@ -4,7 +4,6 @@
 
 mod arguments;
 mod call_private_function;
-mod encryption;
 mod execution;
 mod get_contract_instance;
 mod get_l1_to_l2_membership_witness;
@@ -14,7 +13,7 @@ mod get_membership_witness;
 mod keys;
 mod key_validation_request;
 mod get_sibling_path;
-mod unsafe_rand;
+mod random;
 mod enqueue_public_function_call;
 mod header;
 mod notes;

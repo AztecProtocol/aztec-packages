@@ -43,7 +43,7 @@ global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4; // If modifying, update DEPLOYER_
 
 // TREES RELATED CONSTANTS
 global ARCHIVE_HEIGHT: u32 = 16;
-global VK_TREE_HEIGHT: u32 = 5;
+global VK_TREE_HEIGHT: u32 = 6;
 global FUNCTION_TREE_HEIGHT: u32 = 5;
 global NOTE_HASH_TREE_HEIGHT: u32 = 32;
 global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
@@ -97,29 +97,25 @@ global MAX_PUBLIC_DATA_HINTS: u32 = 128;
 global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
 
 // VK TREE CONSTANTS
-global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
-global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
-global PRIVATE_KERNEL_RESET_FULL_INDEX: u32 = 2;
-global PRIVATE_KERNEL_RESET_FULL_INNER_INDEX: u32 = 3;
-global PRIVATE_KERNEL_RESET_BIG_INDEX: u32 = 4;
-global PRIVATE_KERNEL_RESET_MEDIUM_INDEX: u32 = 5;
-global PRIVATE_KERNEL_RESET_SMALL_INDEX: u32 = 6;
-global PRIVATE_KERNEL_RESET_TINY_INDEX: u32 = 7;
-global PRIVATE_KERNEL_TAIL_INDEX: u32 = 10;
-global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 11;
-global EMPTY_NESTED_INDEX: u32 = 12;
-global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 13;
-global PUBLIC_KERNEL_INNER_INDEX: u32 = 15; // TODO(#7124): To be deprecated.
-global PUBLIC_KERNEL_MERGE_INDEX: u32 = 16;
-global PUBLIC_KERNEL_TAIL_INDEX: u32 = 17;
-global BASE_PARITY_INDEX: u32 = 18;
-global ROOT_PARITY_INDEX: u32 = 19;
-global BASE_ROLLUP_INDEX: u32 = 20;
-global MERGE_ROLLUP_INDEX: u32 = 21;
-global BLOCK_ROOT_ROLLUP_INDEX: u32 = 22;
-global BLOCK_MERGE_ROLLUP_INDEX: u32 = 23;
-global ROOT_ROLLUP_INDEX: u32 = 24;
-global BLOCK_ROOT_ROLLUP_FINAL_INDEX: u32 = 25;
+global EMPTY_NESTED_INDEX: u32 = 0;
+global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
+global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
+global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
+global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
+global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
+global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
+global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
+global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
+global BASE_PARITY_INDEX: u32 = 10;
+global ROOT_PARITY_INDEX: u32 = 11;
+global BASE_ROLLUP_INDEX: u32 = 12;
+global MERGE_ROLLUP_INDEX: u32 = 13;
+global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
+global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
+global ROOT_ROLLUP_INDEX: u32 = 16;
+global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
+global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
+// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
@@ -141,6 +137,8 @@ global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de503
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
+// Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
+global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
 // CONTRACT CLASS CONSTANTS
 global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 20000;
@@ -312,8 +310,8 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH: u32 = 439;
-global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 439;
+global RECURSIVE_PROOF_LENGTH: u32= 463;
+global NESTED_RECURSIVE_PROOF_LENGTH: u32= 463;
 global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
 global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
@@ -327,8 +325,9 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
-global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3832;
+global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
+global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed
@@ -487,7 +486,7 @@ global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQ
 global AVM_DELEGATECALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
 global AVM_RETURN_BASE_L2_GAS: u32 = 28;
 global AVM_REVERT_BASE_L2_GAS: u32 = 28;
-global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 10;
+global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12; // Must be equal to AVM_JUMP_BASE_L2_GAS as long as circuit implements debugLog as a jump
 global AVM_KECCAK_BASE_L2_GAS: u32 = 3000;
 global AVM_POSEIDON2_BASE_L2_GAS: u32 = 78;
 global AVM_SHA256_BASE_L2_GAS: u32 = 2610;

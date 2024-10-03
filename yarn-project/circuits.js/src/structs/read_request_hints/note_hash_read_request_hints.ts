@@ -42,21 +42,24 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
   public numPendingReadHints = 0;
   public numSettledReadHints = 0;
 
-  constructor(numPending: PENDING, numSettled: SETTLED) {
+  constructor(public readonly maxPending: PENDING, public readonly maxSettled: SETTLED) {
     this.hints = new ReadRequestResetHints(
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestStatus.nada),
-      makeTuple(numPending, () => PendingReadHint.nada(MAX_NOTE_HASH_READ_REQUESTS_PER_TX)),
-      makeTuple(numSettled, () =>
+      makeTuple(maxPending, () => PendingReadHint.nada(MAX_NOTE_HASH_READ_REQUESTS_PER_TX)),
+      makeTuple(maxSettled, () =>
         SettledReadHint.nada(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, Fr.zero),
       ),
     );
   }
 
-  static empty<PENDING extends number, SETTLED extends number>(numPending: PENDING, numSettled: SETTLED) {
-    return new NoteHashReadRequestHintsBuilder(numPending, numSettled).toHints().hints;
+  static empty<PENDING extends number, SETTLED extends number>(maxPending: PENDING, maxSettled: SETTLED) {
+    return new NoteHashReadRequestHintsBuilder(maxPending, maxSettled).toHints();
   }
 
   addPendingReadRequest(readRequestIndex: number, noteHashIndex: number) {
+    if (this.numPendingReadHints === this.maxPending) {
+      throw new Error('Cannot add more pending read request.');
+    }
     this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
       ReadRequestState.PENDING,
       this.numPendingReadHints,
@@ -70,6 +73,9 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
     membershipWitness: MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>,
     value: NoteHashLeafValue,
   ) {
+    if (this.numSettledReadHints === this.maxSettled) {
+      throw new Error('Cannot add more settled read request.');
+    }
     this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
       ReadRequestState.SETTLED,
       this.numSettledReadHints,
@@ -83,10 +89,6 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
   }
 
   toHints() {
-    return {
-      numPendingReadHints: this.numPendingReadHints,
-      numSettledReadHints: this.numSettledReadHints,
-      hints: this.hints,
-    };
+    return this.hints;
   }
 }

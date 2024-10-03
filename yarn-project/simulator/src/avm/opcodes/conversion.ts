@@ -17,7 +17,7 @@ export class ToRadixLE extends Instruction {
     OperandType.UINT32, // dst memory address
     OperandType.UINT32, // radix memory address
     OperandType.UINT32, // number of limbs (Immediate)
-    OperandType.UINT1, // output is in "bits" mode (Immediate - Uint1 still takes up a whole byte)
+    OperandType.UINT8, // output is in "bits" mode (Immediate - Uint1 still takes up a whole byte)
   ];
 
   constructor(
@@ -33,12 +33,10 @@ export class ToRadixLE extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [srcOffset, dstOffset, radixOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.srcOffset, this.dstOffset, this.radixOffset],
-      memory,
-    );
-    const memoryOperations = { reads: 2, writes: this.numLimbs, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: this.numLimbs }));
+    const operands = [this.srcOffset, this.dstOffset, this.radixOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [srcOffset, dstOffset, radixOffset] = addressing.resolve(operands, memory);
+    context.machineState.consumeGas(this.gasCost(this.numLimbs));
 
     // The radix gadget only takes in a Field
     memory.checkTag(TypeTag.FIELD, srcOffset);
@@ -62,7 +60,7 @@ export class ToRadixLE extends Instruction {
     const res = limbArray.map(byte => new outputType(byte));
     memory.setSlice(dstOffset, res);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 2, writes: this.numLimbs, addressing });
     context.machineState.incrementPc();
   }
 }

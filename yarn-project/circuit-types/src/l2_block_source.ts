@@ -1,4 +1,4 @@
-import { type EthAddress } from '@aztec/circuits.js';
+import { type EthAddress, type Header } from '@aztec/circuits.js';
 
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
@@ -34,11 +34,24 @@ export interface L2BlockSource {
   getProvenBlockNumber(): Promise<number>;
 
   /**
+   * Gets the number of the latest L2 proven epoch seen by the block source implementation.
+   * @returns The number of the latest L2 proven epoch seen by the block source implementation.
+   */
+  getProvenL2EpochNumber(): Promise<number | undefined>;
+
+  /**
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
   getBlock(number: number): Promise<L2Block | undefined>;
+
+  /**
+   * Gets an l2 block header.
+   * @param number - The block number to return or 'latest' for the most recent one.
+   * @returns The requested L2 block header.
+   */
+  getBlockHeader(number: number | 'latest'): Promise<Header | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -62,6 +75,29 @@ export interface L2BlockSource {
    * @returns The requested tx receipt (or undefined if not found).
    */
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
+
+  /**
+   * Returns the current L2 slot number based on the current L1 timestamp.
+   */
+  getL2SlotNumber(): Promise<bigint>;
+
+  /**
+   * Returns the current L2 epoch number based on the current L1 timestamp.
+   */
+  getL2EpochNumber(): Promise<bigint>;
+
+  /**
+   * Returns all blocks for a given epoch.
+   * @dev Use this method only with recent epochs, since it walks the block list backwards.
+   * @param epochNumber - The epoch number to return blocks for.
+   */
+  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]>;
+
+  /**
+   * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
+   * @param epochNumber - The epoch number to check.
+   */
+  isEpochComplete(epochNumber: bigint): Promise<boolean>;
 
   /**
    * Starts the L2 block source.

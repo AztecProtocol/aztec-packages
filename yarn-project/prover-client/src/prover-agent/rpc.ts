@@ -9,6 +9,7 @@ import {
   BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
   EthAddress,
   Fr,
   Header,
@@ -68,6 +69,7 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       BlockRootOrBlockMergePublicInputs,
       BlockMergeRollupInputs,
       BlockRootRollupInputs,
+      EmptyBlockRootRollupInputs,
     },
     {},
   );
@@ -109,6 +111,7 @@ export function createProvingJobSourceClient(
       BlockRootOrBlockMergePublicInputs,
       BlockMergeRollupInputs,
       BlockRootRollupInputs,
+      EmptyBlockRootRollupInputs,
     },
     {},
     false,

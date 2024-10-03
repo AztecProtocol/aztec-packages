@@ -52,7 +52,7 @@ struct AddressWithMode {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+    AvmTraceBuilder(VmPublicInputs<FF> public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
@@ -107,14 +107,16 @@ class AvmTraceBuilder {
     void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Machine State - Internal Control Flow
-    void op_jump(uint32_t jmp_dest);
+    // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
+    void op_jump(uint32_t jmp_dest, bool skip_gas = false);
     void op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset);
     // TODO(md): this program counter MUST be an operand to the OPCODE.
     void op_internal_call(uint32_t jmp_dest);
     void op_internal_return();
 
     // Machine State - Memory
-    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
+    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas = false);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
@@ -139,7 +141,7 @@ class AvmTraceBuilder {
     void op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset);
 
     // Control Flow - Contract Calls
-    void op_call(uint8_t indirect,
+    void op_call(uint16_t indirect,
                  uint32_t gas_offset,
                  uint32_t addr_offset,
                  uint32_t args_offset,
@@ -148,7 +150,7 @@ class AvmTraceBuilder {
                  uint32_t ret_size,
                  uint32_t success_offset,
                  uint32_t function_selector_offset);
-    void op_static_call(uint8_t indirect,
+    void op_static_call(uint16_t indirect,
                         uint32_t gas_offset,
                         uint32_t addr_offset,
                         uint32_t args_offset,
@@ -169,7 +171,7 @@ class AvmTraceBuilder {
                           uint32_t output_offset,
                           uint32_t input_offset,
                           uint32_t input_size_offset);
-    void op_ec_add(uint8_t indirect,
+    void op_ec_add(uint16_t indirect,
                    uint32_t lhs_x_offset,
                    uint32_t lhs_y_offset,
                    uint32_t lhs_is_inf_offset,
@@ -196,12 +198,7 @@ class AvmTraceBuilder {
                         uint8_t output_bits);
 
     // Future Gadgets -- pending changes in noir
-    void op_sha256_compression(uint8_t indirect,
-                               uint32_t output_offset,
-                               uint32_t state_offset,
-                               uint32_t state_size_offset,
-                               uint32_t inputs_offset,
-                               uint32_t inputs_size_offset);
+    void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t state_offset, uint32_t inputs_offset);
     void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
 
     std::vector<Row> finalize();
@@ -281,7 +278,7 @@ class AvmTraceBuilder {
                                                              uint32_t metadata_offset);
 
     void constrain_external_call(OpCode opcode,
-                                 uint8_t indirect,
+                                 uint16_t indirect,
                                  uint32_t gas_offset,
                                  uint32_t addr_offset,
                                  uint32_t args_offset,

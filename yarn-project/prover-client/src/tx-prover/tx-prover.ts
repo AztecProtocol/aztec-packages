@@ -1,7 +1,7 @@
 import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import {
-  type BlockProver,
-  type ProverClient,
+  type EpochProver,
+  type EpochProverManager,
   type ProvingJobSource,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
@@ -19,7 +19,7 @@ import { ProverAgent } from '../prover-agent/prover-agent.js';
  * A prover factory.
  * TODO(palla/prover-node): Rename this class
  */
-export class TxProver implements ProverClient {
+export class TxProver implements EpochProverManager {
   private queue: MemoryProvingQueue;
   private running = false;
 
@@ -33,7 +33,7 @@ export class TxProver implements ProverClient {
     this.queue = new MemoryProvingQueue(telemetry, config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
   }
 
-  public createBlockProver(db: MerkleTreeOperations): BlockProver {
+  public createEpochProver(db: MerkleTreeOperations): EpochProver {
     return new ProvingOrchestrator(db, this.queue, this.telemetry, this.config.proverId);
   }
 

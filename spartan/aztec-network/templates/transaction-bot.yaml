@@ -1,3 +1,4 @@
+{{- if .Values.network.enableBots }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -100,3 +101,4 @@ spec:
       {{- if and (eq .Values.bot.service.type "NodePort") .Values.bot.service.nodePort }}
       nodePort: {{ .Values.bot.service.nodePort }}
       {{- end }}
+{{- end }}

@@ -27,12 +27,12 @@ using bb::utils::hex_to_bytes;
 class AvmExecutionTests : public ::testing::Test {
   public:
     std::vector<FF> public_inputs_vec;
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
 
     AvmExecutionTests()
         : public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH)
     {
-        Execution::set_trace_builder_constructor([](VmPublicInputs public_inputs,
+        Execution::set_trace_builder_constructor([](VmPublicInputsNT public_inputs,
                                                     ExecutionHints execution_hints,
                                                     uint32_t side_effect_counter,
                                                     std::vector<FF> calldata) {
@@ -52,7 +52,7 @@ class AvmExecutionTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        public_inputs = Execution::convert_public_inputs(public_inputs_vec);
+        public_inputs = convert_public_inputs(public_inputs_vec);
     };
 
     /**
@@ -947,9 +947,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                "00"                                  // Indirect flag
                                "00000100"                            // output offset
                                "00000001"                            // state offset
-                               "0000000F"                            // state size
                                "00000009"                            // input offset
-                               "00000008"                            // input size
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000100"                            // ret offset 256
@@ -1267,7 +1265,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "07"                       // value
                                "06"                       // dst_offset
                                + to_hex(OpCode::ECADD) +  // opcode ECADD
-                               "40"                       // Indirect flag (sixth operand indirect)
+                               "0040"                     // Indirect flag (sixth operand indirect)
                                "00000000"                 // hash_index offset (direct)
                                "00000001"                 // dest offset (direct)
                                "00000002"                 // input offset (indirect)
@@ -1723,7 +1721,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_is_static_call == 1; });
     EXPECT_EQ(is_static_call_row->main_ia, is_static_call);
 
-    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), calldata, returndata);
+    validate_trace(std::move(trace), convert_public_inputs(public_inputs_vec), calldata, returndata);
 }
 
 // Positive test for L2GASLEFT opcode
@@ -1912,13 +1910,16 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     FF expected_hash = FF(std::string("0x006db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
+    // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
+    EXPECT_EQ(emit_log_row->main_ib, 40);
 
     uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
     auto emit_log_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
-    feed_output(emit_log_out_offset, 1, 2, 0);
+    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
+    feed_output(emit_log_out_offset, expected_hash, 2, 40);
 
     // CHECK SEND L2 TO L1 MSG
     auto send_row =
@@ -2280,7 +2281,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                "00000000"                     // dst_offset
                                + bytecode_preamble            // Load up memory offsets
                                + to_hex(OpCode::CALL) +       // opcode CALL
-                               "3f"                           // Indirect flag
+                               "003f"                         // Indirect flag
                                "00000011"                     // gas offset
                                "00000012"                     // addr offset
                                "00000013"                     // args offset

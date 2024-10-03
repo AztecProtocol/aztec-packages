@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, header::Header, address::AztecAddress,
-    traits::{FromField, ToField}
+    hash::{poseidon2_hash, poseidon2_hash_with_separator}, address::AztecAddress,
+    traits::{FromField, ToField}, utils::arrays::array_concat
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
@@ -32,19 +32,6 @@ global HASH_SEPARATOR: u32 = 2;
 // can actually use it here
 impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
 
-// TODO: extract into a utils module once  we can do arithmetic on generics, i.e. https://github.com/noir-lang/noir/issues/4784
-fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
-    assert_eq(N + M, O);
-    let mut out: [Field; O] = [0; O];
-    for i in 0..N {
-        out[i] = arr_n[i];
-    }
-    for i in 0..M {
-        out[N+i] = arr_m[i];
-    }
-    out
-}
-
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
 //  - mutable in public
@@ -71,15 +58,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], HASH_SEPARATOR)
     }
 }
 
@@ -222,9 +209,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>
     ) -> Field {
-        // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
-        // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
-        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
+        let concatenated: [Field; 4] = array_concat(value_change.serialize(), delay_change.serialize());
         poseidon2_hash(concatenated)
     }
 }

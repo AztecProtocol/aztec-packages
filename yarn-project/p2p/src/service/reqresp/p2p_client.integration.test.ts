@@ -1,4 +1,5 @@
 // An integration test for the p2p client to test req resp protocols
+import { MockBlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -14,9 +15,9 @@ import { generatePrivateKey } from 'viem/accounts';
 
 import { type AttestationPool } from '../../attestation_pool/attestation_pool.js';
 import { createP2PClient } from '../../client/index.js';
-import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { type EpochProofQuotePool } from '../../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { convertToMultiaddr } from '../../util.js';
@@ -47,6 +48,7 @@ const NUMBER_OF_PEERS = 2;
 describe('Req Resp p2p client integration', () => {
   let txPool: Mockify<TxPool>;
   let attestationPool: Mockify<AttestationPool>;
+  let epochProofQuotePool: Mockify<EpochProofQuotePool>;
   let blockSource: MockBlockSource;
   let kvStore: AztecKVStore;
   let worldStateSynchronizer: WorldStateSynchronizer;
@@ -134,22 +136,22 @@ describe('Req Resp p2p client integration', () => {
         getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
       };
 
+      epochProofQuotePool = {
+        addQuote: jest.fn(),
+        getQuotes: jest.fn().mockReturnValue([]),
+        deleteQuotesToEpoch: jest.fn(),
+      };
+
       blockSource = new MockBlockSource();
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();
       const deps = {
         txPool: txPool as unknown as TxPool,
+        attestationPool: attestationPool as unknown as AttestationPool,
+        epochProofQuotePool: epochProofQuotePool as unknown as EpochProofQuotePool,
         store: kvStore,
       };
-      const client = await createP2PClient(
-        config,
-        attestationPool as unknown as AttestationPool,
-        blockSource,
-        proofVerifier,
-        worldStateSynchronizer,
-        undefined,
-        deps,
-      );
+      const client = await createP2PClient(config, blockSource, proofVerifier, worldStateSynchronizer, undefined, deps);
 
       await client.start();
       clients.push(client);

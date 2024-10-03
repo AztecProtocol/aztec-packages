@@ -225,6 +225,15 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
 /// Public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
 pub comptime fn public(f: FunctionDefinition) -> Quoted {
+    // We don't want to transform the public_dispatch function.
+    if f.name() == quote { public_dispatch } {
+        quote {}
+    } else {
+        transform_public(f)
+    }
+}
+
+comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
@@ -238,7 +247,8 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
-        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(0, $args_len);
+        // We start from 1 because we skip the selector for the dispatch function.
+        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);
         dep::aztec::hash::hash_args_array(serialized_args)
      }); };
 
