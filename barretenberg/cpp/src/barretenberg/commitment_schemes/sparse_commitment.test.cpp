@@ -156,4 +156,48 @@ TYPED_TEST(CommitmentKeyTest, CommitSparseMediumNonZeroStartIndex)
     EXPECT_EQ(sparse_commit_result, commit_result);
 }
 
+/**
+ * @brief Test commit_structured on polynomial with blocks of non-zero values (like wires when using structured trace)
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitStructured)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const uint32_t NUM_BLOCKS = 8;
+    const uint32_t BLOCK_SIZE = 1 << 10;
+    const uint32_t ACTUAL_SIZE = 1 << 8;
+    std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
+    std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
+    const uint32_t num_points = NUM_BLOCKS * BLOCK_SIZE;
+
+    uint32_t full_size = 0;
+    for (auto size : block_sizes) {
+        full_size += size;
+    }
+
+    auto polynomial = Polynomial(full_size);
+
+    uint32_t start_idx = 0;
+    uint32_t end_idx = 0;
+    for (auto [block_size, actual_size] : zip_view(block_sizes, actual_sizes)) {
+        end_idx = start_idx + actual_size;
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            polynomial.at(i) = Fr::random_element();
+        }
+        start_idx += block_size;
+    }
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(polynomial);
+    G1 structured_commit_result = key->commit_structured(polynomial, block_sizes, actual_sizes);
+
+    EXPECT_EQ(structured_commit_result, commit_result);
+}
+
 } // namespace bb
