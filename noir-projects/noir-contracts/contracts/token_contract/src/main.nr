@@ -524,8 +524,8 @@ contract Token {
         // 6. We convert the hiding points to standard `Point` type as we cannot pass `TokenNoteHidingPoint` type
         // as an argument to a function due to macro limitations (the `TokenNoteHidingPoint` type is macro generated
         // and hence is not resolved soon enough by the compiler).
-        let fee_payer_point = fee_payer_partial_payload.hiding_point.to_point();
-        let user_point = user_partial_payload.hiding_point.to_point();
+        let fee_payer_point = fee_payer_partial_payload.hiding_point;
+        let user_point = user_partial_payload.hiding_point;
 
         // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
@@ -547,8 +547,6 @@ contract Token {
     #[public]
     #[internal]
     fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
-        let mut fee_payer_hiding_point = TokenNote::hiding_point().from_point(fee_payer_point);
-        let mut user_hiding_point = TokenNote::hiding_point().from_point(user_point);
         // TODO(#7728): Remove the next line
         let funded_amount = U128::from_integer(funded_amount);
         let tx_fee = U128::from_integer(context.transaction_fee());
@@ -560,9 +558,10 @@ contract Token {
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
         let refund_amount = funded_amount - tx_fee;
 
-        // 3. We finalize the hiding points with the correct amounts to get the note hashes.
-        let fee_payer_note_hash = fee_payer_hiding_point.finalize(tx_fee);
-        let user_note_hash = user_hiding_point.finalize(refund_amount);
+        // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
+        // hashes and unencrypted logs.
+        let fee_payer_finalization_payload = TokenNote::finalized_payload().new(fee_payer_point, tx_fee);
+        let user_finalization_payload = TokenNote::finalized_payload().new(user_point, refund_amount);
 
         // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
         // to reconstruct the note.
@@ -573,8 +572,8 @@ contract Token {
         context.emit_unencrypted_log(serialized_refund_amount);
 
         // 5. At last we emit the note hashes.
-        context.push_note_hash(fee_payer_note_hash);
-        context.push_note_hash(user_note_hash);
+        context.push_note_hash(fee_payer_finalization_payload.note_hash);
+        context.push_note_hash(user_finalization_payload.note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
     // docs:end:complete_refund

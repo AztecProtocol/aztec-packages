@@ -135,7 +135,7 @@ contract NFT {
     }
 
     /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
-    /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
+    /// finalization by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
     /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
     #[private]
@@ -213,13 +213,13 @@ contract NFT {
         public_owners_storage.write(AztecAddress::zero());
 
         // Finalize the partial note with the `token_id`
-        let finalized_payload = NFTNote::finalized_payload().new(hiding_point, token_id);
+        let finalization_payload = NFTNote::finalization_payload().new(hiding_point, token_id);
 
-        // We insert the finalized note hash
-        context.push_note_hash(finalized_payload.note_hash);
+        // We insert the finalization note hash
+        context.push_note_hash(finalization_payload.note_hash);
 
         // We emit the `token_id` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
-        context.emit_unencrypted_log(finalized_payload.log_plaintext);
+        context.emit_unencrypted_log(finalization_payload.log_plaintext);
 
         // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
         // the writes
