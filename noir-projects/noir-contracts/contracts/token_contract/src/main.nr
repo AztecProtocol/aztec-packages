@@ -560,8 +560,8 @@ contract Token {
 
         // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
         // hashes and unencrypted logs.
-        let fee_payer_finalization_payload = TokenNote::finalized_payload().new(fee_payer_point, tx_fee);
-        let user_finalization_payload = TokenNote::finalized_payload().new(user_point, refund_amount);
+        let fee_payer_finalization_payload = TokenNote::finalization_payload().new(fee_payer_point, tx_fee);
+        let user_finalization_payload = TokenNote::finalization_payload().new(user_point, refund_amount);
 
         // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
         // to reconstruct the note.

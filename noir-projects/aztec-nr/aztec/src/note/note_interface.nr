@@ -8,7 +8,7 @@ pub trait NoteProperties<T> {
 pub trait PartialNote<T, P> {
     fn partial_payload() -> T;
 
-    fn finalized_payload() -> P;
+    fn finalization_payload() -> P;
 }
 
 pub trait NullifiableNote {
