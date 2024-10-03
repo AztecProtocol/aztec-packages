@@ -37,7 +37,13 @@ Polynomial<FF> structured_random_poly(const std::vector<uint32_t>& structured_si
         full_size += size;
     }
 
-    // auto& engine = numeric::get_debug_randomness();
+    // In practice the polynomials will have a power-of-2 size
+    auto log2_n = static_cast<size_t>(numeric::get_msb(full_size));
+    if ((1UL << log2_n) != (full_size)) {
+        ++log2_n;
+    }
+    full_size = 1 << log2_n;
+
     auto polynomial = Polynomial<FF>(full_size);
 
     uint32_t start_idx = 0;
@@ -172,14 +178,18 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    // const size_t num_points = 1 << state.range(0);
-    // const size_t num_nonzero = SPARSE_NUM_NONZERO;
+    // const uint32_t NUM_BLOCKS = 8;
+    // const uint32_t BLOCK_SIZE = 1 << 16;
+    // const uint32_t ACTUAL_SIZE = 1 << 14;
+    // std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
+    // std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
 
-    const uint32_t NUM_BLOCKS = 8;
-    const uint32_t BLOCK_SIZE = 1 << 16;
-    const uint32_t ACTUAL_SIZE = 1 << 14;
-    std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
-    std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
+    std::vector<uint32_t> block_sizes = {
+        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
+    };
+    std::vector<uint32_t> actual_sizes = {
+        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
+    };
 
     auto polynomial = structured_random_poly<Fr>(block_sizes, actual_sizes);
 
@@ -194,14 +204,18 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    // const size_t num_points = 1 << state.range(0);
-    // const size_t num_nonzero = SPARSE_NUM_NONZERO;
+    // const uint32_t NUM_BLOCKS = 8;
+    // const uint32_t BLOCK_SIZE = 1 << 16;
+    // const uint32_t ACTUAL_SIZE = 1 << 14;
+    // std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
+    // std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
 
-    const uint32_t NUM_BLOCKS = 8;
-    const uint32_t BLOCK_SIZE = 1 << 16;
-    const uint32_t ACTUAL_SIZE = 1 << 14;
-    std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
-    std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
+    std::vector<uint32_t> block_sizes = {
+        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
+    };
+    std::vector<uint32_t> actual_sizes = {
+        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
+    };
 
     auto polynomial = structured_random_poly<Fr>(block_sizes, actual_sizes);
 
@@ -216,14 +230,18 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed_
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    // const size_t num_points = 1 << state.range(0);
-    // const size_t num_nonzero = SPARSE_NUM_NONZERO;
+    // const uint32_t NUM_BLOCKS = 8;
+    // const uint32_t BLOCK_SIZE = 1 << 16;
+    // const uint32_t ACTUAL_SIZE = 1 << 14;
+    // std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
+    // std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
 
-    const uint32_t NUM_BLOCKS = 8;
-    const uint32_t BLOCK_SIZE = 1 << 16;
-    const uint32_t ACTUAL_SIZE = 1 << 14;
-    std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
-    std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
+    std::vector<uint32_t> block_sizes = {
+        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
+    };
+    std::vector<uint32_t> actual_sizes = {
+        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
+    };
 
     auto polynomial = structured_random_poly<Fr>(block_sizes, actual_sizes);
 
