@@ -230,8 +230,8 @@ void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag
     // op_set increments the pc, so we need to store the current pc and then jump back to it
     // to legaly reset the pc.
     auto current_pc = pc;
-    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag);
-    op_jump(current_pc);
+    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, true);
+    op_jump(current_pc, true);
 }
 
 template <typename T>
@@ -1636,12 +1636,14 @@ void AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
  *
  * @param jmp_dest - The destination to jump to
  */
-void AvmTraceBuilder::op_jump(uint32_t jmp_dest)
+void AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMP_16);
+    if (!skip_gas) {
+        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_16);
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1822,7 +1824,7 @@ void AvmTraceBuilder::op_internal_return()
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto [resolved_c] = unpack_indirects<1>(indirect, { dst_offset });
@@ -1832,7 +1834,9 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
-    gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+    if (!skip_gas) {
+        gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2334,7 +2338,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
     }
     // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    op_jump(old_pc + 1, true); // TODO(8945)
 }
 
 void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
@@ -2409,7 +2413,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
     }
     // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    op_jump(old_pc + 1, true); // TODO(8945)
 }
 
 void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
@@ -2733,7 +2737,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // Write the return data to memory
     write_slice_to_memory(resolved_ret_offset, AvmMemoryTag::FF, hint.return_data);
     // Write the success flag to memory
-    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U1, std::vector<FF>{ hint.success });
+    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U8, std::vector<FF>{ hint.success });
     external_call_counter++;
 
     // Adjust the side_effect_counter to the value at the end of the external call but not static call.
@@ -3862,12 +3866,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     gas_trace_builder.finalize(main_trace);
     // We need to assert here instead of finalize until we figure out inter-trace threading
-    for (size_t i = 0; i < gas_trace_size; i++) {
-        auto& dest = main_trace.at(i);
-        range_check_builder.assert_range(
-            uint128_t(dest.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(dest.main_clk));
-        range_check_builder.assert_range(
-            uint128_t(dest.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(dest.main_clk));
+    for (size_t i = 0; i < main_trace_size; i++) {
+        auto& row = main_trace.at(i);
+        if (row.main_is_gas_accounted) {
+            range_check_builder.assert_range(
+                uint128_t(row.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(row.main_clk));
+            range_check_builder.assert_range(
+                uint128_t(row.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(row.main_clk));
+        }
     }
 
     /**********************************************************************************************
