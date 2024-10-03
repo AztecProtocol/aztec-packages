@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -249,13 +250,18 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
+        PROFILE_THIS();
+
         return random(size - start_index, size, start_index);
     }
 
     static Polynomial random(size_t size, size_t virtual_size, size_t start_index)
     {
         Polynomial p(size, virtual_size, start_index, DontZeroMemory::FLAG);
-        std::generate_n(p.coefficients_.data(), size, []() { return Fr::random_element(); });
+        parallel_for_heuristic(
+            size,
+            [&](size_t i) { p.coefficients_.data()[i] = Fr::random_element(); },
+            thread_heuristics::ALWAYS_MULTITHREAD);
         return p;
     }
 
