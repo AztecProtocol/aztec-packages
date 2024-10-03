@@ -269,6 +269,14 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "10000"
         },
         {
+          name  = "ARCHIVER_VIEM_POLLING_INTERVAL_MS"
+          value = "10000"
+        },
+        {
+          name  = "SEQ_VIEM_POLLING_INTERVAL_MS"
+          value = "10000"
+        },
+        {
           name  = "SEQ_RETRY_INTERVAL"
           value = "10000"
         },

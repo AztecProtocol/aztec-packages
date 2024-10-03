@@ -68,8 +68,6 @@ import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
 
-const logger = createDebugLogger('aztec:archiver:static');
-
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
@@ -143,9 +141,6 @@ export class Archiver implements ArchiveSource {
     telemetry: TelemetryClient,
     blockUntilSynced = true,
   ): Promise<Archiver> {
-    logger.info('createAndSync');
-    logger.info(`viem interval: ${config.viemPollingIntervalMS}`);
-    logger.info(`archiver interval: ${config.archiverPollingIntervalMS}`);
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,

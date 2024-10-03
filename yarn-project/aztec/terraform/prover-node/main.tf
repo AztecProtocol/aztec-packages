@@ -250,6 +250,8 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
 
         // Archiver
         { name = "ARCHIVER_POLLING_INTERVAL_MS", value = "10000" },
+        { name = "ARCHIVER_VIEM_POLLING_INTERVAL_MS", value = "10000" },
+        { name = "PROVER_VIEM_POLLING_INTERVAL_MS", value = "10000" },
 
         // Aztec node to pull clientivc proofs from (to be replaced with a p2p connection)
         { name = "TX_PROVIDER_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}" },
