@@ -101,23 +101,35 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
     return pt;
 }
 
-void assign_linear_term(mul_quad_<fr>& gate, int i, uint32_t w, fr const& scaling)
+/// @brief
+
+/// @param scaling The scaling factor to apply to the linear term.
+/// @note This function is used internally to update the fields of a mul_quad_ gate with a linear term.
+/**
+ * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
+ * @param gate The mul_quad_ gate to assign the linear term to.
+ * @param index The index of the linear term to assign (0 for a, 1 for b, 2 for c, 3 for d).
+ * @param witness_index The witness index to assign to the linear term.
+ * @return nothing, the input gate is modified in place.
+ * @note It fails if index is 4 or more.
+ */
+void assign_linear_term(mul_quad_<fr>& gate, int index, uint32_t witness_index, fr const& scaling)
 {
-    switch (i) {
+    switch (index) {
     case 0:
-        gate.a = w;
+        gate.a = witness_index;
         gate.a_scaling = scaling;
         break;
     case 1:
-        gate.b = w;
+        gate.b = witness_index;
         gate.b_scaling = scaling;
         break;
     case 2:
-        gate.c = w;
+        gate.c = witness_index;
         gate.c_scaling = scaling;
         break;
     case 3:
-        gate.d = w;
+        gate.d = witness_index;
         gate.d_scaling = scaling;
         break;
     default:
@@ -126,7 +138,7 @@ void assign_linear_term(mul_quad_<fr>& gate, int i, uint32_t w, fr const& scalin
 }
 
 /// Accumulate the input expression into a serie of quad gates
-std::vector<mul_quad_<fr>> serialize_big_add_gate(Program::Expression const& arg)
+std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Program::Expression const& arg)
 {
     std::vector<mul_quad_<fr>> result;
     auto current_mul_term = arg.mul_terms.begin();
@@ -403,7 +415,7 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
         }
         if (mul_quads.empty()) {
             // If not, we need to split the expression into multiple gates
-            mul_quads = serialize_big_add_gate(arg.value);
+            mul_quads = split_into_mul_quad_gates(arg.value);
         }
         if (mul_quads.size() == 1) {
             af.quad_constraints.push_back(mul_quads[0]);
