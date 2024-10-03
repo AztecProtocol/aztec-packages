@@ -117,8 +117,8 @@ class ProofSurgeon {
         std::vector<uint32_t> public_input_witness_indices;
         public_input_witness_indices.reserve(num_public_inputs_to_extract);
 
-        size_t start = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
-        size_t end = start + num_public_inputs_to_extract;
+        const size_t start = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        const size_t end = start + num_public_inputs_to_extract;
         for (size_t i = start; i < end; ++i) {
             public_input_witness_indices.push_back(proof[i].get_witness_index());
         }
