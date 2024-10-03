@@ -318,6 +318,8 @@ export type SetupOptions = {
   l2StartTime?: number;
   /** How far we should assume proven */
   assumeProvenThrough?: number;
+  /** Whether to start a prover node */
+  startProverNode?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
