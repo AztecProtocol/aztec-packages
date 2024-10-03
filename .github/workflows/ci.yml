@@ -818,6 +818,7 @@ jobs:
           run: |
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
+            cd yarn-project/end-to-end
             NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=3-validators.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   rerun-check:
