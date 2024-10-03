@@ -17,6 +17,8 @@
     const auto clear_tag = OriginTag();                                                                                \
     const auto submitted_value_origin_tag = OriginTag(                                                                 \
         parent_id, /*round_id=*/0, /*is_submitted=*/true); /*A tag describing a value submitted in the 0th round*/     \
+    const auto next_submitted_value_origin_tag = OriginTag(                                                            \
+        parent_id, /*round_id=*/1, /*is_submitted=*/true); /*A tag describing a value submitted in the 1st round*/     \
     const auto challenge_origin_tag = OriginTag(                                                                       \
         parent_id, /*round_id=*/0, /*is_submitted=*/false); /*A tag describing a challenge derived in the 0th round*/  \
     const auto next_challenge_tag = OriginTag(                                                                         \
@@ -29,9 +31,14 @@
         OriginTag(submitted_value_origin_tag,                                                                          \
                   next_challenge_tag); /* A tag describing a value constructed from values submitted in the 0th round  \
                                           and challenges computed in the 1st round*/                                   \
-    const auto all_merged_tag = OriginTag(                                                                             \
+    const auto first_second_third_merged_tag = OriginTag(                                                              \
         first_two_merged_tag, next_challenge_tag); /* A tag describing a value computed from values submitted in the   \
-                                                      0th round and challenges generated in the 0th and 1st round*/
+                                                      0th round and challenges generated in the 0th and 1st round*/    \
+    const auto first_to_fourth_merged_tag =                                                                            \
+        OriginTag(first_second_third_merged_tag,                                                                       \
+                  next_submitted_value_origin_tag); /* A tag describing a value computed from values submitted in the  \
+                                 0th round and challenges generated in the 0th and 1st round*/
+
 namespace bb {
 
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
@@ -39,15 +46,15 @@ void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
 #ifndef NDEBUG
 struct OriginTag {
     static constexpr size_t CONSTANT = 0;
-    // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses a
-    // concrete index, not bits for now, since we never expect two different indices to be used in the same computation
-    // apart from equality assertion
+    // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses
+    // a concrete index, not bits for now, since we never expect two different indices to be used in the same
+    // computation apart from equality assertion
     size_t parent_tag;
 
     // Child tag specifies which submitted values and challenges have been used to generate this element
-    // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the round)
-    // The higher 128 bits represent using a challenge value from an corresponding round (the shift represents the
-    // round)
+    // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the
+    // round) The higher 128 bits represent using a challenge value from an corresponding round (the shift
+    // represents the round)
     numeric::uint256_t child_tag;
 
     // Instant death is used for poisoning values we should never use in arithmetic
@@ -82,9 +89,9 @@ struct OriginTag {
     /**
      * @brief Construct a new Origin Tag by merging two other Origin Tags
      *
-     * @details The function checks for 3 things: 1) The no tag has instant death set, 2) That tags are from the same
-     * transcript (same parent tag) or are empty, 3) A complex check for the child tags. After that the child tags are
-     * merged and we create a new Origin Tag
+     * @details The function checks for 3 things: 1) The no tag has instant death set, 2) That tags are from the
+     * same transcript (same parent tag) or are empty, 3) A complex check for the child tags. After that the child
+     * tags are merged and we create a new Origin Tag
      * @param tag_a
      * @param tag_b
      */
