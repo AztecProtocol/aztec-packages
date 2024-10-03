@@ -7,11 +7,6 @@ on:
         type: string
         description: "The tag to release"
         required: true
-      publish:
-        type: boolean
-        description: "Whether to publish the release"
-        required: true
-
 permissions:
   # Necessary to upload new release artifacts
   contents: write
