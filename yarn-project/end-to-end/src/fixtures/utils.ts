@@ -47,12 +47,8 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
-  MockProofCommitmentEscrowAbi,
-  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
-  ProofCommitmentEscrowAbi,
-  ProofCommitmentEscrowBytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
@@ -117,12 +113,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: {
-    salt?: number;
-    initialValidators?: EthAddress[];
-    assumeProvenThrough?: number;
-    useRealProofCommitmentEscrow?: boolean;
-  } = {
+  args: { salt?: number; initialValidators?: EthAddress[]; assumeProvenThrough?: number } = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
   },
   chain: Chain = foundry,
@@ -151,12 +142,6 @@ export const setupL1Contracts = async (
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
-    },
-    proofCommitmentEscrow: {
-      contractAbi: args.useRealProofCommitmentEscrow ? ProofCommitmentEscrowAbi : MockProofCommitmentEscrowAbi,
-      contractBytecode: args.useRealProofCommitmentEscrow
-        ? ProofCommitmentEscrowBytecode
-        : MockProofCommitmentEscrowBytecode,
     },
   };
 

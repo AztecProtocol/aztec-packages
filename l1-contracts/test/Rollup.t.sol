@@ -15,13 +15,11 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {MockProofCommitmentEscrow} from "@aztec/mock/MockProofCommitmentEscrow.sol";
+import {TestERC20} from "./TestERC20.sol";
 
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -46,7 +44,6 @@ contract RollupTest is DecoderBase {
   TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
-  IProofCommitmentEscrow internal proofCommitmentEscrow;
 
   SignatureLib.Signature[] internal signatures;
 
@@ -73,9 +70,7 @@ contract RollupTest is DecoderBase {
     feeJuicePortal.initialize(
       address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
-    proofCommitmentEscrow = new MockProofCommitmentEscrow();
-    rollup =
-      new Rollup(feeJuicePortal, proofCommitmentEscrow, bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
@@ -86,20 +81,14 @@ contract RollupTest is DecoderBase {
 
     uint256 privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
     address signer = vm.addr(privateKey);
-    uint256 bond = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
     quote = EpochProofQuoteLib.EpochProofQuote({
       epochToProve: Epoch.wrap(0),
       validUntilSlot: Slot.wrap(1),
-      bondAmount: bond,
+      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
       prover: signer,
       basisPointFee: 0
     });
     signedQuote = _quoteToSignedQuote(quote);
-
-    testERC20.mint(signer, bond * 10);
-    vm.prank(signer);
-    proofCommitmentEscrow.deposit(bond * 10);
-
     _;
   }
 

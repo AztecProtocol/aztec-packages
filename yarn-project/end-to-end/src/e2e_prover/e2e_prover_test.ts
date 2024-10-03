@@ -24,8 +24,7 @@ import {
   type UltraKeccakHonkProtocolArtifact,
 } from '@aztec/bb-prover';
 import { compileContract } from '@aztec/ethereum';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
@@ -34,8 +33,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 import solc from 'solc';
-import { type Hex, getContract } from 'viem';
-import { privateKeyToAddress } from 'viem/accounts';
+import { getContract } from 'viem';
 
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -96,7 +94,7 @@ export class FullProverTest {
       `full_prover_integration/${testName}`,
       dataPath,
       {},
-      { assumeProvenThrough: undefined, useRealProofCommitmentEscrow: true },
+      { assumeProvenThrough: undefined },
     );
   }
 
@@ -260,10 +258,6 @@ export class FullProverTest {
 
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-    const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).to0xString());
-
-    this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
-    await this.mintL1ERC20(proverNodeSenderAddress, 100_000_000n);
 
     this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
@@ -278,8 +272,6 @@ export class FullProverTest {
       proverNodePollingIntervalMs: 100,
       quoteProviderBasisPointFee: 100,
       quoteProviderBondAmount: 1000n,
-      proverMinimumStakeAmount: 3000n,
-      proverTargetStakeAmount: 6000n,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
@@ -289,14 +281,6 @@ export class FullProverTest {
 
     this.logger.warn(`Proofs are now enabled`);
     return this;
-  }
-
-  private async mintL1ERC20(recipient: Hex, amount: bigint) {
-    const erc20Address = this.context.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
-    const client = this.context.deployL1ContractsValues.walletClient;
-    const erc20 = getContract({ abi: TestERC20Abi, address: erc20Address.toString(), client });
-    const hash = await erc20.write.mint([recipient, amount]);
-    await this.context.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash });
   }
 
   snapshot = <T>(

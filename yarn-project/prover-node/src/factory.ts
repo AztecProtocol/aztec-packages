@@ -13,7 +13,6 @@ import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 
-import { createBondManager } from './bond/factory.js';
 import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
@@ -61,10 +60,6 @@ export async function createProverNode(
   const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);
   const epochMonitor = new EpochMonitor(archiver, proverNodeConfig);
 
-  const rollupContract = publisher.getRollupContract();
-  const walletClient = publisher.getClient();
-  const bondManager = await createBondManager(rollupContract, walletClient, config);
-
   return new ProverNode(
     prover!,
     publisher,
@@ -78,7 +73,6 @@ export async function createProverNode(
     quoteSigner,
     claimsMonitor,
     epochMonitor,
-    bondManager,
     telemetry,
     proverNodeConfig,
   );

@@ -15,7 +15,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 // Portals
 import {TokenPortal} from "./TokenPortal.sol";
@@ -53,13 +52,7 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup = new Rollup(
-      IFeeJuicePortal(address(0)),
-      IProofCommitmentEscrow(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();

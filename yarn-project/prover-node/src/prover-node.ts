@@ -17,7 +17,6 @@ import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulato
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
-import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
 import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims-monitor.js';
@@ -57,7 +56,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     private readonly quoteSigner: QuoteSigner,
     private readonly claimsMonitor: ClaimsMonitor,
     private readonly epochsMonitor: EpochMonitor,
-    private readonly bondManager: BondManager,
     private readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {
@@ -68,6 +66,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+  }
+
+  async ensureBond() {
+    // Ensure the prover has enough bond to submit proofs
+    // Can we just run this at the beginning and forget about it?
+    // Or do we need to check periodically? Or only when we get slashed? How do we know we got slashed?
   }
 
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {
@@ -81,13 +85,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
       this.latestEpochWeAreProving = proofClaim.epochToProve;
     } catch (err) {
       this.log.error(`Error handling claim for epoch ${proofClaim.epochToProve}`, err);
-    }
-
-    try {
-      // Staked amounts are lowered after a claim, so this is a good time for doing a top-up if needed
-      await this.bondManager.ensureBond();
-    } catch (err) {
-      this.log.error(`Error ensuring prover bond after handling claim for epoch ${proofClaim.epochToProve}`, err);
     }
   }
 
@@ -118,7 +115,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
    */
   async handleEpochCompleted(epochNumber: bigint): Promise<void> {
     try {
-      // Construct a quote for the epoch
       const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
@@ -126,10 +122,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
         return;
       }
 
-      // Ensure we have deposited enough funds for sending this quote
-      await this.bondManager.ensureBond(partialQuote.bondAmount);
-
-      // Assemble and sign full quote
       const quote = EpochProofQuotePayload.from({
         ...partialQuote,
         epochToProve: BigInt(epochNumber),
@@ -137,8 +129,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
         validUntilSlot: partialQuote.validUntilSlot ?? BigInt(Number.MAX_SAFE_INTEGER), // Should we constrain this?
       });
       const signed = await this.quoteSigner.sign(quote);
-
-      // Send it to the coordinator
       await this.sendEpochProofQuote(signed);
     } catch (err) {
       this.log.error(`Error handling epoch completed`, err);
@@ -146,12 +136,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
   }
 
   /**
-   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and sends
-   * quotes for them, as well as monitors the claims for the epochs it has sent quotes for and starts proving jobs.
-   * This method returns once the prover node has deposited an initial bond into the escrow contract.
+   * Starts the prover node so it periodically checks for unproven blocks in the unfinalised chain from L1 and proves them.
+   * This may change once we implement a prover coordination mechanism.
    */
   async start() {
-    await this.bondManager.ensureBond();
+    await this.ensureBond();
     this.epochsMonitor.start(this);
     this.claimsMonitor.start(this);
     this.log.info('Started ProverNode', this.options);

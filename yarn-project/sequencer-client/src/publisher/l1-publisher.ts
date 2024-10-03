@@ -32,19 +32,13 @@ import pick from 'lodash.pick';
 import { inspect } from 'util';
 import {
   type BaseError,
-  type Chain,
-  type Client,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
   type PrivateKeyAccount,
-  type PublicActions,
   type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
   type WalletClient,
-  type WalletRpcSchema,
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
@@ -53,7 +47,6 @@ import {
   getContract,
   hexToBytes,
   http,
-  publicActions,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type * as chains from 'viem/chains';
@@ -139,9 +132,7 @@ export class L1Publisher {
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
-
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
-  private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
   private account: PrivateKeyAccount;
 
   public static PROPOSE_GAS_GUESS: bigint = 500_000n;
@@ -155,8 +146,7 @@ export class L1Publisher {
     const chain = createEthereumChain(rpcUrl, chainId);
     this.account = privateKeyToAccount(publisherPrivateKey);
     this.log.debug(`Publishing from address ${this.account.address}`);
-
-    this.walletClient = createWalletClient({
+    const walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
@@ -170,29 +160,12 @@ export class L1Publisher {
     this.rollupContract = getContract({
       address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
-      client: this.walletClient,
+      client: walletClient,
     });
   }
 
   public getSenderAddress(): EthAddress {
     return EthAddress.fromString(this.account.address);
-  }
-
-  public getClient(): Client<
-    HttpTransport,
-    Chain,
-    PrivateKeyAccount,
-    [...WalletRpcSchema, ...PublicRpcSchema],
-    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
-  > {
-    return this.walletClient.extend(publicActions);
-  }
-
-  public getRollupContract(): GetContractReturnType<
-    typeof RollupAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
-  > {
-    return this.rollupContract;
   }
 
   /**
