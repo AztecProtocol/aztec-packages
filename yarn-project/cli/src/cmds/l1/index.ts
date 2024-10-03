@@ -278,6 +278,20 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('advance-epoch')
+    .description('Use L1 cheat codes to warp time until the next epoch.')
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(pxeOption)
+    .action(async options => {
+      const { advanceEpoch } = await import('./advance_epoch.js');
+      await advanceEpoch(options.l1RpcUrl, options.rpcUrl, log);
+    });
+
+  program
     .command('prover-stats', { hidden: true })
     .requiredOption(
       '--l1-rpc-url <string>',
