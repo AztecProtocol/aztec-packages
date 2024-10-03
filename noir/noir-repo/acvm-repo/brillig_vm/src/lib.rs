@@ -2242,4 +2242,49 @@ mod tests {
         // Ensure the foreign call counter has been incremented
         assert_eq!(vm.foreign_call_counter, 1);
     }
+
+    #[test]
+    fn relative_addressing() {
+        let calldata = vec![];
+        let bit_size = BitSize::Integer(IntegerBitSize::U32);
+        let value = FieldElement::from(3u128);
+
+        let opcodes = [
+            Opcode::Const {
+                destination: MemoryAddress::direct(0),
+                bit_size,
+                value: FieldElement::from(27u128),
+            },
+            Opcode::Const {
+                destination: MemoryAddress::relative(1), // Resolved address 28 value 3
+                bit_size,
+                value,
+            },
+            Opcode::Const {
+                destination: MemoryAddress::direct(1), // Address 1 value 3
+                bit_size,
+                value,
+            },
+            Opcode::BinaryIntOp {
+                destination: MemoryAddress::direct(1),
+                op: BinaryIntOp::Equals,
+                bit_size: IntegerBitSize::U32,
+                lhs: MemoryAddress::direct(1),
+                rhs: MemoryAddress::direct(28),
+            },
+        ];
+
+        let mut vm = VM::new(calldata, &opcodes, vec![], &StubbedBlackBoxSolver);
+
+        vm.process_opcode();
+        vm.process_opcode();
+        vm.process_opcode();
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
+
+        let VM { memory, .. } = vm;
+        let output_value = memory.read(MemoryAddress::direct(1));
+
+        assert_eq!(output_value.to_field(), FieldElement::from(1u128));
+    }
 }

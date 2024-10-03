@@ -43,7 +43,7 @@ pub(crate) const BRILLIG_MEMORY_ADDRESSING_BIT_SIZE: u32 = 32;
 
 // Registers reserved in runtime for special purposes.
 pub(crate) enum ReservedRegisters {
-    /// This register stores the stack pointer.
+    /// This register stores the stack pointer. All relative memory addresses are relative to this pointer.
     StackPointer = 0,
     /// This register stores the free memory pointer. Allocations must be done after this pointer.
     FreeMemoryPointer = 1,
