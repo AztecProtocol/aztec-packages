@@ -14,7 +14,7 @@ export class EcAdd extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // reserved
-    OperandType.UINT8, // indirect
+    OperandType.UINT16, // indirect
     OperandType.UINT32, // p1X
     OperandType.UINT32, // p1Y
     OperandType.UINT32, // p1IsInfinite
