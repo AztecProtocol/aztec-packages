@@ -1,5 +1,5 @@
 import { type Tx, mockTx } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, GasSettings } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionSelector, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
@@ -67,10 +67,11 @@ describe('GasTxValidator', () => {
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(TX_FEE - 1n);
+    const selector = FunctionSelector.fromSignature('_increase_public_balance((Field),Field)');
     patchNonRevertibleFn(tx, 0, {
       address: FeeJuiceAddress,
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-      args: [payer, new Fr(1n)],
+      selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      args: [selector.toField(), payer, new Fr(1n)],
       msgSender: FeeJuiceAddress,
     });
     await expectValidateSuccess(tx);

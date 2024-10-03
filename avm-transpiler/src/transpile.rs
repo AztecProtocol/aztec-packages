@@ -12,7 +12,7 @@ use noirc_errors::debug_info::DebugInfo;
 use crate::bit_traits::bits_needed_for;
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
-    SECOND_OPERAND_INDIRECT, THIRD_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
+    SECOND_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
@@ -83,7 +83,7 @@ pub fn brillig_to_avm(
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     tag: Some(AvmTypeTag::FIELD),
                     operands: vec![
                         make_operand(bits_needed, &lhs.0),
@@ -170,7 +170,7 @@ pub fn brillig_to_avm(
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
                         make_operand(bits_needed, &lhs.0),
@@ -195,7 +195,7 @@ pub fn brillig_to_avm(
 
                 avm_instrs.push(AvmInstruction {
                     opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     operands: vec![
                         make_operand(bits_needed, &source.0),
                         make_operand(bits_needed, &destination.0),
@@ -206,7 +206,7 @@ pub fn brillig_to_avm(
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     operands: vec![
                         AvmOperand::U32 {
                             value: offset_address.to_usize() as u32, // cdOffset (calldata offset)
@@ -231,7 +231,7 @@ pub fn brillig_to_avm(
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_16,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     operands: vec![make_operand(16, &avm_loc), make_operand(16, &condition.0)],
                     ..Default::default()
                 });
@@ -244,7 +244,7 @@ pub fn brillig_to_avm(
             }
             BrilligOpcode::Mov { destination, source } => {
                 avm_instrs.push(generate_mov_instruction(
-                    Some(ALL_DIRECT),
+                    Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     source.to_usize() as u32,
                     destination.to_usize() as u32,
                 ));
@@ -252,7 +252,7 @@ pub fn brillig_to_avm(
             BrilligOpcode::ConditionalMov { source_a, source_b, condition, destination } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CMOV,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     operands: vec![
                         AvmOperand::U32 { value: source_a.to_usize() as u32 },
                         AvmOperand::U32 { value: source_b.to_usize() as u32 },
@@ -264,14 +264,14 @@ pub fn brillig_to_avm(
             }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(
-                    Some(ZEROTH_OPERAND_INDIRECT),
+                    Some(AvmOperand::U8 { value: ZEROTH_OPERAND_INDIRECT }),
                     source_pointer.to_usize() as u32,
                     destination.to_usize() as u32,
                 ));
             }
             BrilligOpcode::Store { destination_pointer, source } => {
                 avm_instrs.push(generate_mov_instruction(
-                    Some(FIRST_OPERAND_INDIRECT),
+                    Some(AvmOperand::U8 { value: FIRST_OPERAND_INDIRECT }),
                     source.to_usize() as u32,
                     destination_pointer.to_usize() as u32,
                 ));
@@ -289,7 +289,7 @@ pub fn brillig_to_avm(
             BrilligOpcode::Stop { return_data_offset, return_data_size } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::RETURN,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
                     operands: vec![
                         AvmOperand::U32 { value: *return_data_offset as u32 },
                         AvmOperand::U32 { value: *return_data_size as u32 },
@@ -310,7 +310,7 @@ pub fn brillig_to_avm(
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(ZEROTH_OPERAND_INDIRECT),
+                    indirect: Some(AvmOperand::U8 { value: ZEROTH_OPERAND_INDIRECT }),
                     operands: vec![
                         make_operand(bits_needed, &revert_data.pointer.0),
                         make_operand(bits_needed, &revert_data.size),
@@ -346,7 +346,7 @@ pub fn brillig_to_avm(
     // This should therefore not affect the program's execution.
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::MOV_16,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![AvmOperand::U16 { value: 0x18ca }, AvmOperand::U16 { value: 0x18ca }],
         ..Default::default()
     });
@@ -473,7 +473,7 @@ fn handle_external_call(
         //   * args offset INDIRECT
         //   * address offset direct
         //   * gas offset INDIRECT
-        indirect: Some(0b00010101),
+        indirect: Some(AvmOperand::U16 { value: 0b00010101 }),
         operands: vec![
             AvmOperand::U32 { value: gas_offset },
             AvmOperand::U32 { value: address_offset },
@@ -525,7 +525,7 @@ fn handle_note_hash_exists(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NOTEHASHEXISTS,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U32 { value: note_hash_offset_operand },
             AvmOperand::U32 { value: leaf_index_offset_operand },
@@ -557,7 +557,7 @@ fn handle_emit_unencrypted_log(
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
         // The message array from Brillig is indirect.
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(AvmOperand::U8 { value: ZEROTH_OPERAND_INDIRECT }),
         operands: vec![
             AvmOperand::U32 { value: message_offset },
             AvmOperand::U32 { value: message_size_offset },
@@ -594,7 +594,7 @@ fn handle_emit_note_hash_or_nullifier(
     };
     avm_instrs.push(AvmInstruction {
         opcode: if is_nullifier { AvmOpcode::EMITNULLIFIER } else { AvmOpcode::EMITNOTEHASH },
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![AvmOperand::U32 { value: offset_operand }],
         ..Default::default()
     });
@@ -625,7 +625,7 @@ fn handle_nullifier_exists(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NULLIFIEREXISTS,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U32 { value: nullifier_offset_operand },
             AvmOperand::U32 { value: address_offset_operand },
@@ -670,7 +670,7 @@ fn handle_l1_to_l2_msg_exists(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::L1TOL2MSGEXISTS,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U32 { value: msg_hash_offset_operand },
             AvmOperand::U32 { value: msg_leaf_index_offset_operand },
@@ -709,7 +709,7 @@ fn handle_send_l2_to_l1_msg(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SENDL2TOL1MSG,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U32 { value: recipient_offset_operand },
             AvmOperand::U32 { value: content_offset_operand },
@@ -779,7 +779,7 @@ fn handle_getter_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETENVVAR_16,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U8 { value: var_idx as u8 },
             AvmOperand::U16 { value: dest_offset as u16 },
@@ -825,7 +825,11 @@ fn generate_set_instruction(
 
     AvmInstruction {
         opcode: set_opcode,
-        indirect: if indirect { Some(ZEROTH_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
+        indirect: if indirect {
+            Some(AvmOperand::U8 { value: ZEROTH_OPERAND_INDIRECT })
+        } else {
+            Some(AvmOperand::U8 { value: ALL_DIRECT })
+        },
         tag: Some(tag),
         operands: vec![
             make_operand(bits_needed_opcode, value),
@@ -857,14 +861,18 @@ fn generate_cast_instruction(
     }
     AvmInstruction {
         opcode: avm_opcode,
-        indirect: Some(indirect_flags),
+        indirect: Some(AvmOperand::U8 { value: indirect_flags }),
         tag: Some(dst_tag),
         operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &destination)],
     }
 }
 
 /// Generates an AVM MOV instruction.
-fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
+fn generate_mov_instruction(
+    indirect: Option<AvmOperand>,
+    source: u32,
+    dest: u32,
+) -> AvmInstruction {
     let bits_needed = [source, dest].iter().map(bits_needed_for).max().unwrap();
 
     let mov_opcode = match bits_needed {
@@ -887,22 +895,20 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
             let inputs_offset = input.pointer.0;
-            let inputs_size_offset = input.size.0;
             let state_offset = hash_values.pointer.0;
-            let state_size_offset = hash_values.size.0;
             let output_offset = output.pointer.0;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::SHA256COMPRESSION,
-                indirect: Some(
-                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | THIRD_OPERAND_INDIRECT,
-                ),
+                indirect: Some(AvmOperand::U8 {
+                    value: ZEROTH_OPERAND_INDIRECT
+                        | FIRST_OPERAND_INDIRECT
+                        | SECOND_OPERAND_INDIRECT,
+                }),
                 operands: vec![
                     AvmOperand::U32 { value: output_offset as u32 },
                     AvmOperand::U32 { value: state_offset as u32 },
-                    AvmOperand::U32 { value: state_size_offset as u32 },
                     AvmOperand::U32 { value: inputs_offset as u32 },
-                    AvmOperand::U32 { value: inputs_size_offset as u32 },
                 ],
                 ..Default::default()
             });
@@ -916,7 +922,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(SECOND_OPERAND_INDIRECT),
+                indirect: Some(AvmOperand::U8 { value: SECOND_OPERAND_INDIRECT }),
                 operands: vec![
                     AvmOperand::U32 { value: index_offset as u32 },
                     AvmOperand::U32 { value: dest_offset as u32 },
@@ -938,7 +944,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::POSEIDON2,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(AvmOperand::U8 {
+                    value: ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT,
+                }),
                 operands: vec![
                     AvmOperand::U32 { value: input_state_offset as u32 },
                     AvmOperand::U32 { value: output_state_offset as u32 },
@@ -954,7 +962,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::KECCAK,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(AvmOperand::U8 {
+                    value: ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT,
+                }),
                 operands: vec![
                     AvmOperand::U32 { value: dest_offset as u32 },
                     AvmOperand::U32 { value: message_offset as u32 },
@@ -971,7 +981,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::KECCAKF1600,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(AvmOperand::U8 {
+                    value: ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT,
+                }),
                 operands: vec![
                     AvmOperand::U32 { value: dest_offset as u32 },
                     AvmOperand::U32 { value: message_offset as u32 },
@@ -988,14 +1000,14 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXLE,
-                indirect: Some(FIRST_OPERAND_INDIRECT),
+                indirect: Some(AvmOperand::U8 { value: FIRST_OPERAND_INDIRECT }),
                 tag: None,
                 operands: vec![
                     AvmOperand::U32 { value: input_offset },
                     AvmOperand::U32 { value: output_offset },
                     AvmOperand::U32 { value: radix_offset },
                     AvmOperand::U32 { value: num_limbs },
-                    AvmOperand::U1 { value: *output_bits as u8 },
+                    AvmOperand::U8 { value: *output_bits as u8 },
                 ],
             });
         }
@@ -1011,7 +1023,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
             // The result (SIXTH operand) is indirect.
-            indirect: Some(0b1000000),
+            indirect: Some(AvmOperand::U16 { value: 0b1000000 }),
             operands: vec![
                 AvmOperand::U32 { value: p1_x_offset.0 as u32 },
                 AvmOperand::U32 { value: p1_y_offset.0 as u32 },
@@ -1035,9 +1047,11 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let outputs_offset = outputs.pointer.0;
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::MSM,
-                indirect: Some(
-                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | SECOND_OPERAND_INDIRECT,
-                ),
+                indirect: Some(AvmOperand::U8 {
+                    value: ZEROTH_OPERAND_INDIRECT
+                        | FIRST_OPERAND_INDIRECT
+                        | SECOND_OPERAND_INDIRECT,
+                }),
                 operands: vec![
                     AvmOperand::U32 { value: points_offset as u32 },
                     AvmOperand::U32 { value: scalars_offset as u32 },
@@ -1055,7 +1069,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let output_offset = output.pointer.0;
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSENCOMMITMENT,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                indirect: Some(AvmOperand::U8 {
+                    value: ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT,
+                }),
                 operands: vec![
                     AvmOperand::U32 { value: input_offset as u32 },
                     AvmOperand::U32 { value: output_offset as u32 },
@@ -1098,7 +1114,7 @@ fn handle_debug_log(
         //  * fields_offset_ptr INDIRECT
         //  * (N/A) message_size is an immediate
         //  * message_offset direct
-        indirect: Some(0b011),
+        indirect: Some(AvmOperand::U8 { value: 0b011 }),
         operands: vec![
             AvmOperand::U32 { value: message_offset },
             AvmOperand::U32 { value: message_size },
@@ -1138,7 +1154,7 @@ fn handle_calldata_copy(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::CALLDATACOPY,
-        indirect: Some(SECOND_OPERAND_INDIRECT),
+        indirect: Some(AvmOperand::U8 { value: SECOND_OPERAND_INDIRECT }),
         operands: vec![
             AvmOperand::U32 {
                 value: cd_offset as u32, // cdOffset (calldata offset)
@@ -1170,7 +1186,7 @@ fn handle_return(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::RETURN,
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(AvmOperand::U8 { value: ZEROTH_OPERAND_INDIRECT }),
         operands: vec![
             AvmOperand::U32 { value: return_data_offset as u32 },
             AvmOperand::U32 { value: return_data_size as u32 },
@@ -1203,7 +1219,7 @@ fn handle_storage_write(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U32 { value: src_offset as u32 },
             AvmOperand::U32 { value: slot_offset as u32 },
@@ -1235,7 +1251,7 @@ fn handle_get_contract_instance(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETCONTRACTINSTANCE,
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(AvmOperand::U8 { value: FIRST_OPERAND_INDIRECT }),
         operands: vec![
             AvmOperand::U32 { value: address_offset as u32 },
             AvmOperand::U32 { value: dest_offset as u32 },
@@ -1268,7 +1284,7 @@ fn handle_storage_read(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(AvmOperand::U8 { value: ALL_DIRECT }),
         operands: vec![
             AvmOperand::U32 { value: slot_offset as u32 },
             AvmOperand::U32 { value: dest_offset as u32 },

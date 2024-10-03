@@ -139,8 +139,13 @@ if [[ "${ENV_VARS_TO_INJECT:-}" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" 
   fi
 fi
 
+docker_opt_interactive=-ti
+if [[ -n "${NON_INTERACTIVE:-}" ]]; then
+  docker_opt_interactive=
+fi
+
 docker run \
-  -ti \
+  $docker_opt_interactive \
   --rm \
   --workdir "$PWD" \
   -v $HOME:$HOME -v cache:/cache \
