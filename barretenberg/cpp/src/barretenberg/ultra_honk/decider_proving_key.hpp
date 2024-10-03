@@ -13,7 +13,7 @@
 namespace bb {
 /**
  * @brief  A DeciderProvingKey is normally constructed from a finalized circuit and it contains all the information
- * required by an Ultra Goblin Honk prover to create a proof. A DeciderProvingKey is also the result of running the
+ * required by an Mega Honk prover to create a proof. A DeciderProvingKey is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *

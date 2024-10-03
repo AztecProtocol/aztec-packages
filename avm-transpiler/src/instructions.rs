@@ -10,7 +10,6 @@ pub const ALL_DIRECT: u8 = 0b00000000;
 pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
 pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
 pub const SECOND_OPERAND_INDIRECT: u8 = 0b00000100;
-pub const THIRD_OPERAND_INDIRECT: u8 = 0b00001000;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
@@ -22,7 +21,7 @@ pub struct AvmInstruction {
     /// Any instructions with memory offset operands have the indirect flag
     /// Each bit is a boolean: 0:direct, 1:indirect
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
-    pub indirect: Option<u8>,
+    pub indirect: Option<AvmOperand>,
 
     /// Some instructions have a destination xor input tag
     /// Its usage will depend on the instruction.
@@ -35,7 +34,7 @@ pub struct AvmInstruction {
 impl Display for AvmInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "opcode {}", self.opcode.name())?;
-        if let Some(indirect) = self.indirect {
+        if let Some(indirect) = &self.indirect {
             write!(f, ", indirect: {}", indirect)?;
         }
         // This will be either inTag or dstTag depending on the operation
@@ -58,8 +57,8 @@ impl AvmInstruction {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.push(self.opcode as u8);
-        if let Some(indirect) = self.indirect {
-            bytes.push(indirect);
+        if let Some(indirect) = &self.indirect {
+            bytes.extend_from_slice(&indirect.to_be_bytes());
         }
         // This will be either inTag or dstTag depending on the operation
         if let Some(tag) = self.tag {
@@ -109,7 +108,6 @@ pub enum AvmTypeTag {
 /// Constants (as used by the SET instruction) can have size
 /// different from 32 bits
 pub enum AvmOperand {
-    U1 { value: u8 }, // same wire format as U8
     U8 { value: u8 },
     U16 { value: u16 },
     U32 { value: u32 },
@@ -121,7 +119,6 @@ pub enum AvmOperand {
 impl Display for AvmOperand {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            AvmOperand::U1 { value } => write!(f, " U1:{}", value),
             AvmOperand::U8 { value } => write!(f, " U8:{}", value),
             AvmOperand::U16 { value } => write!(f, " U16:{}", value),
             AvmOperand::U32 { value } => write!(f, " U32:{}", value),
@@ -135,7 +132,6 @@ impl Display for AvmOperand {
 impl AvmOperand {
     pub fn to_be_bytes(&self) -> Vec<u8> {
         match self {
-            AvmOperand::U1 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U8 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U16 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),

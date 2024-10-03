@@ -47,6 +47,7 @@ library Errors {
 
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
+  error Rollup__InsufficientFundsInEscrow(uint256 required, uint256 available); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847

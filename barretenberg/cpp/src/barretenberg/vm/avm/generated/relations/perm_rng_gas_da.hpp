@@ -15,7 +15,7 @@ class perm_rng_gas_da_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.range_check_gas_da_rng_chk == 1 || in.main_sel_execution_row == 1);
+        return (in.range_check_gas_da_rng_chk == 1 || in.main_is_gas_accounted == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
@@ -23,7 +23,7 @@ class perm_rng_gas_da_permutation_settings {
         return std::forward_as_tuple(in.perm_rng_gas_da_inv,
                                      in.range_check_gas_da_rng_chk,
                                      in.range_check_gas_da_rng_chk,
-                                     in.main_sel_execution_row,
+                                     in.main_is_gas_accounted,
                                      in.range_check_clk,
                                      in.range_check_value,
                                      in.main_clk,
@@ -35,7 +35,7 @@ class perm_rng_gas_da_permutation_settings {
         return std::forward_as_tuple(in.perm_rng_gas_da_inv,
                                      in.range_check_gas_da_rng_chk,
                                      in.range_check_gas_da_rng_chk,
-                                     in.main_sel_execution_row,
+                                     in.main_is_gas_accounted,
                                      in.range_check_clk,
                                      in.range_check_value,
                                      in.main_clk,
