@@ -10,7 +10,7 @@ contract NFT {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_log_of_partial}},
+        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
         hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize},
@@ -147,16 +147,17 @@ contract NFT {
         transient_storage_slot_randomness: Field
     ) {
         let to_keys = get_public_keys(to);
-        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
         let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
+
+        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
         let note_partial_payload = NFTNote::partial_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
         // `from` cannot receive any logs here as that would leak information of who is the note recipient. For this
         // reason we encrypt outgoing to `to`.
-        encrypt_and_emit_log_of_partial(
+        encrypt_and_emit_partial_log(
             &mut context,
-            note_partial_payload.buffer,
+            note_partial_payload.log_plaintext,
             to_keys.ovpk_m,
             to_keys.ivpk_m,
             to

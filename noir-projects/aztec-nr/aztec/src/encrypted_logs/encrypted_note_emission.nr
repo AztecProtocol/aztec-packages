@@ -91,7 +91,7 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     }
 }
 
-pub fn encrypt_and_emit_log_of_partial<let M: u32>(
+pub fn encrypt_and_emit_partial_log<let M: u32>(
     context: &mut PrivateContext,
     log_plaintext: [u8; M],
     ovpk: OvpkM,

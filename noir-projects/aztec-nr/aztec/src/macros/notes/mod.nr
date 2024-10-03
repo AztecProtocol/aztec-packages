@@ -317,7 +317,7 @@ comptime fn generate_partial_payload(
     let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
     let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(storage_slot) }).join(quote {,});
 
-    let buffer_length = indexed_fixed_fields.len() * 32 + 64;
+    let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
     // to the flatten_to_fields function but we omit the NoteHeader and the nullable fields.
@@ -334,15 +334,15 @@ comptime fn generate_partial_payload(
     let serialized_fields = fields.join(quote {,});
 
     // indexed_fixed_fields has preserved order so we can used to serialize the note to log
-    let partial_note_buffer = quote {
-        let mut buffer: [u8; $buffer_length] = [0; $buffer_length];
+    let partial_note_log_plaintext = quote {
+        let mut log_plaintext: [u8; $log_plaintext_length] = [0; $log_plaintext_length];
 
         let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
         let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
 
         for i in 0..32 {
-            buffer[i] = storage_slot_bytes[i];
-            buffer[32 + i] = note_type_id_bytes[i];
+            log_plaintext[i] = storage_slot_bytes[i];
+            log_plaintext[32 + i] = note_type_id_bytes[i];
         }
 
         $aux_vars_for_serialization
@@ -351,14 +351,14 @@ comptime fn generate_partial_payload(
         for i in 0..serialized_note.len() {
             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
             for j in 0..32 {
-                buffer[64 + i * 32 + j] = bytes[j];
+                log_plaintext[64 + i * 32 + j] = bytes[j];
             }
         }
     };
 
     (quote {
         struct $partial_payload_name {
-            buffer: [u8; $buffer_length],
+            log_plaintext: [u8; $log_plaintext_length],
             hiding_point: $hiding_point_name
         }
 
@@ -370,10 +370,10 @@ comptime fn generate_partial_payload(
                     [$new_scalars]
                 );
                 let hiding_point = $hiding_point_name::empty().from_point(point);
-                $partial_note_buffer
+                $partial_note_log_plaintext
 
                 $partial_payload_name {
-                    buffer,
+                    log_plaintext,
                     hiding_point
                 }
             }
@@ -381,7 +381,7 @@ comptime fn generate_partial_payload(
 
         impl aztec::protocol_types::traits::Empty for $partial_payload_name {
             fn empty() -> Self {
-                Self { buffer: [0; $buffer_length], hiding_point: $hiding_point_name::empty() }
+                Self { log_plaintext: [0; $log_plaintext_length], hiding_point: $hiding_point_name::empty() }
             }
         }
     }, partial_payload_name)
