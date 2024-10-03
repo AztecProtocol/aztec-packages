@@ -24,7 +24,7 @@ contract Test {
         lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
-        deploy::deploy_contract as aztec_deploy_contract, oracle::unsafe_rand::unsafe_rand,
+        deploy::deploy_contract as aztec_deploy_contract, oracle::random::random,
         utils::comparison::Comparator,
         macros::{storage::storage, events::event, functions::{private, public, internal}}
     };
@@ -452,7 +452,7 @@ contract Test {
 
     // Purely exists for testing
     unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * unsafe_rand()
+        kinda_seed * random()
     }
 
     pub struct DummyNote {

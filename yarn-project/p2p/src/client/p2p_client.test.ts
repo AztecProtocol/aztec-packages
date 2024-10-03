@@ -1,3 +1,4 @@
+import { MockBlockSource } from '@aztec/archiver/test';
 import { mockEpochProofQuote, mockTx } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -8,7 +9,6 @@ import { expect, jest } from '@jest/globals';
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool, type P2PService } from '../index.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { MockBlockSource } from './mocks.js';
 import { P2PClient } from './p2p_client.js';
 
 /**

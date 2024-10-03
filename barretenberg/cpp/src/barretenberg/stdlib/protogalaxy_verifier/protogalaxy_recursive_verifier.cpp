@@ -110,15 +110,9 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 
 // Instantiate the template with specific flavors and builders
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 
