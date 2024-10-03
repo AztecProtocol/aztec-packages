@@ -43,6 +43,33 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
+    // Oversize gates are a vector of mul_quad gates.
+    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
+        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
+        fr next_w4_wire_value = fr(0);
+        // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
+        for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
+            if (j == 0) {
+                next_w4_wire_value = builder.get_variable(big_constraint[0].d);
+            } else {
+                uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
+                big_constraint[j].d = next_w4_wire;
+                big_constraint[j].d_scaling = fr(-1);
+            }
+            builder.create_big_mul_add_gate(big_constraint[j], true);
+            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
+                                     big_constraint[j].mul_scaling +
+                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
+                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
+                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
+                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
+            next_w4_wire_value = -next_w4_wire_value;
+        }
+        uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
+        big_constraint.back().d = next_w4_wire;
+        big_constraint.back().d_scaling = fr(-1);
+        builder.create_big_mul_add_gate(big_constraint.back(), false);
+    }
 
     // Add logic constraint
     for (size_t i = 0; i < constraint_system.logic_constraints.size(); ++i) {

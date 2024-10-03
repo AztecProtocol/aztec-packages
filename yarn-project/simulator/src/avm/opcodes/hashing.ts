@@ -10,7 +10,6 @@ import { strict as assert } from 'assert';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -157,17 +156,13 @@ export class Sha256Compression extends Instruction {
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
   ];
 
   constructor(
     private indirect: number,
     private outputOffset: number,
     private stateOffset: number,
-    private stateSizeOffset: number,
     private inputsOffset: number,
-    private inputsSizeOffset: number,
   ) {
     super();
   }
@@ -177,41 +172,24 @@ export class Sha256Compression extends Instruction {
     const INPUTS_SIZE = 16;
 
     const memory = context.machineState.memory.track(this.type);
-    const operands = [
-      this.outputOffset,
-      this.stateOffset,
-      this.stateSizeOffset,
-      this.inputsOffset,
-      this.inputsSizeOffset,
-    ];
+    const operands = [this.outputOffset, this.stateOffset, this.inputsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [outputOffset, stateOffset, stateSizeOffset, inputsOffset, inputsSizeOffset] = addressing.resolve(
-      operands,
-      memory,
-    );
-    const stateSize = memory.get(stateSizeOffset).toNumber();
-    const inputsSize = memory.get(inputsSizeOffset).toNumber();
-    if (stateSize !== STATE_SIZE) {
-      throw new InstructionExecutionError('`state` argument to SHA256 compression must be of length 8');
-    }
-    if (inputsSize !== INPUTS_SIZE) {
-      throw new InstructionExecutionError('`inputs` argument to SHA256 compression must be of length 16');
-    }
-    // +2 to account for both size offsets (stateSizeOffset and inputsSizeOffset)
+    const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);
+
     // Note: size of output is same as size of state
     context.machineState.consumeGas(this.gasCost());
-    memory.checkTagsRange(TypeTag.UINT32, inputsOffset, inputsSize);
-    memory.checkTagsRange(TypeTag.UINT32, stateOffset, stateSize);
+    memory.checkTagsRange(TypeTag.UINT32, inputsOffset, INPUTS_SIZE);
+    memory.checkTagsRange(TypeTag.UINT32, stateOffset, STATE_SIZE);
 
-    const state = Uint32Array.from(memory.getSlice(stateOffset, stateSize).map(word => word.toNumber()));
-    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, inputsSize).map(word => word.toNumber()));
+    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
+    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
     const output = sha256Compression(state, inputs);
 
     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
     const res = [...output].map(word => new Uint32(word));
     memory.setSlice(outputOffset, res);
 
-    memory.assert({ reads: stateSize + inputsSize + 2, writes: stateSize, addressing });
+    memory.assert({ reads: STATE_SIZE + INPUTS_SIZE, writes: STATE_SIZE, addressing });
     context.machineState.incrementPc();
   }
 }

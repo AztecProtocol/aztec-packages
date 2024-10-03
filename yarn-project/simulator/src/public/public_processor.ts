@@ -57,7 +57,7 @@ export class PublicProcessorFactory {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, historicalHeader, telemetryClient);
+    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
     const publicKernelSimulator = new RealPublicKernelCircuitSimulator(this.simulator);
 
     return PublicProcessor.create(
