@@ -54,7 +54,7 @@ fn compute_lte(x: Field, y: Field, num_bytes: u32) -> bool {
     }
 }
 
-unconstrained fn lt_32_hint(x: Field, y: Field) -> bool {
+unconstrained pub(crate) fn lt_32_hint(x: Field, y: Field) -> bool {
     compute_lt(x, y, 32)
 }
 

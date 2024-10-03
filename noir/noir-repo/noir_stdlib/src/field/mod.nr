@@ -182,7 +182,7 @@ fn lt_fallback(x: Field, y: Field) -> bool {
     x_is_lt
 }
 
-unconstrained fn is_equal_hint(x: Field, y: Field) -> bool {
+unconstrained pub (crate) fn is_equal_hint(x: Field, y: Field) -> bool {
     x == y
 }
 

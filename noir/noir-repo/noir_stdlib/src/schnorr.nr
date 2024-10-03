@@ -78,9 +78,15 @@ fn calculate_signature_challenge<let N: u32>(
     fn from_bytes_reduce_unsafe(bytes: [u8; 64], offset: u32) -> EmbeddedCurveScalar {
     let mut result = EmbeddedCurveScalar::from_bytes(bytes, offset);
     let modulus = EmbeddedCurveScalar { lo: 201385395114098847380338600778089168199, hi: 64323764613183177041862057485226039389 };
-    let hi = crate::field::bn254::lt_32_hint(modulus.hi, result.hi);
-    let lo = crate::field::bn254::lt_32_hint(result.lo, modulus.lo);
-    let eq = crate::field::is_equal_hint(result.hi, modulus.hi);
+    let hi = unsafe {
+        crate::field::bn254::lt_32_hint(modulus.hi, result.hi)
+    };
+    let lo = unsafe {
+        crate::field::bn254::lt_32_hint(result.lo, modulus.lo)
+    };
+    let eq = unsafe {
+        crate::field::is_equal_hint(result.hi, modulus.hi)
+    };
     if (hi | eq) & !lo {
         result.hi -= modulus.hi;
         result.lo -= modulus.lo;
