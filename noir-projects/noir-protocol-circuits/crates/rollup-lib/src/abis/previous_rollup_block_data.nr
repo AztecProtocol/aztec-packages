@@ -6,7 +6,7 @@ use dep::types::{
     utils::arrays::find_index_hint
 };
 
-struct PreviousRollupBlockData {
+pub struct PreviousRollupBlockData {
     block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     proof: NestedRecursiveProof,
     vk: VerificationKey,

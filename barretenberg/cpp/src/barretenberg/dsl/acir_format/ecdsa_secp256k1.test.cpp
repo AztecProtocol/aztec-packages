@@ -100,7 +100,6 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
@@ -124,6 +123,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -157,7 +157,6 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
@@ -181,6 +180,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -209,7 +209,6 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
@@ -233,6 +232,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

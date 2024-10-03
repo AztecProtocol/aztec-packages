@@ -27,6 +27,7 @@ class AvmKernelTraceBuilder {
         TIMESTAMP,
         FEE_PER_DA_GAS,
         FEE_PER_L2_GAS,
+        IS_STATIC_CALL,
         // OUT
         SLOAD,
         SSTORE,
@@ -56,13 +57,14 @@ class AvmKernelTraceBuilder {
     // optimise this to just hardcode the counter to be the same as the lookup selector value!!!
     std::unordered_map<uint32_t, uint32_t> kernel_output_selector_counter;
 
-    AvmKernelTraceBuilder(uint32_t initial_side_effect_counter, VmPublicInputs public_inputs, ExecutionHints hints)
-        : initial_side_effect_counter(initial_side_effect_counter)
-        , public_inputs(std::move(public_inputs))
+    AvmKernelTraceBuilder(uint32_t initial_side_effect_counter, VmPublicInputs<FF> public_inputs, ExecutionHints hints)
+        : public_inputs(std::move(public_inputs))
+        , initial_side_effect_counter(initial_side_effect_counter)
         , hints(std::move(hints))
     {}
 
     void reset();
+    size_t size() const { return kernel_trace.size(); }
     void finalize(std::vector<AvmFullRow<FF>>& main_trace);
     void finalize_columns(std::vector<AvmFullRow<FF>>& main_trace) const;
 
@@ -72,6 +74,7 @@ class AvmKernelTraceBuilder {
     FF op_sender(uint32_t clk);
     FF op_function_selector(uint32_t clk);
     FF op_transaction_fee(uint32_t clk);
+    FF op_is_static_call(uint32_t clk);
 
     // Globals
     FF op_chain_id(uint32_t clk);
@@ -91,14 +94,16 @@ class AvmKernelTraceBuilder {
     void op_nullifier_exists(uint32_t clk, uint32_t side_effect_counter, const FF& nullifier, uint32_t result);
     void op_emit_nullifier(uint32_t clk, uint32_t side_effect_counter, const FF& nullifier);
     void op_l1_to_l2_msg_exists(uint32_t clk, uint32_t side_effect_counter, const FF& message, uint32_t result);
-    void op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash);
+    void op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash, const FF& log_length);
     void op_emit_l2_to_l1_msg(uint32_t clk, uint32_t side_effect_counter, const FF& l2_to_l1_msg, const FF& recipient);
+
+    // This is temporarily made public so we can access PIs
+    VmPublicInputs<FF> public_inputs;
 
   private:
     std::vector<KernelTraceEntry> kernel_trace;
 
     uint32_t initial_side_effect_counter;
-    VmPublicInputs public_inputs;
     ExecutionHints hints;
 
     // Output index counters

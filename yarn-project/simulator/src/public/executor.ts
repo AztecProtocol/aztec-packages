@@ -1,6 +1,6 @@
 import { type PublicExecutionRequest } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { Fr, Gas, type GlobalVariables, type Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import { Fr, Gas, type GlobalVariables, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -9,11 +9,11 @@ import { AvmContext } from '../avm/avm_context.js';
 import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
-import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
+import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { type PublicExecutionResult } from './execution.js';
 import { ExecutorMetrics } from './executor_metrics.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 
 /**
@@ -22,13 +22,7 @@ import { PublicSideEffectTrace } from './side_effect_trace.js';
 export class PublicExecutor {
   metrics: ExecutorMetrics;
 
-  constructor(
-    private readonly publicStorageDB: PublicStateDB,
-    private readonly contractsDb: PublicContractsDB,
-    private readonly commitmentsDb: CommitmentsDB,
-    private readonly header: Header,
-    client: TelemetryClient,
-  ) {
+  constructor(private readonly worldStateDB: WorldStateDB, client: TelemetryClient) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
   }
 
@@ -56,25 +50,19 @@ export class PublicExecutor {
   ): Promise<PublicExecutionResult> {
     const address = executionRequest.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
-    const fnName = (await this.contractsDb.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
-    PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
+    PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}@${address}.`);
     const timer = new Timer();
 
-    const hostStorage = new HostStorage(this.publicStorageDB, this.contractsDb, this.commitmentsDb);
     const trace = new PublicSideEffectTrace(startSideEffectCounter);
     const avmPersistableState = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
-      hostStorage,
+      this.worldStateDB,
       trace,
       pendingSiloedNullifiers.map(n => n.value),
     );
 
-    const avmExecutionEnv = createAvmExecutionEnvironment(
-      executionRequest,
-      this.header,
-      globalVariables,
-      transactionFee,
-    );
+    const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, globalVariables, transactionFee);
 
     const avmMachineState = new AvmMachineState(availableGas);
     const avmContext = new AvmContext(avmPersistableState, avmExecutionEnv, avmMachineState);
@@ -128,7 +116,6 @@ export class PublicExecutor {
  */
 function createAvmExecutionEnvironment(
   executionRequest: PublicExecutionRequest,
-  header: Header,
   globalVariables: GlobalVariables,
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
@@ -139,7 +126,6 @@ function createAvmExecutionEnvironment(
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
-    header,
     globalVariables,
     executionRequest.callContext.isStaticCall,
     executionRequest.callContext.isDelegateCall,

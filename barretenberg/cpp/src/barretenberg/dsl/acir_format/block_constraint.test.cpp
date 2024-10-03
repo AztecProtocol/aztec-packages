@@ -146,7 +146,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -170,6 +169,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -200,7 +200,6 @@ TEST_F(MegaHonk, Databus)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -224,6 +223,7 @@ TEST_F(MegaHonk, Databus)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -309,7 +309,6 @@ TEST_F(MegaHonk, DatabusReturn)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -333,6 +332,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

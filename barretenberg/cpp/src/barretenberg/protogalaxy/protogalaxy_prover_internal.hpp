@@ -24,6 +24,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using RelationUtils = bb::RelationUtils<Flavor>;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
+    using AllValues = typename Flavor::AllValues;
     using RelationSeparator = typename Flavor::RelationSeparator;
     static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
     using UnivariateRelationParametersNoOptimisticSkipping =
@@ -55,6 +56,43 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
     /**
+     * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
+     * evaluation(s).
+     *
+     * @details Note that a linearly dependent subrelation is not computed on a specific row but rather on the entire
+     * execution trace.
+     *
+     * @param evals The evaluations of all subrelations on some row
+     * @param challenges The 'alpha' challenges used to batch the subrelations
+     * @param linearly_dependent_contribution An accumulator for values of  the linearly-dependent (i.e., 'whole-trace')
+     * subrelations
+     * @return FF The evaluation of the linearly-independent (i.e., 'per-row') subrelations
+     */
+    inline static FF process_subrelation_evaluations(const RelationEvaluations& evals,
+                                                     const std::array<FF, NUM_SUBRELATIONS>& challenges,
+                                                     FF& linearly_dependent_contribution)
+    {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1115): Iniitalize with first subrelation value to
+        // avoid Montgomery allocating 0 and doing a mul. This is about 60ns per row.
+        FF linearly_independent_contribution{ 0 };
+        size_t idx = 0;
+
+        auto scale_by_challenge_and_accumulate =
+            [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                const Element contribution = element * challenges[idx];
+                if (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
+                    linearly_independent_contribution += contribution;
+                } else {
+                    linearly_dependent_contribution += contribution;
+                }
+                idx++;
+            };
+        RelationUtils::apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, evals);
+        return linearly_independent_contribution;
+    }
+
+    /**
      * @brief Compute the values of the aggregated relation evaluations at each row in the execution trace, representing
      * f_i(ω) in the Protogalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching
      * challenges that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT
@@ -67,47 +105,48 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
     static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                                   const RelationSeparator& alpha,
+                                                   const RelationSeparator& alphas_,
                                                    const RelationParameters<FF>& relation_parameters)
 
     {
 
         BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
+
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> full_honk_evaluations(polynomial_size);
+        std::vector<FF> aggregated_relation_evaluations(polynomial_size);
+
+        const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
+            std::array<FF, NUM_SUBRELATIONS> tmp;
+            tmp[0] = 1;
+            std::copy(alphas_.begin(), alphas_.end(), tmp.begin() + 1);
+            return tmp;
+        }();
+
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
             polynomial_size,
             /*accumulator default*/ FF(0),
-            [&](size_t row, FF& linearly_dependent_contribution_accumulator) {
-                auto row_evaluations = polynomials.get_row(row);
-                RelationEvaluations relation_evaluations;
-                RelationUtils::zero_elements(relation_evaluations);
+            [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
+                const AllValues row = polynomials.get_row(row_idx);
+                // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows here.
+                const RelationEvaluations evals =
+                    RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-                RelationUtils::template accumulate_relation_evaluations<>(
-                    row_evaluations, relation_evaluations, relation_parameters, FF(1));
-
-                auto output = FF(0);
-                auto running_challenge = FF(1);
-                RelationUtils::scale_and_batch_elements(relation_evaluations,
-                                                        alpha,
-                                                        running_challenge,
-                                                        output,
-                                                        linearly_dependent_contribution_accumulator);
-
-                full_honk_evaluations[row] = output;
+                // Sum against challenges alpha
+                aggregated_relation_evaluations[row_idx] =
+                    process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
-        full_honk_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
-        return full_honk_evaluations;
-    }
+        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
 
+        return aggregated_relation_evaluations;
+    }
     /**
      * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
      * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
      * additional factor of X.
      */
-    static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
-                                                       const std::vector<FF>& deltas,
+    static std::vector<FF> construct_coefficients_tree(std::span<const FF> betas,
+                                                       std::span<const FF> deltas,
                                                        const std::vector<std::vector<FF>>& prev_level_coeffs,
                                                        size_t level = 1)
     {
@@ -142,8 +181,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/745): make computation of perturbator more memory
      * efficient, operate in-place and use std::resize; add multithreading
      */
-    static std::vector<FF> construct_perturbator_coefficients(const std::vector<FF>& betas,
-                                                              const std::vector<FF>& deltas,
+    static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
+                                                              std::span<const FF> deltas,
                                                               const std::vector<FF>& full_honk_evaluations)
     {
         auto width = full_honk_evaluations.size();
@@ -171,7 +210,18 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
-        return Polynomial<FF>(construct_perturbator_coefficients(betas, deltas, full_honk_evaluations));
+        const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
+
+        // Compute the perturbator using only the first log_circuit_size-many betas/deltas
+        std::vector<FF> perturbator = construct_perturbator_coefficients(std::span{ betas.data(), log_circuit_size },
+                                                                         std::span{ deltas.data(), log_circuit_size },
+                                                                         full_honk_evaluations);
+
+        // Populate the remaining coefficients with zeros to reach the required constant size
+        for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
+            perturbator.emplace_back(FF(0));
+        }
+        return Polynomial<FF>{ perturbator };
     }
 
     /**
@@ -189,9 +239,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const DeciderPKs& keys,
         const size_t row_idx)
     {
-        const auto base_univariates = keys.template row_to_univariates<skip_count>(row_idx);
-        for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
-            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH, skip_count>();
+        auto incoming_univariates = keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
+        for (auto [extended_univariate, incoming_univariate] :
+             zip_view(extended_univariates.get_all(), incoming_univariates)) {
+            incoming_univariate.template self_extend_from<NUM_KEYS>();
+            extended_univariate = std::move(incoming_univariate);
         }
     }
 
@@ -252,7 +304,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * time) assumes the value G(1) is 0, which is true in the case where the witness to be folded is valid.
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/968) Make combiner tests better
      *
-     * @tparam skip_zero_computations whether to use the the optimization that skips computing zero.
+     * @tparam skip_zero_computations whether to use the optimization that skips computing zero.
      * @param
      * @param gate_separators
      * @return ExtendedUnivariateWithRandomization

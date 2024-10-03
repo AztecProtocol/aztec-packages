@@ -1,8 +1,6 @@
 import { Fq, Point } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
-import { strict as assert } from 'assert';
-
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
@@ -37,16 +35,17 @@ export class MultiScalarMul extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
     // Resolve indirects
-    const [pointsOffset, scalarsOffset, outputOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.pointsOffset, this.scalarsOffset, this.outputOffset],
-      memory,
-    );
+    const operands = [this.pointsOffset, this.scalarsOffset, this.outputOffset, this.pointsLengthOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [pointsOffset, scalarsOffset, outputOffset, pointsLengthOffset] = addressing.resolve(operands, memory);
 
     // Length of the points vector should be U32
-    memory.checkTag(TypeTag.UINT32, this.pointsLengthOffset);
+    memory.checkTag(TypeTag.UINT32, pointsLengthOffset);
     // Get the size of the unrolled (x, y , inf) points vector
-    const pointsReadLength = memory.get(this.pointsLengthOffset).toNumber();
-    assert(pointsReadLength % 3 === 0, 'Points vector offset should be a multiple of 3');
+    const pointsReadLength = memory.get(pointsLengthOffset).toNumber();
+    if (pointsReadLength % 3 !== 0) {
+      throw new InstructionExecutionError(`Points vector offset should be a multiple of 3, was ${pointsReadLength}`);
+    }
     // Divide by 3 since each point is represented as a triplet to get the number of points
     const numPoints = pointsReadLength / 3;
     // The tag for each triplet will be (Field, Field, Uint8)
@@ -54,21 +53,15 @@ export class MultiScalarMul extends Instruction {
       const offset = pointsOffset + i * 3;
       // Check (Field, Field)
       memory.checkTagsRange(TypeTag.FIELD, offset, 2);
-      // Check Uint8 (inf flag)
-      memory.checkTag(TypeTag.UINT8, offset + 2);
+      // Check Uint1 (inf flag)
+      memory.checkTag(TypeTag.UINT1, offset + 2);
     }
     // Get the unrolled (x, y, inf) representing the points
     const pointsVector = memory.getSlice(pointsOffset, pointsReadLength);
 
     // The size of the scalars vector is twice the NUMBER of points because of the scalar limb decomposition
     const scalarReadLength = numPoints * 2;
-    // Consume gas prior to performing work
-    const memoryOperations = {
-      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
-      writes: 3 /* output triplet */,
-      indirect: this.indirect,
-    };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost(pointsReadLength));
     // Get the unrolled scalar (lo & hi) representing the scalars
     const scalarsVector = memory.getSlice(scalarsOffset, scalarReadLength);
     memory.checkTagsRange(TypeTag.FIELD, scalarsOffset, scalarReadLength);
@@ -108,7 +101,11 @@ export class MultiScalarMul extends Instruction {
 
     memory.setSlice(outputOffset, output);
 
-    memory.assert(memoryOperations);
+    memory.assert({
+      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
+      writes: 3 /* output triplet */,
+      addressing,
+    });
     context.machineState.incrementPc();
   }
 }

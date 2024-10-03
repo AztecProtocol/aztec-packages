@@ -24,7 +24,7 @@ use dep::types::{
 }
 };
 
-struct PublicTailOutputValidator<let NUM_PUBLIC_DATA_LEAVES: u32> {
+pub struct PublicTailOutputValidator<let NUM_PUBLIC_DATA_LEAVES: u32> {
     output: KernelCircuitPublicInputs,
     previous_kernel: PublicKernelCircuitPublicInputs,
     start_state: PartialStateReference,

@@ -3,7 +3,7 @@ use crate::{
     constants::{RECURSIVE_PROOF_LENGTH, NESTED_RECURSIVE_PROOF_LENGTH}
 };
 
-struct RecursiveProof {
+pub struct RecursiveProof {
     fields: [Field; RECURSIVE_PROOF_LENGTH],
 }
 
@@ -25,7 +25,7 @@ impl Empty for RecursiveProof {
     }
 }
 
-struct NestedRecursiveProof {
+pub struct NestedRecursiveProof {
     fields: [Field; NESTED_RECURSIVE_PROOF_LENGTH],
 }
 

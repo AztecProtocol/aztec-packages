@@ -1,6 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { PublicCallData } from './public_call_data.js';
+import { EnqueuedCallData } from './enqueued_call_data.js';
 import { PublicKernelData } from './public_kernel_data.js';
 
 /**
@@ -15,7 +15,7 @@ export class PublicKernelCircuitPrivateInputs {
     /**
      * Public calldata assembled from the execution result and proof.
      */
-    public readonly publicCall: PublicCallData,
+    public readonly enqueuedCall: EnqueuedCallData,
   ) {}
 
   /**
@@ -23,7 +23,7 @@ export class PublicKernelCircuitPrivateInputs {
    * @returns - Buffer representation of the object.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.publicCall);
+    return serializeToBuffer(this.previousKernel, this.enqueuedCall);
   }
 
   /**
@@ -42,8 +42,8 @@ export class PublicKernelCircuitPrivateInputs {
   static fromBuffer(buffer: BufferReader | Buffer) {
     const reader = BufferReader.asReader(buffer);
     const previousKernel = reader.readObject(PublicKernelData);
-    const publicCall = reader.readObject(PublicCallData);
-    return new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);
+    const enqueuedCall = reader.readObject(EnqueuedCallData);
+    return new PublicKernelCircuitPrivateInputs(previousKernel, enqueuedCall);
   }
 
   /**

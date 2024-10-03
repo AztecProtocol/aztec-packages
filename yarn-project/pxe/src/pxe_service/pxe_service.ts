@@ -20,7 +20,6 @@ import {
   type SiblingPath,
   SimulatedTx,
   SimulationError,
-  TaggedLog,
   Tx,
   type TxEffect,
   type TxExecutionRequest,
@@ -31,6 +30,7 @@ import {
   getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   type CompleteAddress,
@@ -42,20 +42,19 @@ import {
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
+  type AbiDecoded,
   type ContractArtifact,
-  type DecodedReturn,
   EventSelector,
   FunctionSelector,
   encodeArguments,
 } from '@aztec/foundation/abi';
-import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import {
   type AcirSimulator,
@@ -174,10 +173,6 @@ export class PXEService implements PXE {
 
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return this.db.getAuthWitness(messageHash);
-  }
-
-  async rotateNskM(account: AztecAddress, secretKey: Fq): Promise<void> {
-    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
   public addCapsule(capsule: Fr[]) {
@@ -312,8 +307,6 @@ export class PXEService implements PXE {
   public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getIncomingNotes(filter);
 
-    // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -341,8 +334,6 @@ export class PXEService implements PXE {
   public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getOutgoingNotes(filter);
 
-    // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -576,7 +567,7 @@ export class PXEService implements PXE {
     to: AztecAddress,
     _from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<DecodedReturn> {
+  ): Promise<AbiDecoded> {
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.
@@ -667,7 +658,6 @@ export class PXEService implements PXE {
         classRegisterer: ClassRegistererAddress,
         feeJuice: getCanonicalFeeJuice().address,
         instanceDeployer: getCanonicalInstanceDeployer().address,
-        keyRegistry: getCanonicalKeyRegistryAddress(),
         multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
       },
     });
@@ -888,7 +878,7 @@ export class PXEService implements PXE {
     return Promise.resolve(this.synchronizer.getSyncStatus());
   }
 
-  public getSyncStats() {
+  public getSyncStats(): Promise<{ [address: string]: NoteProcessorStats }> {
     return Promise.resolve(this.synchronizer.getSyncStats());
   }
 
@@ -953,11 +943,10 @@ export class PXEService implements PXE {
 
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {
-        const decryptedLog =
-          TaggedLog.decryptAsIncoming(encryptedLog, sk, L1EventPayload) ??
-          TaggedLog.decryptAsOutgoing(encryptedLog, sk, L1EventPayload);
-        if (decryptedLog !== undefined) {
-          return [decryptedLog];
+        const decryptedEvent =
+          L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
+        if (decryptedEvent !== undefined) {
+          return [decryptedEvent];
         }
       }
 
@@ -966,25 +955,19 @@ export class PXEService implements PXE {
 
     const decodedEvents = visibleEvents
       .map(visibleEvent => {
-        if (visibleEvent.payload === undefined) {
+        if (visibleEvent === undefined) {
           return undefined;
         }
-        if (!visibleEvent.payload.eventTypeId.equals(eventMetadata.eventSelector)) {
+        if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
           return undefined;
         }
-        if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
+        if (visibleEvent.event.items.length !== eventMetadata.fieldNames.length) {
           throw new Error(
-            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.fieldNames.reduce(
-          (acc, curr, i) => ({
-            ...acc,
-            [curr]: visibleEvent.payload.event.items[i],
-          }),
-          {} as T,
-        );
+        return eventMetadata.decode(visibleEvent);
       })
       .filter(visibleEvent => visibleEvent !== undefined) as T[];
 
@@ -1011,17 +994,11 @@ export class PXEService implements PXE {
 
         if (unencryptedLogBuf.byteLength !== eventMetadata.fieldNames.length * 32 + 32) {
           throw new Error(
-            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.fieldNames.reduce(
-          (acc, curr, i) => ({
-            ...acc,
-            [curr]: new Fr(unencryptedLogBuf.subarray(i * 32, i * 32 + 32)),
-          }),
-          {} as T,
-        );
+        return eventMetadata.decode(unencryptedLog.log);
       })
       .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
 

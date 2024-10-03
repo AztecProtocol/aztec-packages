@@ -7,7 +7,7 @@ use dep::types::{
     constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, utils::arrays::array_length
 };
 
-struct PublicCallDataValidator {
+pub struct PublicCallDataValidator {
     data: PublicCallData,
     phase: u8,
 }
@@ -125,8 +125,7 @@ impl PublicCallDataValidator {
         } else if self.phase == PublicKernelPhase.TEARDOWN {
             previous_kernel.public_teardown_call_stack
         } else {
-            assert(false, "Unknown phase");
-            [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
+            panic(f"Unknown phase")
         };
 
         let call_request = call_stack[array_length(call_stack) - 1];

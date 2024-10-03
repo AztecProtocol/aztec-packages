@@ -937,13 +937,11 @@ class ECCVMFlavor {
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
-        Commitment translation_hack_comm;
         FF translation_eval_op;
         FF translation_eval_px;
         FF translation_eval_py;
         FF translation_eval_z1;
         FF translation_eval_z2;
-        FF hack_eval;
         Commitment shplonk_q_comm;
         uint32_t ipa_poly_degree;
         std::vector<Commitment> ipa_l_comms;
@@ -1151,8 +1149,6 @@ class ECCVMFlavor {
             }
             zm_cq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
-            translation_hack_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
             translation_eval_op =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             translation_eval_px =
@@ -1162,8 +1158,6 @@ class ECCVMFlavor {
             translation_eval_z1 =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             translation_eval_z2 =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            hack_eval =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
             shplonk_q_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -1297,13 +1291,11 @@ class ECCVMFlavor {
             }
             NativeTranscript::template serialize_to_buffer(zm_cq_comm, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(translation_hack_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_py, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z1, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(hack_eval, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(shplonk_q_comm, NativeTranscript::proof_data);
 

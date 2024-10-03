@@ -1,7 +1,7 @@
 use crate::test::utils;
 use dep::aztec::{
-    hash::pedersen_hash, keys::getters::get_current_public_keys, prelude::{AztecAddress, NoteHeader},
-    oracle::unsafe_rand::unsafe_rand, protocol_types::storage::map::derive_storage_slot_in_map
+    hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
+    oracle::random::random, protocol_types::storage::map::derive_storage_slot_in_map
 };
 use crate::{types::nft_note::NFTNote, NFT};
 
@@ -25,8 +25,8 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
-    let note_randomness = unsafe_rand();
-    let transient_storage_slot_randomness = unsafe_rand();
+    let note_randomness = random();
+    let transient_storage_slot_randomness = random();
     // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
     let transfer_preparer_storage_slot_commitment = pedersen_hash(
         [sender.to_field(), transient_storage_slot_randomness],
@@ -50,8 +50,8 @@ unconstrained fn transfer_to_private_to_a_different_account() {
 
     // Store the finalized note in the cache
     let mut context = env.private();
-    let recipient_npk_m_hash = get_current_public_keys(&mut context, recipient).npk_m.hash();
-    let private_nfts_recipient_slot = derive_storage_slot_in_map(NFT::storage().private_nfts.slot, recipient);
+    let recipient_npk_m_hash = get_public_keys(recipient).npk_m.hash();
+    let private_nfts_recipient_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, recipient);
 
     env.add_note(
         &mut NFTNote { token_id, npk_m_hash: recipient_npk_m_hash, randomness: note_randomness, header: NoteHeader::empty() },
@@ -72,7 +72,7 @@ unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     let (env, nft_contract_address, _, _, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the commitment
-    let transfer_preparer_storage_slot_commitment = unsafe_rand();
+    let transfer_preparer_storage_slot_commitment = random();
 
     // Try finalizing the transfer without preparing it
     env.call_public(
@@ -87,8 +87,8 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
 
     let correct_sender = AztecAddress::from_field(9);
 
-    let note_randomness = unsafe_rand();
-    let transient_storage_slot_randomness = unsafe_rand();
+    let note_randomness = random();
+    let transient_storage_slot_randomness = random();
     // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
     let transfer_preparer_storage_slot_commitment = pedersen_hash(
         [correct_sender.to_field(), transient_storage_slot_randomness],
@@ -120,7 +120,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     let (env, nft_contract_address, _, not_owner, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // We set random value for the commitment as the NFT owner check is before we use the value
-    let transfer_preparer_storage_slot_commitment = unsafe_rand();
+    let transfer_preparer_storage_slot_commitment = random();
 
     // Try transferring someone else's public NFT
     env.impersonate(not_owner);

@@ -1,38 +1,42 @@
 mod types;
 
+use dep::aztec::macros::aztec;
+
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
+#[aztec]
 contract Spam {
 
     use dep::aztec::{
         prelude::{Map, AztecAddress, PublicMutable},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_with_keys_unconstrained},
-        keys::getters::get_current_public_keys,
+        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_unconstrained},
+        keys::getters::get_public_keys,
         protocol_types::{
         hash::poseidon2_hash_with_separator,
         constants::{
         MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, GENERATOR_INDEX__NOTE_NULLIFIER,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
     }
-    }
+    },
+        macros::{storage::storage, functions::{private, public, internal}}
     };
 
     use crate::types::{token_note::TokenNote, balance_set::BalanceSet};
 
-    #[aztec(storage)]
-    struct Storage {
-        balances: Map<AztecAddress, BalanceSet<TokenNote>>,
-        public_balances: Map<Field, PublicMutable<U128>>,
+    #[storage]
+    struct Storage<Context> {
+        balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
+        public_balances: Map<Field, PublicMutable<U128, Context>, Context>,
     }
 
-    #[aztec(private)]
+    #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
-        let caller_keys = get_current_public_keys(&mut context, caller);
+        let caller_keys = get_public_keys(caller);
         let amount = U128::from_integer(1);
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-                encode_and_encrypt_note_with_keys_unconstrained(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
+                encode_and_encrypt_note_unconstrained(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
             );
         }
 
@@ -56,8 +60,8 @@ contract Spam {
         }
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn public_spam(start: u32, end: u32) {
         let one = U128::from_integer(1);
         for i in start..end {

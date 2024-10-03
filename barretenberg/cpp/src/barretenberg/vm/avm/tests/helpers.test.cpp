@@ -24,7 +24,9 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  */
 void validate_trace_check_circuit(std::vector<Row>&& trace)
 {
-    validate_trace(std::move(trace), {}, {}, {}, false);
+    auto circuit_builder = AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    EXPECT_TRUE(circuit_builder.check_circuit());
 };
 
 /**
@@ -34,12 +36,15 @@ void validate_trace_check_circuit(std::vector<Row>&& trace)
  * @param trace The execution trace
  */
 void validate_trace(std::vector<Row>&& trace,
-                    VmPublicInputs const& public_inputs,
+                    VmPublicInputsNT const& public_inputs,
                     std::vector<FF> const& calldata,
                     std::vector<FF> const& returndata,
                     bool with_proof,
                     bool expect_proof_failure)
 {
+    // This is here for our nighly test runs.
+    with_proof |= std::getenv("AVM_ENABLE_FULL_PROVING") != nullptr;
+
     const std::string avm_dump_trace_path =
         std::getenv("AVM_DUMP_TRACE_PATH") != nullptr ? std::getenv("AVM_DUMP_TRACE_PATH") : "";
     if (!avm_dump_trace_path.empty()) {
@@ -113,9 +118,9 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     mem_row->mem_val = newValue;
 };
 
-VmPublicInputs generate_base_public_inputs()
+VmPublicInputsNT generate_base_public_inputs()
 {
-    VmPublicInputs public_inputs;
+    VmPublicInputsNT public_inputs;
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
     kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
     kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;

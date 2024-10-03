@@ -5,9 +5,7 @@ import {
   type L2BlockNumber,
   Note,
   PackedValues,
-  PublicDataWitness,
   PublicExecutionRequest,
-  SiblingPath,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
 import {
@@ -22,8 +20,8 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
-  PublicDataTreeLeafPreimage,
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
@@ -55,7 +53,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, INITIAL_LEAF, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -257,16 +255,6 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
-    // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
-    // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle
-    // gets called and we constrain the result by hashing address preimage and checking it matches.
-    oracle.getPublicDataTreeWitness.mockResolvedValue(
-      new PublicDataWitness(
-        0n,
-        PublicDataTreeLeafPreimage.empty(),
-        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Poseidon()),
-      ),
-    );
 
     node = mock<AztecNode>();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -846,13 +834,10 @@ describe('Private Execution test suite', () => {
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
       const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueue_call_to_child');
-      const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'pub_set_value')!;
+      const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childContractArtifact).toBeDefined();
       const childAddress = AztecAddress.random();
-      const childSelector = FunctionSelector.fromNameAndParameters(
-        childContractArtifact.name,
-        childContractArtifact.parameters,
-      );
+      const childSelector = FunctionSelector.fromSignature('pub_set_value(Field)');
       const parentAddress = AztecAddress.random();
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
@@ -868,11 +853,11 @@ describe('Private Execution test suite', () => {
       const request = new CountedPublicExecutionRequest(
         PublicExecutionRequest.from({
           contractAddress: childAddress,
-          args: [new Fr(42n)],
+          args: [childSelector.toField(), new Fr(42n)],
           callContext: CallContext.from({
             msgSender: parentAddress,
             storageContractAddress: childAddress,
-            functionSelector: childSelector,
+            functionSelector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
             isDelegateCall: false,
             isStaticCall: false,
           }),

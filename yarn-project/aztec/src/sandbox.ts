@@ -3,7 +3,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
+import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
   type DeployL1Contracts,
   type L1ContractArtifactsForDeployment,
@@ -18,14 +18,16 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
+  MockProofCommitmentEscrowAbi,
+  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
@@ -108,12 +110,16 @@ export async function deployContractsToL1(
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
+    },
+    proofCommitmentEscrow: {
+      contractAbi: MockProofCommitmentEscrowAbi,
+      contractBytecode: MockProofCommitmentEscrowBytecode,
     },
   };
 
@@ -162,7 +168,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
+      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+    });
 
     const chain = aztecNodeConfig.l1RpcUrl
       ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
@@ -185,9 +193,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 
-  await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-  );
   await deployCanonicalAuthRegistry(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );

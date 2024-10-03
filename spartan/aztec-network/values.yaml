@@ -1,7 +1,8 @@
+network:
+  public: false
+  enableBots: true
+
 images:
-  test:
-    image: aztecprotocol/end-to-end
-    pullPolicy: IfNotPresent
   aztec:
     image: aztecprotocol/aztec
     pullPolicy: IfNotPresent
@@ -38,10 +39,17 @@ bootNode:
     disabled: true
   p2p:
     enabled: "true"
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "4"
+  storage: "8Gi"
 
 validator:
-  replicas: 0
+  replicas: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -54,7 +62,14 @@ validator:
     disabled: false
   p2p:
     enabled: "true"
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "28Gi"
+      cpu: "7"
+  storage: "8Gi"
 
 proverNode:
   replicas: 1
@@ -64,12 +79,48 @@ proverNode:
   debug: "aztec:*"
   realProofs: false
   proverAgentEnabled: true
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "120Gi"
+      cpu: "15"
+  storage: "8Gi"
 
 pxe:
   logLevel: "debug"
   debug: "aztec:*"
   replicas: 1
+  service:
+    port: 8080
+    targetPort: 8080
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
+
+bot:
+  logLevel: "debug"
+  debug: "aztec:*"
+  replicas: 1
+  botPrivateKey: "0xcafe"
+  txIntervalSeconds: 5
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 0
+  noWaitForTransfers: true
+  botNoStart: false
+  pxeProverEnabled: false
+  proverRealProofs: false
   service:
     type: ClusterIP
     port: 8080
@@ -80,7 +131,13 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 ethereum:
   replicas: 1
@@ -102,11 +159,15 @@ ethereum:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 metrics:
-  service:
-    type: ClusterIP
   ports:
     otlp: 4316
     metrics: 4315
@@ -119,6 +180,5 @@ metrics:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-
-test: "sample"
-scenario: "default"
+  storage: "8Gi"
+  fileSystemUser: 472

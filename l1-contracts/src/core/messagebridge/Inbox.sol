@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-// Interfaces
-import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 
-// Libraries
-import {Constants} from "../libraries/ConstantsGen.sol";
-import {DataStructures} from "../libraries/DataStructures.sol";
-import {Errors} from "../libraries/Errors.sol";
-import {Hash} from "../libraries/Hash.sol";
-
-import {FrontierLib} from "./frontier_tree/FrontierLib.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 
 /**
  * @title Inbox
@@ -36,6 +33,10 @@ contract Inbox is IInbox {
   FrontierLib.Forest internal forest;
 
   mapping(uint256 blockNumber => FrontierLib.Tree tree) public trees;
+
+  // This value is not used much by the contract, but it is useful for synching the node faster
+  // as it can more easily figure out if it can just skip looking for events for a time period.
+  uint256 public totalMessagesInserted = 0;
 
   constructor(address _rollup, uint256 _height) {
     ROLLUP = _rollup;
@@ -63,15 +64,15 @@ contract Inbox is IInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external override(IInbox) returns (bytes32) {
-    if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__ActorTooLarge(_recipient.actor);
-    }
-    if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__ContentTooLarge(_content);
-    }
-    if (uint256(_secretHash) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__SecretHashTooLarge(_secretHash);
-    }
+    require(
+      uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
+      Errors.Inbox__ActorTooLarge(_recipient.actor)
+    );
+    require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
+    require(
+      uint256(_secretHash) <= Constants.MAX_FIELD_VALUE,
+      Errors.Inbox__SecretHashTooLarge(_secretHash)
+    );
 
     FrontierLib.Tree storage currentTree = trees[inProgress];
 
@@ -89,6 +90,7 @@ contract Inbox is IInbox {
 
     bytes32 leaf = message.sha256ToField();
     uint256 index = currentTree.insertLeaf(leaf);
+    totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 
     return leaf;
@@ -106,13 +108,8 @@ contract Inbox is IInbox {
    * @return The root of the consumed tree
    */
   function consume(uint256 _toConsume) external override(IInbox) returns (bytes32) {
-    if (msg.sender != ROLLUP) {
-      revert Errors.Inbox__Unauthorized();
-    }
-
-    if (_toConsume >= inProgress) {
-      revert Errors.Inbox__MustBuildBeforeConsume();
-    }
+    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+    require(_toConsume < inProgress, Errors.Inbox__MustBuildBeforeConsume());
 
     bytes32 root = EMPTY_ROOT;
     if (_toConsume > Constants.INITIAL_L2_BLOCK_NUM) {

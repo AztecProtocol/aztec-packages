@@ -4,7 +4,7 @@ use crate::{
 };
 
 // Salted initialization hash. Used in the computation of a partial address.
-struct SaltedInitializationHash {
+pub struct SaltedInitializationHash {
     inner: Field
 }
 
