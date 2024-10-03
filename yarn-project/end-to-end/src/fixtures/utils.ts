@@ -314,6 +314,8 @@ export type SetupOptions = {
   l1BlockTime?: number;
   /** Anvil Start time */
   l1StartTime?: number;
+  /** Whether to start a prover node */
+  startProverNode?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
