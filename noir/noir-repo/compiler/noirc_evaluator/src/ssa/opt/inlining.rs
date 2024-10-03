@@ -44,30 +44,32 @@ impl Ssa {
     ///
     /// This step should run after runtime separation, since it relies on the runtime of the called functions being final.
     #[tracing::instrument(level = "trace", skip(self))]
-    pub(crate) fn inline_functions(self) -> Ssa {
-        Self::inline_functions_inner(self, false)
+    pub(crate) fn inline_functions(self, aggressiveness: f64) -> Ssa {
+        Self::inline_functions_inner(self, aggressiveness, false)
     }
 
     // Run the inlining pass where functions marked with `InlineType::NoPredicates` as not entry points
-    pub(crate) fn inline_functions_with_no_predicates(self) -> Ssa {
-        Self::inline_functions_inner(self, true)
+    pub(crate) fn inline_functions_with_no_predicates(self, aggressiveness: f64) -> Ssa {
+        Self::inline_functions_inner(self, aggressiveness, true)
     }
 
-    fn inline_functions_inner(mut self, inline_no_predicates_functions: bool) -> Ssa {
-        let recursive_functions = find_all_recursive_functions(&self);
-        self.functions = btree_map(
-            get_functions_to_inline_into(&self, inline_no_predicates_functions),
-            |entry_point| {
-                let new_function = InlineContext::new(
-                    &self,
-                    entry_point,
-                    inline_no_predicates_functions,
-                    recursive_functions.clone(),
-                )
-                .inline_all(&self);
-                (entry_point, new_function)
-            },
-        );
+    fn inline_functions_inner(
+        mut self,
+        aggressiveness: f64,
+        inline_no_predicates_functions: bool,
+    ) -> Ssa {
+        let inline_sources =
+            get_functions_to_inline_into(&self, inline_no_predicates_functions, aggressiveness);
+        self.functions = btree_map(&inline_sources, |entry_point| {
+            let new_function = InlineContext::new(
+                &self,
+                *entry_point,
+                inline_no_predicates_functions,
+                inline_sources.clone(),
+            )
+            .inline_all(&self);
+            (*entry_point, new_function)
+        });
         self
     }
 }
@@ -129,8 +131,8 @@ struct PerFunctionContext<'function> {
 }
 
 /// Utility function to find out the direct calls of a function.
-fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
-    let mut called_function_ids = BTreeSet::default();
+fn called_functions_vec(func: &Function) -> Vec<FunctionId> {
+    let mut called_function_ids = Vec::new();
     for block_id in func.reachable_blocks() {
         for instruction_id in func.dfg[block_id].instructions() {
             let Instruction::Call { func: called_value_id, .. } = &func.dfg[*instruction_id] else {
@@ -138,7 +140,7 @@ fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
             };
 
             if let Value::Function(function_id) = func.dfg[*called_value_id] {
-                called_function_ids.insert(function_id);
+                called_function_ids.push(function_id);
             }
         }
     }
@@ -146,49 +148,29 @@ fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
     called_function_ids
 }
 
-// Recursively explore the SSA to find the functions that end up calling themselves
-fn find_recursive_functions(
-    ssa: &Ssa,
-    current_function: FunctionId,
-    mut explored_functions: im::HashSet<FunctionId>,
-    recursive_functions: &mut BTreeSet<FunctionId>,
-) {
-    if explored_functions.contains(&current_function) {
-        recursive_functions.insert(current_function);
-        return;
-    }
-
-    let called_functions = called_functions(&ssa.functions[&current_function]);
-
-    explored_functions.insert(current_function);
-
-    for called_function in called_functions {
-        find_recursive_functions(
-            ssa,
-            called_function,
-            explored_functions.clone(),
-            recursive_functions,
-        );
-    }
-}
-
-fn find_all_recursive_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
-    let mut recursive_functions = BTreeSet::default();
-    find_recursive_functions(ssa, ssa.main_id, im::HashSet::default(), &mut recursive_functions);
-    recursive_functions
+/// Utility function to find out the deduplicated direct calls of a function.
+fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
+    called_functions_vec(func).into_iter().collect()
 }
 
 /// The functions we should inline into (and that should be left in the final program) are:
 ///  - main
 ///  - Any Brillig function called from Acir
-///  - Any Brillig recursive function (Acir recursive functions will be inlined into the main function)
+///  - Some Brillig functions depending on aggressiveness and some metrics
 ///  - Any Acir functions with a [fold inline type][InlineType::Fold],
 fn get_functions_to_inline_into(
     ssa: &Ssa,
     inline_no_predicates_functions: bool,
+    aggressiveness: f64,
 ) -> BTreeSet<FunctionId> {
     let mut brillig_entry_points = BTreeSet::default();
     let mut acir_entry_points = BTreeSet::default();
+
+    if matches!(ssa.main().runtime(), RuntimeType::Brillig(_)) {
+        brillig_entry_points.insert(ssa.main_id);
+    } else {
+        acir_entry_points.insert(ssa.main_id);
+    }
 
     for (func_id, function) in ssa.functions.iter() {
         if matches!(function.runtime(), RuntimeType::Brillig(_)) {
@@ -209,19 +191,162 @@ fn get_functions_to_inline_into(
         }
     }
 
-    let brillig_recursive_functions: BTreeSet<_> = find_all_recursive_functions(ssa)
-        .into_iter()
-        .filter(|recursive_function_id| {
-            let function = &ssa.functions[&recursive_function_id];
-            matches!(function.runtime(), RuntimeType::Brillig(_))
-        })
-        .collect();
+    let times_called = compute_times_called(ssa);
 
-    std::iter::once(ssa.main_id)
-        .chain(acir_entry_points)
+    let brillig_functions_to_retain: BTreeSet<_> = compute_functions_to_retain(
+        ssa,
+        &brillig_entry_points,
+        &times_called,
+        inline_no_predicates_functions,
+        aggressiveness,
+    );
+
+    acir_entry_points
+        .into_iter()
         .chain(brillig_entry_points)
-        .chain(brillig_recursive_functions)
+        .chain(brillig_functions_to_retain)
         .collect()
+}
+
+fn compute_times_called(ssa: &Ssa) -> HashMap<FunctionId, usize> {
+    ssa.functions
+        .iter()
+        .flat_map(|(_caller_id, function)| {
+            let called_functions_vec = called_functions_vec(function);
+            called_functions_vec.into_iter()
+        })
+        .chain(std::iter::once(ssa.main_id))
+        .fold(HashMap::default(), |mut map, func_id| {
+            *map.entry(func_id).or_insert(0) += 1;
+            map
+        })
+}
+
+fn should_retain_recursive(
+    ssa: &Ssa,
+    func: FunctionId,
+    times_called: &HashMap<FunctionId, usize>,
+    should_retain_function: &mut HashMap<FunctionId, (bool, usize)>,
+    mut explored_functions: im::HashSet<FunctionId>,
+    inline_no_predicates_functions: bool,
+    aggressiveness: f64,
+) {
+    // We have already decided on this function
+    if should_retain_function.get(&func).is_some() {
+        return;
+    }
+    // Recursive, this function won't be inlined
+    if explored_functions.contains(&func) {
+        should_retain_function.insert(func, (true, 0));
+        return;
+    }
+    explored_functions.insert(func);
+
+    // Decide on dependencies first
+    let called_functions = called_functions(&ssa.functions[&func]);
+    for function in called_functions.iter() {
+        should_retain_recursive(
+            ssa,
+            *function,
+            times_called,
+            should_retain_function,
+            explored_functions.clone(),
+            inline_no_predicates_functions,
+            aggressiveness,
+        );
+    }
+    // We could have decided on this function while deciding on dependencies
+    // If the function is recursive
+    if should_retain_function.get(&func).is_some() {
+        return;
+    }
+
+    // We'll use some heuristics to decide wether to inline or not.
+    // We compute the weight (roughly the number of instructions) of the function after inlining
+    // And the interface cost of the function (the inherent cost at the callsite, roughly the number of args and returns)
+    // We then can compute an approximation of the cost of inlining vs the cost of retaining the function
+    let inlined_function_weights: usize = called_functions
+        .iter()
+        .map(|called_function| {
+            let (should_retain, weight) = should_retain_function[called_function];
+            if should_retain {
+                0
+            } else {
+                weight
+            }
+        })
+        .sum();
+
+    let this_function_weight =
+        inlined_function_weights + compute_function_own_weight(&ssa.functions[&func]);
+
+    let this_function_weight_floating = this_function_weight as f64;
+    let interface_cost = compute_function_interface_cost(&ssa.functions[&func]) as f64;
+
+    let times_called = times_called[&func] as f64;
+
+    let inline_cost = times_called * this_function_weight_floating;
+    let retain_cost = times_called * interface_cost + this_function_weight_floating;
+
+    let runtime = ssa.functions[&func].runtime();
+    // We inline if the aggressiveness is higher than inline cost minus the retain cost
+    // If aggressiveness is infinite, we'll always inline
+    // If aggressiveness is 0, we'll inline when the inline cost is lower than the retain cost
+    // If aggressiveness is minus infinity, we'll never inline (other than in the mandatory cases)
+    let should_inline = ((inline_cost - retain_cost) < aggressiveness)
+        || runtime.is_inline_always()
+        || (runtime.is_no_predicates() && inline_no_predicates_functions);
+
+    should_retain_function.insert(func, (!should_inline, this_function_weight));
+}
+
+fn compute_functions_to_retain(
+    ssa: &Ssa,
+    entry_points: &BTreeSet<FunctionId>,
+    times_called: &HashMap<FunctionId, usize>,
+    inline_no_predicates_functions: bool,
+    aggressiveness: f64,
+) -> BTreeSet<FunctionId> {
+    let mut should_retain_function = HashMap::default();
+
+    for entry_point in entry_points.iter() {
+        should_retain_recursive(
+            ssa,
+            *entry_point,
+            times_called,
+            &mut should_retain_function,
+            im::HashSet::default(),
+            inline_no_predicates_functions,
+            aggressiveness,
+        );
+    }
+
+    should_retain_function
+        .into_iter()
+        .filter_map(
+            |(func_id, (should_retain, _))| {
+                if should_retain {
+                    Some(func_id)
+                } else {
+                    None
+                }
+            },
+        )
+        .collect()
+}
+
+fn compute_function_own_weight(func: &Function) -> usize {
+    let mut weight = 0;
+    for block_id in func.reachable_blocks() {
+        weight += func.dfg[block_id].instructions().len() + 1; // We add one for the terminator
+    }
+    // We use an approximation of the average increase in instruction ratio from SSA to Brillig
+    // In order to get the actual weight we'd need to codegen this function to brillig.
+    weight
+}
+
+fn compute_function_interface_cost(func: &Function) -> usize {
+    func.parameters().len() + func.returns().len()
 }
 
 impl InlineContext {
@@ -728,7 +853,7 @@ mod test {
         let ssa = builder.finish();
         assert_eq!(ssa.functions.len(), 2);
 
-        let inlined = ssa.inline_functions();
+        let inlined = ssa.inline_functions(f64::INFINITY);
         assert_eq!(inlined.functions.len(), 1);
     }
 
@@ -794,7 +919,7 @@ mod test {
         let ssa = builder.finish();
         assert_eq!(ssa.functions.len(), 4);
 
-        let inlined = ssa.inline_functions();
+        let inlined = ssa.inline_functions(f64::INFINITY);
         assert_eq!(inlined.functions.len(), 1);
     }
 
@@ -868,7 +993,7 @@ mod test {
         //   b6():
         //     return Field 120
         // }
-        let inlined = ssa.inline_functions();
+        let inlined = ssa.inline_functions(f64::INFINITY);
         assert_eq!(inlined.functions.len(), 1);
 
         let main = inlined.main();
@@ -951,7 +1076,7 @@ mod test {
         builder.switch_to_block(join_block);
         builder.terminate_with_return(vec![join_param]);
 
-        let ssa = builder.finish().inline_functions();
+        let ssa = builder.finish().inline_functions(f64::INFINITY);
         // Expected result:
         // fn main f3 {
         //   b0(v0: u1):

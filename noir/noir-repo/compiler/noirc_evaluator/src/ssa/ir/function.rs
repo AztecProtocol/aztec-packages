@@ -30,6 +30,22 @@ impl RuntimeType {
             RuntimeType::Brillig(_) => true,
         }
     }
+
+    pub(crate) fn is_inline_always(&self) -> bool {
+        matches!(
+            self,
+            RuntimeType::Acir(InlineType::InlineAlways)
+                | RuntimeType::Brillig(InlineType::InlineAlways)
+        )
+    }
+
+    pub(crate) fn is_no_predicates(&self) -> bool {
+        matches!(
+            self,
+            RuntimeType::Acir(InlineType::NoPredicates)
+                | RuntimeType::Brillig(InlineType::NoPredicates)
+        )
+    }
 }
 
 /// A function holds a list of instructions.
