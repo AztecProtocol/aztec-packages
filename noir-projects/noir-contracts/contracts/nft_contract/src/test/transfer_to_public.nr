@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::oracle::unsafe_rand::unsafe_rand;
+use dep::aztec::oracle::random::random;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::NFT;
 
@@ -54,7 +54,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, user, _, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
-    env.call_private_void(NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, unsafe_rand()));
+    env.call_private_void(NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, random()));
 }
 
 #[test(should_fail_with="Authorization not found for message hash")]
