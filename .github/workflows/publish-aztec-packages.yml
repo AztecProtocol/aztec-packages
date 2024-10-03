@@ -170,7 +170,7 @@ jobs:
         build-cli-wallet-x86,
         build-cli-wallet-arm,
       ]
-    runs-on: ${{ github.actor }}-x86
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
