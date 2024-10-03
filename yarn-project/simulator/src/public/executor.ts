@@ -21,7 +21,7 @@ import { PublicSideEffectTrace } from './side_effect_trace.js';
 export class PublicExecutor {
   metrics: ExecutorMetrics;
 
-  constructor(private readonly worldStateDB: WorldStateDB, private readonly header: Header, client: TelemetryClient) {
+  constructor(private readonly worldStateDB: WorldStateDB, client: TelemetryClient) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
   }
 
@@ -63,7 +63,6 @@ export class PublicExecutor {
 
     const avmExecutionEnv = createAvmExecutionEnvironment(
       executionRequest,
-      this.header,
       globalVariables,
       transactionFee,
     );
@@ -120,7 +119,6 @@ export class PublicExecutor {
  */
 function createAvmExecutionEnvironment(
   executionRequest: PublicExecutionRequest,
-  header: Header,
   globalVariables: GlobalVariables,
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
@@ -131,7 +129,6 @@ function createAvmExecutionEnvironment(
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
-    header,
     globalVariables,
     executionRequest.callContext.isStaticCall,
     executionRequest.callContext.isDelegateCall,
