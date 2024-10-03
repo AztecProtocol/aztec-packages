@@ -121,170 +121,226 @@ impl LoopDetector {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use acvm::{
-//         acir::brillig::{MemoryAddress, Opcode},
-//         FieldElement,
-//     };
-//     use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
+#[cfg(test)]
+mod tests {
+    use acvm::{
+        acir::brillig::{MemoryAddress, Opcode},
+        FieldElement,
+    };
+    use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-//     use crate::{
-//         brillig::brillig_ir::{artifact::Label, registers::Stack, BrilligContext},
-//         ssa::ir::function::FunctionId,
-//     };
+    use crate::{
+        brillig::brillig_ir::{artifact::Label, registers::Stack, BrilligContext},
+        ssa::ir::function::FunctionId,
+    };
 
-//     // Tests for the loop finder
+    // Tests for the loop finder
 
-//     fn generate_movements_map(
-//         movements: Vec<(usize, usize)>,
-//     ) -> HashMap<MemoryAddress, HashSet<MemoryAddress>> {
-//         movements.into_iter().fold(HashMap::default(), |mut map, (source, destination)| {
-//             map.entry(MemoryAddress(source)).or_default().insert(MemoryAddress(destination));
-//             map
-//         })
-//     }
+    fn generate_movements_map(
+        movements: Vec<(usize, usize)>,
+    ) -> HashMap<MemoryAddress, HashSet<MemoryAddress>> {
+        movements.into_iter().fold(HashMap::default(), |mut map, (source, destination)| {
+            map.entry(MemoryAddress::relative(source))
+                .or_default()
+                .insert(MemoryAddress::relative(destination));
+            map
+        })
+    }
 
-//     #[test]
-//     fn test_loop_detector_basic_loop() {
-//         let movements = vec![(0, 1), (1, 2), (2, 3), (3, 0)];
-//         let movements_map = generate_movements_map(movements);
-//         let mut loop_detector = super::LoopDetector::default();
-//         loop_detector.collect_loops(&movements_map);
-//         assert_eq!(loop_detector.loops.len(), 1);
-//         assert_eq!(loop_detector.loops[0].len(), 4);
-//     }
+    #[test]
+    fn test_loop_detector_basic_loop() {
+        let movements = vec![(0, 1), (1, 2), (2, 3), (3, 0)];
+        let movements_map = generate_movements_map(movements);
+        let mut loop_detector = super::LoopDetector::default();
+        loop_detector.collect_loops(&movements_map);
+        assert_eq!(loop_detector.loops.len(), 1);
+        assert_eq!(loop_detector.loops[0].len(), 4);
+    }
 
-//     #[test]
-//     fn test_loop_detector_no_loop() {
-//         let movements = vec![(0, 1), (1, 2), (2, 3), (3, 4)];
-//         let movements_map = generate_movements_map(movements);
-//         let mut loop_detector = super::LoopDetector::default();
-//         loop_detector.collect_loops(&movements_map);
-//         assert_eq!(loop_detector.loops.len(), 0);
-//     }
+    #[test]
+    fn test_loop_detector_no_loop() {
+        let movements = vec![(0, 1), (1, 2), (2, 3), (3, 4)];
+        let movements_map = generate_movements_map(movements);
+        let mut loop_detector = super::LoopDetector::default();
+        loop_detector.collect_loops(&movements_map);
+        assert_eq!(loop_detector.loops.len(), 0);
+    }
 
-//     #[test]
-//     fn test_loop_detector_loop_with_branch() {
-//         let movements = vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4)];
-//         let movements_map = generate_movements_map(movements);
-//         let mut loop_detector = super::LoopDetector::default();
-//         loop_detector.collect_loops(&movements_map);
-//         assert_eq!(loop_detector.loops.len(), 1);
-//         assert_eq!(loop_detector.loops[0].len(), 3);
-//     }
+    #[test]
+    fn test_loop_detector_loop_with_branch() {
+        let movements = vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4)];
+        let movements_map = generate_movements_map(movements);
+        let mut loop_detector = super::LoopDetector::default();
+        loop_detector.collect_loops(&movements_map);
+        assert_eq!(loop_detector.loops.len(), 1);
+        assert_eq!(loop_detector.loops[0].len(), 3);
+    }
 
-//     #[test]
-//     fn test_loop_detector_two_loops() {
-//         let movements = vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)];
-//         let movements_map = generate_movements_map(movements);
-//         let mut loop_detector = super::LoopDetector::default();
-//         loop_detector.collect_loops(&movements_map);
-//         assert_eq!(loop_detector.loops.len(), 2);
-//         assert_eq!(loop_detector.loops[0].len(), 3);
-//         assert_eq!(loop_detector.loops[1].len(), 3);
-//     }
+    #[test]
+    fn test_loop_detector_two_loops() {
+        let movements = vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)];
+        let movements_map = generate_movements_map(movements);
+        let mut loop_detector = super::LoopDetector::default();
+        loop_detector.collect_loops(&movements_map);
+        assert_eq!(loop_detector.loops.len(), 2);
+        assert_eq!(loop_detector.loops[0].len(), 3);
+        assert_eq!(loop_detector.loops[1].len(), 3);
+    }
 
-//     // Tests for mov_registers_to_registers
+    // Tests for mov_registers_to_registers
 
-//     fn movements_to_source_and_destinations(
-//         movements: Vec<(usize, usize)>,
-//     ) -> (Vec<MemoryAddress>, Vec<MemoryAddress>) {
-//         let sources = movements.iter().map(|(source, _)| MemoryAddress::from(*source)).collect();
-//         let destinations =
-//             movements.iter().map(|(_, destination)| MemoryAddress::from(*destination)).collect();
-//         (sources, destinations)
-//     }
+    fn movements_to_source_and_destinations(
+        movements: Vec<(usize, usize)>,
+    ) -> (Vec<MemoryAddress>, Vec<MemoryAddress>) {
+        let sources =
+            movements.iter().map(|(source, _)| MemoryAddress::relative(*source)).collect();
+        let destinations = movements
+            .iter()
+            .map(|(_, destination)| MemoryAddress::relative(*destination))
+            .collect();
+        (sources, destinations)
+    }
 
-//     pub(crate) fn create_context() -> BrilligContext<FieldElement, Stack> {
-//         let mut context = BrilligContext::new(true);
-//         context.enter_context(Label::function(FunctionId::test_new(0)));
-//         context
-//     }
+    pub(crate) fn create_context() -> BrilligContext<FieldElement, Stack> {
+        let mut context = BrilligContext::new(true);
+        context.enter_context(Label::function(FunctionId::test_new(0)));
+        context
+    }
 
-//     #[test]
-//     #[should_panic(expected = "Multiple moves to the same register found")]
-//     fn test_mov_registers_to_registers_overwrite() {
-//         let movements = vec![(10, 11), (12, 11), (10, 13)];
-//         let (sources, destinations) = movements_to_source_and_destinations(movements);
-//         let mut context = create_context();
+    #[test]
+    #[should_panic(expected = "Multiple moves to the same register found")]
+    fn test_mov_registers_to_registers_overwrite() {
+        let movements = vec![(10, 11), (12, 11), (10, 13)];
+        let (sources, destinations) = movements_to_source_and_destinations(movements);
+        let mut context = create_context();
 
-//         context.codegen_mov_registers_to_registers(sources, destinations);
-//     }
+        context.codegen_mov_registers_to_registers(sources, destinations);
+    }
 
-//     #[test]
-//     fn test_mov_registers_to_registers_no_loop() {
-//         let movements = vec![(10, 11), (11, 12), (12, 13), (13, 14)];
-//         let (sources, destinations) = movements_to_source_and_destinations(movements);
-//         let mut context = create_context();
+    #[test]
+    fn test_mov_registers_to_registers_no_loop() {
+        let movements = vec![(10, 11), (11, 12), (12, 13), (13, 14)];
+        let (sources, destinations) = movements_to_source_and_destinations(movements);
+        let mut context = create_context();
 
-//         context.codegen_mov_registers_to_registers(sources, destinations);
-//         let opcodes = context.artifact().byte_code;
-//         assert_eq!(
-//             opcodes,
-//             vec![
-//                 Opcode::Mov { destination: MemoryAddress(14), source: MemoryAddress(13) },
-//                 Opcode::Mov { destination: MemoryAddress(13), source: MemoryAddress(12) },
-//                 Opcode::Mov { destination: MemoryAddress(12), source: MemoryAddress(11) },
-//                 Opcode::Mov { destination: MemoryAddress(11), source: MemoryAddress(10) },
-//             ]
-//         );
-//     }
-//     #[test]
-//     fn test_mov_registers_to_registers_no_op_filter() {
-//         let movements = vec![(10, 11), (11, 11), (11, 12)];
-//         let (sources, destinations) = movements_to_source_and_destinations(movements);
-//         let mut context = create_context();
+        context.codegen_mov_registers_to_registers(sources, destinations);
+        let opcodes = context.artifact().byte_code;
+        assert_eq!(
+            opcodes,
+            vec![
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(14),
+                    source: MemoryAddress::relative(13)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(13),
+                    source: MemoryAddress::relative(12)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(12),
+                    source: MemoryAddress::relative(11)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(11),
+                    source: MemoryAddress::relative(10)
+                },
+            ]
+        );
+    }
+    #[test]
+    fn test_mov_registers_to_registers_no_op_filter() {
+        let movements = vec![(10, 11), (11, 11), (11, 12)];
+        let (sources, destinations) = movements_to_source_and_destinations(movements);
+        let mut context = create_context();
 
-//         context.codegen_mov_registers_to_registers(sources, destinations);
-//         let opcodes = context.artifact().byte_code;
-//         assert_eq!(
-//             opcodes,
-//             vec![
-//                 Opcode::Mov { destination: MemoryAddress(12), source: MemoryAddress(11) },
-//                 Opcode::Mov { destination: MemoryAddress(11), source: MemoryAddress(10) },
-//             ]
-//         );
-//     }
+        context.codegen_mov_registers_to_registers(sources, destinations);
+        let opcodes = context.artifact().byte_code;
+        assert_eq!(
+            opcodes,
+            vec![
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(12),
+                    source: MemoryAddress::relative(11)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(11),
+                    source: MemoryAddress::relative(10)
+                },
+            ]
+        );
+    }
 
-//     #[test]
-//     fn test_mov_registers_to_registers_loop() {
-//         let movements = vec![(10, 11), (11, 12), (12, 13), (13, 10)];
-//         let (sources, destinations) = movements_to_source_and_destinations(movements);
-//         let mut context = create_context();
+    #[test]
+    fn test_mov_registers_to_registers_loop() {
+        let movements = vec![(10, 11), (11, 12), (12, 13), (13, 10)];
+        let (sources, destinations) = movements_to_source_and_destinations(movements);
+        let mut context = create_context();
 
-//         context.codegen_mov_registers_to_registers(sources, destinations);
-//         let opcodes = context.artifact().byte_code;
-//         assert_eq!(
-//             opcodes,
-//             vec![
-//                 Opcode::Mov { destination: MemoryAddress(3), source: MemoryAddress(10) },
-//                 Opcode::Mov { destination: MemoryAddress(10), source: MemoryAddress(13) },
-//                 Opcode::Mov { destination: MemoryAddress(13), source: MemoryAddress(12) },
-//                 Opcode::Mov { destination: MemoryAddress(12), source: MemoryAddress(11) },
-//                 Opcode::Mov { destination: MemoryAddress(11), source: MemoryAddress(3) }
-//             ]
-//         );
-//     }
+        context.codegen_mov_registers_to_registers(sources, destinations);
+        let opcodes = context.artifact().byte_code;
+        assert_eq!(
+            opcodes,
+            vec![
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(1),
+                    source: MemoryAddress::relative(10)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(10),
+                    source: MemoryAddress::relative(13)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(13),
+                    source: MemoryAddress::relative(12)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(12),
+                    source: MemoryAddress::relative(11)
+                },
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(11),
+                    source: MemoryAddress::relative(1)
+                }
+            ]
+        );
+    }
 
-//     #[test]
-//     fn test_mov_registers_to_registers_loop_and_branch() {
-//         let movements = vec![(10, 11), (11, 12), (12, 10), (10, 13), (13, 14)];
-//         let (sources, destinations) = movements_to_source_and_destinations(movements);
-//         let mut context = create_context();
+    #[test]
+    fn test_mov_registers_to_registers_loop_and_branch() {
+        let movements = vec![(10, 11), (11, 12), (12, 10), (10, 13), (13, 14)];
+        let (sources, destinations) = movements_to_source_and_destinations(movements);
+        let mut context = create_context();
 
-//         context.codegen_mov_registers_to_registers(sources, destinations);
-//         let opcodes = context.artifact().byte_code;
-//         assert_eq!(
-//             opcodes,
-//             vec![
-//                 Opcode::Mov { destination: MemoryAddress(3), source: MemoryAddress(10) }, // Temporary
-//                 Opcode::Mov { destination: MemoryAddress(14), source: MemoryAddress(13) }, // Branch
-//                 Opcode::Mov { destination: MemoryAddress(10), source: MemoryAddress(12) }, // Loop
-//                 Opcode::Mov { destination: MemoryAddress(12), source: MemoryAddress(11) }, // Loop
-//                 Opcode::Mov { destination: MemoryAddress(13), source: MemoryAddress(3) }, // Finish branch
-//                 Opcode::Mov { destination: MemoryAddress(11), source: MemoryAddress(3) } // Finish loop
-//             ]
-//         );
-//     }
-// }
+        context.codegen_mov_registers_to_registers(sources, destinations);
+        let opcodes = context.artifact().byte_code;
+        assert_eq!(
+            opcodes,
+            vec![
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(1),
+                    source: MemoryAddress::relative(10)
+                }, // Temporary
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(14),
+                    source: MemoryAddress::relative(13)
+                }, // Branch
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(10),
+                    source: MemoryAddress::relative(12)
+                }, // Loop
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(12),
+                    source: MemoryAddress::relative(11)
+                }, // Loop
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(13),
+                    source: MemoryAddress::relative(1)
+                }, // Finish branch
+                Opcode::Mov {
+                    destination: MemoryAddress::relative(11),
+                    source: MemoryAddress::relative(1)
+                } // Finish loop
+            ]
+        );
+    }
+}
