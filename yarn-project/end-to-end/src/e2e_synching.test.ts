@@ -412,6 +412,7 @@ describe('e2e_synching', () => {
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
+        viemPollingIntervalMS: 100,
       },
       new NoopTelemetryClient(),
     );
