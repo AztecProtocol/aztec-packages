@@ -323,7 +323,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3832;
 global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**
@@ -484,7 +484,7 @@ global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQ
 global AVM_DELEGATECALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
 global AVM_RETURN_BASE_L2_GAS: u32 = 28;
 global AVM_REVERT_BASE_L2_GAS: u32 = 28;
-global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 10;
+global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12; // Must be equal to AVM_JUMP_BASE_L2_GAS as long as circuit implements debugLog as a jump
 global AVM_KECCAK_BASE_L2_GAS: u32 = 3000;
 global AVM_POSEIDON2_BASE_L2_GAS: u32 = 78;
 global AVM_SHA256_BASE_L2_GAS: u32 = 2610;

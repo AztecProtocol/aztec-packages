@@ -1,5 +1,5 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, Header } from '@aztec/circuits.js';
+import { GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -63,7 +63,6 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
-    overrides?.header ?? Header.empty(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
