@@ -481,7 +481,7 @@ __metadata:
     lodash.chunk: ^4.2.0
     lodash.groupby: ^4.6.0
     semver: ^7.5.4
-    solc: ^0.8.26
+    solc: ^0.8.27
     source-map-support: ^0.5.21
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -14504,9 +14504,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"solc@npm:^0.8.26":
-  version: 0.8.26
-  resolution: "solc@npm:0.8.26"
+"solc@npm:^0.8.27":
+  version: 0.8.27
+  resolution: "solc@npm:0.8.27"
   dependencies:
     command-exists: ^1.2.8
     commander: ^8.1.0
@@ -14517,7 +14517,7 @@ __metadata:
     tmp: 0.0.33
   bin:
     solcjs: solc.js
-  checksum: e3eaeac76e60676377b357af8f3919d4c8c6a74b74112b49279fe8c74a3dfa1de8afe4788689fc307453bde336edc8572988d2cf9e909f84d870420eb640400c
+  checksum: 33a81256445b7999672db8b03f94a7a767c28b9be88f60030fbc1b43b5ef9c3fa44591193abe8dda166df333c5fa4370bfcfb67acf01f8ca828ad7fb2f8ce54e
   languageName: node
   linkType: hard
 
