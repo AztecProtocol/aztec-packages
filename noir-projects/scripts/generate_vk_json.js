@@ -96,6 +96,8 @@ function isMegaHonkCircuit(artifactName) {
   // return megaHonkPatterns.some((pattern) =>
   //   artifactName.match(new RegExp(pattern))
   // );
+
+  // Modify here
   return false;
 }
 

@@ -1,3 +1,6 @@
+use dep::protocol_types::traits::Serialize;
+use std::meta::derive;
+
 global MAX_COMMITMENTS_PER_CALL = 2;
 global MAX_COMMITMENTS_PER_TX = 4;
 global MAX_COMMITMENT_READ_REQUESTS_PER_CALL = 2;
@@ -7,6 +10,7 @@ struct TxRequest {
     number_of_calls: u32,
 }
 
+#[derive(Serialize)]
 struct AppPublicInputs {
     commitments: [Field; MAX_COMMITMENTS_PER_CALL],
     read_requests: [Field; MAX_COMMITMENT_READ_REQUESTS_PER_CALL],
