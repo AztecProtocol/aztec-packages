@@ -172,7 +172,7 @@ contract NFT {
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point.to_point(), slot).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point, slot).enqueue(&mut context);
     }
 
     #[public]
@@ -206,25 +206,24 @@ contract NFT {
         );
 
         // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
-        let mut hiding_point = NFTNote::hiding_point().from_point(context.storage_read(hiding_point_slot));
+        let hiding_point: Point = context.storage_read(hiding_point_slot);
         assert(!is_empty(hiding_point), "transfer not prepared");
 
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
-        // Finalize the hiding point with the `token_id` and insert the note
-        let note_hash = hiding_point.finalize(token_id);
-        context.push_note_hash(note_hash);
+        // Finalize the partial note with the `token_id`
+        let finalized_payload = NFTNote::finalized_payload().new(hiding_point, token_id);
+
+        // We insert the finalized note hash
+        context.push_note_hash(finalized_payload.note_hash);
 
         // We emit the `token_id` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
-        context.emit_unencrypted_log(token_id);
+        context.emit_unencrypted_log(finalized_payload.log_plaintext);
 
         // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
         // the writes
-        context.storage_write(
-            hiding_point_slot,
-            NFTNote::hiding_point().from_point(Point::empty())
-        );
+        context.storage_write(hiding_point_slot, Point::empty());
     }
 
     /**

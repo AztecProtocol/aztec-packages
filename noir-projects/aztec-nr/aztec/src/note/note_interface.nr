@@ -6,9 +6,9 @@ pub trait NoteProperties<T> {
 }
 
 pub trait PartialNote<T, P> {
-    fn hiding_point() -> T;
+    fn partial_payload() -> T;
 
-    fn partial_payload() -> P;
+    fn finalized_payload() -> P;
 }
 
 pub trait NullifiableNote {
