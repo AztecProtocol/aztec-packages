@@ -76,24 +76,23 @@ export async function deployInitialTestAccounts(pxe: PXE) {
   const deployWallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
   await (await registerContractClass(deployWallet, SchnorrAccountContractArtifact)).send().wait();
   // Attempt to get as much parallelism as possible
-  const deployMethods = await Promise.all(
+  const deployTxs = await Promise.all(
     accounts.map(async x => {
       const deployMethod = await x.account.getDeployMethod();
-      await deployMethod.create({
+      const tx = await deployMethod.prove({
         contractAddressSalt: x.account.salt,
         universalDeploy: true,
       });
-      return deployMethod;
+      return tx;
     }),
   );
   // Send tx together to try and get them in the same rollup
-  const sentTxs = deployMethods.map(dm => {
-    return dm.send();
+  const sentTxs = deployTxs.map(tx => {
+    return tx.send();
   });
   await Promise.all(
-    sentTxs.map(async (tx, i) => {
-      const wallet = await accounts[i].account.getWallet();
-      return tx.wait({ wallet });
+    sentTxs.map(async tx => {
+      return tx.wait();
     }),
   );
   return accounts;
