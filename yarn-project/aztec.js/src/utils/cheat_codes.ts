@@ -42,6 +42,11 @@ export class CheatCodes {
     );
     return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
   }
+
+  static createRollup(rpcUrl: string, addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
+    const ethCheatCodes = new EthCheatCodes(rpcUrl);
+    return new RollupCheatCodes(ethCheatCodes, addresses);
+  }
 }
 
 /**
