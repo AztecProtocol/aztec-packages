@@ -2338,7 +2338,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
     }
     // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    op_jump(old_pc + 1, true); // TODO(8945)
 }
 
 void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
@@ -2413,7 +2413,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
     }
     // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    op_jump(old_pc + 1, true); // TODO(8945)
 }
 
 void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
@@ -2737,7 +2737,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // Write the return data to memory
     write_slice_to_memory(resolved_ret_offset, AvmMemoryTag::FF, hint.return_data);
     // Write the success flag to memory
-    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U1, std::vector<FF>{ hint.success });
+    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U8, std::vector<FF>{ hint.success });
     external_call_counter++;
 
     // Adjust the side_effect_counter to the value at the end of the external call but not static call.
