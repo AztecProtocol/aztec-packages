@@ -35,14 +35,14 @@ export class MultiScalarMul extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
     // Resolve indirects
-    const operands = [this.pointsOffset, this.scalarsOffset, this.outputOffset];
+    const operands = [this.pointsOffset, this.scalarsOffset, this.outputOffset, this.pointsLengthOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [pointsOffset, scalarsOffset, outputOffset] = addressing.resolve(operands, memory);
+    const [pointsOffset, scalarsOffset, outputOffset, pointsLengthOffset] = addressing.resolve(operands, memory);
 
     // Length of the points vector should be U32
-    memory.checkTag(TypeTag.UINT32, this.pointsLengthOffset);
+    memory.checkTag(TypeTag.UINT32, pointsLengthOffset);
     // Get the size of the unrolled (x, y , inf) points vector
-    const pointsReadLength = memory.get(this.pointsLengthOffset).toNumber();
+    const pointsReadLength = memory.get(pointsLengthOffset).toNumber();
     if (pointsReadLength % 3 !== 0) {
       throw new InstructionExecutionError(`Points vector offset should be a multiple of 3, was ${pointsReadLength}`);
     }
