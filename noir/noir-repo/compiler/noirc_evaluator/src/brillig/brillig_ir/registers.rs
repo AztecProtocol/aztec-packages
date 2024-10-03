@@ -242,3 +242,22 @@ impl<F, Registers: RegisterAllocator> BrilligContext<F, Registers> {
         self.deallocate_register(vec.size);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::brillig::brillig_ir::registers::{RegisterAllocator, Stack};
+
+    #[test]
+    fn stack_should_prioritize_returning_low_registers() {
+        let mut stack = Stack::new();
+        let one = stack.allocate_register();
+        let _two = stack.allocate_register();
+        let three = stack.allocate_register();
+
+        stack.deallocate_register(three);
+        stack.deallocate_register(one);
+
+        let one_again = stack.allocate_register();
+        assert_eq!(one, one_again);
+    }
+}
