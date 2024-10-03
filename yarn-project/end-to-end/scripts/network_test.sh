@@ -23,7 +23,7 @@ $(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/helm_deploy.sh
 
 function k8s_pxe_port_forward() {
   # Clear any existing port forward
-  ps aux | grep "kubectl port-forward" | grep 9081 | awk '{print $2}' | xargs kill || true
+  ps aux | grep "kubectl port-forward" | grep 9080 | awk '{print $2}' | xargs kill || true
   # tunnel in to get access directly to our PXE service in k8s
   kubectl port-forward -n "$NAMESPACE" svc/spartan-aztec-network-pxe 9080:8080 || true
 }
