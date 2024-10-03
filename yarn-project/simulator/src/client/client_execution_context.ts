@@ -8,7 +8,14 @@ import {
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { CallContext, FunctionSelector, type Header, PrivateContextInputs, type TxContext } from '@aztec/circuits.js';
+import {
+  CallContext,
+  FunctionSelector,
+  type Header,
+  PUBLIC_DISPATCH_SELECTOR,
+  PrivateContextInputs,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -494,7 +501,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
-      `Created PublicExecutionRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+      `Created PublicExecutionRequest to ${targetArtifact.name}@${targetContractAddress}, of type [${callType}], side-effect counter [${sideEffectCounter}]`,
     );
 
     const request = PublicExecutionRequest.from({
@@ -528,16 +535,27 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+    // WARNING: This is insecure and should be temporary!
+    // The oracle repacks the arguments and returns a new args_hash.
+    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+    // b) this is only temporary.
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'enqueued',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
       isDelegateCall,
     );
+    return newArgsHash;
   }
 
   /**
@@ -558,16 +576,27 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+    // WARNING: This is insecure and should be temporary!
+    // The oracle repacks the arguments and returns a new args_hash.
+    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+    // b) this is only temporary.
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'teardown',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
       isDelegateCall,
     );
+    return newArgsHash;
   }
 
   public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {

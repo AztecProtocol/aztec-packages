@@ -19,10 +19,10 @@ export async function executePrivateFunction(
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  log = createDebugLogger('aztec:simulator:secret_execution'),
+  log = createDebugLogger('aztec:simulator:private_execution'),
 ): Promise<ExecutionResult> {
   const functionName = await context.getDebugFunctionName();
-  log.verbose(`Executing external function ${contractAddress}:${functionSelector}(${functionName})`);
+  log.verbose(`Executing external function ${functionName}@${contractAddress}`);
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);

@@ -83,13 +83,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
+    IProofCommitmentEscrow _proofCommitmentEscrow, // We should create a new instance instead of accepting one, once we remove the Mock version
     bytes32 _vkTreeRoot,
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
+    PROOF_COMMITMENT_ESCROW = _proofCommitmentEscrow;
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
@@ -626,6 +627,12 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       Errors.Rollup__InsufficientBondAmount(
         PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
       )
+    );
+
+    uint256 availableFundsInEscrow = PROOF_COMMITMENT_ESCROW.deposits(_quote.quote.prover);
+    require(
+      _quote.quote.bondAmount <= availableFundsInEscrow,
+      Errors.Rollup__InsufficientFundsInEscrow(_quote.quote.bondAmount, availableFundsInEscrow)
     );
 
     require(

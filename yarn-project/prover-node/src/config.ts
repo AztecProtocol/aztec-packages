@@ -16,6 +16,7 @@ import {
 } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
 
+import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import {
   type ProverCoordinationConfig,
   getTxProviderConfigFromEnv,
@@ -28,6 +29,7 @@ export type ProverNodeConfig = ArchiverConfig &
   PublisherConfig &
   TxSenderConfig &
   ProverCoordinationConfig &
+  ProverBondManagerConfig &
   QuoteProviderConfig & {
     proverNodeMaxPendingJobs: number;
     proverNodePollingIntervalMs: number;
@@ -36,6 +38,7 @@ export type ProverNodeConfig = ArchiverConfig &
 export type QuoteProviderConfig = {
   quoteProviderBasisPointFee: number;
   quoteProviderBondAmount: bigint;
+  quoteProviderUrl?: string;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<
@@ -64,6 +67,11 @@ const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
     description: 'The bond amount to charge for providing quotes',
     ...bigintConfigHelper(1000n),
   },
+  quoteProviderUrl: {
+    env: 'QUOTE_PROVIDER_URL',
+    description:
+      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
+  },
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
@@ -74,6 +82,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
   ...quoteProviderConfigMappings,
+  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 
@@ -87,5 +96,6 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
     ...getTxProviderConfigFromEnv(),
     ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
+    ...getConfigFromMappings(proverBondManagerConfigMappings),
   };
 }

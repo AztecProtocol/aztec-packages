@@ -69,7 +69,8 @@ export async function deployAztecContracts(
     RegistryBytecode,
     RollupAbi,
     RollupBytecode,
-
+    MockProofCommitmentEscrowAbi,
+    MockProofCommitmentEscrowBytecode,
     FeeJuicePortalAbi,
     FeeJuicePortalBytecode,
     TestERC20Abi,
@@ -106,6 +107,10 @@ export async function deployAztecContracts(
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
+    },
+    proofCommitmentEscrow: {
+      contractAbi: MockProofCommitmentEscrowAbi,
+      contractBytecode: MockProofCommitmentEscrowBytecode,
     },
   };
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');

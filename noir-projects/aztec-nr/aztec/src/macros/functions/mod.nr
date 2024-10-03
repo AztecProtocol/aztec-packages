@@ -247,7 +247,8 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
-        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(0, $args_len);
+        // We start from 1 because we skip the selector for the dispatch function.
+        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);
         dep::aztec::hash::hash_args_array(serialized_args)
      }); };
 

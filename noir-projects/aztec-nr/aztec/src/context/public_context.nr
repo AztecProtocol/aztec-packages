@@ -1,6 +1,6 @@
 use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
 use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::constants::MAX_FIELD_VALUE;
+use dep::protocol_types::constants::{MAX_FIELD_VALUE, PUBLIC_DISPATCH_SELECTOR};
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::gas::GasOpts;
@@ -70,11 +70,12 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
+        let args = &[function_selector.to_field()].append(args);
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
             args,
-            function_selector.to_field()
+            PUBLIC_DISPATCH_SELECTOR
         );
         let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
@@ -90,11 +91,12 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
+        let args = &[function_selector.to_field()].append(args);
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
             args,
-            function_selector.to_field()
+            PUBLIC_DISPATCH_SELECTOR
         );
 
         assert(success == 1, "Nested static call failed!");
@@ -127,7 +129,9 @@ impl PublicContext {
         sender()
     }
     fn selector(_self: Self) -> FunctionSelector {
-        FunctionSelector::from_u32(function_selector())
+        // The selector is the first element of the calldata when calling a public function through dispatch.
+        let raw_selector: [Field; 1] = calldata_copy(0, 1);
+        FunctionSelector::from_field(raw_selector[0])
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
@@ -215,9 +219,10 @@ unconstrained fn sender() -> AztecAddress {
 unconstrained fn portal() -> EthAddress {
     portal_opcode()
 }
-unconstrained fn function_selector() -> u32 {
-    function_selector_opcode()
-}
+// UNUSED: Remove.
+// unconstrained fn function_selector() -> u32 {
+//     function_selector_opcode()
+// }
 unconstrained fn transaction_fee() -> Field {
     transaction_fee_opcode()
 }
@@ -321,8 +326,9 @@ unconstrained fn sender_opcode() -> AztecAddress {}
 #[oracle(avmOpcodePortal)]
 unconstrained fn portal_opcode() -> EthAddress {}
 
-#[oracle(avmOpcodeFunctionSelector)]
-unconstrained fn function_selector_opcode() -> u32 {}
+// UNUSED: Remove.
+// #[oracle(avmOpcodeFunctionSelector)]
+// unconstrained fn function_selector_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTransactionFee)]
 unconstrained fn transaction_fee_opcode() -> Field {}

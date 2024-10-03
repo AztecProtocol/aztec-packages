@@ -426,7 +426,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void add_gates_to_ensure_all_polys_are_non_zero();
 
     void create_add_gate(const add_triple_<FF>& in) override;
-
+    void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in);
     void create_big_mul_gate(const mul_quad_<FF>& in);
