@@ -229,6 +229,7 @@ jobs:
           ref: ${{ env.GIT_COMMIT }}
       - uses: ./.github/ci-setup-action
         with:
+          concurrency_key: publish-npm-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish yarn-project NPM packages
         run: |
