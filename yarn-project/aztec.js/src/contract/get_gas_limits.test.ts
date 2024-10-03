@@ -1,5 +1,5 @@
 import { PublicKernelPhase, type TxSimulationResult, mockSimulatedTx } from '@aztec/circuit-types';
-import { Gas, PartialPrivateTailPublicInputsForPublic } from '@aztec/circuits.js';
+import { Gas, type PartialPrivateTailPublicInputsForPublic } from '@aztec/circuits.js';
 
 import { getGasLimits } from './get_gas_limits.js';
 
