@@ -26,7 +26,7 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger, fmtLogData } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
@@ -428,6 +428,29 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     return this.queue.put(async () => {
       if (!this.instance) {
         throw new Error('NativeWorldStateService is stopped');
+      }
+
+      if (body) {
+        let data: Record<string, any> = {};
+        if ('treeId' in body) {
+          data['treeId'] = MerkleTreeId[body.treeId];
+        }
+
+        if ('revision' in body) {
+          data = { ...data, ...body.revision };
+        }
+
+        if ('forkId' in body) {
+          data['forkId'] = body.forkId;
+        }
+
+        if ('blockNumber' in body) {
+          data['blockNumber'] = body.blockNumber;
+        }
+
+        this.log.debug(`Calling ${WorldStateMessageType[messageType]} on ${fmtLogData(data)}`);
+      } else {
+        this.log.debug(`Calling ${WorldStateMessageType[messageType]}`);
       }
 
       const request = new TypedMessage(messageType, new MessageHeader({ messageId: this.nextMessageId++ }), body);
