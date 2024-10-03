@@ -152,14 +152,14 @@ services:
 
   # Simple watcher that logs the latest block numbers every few seconds using the CLI and the bot's PXE
   aztec-block-watcher:
-    image: "aztecprotocol/aztec:master"
+    image: "aztecprotocol/${IMAGE:-aztec:master}"
     environment:
       ETHEREUM_HOST: http://ethereum:8545
       L1_CHAIN_ID: 31337
     depends_on:
       aztec-bot:
         condition: service_healthy
-    entrypoint: "/bin/bash -c"
+    entrypoint: '/bin/bash -c'
     command: >
       'while true; do node --no-warnings ./node_modules/.bin/aztec block-number -u http://aztec-bot | head -n2; sleep 10; done'
     restart: on-failure:5
