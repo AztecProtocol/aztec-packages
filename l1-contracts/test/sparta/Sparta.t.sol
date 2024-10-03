@@ -20,6 +20,7 @@ import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 
@@ -75,13 +76,7 @@ contract SpartaTest is DecoderBase {
     }
 
     testERC20 = new TestERC20();
-    rollup = new Rollup(
-      IFeeJuicePortal(address(0)),
-      IProofCommitmentEscrow(address(0)),
-      bytes32(0),
-      address(this),
-      initialValidators
-    );
+    rollup = new Rollup(new MockFeeJuicePortal(), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 

@@ -3,9 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 
-import type { Abi, AbiConstructor, Narrow } from 'abitype';
+import type { Abi, Narrow } from 'abitype';
 import {
-  type AbiFunction,
   type Account,
   type Chain,
   type Hex,
@@ -90,10 +89,6 @@ export interface L1ContractArtifactsForDeployment {
    * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
-  /**
-   * Proof commitment escrow. Either mock or actual implementation.
-   */
-  proofCommitmentEscrow: ContractArtifacts;
 }
 
 export interface DeployL1ContractsArgs {
@@ -117,10 +112,6 @@ export interface DeployL1ContractsArgs {
    * The initial validators for the rollup contract.
    */
   initialValidators?: EthAddress[];
-  /**
-   * Whether to deploy the real proof commitment escrow as opposed to the mock.
-   */
-  useRealProofCommitmentEscrow?: boolean;
 }
 
 export type L1Clients = {
@@ -209,26 +200,18 @@ export const deployL1Contracts = async (
   logger.info(`Deployed Registry at ${registryAddress}`);
 
   const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
-
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
-
-  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
-
-  // Mock implementation of escrow takes no arguments
-  const proofCommitmentEscrow = await deployer.deploy(
-    contractsToDeploy.proofCommitmentEscrow,
-    (contractsToDeploy.proofCommitmentEscrow.contractAbi as Abi).find(
-      (fn): fn is AbiConstructor => fn.type === 'constructor',
-    )?.inputs.length === 0
-      ? []
-      : [feeJuiceAddress.toString()],
-  );
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [
+    account.address.toString(),
+    registryAddress.toString(),
+    feeJuiceAddress.toString(),
+    args.l2FeeJuiceAddress.toString(),
+  ]);
+  logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
-    getAddress(feeJuicePortalAddress.toString()),
-    proofCommitmentEscrow.toString(),
+    feeJuicePortalAddress.toString(),
     args.vkTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
@@ -259,18 +242,6 @@ export const deployL1Contracts = async (
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
-  // Remove this conditional once we dump the MockProofCommitmentEscrow
-  if (
-    (contractsToDeploy.proofCommitmentEscrow.contractAbi as Abi).find(fn => (fn as AbiFunction).name === 'initialize')
-  ) {
-    const proofCommitmentEscrowContract = getContract({
-      address: proofCommitmentEscrow.toString(),
-      abi: contractsToDeploy.proofCommitmentEscrow.contractAbi,
-      client: walletClient,
-    });
-    txHashes.push(await proofCommitmentEscrowContract.write.initialize([rollupAddress.toString()]));
-  }
-
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
@@ -283,22 +254,16 @@ export const deployL1Contracts = async (
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
   logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
-  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
-    const initPortalTxHash = await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]);
+  if ((await feeJuicePortal.read.owner([])) !== zeroAddress) {
+    const initPortalTxHash = await feeJuicePortal.write.initialize([]);
     txHashes.push(initPortalTxHash);
-    logger.verbose(
-      `Fee juice portal initializing with registry ${registryAddress.toString()} in tx ${initPortalTxHash}`,
-    );
+    logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
   } else {
     logger.verbose(`Fee juice portal is already initialized`);
   }
 
   logger.info(
-    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
   if (isAnvilTestChain(chain.id)) {
