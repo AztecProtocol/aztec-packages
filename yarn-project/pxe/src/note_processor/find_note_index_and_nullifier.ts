@@ -3,6 +3,14 @@ import { Fr } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type AcirSimulator } from '@aztec/simulator';
 
+export interface NoteInfo {
+  noteHashIndex: number;
+  nonce: Fr;
+  noteHash: Fr;
+  siloedNullifier: Fr;
+  txHash: TxHash;
+}
+
 /**
  * Finds nonce, index, inner hash and siloed nullifier for a given note.
  * @dev Finds the index in the note hash tree by computing the note hash with different nonce and see which hash for
@@ -17,14 +25,14 @@ import { type AcirSimulator } from '@aztec/simulator';
  * @returns Nonce, index, inner hash and siloed nullifier for a given note.
  * @throws If cannot find the nonce for the note.
  */
-export async function findNoteIndexAndNullifier(
+export async function bruteForceNoteInfo(
   simulator: AcirSimulator,
   siloedNoteHashes: Fr[],
   txHash: TxHash,
   { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
   excludedIndices: Set<number>,
   computeNullifier: boolean,
-) {
+): Promise<NoteInfo> {
   let noteHashIndex = 0;
   let nonce: Fr | undefined;
   let noteHash: Fr | undefined;
@@ -69,5 +77,6 @@ export async function findNoteIndexAndNullifier(
     nonce,
     noteHash: noteHash!,
     siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
+    txHash,
   };
 }

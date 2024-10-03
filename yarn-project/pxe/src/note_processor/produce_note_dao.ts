@@ -8,7 +8,7 @@ import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { type PxeDatabase } from '../database/pxe_database.js';
 import { addNullableFieldsToPayload } from './add_nullable_field_to_payload.js';
-import { findNoteIndexAndNullifier } from './find_note_index_and_nullifier.js';
+import { type NoteInfo, bruteForceNoteInfo } from './find_note_index_and_nullifier.js';
 
 /**
  * Decodes a note from a transaction that we know was intended for us.
@@ -58,113 +58,20 @@ export async function produceNoteDaos(
   let incomingDeferredNote: DeferredNoteDao | undefined;
   let outgoingDeferredNote: DeferredNoteDao | undefined;
 
-  try {
-    if (ivpkM) {
-      const { noteHashIndex, nonce, noteHash, siloedNullifier } = await findNoteIndexAndNullifier(
-        simulator,
-        noteHashes,
-        txHash,
-        payload,
-        excludedIndices,
-        true, // For incoming we compute a nullifier (recipient of incoming is the party that nullifies).
-      );
-      const index = BigInt(dataStartIndexForTx + noteHashIndex);
-      excludedIndices?.add(noteHashIndex);
-
-      incomingNote = new IncomingNoteDao(
-        payload.note,
-        payload.contractAddress,
-        payload.storageSlot,
-        payload.noteTypeId,
-        txHash,
-        nonce,
-        noteHash,
-        siloedNullifier,
-        index,
-        ivpkM,
-      );
-    }
-  } catch (e) {
-    if (e instanceof ContractNotFoundError) {
-      logger.warn(e.message);
-
-      if (ivpkM) {
-        incomingDeferredNote = new DeferredNoteDao(
-          ivpkM,
-          payload.note,
-          payload.contractAddress,
-          payload.storageSlot,
-          payload.noteTypeId,
-          txHash,
-          noteHashes,
-          dataStartIndexForTx,
-          unencryptedLogs,
-        );
-      }
-    } else if (
-      (e as any).message.includes('failed to solve blackbox function: embedded_curve_add') ||
-      (e as any).message.includes('Could not find key prefix.')
-    ) {
-      // TODO(#8769): This branch is a temporary partial notes delivery solution that should be eventually replaced.
-      // Both error messages above occur only when we are dealing with a partial note and are thrown when calling
-      // `note.compute_note_hash()` or `note.compute_nullifier_without_context()`
-      // in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with partial notes because in the
-      // partial flow we receive a note log of a note that is missing some fields here and then we try to compute
-      // the note hash with MSM while some of the fields are zeroed out (or get a nsk for zero npk_m_hash).
-      for (const functionLogs of unencryptedLogs.functionLogs) {
-        for (const log of functionLogs.logs) {
-          const { data } = log;
-          // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
-          // of Fr.SIZE_IN_BYTES as the nullable fields should be simply concatenated.
-          if (data.length % Fr.SIZE_IN_BYTES === 0) {
-            const nullableFields = [];
-            for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
-              const chunk = data.subarray(i, i + Fr.SIZE_IN_BYTES);
-              nullableFields.push(Fr.fromBuffer(chunk));
-            }
-
-            // We insert the nullable fields into the note and then we try to produce the note dao again
-            const payloadWithNullableFields = await addNullableFieldsToPayload(db, payload, nullableFields);
-
-            try {
-              ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
-                simulator,
-                db,
-                ivpkM,
-                undefined, // We only care about incoming notes in this case as that is where the partial flow got triggered.
-                payloadWithNullableFields,
-                txHash,
-                noteHashes,
-                dataStartIndexForTx,
-                excludedIndices,
-                logger,
-                UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
-              ));
-            } catch (e) {
-              if (!(e as any).message.includes('Could not find key prefix.')) {
-                throw e;
-              }
-            }
-
-            if (incomingDeferredNote) {
-              // This should not happen as we should first get contract not found error before the blackbox func error.
-              throw new Error('Partial notes should never be deferred.');
-            }
-
-            if (incomingNote) {
-              // We managed to complete the partial note so we terminate the search.
-              break;
-            }
-          }
-        }
-      }
-
-      if (!incomingNote) {
-        logger.error(`Partial note note found. Discarding note...`);
-      }
-    } else {
-      logger.error(`Could not process note because of "${e}". Discarding note...`);
-    }
+  if (ivpkM) {
+    [incomingNote, incomingDeferredNote] = await produceNoteDaosForKey(
+      simulator,
+      db,
+      ivpkM,
+      payload,
+      txHash,
+      noteHashes,
+      dataStartIndexForTx,
+      excludedIndices,
+      logger,
+      unencryptedLogs,
+      IncomingNoteDao.fromPayloadAndNoteInfo,
+    );
   }
 
   try {
@@ -184,7 +91,7 @@ export async function produceNoteDaos(
           ovpkM,
         );
       } else {
-        const { noteHashIndex, nonce, noteHash } = await findNoteIndexAndNullifier(
+        const noteInfo = await bruteForceNoteInfo(
           simulator,
           noteHashes,
           txHash,
@@ -192,19 +99,8 @@ export async function produceNoteDaos(
           excludedIndices,
           false, // For outgoing we do not compute a nullifier.
         );
-        const index = BigInt(dataStartIndexForTx + noteHashIndex);
-        excludedIndices?.add(noteHashIndex);
-        outgoingNote = new OutgoingNoteDao(
-          payload.note,
-          payload.contractAddress,
-          payload.storageSlot,
-          payload.noteTypeId,
-          txHash,
-          nonce,
-          noteHash,
-          index,
-          ovpkM,
-        );
+        excludedIndices?.add(noteInfo.noteHashIndex);
+        outgoingNote = OutgoingNoteDao.fromPayloadAndNoteInfo(payload, noteInfo, dataStartIndexForTx, ovpkM);
       }
     }
   } catch (e) {
@@ -287,4 +183,116 @@ export async function produceNoteDaos(
     incomingDeferredNote,
     outgoingDeferredNote,
   };
+}
+
+async function produceNoteDaosForKey<T>(
+  simulator: AcirSimulator,
+  db: PxeDatabase,
+  pkM: PublicKey,
+  payload: L1NotePayload,
+  txHash: TxHash,
+  noteHashes: Fr[],
+  dataStartIndexForTx: number,
+  excludedIndices: Set<number>,
+  logger: Logger,
+  unencryptedLogs: UnencryptedTxL2Logs,
+  daoConstructor: (payload: L1NotePayload, noteInfo: NoteInfo, dataStartIndexForTx: number, pkM: PublicKey) => T,
+): Promise<[T | undefined, DeferredNoteDao | undefined]> {
+  let noteDao: T | undefined;
+  let deferredNoteDao: DeferredNoteDao | undefined;
+
+  try {
+    const noteInfo = await bruteForceNoteInfo(
+      simulator,
+      noteHashes,
+      txHash,
+      payload,
+      excludedIndices,
+      true, // For incoming we compute a nullifier (recipient of incoming is the party that nullifies).
+    );
+    excludedIndices?.add(noteInfo.noteHashIndex);
+
+    noteDao = daoConstructor(payload, noteInfo, dataStartIndexForTx, pkM);
+  } catch (e) {
+    if (e instanceof ContractNotFoundError) {
+      logger.warn(e.message);
+
+      deferredNoteDao = new DeferredNoteDao(
+        pkM,
+        payload.note,
+        payload.contractAddress,
+        payload.storageSlot,
+        payload.noteTypeId,
+        txHash,
+        noteHashes,
+        dataStartIndexForTx,
+        unencryptedLogs,
+      );
+    } else if (
+      (e as any).message.includes('failed to solve blackbox function: embedded_curve_add') ||
+      (e as any).message.includes('Could not find key prefix.')
+    ) {
+      // TODO(#8769): This branch is a temporary partial notes delivery solution that should be eventually replaced.
+      // Both error messages above occur only when we are dealing with a partial note and are thrown when calling
+      // `note.compute_note_hash()` or `note.compute_nullifier_without_context()`
+      // in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with partial notes because in the
+      // partial flow we receive a note log of a note that is missing some fields here and then we try to compute
+      // the note hash with MSM while some of the fields are zeroed out (or get a nsk for zero npk_m_hash).
+      for (const functionLogs of unencryptedLogs.functionLogs) {
+        for (const log of functionLogs.logs) {
+          const { data } = log;
+          // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
+          // of Fr.SIZE_IN_BYTES as the nullable fields should be simply concatenated.
+          if (data.length % Fr.SIZE_IN_BYTES === 0) {
+            const nullableFields = [];
+            for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
+              const chunk = data.subarray(i, i + Fr.SIZE_IN_BYTES);
+              nullableFields.push(Fr.fromBuffer(chunk));
+            }
+
+            // We insert the nullable fields into the note and then we try to produce the note dao again
+            const payloadWithNullableFields = await addNullableFieldsToPayload(db, payload, nullableFields);
+
+            try {
+              [noteDao, deferredNoteDao] = await produceNoteDaosForKey(
+                simulator,
+                db,
+                pkM,
+                payloadWithNullableFields,
+                txHash,
+                noteHashes,
+                dataStartIndexForTx,
+                excludedIndices,
+                logger,
+                UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
+                daoConstructor,
+              );
+            } catch (e) {
+              if (!(e as any).message.includes('Could not find key prefix.')) {
+                throw e;
+              }
+            }
+
+            if (deferredNoteDao) {
+              // This should not happen as we should first get contract not found error before the blackbox func error.
+              throw new Error('Partial notes should never be deferred.');
+            }
+
+            if (noteDao) {
+              // We managed to complete the partial note so we terminate the search.
+              break;
+            }
+          }
+        }
+      }
+
+      if (!noteDao) {
+        logger.error(`Partial note note found. Discarding note...`);
+      }
+    } else {
+      logger.error(`Could not process note because of "${e}". Discarding note...`);
+    }
+  }
+
+  return [noteDao, deferredNoteDao];
 }
