@@ -90,3 +90,30 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
+
+pub fn encrypt_and_emit_log_of_partial<let M: u32>(
+    context: &mut PrivateContext,
+    log_plaintext: [u8; M],
+    ovpk: OvpkM,
+    ivpk: IvpkM,
+    recipient: AztecAddress
+) {
+    let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
+
+    let encrypted_log: [u8; 352 + M] = compute_encrypted_log(
+        context.this_address(),
+        ovsk_app,
+        ovpk,
+        ivpk,
+        recipient,
+        log_plaintext
+    );
+    let log_hash = sha256_to_field(encrypted_log);
+
+    // Unfortunately we need to push a dummy note hash to the context here because a note log requires having
+    // a counter that corresponds to a note hash in the same call.
+    let note_hash_counter = context.side_effect_counter;
+    context.push_note_hash(5);
+
+    context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
+}
