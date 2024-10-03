@@ -13,6 +13,8 @@ import { Fr } from "@aztec/foundation/fields";
 import { siloNoteHash, siloNullifier } from "@aztec/circuits.js/hash";
 import { buffer } from "stream/consumers";
 import { makeTuple } from "@aztec/foundation/array";
+import { OrderedMap } from "@aztec/foundation/collection";
+
 
 export class LightPublicProcessorFactory {
     constructor(
@@ -30,8 +32,7 @@ export class LightPublicProcessorFactory {
         // Make sure the world state synchronizer is synced
         await this.worldStateSynchronizer.syncImmediate(targetBlockNumber);
 
-        // We will sync again whenever the block is created
-        // This could be an inefficiency
+        // We will sync again whenever the block is created this could be an inefficiency
         const merkleTrees = await this.worldStateSynchronizer.ephemeralFork();
         const historicalHeader = maybeHistoricalHeader ?? merkleTrees.getInitialHeader();
         const worldStateDB = new WorldStateDB(merkleTrees, this.contractDataSource);
@@ -47,7 +48,7 @@ export class InvalidTransactionsFound extends Error {
     }
 }
 
-type NewStateUpdates = {
+export type NewStateUpdates = {
     nullifiers: Fr[];
     noteHashes: Fr[];
     publicDataWrites: PublicDataUpdateRequest[];
@@ -57,8 +58,8 @@ type NewStateUpdates = {
  * A variant of the public processor that does not run the kernel circuits
  *
  * TODO(make issues):
- * - Gas accounting is not complete
- * - Calculating the state root (archive) is not complete
+ * - Gas accounting is not complete - https://github.com/AztecProtocol/aztec-packages/issues/8962
+ * - Calculating the state root (archive) is not complete - https://github.com/AztecProtocol/aztec-packages/issues/8961
  */
 export class LightPublicProcessor {
 
@@ -73,7 +74,6 @@ export class LightPublicProcessor {
         private merkleTrees: MerkleTreeOperations,
         private worldStateDB: WorldStateDB,
         private globalVariables: GlobalVariables,
-        // TODO(md): check if thies can be inferred
         private historicalHeader: Header,
         private txValidator: TxValidator,
         private telemetryClient: TelemetryClient
@@ -83,7 +83,6 @@ export class LightPublicProcessor {
         // TODO: this will be the total gas limit available for a block
         this.blockGasLeft = Gas.empty();
         this.pendingNullifiers = [];
-
     }
 
     addNullifiers(nullifiers: Nullifier[]) {
@@ -139,39 +138,20 @@ export class LightPublicProcessor {
         //     throw new InvalidTransactionsFound();
     }
 
-    // There is an assumption based on how the block builder works, that the transactions
-    // provided here CANNOT revert, else they are not added to the block as the kernels
-    // will fail
-    // This will change whenever the vm is changed to be able to revert
-    public async applyPrivateStateUpdates(tx: Tx) {
-        const insertionPromises: Promise<any>[] = [];
-        if (tx.data.forRollup) {
-            const {nullifiers, noteHashes} = tx.data.forRollup.end;
-            if (nullifiers) {
-                insertionPromises.push(this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, nullifiers.map(n => n.toBuffer()), NULLIFIER_SUBTREE_HEIGHT));
-            }
-
-            if (noteHashes) {
-                insertionPromises.push(this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes));
-            }
-        }
-
-        await Promise.all(insertionPromises);
-    }
 
     async executeEnqueuedCallsAndApplyStateUpdates(tx: Tx) {
         const publicExecutionResults = await this.executePublicCalls(tx);
-        // TODO: handle this
+
+        // The transaction has reverted in setup - the block should fail
         if (!publicExecutionResults) {
-            throw new Error("Public execution results are undefined");
+            throw new Error("Reverted in setup");
         }
 
         if (tx.data.forPublic) {
-            // tODO: put this in a function
             const stateUpdates = this.accumulateTransactionAndExecutedStateUpdates(tx, publicExecutionResults);
             await this.writeStateUpdates(stateUpdates);
         } else {
-            throw new Error("Transaction does not have public calls");
+            throw new Error("Public transaction did have public data");
         }
     }
 
@@ -221,7 +201,6 @@ export class LightPublicProcessor {
         await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
         await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, nullifiers.map(n => n.toBuffer()), NULLIFIER_SUBTREE_HEIGHT);
         await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, allPublicDataWrites.map(x => x.toBuffer()), PUBLIC_DATA_SUBTREE_HEIGHT);
-
     }
 
     // NOTES:
@@ -305,6 +284,21 @@ export class LightPublicProcessor {
         return this.aggregateResults(nonRevertiblePublicExecutionResults, publicExecutionResults);
     }
 
+    // TODO: dont think splitting these up actually matters
+    aggregateResults(nonRevertibleResults: PublicExecutionResult[], revertibleResults: PublicExecutionResult[]) {
+        const nonRevertibleNestedExecutions = nonRevertibleResults.flatMap(res => this.collectNestedExecutions(res));
+        const nonRevertible =  this.aggregatePublicExecutionResults(nonRevertibleNestedExecutions);
+
+        const revertibleNestedExecutions = revertibleResults.flatMap(res => this.collectNestedExecutions(res));
+        const revertible = this.aggregatePublicExecutionResults(revertibleNestedExecutions);
+
+        return {
+            nullifiers: [...nonRevertible.nullifiers, ...revertible.nullifiers],
+            noteHashes: [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes],
+            publicDataWrites: [...nonRevertible.publicDataWrites, ...revertible.publicDataWrites]
+        }
+    }
+
     // This is just getting the private state updates after executing them
     // TODO(md): think about these
     aggregatePublicExecutionResults(results: PublicExecutionResult[]) {
@@ -315,7 +309,7 @@ export class LightPublicProcessor {
         for (const res of results) {
             const enqueuedCallNewNullifiers = [];
             const enqueuedCallNewNoteHashes = [];
-            const enqueuedCallPublicDataWrites = [];
+            let enqueuedCallPublicDataWrites = [];
 
             // Scope the nullifiers, note hashes and public data writes to the contract address
             enqueuedCallNewNullifiers.push(...getNonEmptyItems(res.nullifiers).map(n => n.scope(res.executionRequest.contractAddress)));
@@ -328,17 +322,12 @@ export class LightPublicProcessor {
         }
 
         // Reverse
-        // TODO: WHY to we need to do this? yucky yucky, reversal doesnt feel quite right
-        let newNullifiers = txCallNewNullifiers.reverse().flat();
-        let newNoteHashes = txCallNewNoteHashes.reverse().flat();
+        let newNullifiers = txCallNewNullifiers.flat();
+        let newNoteHashes = txCallNewNoteHashes.flat();
         const newPublicDataWrites = txCallPublicDataWrites.flat();
 
         // Squash data writes
         let uniquePublicDataWrites = this.removeDuplicatesFromStart(newPublicDataWrites);
-        uniquePublicDataWrites = this.sortBySideEffectCounter(uniquePublicDataWrites);
-
-        newNullifiers = this.sortBySideEffectCounter(newNullifiers);
-        newNoteHashes = this.sortBySideEffectCounter(newNoteHashes);
 
         const returning =  {
             nullifiers: newNullifiers.map(n => siloNullifier(n.contractAddress, n.value)),
@@ -357,27 +346,25 @@ export class LightPublicProcessor {
     }
 
 
-    aggregateResults(nonRevertibleResults: PublicExecutionResult[], revertibleResults: PublicExecutionResult[]) {
-        const nonRevertibleNestedExecutions = nonRevertibleResults.flatMap(res => this.collectNestedExecutions(res));
-        const nonRevertible =  this.aggregatePublicExecutionResults(nonRevertibleNestedExecutions);
 
-        const revertibleNestedExecutions = revertibleResults.flatMap(res => this.collectNestedExecutions(res));
-        const revertible = this.aggregatePublicExecutionResults(revertibleNestedExecutions);
+    // There is an assumption based on how the block builder works, that the transactions
+    // provided here CANNOT revert, else they are not added to the block as the kernels
+    // will fail
+    // This will change whenever the vm is changed to be able to revert
+    public async applyPrivateStateUpdates(tx: Tx) {
+        const insertionPromises: Promise<any>[] = [];
+        if (tx.data.forRollup) {
+            const {nullifiers, noteHashes} = tx.data.forRollup.end;
+            if (nullifiers) {
+                insertionPromises.push(this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, nullifiers.map(n => n.toBuffer()), NULLIFIER_SUBTREE_HEIGHT));
+            }
 
-        return {
-            nullifiers: [...nonRevertible.nullifiers, ...revertible.nullifiers],
-            noteHashes: [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes],
-            publicDataWrites: [...nonRevertible.publicDataWrites, ...revertible.publicDataWrites]
+            if (noteHashes) {
+                insertionPromises.push(this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes));
+            }
         }
-    }
 
-    /**
-     * Sort by side effect counter, where the lowest is first
-     * @param items
-     * @returns
-     */
-    sortBySideEffectCounter<T extends {counter: number}>(items: T[]) {
-        return items.sort((a, b) => a.counter - b.counter);
+        await Promise.all(insertionPromises);
     }
 
     /**
@@ -386,7 +373,7 @@ export class LightPublicProcessor {
      * @returns
      */
     removeDuplicatesFromStart(items: PublicDataUpdateRequest[]) {
-        const slotMap: Map<bigint, PublicDataUpdateRequest> = new Map();
+        const slotMap: OrderedMap<bigint, PublicDataUpdateRequest> = new OrderedMap();
 
         for (const obj of items) {
           const { leafSlot, sideEffectCounter } = obj;

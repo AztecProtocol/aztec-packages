@@ -1,5 +1,4 @@
 import {
-  PublicDataWrite,
   type PublicExecutionRequest,
   SimulationError,
   type TreeInfo,
@@ -9,6 +8,7 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
+  ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
   Gas,
@@ -16,24 +16,21 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PublicAccumulatedDataBuilder,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  RevertCode,
   StateReference,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeSelector } from '@aztec/circuits.js/testing';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   LightPublicProcessor,
   type PublicExecutionResult,
-  type PublicExecutor,
   type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -43,7 +40,8 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicExecutionResultBuilder, makeFunctionCall } from '../mocks/fixtures.js';
-import { Spied, SpyInstance } from 'jest-mock';
+import { NewStateUpdates } from './light_public_processor.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -65,7 +63,7 @@ describe('public_processor', () => {
     worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
   });
 
-  describe('with actual circuits', () => {
+  describe('Light Public Processor', () => {
     let publicDataTree: AppendOnlyTree<Fr>;
 
     beforeAll(async () => {
@@ -274,7 +272,9 @@ describe('public_processor', () => {
         }
       });
 
-      await processor.process([tx]);
+      await expect(async () => {
+        await processor.process([tx]);
+      }).rejects.toThrow("Reverted in setup");
 
       expect(processor.publicExecutor.simulate).toHaveBeenCalledTimes(1);
 
@@ -366,15 +366,344 @@ describe('public_processor', () => {
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-
-      // we keep the non-revertible logs
-      // TODO: keep track of this
-      // expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
-      // expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
-
-      // expect(processed[0].data.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
-
-      // expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
+
+    it('includes a transaction that reverts in app logic and teardown', async function () {
+      const tx = mockTx(1, {
+        hasLogs: true,
+        numberOfNonRevertiblePublicCallRequests: 1,
+        numberOfRevertiblePublicCallRequests: 1,
+        hasPublicTeardownCallRequest: true,
+      });
+
+      const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
+      const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
+      const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
+
+      const teardownGas = tx.data.constants.txContext.gasSettings.getTeardownLimits();
+      const teardownResultSettings = { startGasLeft: teardownGas, endGasLeft: teardownGas };
+
+      const nestedContractAddress = AztecAddress.fromBigInt(112233n);
+      const contractSlotA = fr(0x100);
+      const contractSlotB = fr(0x150);
+      const contractSlotC = fr(0x200);
+
+      let simulatorCallCount = 0;
+      const simulatorResults: PublicExecutionResult[] = [
+        // Setup
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({
+          request: nonRevertibleRequests[0],
+          contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 13),
+              ],
+            }).build(),
+          ],
+        }).build(),
+
+        // App Logic
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({
+          request: revertibleRequests[0],
+          contractStorageUpdateRequests: [
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 14),
+            new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 15),
+          ],
+          revertReason: new SimulationError('Simulation Failed', []),
+        }).build(),
+
+        // Teardown
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({
+          request: teardownRequest,
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: teardownRequest.callContext.storageContractAddress,
+              tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
+            }).build(teardownResultSettings),
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: teardownRequest.callContext.storageContractAddress,
+              tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
+              revertReason: new SimulationError('Simulation Failed', []),
+            }).build(teardownResultSettings),
+          ],
+        }).build(teardownResultSettings),
+      ];
+
+      jest.spyOn(processor.publicExecutor, 'simulate').mockImplementation(execution => {
+        if (simulatorCallCount < simulatorResults.length) {
+          return Promise.resolve(simulatorResults[simulatorCallCount++]);
+        } else {
+          throw new Error(`Unexpected execution request: ${execution}, call count: ${simulatorCallCount}`);
+        }
+      });
+
+      const stateUpdateSpy = jest.spyOn(processor as any, "writeStateUpdates");
+
+      await processor.process([tx]);
+
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(2);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+
+      const nestContractAddress =
+            simulatorResults[0].nestedExecutions[0].executionRequest.contractAddress;
+      const expectedPublicDataWrites = [
+        PublicDataUpdateRequest.fromContractStorageUpdateRequest(
+            nonRevertibleRequests[0].callContext.storageContractAddress,
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11),
+        ),
+        PublicDataUpdateRequest.fromContractStorageUpdateRequest(
+            nestContractAddress ,
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
+        ),
+        PublicDataUpdateRequest.fromContractStorageUpdateRequest(
+            nestContractAddress,
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 13),
+        ),
+      ]
+      // Tx hash + state updates
+      const expectedStateUpdatesOpject: NewStateUpdates = {
+        nullifiers: padArrayEnd([tx.data.getNonEmptyNullifiers()[0]], Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+        noteHashes: padArrayEnd([], Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+        publicDataWrites: expectedPublicDataWrites,
+      }
+      expect(stateUpdateSpy).toHaveBeenCalledWith(expectedStateUpdatesOpject);
+    });
+
+    it('runs a tx with all phases', async function () {
+      const tx = mockTx(1, {
+        numberOfNonRevertiblePublicCallRequests: 1,
+        numberOfRevertiblePublicCallRequests: 1,
+        hasPublicTeardownCallRequest: true,
+      });
+
+      const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
+      const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
+      const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
+
+      // TODO(md): gas
+      const gasLimits = Gas.from({ l2Gas: 1e9, daGas: 1e9 });
+      const teardownGas = Gas.from({ l2Gas: 1e7, daGas: 1e7 });
+      tx.data.constants.txContext.gasSettings = GasSettings.from({
+        gasLimits: gasLimits,
+        teardownGasLimits: teardownGas,
+        inclusionFee: new Fr(1e4),
+        maxFeesPerGas: { feePerDaGas: new Fr(10), feePerL2Gas: new Fr(10) },
+      });
+
+      // Private kernel tail to public pushes teardown gas allocation into revertible gas used
+      tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
+        .withGasUsed(teardownGas)
+        .build();
+      tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.endNonRevertibleData,
+      )
+        .withGasUsed(Gas.empty())
+        .build();
+
+      const nestedContractAddress = revertibleRequests[0].callContext.storageContractAddress;
+      const contractSlotA = fr(0x100);
+      const contractSlotB = fr(0x150);
+      const contractSlotC = fr(0x200);
+
+      let simulatorCallCount = 0;
+
+      const initialGas = gasLimits.sub(teardownGas);
+      const setupGasUsed = Gas.from({ l2Gas: 1e6 });
+      const appGasUsed = Gas.from({ l2Gas: 2e6, daGas: 2e6 });
+      const teardownGasUsed = Gas.from({ l2Gas: 3e6, daGas: 3e6 });
+      const afterSetupGas = initialGas.sub(setupGasUsed);
+      const afterAppGas = afterSetupGas.sub(appGasUsed);
+      const afterTeardownGas = teardownGas.sub(teardownGasUsed);
+
+      // Total gas used is the sum of teardown gas allocation plus all expenditures along the way,
+      // without including the gas used in the teardown phase (since that's consumed entirely up front).
+      const expectedTotalGasUsed = { l2Gas: 1e7 + 1e6 + 2e6, daGas: 1e7 + 2e6 };
+
+      // Inclusion fee plus block gas fees times total gas used
+      const expectedTxFee = 1e4 + (1e7 + 1e6 + 2e6) * 1 + (1e7 + 2e6) * 1;
+      const transactionFee = new Fr(expectedTxFee);
+
+      const simulatorResults: PublicExecutionResult[] = [
+        // Setup
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({ request: nonRevertibleRequests[0] }).build({
+          startGasLeft: initialGas,
+          endGasLeft: afterSetupGas,
+        }),
+
+        // App Logic
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({
+          request: revertibleRequests[0],
+          contractStorageUpdateRequests: [
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 10),
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 11),
+          ],
+          contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x100), 19)],
+        }).build({
+          startGasLeft: afterSetupGas,
+          endGasLeft: afterAppGas,
+        }),
+
+        // Teardown
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({
+          request: teardownRequest,
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: teardownRequest.callContext.storageContractAddress,
+              tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 16),
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 17),
+              ],
+              contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x102), 15)],
+            }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: teardownRequest.callContext.storageContractAddress,
+              tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 14),
+              ],
+              contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x101), 12)],
+            }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
+          ],
+        }).build({
+          startGasLeft: teardownGas,
+          endGasLeft: afterTeardownGas,
+          transactionFee,
+        }),
+      ];
+
+      jest.spyOn(processor.publicExecutor, 'simulate').mockImplementation(execution => {
+        if (simulatorCallCount < simulatorResults.length) {
+          const result = simulatorResults[simulatorCallCount++];
+          return Promise.resolve(result);
+        } else {
+          throw new Error(`Unexpected execution request: ${execution}, call count: ${simulatorCallCount}`);
+        }
+      });
+
+      const stateUpdateSpy = jest.spyOn(processor as any, "writeStateUpdates");
+
+      await processor.process([tx]);
+
+      // TODO: gas accounting
+      // const expectedSimulateCall = (availableGas: Partial<FieldsOf<Gas>>, txFee: number) => [
+      //   expect.anything(), // PublicExecution
+      //   expect.anything(), // GlobalVariables
+      //   Gas.from(availableGas),
+      //   expect.anything(), // TxContext
+      //   expect.anything(), // pendingNullifiers
+      //   new Fr(txFee),
+      //   expect.anything(), // SideEffectCounter
+      // ];
+
+      // expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
+      // expect(publicExecutor.simulate).toHaveBeenNthCalledWith(1, ...expectedSimulateCall(initialGas, 0));
+      // expect(publicExecutor.simulate).toHaveBeenNthCalledWith(2, ...expectedSimulateCall(afterSetupGas, 0));
+      // expect(publicExecutor.simulate).toHaveBeenNthCalledWith(3, ...expectedSimulateCall(teardownGas, expectedTxFee));
+
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+
+      // expect(processed[0].data.end.gasUsed).toEqual(Gas.from(expectedTotalGasUsed));
+      // expect(processed[0].gasUsed[PublicKernelPhase.SETUP]).toEqual(setupGasUsed);
+      // expect(processed[0].gasUsed[PublicKernelPhase.APP_LOGIC]).toEqual(appGasUsed);
+      // expect(processed[0].gasUsed[PublicKernelPhase.TEARDOWN]).toEqual(teardownGasUsed);
+
+      // const txEffect = toTxEffect(processed[0], GasFees.default());
+
+      const expectedPublicDataWrites = [
+        PublicDataUpdateRequest.fromContractStorageUpdateRequest(
+            nestedContractAddress,
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 16),
+        ),
+        PublicDataUpdateRequest.fromContractStorageUpdateRequest(
+            nestedContractAddress ,
+            new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 17),
+        ),
+        PublicDataUpdateRequest.fromContractStorageUpdateRequest(
+            nestedContractAddress ,
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 14),
+        ),
+      ]
+      // Tx hash + state updates
+      const expectedStateUpdatesOpject: NewStateUpdates = {
+        nullifiers: padArrayEnd([tx.data.getNonEmptyNullifiers()[0]], Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+        noteHashes: padArrayEnd([], Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+        publicDataWrites: expectedPublicDataWrites,
+      }
+      expect(stateUpdateSpy).toHaveBeenCalledWith(expectedStateUpdatesOpject);
+
+    });
+
+    it('runs a tx with only teardown', async function () {
+      const tx = mockTx(1, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        hasPublicTeardownCallRequest: true,
+      });
+
+      const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
+
+      const gasLimits = Gas.from({ l2Gas: 1e9, daGas: 1e9 });
+      const teardownGas = Gas.from({ l2Gas: 1e7, daGas: 1e7 });
+      tx.data.constants.txContext.gasSettings = GasSettings.from({
+        gasLimits: gasLimits,
+        teardownGasLimits: teardownGas,
+        inclusionFee: new Fr(1e4),
+        maxFeesPerGas: { feePerDaGas: new Fr(10), feePerL2Gas: new Fr(10) },
+      });
+
+      // Private kernel tail to public pushes teardown gas allocation into revertible gas used
+      tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
+        .withGasUsed(teardownGas)
+        .build();
+      tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.endNonRevertibleData,
+      )
+        .withGasUsed(Gas.empty())
+        .build();
+
+      let simulatorCallCount = 0;
+      const txOverhead = 1e4;
+      const expectedTxFee = txOverhead + teardownGas.l2Gas * 1 + teardownGas.daGas * 1;
+      const transactionFee = new Fr(expectedTxFee);
+      const teardownGasUsed = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
+
+      const simulatorResults: PublicExecutionResult[] = [
+        // Teardown
+        PublicExecutionResultBuilder.fromPublicExecutionRequest({
+          request: teardownRequest,
+          nestedExecutions: [],
+        }).build({
+          startGasLeft: teardownGas,
+          endGasLeft: teardownGas.sub(teardownGasUsed),
+          transactionFee,
+        }),
+      ];
+
+      jest.spyOn(processor.publicExecutor, 'simulate').mockImplementation(execution => {
+        if (simulatorCallCount < simulatorResults.length) {
+          const result = simulatorResults[simulatorCallCount++];
+          return Promise.resolve(result);
+        } else {
+          throw new Error(`Unexpected execution request: ${execution}, call count: ${simulatorCallCount}`);
+        }
+      });
+
+      // TODO(md): add some public state updates / nullifier updates here or something
+      await processor.process([tx]);
+    });
+
   });
 });
