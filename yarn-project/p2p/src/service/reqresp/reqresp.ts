@@ -36,8 +36,6 @@ import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
 export class ReqResp {
   protected readonly logger: Logger;
 
-  private abortController: AbortController = new AbortController();
-
   private overallRequestTimeoutMs: number;
   private individualRequestTimeoutMs: number;
 
@@ -78,9 +76,16 @@ export class ReqResp {
     for (const protocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.unhandle(protocol);
     }
+
+    // Close all active connections
+    const closeStreamPromises = this.libp2p.getConnections().map(connection => connection.close());
+    await Promise.all(closeStreamPromises);
+    this.logger.debug('ReqResp: All active streams closed');
+
     this.rateLimiter.stop();
-    await this.libp2p.stop();
-    this.abortController.abort();
+    this.logger.debug('ReqResp: Rate limiter stopped');
+
+    // NOTE: We assume libp2p instance is managed by the caller
   }
 
   /**
@@ -187,7 +192,6 @@ export class ReqResp {
     let stream: Stream | undefined;
     try {
       stream = await this.libp2p.dialProtocol(peerId, subProtocol);
-
       this.logger.debug(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       // Open the stream with a timeout
