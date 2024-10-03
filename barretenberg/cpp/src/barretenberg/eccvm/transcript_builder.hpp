@@ -160,7 +160,7 @@ class ECCVMTranscriptBuilder {
                 updated_state.msm_accumulator = offset_generator();
             }
 
-            const bool last_row = (i == (vm_operations.size() - 1));
+            const bool last_row = (i == (num_vm_entries - 1));
             // msm transition = current row is doing a lookup to validate output = msm output
             // i.e. next row is not part of MSM and current row is part of MSM
             //   or next row is irrelevant and current row is a straight MUL
@@ -189,21 +189,16 @@ class ECCVMTranscriptBuilder {
                 process_add(entry, updated_state, state);
             }
 
-            // Populate the first group of Transcript row's entries
-
+            // populate the first group of Transcript row's entries
             populate_transcript_row(row, entry, state, num_muls, msm_transition, next_not_msm);
 
             msm_count_at_transition_inverse_trace[i] = ((state.count + num_muls) == 0) ? 0 : FF(state.count + num_muls);
 
-            // update the main accumulator
+            // update the accumulators
             accumulator_trace[i] = state.accumulator;
             msm_accumulator_trace[i] = msm_transition ? updated_state.msm_accumulator : Element::infinity();
             intermediate_accumulator_trace[i] =
                 msm_transition ? (updated_state.msm_accumulator - offset_generator()) : Element::infinity();
-
-            if (is_mul && next_not_msm && !row.accumulator_empty) {
-                state.msm_accumulator = offset_generator();
-            }
 
             state = updated_state;
 
@@ -211,71 +206,56 @@ class ECCVMTranscriptBuilder {
                 state.msm_accumulator = offset_generator();
             }
         }
-
+        // Compute affine coordinates of accumulated points
         normalize_accumulators(accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
 
-        add_point_coordinates_to_transcript(
+        // Add required affine coordinates to the transcript
+        add_accumulators_coordinates_to_transcript(
             transcript_state, accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
 
+        // Process the slopes when adding points or results of MSMs
         for (size_t i = 0; i < accumulator_trace.size(); ++i) {
-            auto& row = transcript_state[i + 1];
+            TranscriptRow& row = transcript_state[i + 1];
             const bool msm_transition = row.msm_transition;
-            // const bool add = row.q_add;
 
             const VMOperation& entry = vm_operations[i];
+            const bool is_add = entry.add;
 
-            if (msm_transition) {
-                Element msm_output = intermediate_accumulator_trace[i];
-                row.transcript_msm_infinity = msm_output.is_point_at_infinity();
-                if (!row.transcript_msm_infinity) {
-                    transcript_msm_x_inverse_trace[i] = (msm_accumulator_trace[i].x - offset_generator().x);
-                } else {
-                    transcript_msm_x_inverse_trace[i] = 0;
-                }
-                auto lhsx = msm_output.is_point_at_infinity() ? 0 : msm_output.x;
-                auto lhsy = msm_output.is_point_at_infinity() ? 0 : msm_output.y;
-                auto rhsx = accumulator_trace[i].is_point_at_infinity() ? 0 : accumulator_trace[i].x;
-                auto rhsy = accumulator_trace[i].is_point_at_infinity() ? (0) : accumulator_trace[i].y;
-                inverse_trace_x[i] = lhsx - rhsx;
-                inverse_trace_y[i] = lhsy - rhsy;
-            } else if (row.q_add) {
-                auto lhsx = row.base_x;
-                auto lhsy = row.base_y;
-                auto rhsx = accumulator_trace[i].is_point_at_infinity() ? 0 : accumulator_trace[i].x;
-                auto rhsy = accumulator_trace[i].is_point_at_infinity() ? (0) : accumulator_trace[i].y;
-                inverse_trace_x[i] = lhsx - rhsx;
-                inverse_trace_y[i] = lhsy - rhsy;
-            } else {
-                inverse_trace_x[i] = 0;
-                inverse_trace_y[i] = 0;
-            }
+            if (msm_transition || is_add) {
+                // compute the differences between point coordinates
+                compute_inverse_trace_coordinates(msm_transition,
+                                                  row,
+                                                  intermediate_accumulator_trace[i],
+                                                  transcript_msm_x_inverse_trace[i],
+                                                  msm_accumulator_trace[i],
+                                                  accumulator_trace[i],
+                                                  inverse_trace_x[i],
+                                                  inverse_trace_y[i]);
 
-            // msm transition = current row is doing a lookup to validate output = msm output
-            // i.e. next row is not part of MSM and current row is part of MSM
-            //   or next row is irrelevant and current row is a straight MUL
-            if (entry.add || msm_transition) {
-                handle_add_or_msm(row,
-                                  entry,
-                                  intermediate_accumulator_trace[i],
-                                  accumulator_trace[i],
-                                  //   msm_accumulator_trace[i],
-                                  add_lambda_numerator[i],
-                                  add_lambda_denominator[i]);
+                // compute the numerators and denominators of slopes between the points
+                compute_lambda_numerator_and_denominator(row,
+                                                         entry,
+                                                         intermediate_accumulator_trace[i],
+                                                         accumulator_trace[i],
+                                                         add_lambda_numerator[i],
+                                                         add_lambda_denominator[i]);
             } else {
                 row.transcript_add_x_equal = 0;
                 row.transcript_add_y_equal = 0;
                 add_lambda_numerator[i] = 0;
                 add_lambda_denominator[i] = 0;
+                inverse_trace_x[i] = 0;
+                inverse_trace_y[i] = 0;
             }
         }
-
+        // Compute slopes, etc
         batch_invert(inverse_trace_x,
                      inverse_trace_y,
                      transcript_msm_x_inverse_trace,
                      add_lambda_denominator,
                      msm_count_at_transition_inverse_trace,
                      num_vm_entries);
-
+        // Populate the fields of the transcript row containing inverted scalars
         for (size_t i = 0; i < num_vm_entries; ++i) {
             TranscriptRow& row = transcript_state[i + 1];
             row.base_x_inverse = inverse_trace_x[i];
@@ -326,6 +306,7 @@ class ECCVMTranscriptBuilder {
         const auto R = typename CycleGroup::element(state.msm_accumulator);
         updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
     }
+
     static void process_add(const VMOperation& entry, VMState& updated_state, const VMState& state)
     {
 
@@ -350,6 +331,14 @@ class ECCVMTranscriptBuilder {
         Element msm_output = updated_state.msm_accumulator - offset_generator();
         row.transcript_msm_infinity = msm_output.is_point_at_infinity();
     }
+    /**
+     * @brief Batched conversion of points in accumulators from Jacobian coordinates \f$ (X, Y, Z) \f$ to affine
+     * coordinates \f$ (x = X/Z^2, y = Y/Z^3 ) \f$.
+     *
+     * @param accumulator_trace
+     * @param msm_accumulator_trace
+     * @param intermediate_accumulator_trace
+     */
     static void normalize_accumulators(Accumulator& accumulator_trace,
                                        Accumulator& msm_accumulator_trace,
                                        std::vector<Element>& intermediate_accumulator_trace)
@@ -359,10 +348,10 @@ class ECCVMTranscriptBuilder {
         Element::batch_normalize(&intermediate_accumulator_trace[0], intermediate_accumulator_trace.size());
     }
 
-    static void add_point_coordinates_to_transcript(std::vector<TranscriptRow>& transcript_state,
-                                                    const Accumulator& accumulator_trace,
-                                                    const Accumulator& msm_accumulator_trace,
-                                                    const Accumulator& intermediate_accumulator_trace)
+    static void add_accumulators_coordinates_to_transcript(std::vector<TranscriptRow>& transcript_state,
+                                                           const Accumulator& accumulator_trace,
+                                                           const Accumulator& msm_accumulator_trace,
+                                                           const Accumulator& intermediate_accumulator_trace)
     {
         for (size_t i = 0; i < accumulator_trace.size(); ++i) {
             if (!accumulator_trace[i].is_point_at_infinity()) {
@@ -379,29 +368,102 @@ class ECCVMTranscriptBuilder {
             }
         }
     }
+    /**
+     * @brief Compute the difference between the x and y coordinates of two points.
+     *
+     * @details `inverse_trace_x` and `inverse_trace_y` are used to store the inverse of the difference between the x
+     * and y coordinates of two elliptic curve points, which is used in the calculation of the slope (\f$ \lambda \f$)
+     * during point addition and doubling.
+     *
+     * Computing the inverse is expensive, therefore to optimize the overall calculation, all the required inversions
+     * are deferred and computed at once, rather than performing individual inversions for each operation.
+     *
+     * In the case of MSM transition, we compute the difference between the coordinates of the MSM output accumulated in
+     * the intermediate accumulator and the point in the current accumulator.
+     *
+     * In the case of point addition, we compute the difference between the coordinates of the current row in
+     * VMOperations and the point in the accumulator.
+     *
+     */
 
-    static void handle_add_or_msm(TranscriptRow& row,
-                                  const VMOperation& entry,
-                                  const Element& intermediate_accumulator,
-                                  const Element& accumulator,
-                                  //   const Element& msm_accumulator,
-                                  FF& add_lambda_numerator,
-                                  FF& add_lambda_denominator) //,
-                                                              //   FF& inverse_trace_x,
-                                                              //   FF& inverse_trace_y)
-    //   FF& transcript_msm_x_inverse_trace
+    static void compute_inverse_trace_coordinates(const bool msm_transition,
+                                                  TranscriptRow& row,
+                                                  const Element& msm_output,
+                                                  FF& transcript_msm_x_inverse_trace,
+                                                  Element& msm_accumulator_trace,
+                                                  Element& accumulator_trace,
+                                                  FF& inverse_trace_x,
+                                                  FF& inverse_trace_y)
+    {
 
+        const bool msm_output_infinity = msm_output.is_point_at_infinity();
+        const bool row_msm_infinity = row.transcript_msm_infinity;
+
+        transcript_msm_x_inverse_trace = row_msm_infinity ? 0 : (msm_accumulator_trace.x - offset_generator().x);
+
+        FF lhsx;
+        FF lhsy;
+        if (msm_transition) {
+            lhsx = msm_output_infinity ? 0 : msm_output.x;
+            lhsy = msm_output_infinity ? 0 : msm_output.y;
+        } else {
+            lhsx = row.base_x;
+            lhsy = row.base_y;
+        }
+        auto rhsx = accumulator_trace.is_point_at_infinity() ? 0 : accumulator_trace.x;
+        auto rhsy = accumulator_trace.is_point_at_infinity() ? (0) : accumulator_trace.y;
+        inverse_trace_x = lhsx - rhsx;
+        inverse_trace_y = lhsy - rhsy;
+    }
+
+    /**
+     * @brief If entry is not a point at infinity, compute the slope between the VM entry point and current accumulator,
+     * else compute the slope between the accumulators.
+
+     * @details   `transcript_add_lambda` represents the slope (\f$ \lambda \f$) of the line connecting two points
+     * on the elliptic curve during the point addition process or the tangent line at a point during point doubling.
+     *
+     * Used for computing new x and y coordinates when adding or doubling points.
+     *
+     * - **Point Addition (when \f$ x_1 \neq  x_2\f$ )**: If two points \f$ P(x_1, y_1) \f$ and \f$ Q(x_2, y_2) \f$ are
+     * distinct, the slope \f$ \lambda \f$ of the line passing through them is calculated as:
+     *   \f[
+     *   \lambda = \frac{y_2 - y_1}{x_2 - x_1}
+     *   \f]
+     *   This \f$ \lambda \f$ is used to compute the coordinates of the resulting point \f$ R(x_r, y_r) \f$:
+     *   \f[
+     *   x_r = \lambda^2 - x_1 - x_2
+     *   \f]
+     *   \f[
+     *   y_r = \lambda(x_1 - x_r) - y_1
+     *   \f]
+     *
+     * - **Point Doubling (when x1 = x2)**: If the points are the same (i.e., point doubling), the slope \f$ \lambda \f$
+     * is computed as the tangent line at the point: \f[ \lambda = \frac{3x_1^2 + a}{2y_1} \f] where \f$ a \f$ is the
+     * curve parameter. In our case, \f$ a = 0 \f$.
+     *
+     * @param row
+     * @param entry
+     * @param intermediate_accumulator
+     * @param accumulator
+     * @param add_lambda_numerator
+     * @param add_lambda_denominator
+     */
+    static void compute_lambda_numerator_and_denominator(TranscriptRow& row,
+                                                         const VMOperation& entry,
+                                                         const Element& intermediate_accumulator,
+                                                         const Element& accumulator,
+                                                         FF& add_lambda_numerator,
+                                                         FF& add_lambda_denominator)
     {
         const Element vm_point = entry.add ? Element(entry.base_point) : intermediate_accumulator;
 
         const bool vm_infinity = vm_point.is_point_at_infinity();
         const bool accumulator_infinity = accumulator.is_point_at_infinity();
 
-        // const bool msm_transition = row.msm_transition;
-
-        // extract coordinates of the point in VM Ops
         const FF vm_x = vm_infinity ? 0 : vm_point.x;
         const FF vm_y = vm_infinity ? 0 : vm_point.y;
+
         // extract coordinates of the current accumulator
         const FF accumulator_x = accumulator_infinity ? 0 : accumulator.x;
         const FF accumulator_y = accumulator_infinity ? 0 : accumulator.y;
@@ -419,10 +481,6 @@ class ECCVMTranscriptBuilder {
             add_lambda_denominator = accumulator_x - vm_x;
             add_lambda_numerator = accumulator_y - vm_y;
         }
-
-        // Update inverse traces for the current lhs and rhs
-        // inverse_trace_x = vm_x - accumulator_x;
-        // inverse_trace_y = vm_y - accumulator_y;
     }
     static void batch_invert(std::vector<FF>& inverse_trace_x,
                              std::vector<FF>& inverse_trace_y,
