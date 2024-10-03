@@ -14,6 +14,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -370,12 +371,12 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
     rollback();
 
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
-    bool success = true;
+    std::atomic_bool success = true;
     std::string err_message;
     auto decr = [&signal, &success, &err_message](const auto& resp) {
         // take the first error
-        if (success && !resp.success) {
-            success = false;
+        bool expected = true;
+        if (!resp.success && success.compare_exchange_strong(expected, false)) {
             err_message = resp.message;
         }
 
@@ -394,30 +395,6 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
     }
 
     {
-        // insert public writes in batches so that we can have different transactions modifying the same slot in the
-        // same L2 block
-        auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        std::shared_ptr<size_t> current_batch = std::make_shared<size_t>(0);
-        std::shared_ptr<PublicDataTree::AddCompletionCallback> completion =
-            std::make_shared<PublicDataTree::AddCompletionCallback>();
-
-        *completion = [&decr, &public_writes, &wrapper, completion, current_batch](const auto& resp) -> void {
-            (*current_batch)++;
-            if (*current_batch == public_writes.size()) {
-                decr(resp);
-            } else {
-                wrapper.tree->add_or_update_values(public_writes[*current_batch], 0, *completion);
-            }
-        };
-
-        if (public_writes.empty()) {
-            signal.signal_decrement();
-        } else {
-            wrapper.tree->add_or_update_values(public_writes[*current_batch], 0, *completion);
-        }
-    }
-
-    {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
         wrapper.tree->add_values(l1_to_l2_messages, decr);
     }
@@ -427,7 +404,30 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
         wrapper.tree->add_value(block_header_hash, decr);
     }
 
-    signal.wait_for_level();
+    // finally insert the public writes and wait for all the operations to end
+    {
+        // insert public writes in batches so that we can have different transactions modifying the same slot in the
+        // same L2 block
+        auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
+        size_t current_batch = 0;
+        PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
+            current_batch++;
+            if (current_batch == public_writes.size()) {
+                decr(resp);
+            } else {
+                wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
+            }
+        };
+
+        if (public_writes.empty()) {
+            signal.signal_decrement();
+        } else {
+            wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
+        }
+
+        // block inside this scope in order to keep current_batch/completion alive until the end of all operations
+        signal.wait_for_level();
+    }
 
     if (!success) {
         throw std::runtime_error("Failed to sync block: " + err_message);
