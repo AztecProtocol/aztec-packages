@@ -989,9 +989,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
             let inputs_offset = input.pointer.to_usize();
-            let inputs_size_offset = input.size.to_usize();
             let state_offset = hash_values.pointer.to_usize();
-            let state_size_offset = hash_values.size.to_usize();
             let output_offset = output.pointer.to_usize();
 
             avm_instrs.push(AvmInstruction {
