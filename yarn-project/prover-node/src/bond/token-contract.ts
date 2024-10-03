@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { IERC20Abi } from '@aztec/l1-artifacts';
+import { IERC20Abi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import {
   type Chain,
@@ -47,6 +47,29 @@ export class TokenContract {
       this.logger.verbose(`Approving max allowance for ${allowed.toString()}`);
       const hash = await this.token.write.approve([allowed.toString(), MAX_ALLOWANCE]);
       await this.client.waitForTransactionReceipt({ hash });
+    }
+  }
+
+  /**
+   * Checks the sender address has enough balance.
+   * If it doesn't, it tries calling a `mint` method, available on testing environments.
+   * If it can't, it throws an error.
+   * @param amount - The balance to ensure.
+   */
+  public async ensureBalance(amount: bigint) {
+    const balance = await this.getBalance();
+    if (balance < amount) {
+      this.logger.verbose(`Balance ${balance} is below required ${amount}. Attempting mint.`);
+      const testToken = getContract({ address: this.token.address, abi: TestERC20Abi, client: this.client });
+      try {
+        await testToken.simulate.mint([this.getSenderAddress().toString(), amount - balance]);
+        const hash = await testToken.write.mint([this.getSenderAddress().toString(), amount - balance]);
+        await this.client.waitForTransactionReceipt({ hash });
+        this.logger.verbose(`Minted ${amount - balance} test tokens`);
+      } catch (err) {
+        this.logger.warn(`Error minting test tokens: ${err}`);
+        throw new Error(`Insufficient balance for ${this.getSenderAddress().toString()}: ${balance} < ${amount}`);
+      }
     }
   }
 
