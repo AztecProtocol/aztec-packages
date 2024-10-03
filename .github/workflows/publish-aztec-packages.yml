@@ -170,7 +170,7 @@ jobs:
         build-cli-wallet-x86,
         build-cli-wallet-arm,
       ]
-    runs-on: ${{ github.actor }}-x86
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -179,6 +179,7 @@ jobs:
         with:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish aztec manifests
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
           VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
 
@@ -218,7 +219,7 @@ jobs:
 
   publish-npm:
     needs: publish-manifests
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.actor }}-x86
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
@@ -226,8 +227,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.GIT_COMMIT }}
-
-      - name: Publish NPM packages
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: publish-npm-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Publish yarn-project NPM packages
         run: |
           VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
           earthly-ci \
@@ -236,3 +240,15 @@ jobs:
             ./yarn-project+publish-npm \
             --DIST_TAG=latest \
             --VERSION=$VERSION
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+      - name: Publish bb.js NPM package
+        run: |
+          VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./barretenberg/ts+publish-npm \
+            --DIST_TAG=latest \
+            --VERSION=$VERSION
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}

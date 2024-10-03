@@ -299,7 +299,7 @@ async function setupWithRemoteEnvironment(
 }
 
 /** Options for the e2e tests setup */
-type SetupOptions = {
+export type SetupOptions = {
   /** State load */
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
