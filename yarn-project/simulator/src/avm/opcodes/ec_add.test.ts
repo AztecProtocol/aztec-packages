@@ -20,7 +20,7 @@ describe('EC Instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         EcAdd.opcode, // opcode
-        0x20, // indirect
+        ...Buffer.from('1234', 'hex'), // indirect
         ...Buffer.from('12345670', 'hex'), // p1x
         ...Buffer.from('12345671', 'hex'), // p1y
         ...Buffer.from('00000000', 'hex'), // p1IsInfinite
@@ -30,7 +30,7 @@ describe('EC Instructions', () => {
         ...Buffer.from('12345674', 'hex'), // dstOffset
       ]);
       const inst = new EcAdd(
-        /*indirect=*/ 0x20,
+        /*indirect=*/ 0x1234,
         /*p1X=*/ 0x12345670,
         /*p1Y=*/ 0x12345671,
         /*p1IsInfinite=*/ 0,

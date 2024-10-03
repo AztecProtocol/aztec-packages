@@ -962,7 +962,11 @@ fn generate_cast_instruction(
 }
 
 /// Generates an AVM MOV instruction.
-fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
+fn generate_mov_instruction(
+    indirect: Option<AvmOperand>,
+    source: u32,
+    dest: u32,
+) -> AvmInstruction {
     let bits_needed = [source, dest].iter().map(bits_needed_for).max().unwrap();
 
     let mov_opcode = match bits_needed {
@@ -996,17 +1000,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
                         .indirect_operand(&hash_values.pointer)
-                        .direct_operand(&hash_values.size)
                         .indirect_operand(&input.pointer)
-                        .direct_operand(&input.size)
                         .build_u8(),
                 ),
                 operands: vec![
                     AvmOperand::U32 { value: output_offset as u32 },
                     AvmOperand::U32 { value: state_offset as u32 },
-                    AvmOperand::U32 { value: state_size_offset as u32 },
                     AvmOperand::U32 { value: inputs_offset as u32 },
-                    AvmOperand::U32 { value: inputs_size_offset as u32 },
                 ],
                 ..Default::default()
             });
@@ -1129,7 +1129,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AvmOperand::U32 { value: output_offset },
                     AvmOperand::U32 { value: radix_offset },
                     AvmOperand::U32 { value: num_limbs },
-                    AvmOperand::U1 { value: *output_bits as u8 },
+                    AvmOperand::U8 { value: *output_bits as u8 },
                 ],
             });
         }
