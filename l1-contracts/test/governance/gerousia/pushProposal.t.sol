@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGerousia} from "@aztec/governance/interfaces/IGerousia.sol";
 import {GerousiaBase} from "./Base.t.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
@@ -15,7 +16,7 @@ contract PushProposalTest is GerousiaBase {
 
   Leonidas internal leonidas;
 
-  address internal proposal = address(this);
+  IPayload internal proposal = IPayload(address(this));
   address internal proposer = address(0);
 
   function test_GivenCanonicalInstanceHoldNoCode(uint256 _roundNumber) external {
@@ -167,9 +168,9 @@ contract PushProposalTest is GerousiaBase {
     registry.upgrade(address(freshInstance));
 
     // The old is still there, just not executable.
-    (, address leader, bool executed) = gerousia.rounds(address(leonidas), 1);
+    (, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), 1);
     assertFalse(executed);
-    assertEq(leader, proposal);
+    assertEq(address(leader), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
     vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__CanOnlyPushProposalInPast.selector));
@@ -236,8 +237,8 @@ contract PushProposalTest is GerousiaBase {
     vm.expectEmit(true, true, true, true, address(gerousia));
     emit IGerousia.ProposalPushed(proposal, 1);
     assertTrue(gerousia.pushProposal(1));
-    (, address leader, bool executed) = gerousia.rounds(address(leonidas), 1);
+    (, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), 1);
     assertTrue(executed);
-    assertEq(leader, proposal);
+    assertEq(address(leader), address(proposal));
   }
 }

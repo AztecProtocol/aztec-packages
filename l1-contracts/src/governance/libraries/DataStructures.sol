@@ -2,6 +2,9 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+
 /**
  * @title Data Structures Library
  * @author Aztec Labs
@@ -19,4 +22,56 @@ library DataStructures {
     uint256 blockNumber;
   }
   // docs:end:registry_snapshot
+
+  struct Configuration {
+    Timestamp votingDelay;
+    Timestamp votingDuration;
+    Timestamp executionDelay;
+    Timestamp gracePeriod;
+    uint256 quorum;
+    uint256 voteDifferential;
+    uint256 minimumVotes;
+  }
+
+  struct Ballot {
+    uint256 yea;
+    uint256 nea;
+  }
+
+  enum ProposalState {
+    Pending,
+    Active,
+    Queued,
+    Executable,
+    Rejected,
+    Executed,
+    Dropped,
+    Expired
+  }
+
+  struct Proposal {
+    DataStructures.Configuration config;
+    ProposalState state;
+    IPayload payload;
+    address creator;
+    Timestamp creation;
+    Ballot summedBallot;
+  }
+
+  struct CheckPoint {
+    Timestamp time;
+    uint256 power;
+  }
+
+  struct User {
+    uint256 numCheckPoints;
+    mapping(uint256 checkpointIndex => CheckPoint) checkpoints;
+  }
+
+  struct Withdrawal {
+    uint256 amount;
+    Timestamp unlocksAt;
+    address recipient;
+    bool claimed;
+  }
 }

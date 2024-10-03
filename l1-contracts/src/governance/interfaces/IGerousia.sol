@@ -3,13 +3,15 @@ pragma solidity >=0.8.27;
 
 import {Slot} from "@aztec/core/libraries/TimeMath.sol";
 
-interface IGerousia {
-  event VoteCast(address indexed proposal, uint256 indexed round, address indexed voter);
-  event ProposalPushed(address indexed proposal, uint256 indexed round);
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-  function vote(address _proposa) external returns (bool);
+interface IGerousia {
+  event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
+  event ProposalPushed(IPayload indexed proposal, uint256 indexed round);
+
+  function vote(IPayload _proposa) external returns (bool);
   function pushProposal(uint256 _roundNumber) external returns (bool);
-  function yeaCount(address _instance, uint256 _round, address _proposal)
+  function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view
     returns (uint256);
