@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,6 +16,8 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: metrics
     spec:
+      securityContext:
+        fsGroup: {{ .Values.metrics.fileSystemUser }} # required for Grafana write access to storage volume
       containers:
         - name: otel-collector
           image: "{{ .Values.images.otelCollector.image }}"
@@ -58,6 +59,8 @@ spec:
               subPath: grafana-sources.yaml
             - name: grafana-storage
               mountPath: /var/lib/grafana
+          securityContext:
+            runAsUser: {{ .Values.metrics.fileSystemUser }} # required for Grafana write access to storage volume
 
         - name: jaeger
           image: "{{ .Values.images.jaeger.image }}"
@@ -68,8 +71,21 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-metrics
         - name: grafana-storage
-          emptyDir: {}
-
+          persistentVolumeClaim:
+            claimName: {{ include "aztec-network.fullname" . }}-grafana-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-grafana-pvc
+  labels:
+    app: {{ include "aztec-network.name" . }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.metrics.storage }}
 ---
 apiVersion: v1
 kind: Service

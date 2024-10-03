@@ -42,6 +42,7 @@ class ClientIVCRecursionTests : public testing::Test {
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             Builder circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(circuit);
+            circuit.databus_propagation_data.is_kernel = (idx % 2 == 1); // every second circuit is a kernel
             ivc.accumulate(circuit);
         }
 
