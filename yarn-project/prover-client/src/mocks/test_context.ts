@@ -76,9 +76,7 @@ export class TestContext {
     let actualDb: MerkleTreeAdminOperations;
 
     if (worldState === 'native') {
-      const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));
-      directoriesToCleanup.push(dir);
-      const ws = await NativeWorldStateService.create(EthAddress.random(), dir);
+      const ws = await NativeWorldStateService.tmp();
       actualDb = await ws.getLatest();
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);

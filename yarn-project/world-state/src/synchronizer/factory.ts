@@ -3,11 +3,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig, createStore } from '@aztec/kv-store/utils';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { rmSync } from 'fs';
-import { mkdtemp } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
-
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { type WorldStateConfig } from './config.js';
@@ -19,22 +14,12 @@ export async function createWorldStateSynchronizer(
   client: TelemetryClient,
 ) {
   const store = await createStore('world-state', config, createDebugLogger('aztec:world-state:lmdb'));
-  let dataDir = config.dataDirectory;
-  // TODO alexg: this always creates a tmp dir, but legacy world state doesn't need it
-  if (!dataDir) {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'world-state-'));
-    dataDir = tmpDir;
-    process.on('beforeExit', () => {
-      try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch {
-        // ignore
-      }
-    });
-  }
+
   const merkleTrees = process.env.USE_LEGACY_WORLD_STATE
     ? await MerkleTrees.new(store, client)
-    : await NativeWorldStateService.create(config.l1Contracts.rollupAddress, dataDir);
+    : config.dataDirectory
+    ? await NativeWorldStateService.create(config.l1Contracts.rollupAddress, config.dataDirectory)
+    : await NativeWorldStateService.tmp(config.l1Contracts.rollupAddress);
 
   return new ServerWorldStateSynchronizer(store, merkleTrees, l2BlockSource, config);
 }

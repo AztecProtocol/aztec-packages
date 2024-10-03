@@ -33,8 +33,10 @@ import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import assert from 'assert/strict';
 import bindings from 'bindings';
-import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { rmSync } from 'fs';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { isAnyArrayBuffer } from 'util/types';
 
@@ -52,6 +54,9 @@ import {
   treeStateReferenceToSnapshot,
   worldStateRevision,
 } from './message.js';
+
+const NATIVE_LIBRARY_NAME = 'world_state_napi';
+const NATIVE_CLASS_NAME = 'WorldState';
 
 // small extension to pack an NodeJS Fr instance to a representation that the C++ code can understand
 // this only works for writes. Unpacking from C++ can't create Fr instances because the data is passed
@@ -96,10 +101,8 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   static async create(
     rollupAddress: EthAddress,
     dataDir: string,
-    libraryName = 'world_state_napi',
-    className = 'WorldState',
+    log = createDebugLogger('aztec:world-state:database'),
   ): Promise<NativeWorldStateService> {
-    const log = createDebugLogger('aztec:world-state:database');
     const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
     const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
     const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr) : undefined;
@@ -112,13 +115,25 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     await mkdir(dataDir, { recursive: true });
     await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
 
-    const library = bindings(libraryName);
-    const instance = new library[className](join(dataDir, 'trees'));
+    const library = bindings(NATIVE_LIBRARY_NAME);
+    const instance = new library[NATIVE_CLASS_NAME](join(dataDir, 'trees'));
     const queue = new SerialQueue();
     queue.start();
     const worldState = new NativeWorldStateService(instance, queue, undefined, undefined, log);
     await worldState.init();
     return worldState;
+  }
+
+  static async tmp(rollupAddress = EthAddress.ZERO): Promise<NativeWorldStateService> {
+    const log = createDebugLogger('aztec:world-state:database');
+    const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
+    log.verbose(`Created temporary world state database: ${dataDir}`);
+    process.on('beforeExit', () => {
+      rmSync(dataDir, { recursive: true, force: true });
+      log.verbose(`Deleted temporary world state database: ${dataDir}`);
+    });
+
+    return NativeWorldStateService.create(rollupAddress, dataDir, log);
   }
 
   protected async init() {
