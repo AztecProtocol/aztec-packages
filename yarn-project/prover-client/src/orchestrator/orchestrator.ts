@@ -305,6 +305,10 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
+    if (!provingState.verifyState()) {
+      throw new Error(`Block proving failed: ${provingState.error}`);
+    }
+
     // We may need to pad the rollup with empty transactions
     const paddingTxCount = provingState.totalNumTxs - provingState.transactionsReceived;
     if (paddingTxCount > 0 && provingState.totalNumTxs > 2) {

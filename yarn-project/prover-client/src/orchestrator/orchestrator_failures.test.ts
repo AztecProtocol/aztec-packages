@@ -49,10 +49,20 @@ describe('prover/orchestrator/failures', () => {
       ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
       ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
     ] as const)('handles a %s error', async (message: string, fn: (msg: string) => void) => {
+      /**
+       * NOTE: these tests start a new epoch with N blocks. Each block will have M txs in it.
+       * Txs are proven in parallel and as soon as one fails (which is what this test is setting up to happen)
+       * the orchestrator stops accepting txs in a block.
+       * This means we have to be careful with our assertions as the order in which things happen is non-deterministic.
+       * We need to expect
+       * - addTx to fail (because a block's provingState became invalid)
+       * - addTx to work fine (because we haven't hit the error in the test setup) but the epoch to fail
+       */
       fn(message);
 
       orchestrator.startNewEpoch(1, 3);
 
+      let allBlocksAdded = true;
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
         const txs = times(3, j => makeBloatedProcessedTx(context.actualDb, i * 10 + j + 1));
@@ -60,20 +70,34 @@ describe('prover/orchestrator/failures', () => {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
           await orchestrator.startNewBlock(txs.length, makeGlobals(i + 1), msgs);
+          let allTxsAdded = true;
           for (const tx of txs) {
             try {
               await orchestrator.addNewTx(tx);
             } catch (err) {
+              allTxsAdded = false;
               break;
             }
           }
+
+          if (!allTxsAdded) {
+            await expect(orchestrator.setBlockCompleted()).rejects.toThrow(`Block proving failed: ${message}`);
+          } else {
+            await orchestrator.setBlockCompleted();
+          }
         } catch (err) {
+          allBlocksAdded = false;
           break;
         }
-        await orchestrator.setBlockCompleted();
       }
 
-      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(`Epoch proving failed: ${message}`);
+      if (allBlocksAdded) {
+        await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(`Epoch proving failed: ${message}`);
+      } else {
+        await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(
+          'Epoch needs at least one completed block in order to be padded',
+        );
+      }
     });
   });
 });
