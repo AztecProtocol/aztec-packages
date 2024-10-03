@@ -538,8 +538,6 @@ class TranslatorFlavor {
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled
-        // separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -591,8 +589,8 @@ class TranslatorFlavor {
         // Next power of 2
         const size_t mini_circuit_dyadic_size = builder.get_circuit_subgroup_size(total_num_gates);
 
-        // The actual circuit size is several times bigger than the trace in the builder, because we use
-        // concatenation to bring the degree of relations down, while extending the length.
+        // The actual circuit size is several times bigger than the trace in the builder, because we use concatenation
+        // to bring the degree of relations down, while extending the length.
         return mini_circuit_dyadic_size * CONCATENATION_GROUP_SIZE;
     }
 
