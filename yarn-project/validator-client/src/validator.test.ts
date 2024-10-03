@@ -6,7 +6,7 @@ import { makeHeader } from '@aztec/circuits.js/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
-import { type LightPublicProcessor, type LightPublicProcessorFactory } from '@aztec/simulator';
+import { type LightPublicProcessor } from '@aztec/simulator';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -14,6 +14,7 @@ import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 
 
 import { makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
 import { type ValidatorClientConfig } from './config.js';
+import { type LightPublicProcessorFactory } from './duties/light_public_processor_factory.js';
 import {
   AttestationTimeoutError,
   InvalidValidatorPrivateKeyError,
@@ -57,7 +58,7 @@ describe('ValidationService', () => {
     expect(() => ValidatorClient.new(config, p2pClient)).toThrow(InvalidValidatorPrivateKeyError);
   });
 
-  it("Should throw an error if re-execution is enabled but no public processor is provided", () => {
+  it('Should throw an error if re-execution is enabled but no public processor is provided', () => {
     config.validatorReEx = true;
     expect(() => ValidatorClient.new(config, p2pClient)).toThrow(PublicProcessorNotProvidedError);
   });
@@ -94,7 +95,7 @@ describe('ValidationService', () => {
     );
   });
 
-  it("Should not return an attestation if re-execution fails", async () => {
+  it('Should not return an attestation if re-execution fails', async () => {
     const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
@@ -107,5 +108,5 @@ describe('ValidationService', () => {
 
     const attestation = await val.attestToProposal(proposal);
     expect(attestation).toBeUndefined();
-  })
+  });
 });

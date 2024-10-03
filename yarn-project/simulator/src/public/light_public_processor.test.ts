@@ -53,11 +53,17 @@ describe('public_processor', () => {
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
     worldStateDB = mock<WorldStateDB>();
+    txValidator = mock<TxValidator<any>>();
 
     root = Buffer.alloc(32, 5);
 
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
     worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
+
+    // Always return true for validation
+    txValidator.validateTxs.mockImplementation((txs: any[]) => {
+      return Promise.resolve([txs, []]);
+    });
   });
 
   describe('Light Public Processor', () => {
@@ -93,8 +99,6 @@ describe('public_processor', () => {
       db.getSiblingPath.mockResolvedValue(publicDataTree.getSiblingPath(0n, false));
       db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
       db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
-
-      txValidator = mock<TxValidator<any>>();
 
       processor = new LightPublicProcessor(
         db,

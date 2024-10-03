@@ -1,24 +1,25 @@
-import { type Tx, type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
+import { type BlockAttestation, type BlockProposal, type Tx, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DoubleSpendTxValidator, type P2P } from '@aztec/p2p';
+import { Timer } from '@aztec/foundation/timer';
+import { type P2P } from '@aztec/p2p';
+import { type LightPublicProcessor } from '@aztec/simulator';
 
 import { type ValidatorClientConfig } from './config.js';
+import { type LightPublicProcessorFactory } from './duties/light_public_processor_factory.js';
 import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
   InvalidValidatorPrivateKeyError,
   PublicProcessorNotProvidedError,
+  ReExStateMismatchError,
   TransactionsNotAvailableError,
-  ReExStateMismatchError
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
-import { type LightPublicProcessor, type LightPublicProcessorFactory } from '@aztec/simulator';
-import { Timer } from '@aztec/foundation/timer';
 
 export interface Validator {
   start(): Promise<void>;
@@ -31,7 +32,6 @@ export interface Validator {
   broadcastBlockProposal(proposal: BlockProposal): void;
   collectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
 }
-
 
 /** Validator Client
  */
@@ -49,25 +49,24 @@ export class ValidatorClient implements Validator {
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P, publicProcessorFactory?: LightPublicProcessorFactory | undefined) {
+  static new(
+    config: ValidatorClientConfig,
+    p2pClient: P2P,
+    publicProcessorFactory?: LightPublicProcessorFactory | undefined,
+  ) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
 
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
-    if (config.validatorReEx && publicProcessorFactory === undefined){
+    if (config.validatorReEx && publicProcessorFactory === undefined) {
       throw new PublicProcessorNotProvidedError();
     }
 
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(
-      localKeyStore,
-      p2pClient,
-      config,
-      publicProcessorFactory,
-    );
+    const validator = new ValidatorClient(localKeyStore, p2pClient, config, publicProcessorFactory);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -96,7 +95,6 @@ export class ValidatorClient implements Validator {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
         await this.reExecuteTransactions(proposal);
       }
-
     } catch (error: any) {
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
@@ -119,7 +117,7 @@ export class ValidatorClient implements Validator {
    * @param proposal - The proposal to re-execute
    */
   async reExecuteTransactions(proposal: BlockProposal) {
-    const {header, txHashes} = proposal.payload;
+    const { header, txHashes } = proposal.payload;
 
     const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(tx => tx !== undefined);
 
@@ -129,28 +127,28 @@ export class ValidatorClient implements Validator {
       throw new TransactionsNotAvailableError(txHashes);
     }
 
-      // Assertion: This check will fail if re-execution is not enabled
-      if (!this.lightPublicProcessorFactory) {
-        throw new PublicProcessorNotProvidedError();
-      }
+    // Assertion: This check will fail if re-execution is not enabled
+    if (!this.lightPublicProcessorFactory) {
+      throw new PublicProcessorNotProvidedError();
+    }
 
-      // TODO(md): make the transaction validator here
-      // TODO(md): for now breaking the rules and makeing the world state sync public on the factory
-      const txValidator = new DoubleSpendTxValidator((this.lightPublicProcessorFactory as any).worldStateSynchronizer);
+    // We sync the state to the previous block as the public processor will not process the current block
+    const targetBlockNumber = header.globalVariables.blockNumber.toNumber() - 1;
+    this.log.verbose(`Re-ex: Syncing state to block number ${targetBlockNumber}`);
 
-      // We sync the state to the previous block as the public processor will not process the current block
-      const targetBlockNumber = header.globalVariables.blockNumber.toNumber() - 1;
-      this.log.verbose(`Re-ex: Syncing state to block number ${targetBlockNumber}`);
+    const lightProcessor = await this.lightPublicProcessorFactory.createWithSyncedState(
+      targetBlockNumber,
+      undefined,
+      header.globalVariables,
+    );
 
-      const lightProcessor = await this.lightPublicProcessorFactory.createWithSyncedState(targetBlockNumber, undefined, header.globalVariables, txValidator);
+    this.log.verbose(`Re-ex: Re-executing transactions`);
+    const timer = new Timer();
+    await lightProcessor.process(txs as Tx[]);
+    this.log.verbose(`Re-ex: Re-execution complete ${timer.ms()}ms`);
 
-      this.log.verbose(`Re-ex: Re-executing transactions`);
-      const timer = new Timer();
-      await lightProcessor.process(txs as Tx[]);
-      this.log.verbose(`Re-ex: Re-execution complete ${timer.ms()}ms`);
-
-      // This function will throw an error if state updates do not match
-      await this.checkReExecutedStateRoots(header, lightProcessor);
+    // This function will throw an error if state updates do not match
+    await this.checkReExecutedStateRoots(header, lightProcessor);
   }
 
   /**
@@ -164,24 +162,32 @@ export class ValidatorClient implements Validator {
    * @param lightProcessor - The light processor to check
    */
   private async checkReExecutedStateRoots(header: Header, lightProcessor: LightPublicProcessor) {
-      const [
-        newNullifierTree,
-        newNoteHashTree,
-        newPublicDataTree,
-      ] = await lightProcessor.getTreeSnapshots();
+    const [newNullifierTree, newNoteHashTree, newPublicDataTree] = await lightProcessor.getTreeSnapshots();
 
-      if (!header.state.partial.nullifierTree.root.toBuffer().equals(newNullifierTree.root)) {
-        this.log.error(`Re-ex: nullifierTree does not match, ${header.state.partial.nullifierTree.root.toBuffer().toString('hex')} !== ${newNullifierTree.root.toString('hex')}`);
-        throw new ReExStateMismatchError();
-      }
-      if (!header.state.partial.noteHashTree.root.toBuffer().equals(newNoteHashTree.root)) {
-        this.log.error(`Re-ex: noteHashTree does not match, ${header.state.partial.noteHashTree.root.toBuffer().toString('hex')} !== ${newNoteHashTree.root.toString('hex')}`);
-        throw new ReExStateMismatchError();
-      }
-      if (!header.state.partial.publicDataTree.root.toBuffer().equals(newPublicDataTree.root)) {
-        this.log.error(`Re-ex: publicDataTree does not match, ${header.state.partial.publicDataTree.root.toBuffer().toString('hex')} !== ${newPublicDataTree.root.toString('hex')}`);
-        throw new ReExStateMismatchError();
-      }
+    if (!header.state.partial.nullifierTree.root.toBuffer().equals(newNullifierTree.root)) {
+      this.log.error(
+        `Re-ex: nullifierTree does not match, ${header.state.partial.nullifierTree.root
+          .toBuffer()
+          .toString('hex')} !== ${newNullifierTree.root.toString('hex')}`,
+      );
+      throw new ReExStateMismatchError();
+    }
+    if (!header.state.partial.noteHashTree.root.toBuffer().equals(newNoteHashTree.root)) {
+      this.log.error(
+        `Re-ex: noteHashTree does not match, ${header.state.partial.noteHashTree.root
+          .toBuffer()
+          .toString('hex')} !== ${newNoteHashTree.root.toString('hex')}`,
+      );
+      throw new ReExStateMismatchError();
+    }
+    if (!header.state.partial.publicDataTree.root.toBuffer().equals(newPublicDataTree.root)) {
+      this.log.error(
+        `Re-ex: publicDataTree does not match, ${header.state.partial.publicDataTree.root
+          .toBuffer()
+          .toString('hex')} !== ${newPublicDataTree.root.toString('hex')}`,
+      );
+      throw new ReExStateMismatchError();
+    }
   }
 
   /**

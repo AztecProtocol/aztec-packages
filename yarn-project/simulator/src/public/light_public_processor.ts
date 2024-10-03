@@ -1,5 +1,5 @@
 // A minimal version of the public processor - that does not have the fluff
-import { MerkleTreeId, Tx, type TxValidator, type WorldStateSynchronizer } from '@aztec/circuit-types';
+import { MerkleTreeId, Tx, type TxValidator } from '@aztec/circuit-types';
 import {
   Gas,
   type GlobalVariables,
@@ -21,44 +21,11 @@ import { makeTuple } from '@aztec/foundation/array';
 import { OrderedMap, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type PublicExecutionResult } from './execution.js';
 import { PublicExecutor } from './executor.js';
-import { WorldStateDB } from './public_db_sources.js';
-
-export class LightPublicProcessorFactory {
-  constructor(
-    private worldStateSynchronizer: WorldStateSynchronizer,
-    private contractDataSource: ContractDataSource,
-    private telemetryClient: TelemetryClient,
-  ) {}
-
-  public async createWithSyncedState(
-    targetBlockNumber: number,
-    maybeHistoricalHeader: Header | undefined,
-    globalVariables: GlobalVariables,
-    txValidator: TxValidator,
-  ) {
-    // Make sure the world state synchronizer is synced
-    await this.worldStateSynchronizer.syncImmediate(targetBlockNumber);
-
-    // We will sync again whenever the block is created this could be an inefficiency
-    const merkleTrees = await this.worldStateSynchronizer.ephemeralFork();
-    const historicalHeader = maybeHistoricalHeader ?? merkleTrees.getInitialHeader();
-    const worldStateDB = new WorldStateDB(merkleTrees, this.contractDataSource);
-
-    return new LightPublicProcessor(
-      merkleTrees,
-      worldStateDB,
-      globalVariables,
-      historicalHeader,
-      txValidator,
-      this.telemetryClient,
-    );
-  }
-}
+import { type WorldStateDB } from './public_db_sources.js';
 
 export class InvalidTransactionsFound extends Error {
   constructor() {
@@ -90,7 +57,7 @@ export class LightPublicProcessor {
     private worldStateDB: WorldStateDB,
     private globalVariables: GlobalVariables,
     historicalHeader: Header,
-    txValidator: TxValidator,
+    private txValidator: TxValidator,
     telemetryClient: TelemetryClient,
   ) {
     this.publicExecutor = new PublicExecutor(worldStateDB, historicalHeader, telemetryClient);
@@ -121,7 +88,7 @@ export class LightPublicProcessor {
     // TODO(md): do we need dummy transactions?
     txs = txs.map(tx => Tx.clone(tx));
 
-    this.validateTransactions(txs);
+    await this.validateTransactions(txs);
 
     for (const tx of txs) {
       if (tx.hasPublicCalls()) {
@@ -143,16 +110,27 @@ export class LightPublicProcessor {
     }
   }
 
-  validateTransactions(_txs: Tx[]) {
-    // TODO: Run tx validator checks
-    // const [_, invalidTxs] = await this.txValidator.validateTxs(txs);
-    // TODO(md): check the last valid block number is close
-    // If any of the transactions are invalid, we throw an error
-    // if (invalidTxs.length > 0) {
-    //     console.log("invalid txs found");
-    //     throw new InvalidTransactionsFound();
+  /**
+   * Validate the transactions
+   *
+   * If any of the transactions are invalid, we throw an error
+   * Halting block validation
+   * @param txs - The transactions to validate
+   */
+  async validateTransactions(txs: Tx[]) {
+    const [_, invalidTxs] = await this.txValidator.validateTxs(txs);
+
+    if (invalidTxs.length > 0) {
+      throw new InvalidTransactionsFound();
+    }
   }
 
+  /**
+   * Execute the public calls and apply the state updates
+   *
+   * If the transaction has reverted in setup, we throw an error
+   * @param tx - The transaction to execute
+   */
   async executeEnqueuedCallsAndApplyStateUpdates(tx: Tx) {
     const publicExecutionResults = await this.executePublicCalls(tx);
 
