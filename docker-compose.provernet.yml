@@ -22,8 +22,9 @@ services:
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
       DEPLOY_AZTEC_CONTRACTS: 1
-      ARCHIVER_POLLING_INTERVAL_MS: 10000
-      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 10000
+      ARCHIVER_POLLING_INTERVAL_MS: 1000
+      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 1000
+      SEQ_VIEM_POLLING_INTERVAL_MS: 1000
       SEQ_MAX_TX_PER_BLOCK: 4
       SEQ_MIN_TX_PER_BLOCK: 1
       SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 3600
@@ -36,17 +37,13 @@ services:
     volumes:
       - ./log/aztec-node/:/usr/src/yarn-project/aztec/log:rw
     healthcheck:
-      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status"]
+      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status" ]
       interval: 3s
       timeout: 30s
       start_period: 120s
     depends_on:
       - ethereum
-    entrypoint:
-      - "node"
-      - "--no-warnings"
-      - "--inspect=0.0.0.0:9221"
-      - "/usr/src/yarn-project/aztec/dest/bin/index.js"
+    command:
       - "start"
       - "--node"
       - "--archiver"
@@ -69,18 +66,13 @@ services:
       PROVER_COORDINATION_NODE_URL: http://aztec-node
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
-      ARCHIVER_POLLING_INTERVAL_MS: 10000
-      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 10000
+      ARCHIVER_POLLING_INTERVAL_MS: 1000
+      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 1000
+      PROVER_VIEM_POLLING_INTERVAL_MS: 1000
       PROVER_AGENT_ENABLED: false
       PROVER_PUBLISHER_PRIVATE_KEY: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
-      ASSUME_PROVEN_THROUGH_BLOCK_NUMBER: "${ASSUME_PROVEN_THROUGH_BLOCK_NUMBER:-4000}"
-      ROLLUP_CONTRACT_ADDRESS: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
-      REGISTRY_CONTRACT_ADDRESS: 0x5fbdb2315678afecb367f032d93f642f64180aa3
-      INBOX_CONTRACT_ADDRESS: 0xb1ede3f5ac8654124cb5124adf0fd3885cbdd1f7
-      OUTBOX_CONTRACT_ADDRESS: 0xa6d6d7c556ce6ada136ba32dbe530993f128ca44
-      FEE_JUICE_CONTRACT_ADDRESS: 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
-      FEE_JUICE_PORTAL_CONTRACT_ADDRESS: 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
+      ASSUME_PROVEN_THROUGH_BLOCK_NUMBER: "${ASSUME_PROVEN_THROUGH_BLOCK_NUMBER:-4}"
 
     volumes:
       - ./log/aztec-prover/:/usr/src/yarn-project/aztec/log:rw
@@ -88,11 +80,11 @@ services:
       aztec-node:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status"]
+      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status" ]
       interval: 3s
       timeout: 30s
       start_period: 10s
-    command: ["start", "--prover-node", "--archiver"]
+    command: [ "start", "--prover-node", "--archiver" ]
     restart: on-failure:5
 
   # Prover agent that connects to the prover-node for fetching proving jobs and executing them
@@ -111,8 +103,6 @@ services:
       PROVER_TEST_DELAY_MS: "${PROVER_TEST_DELAY_MS:-0}"
       PROVER_AGENT_CONCURRENCY: 2
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
-      ARCHIVER_POLLING_INTERVAL_MS: 10000
-      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 10000
     volumes:
       - ./log/aztec-prover-agent/:/usr/src/yarn-project/aztec/log:rw
       - ./cache/bb-crs/:/root/.bb-crs:rw
@@ -120,10 +110,10 @@ services:
     depends_on:
       aztec-prover:
         condition: service_healthy
-    command: ["start", "--prover"]
+    command: [ "start", "--prover" ]
     restart: on-failure:5
     healthcheck:
-      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status"]
+      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status" ]
       interval: 3s
       timeout: 30s
       start_period: 20s
@@ -157,12 +147,12 @@ services:
       aztec-node:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status"]
+      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:$AZTEC_PORT/status" ]
       interval: 3s
       timeout: 30s
       start_period: 10s
     restart: on-failure:5
-    command: ["start", "--bot", "--pxe"]
+    command: [ "start", "--bot", "--pxe" ]
 
   # Simple watcher that logs the latest block numbers every few seconds using the CLI and the bot's PXE
   aztec-block-watcher:
