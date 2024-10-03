@@ -24,7 +24,7 @@ if [ -z "${NAMESPACE:-}" ]; then
 fi
 
 if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG"; then
-  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-aztec'."
+  echo "Aztec docker image not found. It needs to be built with 'earthly ./yarn-project/+export-aztec' or otherwise an image named aztecprotocol/aztec:$AZTEC_DOCKER_TAG needs to exist, or AZTEC_DOCKER_TAG passed with a tag that exists."
   exit 1
 fi
 
