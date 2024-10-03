@@ -276,7 +276,7 @@ library Honk {
         // Sumcheck
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
-        // Gemini
+        // Shplemini
         Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
         Honk.G1ProofPoint shplonkQ;
@@ -295,7 +295,7 @@ struct Transcript {
     Fr[NUMBER_OF_ALPHAS] alphas;
     Fr[CONST_PROOF_SIZE_LOG_N] gateChallenges;
     Fr[CONST_PROOF_SIZE_LOG_N] sumCheckUChallenges;
-    // Gemini
+    // Shplemini
     Fr rho;
     Fr geminiR;
     Fr shplonkNu;
@@ -596,7 +596,7 @@ library TranscriptLib {
             y_1: uint256(bytes32(proof[0x440:0x460]))
         });
 
-        // TEMP the boundary of what has already been read
+        // Boundary represents a pointer to the head of the unread part of the proof
         uint256 boundary = 0x460;
 
         // Sumcheck univariates
@@ -1045,9 +1045,9 @@ library RelationsLib {
 
     function accumulateAuxillaryRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // sooo we take the relation parameters, if needed, from tramscript
+        Transcript memory tp,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         AuxParams memory ap;
 
@@ -1296,7 +1296,7 @@ library RelationsLib {
     function accumulatePoseidonExternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         PoseidonExternalParams memory ep;
 
@@ -1580,9 +1580,9 @@ contract HonkVerifier is IVerifier
         Fr shiftedScalar;
         // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
-        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
-        Fr batchingChallenge;
         // Accumulator for powers of rho
+        Fr batchingChallenge;
+        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
     }
 
