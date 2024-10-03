@@ -1,0 +1,17 @@
+VoteTest
+├── given state is not active
+│   └── it revert
+└── given stat is active
+    ├── given amount larger than available power
+    │   └── it revert
+    └── given amount smaller or eq available power
+        ├── when support is yea
+        │   ├── it increase yea on user ballot by amount
+        │   ├── it increase yea on total by amount
+        │   ├── it emitts {VoteCast} event
+        │   └── it returns true
+        └── when support is nea
+            ├── it increase nea on user ballot by amount
+            ├── it increase nea on total by amount
+            ├── it emitts {VoteCast} event
+            └── it returns true
