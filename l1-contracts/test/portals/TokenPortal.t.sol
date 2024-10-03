@@ -14,10 +14,11 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
-import {TestERC20} from "../TestERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
 
@@ -60,7 +61,13 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
-    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(
+      IFeeJuicePortal(address(0)),
+      IProofCommitmentEscrow(address(0)),
+      bytes32(0),
+      address(this),
+      new address[](0)
+    );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 

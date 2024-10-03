@@ -2,7 +2,7 @@ use dep::aztec::{
     hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
 use crate::{types::nft_note::NFTNote, NFT};
 
@@ -50,8 +50,8 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
 unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     let (env, nft_contract_address, owner, recipient, minted_token_id) = setup_and_mint(with_account_contracts);
 
-    let note_randomness = unsafe_rand();
-    let transient_storage_slot_randomness = unsafe_rand();
+    let note_randomness = random();
+    let transient_storage_slot_randomness = random();
     let transfer_preparer_storage_slot_commitment = pedersen_hash(
         [owner.to_field(), transient_storage_slot_randomness],
         NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
