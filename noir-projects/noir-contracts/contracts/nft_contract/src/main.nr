@@ -154,10 +154,10 @@ contract NFT {
         let note_randomness = unsafe {
             random()
         };
-        let note_partial_payload = NFTNote::partial_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+        let note_setup_payload = NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
         // We encrypt and emit the partial note log
-        encrypt_and_emit_partial_log(&mut context, note_partial_payload.log_plaintext, to_keys, to);
+        encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
 
         // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
         // non-sender's slots
@@ -172,7 +172,7 @@ contract NFT {
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point, slot).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point, slot).enqueue(&mut context);
     }
 
     #[public]
@@ -219,7 +219,7 @@ contract NFT {
         context.push_note_hash(finalization_payload.note_hash);
 
         // We emit the `token_id` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
-        context.emit_unencrypted_log(finalization_payload.log_plaintext);
+        context.emit_unencrypted_log(finalization_payload.log);
 
         // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
         // the writes

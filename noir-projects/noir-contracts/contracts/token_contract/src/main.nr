@@ -495,13 +495,13 @@ contract Token {
             random()
         };
 
-        let fee_payer_partial_payload = TokenNote::partial_payload().new(
+        let fee_payer_setup_payload = TokenNote::setup_payload().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot
         );
 
-        let user_partial_payload = TokenNote::partial_payload().new(
+        let user_setup_payload = TokenNote::setup_payload().new(
             user_npk_m_hash,
             user_randomness,
             storage.balances.at(user).set.storage_slot
@@ -510,22 +510,17 @@ contract Token {
         // 5. We encrypt and emit the partial note log
         encrypt_and_emit_partial_log(
             &mut context,
-            fee_payer_partial_payload.log_plaintext,
+            fee_payer_setup_payload.log_plaintext,
             fee_payer_keys,
             fee_payer
         );
-        encrypt_and_emit_partial_log(
-            &mut context,
-            user_partial_payload.log_plaintext,
-            user_keys,
-            user
-        );
+        encrypt_and_emit_partial_log(&mut context, user_setup_payload.log_plaintext, user_keys, user);
 
         // 6. We convert the hiding points to standard `Point` type as we cannot pass `TokenNoteHidingPoint` type
         // as an argument to a function due to macro limitations (the `TokenNoteHidingPoint` type is macro generated
         // and hence is not resolved soon enough by the compiler).
-        let fee_payer_point = fee_payer_partial_payload.hiding_point;
-        let user_point = user_partial_payload.hiding_point;
+        let fee_payer_point = fee_payer_setup_payload.hiding_point;
+        let user_point = user_setup_payload.hiding_point;
 
         // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
@@ -565,8 +560,8 @@ contract Token {
 
         // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
         // to reconstruct the note.
-        context.emit_unencrypted_log(fee_payer_finalization_payload.log_plaintext);
-        context.emit_unencrypted_log(user_finalization_payload.log_plaintext);
+        context.emit_unencrypted_log(fee_payer_finalization_payload.log);
+        context.emit_unencrypted_log(user_finalization_payload.log);
 
         // 5. At last we emit the note hashes.
         context.push_note_hash(fee_payer_finalization_payload.note_hash);
