@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727953436726,
+  "lastUpdate": 1727966604329,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4f61b39c39bf01a1071b52bbf042408f29d5564",
-          "message": "refactor: Protogalaxy recursive verifier matches native verifier (#8568)\n\nContinuation of PG refactoring\r\n\r\n- PG recursive verifier made similar to native PG verifier\r\n- In recursive setting: accumulator is mutated in place. \r\n- Sharing the code with prover_verifier_shared for functions that\r\ncompute powers of round challenges and update gate challenges\r\n- Renaming + Constifying a lot",
-          "timestamp": "2024-09-17T16:20:19-04:00",
-          "tree_id": "1df387ff8a7d7bd043de9aca225be8b871a75fee",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a4f61b39c39bf01a1071b52bbf042408f29d5564"
-        },
-        "date": 1726605466969,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34307.31013900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31796.502915999994 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5074.393954000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4636.150490999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100058.847086,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100058847000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14510.670655,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14510671000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8604802654,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8604802654 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 154480379,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 154480379 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6921775776,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6921775776 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125932802,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125932802 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126546252,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126546252 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "818325ae35ce0260d88e097261d173f4dc326cbe",
+          "message": "feat(avm): Skip gas accounting for fake rows (#8944)\n\nResolves #8903",
+          "timestamp": "2024-10-03T16:19:32+02:00",
+          "tree_id": "093c9694009ba7279afa14af252df16c6406c9ed",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/818325ae35ce0260d88e097261d173f4dc326cbe"
+        },
+        "date": 1727966596930,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30920.868972999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28387.48912 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5275.641407000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4916.093936 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92742.06545499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92742067000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15142.595252,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15142595000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8265688094,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8265688094 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 150745432,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 150745432 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6688807263,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6688807263 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125984275,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125984275 ns\nthreads: 1"
           }
         ]
       }
