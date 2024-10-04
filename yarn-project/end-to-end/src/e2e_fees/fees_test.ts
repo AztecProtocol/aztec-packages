@@ -28,7 +28,6 @@ import {
   TokenContract,
 } from '@aztec/noir-contracts.js';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type ProverNode } from '@aztec/prover-node';
 
 import { getContract } from 'viem';
 
@@ -55,7 +54,6 @@ export class FeesTest {
   public logger: DebugLogger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
-  public proverNode!: ProverNode;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -175,10 +173,9 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig, proverNode }) => {
+      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
-        this.proverNode = proverNode;
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
