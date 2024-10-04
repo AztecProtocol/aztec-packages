@@ -21,6 +21,9 @@ CONTRACTS=(
   "l1-contracts:FeeJuicePortal"
   "l1-contracts:MockVerifier"
   "l1-contracts:IVerifier"
+  "l1-contracts:IProofCommitmentEscrow"
+  "l1-contracts:ProofCommitmentEscrow"
+  "l1-contracts:MockProofCommitmentEscrow"
 )
 
 

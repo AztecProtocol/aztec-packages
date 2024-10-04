@@ -15,7 +15,7 @@ import {
   TxReceipt,
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
@@ -262,7 +262,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @remarks When "from" is smaller than genesis block number, blocks from the beginning are returned.
    */
   public getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
-    // Return an empty array if we are outside of range
     if (limit < 1) {
       return Promise.reject(new Error(`Invalid limit: ${limit}`));
     }
@@ -278,6 +277,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const toIndex = fromIndex + limit;
     return Promise.resolve(this.l2Blocks.slice(fromIndex, toIndex));
+  }
+
+  public async getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+    const blocks = await this.getBlocks(from, limit);
+    return blocks.map(block => block.data.header);
   }
 
   /**

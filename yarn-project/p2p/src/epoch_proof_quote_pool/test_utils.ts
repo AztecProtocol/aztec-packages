@@ -4,7 +4,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 
 export function makeRandomEpochProofQuotePayload(): EpochProofQuotePayload {
-  return EpochProofQuotePayload.fromFields({
+  return EpochProofQuotePayload.from({
     basisPointFee: randomInt(10000),
     bondAmount: 1000000000000000000n,
     epochToProve: randomBigInt(1000000n),

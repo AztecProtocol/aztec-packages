@@ -309,8 +309,6 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     );
 
     const root = treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
-    this.log.info(`root: ${root.toString('hex')}`);
-    this.log.info(`inHash: ${inHash.toString('hex')}`);
 
     if (!root.equals(inHash)) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
