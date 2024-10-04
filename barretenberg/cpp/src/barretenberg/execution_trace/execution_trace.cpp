@@ -104,7 +104,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
     for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.size());
-
+        info("here");
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {

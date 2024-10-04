@@ -140,9 +140,9 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
     }
 };
 
-TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
+TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
 {
-    using Flavor = MegaFlavor;
+    using Flavor = UltraFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
@@ -164,7 +164,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
     }
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
+// TODO(https://github.com/AztecProtocol/barretenberg/iss ues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
                          testing::Values("1327_concrete_in_generic",
@@ -232,12 +232,10 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "brillig_pedersen",
                                          "brillig_recursion",
                                          "brillig_references",
-                                         //  "brillig_scalar_mul",
                                          "brillig_schnorr",
                                          "brillig_sha256",
                                          "brillig_signed_cmp",
                                          "brillig_signed_div",
-                                         //  "brillig_slice_input",
                                          "brillig_slices",
                                          "brillig_to_be_bytes",
                                          "brillig_to_bits",
@@ -259,7 +257,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "databus",
                                          "debug_logs",
                                          "diamond_deps_0",
-                                         //  "distinct_keyword",
                                          "double_verify_nested_proof",
                                          "double_verify_proof",
                                          "double_verify_proof_recursive",
@@ -311,16 +308,13 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "regression_4088",
                                          "regression_4124",
                                          "regression_4202",
-                                         //  "regression_4383",
-                                         //  "regression_4436",
                                          "regression_4449",
                                          "regression_4709",
+                                         "regression_5045",
                                          "regression_capacity_tracker",
                                          "regression_mem_op_predicate",
                                          "regression_method_cannot_be_found",
-                                         //  "regression_sha256_slice",
                                          "regression_struct_array_conditional",
-                                         //  "scalar_mul",
                                          "schnorr",
                                          "sha256",
                                          "sha2_byte",
@@ -342,7 +336,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "simple_shift_left_right",
                                          "slice_coercion",
                                          "slice_dynamic_index",
-                                         //  "slice_init_with_complex_type",
                                          "slice_loop",
                                          "slices",
                                          "strings",
@@ -368,6 +361,8 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "unit_value",
                                          "unsafe_range_constraint",
                                          "witness_compression",
+                                         //  "workspace",
+                                         //  "workspace_default_member",
                                          "xor"));
 
 TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
@@ -419,7 +414,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         ivc.accumulate(circuit);
 
         CircuitChecker::check(circuit);
-        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
+        EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 
         program_stack.pop_back();
     }
@@ -548,7 +543,7 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
  * @brief Test recursive honk recursive verification
  *
  */
-TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
+TEST_F(AcirIntegrationTest, HonkRecursion)
 {
     using Flavor = UltraFlavor;
     using Builder = Flavor::CircuitBuilder;
@@ -556,8 +551,10 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     std::string test_name = "verify_honk_proof"; // arbitrary program with RAM gates
     // Note: honk_recursion set to false here because the selection of the honk recursive verifier is indicated by the
     // proof_type field of the constraint generated from noir.
+    // The honk_recursion flag determines whether a noir program will be recursively verified via Honk in a Noir
+    // program.
     auto acir_program = get_program_data_from_test_file(test_name,
-                                                        /*honk_recursion=*/false);
+                                                        /*honk_recursion=*/true);
 
     // Construct a bberg circuit from the acir representation
     auto circuit = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);

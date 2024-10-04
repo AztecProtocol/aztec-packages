@@ -156,7 +156,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     create_dummy_gate(blocks.aux, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
-    this->one_idx = put_constant_variable(FF::one());
+    // this->one_idx = put_constant_variable(FF::one());
     create_big_add_gate({ this->zero_idx, this->zero_idx, this->zero_idx, this->one_idx, 0, 0, 0, 1, -1 });
 
     // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
@@ -550,7 +550,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
     auto& block = blocks.elliptic;
-
+    info("before size of wire 1", block.wires[1].size());
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
     if (can_fuse_into_previous_gate) {
@@ -589,6 +589,11 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
         ++this->num_gates;
     }
     create_dummy_gate(block, in.x2, in.x3, in.y3, in.y2);
+    if (block.wires[1].size() >= 442) {
+        size_t i = 0;
+        static_cast<void>(i);
+        info("prolly culprit");
+    }
 }
 
 /**
@@ -600,6 +605,7 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
     auto& block = blocks.elliptic;
+    info("before size of wire 1", block.wires[1].size());
 
     /**
      * gate structure:
@@ -644,6 +650,12 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
         ++this->num_gates;
     }
     create_dummy_gate(block, this->zero_idx, in.x3, in.y3, this->zero_idx);
+    if (block.wires[1].size() >= 442) {
+        size_t i = 0;
+        static_cast<void>(i);
+
+        info("prolly culprit");
+    }
 }
 
 /**
