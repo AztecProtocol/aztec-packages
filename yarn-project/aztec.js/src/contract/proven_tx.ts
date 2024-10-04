@@ -1,4 +1,4 @@
-import { PXE, Tx } from '@aztec/circuit-types';
+import { type PXE, Tx } from '@aztec/circuit-types';
 
 import { SentTx, type Wallet } from '../index.js';
 

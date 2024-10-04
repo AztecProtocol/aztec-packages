@@ -1,13 +1,13 @@
 import { ProvenTx } from '../contract/proven_tx.js';
 import {
-  AztecAddress,
-  Contract,
-  ContractBase,
-  ContractInstanceWithAddress,
+  type AztecAddress,
+  type Contract,
+  type ContractBase,
+  type ContractInstanceWithAddress,
   DeploySentTx,
-  PXE,
-  Tx,
-  Wallet,
+  type PXE,
+  type Tx,
+  type Wallet,
 } from '../index.js';
 
 /**
