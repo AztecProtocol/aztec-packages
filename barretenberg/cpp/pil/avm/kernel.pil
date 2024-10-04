@@ -84,42 +84,42 @@ namespace main(256);
     // TODO: I think we can replace all these (IN) with a single lookup.
     // CONTEXT - ENVIRONMENT
     #[ADDRESS_KERNEL]
-    sel_op_address * (kernel_in_offset - constants.ADDRESS_SELECTOR) = 0;
+    sel_op_address * (kernel_in_offset - constants.ADDRESS_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[STORAGE_ADDRESS_KERNEL]
-    sel_op_storage_address * (kernel_in_offset - constants.STORAGE_ADDRESS_SELECTOR) = 0;
+    sel_op_storage_address * (kernel_in_offset - constants.STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[SENDER_KERNEL]
-    sel_op_sender * (kernel_in_offset - constants.SENDER_SELECTOR) = 0;
+    sel_op_sender * (kernel_in_offset - constants.SENDER_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[FUNCTION_SELECTOR_KERNEL]
-    sel_op_function_selector * (kernel_in_offset - constants.FUNCTION_SELECTOR_SELECTOR) = 0;
+    sel_op_function_selector * (kernel_in_offset - constants.FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[FEE_TRANSACTION_FEE_KERNEL]
-    sel_op_transaction_fee  * (kernel_in_offset - constants.TRANSACTION_FEE_SELECTOR) = 0;
+    sel_op_transaction_fee  * (kernel_in_offset - constants.TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[IS_STATIC_CALL_KERNEL]
-    sel_op_is_static_call * (kernel_in_offset - constants.IS_STATIC_CALL_SELECTOR) = 0;
+    sel_op_is_static_call * (kernel_in_offset - constants.IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     // CONTEXT - ENVIRONMENT - GLOBALS
     #[CHAIN_ID_KERNEL]
-    sel_op_chain_id * (kernel_in_offset - constants.CHAIN_ID_SELECTOR) = 0;
+    sel_op_chain_id * (kernel_in_offset - constants.CHAIN_ID_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[VERSION_KERNEL]
-    sel_op_version * (kernel_in_offset - constants.VERSION_SELECTOR) = 0;
+    sel_op_version * (kernel_in_offset - constants.VERSION_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[BLOCK_NUMBER_KERNEL]
-    sel_op_block_number * (kernel_in_offset - constants.BLOCK_NUMBER_SELECTOR) = 0;
+    sel_op_block_number * (kernel_in_offset - constants.BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[TIMESTAMP_KERNEL]
-    sel_op_timestamp * (kernel_in_offset - constants.TIMESTAMP_SELECTOR) = 0;
+    sel_op_timestamp * (kernel_in_offset - constants.TIMESTAMP_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     // CONTEXT - ENVIRONMENT - GLOBALS - FEES
     #[FEE_DA_GAS_KERNEL]
-    sel_op_fee_per_da_gas  * (kernel_in_offset - constants.FEE_PER_DA_GAS_SELECTOR) = 0;
+    sel_op_fee_per_da_gas  * (kernel_in_offset - constants.FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     #[FEE_L2_GAS_KERNEL]
-    sel_op_fee_per_l2_gas  * (kernel_in_offset - constants.FEE_PER_L2_GAS_SELECTOR) = 0;
+    sel_op_fee_per_l2_gas  * (kernel_in_offset - constants.FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET) = 0;
 
     // OUTPUTS LOOKUPS
     // Constrain the value of kernel_out_offset to be the correct offset for the operation being performed

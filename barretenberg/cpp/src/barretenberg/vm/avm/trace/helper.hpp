@@ -4,6 +4,7 @@
 
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
+#include "barretenberg/vm/constants.hpp"
 
 namespace bb::avm_trace {
 
@@ -41,27 +42,30 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
 
     // Copy items from PublicCircuitPublicInputs vector to public input columns
     // PublicCircuitPublicInputs - CallContext
-    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR]; // Sender
+    kernel_inputs[SENDER_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[SENDER_PCPI_OFFSET]; // Sender
     // NOTE: address has same position as storage address (they are the same for now...)
-    // kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
-    kernel_inputs[STORAGE_ADDRESS_SELECTOR] = public_inputs_vec[STORAGE_ADDRESS_SELECTOR]; // Storage Address
-    kernel_inputs[FUNCTION_SELECTOR_SELECTOR] = public_inputs_vec[FUNCTION_SELECTOR_SELECTOR];
-    kernel_inputs[IS_STATIC_CALL_SELECTOR] = public_inputs_vec[IS_STATIC_CALL_SELECTOR];
+    // kernel_inputs[ADDRESS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[ADDRESS_KERNEL_INPUTS_COL_OFFSET]; // Address
+    kernel_inputs[STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET] =
+        public_inputs_vec[STORAGE_ADDRESS_PCPI_OFFSET]; // Storage Address
+    kernel_inputs[FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[FUNCTION_SELECTOR_PCPI_OFFSET];
+    kernel_inputs[IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[IS_STATIC_CALL_PCPI_OFFSET];
 
     // PublicCircuitPublicInputs - GlobalVariables
-    kernel_inputs[CHAIN_ID_SELECTOR] = public_inputs_vec[CHAIN_ID_OFFSET];         // Chain ID
-    kernel_inputs[VERSION_SELECTOR] = public_inputs_vec[VERSION_OFFSET];           // Version
-    kernel_inputs[BLOCK_NUMBER_SELECTOR] = public_inputs_vec[BLOCK_NUMBER_OFFSET]; // Block Number
-    kernel_inputs[TIMESTAMP_SELECTOR] = public_inputs_vec[TIMESTAMP_OFFSET];       // Timestamp
+    kernel_inputs[CHAIN_ID_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[CHAIN_ID_PCPI_OFFSET];         // Chain ID
+    kernel_inputs[VERSION_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[VERSION_PCPI_OFFSET];           // Version
+    kernel_inputs[BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[BLOCK_NUMBER_PCPI_OFFSET]; // Block Number
+    kernel_inputs[TIMESTAMP_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[TIMESTAMP_PCPI_OFFSET];       // Timestamp
     // PublicCircuitPublicInputs - GlobalVariables - GasFees
-    kernel_inputs[FEE_PER_DA_GAS_SELECTOR] = public_inputs_vec[FEE_PER_DA_GAS_OFFSET];
-    kernel_inputs[FEE_PER_L2_GAS_SELECTOR] = public_inputs_vec[FEE_PER_L2_GAS_OFFSET];
+    kernel_inputs[FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[FEE_PER_DA_GAS_PCPI_OFFSET];
+    kernel_inputs[FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[FEE_PER_L2_GAS_PCPI_OFFSET];
 
     // Transaction fee
-    kernel_inputs[TRANSACTION_FEE_SELECTOR] = public_inputs_vec[TRANSACTION_FEE_OFFSET];
+    kernel_inputs[TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[TRANSACTION_FEE_PCPI_OFFSET];
 
-    kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = public_inputs_vec[DA_START_GAS_LEFT_PCPI_OFFSET];
-    kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET];
+    kernel_inputs[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[DA_START_GAS_LEFT_PCPI_OFFSET];
+    kernel_inputs[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET];
+    // kernel_inputs[DA_END_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[DA_END_GAS_LEFT_PCPI_OFFSET];
+    // kernel_inputs[L2_END_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[L2_END_GAS_LEFT_PCPI_OFFSET];
 
     // Copy the output columns
     std::array<FF_, KERNEL_OUTPUTS_LENGTH>& ko_values = std::get<KERNEL_OUTPUTS_VALUE>(public_inputs);
@@ -73,7 +77,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For NOTEHASHEXISTS
     for (size_t i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_CALL; i++) {
         size_t dest_offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_NOTE_HASH_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
+        size_t pcpi_offset = NOTE_HASH_EXISTS_PCPI_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
@@ -81,7 +85,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For NULLIFIEREXISTS
     for (size_t i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_CALL; i++) {
         size_t dest_offset = START_NULLIFIER_EXISTS_OFFSET + i;
-        size_t pcpi_offset = PCPI_NULLIFIER_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
+        size_t pcpi_offset = NULLIFIER_EXISTS_PCPI_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
@@ -90,7 +94,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For NULLIFIEREXISTS - non existent
     for (size_t i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL; i++) {
         size_t dest_offset = START_NULLIFIER_NON_EXISTS_OFFSET + i;
-        size_t pcpi_offset = PCPI_NULLIFIER_NON_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
+        size_t pcpi_offset = NULLIFIER_NON_EXISTS_PCPI_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
@@ -99,7 +103,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For L1TOL2MSGEXISTS
     for (size_t i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL; i++) {
         size_t dest_offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_L1_TO_L2_MSG_READ_REQUESTS_OFFSET + (i * READ_REQUEST_LENGTH);
+        size_t pcpi_offset = L1_TO_L2_MSG_READ_REQUESTS_PCPI_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
@@ -107,7 +111,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For SSTORE
     for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
         size_t dest_offset = START_SSTORE_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_PUBLIC_DATA_UPDATE_OFFSET + (i * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH);
+        size_t pcpi_offset = PUBLIC_DATA_UPDATE_PCPI_OFFSET + (i * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH);
 
         // slot, value, side effect
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -117,7 +121,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For SLOAD
     for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_CALL; i++) {
         size_t dest_offset = START_SLOAD_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_PUBLIC_DATA_READ_OFFSET + (i * CONTRACT_STORAGE_READ_LENGTH);
+        size_t pcpi_offset = PUBLIC_DATA_READ_PCPI_OFFSET + (i * CONTRACT_STORAGE_READ_LENGTH);
 
         // slot, value, side effect
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -127,7 +131,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For EMITNOTEHASH
     for (size_t i = 0; i < MAX_NOTE_HASHES_PER_CALL; i++) {
         size_t dest_offset = START_EMIT_NOTE_HASH_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_NEW_NOTE_HASHES_OFFSET + (i * NOTE_HASH_LENGTH);
+        size_t pcpi_offset = NEW_NOTE_HASHES_PCPI_OFFSET + (i * NOTE_HASH_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
@@ -135,7 +139,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For EMITNULLIFIER
     for (size_t i = 0; i < MAX_NULLIFIERS_PER_CALL; i++) {
         size_t dest_offset = START_EMIT_NULLIFIER_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_NEW_NULLIFIERS_OFFSET + (i * NULLIFIER_LENGTH);
+        size_t pcpi_offset = NEW_NULLIFIERS_PCPI_OFFSET + (i * NULLIFIER_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
@@ -143,7 +147,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // For EMITL2TOL1MSG
     for (size_t i = 0; i < MAX_L2_TO_L1_MSGS_PER_CALL; i++) {
         size_t dest_offset = START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_NEW_L2_TO_L1_MSGS_OFFSET + (i * L2_TO_L1_MESSAGE_LENGTH);
+        size_t pcpi_offset = NEW_L2_TO_L1_MSGS_PCPI_OFFSET + (i * L2_TO_L1_MESSAGE_LENGTH);
 
         // Note: unorthadox order
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -154,7 +158,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
         size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
         size_t pcpi_offset =
-            PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 3); // 3 because we have metadata, this is the window size
+            NEW_UNENCRYPTED_LOGS_PCPI_OFFSET + (i * 3); // 3 because we have metadata, this is the window size
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];

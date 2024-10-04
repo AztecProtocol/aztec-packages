@@ -288,8 +288,8 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs<FF> public_inputs,
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET]),
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET]));
+        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET]),
+        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET]));
 }
 
 /**************************************************************************************************
@@ -2459,7 +2459,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     auto [resolved_log_offset, resolved_log_size_offset] =
         unpack_indirects<2>(indirect, { log_offset, log_size_offset });
 
-    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_SELECTOR];
+    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_KERNEL_INPUTS_COL_OFFSET];
     std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
 
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
