@@ -1,4 +1,5 @@
 import {
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
   PublicDataWrite,
@@ -44,7 +45,6 @@ import {
   computeFeePayerBalanceLeafSlot,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -56,7 +56,7 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let db: MockProxy<MerkleTreeOperations>;
+  let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
   let worldStateDB: MockProxy<WorldStateDB>;
   let handler: MockProxy<ProcessedTxHandler>;
@@ -67,7 +67,7 @@ describe('public_processor', () => {
   let processor: PublicProcessor;
 
   beforeEach(() => {
-    db = mock<MerkleTreeOperations>();
+    db = mock<MerkleTreeWriteOperations>();
     publicExecutor = mock<PublicExecutor>();
     worldStateDB = mock<WorldStateDB>();
     handler = mock<ProcessedTxHandler>();

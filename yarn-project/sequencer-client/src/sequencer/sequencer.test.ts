@@ -7,8 +7,8 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
-  type MerkleTreeAdminOperations,
   MerkleTreeId,
+  type MerkleTreeReadOperations,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
@@ -54,7 +54,7 @@ describe('sequencer', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let blockBuilder: MockProxy<BlockBuilder>;
-  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -115,7 +115,7 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue();
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeAdminOperations>();
+    merkleTreeOps = mock<MerkleTreeReadOperations>();
     blockBuilder = mock<BlockBuilder>();
 
     p2p = mock<P2P>({
@@ -123,7 +123,7 @@ describe('sequencer', () => {
     });
 
     worldState = mock<WorldStateSynchronizer>({
-      getLatest: () => Promise.resolve(merkleTreeOps),
+      getCommitted: () => merkleTreeOps,
       status: mockFn().mockResolvedValue({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
     });
 

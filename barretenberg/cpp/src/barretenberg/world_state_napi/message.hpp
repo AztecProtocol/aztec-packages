@@ -164,13 +164,15 @@ struct UpdateArchiveRequest {
 };
 
 struct SyncBlockRequest {
+    uint64_t blockNumber;
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
     std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>> batchesOfPaddedPublicDataWrites;
 
-    MSGPACK_FIELDS(blockStateRef,
+    MSGPACK_FIELDS(blockNumber,
+                   blockStateRef,
                    blockHeaderHash,
                    paddedNoteHashes,
                    paddedL1ToL2Messages,

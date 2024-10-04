@@ -4,6 +4,7 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProverCoordination,
   type Tx,
@@ -32,6 +33,7 @@ export class EpochProvingJob {
   private runPromise: Promise<void> | undefined;
 
   constructor(
+    private db: MerkleTreeWriteOperations,
     private epochNumber: bigint,
     private blocks: L2Block[],
     private prover: EpochProver,
@@ -95,7 +97,7 @@ export class EpochProvingJob {
         await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
 
         // Process public fns
-        const publicProcessor = this.publicProcessorFactory.create(previousHeader, globalVariables);
+        const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
         await this.processTxs(publicProcessor, txs, txCount);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,

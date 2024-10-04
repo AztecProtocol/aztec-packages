@@ -343,7 +343,7 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
             wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
         }

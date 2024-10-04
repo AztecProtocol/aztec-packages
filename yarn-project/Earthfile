@@ -265,7 +265,6 @@ format-check:
 
 test:
     FROM +build
-
     RUN yarn test
 
 run-e2e:

@@ -10,6 +10,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 #include <optional>
+#include <ostream>
 
 namespace bb::crypto::merkle_tree {
 
@@ -26,6 +27,13 @@ struct BlockPayload {
         return size == other.size && blockNumber == other.blockNumber && root == other.root;
     }
 };
+
+inline std::ostream& operator<<(std::ostream& os, const BlockPayload& block)
+{
+    os << "BlockPayload{size: " << std::dec << block.size << ", blockNumber: " << std::dec << block.blockNumber
+       << ", root: " << block.root << "}";
+    return os;
+}
 
 struct Indices {
     std::vector<index_t> indices;
