@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727976077609,
+  "lastUpdate": 1728049837492,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "94339fbfc7c0c822dc1497c113d48f74a89f1bad",
-          "message": "chore: create a Gemini prover (#8622)\n\nIn this PR:\r\n* make a `GeminiProver::prove` to not have to replicate all the stages\r\nof the protocol in tests (and soon in the Provers)\r\n* make the Gemini prover and verifier responsible for batching\r\npolynomials and commitments, respectively. While this is not per se part\r\nof the protocol, it does save us a lot of duplication and was\r\nimplemented as part of Zeromorph as well\r\n* replace the terms `gemini_*` back to `fold_*`. Originally, I thought\r\nthat having things that have a folding related naming might be confusing\r\nin the making of Protogalaxy but this data structures will not be\r\nsurfaced anywhere outside the commitment_schemes folders\r\n* attempted bits of cleanup here and there",
-          "timestamp": "2024-09-18T15:51:22+01:00",
-          "tree_id": "9303a03f3d8b9ee36d530dc6169a6c5dc8c6042b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/94339fbfc7c0c822dc1497c113d48f74a89f1bad"
-        },
-        "date": 1726672359579,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34445.67545199999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31354.787911000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5111.201398000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4693.596479000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99563.872125,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99563872000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14604.515103000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14604514000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8554702195,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8554702195 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151928553,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151928553 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6980419798,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6980419798 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125795426,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125795426 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126467280,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126467280 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f1af9a0baf9e342d0de41ebd58fed24a0c4f615",
+          "message": "feat: Connect the public inputs but not the proof in ivc recursion constraints (#8973)\n\nThe inputs to an ACIR ivc recursion constraint include the VK, the\r\npublic inputs, and the proof (without public inputs). The VK and public\r\ninputs are expected to be used in aztec-y logic directly in the noir\r\nprotocol programs, but the proof is not. Previously, we connected the\r\nwitnesses for all three of these components to the counterpart used in\r\nthe backend recursive verifier. This requires knowledge of the proof\r\nsize, could be misleading and is unnecessary. With this PR, we only\r\ncreate and connect witnesses for the VK and public inputs and not the\r\nproof when constructing an ivc recursion constraint.",
+          "timestamp": "2024-10-04T06:14:42-07:00",
+          "tree_id": "4c913fbc511d4ce4b40393e08ad234682e1b142a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4f1af9a0baf9e342d0de41ebd58fed24a0c4f615"
+        },
+        "date": 1728049829761,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30970.01555700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28572.233294 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5279.562808999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4918.253441999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92781.62136500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92781623000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15126.09295,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15126092000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8283827805,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8283827805 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 150734572,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 150734572 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6704496235,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6704496235 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127632281,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127632281 ns\nthreads: 1"
           }
         ]
       }
