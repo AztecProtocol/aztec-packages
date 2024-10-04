@@ -28,7 +28,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     beforeAll(async () => {
-      const ws = await NativeWorldStateService.create(rollupAddress, dataDir);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir);
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(1, fork));
       await fork.close();
@@ -38,7 +38,7 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly restores committed state', async () => {
-      const ws = await NativeWorldStateService.create(rollupAddress, dataDir);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir);
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeDefined();
@@ -47,7 +47,7 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the rollup is different', async () => {
       // open ws against the same data dir but a different rollup
-      let ws = await NativeWorldStateService.create(EthAddress.random(), dataDir);
+      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir);
       // db should be empty
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
@@ -57,7 +57,7 @@ describe('NativeWorldState', () => {
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
-      ws = await NativeWorldStateService.create(rollupAddress, dataDir);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir);
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeUndefined();
@@ -69,7 +69,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.create(rollupAddress, dataDir);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir);
     });
 
     afterEach(async () => {

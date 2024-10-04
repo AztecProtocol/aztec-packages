@@ -18,7 +18,7 @@ export async function createWorldStateSynchronizer(
   const merkleTrees = process.env.USE_LEGACY_WORLD_STATE
     ? await MerkleTrees.new(store, client)
     : config.dataDirectory
-    ? await NativeWorldStateService.create(config.l1Contracts.rollupAddress, config.dataDirectory)
+    ? await NativeWorldStateService.new(config.l1Contracts.rollupAddress, config.dataDirectory)
     : await NativeWorldStateService.tmp(
         config.l1Contracts.rollupAddress,
         !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),

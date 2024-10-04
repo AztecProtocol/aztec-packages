@@ -50,7 +50,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
-  static async create(
+  static async new(
     rollupAddress: EthAddress,
     dataDir: string,
     log = createDebugLogger('aztec:world-state:database'),
@@ -89,7 +89,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.create(rollupAddress, dataDir, log, cleanup);
+    return this.new(rollupAddress, dataDir, log, cleanup);
   }
 
   protected async init() {

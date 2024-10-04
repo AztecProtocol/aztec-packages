@@ -40,7 +40,7 @@ describe('NativeWorldState', () => {
   });
 
   beforeAll(async () => {
-    nativeWS = await NativeWorldStateService.create(EthAddress.random(), nativeDataDir);
+    nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir);
     legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
   });
 
@@ -51,11 +51,11 @@ describe('NativeWorldState', () => {
 
   describe('Initial state', () => {
     it.each(allTrees)('tree %s is the same', async (_, treeId) => {
-      await assertSameTree(treeId, nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameTree(treeId, nativeWS.getCommitted(), legacyWS.getCommitted());
     });
 
     it('initial state is the same', async () => {
-      await assertSameState(nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameState(nativeWS.getCommitted(), legacyWS.getCommitted());
     });
   });
 
@@ -197,7 +197,7 @@ describe('NativeWorldState', () => {
 
   describe('Block synch', () => {
     it('syncs a new block from empty state', async () => {
-      await assertSameState(nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameState(nativeWS.getCommitted(), legacyWS.getCommitted());
       const tempFork = await nativeWS.fork();
       const [_blockMS, { block, messages }] = await elapsed(mockBlock(1, tempFork));
       await tempFork.close();
@@ -208,11 +208,11 @@ describe('NativeWorldState', () => {
       // eslint-disable-next-line no-console
       console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
 
-      await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
-      await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
-      await assertSameTree(MerkleTreeId.PUBLIC_DATA_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
-      await assertSameTree(MerkleTreeId.NULLIFIER_TREE, nativeWS.getCommitted(), await legacyWS.getCommitted());
-      await assertSameTree(MerkleTreeId.ARCHIVE, nativeWS.getCommitted(), await legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.PUBLIC_DATA_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.NULLIFIER_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
+      await assertSameTree(MerkleTreeId.ARCHIVE, nativeWS.getCommitted(), legacyWS.getCommitted());
     }, 150_000);
   });
 
