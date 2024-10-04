@@ -1,11 +1,9 @@
-import { SignerlessWallet, type WaitOpts } from '@aztec/aztec.js';
-import { registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { type WaitOpts } from '@aztec/aztec.js';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 
-import { SchnorrAccountContractArtifact, getSchnorrAccount } from '../schnorr/index.js';
+import { getSchnorrAccount } from '../schnorr/index.js';
 
 /**
  * Deploys and registers a new account using random private keys and returns the associated Schnorr account wallet. Useful for testing.
@@ -38,12 +36,6 @@ export async function createAccounts(
     throw new Error('Secrets array must be empty or have the same length as the number of accounts');
   }
 
-  // If not done yet, register the contract class to avoid duplicate nullifier errors
-  if (!(await pxe.isContractClassPubliclyRegistered(getContractClassFromArtifact(SchnorrAccountContractArtifact).id))) {
-    const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
-    const deployWallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
-    await (await registerContractClass(deployWallet, SchnorrAccountContractArtifact)).send().wait();
-  }
   // Prepare deployments
   const accountsAndDeployments = await Promise.all(
     secrets.map(async secret => {

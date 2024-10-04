@@ -9,7 +9,6 @@ import {
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
 } from '../private_execution_result.js';
-import { type PublicExecutionResult } from '../public_execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 

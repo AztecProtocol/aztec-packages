@@ -34,7 +34,12 @@ import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, deployCanonicalFeeJuice, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import {
+  type BalancesFn,
+  deployCanonicalFeeJuice,
+  ensureAccountsPubliclyDeployed,
+  getBalancesFn,
+} from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -208,7 +213,7 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      publicDeployAccounts(this.aliceWallet, this.wallets),
+      ensureAccountsPubliclyDeployed(this.aliceWallet, this.wallets),
     );
   }
 

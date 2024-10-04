@@ -8,12 +8,12 @@ import {
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type ContractInstanceWithAddress } from '../index.js';
-import { type Wallet } from '../wallet/index.js';
+import { type Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {

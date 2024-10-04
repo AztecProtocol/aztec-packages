@@ -10,7 +10,6 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type Wallet } from '../account/index.js';
-import { DeployProvenTx } from '../account_manager/deploy_account_proven_tx.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -18,6 +17,7 @@ import { BaseContractInteraction, type SendMethodOptions } from './base_contract
 import { type Contract } from './contract.js';
 import { type ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
+import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 
 /**
@@ -234,7 +234,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns The proven tx.
    */
-  public override async prove(options: DeployOptions): Promise<DeployProvenTx> {
+  public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
     const txRequest = await this.create(options);
     const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
     const txProvingResult = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);

@@ -561,10 +561,25 @@ export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; 
  */
 
 // docs:start:public_deploy_accounts
-export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
-  const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
-  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
-  await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToDeploy: Wallet[]) {
+  // We have to check whether the accounts are already deployed. This can happen if the test runs against
+  // the sandbox and the test accounts exist
+  const accountsAndAddresses = await Promise.all(
+    accountsToDeploy.map(async account => {
+      const address = account.getAddress();
+      return {
+        address,
+        deployed: await sender.isContractPubliclyDeployed(address),
+      };
+    }),
+  );
+  const instances = await Promise.all(
+    accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
+  );
+  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
+    await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+  }
   const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
   await batch.send().wait();
 }

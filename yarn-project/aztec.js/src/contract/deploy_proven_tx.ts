@@ -1,4 +1,3 @@
-import { ProvenTx } from '../contract/proven_tx.js';
 import {
   type AztecAddress,
   type Contract,
@@ -9,6 +8,7 @@ import {
   type Tx,
   type Wallet,
 } from '../index.js';
+import { ProvenTx } from './proven_tx.js';
 
 /**
  * A proven transaction that can be sent to the network. Returned by the `prove` method of a contract deployment.
