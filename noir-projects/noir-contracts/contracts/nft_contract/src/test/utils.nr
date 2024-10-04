@@ -70,8 +70,8 @@ unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: 
     let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment);
     env.call_public(finalize_transfer_to_private_call_interface);
 
-    // Store the finalized note in the cache
-    let mut context = env.private();
+    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
+    // is not called and we don't have a `NoteProcessor` in TXE.
     let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
     let private_nfts_owner_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, owner);
 

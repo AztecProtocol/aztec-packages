@@ -48,8 +48,8 @@ unconstrained fn transfer_to_private_to_a_different_account() {
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
     );
 
-    // Store the finalized note in the cache
-    let mut context = env.private();
+    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
+    // is not called and we don't have a `NoteProcessor` in TXE.
     let recipient_npk_m_hash = get_public_keys(recipient).npk_m.hash();
     let private_nfts_recipient_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, recipient);
 
