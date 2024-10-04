@@ -314,6 +314,12 @@ export type SetupOptions = {
   l1BlockTime?: number;
   /** Anvil Start time */
   l1StartTime?: number;
+  /** The anvil time where we should at the earliest be seeing L2 blocks */
+  l2StartTime?: number;
+  /** How far we should assume proven */
+  assumeProvenThrough?: number;
+  /** Whether to start a prover node */
+  startProverNode?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -420,11 +426,17 @@ export async function setup(
       config.l1RpcUrl,
       publisherHdAccount!,
       logger,
-      { salt: opts.salt, initialValidators: opts.initialValidators },
+      { salt: opts.salt, initialValidators: opts.initialValidators, assumeProvenThrough: opts.assumeProvenThrough },
       chain,
     ));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  if (opts.l2StartTime) {
+    // This should only be used in synching test or when you need to have a stable
+    // timestamp for the first l2 block.
+    await ethCheatCodes.warp(opts.l2StartTime);
+  }
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodes(config.l1RpcUrl),

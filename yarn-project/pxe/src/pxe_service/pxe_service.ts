@@ -35,6 +35,7 @@ import {
   AztecAddress,
   type CompleteAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
   type PartialAddress,
   computeContractAddressFromInstance,
   computeContractClassId,
@@ -748,9 +749,13 @@ export class PXEService implements PXE {
       if (err instanceof SimulationError) {
         const callStack = err.getCallStack();
         const originalFailingFunction = callStack[callStack.length - 1];
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
+        // To be able to resolve the assertion message, we need to use the information from the public dispatch function,
+        // no matter what the call stack selector points to (since we've modified it to point to the target function).
+        // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
         const debugInfo = await this.contractDataOracle.getFunctionDebugMetadata(
           originalFailingFunction.contractAddress,
-          originalFailingFunction.functionSelector,
+          FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
         );
         const noirCallStack = err.getNoirCallStack();
         if (debugInfo) {

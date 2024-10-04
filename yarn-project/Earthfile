@@ -284,4 +284,5 @@ publish-npm:
     ARG DIST_TAG="latest"
     ARG VERSION
     ARG DRY_RUN=0
-    RUN --secret NPM_TOKEN ./.github/scripts/publish_npm.sh $DIST_TAG $VERSION $DRY_RUN
+    WORKDIR /usr/src/yarn-project
+    RUN --secret NPM_TOKEN ./publish_npm.sh $DIST_TAG $VERSION $DRY_RUN

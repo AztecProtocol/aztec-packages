@@ -71,7 +71,12 @@ export class EpochProvingJob {
 
     try {
       this.prover.startNewEpoch(epochNumber, epochSize);
-      let previousHeader = await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
+
+      // Get the genesis header if the first block of the epoch is the first block of the chain
+      let previousHeader =
+        this.blocks[0].number === 1
+          ? this.publicProcessorFactory.getInitialHeader()
+          : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
 
       for (const block of this.blocks) {
         // Gather all data to prove this block

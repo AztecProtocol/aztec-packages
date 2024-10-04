@@ -56,7 +56,7 @@ export type SubsystemsContext = {
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
   deployL1ContractsValues: DeployL1Contracts;
-  proverNode: ProverNode;
+  proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
 };
@@ -251,7 +251,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
-  await context.proverNode.stop();
+  await context.proverNode?.stop();
   await context.aztecNode.stop();
   await context.pxe.stop();
   await context.acvmConfig?.cleanup();
@@ -259,7 +259,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.watcher.stop();
 }
 
-export async function createAndSyncProverNode(
+async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
@@ -281,8 +281,8 @@ export async function createAndSyncProverNode(
     proverNodePollingIntervalMs: 200,
     quoteProviderBasisPointFee: 100,
     quoteProviderBondAmount: 1000n,
-    proverMinimumStakeAmount: 0n,
-    proverTargetStakeAmount: 0n,
+    proverMinimumStakeAmount: 1000n,
+    proverTargetStakeAmount: 2000n,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,
@@ -309,7 +309,7 @@ async function setupFromFresh(
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...opts };
+  const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
@@ -367,12 +367,15 @@ async function setupFromFresh(
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
-  logger.verbose('Creating and syncing a simulated prover node...');
-  const proverNode = await createAndSyncProverNode(
-    `0x${proverNodePrivateKey!.toString('hex')}`,
-    aztecNodeConfig,
-    aztecNode,
-  );
+  let proverNode: ProverNode | undefined = undefined;
+  if (opts.startProverNode) {
+    logger.verbose('Creating and syncing a simulated prover node...');
+    proverNode = await createAndSyncProverNode(
+      `0x${proverNodePrivateKey!.toString('hex')}`,
+      aztecNodeConfig,
+      aztecNode,
+    );
+  }
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -416,7 +419,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Load config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = JSON.parse(
+  const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
     reviver,
   );
@@ -459,11 +462,13 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
-  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-  const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-
-  logger.verbose('Creating and syncing a simulated prover node...');
-  const proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, aztecNodeConfig, aztecNode);
+  let proverNode: ProverNode | undefined = undefined;
+  if (aztecNodeConfig.startProverNode) {
+    logger.verbose('Creating and syncing a simulated prover node...');
+    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
+    proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, aztecNodeConfig, aztecNode);
+  }
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();

@@ -491,9 +491,9 @@ export class Sequencer {
         await this.publishL2Block(block, attestations, txHashes, proofQuote);
         this.metrics.recordPublishedBlock(workDuration);
         this.log.info(
-          `Submitted rollup block ${block.number} with ${
-            processedTxs.length
-          } transactions duration=${workDuration}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+          `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
+            workDuration,
+          )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
         );
       } catch (err) {
         this.metrics.recordFailedBlock();
