@@ -46,7 +46,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}) {
+  public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
     const txRequest = await this.create(options);
     const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
     const txProvingResult = await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
@@ -62,7 +62,7 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}) {
+  public send(options: SendMethodOptions = {}): SentTx {
     const promise = (async () => {
       // Don't call this.prove() to avoid the serialization of the ProvenTx object.
       const txRequest = await this.create(options);

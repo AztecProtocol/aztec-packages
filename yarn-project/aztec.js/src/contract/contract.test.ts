@@ -4,6 +4,7 @@ import {
   type TxHash,
   type TxProvingResult,
   type TxReceipt,
+  type TxSimulationResult,
 } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
@@ -23,10 +24,11 @@ describe('Contract Class', () => {
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
-  const mockTxProvingResult = { type: 'TxProvingResult' } as any as TxProvingResult;
+  const mockTxProvingResult = { type: 'TxProvingResult', toTx: () => mockTx } as any as TxProvingResult;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
+  const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
   const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),
@@ -131,6 +133,7 @@ describe('Contract Class', () => {
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
+    wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
