@@ -125,6 +125,25 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['blockNumber'] = body.blockNumber;
       }
 
+      if ('leafIndex' in body) {
+        data['leafIndex'] = body.leafIndex;
+      }
+
+      if ('blockHeaderHash' in body) {
+        data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
+      }
+
+      if ('leaf' in body) {
+        if (Buffer.isBuffer(body.leaf)) {
+          data['leaf'] = '0x' + body.leaf.toString('hex');
+        } else if ('slot' in body.leaf) {
+          data['slot'] = '0x' + body.leaf.slot.toString('hex');
+          data['value'] = '0x' + body.leaf.value.toString('hex');
+        } else {
+          data['nullifier'] = '0x' + body.leaf.value.toString('hex');
+        }
+      }
+
       this.log.debug(`Calling ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);
     } else {
       this.log.debug(`Calling ${WorldStateMessageType[messageType]}`);

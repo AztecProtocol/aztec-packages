@@ -19,7 +19,10 @@ export async function createWorldStateSynchronizer(
     ? await MerkleTrees.new(store, client)
     : config.dataDirectory
     ? await NativeWorldStateService.create(config.l1Contracts.rollupAddress, config.dataDirectory)
-    : await NativeWorldStateService.tmp(config.l1Contracts.rollupAddress);
+    : await NativeWorldStateService.tmp(
+        config.l1Contracts.rollupAddress,
+        !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),
+      );
 
   return new ServerWorldStateSynchronizer(store, merkleTrees, l2BlockSource, config);
 }

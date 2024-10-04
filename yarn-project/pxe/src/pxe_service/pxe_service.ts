@@ -802,7 +802,9 @@ export class PXEService implements PXE {
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest, msgSender, scopes);
 
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
+    // use the block the tx was simulated against
+    const block = executionResult.callStackItem.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     const { clientIvcProof, publicInputs } = await kernelProver.prove(

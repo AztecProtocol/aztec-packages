@@ -22,7 +22,6 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import assert from 'assert/strict';
-import { rmSync } from 'fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -48,16 +47,18 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected constructor(
     protected readonly instance: NativeWorldState,
     protected readonly log = createDebugLogger('aztec:world-state:database'),
+    private readonly cleanup = () => Promise.resolve(),
   ) {}
 
   static async create(
     rollupAddress: EthAddress,
     dataDir: string,
     log = createDebugLogger('aztec:world-state:database'),
+    cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
     const rollupAddressFile = join(dataDir, ROLLUP_ADDRESS_FILE);
     const currentRollupStr = await readFile(rollupAddressFile, 'utf8').catch(() => undefined);
-    const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr) : undefined;
+    const currentRollupAddress = currentRollupStr ? EthAddress.fromString(currentRollupStr.trim()) : undefined;
 
     if (currentRollupAddress && !rollupAddress.equals(currentRollupAddress)) {
       log.warn('Rollup address changed, deleting database');
@@ -68,21 +69,27 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
 
     const instance = new NativeWorldState(dataDir);
-    const worldState = new this(instance, log);
+    const worldState = new this(instance, log, cleanup);
     await worldState.init();
     return worldState;
   }
 
-  static async tmp(rollupAddress = EthAddress.ZERO): Promise<NativeWorldStateService> {
+  static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
     const log = createDebugLogger('aztec:world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
-    log.verbose(`Created temporary world state database: ${dataDir}`);
-    process.on('beforeExit', () => {
-      rmSync(dataDir, { recursive: true, force: true });
-      log.verbose(`Deleted temporary world state database: ${dataDir}`);
-    });
+    log.debug(`Created temporary world state database: ${dataDir}`);
 
-    return NativeWorldStateService.create(rollupAddress, dataDir, log);
+    // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
+    const cleanup = async () => {
+      if (cleanupTmpDir) {
+        await rm(dataDir, { recursive: true, force: true });
+        log.debug(`Deleted temporary world state database: ${dataDir}`);
+      } else {
+        log.debug(`Leaving temporary world state database: ${dataDir}`);
+      }
+    };
+
+    return this.create(rollupAddress, dataDir, log, cleanup);
   }
 
   protected async init() {
@@ -165,6 +172,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   public async close(): Promise<void> {
     await this.instance.close();
+    await this.cleanup();
   }
 
   private async buildInitialHeader(): Promise<Header> {

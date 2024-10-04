@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
+#include <ostream>
 #include <string>
 
 namespace bb::crypto::merkle_tree {
@@ -29,6 +30,16 @@ struct TreeMeta {
                finalisedBlockHeight == other.finalisedBlockHeight;
     }
 };
+
+inline std::ostream& operator<<(std::ostream& os, const TreeMeta& meta)
+{
+    os << "TreeMeta{name: " << meta.name << ", depth: " << meta.depth << ", size: " << std::dec << (meta.size)
+       << ", committedSize: " << std::dec << meta.committedSize << ", root: " << meta.root
+       << ", initialSize: " << std::dec << meta.initialSize << ", initialRoot: " << meta.initialRoot
+       << ", finalisedBlockHeight: " << std::dec << meta.finalisedBlockHeight
+       << ", unfinalisedBlockHeight: " << std::dec << meta.unfinalisedBlockHeight << "}";
+    return os;
+}
 
 struct LeavesMeta {
     index_t size;

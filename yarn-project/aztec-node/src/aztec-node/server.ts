@@ -699,8 +699,11 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getHeader(): Promise<Header> {
-    return (await this.getBlock(-1))?.header ?? (await this.#getWorldState('latest')).getInitialHeader();
+  public async getHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+    return (
+      (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
+      this.worldStateSynchronizer.getCommitted().getInitialHeader()
+    );
   }
 
   /**
@@ -843,10 +846,10 @@ export class AztecNodeService implements AztecNode {
     }
 
     // using a snapshot could be less efficient than using the committed db
-    if (blockNumber === 'latest' || blockNumber === blockSyncedTo) {
+    if (blockNumber === 'latest' /*|| blockNumber === blockSyncedTo*/) {
       this.log.debug(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
-    } else if (blockNumber < blockSyncedTo) {
+    } else if (blockNumber <= blockSyncedTo) {
       this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     } else {
