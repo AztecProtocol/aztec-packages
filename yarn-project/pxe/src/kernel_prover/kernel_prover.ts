@@ -1,6 +1,7 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
   Fr,
+  PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -12,10 +13,16 @@ import {
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import {
+  getProtocolContractSiblingPath,
+  isProtocolContract,
+  protocolContractTreeRoot,
+} from '@aztec/protocol-contracts';
 import {
   type ExecutionResult,
   collectEnqueuedPublicFunctionCalls,
@@ -118,7 +125,12 @@ export class KernelProver {
       const privateCallData = await this.createPrivateCallData(currentExecution, appVk.verificationKey);
 
       if (firstIteration) {
-        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, getVKTreeRoot(), privateCallData);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(
+          txRequest,
+          getVKTreeRoot(),
+          protocolContractTreeRoot,
+          privateCallData,
+        );
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.simulateProofInit(proofInput);
         acirs.push(output.bytecode);
@@ -204,6 +216,10 @@ export class KernelProver {
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
+    const protocolContractSiblingPath = isProtocolContract(contractAddress)
+      ? getProtocolContractSiblingPath(contractAddress)
+      : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
+
     return PrivateCallData.from({
       callStackItem,
       vk,
@@ -212,6 +228,7 @@ export class KernelProver {
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
       functionLeafMembershipWitness,
+      protocolContractSiblingPath,
       acirHash,
     });
   }

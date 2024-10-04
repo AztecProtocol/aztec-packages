@@ -7,6 +7,7 @@ pub struct EmptyBlockRootRollupInputs {
     block_hash: Field,
     global_variables: GlobalVariables,
     vk_tree_root: Field,
+    protocol_contract_tree_root: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
 }
@@ -23,6 +24,7 @@ impl EmptyBlockRootRollupInputs {
             out_hash: 0, // out_hash is ignored when merging if the block proof is padding
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
             prover_id: self.prover_id
         }
     }

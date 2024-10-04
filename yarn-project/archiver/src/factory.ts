@@ -1,5 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/utils';
+import { ProtocolContractAddress, ProtocolContractArtifact, protocolContractNames } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -16,8 +17,15 @@ export async function createArchiver(
   if (!config.archiverUrl) {
     const store = await createStore('archiver', config, createDebugLogger('aztec:archiver:lmdb'));
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
+    await initWithProtocolContracts(archiverStore);
     return Archiver.createAndSync(config, archiverStore, telemetry, opts.blockUntilSync);
   } else {
     return createArchiverClient(config.archiverUrl);
+  }
+}
+
+async function initWithProtocolContracts(store: KVArchiverDataStore) {
+  for (const name of protocolContractNames) {
+    await store.addContractArtifact(ProtocolContractAddress[name], ProtocolContractArtifact[name]);
   }
 }

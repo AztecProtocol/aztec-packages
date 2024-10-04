@@ -64,10 +64,7 @@ import {
   TxProofValidator,
   createP2PClient,
 } from '@aztec/p2p';
-import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -795,10 +792,10 @@ export class AztecNodeService implements AztecNode {
 
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
     return Promise.resolve({
-      classRegisterer: getCanonicalClassRegisterer().address,
-      feeJuice: getCanonicalFeeJuice().address,
-      instanceDeployer: getCanonicalInstanceDeployer().address,
-      multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
+      classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+      feeJuice: ProtocolContractAddress.FeeJuice,
+      instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+      multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
     });
   }
 

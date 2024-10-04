@@ -146,6 +146,7 @@ impl BlockRootRollupInputs {
             out_hash: content_commitment.out_hash,
             fees: fee_arr,
             vk_tree_root: left.constants.vk_tree_root,
+            protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: self.prover_id
         }
     }

@@ -19,11 +19,11 @@
   },
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
-    "generate": "yarn generate:noir-contracts",
-    "generate:noir-contracts": "./scripts/copy-contracts.sh",
+    "generate": "yarn generate:data",
+    "generate:data": "node --no-warnings --loader ts-node/esm src/scripts/generate_data.ts && run -T prettier -w src/protocol_contract_data.ts",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
-    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
+    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts src/protocol_contract_data.ts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"

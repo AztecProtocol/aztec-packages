@@ -1,7 +1,7 @@
 import { PublicKernelPhase, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractArtifact } from '@aztec/protocol-contracts';
 import { EnqueuedCallsProcessor, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
@@ -65,7 +65,7 @@ export class GasTxValidator implements TxValidator<Tx> {
         fn.contractAddress.equals(this.#feeJuiceAddress) &&
         fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
         fn.callContext.functionSelector.equals(
-          FeeJuiceArtifact.functions.find(f => f.name === '_increase_public_balance')!,
+          ProtocolContractArtifact.FeeJuice.functions.find(f => f.name === '_increase_public_balance')!,
         ) &&
         fn.args[0].equals(feePayer) &&
         !fn.callContext.isStaticCall &&

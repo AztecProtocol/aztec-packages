@@ -101,6 +101,10 @@ export interface DeployL1ContractsArgs {
    */
   vkTreeRoot: Fr;
   /**
+   * The protocol contract tree root.
+   */
+  protocolContractTreeRoot: Fr;
+  /**
    * The block number to assume proven through.
    */
   assumeProvenThrough?: number;
@@ -210,6 +214,7 @@ export const deployL1Contracts = async (
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
     getAddress(feeJuicePortalAddress.toString()),
     args.vkTreeRoot.toString(),
+    args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
   ]);

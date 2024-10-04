@@ -51,7 +51,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       userLog(`${splash}\n${github}\n\n`);
       userLog(`Setting up Aztec Sandbox, please stand by...`);
       const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
-        enableGas: sandboxOptions.enableGas,
         l1Mnemonic: options.l1Mnemonic,
         l1RpcUrl: options.l1RpcUrl,
       });

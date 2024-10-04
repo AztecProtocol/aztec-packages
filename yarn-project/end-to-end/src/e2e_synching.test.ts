@@ -396,7 +396,6 @@ describe('e2e_synching', () => {
       await setup(0, {
         salt: SALT,
         l1StartTime: START_TIME,
-        skipProtocolContracts: true,
       });
 
     await (aztecNode as any).stop();

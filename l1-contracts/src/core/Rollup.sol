@@ -76,6 +76,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   mapping(uint256 blockNumber => BlockLog log) public blocks;
 
   bytes32 public vkTreeRoot;
+  bytes32 public protocolContractTreeRoot;
 
   // @note  Assume that all blocks up to this value (inclusive) are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
@@ -84,6 +85,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     bytes32 _vkTreeRoot,
+    bytes32 _protocolContractTreeRoot,
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
@@ -93,6 +95,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
+    protocolContractTreeRoot = _protocolContractTreeRoot;
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -162,6 +165,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    */
   function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
     vkTreeRoot = _vkTreeRoot;
+  }
+
+  /**
+   * @notice  Set the protocolContractTreeRoot
+   *
+   * @dev     This is only needed for testing, and should be removed
+   *
+   * @param _protocolContractTreeRoot - The new protocolContractTreeRoot to be used by proofs
+   */
+  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot)
+    external
+    override(ITestRollup)
+    onlyOwner
+  {
+    protocolContractTreeRoot = _protocolContractTreeRoot;
   }
 
   /**
@@ -513,6 +531,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   out_hash: Field,
     //   fees: [FeeRecipient; 32],
     //   vk_tree_root: Field,
+    //   protocol_contract_tree_root: Field,
     //   prover_id: Field
     // }
 
@@ -553,8 +572,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // vk_tree_root
     publicInputs[73] = vkTreeRoot;
 
+    // protocol_contract_tree_root
+    publicInputs[74] = protocolContractTreeRoot;
+
     // prover_id: id of current epoch's prover
-    publicInputs[74] = _args[6];
+    publicInputs[75] = _args[6];
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
@@ -565,7 +587,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 75] = part;
+      publicInputs[i + 76] = part;
     }
 
     return publicInputs;

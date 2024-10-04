@@ -4,13 +4,6 @@ source ../utils/setup.sh
 
 test_title "Create an account and deploy using native fee payment with bridging"
 
-echo
-warn ///////////////////////////////////////////////////////////////////
-warn // WARNING: this test requires protocol contracts to be deployed //
-warn //         > aztec deploy-protocol-contracts                     //
-warn ///////////////////////////////////////////////////////////////////
-echo
-
 aztec-wallet create-account -a main --register-only
 aztec-wallet bridge-fee-juice 100000000000000000 main --mint --no-wait
 

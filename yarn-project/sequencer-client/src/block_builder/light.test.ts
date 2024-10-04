@@ -35,6 +35,7 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
   buildBaseRollupInput,
   buildHeaderFromCircuitOutputs,
@@ -188,7 +189,13 @@ describe('LightBlockBuilder', () => {
       txs = [
         ...txs,
         ...times(2 - txs.length, () =>
-          makeEmptyProcessedTx(expectsDb.getInitialHeader(), globals.chainId, globals.version, vkRoot),
+          makeEmptyProcessedTx(
+            expectsDb.getInitialHeader(),
+            globals.chainId,
+            globals.version,
+            vkRoot,
+            protocolContractTreeRoot,
+          ),
         ),
       ];
       // No need to run a merge if there's 0-2 txs

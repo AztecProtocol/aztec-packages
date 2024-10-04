@@ -49,6 +49,10 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public vkTreeRoot: Fr,
     /**
+     * Root of the protocol contract tree.
+     */
+    public protocolContractTreeRoot: Fr,
+    /**
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
@@ -72,6 +76,7 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readArray(32, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -90,6 +95,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.outHash,
       this.fees,
       this.vkTreeRoot,
+      this.protocolContractTreeRoot,
       this.proverId,
     );
   }

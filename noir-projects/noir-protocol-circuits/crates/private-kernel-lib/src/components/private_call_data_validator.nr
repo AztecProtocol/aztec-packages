@@ -1,9 +1,10 @@
 mod find_first_revertible_item_index;
+mod validate_contract_address;
 mod validate_split_ranges;
 
 use crate::components::private_call_data_validator::{
     find_first_revertible_item_index::find_first_revertible_item_index,
-    validate_split_ranges::validate_split_ranges
+    validate_contract_address::validate_contract_address, validate_split_ranges::validate_split_ranges
 };
 use dep::types::{
     abis::{
@@ -12,10 +13,8 @@ use dep::types::{
     private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
     private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered}
 },
-    address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
-    constants::MAX_FIELD_VALUE,
-    hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
-    transaction::tx_request::TxRequest, utils::arrays::find_index_hint
+    address::AztecAddress, constants::MAX_FIELD_VALUE, transaction::tx_request::TxRequest,
+    utils::arrays::find_index_hint
 };
 
 fn validate_call_context(
@@ -64,7 +63,12 @@ fn validate_incrementing_counters_within_range<T, let N: u32>(
     assert(prev_counter < counter_end, "counter must be smaller than the end counter of the call");
 }
 
-fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(counter_start: u32, counter_end: u32, items: [T; N], num_items: u32) where T: RangeOrdered {
+fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(
+    counter_start: u32,
+    counter_end: u32,
+    items: [T; N],
+    num_items: u32
+) where T: RangeOrdered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {
@@ -94,8 +98,8 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
-        self.validate_contract_address();
+    pub fn validate<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N], protocol_contract_tree_root: Field) {
+        validate_contract_address(self.data, protocol_contract_tree_root);
         self.validate_call();
         self.validate_private_call_requests();
         self.validate_public_call_requests();
@@ -160,47 +164,6 @@ impl PrivateCallDataValidator {
         assert_eq(public_inputs.historical_header, constants.historical_header, "mismatch historical header");
         assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
-    }
-
-    fn validate_contract_address(self) {
-        let contract_address = self.data.call_stack_item.contract_address;
-
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
-        let private_call_vk_hash = stdlib_recursion_verification_key_compress_native_vk(self.data.vk);
-
-        assert(!contract_address.is_zero(), "contract address cannot be zero");
-        // println(f"contract_address={contract_address}");
-        // println(f"private_call_vk_hash={private_call_vk_hash}");
-
-        // Recompute the contract class id
-        let computed_private_functions_root = private_functions_root_from_siblings(
-            self.data.call_stack_item.function_data.selector,
-            private_call_vk_hash,
-            self.data.function_leaf_membership_witness.leaf_index,
-            self.data.function_leaf_membership_witness.sibling_path
-        );
-        // println(f"computed_private_functions_root={computed_private_functions_root}");
-
-        let computed_contract_class_id = ContractClassId::compute(
-            self.data.contract_class_artifact_hash,
-            computed_private_functions_root,
-            self.data.contract_class_public_bytecode_commitment
-        );
-        // println(f"computed_contract_class_id={computed_contract_class_id}");
-
-        // Recompute contract address using the preimage which includes the class_id
-        let computed_partial_address = PartialAddress::compute_from_salted_initialization_hash(
-            computed_contract_class_id,
-            self.data.salted_initialization_hash
-        );
-        // println(f"computed_partial_address={computed_partial_address}");
-
-        let computed_address = AztecAddress::compute(self.data.public_keys_hash, computed_partial_address);
-        // println(f"computed_address={computed_address}");
-
-        assert(
-            computed_address.eq(contract_address), "computed contract address does not match expected one"
-        );
     }
 
     fn validate_call(self) {

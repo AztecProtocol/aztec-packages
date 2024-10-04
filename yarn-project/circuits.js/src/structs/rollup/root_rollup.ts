@@ -96,6 +96,7 @@ export class RootRollupPublicInputs {
     public outHash: Fr,
     public fees: Tuple<FeeRecipient, 32>,
     public vkTreeRoot: Fr,
+    public protocolContractTreeRoot: Fr,
     public proverId: Fr,
   ) {}
 
@@ -110,6 +111,7 @@ export class RootRollupPublicInputs {
       fields.outHash,
       fields.fees,
       fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
       fields.proverId,
     ] as const;
   }
@@ -142,6 +144,7 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(32, FeeRecipient),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );

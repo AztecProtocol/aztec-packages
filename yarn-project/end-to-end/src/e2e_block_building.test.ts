@@ -349,7 +349,6 @@ describe('e2e_block_building', () => {
     it('publishes two blocks with only padding txs', async () => {
       ({ teardown, pxe, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
       }));
 
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
@@ -359,7 +358,6 @@ describe('e2e_block_building', () => {
     it('sends a tx on the first block', async () => {
       ({ teardown, pxe, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
       }));
       await sleep(1000);
 
@@ -377,7 +375,6 @@ describe('e2e_block_building', () => {
         wallet: owner,
       } = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
       }));
 
       logger.info('Deploying token contract');

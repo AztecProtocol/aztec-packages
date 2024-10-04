@@ -70,7 +70,7 @@ contract RollupTest is DecoderBase {
     feeJuicePortal.initialize(
       address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
-    rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 

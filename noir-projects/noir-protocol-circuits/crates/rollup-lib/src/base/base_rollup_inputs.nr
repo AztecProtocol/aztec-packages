@@ -79,6 +79,10 @@ impl BaseRollupInputs {
         assert(
             self.kernel_data.public_inputs.constants.vk_tree_root == self.constants.vk_tree_root, "kernel vk_tree_root does not match the rollup vk_tree_root"
         );
+        assert(
+            self.kernel_data.public_inputs.constants.protocol_contract_tree_root
+            == self.constants.protocol_contract_tree_root, "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root"
+        );
 
         // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
         // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?

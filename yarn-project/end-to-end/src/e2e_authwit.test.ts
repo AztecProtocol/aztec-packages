@@ -1,6 +1,6 @@
 import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { AuthRegistryContract, AuthWitTestContract } from '@aztec/noir-contracts.js';
-import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
 
@@ -174,7 +174,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: true,
         });
 
-        const registry = await AuthRegistryContract.at(getCanonicalAuthRegistry().instance.address, wallets[1]);
+        const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallets[1]);
         await registry.methods.consume(wallets[0].getAddress(), innerHash).send().wait();
 
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
@@ -207,7 +207,7 @@ describe('e2e_authwit_tests', () => {
             isValidInPublic: false,
           });
 
-          const registry = await AuthRegistryContract.at(getCanonicalAuthRegistry().instance.address, wallets[1]);
+          const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallets[1]);
           await expect(registry.methods.consume(wallets[0].getAddress(), innerHash).simulate()).rejects.toThrow(
             /unauthorized/,
           );

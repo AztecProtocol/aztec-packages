@@ -74,7 +74,7 @@ contract SpartaTest is DecoderBase {
     }
 
     testERC20 = new TestERC20();
-    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators);
+    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 

@@ -617,18 +617,6 @@ jobs:
           env
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
-      - name: Deploy protocol contracts
-        run: |
-          set -e
-          set -o pipefail
-          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
-          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-protocol-contracts \
-            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
-            --l1-chain-id ${{ env.L1_CHAIN_ID }} \
-            --json | tee ./protocol_contracts.json
-
-          aws s3 cp ./protocol_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/protocol_contracts.json
-
       - name: Bootstrap network
         run: |
           set -e

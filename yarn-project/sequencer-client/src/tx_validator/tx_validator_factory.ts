@@ -1,7 +1,7 @@
 import { type AllowedElement, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { type GlobalVariables } from '@aztec/circuits.js';
 import { AggregateTxValidator, DataTxValidator, DoubleSpendTxValidator, MetadataTxValidator } from '@aztec/p2p';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { WorldStateDB } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
@@ -23,7 +23,7 @@ export class TxValidatorFactory {
       new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
       new DoubleSpendTxValidator(worldStateDB),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(worldStateDB, FeeJuiceAddress, this.enforceFees),
+      new GasTxValidator(worldStateDB, ProtocolContractAddress.FeeJuice, this.enforceFees),
     );
   }
 
