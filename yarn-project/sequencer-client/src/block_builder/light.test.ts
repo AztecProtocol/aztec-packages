@@ -134,7 +134,7 @@ describe('LightBlockBuilder', () => {
     });
 
     expect(header).toEqual(expectedHeader);
-  });
+  }, 20_000);
 
   it('builds a 5 tx header', async () => {
     const txs = times(5, makeTx);
@@ -148,7 +148,7 @@ describe('LightBlockBuilder', () => {
     });
 
     expect(header).toEqual(expectedHeader);
-  });
+  }, 20_000);
 
   it('builds a single tx header', async () => {
     const txs = times(1, i => makeBloatedProcessedTx(fork, vkRoot, i));

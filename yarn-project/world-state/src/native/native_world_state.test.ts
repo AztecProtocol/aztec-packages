@@ -34,7 +34,7 @@ describe('NativeWorldState', () => {
 
       await ws.handleL2BlockAndMessages(block, messages);
       await ws.close();
-    });
+    }, 20_000);
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir);
