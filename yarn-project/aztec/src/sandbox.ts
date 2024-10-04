@@ -16,6 +16,8 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
+  MockProofCommitmentEscrowAbi,
+  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -112,6 +114,10 @@ export async function deployContractsToL1(
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
+    },
+    proofCommitmentEscrow: {
+      contractAbi: MockProofCommitmentEscrowAbi,
+      contractBytecode: MockProofCommitmentEscrowBytecode,
     },
   };
 

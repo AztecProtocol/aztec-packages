@@ -1,7 +1,6 @@
 import { PublicKernelPhase, type Tx, type TxValidator } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ProtocolContractArtifact } from '@aztec/protocol-contracts';
 import { EnqueuedCallsProcessor, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
@@ -64,15 +63,15 @@ export class GasTxValidator implements TxValidator<Tx> {
       fn =>
         fn.contractAddress.equals(this.#feeJuiceAddress) &&
         fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
-        fn.callContext.functionSelector.equals(
-          ProtocolContractArtifact.FeeJuice.functions.find(f => f.name === '_increase_public_balance')!,
-        ) &&
-        fn.args[0].equals(feePayer) &&
+        fn.args.length > 2 &&
+        // Public functions get routed through the dispatch function, whose first argument is the target function selector.
+        fn.args[0].equals(FunctionSelector.fromSignature('_increase_public_balance((Field),Field)').toField()) &&
+        fn.args[1].equals(feePayer) &&
         !fn.callContext.isStaticCall &&
         !fn.callContext.isDelegateCall,
     );
 
-    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
+    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
     if (balance.lt(feeLimit)) {
       this.#log.info(`Rejecting transaction due to not enough fee payer balance`, { feePayer, balance, feeLimit });
       return false;

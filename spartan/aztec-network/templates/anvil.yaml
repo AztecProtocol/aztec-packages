@@ -70,3 +70,24 @@ spec:
       {{- if and (eq .Values.ethereum.service.type "NodePort") .Values.ethereum.service.nodePort }}
       nodePort: {{ .Values.ethereum.service.nodePort }}
       {{- end }}
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-ethereum-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: ethereum
+  ports:
+    - protocol: TCP
+      port: {{ .Values.ethereum.service.port }}
+      targetPort: {{ .Values.ethereum.service.targetPort }}
+      {{- if and (eq .Values.ethereum.service.type "NodePort") .Values.ethereum.service.nodePort }}
+      nodePort: {{ .Values.ethereum.service.nodePort }}
+      {{- end }}
+{{ end }}

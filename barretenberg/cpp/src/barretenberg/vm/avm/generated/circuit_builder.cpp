@@ -193,6 +193,8 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_ind_addr_d.set_if_valid_index(i, rows[i].main_ind_addr_d);
                 polys.main_internal_return_ptr.set_if_valid_index(i, rows[i].main_internal_return_ptr);
                 polys.main_inv.set_if_valid_index(i, rows[i].main_inv);
+                polys.main_is_fake_row.set_if_valid_index(i, rows[i].main_is_fake_row);
+                polys.main_is_gas_accounted.set_if_valid_index(i, rows[i].main_is_gas_accounted);
                 polys.main_kernel_in_offset.set_if_valid_index(i, rows[i].main_kernel_in_offset);
                 polys.main_kernel_out_offset.set_if_valid_index(i, rows[i].main_kernel_out_offset);
                 polys.main_l1_to_l2_msg_exists_write_offset.set_if_valid_index(

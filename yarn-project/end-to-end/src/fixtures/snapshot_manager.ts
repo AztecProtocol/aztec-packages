@@ -6,6 +6,7 @@ import {
   type AztecAddress,
   type AztecNode,
   BatchCall,
+  CheatCodes,
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
@@ -19,7 +20,6 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -38,7 +38,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { getPrivateKeyFromIndex } from './utils.js';
+import { type SetupOptions, getPrivateKeyFromIndex, startAnvil } from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -50,6 +50,7 @@ export type SubsystemsContext = {
   deployL1ContractsValues: DeployL1Contracts;
   proverNode: ProverNode;
   watcher: AnvilTestWatcher;
+  cheatCodes: CheatCodes;
 };
 
 type SnapshotEntry = {
@@ -62,8 +63,11 @@ type SnapshotEntry = {
 export function createSnapshotManager(
   testName: string,
   dataPath?: string,
-  config: Partial<AztecNodeConfig> = {},
-  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+  config: Partial<SetupOptions> = {},
+  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    initialValidators: [],
+  },
 ) {
   return dataPath
     ? new SnapshotManager(testName, dataPath, config, deployL1ContractsArgs)
@@ -137,7 +141,7 @@ class SnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private dataPath: string,
-    private config: Partial<AztecNodeConfig> = {},
+    private config: Partial<SetupOptions> = {},
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
@@ -265,13 +269,18 @@ export async function createAndSyncProverNode(
     realProofs: false,
     proverAgentConcurrency: 2,
     publisherPrivateKey: proverNodePrivateKey,
-    proverNodeMaxPendingJobs: 100,
+    proverNodeMaxPendingJobs: 10,
+    proverNodePollingIntervalMs: 200,
+    quoteProviderBasisPointFee: 100,
+    quoteProviderBondAmount: 1000n,
+    proverMinimumStakeAmount: 0n,
+    proverTargetStakeAmount: 0n,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,
     archiver: archiver as Archiver,
   });
-  proverNode.start();
+  await proverNode.start();
   return proverNode;
 }
 
@@ -283,7 +292,7 @@ export async function createAndSyncProverNode(
 async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
-  config: Partial<AztecNodeConfig> = {},
+  opts: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
   },
@@ -292,22 +301,14 @@ async function setupFromFresh(
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
+  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
-  const anvil = await retry(
-    async () => {
-      const ethereumHostPort = await getPort();
-      aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-      const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
-      await anvil.start();
-      return anvil;
-    },
-    'Start anvil',
-    makeBackoff([5, 5, 5]),
-  );
+  const res = await startAnvil(opts.l1BlockTime);
+  const anvil = res.anvil;
+  aztecNodeConfig.l1RpcUrl = res.rpcUrl;
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
@@ -321,12 +322,17 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const deployL1ContractsValues = await setupL1Contracts(
-    aztecNodeConfig.l1RpcUrl,
-    hdAccount,
-    logger,
-    deployL1ContractsArgs,
-  );
+  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+
+  if (opts.l1StartTime) {
+    await ethCheatCodes.warp(opts.l1StartTime);
+  }
+
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+    salt: opts.salt,
+    initialValidators: opts.initialValidators,
+    ...deployL1ContractsArgs,
+  });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
@@ -365,6 +371,8 @@ async function setupFromFresh(
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
   }
@@ -379,6 +387,7 @@ async function setupFromFresh(
     deployL1ContractsValues,
     proverNode,
     watcher,
+    cheatCodes,
   };
 }
 
@@ -444,6 +453,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+
   return {
     aztecNodeConfig,
     anvil,
@@ -458,6 +469,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
     },
     watcher,
+    cheatCodes,
   };
 }
 
@@ -507,7 +519,7 @@ export const addAccounts =
 export async function publicDeployAccounts(
   sender: Wallet,
   accountsToDeploy: (CompleteAddress | AztecAddress)[],
-  waitUntilProven = true,
+  waitUntilProven = false,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));

@@ -5,6 +5,7 @@ use dep::aztec::{
     keys::getters::get_public_keys
 };
 use dep::authwit::cheatcodes as authwit_cheatcodes;
+use std::test::OracleMock;
 
 #[test]
 unconstrained fn setup_refund_success() {
@@ -15,24 +16,20 @@ unconstrained fn setup_refund_success() {
     let fee_payer = recipient;
 
     let funded_amount = 1_000;
-    let user_randomness = 42;
-    let fee_payer_randomness = 123;
-    let mut context = env.private();
 
-    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(
-        fee_payer,
-        user,
-        funded_amount,
-        user_randomness,
-        fee_payer_randomness
-    );
+    // We use the same randomness for both the fee payer and the user as we currently don't have `OracleMock::mock_once()`
+    let fee_payer_randomness = 123;
+    let user_randomness = fee_payer_randomness;
+
+    let _ = OracleMock::mock("getRandomField").returns(fee_payer_randomness);
+
+    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(user, fee_payer, setup_refund_from_call_interface);
 
     env.impersonate(fee_payer);
 
     env.call_private_void(setup_refund_from_call_interface);
-    let mut context = env.private();
     let user_npk_m_hash = get_public_keys(user).npk_m.hash();
     let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
 
@@ -81,17 +78,8 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
 
     // We set funded amount to 0 to make the transaction fee higher than the funded amount
     let funded_amount = 0;
-    let user_randomness = 42;
-    let fee_payer_randomness = 123;
-    let mut context = env.private();
 
-    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(
-        fee_payer,
-        user,
-        funded_amount,
-        user_randomness,
-        fee_payer_randomness
-    );
+    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(user, fee_payer, setup_refund_from_call_interface);
 

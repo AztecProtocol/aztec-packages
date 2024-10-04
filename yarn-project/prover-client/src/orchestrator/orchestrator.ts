@@ -346,6 +346,8 @@ export class ProvingOrchestrator implements EpochProver {
     logger.verbose(`Block ${provingState.globalVariables.blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState);
 
+    // If the proofs were faster than the block building, then we need to try the block root rollup again here
+    this.checkAndEnqueueBlockRootRollup(provingState);
     return provingState.block!;
   }
 
@@ -875,11 +877,17 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   // Executes the block root rollup circuit
-  private enqueueBlockRootRollup(provingState: BlockProvingState | undefined) {
-    if (!provingState?.verifyState()) {
+  private enqueueBlockRootRollup(provingState: BlockProvingState) {
+    if (!provingState.block) {
+      throw new Error(`Invalid proving state for block root rollup, block not available`);
+    }
+
+    if (!provingState.verifyState()) {
       logger.debug('Not running block root rollup, state no longer valid');
       return;
     }
+
+    provingState.blockRootRollupStarted = true;
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
 
@@ -1067,9 +1075,13 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  private checkAndEnqueueBlockRootRollup(provingState: BlockProvingState | undefined) {
+  private checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
     if (!provingState?.isReadyForBlockRootRollup()) {
       logger.debug('Not ready for root rollup');
+      return;
+    }
+    if (provingState.blockRootRollupStarted) {
+      logger.debug('Block root rollup already started');
       return;
     }
     this.enqueueBlockRootRollup(provingState);

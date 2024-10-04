@@ -149,7 +149,7 @@ describe('guides/dapp/testing', () => {
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 
         // docs:start:calc-slot
-        cheats = CheatCodes.create(ETHEREUM_HOST, pxe);
+        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is indexed by user address
         ownerSlot = cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot

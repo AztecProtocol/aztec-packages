@@ -18,6 +18,7 @@ import {
   ContractClassRegisteredEvent,
   ContractInstanceDeployedEvent,
   type FunctionSelector,
+  type Header,
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
   isValidPrivateFunctionMembershipProof,
@@ -57,6 +58,12 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlockFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
+import {
+  getEpochNumberAtTimestamp,
+  getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampRangeForEpoch,
+} from './epoch_helpers.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -82,6 +89,9 @@ export class Archiver implements ArchiveSource {
 
   private store: ArchiverStoreHelper;
 
+  public l1BlockNumber: bigint | undefined;
+  public l1Timestamp: bigint | undefined;
+
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
@@ -98,9 +108,9 @@ export class Archiver implements ArchiveSource {
     readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     readonly dataStore: ArchiverDataStore,
-    private readonly pollingIntervalMs = 10_000,
+    private readonly pollingIntervalMs: number,
     private readonly instrumentation: ArchiverInstrumentation,
-    private readonly l1StartBlock: bigint = 0n,
+    private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {
     this.store = new ArchiverStoreHelper(dataStore);
@@ -144,7 +154,10 @@ export class Archiver implements ArchiveSource {
       client: publicClient,
     });
 
-    const l1StartBlock = await rollup.read.L1_BLOCK_AT_GENESIS();
+    const [l1StartBlock, l1GenesisTime] = await Promise.all([
+      rollup.read.L1_BLOCK_AT_GENESIS(),
+      rollup.read.GENESIS_TIME(),
+    ] as const);
 
     const archiver = new Archiver(
       publicClient,
@@ -152,9 +165,9 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       archiverStore,
-      config.archiverPollingIntervalMS,
+      config.archiverPollingIntervalMS ?? 10_000,
       new ArchiverInstrumentation(telemetry),
-      BigInt(l1StartBlock),
+      { l1StartBlock, l1GenesisTime },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -206,8 +219,8 @@ export class Archiver implements ArchiveSource {
      *
      * This code does not handle reorgs.
      */
-    const { blocksSynchedTo = this.l1StartBlock, messagesSynchedTo = this.l1StartBlock } =
-      await this.store.getSynchPoint();
+    const { l1StartBlock } = this.l1constants;
+    const { blocksSynchedTo = l1StartBlock, messagesSynchedTo = l1StartBlock } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
     // ********** Ensuring Consistency of data pulled from L1 **********
@@ -234,6 +247,12 @@ export class Archiver implements ArchiveSource {
 
     // ********** Events that are processed per L2 block **********
     await this.handleL2blocks(blockUntilSynced, blocksSynchedTo, currentL1BlockNumber);
+
+    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
+    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
+      this.l1Timestamp = await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber }).then(b => b.timestamp);
+      this.l1BlockNumber = currentL1BlockNumber;
+    }
   }
 
   private async handleL1ToL2Messages(
@@ -421,6 +440,68 @@ export class Archiver implements ArchiveSource {
     return Promise.resolve(this.registryAddress);
   }
 
+  public getL1BlockNumber(): bigint {
+    const l1BlockNumber = this.l1BlockNumber;
+    if (!l1BlockNumber) {
+      throw new Error('L1 block number not yet available. Complete an initial sync first.');
+    }
+    return l1BlockNumber;
+  }
+
+  public getL1Timestamp(): bigint {
+    const l1Timestamp = this.l1Timestamp;
+    if (!l1Timestamp) {
+      throw new Error('L1 timestamp not yet available. Complete an initial sync first.');
+    }
+    return l1Timestamp;
+  }
+
+  public getL2SlotNumber(): Promise<bigint> {
+    return Promise.resolve(getSlotAtTimestamp(this.getL1Timestamp(), this.l1constants));
+  }
+
+  public getL2EpochNumber(): Promise<bigint> {
+    return Promise.resolve(getEpochNumberAtTimestamp(this.getL1Timestamp(), this.l1constants));
+  }
+
+  public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const blocks: L2Block[] = [];
+
+    // Walk the list of blocks backwards and filter by slots matching the requested epoch.
+    // We'll typically ask for blocks for a very recent epoch, so we shouldn't need an index here.
+    let block = await this.getBlock(await this.store.getSynchedL2BlockNumber());
+    const slot = (b: L2Block) => b.header.globalVariables.slotNumber.toBigInt();
+    while (block && slot(block) >= start) {
+      if (slot(block) <= end) {
+        blocks.push(block);
+      }
+      block = await this.getBlock(block.number - 1);
+    }
+
+    return blocks;
+  }
+
+  public async isEpochComplete(epochNumber: bigint): Promise<boolean> {
+    // The epoch is complete if the current L2 block is the last one in the epoch (or later)
+    const header = await this.getBlockHeader('latest');
+    const slot = header?.globalVariables.slotNumber.toBigInt();
+    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber);
+    if (slot && slot >= endSlot) {
+      return true;
+    }
+
+    // If not, the epoch may also be complete if the L2 slot has passed without a block
+    // We compute this based on the timestamp for the given epoch and the timestamp of the last L1 block
+    const l1Timestamp = this.getL1Timestamp();
+    const [_startTimestamp, endTimestamp] = getTimestampRangeForEpoch(epochNumber, this.l1constants);
+
+    // For this computation, we throw in a few extra seconds just for good measure,
+    // since we know the next L1 block won't be mined within this range
+    const leeway = 3n;
+    return l1Timestamp + leeway >= endTimestamp;
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
@@ -450,6 +531,14 @@ export class Archiver implements ArchiveSource {
     }
     const blocks = await this.store.getBlocks(number, 1);
     return blocks.length === 0 ? undefined : blocks[0].data;
+  }
+
+  public async getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+    if (number === 'latest') {
+      number = await this.store.getSynchedL2BlockNumber();
+    }
+    const headers = await this.store.getBlockHeaders(number, 1);
+    return headers.length === 0 ? undefined : headers[0];
   }
 
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
@@ -742,11 +831,12 @@ class ArchiverStoreHelper
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
     return this.store.getBlocks(from, limit);
   }
-
+  getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+    return this.store.getBlockHeaders(from, limit);
+  }
   getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
     return this.store.getTxEffect(txHash);
   }
-
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     return this.store.getSettledTxReceipt(txHash);
   }
@@ -812,3 +902,13 @@ class ArchiverStoreHelper
     return this.store.getTotalL1ToL2MessageCount();
   }
 }
+
+type L1RollupConstants = {
+  l1StartBlock: bigint;
+  l1GenesisTime: bigint;
+};
+
+const EmptyL1RollupConstants: L1RollupConstants = {
+  l1StartBlock: 0n,
+  l1GenesisTime: 0n,
+};

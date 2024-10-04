@@ -155,6 +155,8 @@ template <typename FF> struct AvmFullRow {
     FF main_ind_addr_d{};
     FF main_internal_return_ptr{};
     FF main_inv{};
+    FF main_is_fake_row{};
+    FF main_is_gas_accounted{};
     FF main_kernel_in_offset{};
     FF main_kernel_out_offset{};
     FF main_l1_to_l2_msg_exists_write_offset{};
@@ -713,7 +715,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 699;
+    static constexpr size_t SIZE = 701;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

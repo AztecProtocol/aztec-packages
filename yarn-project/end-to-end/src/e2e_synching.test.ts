@@ -381,7 +381,7 @@ describe('e2e_synching', () => {
       await variant.writeBlocks(blocks);
       await teardown();
     },
-    1_200_000,
+    2_400_000,
   );
 
   const testTheVariant = async (
@@ -411,6 +411,7 @@ describe('e2e_synching', () => {
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
+        viemPollingIntervalMS: 100,
       },
       new NoopTelemetryClient(),
     );

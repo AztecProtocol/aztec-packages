@@ -84,6 +84,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
+    IProofCommitmentEscrow _proofCommitmentEscrow, // We should create a new instance instead of accepting one, once we remove the Mock version
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
@@ -91,7 +92,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
+    PROOF_COMMITMENT_ESCROW = _proofCommitmentEscrow;
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
@@ -139,10 +140,27 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     override(ITestRollup)
     onlyOwner
   {
+    fakeBlockNumberAsProven(blockNumber);
+    assumeProvenThroughBlockNumber = blockNumber;
+  }
+
+  function fakeBlockNumberAsProven(uint256 blockNumber) private {
     if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
       tips.provenBlockNumber = blockNumber;
+
+      // If this results on a new epoch, create a fake claim for it
+      // Otherwise nextEpochToProve will report an old epoch
+      Epoch epoch = getEpochForBlock(blockNumber);
+      if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
+        proofClaim = DataStructures.EpochProofClaim({
+          epochToProve: epoch,
+          basisPointFee: 0,
+          bondAmount: 0,
+          bondProvider: address(0),
+          proposerClaimant: msg.sender
+        });
+      }
     }
-    assumeProvenThroughBlockNumber = blockNumber;
   }
 
   /**
@@ -443,7 +461,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
+      fakeBlockNumberAsProven(blockNumber);
 
       if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
@@ -631,6 +649,12 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       Errors.Rollup__InsufficientBondAmount(
         PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
       )
+    );
+
+    uint256 availableFundsInEscrow = PROOF_COMMITMENT_ESCROW.deposits(_quote.quote.prover);
+    require(
+      _quote.quote.bondAmount <= availableFundsInEscrow,
+      Errors.Rollup__InsufficientFundsInEscrow(_quote.quote.bondAmount, availableFundsInEscrow)
     );
 
     require(
