@@ -13,7 +13,7 @@ comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 /// whether the field is nullable or not.
 comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
-/// Computes the note type id by hashing the note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
+/// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
 /// and returning it as a `Field`.
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
@@ -160,13 +160,24 @@ comptime fn generate_note_interface(
 
 /// Generates note properties struct for a given note struct `s`.
 ///
-/// NoteTypeProperties {
-///     field1: PropertySelector { index: 0, offset: 0, length: 32 },
-///     field2: PropertySelector { index: 1, offset: 0, length: 32 },
-///     ...
+/// Example:
+/// ```
+/// struct TokenNoteProperties {
+///     amount: aztec::note::note_getter_options::PropertySelector,
+///     npk_m_hash: aztec::note::note_getter_options::PropertySelector
+///     randomness: aztec::note::note_getter_options::PropertySelector
 /// }
 ///
-/// Assumes each struct field occupies an entire field and is serialized in definition order.
+/// impl aztec::note::note_interface::NoteProperties<TokenNoteProperties> for TokenNote {
+///     fn properties() -> TokenNoteProperties {
+///         Self {
+///             amount: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
+///             npk_m_hash: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 },
+///             randomness: aztec::note::note_getter_options::PropertySelector { index: 2, offset: 0, length: 32 }
+///         }
+///     }
+/// }
+/// ```
 comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let name = s.name();
 
