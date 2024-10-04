@@ -1,4 +1,4 @@
-import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 import {
@@ -34,7 +34,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     const publicFunctions: PublicFunction[] = [];
     if (contractClass!.packedBytecode.length > 0) {
       publicFunctions.push({
-        selector: FunctionSelector.fromSignature('public_dispatch(Field)'),
+        selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
         bytecode: contractClass!.packedBytecode,
       });
     }
