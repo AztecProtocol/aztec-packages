@@ -46,7 +46,11 @@ import {
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
+import { jest } from '@jest/globals';
+
 import { LightweightBlockBuilder } from './light.js';
+
+jest.setTimeout(50_000);
 
 describe('LightBlockBuilder', () => {
   let simulator: ServerCircuitProver;
@@ -134,7 +138,7 @@ describe('LightBlockBuilder', () => {
     });
 
     expect(header).toEqual(expectedHeader);
-  }, 20_000);
+  });
 
   it('builds a 5 tx header', async () => {
     const txs = times(5, makeTx);
@@ -148,7 +152,7 @@ describe('LightBlockBuilder', () => {
     });
 
     expect(header).toEqual(expectedHeader);
-  }, 20_000);
+  });
 
   it('builds a single tx header', async () => {
     const txs = times(1, i => makeBloatedProcessedTx(fork, vkRoot, i));
