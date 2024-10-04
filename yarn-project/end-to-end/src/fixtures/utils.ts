@@ -47,12 +47,8 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
-  MockProofCommitmentEscrowAbi,
-  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
-  ProofCommitmentEscrowAbi,
-  ProofCommitmentEscrowBytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
@@ -121,7 +117,6 @@ export const setupL1Contracts = async (
     salt?: number;
     initialValidators?: EthAddress[];
     assumeProvenThrough?: number;
-    useRealProofCommitmentEscrow?: boolean;
   } = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
   },
@@ -151,12 +146,6 @@ export const setupL1Contracts = async (
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
-    },
-    proofCommitmentEscrow: {
-      contractAbi: args.useRealProofCommitmentEscrow ? ProofCommitmentEscrowAbi : MockProofCommitmentEscrowAbi,
-      contractBytecode: args.useRealProofCommitmentEscrow
-        ? ProofCommitmentEscrowBytecode
-        : MockProofCommitmentEscrowBytecode,
     },
   };
 
@@ -318,6 +307,8 @@ export type SetupOptions = {
   l2StartTime?: number;
   /** How far we should assume proven */
   assumeProvenThrough?: number;
+  /** Whether to start a prover node */
+  startProverNode?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */

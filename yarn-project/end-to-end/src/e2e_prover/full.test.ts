@@ -60,12 +60,19 @@ describe('full_prover', () => {
       await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
-      // Sends the txs to node and awaits them to be mined
-      logger.info(`Sending txs`);
+      // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
+      // and we have more than one block in the epoch we end up proving
+      logger.info(`Sending private tx`);
       const sendOpts = { skipPublicSimulation: true };
-      const txs = [privateInteraction.send(sendOpts), publicInteraction.send(sendOpts)];
-      logger.info(`Awaiting txs to be mined`);
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: false })));
+      const txPrivate = privateInteraction.send(sendOpts);
+      await txPrivate.wait({ timeout: 300, interval: 10, proven: false });
+
+      logger.info(`Sending public tx`);
+      const txPublic = publicInteraction.send(sendOpts);
+      await txPublic.wait({ timeout: 300, interval: 10, proven: false });
+
+      logger.info(`Both txs have been mined`);
+      const txs = [txPrivate, txPublic];
 
       // Flag the transfers on the token simulator
       tokenSim.transferPrivate(sender, recipient, privateSendAmount);
