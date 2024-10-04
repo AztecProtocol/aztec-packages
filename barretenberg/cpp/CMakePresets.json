@@ -126,7 +126,7 @@
       "displayName": "Build for tracy time profiling via instrumentation",
       "description": "Build for tracy time profiling via instrumentation",
       "binaryDir": "build-tracy-time-instrumented",
-      "inherits": "clang16",
+      "inherits": "default",
       "cacheVariables": {
         "ENABLE_TRACY": "ON"
       }
