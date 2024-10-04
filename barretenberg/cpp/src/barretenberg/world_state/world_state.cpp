@@ -409,7 +409,7 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
         // insert public writes in batches so that we can have different transactions modifying the same slot in the
         // same L2 block
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        size_t current_batch = 0;
+        std::atomic_uint64_t current_batch = 0;
         PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
             current_batch++;
             if (current_batch == public_writes.size()) {
