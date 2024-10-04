@@ -168,6 +168,7 @@ TYPED_TEST(CommitmentKeyTest, CommitStructured)
     using Fr = Curve::ScalarField;
     using Polynomial = bb::Polynomial<Fr>;
 
+    // Define the structure of the test polynomial
     const uint32_t NUM_BLOCKS = 8;
     const uint32_t BLOCK_SIZE = 1 << 10;
     const uint32_t ACTUAL_SIZE = 1 << 8;
@@ -180,8 +181,8 @@ TYPED_TEST(CommitmentKeyTest, CommitStructured)
         full_size += size;
     }
 
+    // Construct a random polynomial with the prescribed structure
     auto polynomial = Polynomial(full_size);
-
     uint32_t start_idx = 0;
     uint32_t end_idx = 0;
     for (auto [block_size, actual_size] : zip_view(block_sizes, actual_sizes)) {

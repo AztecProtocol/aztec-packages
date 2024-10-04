@@ -27,7 +27,7 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
     return polynomial;
 }
 
-// Generate a polynomial with a specified number of nonzero random coefficients
+// Generate a polynomial with random coefficients organized in isolated blocks
 template <typename FF>
 Polynomial<FF> structured_random_poly(const std::vector<uint32_t>& structured_sizes,
                                       const std::vector<uint32_t>& actual_sizes)
@@ -59,10 +59,10 @@ Polynomial<FF> structured_random_poly(const std::vector<uint32_t>& structured_si
     return polynomial;
 }
 
-constexpr size_t MIN_LOG_NUM_POINTS = 20;
+constexpr size_t MIN_LOG_NUM_POINTS = 16;
 constexpr size_t MAX_LOG_NUM_POINTS = 20;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
-constexpr size_t SPARSE_NUM_NONZERO = 1 << 16;
+constexpr size_t SPARSE_NUM_NONZERO = 100;
 
 // Commit to a zero polynomial
 template <typename Curve> void bench_commit_zero(::benchmark::State& state)
@@ -172,18 +172,13 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     }
 }
 
-// Commit to a polynomial with sparse random nonzero entries using the commit_sparse method to preprocess the input
+// Commit to a polynomial with structured random entries using the basic commit method
 template <typename Curve> void bench_commit_structured_random_poly(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    // const uint32_t NUM_BLOCKS = 8;
-    // const uint32_t BLOCK_SIZE = 1 << 16;
-    // const uint32_t ACTUAL_SIZE = 1 << 14;
-    // std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
-    // std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
-
+    // An arbitrary but realistic test case taken from the actual structure of a wire in the client_ivc bench
     std::vector<uint32_t> block_sizes = {
         1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
     };
@@ -198,18 +193,13 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     }
 }
 
-// Commit to a polynomial with sparse random nonzero entries using the commit_sparse method to preprocess the input
+// Commit to a polynomial with sparse random nonzero entries using the commit_structured method to preprocess the input
 template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    // const uint32_t NUM_BLOCKS = 8;
-    // const uint32_t BLOCK_SIZE = 1 << 16;
-    // const uint32_t ACTUAL_SIZE = 1 << 14;
-    // std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
-    // std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
-
+    // An arbitrary but realistic test case taken from the actual structure of a wire in the client_ivc bench
     std::vector<uint32_t> block_sizes = {
         1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
     };
@@ -224,60 +214,31 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
     }
 }
 
-// Commit to a polynomial with sparse random nonzero entries using the commit_sparse method to preprocess the input
-template <typename Curve> void bench_commit_structured_random_poly_preprocessed_partial(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
-
-    // const uint32_t NUM_BLOCKS = 8;
-    // const uint32_t BLOCK_SIZE = 1 << 16;
-    // const uint32_t ACTUAL_SIZE = 1 << 14;
-    // std::vector<uint32_t> block_sizes(NUM_BLOCKS, BLOCK_SIZE);
-    // std::vector<uint32_t> actual_sizes(NUM_BLOCKS, ACTUAL_SIZE);
-
-    std::vector<uint32_t> block_sizes = {
-        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
-    };
-    std::vector<uint32_t> actual_sizes = {
-        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
-    };
-
-    auto polynomial = structured_random_poly<Fr>(block_sizes, actual_sizes);
-
-    for (auto _ : state) {
-        key->commit_structured_partial(polynomial, block_sizes, actual_sizes);
-    }
-}
-
-// BENCHMARK(bench_commit_zero<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_random<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_random<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_zero<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_random<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_random<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_structured_random_poly_preprocessed_partial<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
 

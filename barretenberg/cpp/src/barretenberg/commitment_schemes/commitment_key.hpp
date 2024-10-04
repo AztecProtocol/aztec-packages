@@ -175,13 +175,26 @@ template <class Curve> class CommitmentKey {
     }
 
     /**
-     * @brief Efficiently commit to a sparse polynomial
-     * @details Iterate through the {point, scalar} pairs that define the inputs to the commitment MSM, maintain (copy)
-     * only those for which the scalar is nonzero, then perform the MSM on the reduced inputs.
-     * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. Will not be efficient
+     * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
+     * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
+     * inputs in contiguous memory and commit to them using the normal pippenger algorithm.
+     * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. May not be efficient
      * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
      *
      * @param polynomial
+     * @return Commitment
+     */
+
+    /**
+     * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
+     * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
+     * inputs in contiguous memory and commit to them using the normal pippenger algorithm.
+     * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. May not be efficient
+     * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
+     *
+     * @param polynomial
+     * @param structured_sizes Structured size of the blocks from which the polynomial is comprised
+     * @param actual_sizes The size of the block of non-zero elements in the corresponding fixed size block
      * @return Commitment
      */
     Commitment commit_structured(PolynomialSpan<const Fr> polynomial,
@@ -189,9 +202,9 @@ template <class Curve> class CommitmentKey {
                                  const std::vector<uint32_t>& actual_sizes)
     {
         BB_OP_COUNT_TIME();
-        // const size_t poly_size = polynomial.size();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
+        // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
         size_t num_blocks = structured_sizes.size();
         std::vector<std::pair<uint32_t, uint32_t>> endpoints;
         std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
@@ -202,7 +215,7 @@ template <class Curve> class CommitmentKey {
         for (auto [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
             end_idx = start_idx + actual_size;
             endpoints.emplace_back(start_idx, end_idx);
-            point_endpoints.emplace_back(2 * start_idx, 2 * end_idx);
+            point_endpoints.emplace_back(2 * start_idx, 2 * end_idx); // 2x accounts for interleaved endo points
             start_idx += block_size;
         }
 
@@ -216,35 +229,12 @@ template <class Curve> class CommitmentKey {
             num_nonzero_scalars += size;
         }
 
-        // Reconstruct the full input to the pippenger from the individual threads
+        // Construct contiguous inputs from the nonzero regions of the input polynomial
+        // Note: in practice this accounts for ~5% of the total work of this method
         std::vector<Fr> scalars;
         std::vector<G1> points;
         scalars.reserve(num_nonzero_scalars);
         points.reserve(num_nonzero_scalars * 2);
-
-        // std::vector<uint32_t> condensed_offsets;
-        // std::vector<uint32_t> point_condensed_offsets;
-        // uint32_t offset = 0;
-        // for (auto size : actual_sizes) {
-        //     condensed_offsets.emplace_back(offset);
-        //     point_condensed_offsets.emplace_back(2 * offset);
-        //     offset += size;
-        // }
-
-        // for (size_t thread_idx = 0; thread_idx < num_blocks; ++thread_idx) {
-        //     auto start_it = polynomial.span.begin() + endpoints[thread_idx].first;
-        //     auto end_it = polynomial.span.begin() + endpoints[thread_idx].second;
-        //     scalars.insert(scalars.begin() + condensed_offsets[thread_idx], start_it, end_it);
-        //     info("scalars.size() = ", scalars.size());
-        //     // info("offset = ", condensed_offsets[thread_idx]);
-        // }
-        // for (size_t thread_idx = 0; thread_idx < num_blocks; ++thread_idx) {
-        //     auto start_it = point_table.begin() + point_endpoints[thread_idx].first;
-        //     auto end_it = point_table.begin() + point_endpoints[thread_idx].second;
-        //     points.insert(points.begin() + point_condensed_offsets[thread_idx], start_it, end_it);
-        // }
-        // scalars.clear();
-
         for (const auto& range : endpoints) {
             auto start_it = polynomial.span.begin() + range.first;
             auto end_it = polynomial.span.begin() + range.second;
@@ -256,61 +246,8 @@ template <class Curve> class CommitmentKey {
             points.insert(points.end(), start_it, end_it);
         }
 
-        // Call the version of pippenger which assumes all points are distinct
+        // Call pippenger
         return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
-    }
-
-    Commitment commit_structured_partial(PolynomialSpan<const Fr> polynomial,
-                                         const std::vector<uint32_t>& structured_sizes,
-                                         const std::vector<uint32_t>& actual_sizes)
-    {
-        BB_OP_COUNT_TIME();
-        // const size_t poly_size = polynomial.size();
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
-
-        size_t num_chunks = structured_sizes.size();
-        std::vector<std::pair<uint32_t, uint32_t>> endpoints;
-        std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
-        endpoints.reserve(num_chunks);
-        point_endpoints.reserve(num_chunks);
-        uint32_t start_idx = 0;
-        uint32_t end_idx = 0;
-        for (auto [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
-            end_idx = start_idx + actual_size;
-            endpoints.emplace_back(start_idx, end_idx);
-            point_endpoints.emplace_back(2 * start_idx, 2 * end_idx);
-            start_idx += block_size;
-        }
-
-        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial span.
-        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
-
-        uint32_t num_nonzero_scalars = 0;
-        for (auto size : actual_sizes) {
-            num_nonzero_scalars += size;
-        }
-
-        // Reconstruct the full input to the pippenger from the individual threads
-        std::vector<Fr> scalars;
-        std::vector<G1> points;
-        scalars.reserve(num_nonzero_scalars);
-        points.reserve(num_nonzero_scalars * 2);
-
-        for (const auto& range : endpoints) {
-            auto start_it = polynomial.span.begin() + range.first;
-            auto end_it = polynomial.span.begin() + range.second;
-            scalars.insert(scalars.end(), start_it, end_it);
-        }
-        for (const auto& range : point_endpoints) {
-            auto start_it = point_table.begin() + range.first;
-            auto end_it = point_table.begin() + range.second;
-            points.insert(points.end(), start_it, end_it);
-        }
-
-        // Call the version of pippenger which assumes all points are distinct
-        return Commitment{};
     }
 };
 
