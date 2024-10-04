@@ -48,8 +48,6 @@ class TranslatorProver {
 
     CommitmentLabels commitment_labels;
 
-    std::shared_ptr<CommitmentKey> commitment_key;
-
     SumcheckOutput<Flavor> sumcheck_output;
 
   private:
