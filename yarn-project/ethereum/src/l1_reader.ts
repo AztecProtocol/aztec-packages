@@ -1,4 +1,4 @@
-import { type ConfigMappingsType } from '@aztec/foundation/config';
+import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
@@ -19,6 +19,10 @@ export interface L1ReaderConfig {
    * The deployed l1 contract addresses
    */
   l1Contracts: L1ContractAddresses;
+  /**
+   * The polling interval viem uses in ms
+   */
+  viemPollingIntervalMS: number;
 }
 
 export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
@@ -36,5 +40,10 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     defaultValue: l1ContractAddressesMapping,
+  },
+  viemPollingIntervalMS: {
+    env: 'L1_READER_VIEM_POLLING_INTERVAL_MS',
+    description: 'The polling interval viem uses in ms',
+    ...numberConfigHelper(1_000),
   },
 };
