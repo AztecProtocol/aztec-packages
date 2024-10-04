@@ -115,7 +115,13 @@ struct AcirFormat {
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
     bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
+    // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
     bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
+    // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
+    // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
+    // reduce the number of intermediate variables.
+    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -153,6 +159,8 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    ivc_recursion_constraints,
                    poly_triple_constraints,
+                   quad_constraints,
+                   big_quad_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
                    bigint_to_le_bytes_constraints,

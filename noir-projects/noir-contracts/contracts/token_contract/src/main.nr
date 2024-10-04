@@ -482,16 +482,18 @@ contract Token {
             encode_and_encrypt_note_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
         );
         // 4. Now we get the note hiding points.
-        let mut fee_payer_point = TokenNote::hiding_point().new(
+        let fee_payer_partial_payload = TokenNote::partial_payload().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot
         );
-        let mut user_point = TokenNote::hiding_point().new(
+        let fee_payer_point = fee_payer_partial_payload.hiding_point.to_point();
+        let user_partial_payload = TokenNote::partial_payload().new(
             user_npk_m_hash,
             user_randomness,
             storage.balances.at(user).set.storage_slot
         );
+        let user_point = user_partial_payload.hiding_point.to_point();
         // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
@@ -500,7 +502,7 @@ contract Token {
             FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)")
         },
             [
-            fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
+            fee_payer_point.x, fee_payer_point.y, fee_payer_point.is_infinite as Field, user_point.x, user_point.y, user_point.is_infinite as Field, funded_amount
         ]
         );
     }

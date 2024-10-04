@@ -95,7 +95,7 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
  * @tparam N The number of memory offsets to resolve.
  */
 template <size_t N>
-std::array<AddressWithMode, N> unpack_indirects(uint8_t indirect, std::array<uint32_t, N> mem_offsets)
+std::array<AddressWithMode, N> unpack_indirects(uint16_t indirect, std::array<uint32_t, N> mem_offsets)
 {
     std::array<AddressWithMode, N> addr_mode_arr;
 
@@ -2661,7 +2661,7 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
 
 // Helper/implementation for CALL and STATICCALL
 void AvmTraceBuilder::constrain_external_call(OpCode opcode,
-                                              uint8_t indirect,
+                                              uint16_t indirect,
                                               uint32_t gas_offset,
                                               uint32_t addr_offset,
                                               uint32_t args_offset,
@@ -2763,7 +2763,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
  * stored
  * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
-void AvmTraceBuilder::op_call(uint8_t indirect,
+void AvmTraceBuilder::op_call(uint16_t indirect,
                               uint32_t gas_offset,
                               uint32_t addr_offset,
                               uint32_t args_offset,
@@ -2802,7 +2802,7 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
  * stored
  * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
-void AvmTraceBuilder::op_static_call(uint8_t indirect,
+void AvmTraceBuilder::op_static_call(uint16_t indirect,
                                      uint32_t gas_offset,
                                      uint32_t addr_offset,
                                      uint32_t args_offset,
@@ -3151,7 +3151,7 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
 }
 
-void AvmTraceBuilder::op_ec_add(uint8_t indirect,
+void AvmTraceBuilder::op_ec_add(uint16_t indirect,
                                 uint32_t lhs_x_offset,
                                 uint32_t lhs_y_offset,
                                 uint32_t lhs_is_inf_offset,
@@ -3449,22 +3449,15 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
 void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
                                             uint32_t output_offset,
                                             uint32_t state_offset,
-                                            uint32_t state_size_offset,
-                                            uint32_t inputs_offset,
-                                            uint32_t inputs_size_offset)
+                                            uint32_t inputs_offset)
 {
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
-    auto [resolved_output_offset,
-          resolved_state_offset,
-          resolved_state_size_offset,
-          resolved_inputs_offset,
-          resolved_inputs_size_offset] =
-        unpack_indirects<5>(indirect,
-                            { output_offset, state_offset, state_size_offset, inputs_offset, inputs_size_offset });
+    auto [resolved_output_offset, resolved_state_offset, resolved_inputs_offset] =
+        unpack_indirects<3>(indirect, { output_offset, state_offset, inputs_offset });
 
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);

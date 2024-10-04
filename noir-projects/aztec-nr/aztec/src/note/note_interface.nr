@@ -5,8 +5,10 @@ pub trait NoteProperties<T> {
     fn properties() -> T;
 }
 
-pub trait PartialNote<T> {
+pub trait PartialNote<T, P> {
     fn hiding_point() -> T;
+
+    fn partial_payload() -> P;
 }
 
 pub trait NullifiableNote {

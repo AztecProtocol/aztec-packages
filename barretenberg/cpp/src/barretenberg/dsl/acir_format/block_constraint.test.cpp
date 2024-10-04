@@ -169,6 +169,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -222,6 +223,7 @@ TEST_F(MegaHonk, Databus)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -330,6 +332,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
