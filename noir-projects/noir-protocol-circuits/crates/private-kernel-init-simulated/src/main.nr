@@ -1,20 +1,15 @@
-use dep::private_kernel_lib::PrivateKernelInnerCircuitPrivateInputs;
+use dep::private_kernel_lib::PrivateKernelInitCircuitPrivateInputs;
 use dep::types::PrivateKernelCircuitPublicInputs;
-use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
+use types::transaction::tx_request::TxRequest;
 use types::abis::private_kernel::private_call_data::PrivateCallDataWithoutPublicInputs;
 use types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 
 unconstrained fn main(
-    previous_kernel: PrivateKernelDataWithoutPublicInputs,
-    previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+    tx_request: TxRequest,
+    vk_tree_root: Field,
     private_call: PrivateCallDataWithoutPublicInputs,
     app_public_inputs: PrivateCircuitPublicInputs
 ) -> pub PrivateKernelCircuitPublicInputs {
-    let private_inputs = PrivateKernelInnerCircuitPrivateInputs::new(
-        previous_kernel,
-        previous_kernel_public_inputs,
-        private_call,
-        app_public_inputs
-    );
+    let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(tx_request, vk_tree_root, private_call, app_public_inputs);
     private_inputs.execute()
 }
