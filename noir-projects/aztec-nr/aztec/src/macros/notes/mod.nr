@@ -7,10 +7,10 @@ use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
-// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
-// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
-// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
-// whether the field is nullable or not.
+/// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
+/// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
+/// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
+/// whether the field is nullable or not.
 comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 /// Computes the note type id by hashing the note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
@@ -264,6 +264,20 @@ pub(crate) comptime fn generate_note_export(
     }
 }
 
+/// Generates quotes necessary for multi-scalar multiplication of `indexed_fields` (indexed struct fields). Returns
+/// a tuple containing quotes for generators, scalars, arguments and auxiliary variables. For more info on what are
+/// auxiliary variables and how they are used, see `flatten_to_fields` function.
+///
+/// Example return values:
+/// generators_list: [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::Ga3, aztec::generators::Ga4]
+/// scalars_list: [
+///     std::hash::from_field_unsafe(amount.lo as Field),
+///     std::hash::from_field_unsafe(amount.hi as Field),
+///     std::hash::from_field_unsafe(npk_m_hash as Field),
+///     std::hash::from_field_unsafe(randomness as Field)
+/// ]
+/// args_list: [amount: U128, npk_m_hash: Field, randomness: Field]
+/// aux_vars: []
 comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> ([Quoted], [Quoted], [Quoted], Quoted) {
     let mut generators_list = &[];
     let mut scalars_list = &[];
