@@ -226,9 +226,10 @@ TYPED_TEST(CommitmentKeyTest, CommitZPerm)
     G1 commit_result = key->commit(poly);
     G1 sparse_commit_result = key->commit_sparse(poly);
 
-    key->commit_structured_z_perm(poly, structured_sizes, actual_sizes);
+    G1 new_result = key->commit_structured_z_perm(poly, structured_sizes, actual_sizes);
 
     EXPECT_EQ(sparse_commit_result, commit_result);
+    EXPECT_EQ(new_result, commit_result);
 }
 
 } // namespace bb

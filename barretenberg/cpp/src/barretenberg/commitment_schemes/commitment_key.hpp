@@ -10,6 +10,7 @@
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/ecc/scalar_multiplication/sorted_msm.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -182,6 +183,7 @@ template <class Curve> class CommitmentKey {
     struct ScalarsPoints {
         std::vector<Fr> scalars;
         std::vector<G1> points;
+        size_t num_scalars;
     };
 
     RangeEndpoints compute_range_endpoints(const std::vector<uint32_t>& structured_sizes,
@@ -243,7 +245,7 @@ template <class Curve> class CommitmentKey {
             points.insert(points.end(), start_it, end_it);
         }
 
-        return { std::move(scalars), std::move(points) };
+        return { std::move(scalars), std::move(points), total_num_scalars };
     }
 
     /**
@@ -273,7 +275,7 @@ template <class Curve> class CommitmentKey {
         // with our polynomial span.
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
-        auto [scalars, points] =
+        auto [scalars, points, num_scalars] =
             construct_contiguous_inputs_from_range_endpoints(polynomial, point_table, active_range_endpoints);
 
         // Call pippenger
@@ -285,34 +287,58 @@ template <class Curve> class CommitmentKey {
                                         const std::vector<uint32_t>& actual_sizes)
     {
         BB_OP_COUNT_TIME();
+        using MsmSort = MsmSorter<Curve>;
+        using AddSequences = MsmSort::AdditionSequences;
+
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
-        // Commitment active_region_contribution = commit_structured(polynomial, structured_sizes, actual_sizes);
+        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
+        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
+        // with our polynomial span.
+        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+
+        Commitment active_region_contribution = commit_structured(polynomial, structured_sizes, actual_sizes);
 
         // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
-        auto [scalar_endpoints, point_endpoints] = compute_range_endpoints(structured_sizes, actual_sizes);
-        auto [dead_scalar_endpoints, dead_point_endpoints] =
-            compute_range_endpoints(structured_sizes, actual_sizes, true);
+        RangeEndpoints dead_range_endpoints = compute_range_endpoints(structured_sizes, actual_sizes, true);
 
-        info("Active:");
-        for (auto range : scalar_endpoints) {
-            info("start = ", range.first);
-            info("end = ", range.second);
-        }
-        info("Dead:");
-        for (auto range : dead_scalar_endpoints) {
-            info("start = ", range.first);
-            info("end = ", range.second);
+        auto [scalars, points, num_scalars] =
+            construct_contiguous_inputs_from_range_endpoints(polynomial, point_table, dead_range_endpoints);
+
+        MsmSort msm_sorter;
+        msm_sorter.denominators.resize(num_scalars);
+
+        // Extract raw SRS points from point point table points
+        for (size_t i = 0; i < points.size(); i += 2) {
+            msm_sorter.updated_points.emplace_back(points[i]);
         }
 
-        // // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // // with our polynomial span.
-        // std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+        // Populate AdditionSequences
+        std::vector<uint64_t> sequence_counts;
+        for (const auto& range : dead_range_endpoints.scalar_endpoints) {
+            sequence_counts.emplace_back(range.second - range.first);
+        }
+        std::span<G1> dead_range_points(msm_sorter.updated_points.data(), num_scalars);
+        [[maybe_unused]] AddSequences add_sequences{ sequence_counts, dead_range_points, {} };
 
-        // Call pippenger
-        // return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
-        return Commitment{};
+        // Populate the set of unique scalars with the first coeff from each range (values are constant over each range)
+        for (auto range : dead_range_endpoints.scalar_endpoints) {
+            Fr scalar = polynomial[range.first];
+            msm_sorter.unique_scalars.emplace_back(scalar);
+        }
+
+        msm_sorter.batched_affine_add_in_place(add_sequences);
+
+        const size_t num_unique_scalars = msm_sorter.unique_scalars.size();
+        std::span<Fr> output_scalars(msm_sorter.unique_scalars.data(), num_unique_scalars);
+        std::span<G1> output_points(msm_sorter.updated_points.data(), num_unique_scalars);
+
+        Commitment result = active_region_contribution;
+        for (auto [scalar, point] : zip_view(output_scalars, output_points)) {
+            result = result + point * scalar;
+        }
+
+        return result;
     }
 };
 

@@ -46,6 +46,8 @@ template <typename Curve> class MsmSorter {
 
     MsmSorter(const size_t num_scalars = 0)
     {
+        // WORKTODO: definitely dont want to resize here! reserve where possible!
+        // WORKTODO: some of these depend on stuff being allocated, e.g. denominators
         sequence_counts.resize(num_scalars);
         unique_scalars.resize(num_scalars);
         updated_points.resize(num_scalars);
