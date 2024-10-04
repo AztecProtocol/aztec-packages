@@ -57,7 +57,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     {
         // Assemble simple vectors of witnesses for vkey and proof
         std::vector<FF> key_witnesses = input.honk_verification_key->to_field_elements();
-        std::vector<FF> proof_witnesses = input.proof;
+        std::vector<FF> proof_witnesses = input.proof; // proof contains the public inputs at this stage
 
         // Construct witness indices for each component in the constraint; populate the witness array
         auto [key_indices, proof_indices, public_inputs_indices] =
@@ -68,7 +68,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         return RecursionConstraint{
             .key = key_indices,
-            .proof = proof_indices,
+            .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
             .public_inputs = public_inputs_indices,
             .key_hash = 0, // not used
             .proof_type = proof_type,
