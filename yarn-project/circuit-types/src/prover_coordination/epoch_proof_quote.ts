@@ -32,6 +32,17 @@ export class EpochProofQuote extends Gossipable {
     return new EpochProofQuote(reader.readObject(EpochProofQuotePayload), reader.readObject(Signature));
   }
 
+  toJSON() {
+    return {
+      payload: this.payload.toJSON(),
+      signature: this.signature.to0xString(),
+    };
+  }
+
+  static fromJSON(obj: any) {
+    return new EpochProofQuote(EpochProofQuotePayload.fromJSON(obj.payload), Signature.from0xString(obj.signature));
+  }
+
   // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
   /**
    * Creates a new quote with a signature.

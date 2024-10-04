@@ -117,9 +117,9 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
   ...sequencerConfigMappings,
+  ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
-  ...l1ReaderConfigMappings,
   ...chainConfigMappings,
 };
 
