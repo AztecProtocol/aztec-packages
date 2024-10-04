@@ -180,17 +180,13 @@ describe('Hashing Opcodes', () => {
         1, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
         ...Buffer.from('23456789', 'hex'), // stateOffset
-        ...Buffer.from('3456789a', 'hex'), // stateSizeOffset
         ...Buffer.from('456789ab', 'hex'), // inputsOffset
-        ...Buffer.from('56789abc', 'hex'), // inputsSizeOffset
       ]);
       const inst = new Sha256Compression(
         /*indirect=*/ 1,
         /*dstOffset=*/ 0x12345678,
         /*stateOffset=*/ 0x23456789,
-        /*stateSizeOffset=*/ 0x3456789a,
         /*inputsOffset=*/ 0x456789ab,
-        /*inputsSizeOffset=*/ 0x56789abc,
       );
 
       expect(Sha256Compression.deserialize(buf)).toEqual(inst);
@@ -213,14 +209,7 @@ describe('Hashing Opcodes', () => {
       context.machineState.memory.set(inputsSizeOffset, new Uint32(inputs.length));
       context.machineState.memory.setSlice(inputsOffset, inputs);
 
-      await new Sha256Compression(
-        indirect,
-        outputOffset,
-        stateOffset,
-        stateSizeOffset,
-        inputsOffset,
-        inputsSizeOffset,
-      ).execute(context);
+      await new Sha256Compression(indirect, outputOffset, stateOffset, inputsOffset).execute(context);
 
       const output = context.machineState.memory.getSliceAs<Uint32>(outputOffset, 8);
       const outputArray = Uint32Array.from(output.map(word => word.toNumber()));
@@ -237,9 +226,7 @@ describe('Hashing Opcodes', () => {
       const indirect = new Addressing([
         /*dstOffset=*/ AddressingMode.INDIRECT,
         /*stateOffset*/ AddressingMode.INDIRECT,
-        /*stateSizeOffset*/ AddressingMode.INDIRECT,
         /*inputsOffset*/ AddressingMode.INDIRECT,
-        /*inputsSizeOffset*/ AddressingMode.INDIRECT,
       ]).toWire();
       const stateOffset = 0;
       const stateOffsetReal = 10;
@@ -261,14 +248,7 @@ describe('Hashing Opcodes', () => {
       context.machineState.memory.setSlice(inputsOffsetReal, inputs);
       context.machineState.memory.set(outputOffset, new Uint32(outputOffsetReal));
 
-      await new Sha256Compression(
-        indirect,
-        outputOffset,
-        stateOffset,
-        stateSizeOffset,
-        inputsOffset,
-        inputsSizeOffset,
-      ).execute(context);
+      await new Sha256Compression(indirect, outputOffset, stateOffset, inputsOffset).execute(context);
 
       const output = context.machineState.memory.getSliceAs<Uint32>(outputOffsetReal, 8);
       const outputArray = Uint32Array.from(output.map(word => word.toNumber()));

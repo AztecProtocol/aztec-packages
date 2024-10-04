@@ -8,7 +8,7 @@ import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
-import {TestERC20} from "../TestERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -32,7 +32,8 @@ contract TestProofCommitmentEscrow is Test {
 
   function setUp() public {
     TOKEN = new TestERC20();
-    ESCROW = new ProofCommitmentEscrow(TOKEN, address(this));
+    ESCROW = new ProofCommitmentEscrow(TOKEN);
+    ESCROW.initialize(address(this));
   }
 
   function testDeposit() public setupWithApproval(address(42), 100) {

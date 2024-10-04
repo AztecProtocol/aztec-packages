@@ -947,9 +947,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                "00"                                  // Indirect flag
                                "00000100"                            // output offset
                                "00000001"                            // state offset
-                               "0000000F"                            // state size
                                "00000009"                            // input offset
-                               "00000008"                            // input size
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000100"                            // ret offset 256
@@ -1267,7 +1265,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "07"                       // value
                                "06"                       // dst_offset
                                + to_hex(OpCode::ECADD) +  // opcode ECADD
-                               "40"                       // Indirect flag (sixth operand indirect)
+                               "0040"                     // Indirect flag (sixth operand indirect)
                                "00000000"                 // hash_index offset (direct)
                                "00000001"                 // dest offset (direct)
                                "00000002"                 // input offset (indirect)
@@ -2283,7 +2281,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                "00000000"                     // dst_offset
                                + bytecode_preamble            // Load up memory offsets
                                + to_hex(OpCode::CALL) +       // opcode CALL
-                               "3f"                           // Indirect flag
+                               "003f"                         // Indirect flag
                                "00000011"                     // gas offset
                                "00000012"                     // addr offset
                                "00000013"                     // args offset

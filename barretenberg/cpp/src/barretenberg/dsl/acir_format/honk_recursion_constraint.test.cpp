@@ -119,6 +119,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .assert_equalities = {},
             .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
             .quad_constraints = {},
+            .big_quad_constraints = {},
             .block_constraints = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
         };

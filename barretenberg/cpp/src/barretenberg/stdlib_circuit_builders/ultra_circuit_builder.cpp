@@ -263,6 +263,40 @@ void UltraCircuitBuilder_<Arithmetization>::create_add_gate(const add_triple_<FF
 }
 
 /**
+ * @brief Create a big multiplication-addition gate, where in.a * in.b * in.mul_scaling + in.a * in.a_scaling + in.b *
+ * in.b_scaling + in.c * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled,
+ * then this sum also adds the value of the 4-th witness at the next index.
+ *
+ * @param in Structure with variable indexes and wire selector values
+ * @param include_next_gate_w_4 Switches on/off the addition of w_4 at the next index
+ */
+template <typename Arithmetization>
+void UltraCircuitBuilder_<Arithmetization>::create_big_mul_add_gate(const mul_quad_<FF>& in,
+                                                                    const bool include_next_gate_w_4)
+{
+    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
+    blocks.arithmetic.q_m().emplace_back(include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling);
+    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
+    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
+    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
+    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
+    blocks.arithmetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
+    blocks.arithmetic.q_delta_range().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
+    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        blocks.arithmetic.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
+}
+
+/**
  * @brief Create a big addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c *
  * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then thes sum also
  * adds the value of the 4-th witness at the next index.
