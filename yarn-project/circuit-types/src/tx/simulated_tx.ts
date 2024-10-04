@@ -113,15 +113,12 @@ export class TxSimulationResult extends PrivateSimulationResult {
   }
 }
 
-export class TxProvingResult extends TxSimulationResult {
+export class TxProvingResult {
   constructor(
-    privateExecutionResult: PrivateExecutionResult,
-    publicInputs: PrivateKernelTailCircuitPublicInputs,
+    public privateExecutionResult: PrivateExecutionResult,
+    public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public clientIvcProof: ClientIvcProof,
-    publicOutput?: PublicSimulationOutput,
-  ) {
-    super(privateExecutionResult, publicInputs, publicOutput);
-  }
+  ) {}
 
   toTx(): Tx {
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
@@ -146,11 +143,10 @@ export class TxProvingResult extends TxSimulationResult {
    * Convert a SimulatedTx class object to a plain JSON object.
    * @returns A plain object with SimulatedTx properties.
    */
-  public override toJSON() {
+  public toJSON() {
     return {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
       publicInputs: this.publicInputs.toBuffer().toString('hex'),
-      publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
       clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
     };
   }
@@ -160,12 +156,11 @@ export class TxProvingResult extends TxSimulationResult {
    * @param obj - A plain Tx JSON object.
    * @returns A Tx class object.
    */
-  public static override fromJSON(obj: any) {
+  public static fromJSON(obj: any) {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
     const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
-    return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof, publicOuput);
+    return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof);
   }
 }
 

@@ -148,24 +148,23 @@ export interface PXE {
   getContracts(): Promise<AztecAddress[]>;
 
   /**
-   * Creates a transaction based on the provided preauthenticated execution request. This will
-   * run a local simulation of the private execution (and optionally of public as well), assemble
-   * the zero-knowledge proof for the private execution, and return the transaction object.
+   * Creates a proving result based on the provided preauthenticated execution request and the results
+   * of executing the private part of the transaction. This will assemble the zero-knowledge proof for the private execution.
+   * It returns an object that contains the proof and public inputs of the tail circuit, which can be converted into a Tx ready to be sent to the network
    *
-   * @param txRequest - An authenticated tx request ready for simulation
-   * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param txRequest - An authenticated tx request ready for proving
+   * @param privateExecutionResult - The result of the private execution of the transaction
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, executionResult: PrivateExecutionResult): Promise<TxProvingResult>;
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
-   * This will run a local simulation of private execution (and optionally of public as well), assemble
-   * the zero-knowledge proof for the private execution, and return the transaction object along
-   * with simulation results (return values).
+   * This will run a local simulation of private execution (and optionally of public as well), run the
+   * kernel circuits to ensure adherence to protocol rules (without generating a proof), and return the
+   * simulation results .
    *
    *
    * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
@@ -177,8 +176,7 @@ export interface PXE {
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns A simulated transaction object that includes a transaction that is potentially ready
-   * to be sent to the network for execution, along with public and private return values.
+   * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
