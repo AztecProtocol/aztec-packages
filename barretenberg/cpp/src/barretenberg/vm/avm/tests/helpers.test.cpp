@@ -30,6 +30,26 @@ void validate_trace_check_circuit(std::vector<Row>&& trace)
 };
 
 /**
+ * @brief Helper routine which injects the end gas values in public inputs and in the public column
+ *        of kernel inputs in the trace.
+ *
+ * @param public_inputs Public inputs structure
+ * @param trace The execution trace
+ */
+void inject_end_gas_values(VmPublicInputsNT& public_inputs, std::vector<Row>& trace)
+{
+    auto execution_end_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });
+    trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
+    trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
+
+    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
+        execution_end_row->main_l2_gas_remaining;
+    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
+        execution_end_row->main_da_gas_remaining;
+}
+
+/**
  * @brief Helper routine which checks the circuit constraints and depending on
  *        the boolean with_proof value performs a proof generation and verification.
  *
@@ -52,6 +72,13 @@ void validate_trace(std::vector<Row>&& trace,
         avm_trace::dump_trace_as_csv(trace, avm_dump_trace_path);
     }
 
+    // Inject computed end gas values in the public inputs
+    // This is ok because validate_trace is only used in cpp tests.
+    // TS integration tests will provide the correct end gas values in the public inputs and
+    // this will be validated.
+    auto public_inputs_with_end_gas = public_inputs;
+    inject_end_gas_values(public_inputs_with_end_gas, trace);
+
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
@@ -64,7 +91,7 @@ void validate_trace(std::vector<Row>&& trace,
         AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
         std::vector<std::vector<FF>> public_inputs_as_vec =
-            bb::avm_trace::copy_public_inputs_columns(public_inputs, calldata, returndata);
+            bb::avm_trace::copy_public_inputs_columns(public_inputs_with_end_gas, calldata, returndata);
 
         bool verified = verifier.verify_proof(proof, { public_inputs_as_vec });
 

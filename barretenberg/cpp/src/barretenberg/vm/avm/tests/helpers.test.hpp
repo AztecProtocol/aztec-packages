@@ -47,5 +47,7 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<std::array<FF, 3>> 
                                                  std::vector<bb::avm_trace::AvmMemoryTag> mem_tags);
 
 VmPublicInputsNT generate_base_public_inputs();
+// Mutate the inputs
+void inject_end_gas_values(VmPublicInputsNT& public_inputs, std::vector<Row>& trace);
 
 } // namespace tests_avm

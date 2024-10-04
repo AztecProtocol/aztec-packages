@@ -510,6 +510,12 @@ void AvmKernelTraceBuilder::finalize_columns(std::vector<AvmFullRow<FF>>& main_t
         dest.main_sel_kernel_out = FF(1);
     }
 
+    // Kernel inputs gas selectors
+    main_trace.at(DA_START_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_da_start_gas_kernel_input = FF(1);
+    main_trace.at(L2_START_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_l2_start_gas_kernel_input = FF(1);
+    main_trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_da_end_gas_kernel_input = FF(1);
+    main_trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_l2_end_gas_kernel_input = FF(1);
+
     // Write lookup counts for inputs
     for (auto const& [selector, count] : kernel_input_selector_counter) {
         main_trace.at(selector).lookup_into_kernel_counts = FF(count);

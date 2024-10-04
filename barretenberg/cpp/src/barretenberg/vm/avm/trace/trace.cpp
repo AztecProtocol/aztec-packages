@@ -3528,8 +3528,15 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (size_t i = 0; i < main_trace_size; i++) {
         main_trace[i].main_sel_execution_row = FF(1);
     }
-    // This selector corresponds to the last row of the EXECUTION trace.
-    main_trace.back().main_sel_last = FF(1);
+
+    // Toggle start of the execution row
+    if (main_trace_size > 0) {
+        main_trace[0].main_sel_start_exec = FF(1);
+    }
+
+    // Append row with selector toggling execution end.
+    const Row end_exec_row = Row{ .main_sel_execution_end = FF(1) };
+    main_trace.emplace_back(end_exec_row);
 
     // We only need to pad with zeroes to the size to the largest trace here,
     // pow_2 padding is handled in the subgroup_size check in BB.
@@ -3654,7 +3661,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
     // Finalize cmp gadget of the ALU trace
     auto cmp_trace_size = alu_trace_builder.cmp_builder.get_cmp_trace_size();
-    // HERE IS THE SEG FAULT BUG
     if (main_trace_size < cmp_trace_size) {
         main_trace_size = cmp_trace_size;
         main_trace.resize(cmp_trace_size, {});
@@ -3762,7 +3768,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
      * ONLY FIXED TABLES FROM HERE ON
      **********************************************************************************************/
 
-    Row first_row = Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) };
+    const Row first_row = Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) };
     main_trace.insert(main_trace.begin(), first_row);
 
     /**********************************************************************************************

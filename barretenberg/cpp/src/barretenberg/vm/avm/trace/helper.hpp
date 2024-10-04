@@ -8,7 +8,6 @@
 
 namespace bb::avm_trace {
 
-void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool enable_selectors = false);
 void dump_trace_as_csv(const std::vector<Row>& trace, const std::filesystem::path& filename);
 
 bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx);
@@ -64,8 +63,8 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
 
     kernel_inputs[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[DA_START_GAS_LEFT_PCPI_OFFSET];
     kernel_inputs[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET];
-    // kernel_inputs[DA_END_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[DA_END_GAS_LEFT_PCPI_OFFSET];
-    // kernel_inputs[L2_END_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[L2_END_GAS_LEFT_PCPI_OFFSET];
+    kernel_inputs[DA_END_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[DA_END_GAS_LEFT_PCPI_OFFSET];
+    kernel_inputs[L2_END_GAS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[L2_END_GAS_LEFT_PCPI_OFFSET];
 
     // Copy the output columns
     std::array<FF_, KERNEL_OUTPUTS_LENGTH>& ko_values = std::get<KERNEL_OUTPUTS_VALUE>(public_inputs);

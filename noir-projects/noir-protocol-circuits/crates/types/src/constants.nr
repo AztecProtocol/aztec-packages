@@ -317,14 +317,14 @@ global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
-// - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
-// 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
-global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
+// - 21 affine elements (curve base field fq) encoded as fr elements takes (21 * 4 * 32 bytes)
+// 21 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
+global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3858;
 global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**
