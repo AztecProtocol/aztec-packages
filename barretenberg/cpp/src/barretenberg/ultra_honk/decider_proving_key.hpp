@@ -76,7 +76,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
             ZoneScopedN("constructing proving key");
 #endif
-
+            if (commitment_key == nullptr) {
+                commitment_key = std::make_shared<CommitmentKey>(dyadic_circuit_size);
+            }
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             if (IsGoblinFlavor<Flavor> && !is_structured) {
                 // Allocate full size polynomials
