@@ -1,9 +1,9 @@
-use crate::test::utils;
+use crate::{test::utils, types::nft_note::NFTNote, NFT};
 use dep::aztec::{
     hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
     oracle::random::random, protocol_types::storage::map::derive_storage_slot_in_map
 };
-use crate::{types::nft_note::NFTNote, NFT};
+use std::test::OracleMock;
 
 #[test]
 unconstrained fn transfer_to_private_to_self() {
@@ -33,14 +33,12 @@ unconstrained fn transfer_to_private_to_a_different_account() {
         NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
     );
 
+    // We mock the Oracle to return the note randomness such that later on we can manually add the note
+    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
+
     // We prepare the transfer
     env.call_private_void(
-        NFT::at(nft_contract_address).prepare_transfer_to_private(
-            sender,
-            recipient,
-            note_randomness,
-            transient_storage_slot_randomness
-        )
+        NFT::at(nft_contract_address).prepare_transfer_to_private(sender, recipient, transient_storage_slot_randomness)
     );
 
     // Finalize the transfer of the NFT
@@ -87,7 +85,6 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
 
     let correct_sender = AztecAddress::from_field(9);
 
-    let note_randomness = random();
     let transient_storage_slot_randomness = random();
     // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
     let transfer_preparer_storage_slot_commitment = pedersen_hash(
@@ -97,12 +94,7 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
 
     // We prepare the transfer
     env.call_private_void(
-        NFT::at(nft_contract_address).prepare_transfer_to_private(
-            correct_sender,
-            recipient,
-            note_randomness,
-            transient_storage_slot_randomness
-        )
+        NFT::at(nft_contract_address).prepare_transfer_to_private(correct_sender, recipient, transient_storage_slot_randomness)
     );
 
     // We impersonate incorrect sender and try to finalize the transfer of the NFT. The incorrect sender owns the NFT

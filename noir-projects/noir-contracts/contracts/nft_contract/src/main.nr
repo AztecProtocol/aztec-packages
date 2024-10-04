@@ -9,6 +9,7 @@ use dep::aztec::macros::aztec;
 contract NFT {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
+        oracle::random::random,
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
         encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
         hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
@@ -137,13 +138,10 @@ contract NFT {
     /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
     /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
-    // TODO(#8238): Remove the `note_randomness` argument below once we have partial notes delivery (then we can just
-    // fetch the randomness from oracle).
     #[private]
     fn prepare_transfer_to_private(
         from: AztecAddress,
         to: AztecAddress,
-        note_randomness: Field,
         transient_storage_slot_randomness: Field
     ) {
         let to_keys = get_public_keys(to);
@@ -151,6 +149,11 @@ contract NFT {
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
 
         // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
+        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
+        // notes we could just inject it in macros.
+        let note_randomness = unsafe {
+            random()
+        };
         let note_partial_payload = NFTNote::partial_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
         // We encrypt and emit the partial note log
