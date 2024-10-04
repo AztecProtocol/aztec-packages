@@ -548,11 +548,21 @@ comptime fn generate_finalization_payload(
     }, finalization_payload_name)
 }
 
-comptime fn generate_partial_note_impl(
-    s: StructDefinition,
-    setup_payload_name: Quoted,
-    finalization_payload_name: Quoted
-) -> Quoted {
+/// Generates `PartialNote` implementation for a given note struct `s`.
+///
+/// Example:
+/// ```
+/// impl PartialNote<TokenNoteSetupPayload, TokenNoteFinalizationPayload> for TokenNote {
+///     fn setup_payload() -> TokenNoteSetupPayload {
+///         TokenNoteSetupPayload::empty()
+///     }
+///
+///     fn finalization_payload() -> TokenNoteFinalizationPayload {
+///         TokenNoteFinalizationPayload::empty()
+///     }
+/// }
+/// ```
+comptime fn generate_partial_note_impl(s: StructDefinition, setup_payload_name: Quoted, finalization_payload_name: Quoted) -> Quoted {
     let name = s.name();
     quote {
         impl aztec::note::note_interface::PartialNote<$setup_payload_name, $finalization_payload_name> for $name {
@@ -567,6 +577,8 @@ comptime fn generate_partial_note_impl(
     }
 }
 
+/// Registers a note struct `note` with the given `note_serialized_len`, `note_type_id`, `fixed_fields` and
+/// `nullable_fields` in the global `NOTES` map.
 comptime fn register_note(
     note: StructDefinition,
     note_serialized_len: u32,
@@ -616,6 +628,8 @@ comptime fn index_note_fields(
     (indexed_fixed_fields, indexed_nullable_fields)
 }
 
+/// Checks whether a note struct `s` contains a `NoteHeader` field. If not, it automatically injects it. Then it
+/// generates and returns note properties and the note type id.
 comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
     // Automatically inject header if not present
     let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == NOTE_HEADER_TYPE);
@@ -631,6 +645,16 @@ comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
     }, note_type_id)
 }
 
+/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// - NoteTypeProperties
+/// - SetupPayload
+/// - FinalizationPayload
+/// - PartialNote trait implementation
+/// - NoteExport
+/// - NoteInterface trait implementation
+/// - Registers the note in the global `NOTES` map.
+///
+/// For more details on the generated code, see the individual functions.
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
     // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
