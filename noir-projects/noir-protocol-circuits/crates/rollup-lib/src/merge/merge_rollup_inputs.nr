@@ -8,16 +8,14 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     MERGE_ROLLUP_INDEX,
 ];
 
-struct MergeRollupInputs {
+pub struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
     previous_rollup_data : [PreviousRollupData; 2]
 }
 
 impl Empty for MergeRollupInputs {
     fn empty() -> Self {
-        MergeRollupInputs {
-            previous_rollup_data: [PreviousRollupData::empty(); 2]
-        }
+        MergeRollupInputs { previous_rollup_data: [PreviousRollupData::empty(); 2] }
     }
 }
 

@@ -1,7 +1,7 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurveScalar as Scalar;
 use crate::traits::{Empty, Serialize};
 
-global SCALAR_SIZE: Field = 2;
+global SCALAR_SIZE: u32 = 2;
 
 impl Empty for Scalar {
     fn empty() -> Self {
@@ -10,7 +10,7 @@ impl Empty for Scalar {
 }
 
 impl Serialize<SCALAR_SIZE> for Scalar {
-  fn serialize(self) -> [Field; SCALAR_SIZE] {
-    [self.lo, self.hi]
-  }
+    fn serialize(self) -> [Field; SCALAR_SIZE] {
+        [self.lo, self.hi]
+    }
 }

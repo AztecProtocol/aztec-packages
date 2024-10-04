@@ -1,8 +1,8 @@
 use dep::aztec::{
-    prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
+    prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,
-    keys::getters::get_nsk_app
+    note::utils::compute_note_hash_for_nullify, oracle::random::random, keys::getters::get_nsk_app,
+    macros::notes::note
 };
 
 trait OwnedNote {
@@ -10,12 +10,8 @@ trait OwnedNote {
     fn get_amount(self) -> U128;
 }
 
-global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
-// TOKEN_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
-
-#[aztec(note)]
-struct TokenNote {
+#[note]
+pub struct TokenNote {
     // The amount of tokens in the note
     amount: U128,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
@@ -24,47 +20,51 @@ struct TokenNote {
     randomness: Field,
 }
 
-impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
+impl NullifiableNote for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
     // docs:end:nullifier
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
-            secret,
+            secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 }
 
 impl Eq for TokenNote {
     fn eq(self, other: Self) -> bool {
-        (self.amount == other.amount) &
-        (self.npk_m_hash == other.npk_m_hash) &
-        (self.randomness == other.randomness)
+        (self.amount == other.amount)
+            & (self.npk_m_hash == other.npk_m_hash)
+            & (self.randomness == other.randomness)
     }
 }
 
 impl OwnedNote for TokenNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self {
-        Self {
-            amount,
-            npk_m_hash: owner_npk_m_hash,
-            randomness: unsafe_rand(),
-            header: NoteHeader::empty(),
-        }
+        // We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
+        // malicious sender could use non-random values to make the note less private. But they already know the full
+        // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
+        // therefore assume that the sender will cooperate in the random value generation.
+        let randomness = unsafe {
+            random()
+        };
+        Self { amount, npk_m_hash: owner_npk_m_hash, randomness, header: NoteHeader::empty() }
     }
 
     fn get_amount(self) -> U128 {

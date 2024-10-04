@@ -1,6 +1,6 @@
 use crate::{abis::side_effect::Ordered, traits::Empty};
 
-struct TestValue {
+pub(crate) struct TestValue {
     value: Field,
     counter: u32,
 }
@@ -23,7 +23,7 @@ impl Ordered for TestValue {
     }
 }
 
-struct TestTwoValues {
+pub(crate) struct TestTwoValues {
     value_1: Field,
     value_2: Field,
     counter: u32,
@@ -37,7 +37,9 @@ impl Empty for TestTwoValues {
 
 impl Eq for TestTwoValues {
     fn eq(self, other: Self) -> bool {
-        (self.value_1 == other.value_1) & (self.value_2 == other.value_2) & (self.counter == other.counter)
+        (self.value_1 == other.value_1)
+            & (self.value_2 == other.value_2)
+            & (self.counter == other.counter)
     }
 }
 
@@ -47,7 +49,7 @@ impl Ordered for TestTwoValues {
     }
 }
 
-struct TestCombinedValue {
+pub(crate) struct TestCombinedValue {
     value: Field,
 }
 

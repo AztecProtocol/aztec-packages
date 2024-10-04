@@ -1,7 +1,7 @@
 import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver';
 import {
   type ConfigMappingsType,
-  booleanConfigHelper,
+  bigintConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
@@ -16,30 +16,61 @@ import {
 } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
 
-import { type TxProviderConfig, getTxProviderConfigFromEnv, txProviderConfigMappings } from './tx-provider/config.js';
+import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
+import {
+  type ProverCoordinationConfig,
+  getTxProviderConfigFromEnv,
+  proverCoordinationConfigMappings,
+} from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
-  TxProviderConfig & {
-    proverNodeDisableAutomaticProving?: boolean;
-    proverNodeMaxPendingJobs?: number;
+  ProverCoordinationConfig &
+  ProverBondManagerConfig &
+  QuoteProviderConfig & {
+    proverNodeMaxPendingJobs: number;
+    proverNodePollingIntervalMs: number;
   };
 
+export type QuoteProviderConfig = {
+  quoteProviderBasisPointFee: number;
+  quoteProviderBondAmount: bigint;
+  quoteProviderUrl?: string;
+};
+
 const specificProverNodeConfigMappings: ConfigMappingsType<
-  Pick<ProverNodeConfig, 'proverNodeDisableAutomaticProving' | 'proverNodeMaxPendingJobs'>
+  Pick<ProverNodeConfig, 'proverNodePollingIntervalMs' | 'proverNodeMaxPendingJobs'>
 > = {
-  proverNodeDisableAutomaticProving: {
-    env: 'PROVER_NODE_DISABLE_AUTOMATIC_PROVING',
-    description: 'Whether to disable automatic proving of pending blocks seen on L1',
-    ...booleanConfigHelper(false),
-  },
   proverNodeMaxPendingJobs: {
     env: 'PROVER_NODE_MAX_PENDING_JOBS',
     description: 'The maximum number of pending jobs for the prover node',
+    ...numberConfigHelper(10),
+  },
+  proverNodePollingIntervalMs: {
+    env: 'PROVER_NODE_POLLING_INTERVAL_MS',
+    description: 'The interval in milliseconds to poll for new jobs',
+    ...numberConfigHelper(1000),
+  },
+};
+
+const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
+  quoteProviderBasisPointFee: {
+    env: 'QUOTE_PROVIDER_BASIS_POINT_FEE',
+    description: 'The basis point fee to charge for providing quotes',
     ...numberConfigHelper(100),
+  },
+  quoteProviderBondAmount: {
+    env: 'QUOTE_PROVIDER_BOND_AMOUNT',
+    description: 'The bond amount to charge for providing quotes',
+    ...bigintConfigHelper(1000n),
+  },
+  quoteProviderUrl: {
+    env: 'QUOTE_PROVIDER_URL',
+    description:
+      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
   },
 };
 
@@ -49,7 +80,9 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
-  ...txProviderConfigMappings,
+  ...proverCoordinationConfigMappings,
+  ...quoteProviderConfigMappings,
+  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 
@@ -61,6 +94,8 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
     ...getPublisherConfigFromEnv('PROVER'),
     ...getTxSenderConfigFromEnv('PROVER'),
     ...getTxProviderConfigFromEnv(),
+    ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
+    ...getConfigFromMappings(proverBondManagerConfigMappings),
   };
 }

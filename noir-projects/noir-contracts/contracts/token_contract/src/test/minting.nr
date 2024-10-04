@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash};
+use dep::aztec::{test::helpers::cheatcodes, oracle::random::random, hash::compute_secret_hash};
 use crate::{types::transparent_note::TransparentNote, Token};
 
 #[test]
@@ -63,7 +63,7 @@ unconstrained fn mint_private_success() {
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -74,10 +74,10 @@ unconstrained fn mint_private_success() {
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -94,7 +94,7 @@ unconstrained fn mint_private_failure_double_spend() {
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -105,10 +105,10 @@ unconstrained fn mint_private_failure_double_spend() {
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -131,7 +131,7 @@ unconstrained fn mint_private_failure_non_minter() {
     // Try to mint some tokens impersonating recipient
     env.impersonate(recipient);
 
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -144,7 +144,7 @@ unconstrained fn mint_private_failure_overflow() {
 
     // Overflow recipient
     let mint_amount = 2.pow_32(128);
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -156,7 +156,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -164,10 +164,10 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -179,7 +179,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
 
     let mint_amount = 2.pow_32(128) - mint_amount;
     // Mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -191,8 +191,8 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret_owner = unsafe_rand();
-    let secret_recipient = unsafe_rand();
+    let secret_owner = random();
+    let secret_recipient = random();
     let secret_hash_owner = compute_secret_hash(secret_owner);
     let secret_hash_recipient = compute_secret_hash(secret_recipient);
 
@@ -205,14 +205,14 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     env.advance_block_by(6);
 
     // Store 2 notes in the cache so we can redeem it for owner and recipient
-    env.store_note_in_cache(
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash_owner),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
-    env.store_note_in_cache(
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash_recipient),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -232,7 +232,7 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     env.impersonate(owner);
     let mint_amount = 2.pow_32(128) - 2 * mint_amount;
     // Try to mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);

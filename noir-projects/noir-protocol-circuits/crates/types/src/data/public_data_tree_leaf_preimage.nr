@@ -1,6 +1,6 @@
 use crate::{merkle_tree::leaf_preimage::IndexedTreeLeafPreimage, traits::{Empty, Hash}};
 
-struct PublicDataTreeLeafPreimage {
+pub struct PublicDataTreeLeafPreimage {
     slot : Field,
     value: Field,
     next_slot :Field,
@@ -9,12 +9,7 @@ struct PublicDataTreeLeafPreimage {
 
 impl Empty for PublicDataTreeLeafPreimage {
     fn empty() -> Self {
-        Self {
-            slot: 0,
-            value: 0,
-            next_slot: 0,
-            next_index: 0,
-        }
+        Self { slot: 0, value: 0, next_slot: 0, next_index: 0 }
     }
 }
 

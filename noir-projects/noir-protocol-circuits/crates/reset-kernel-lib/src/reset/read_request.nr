@@ -4,7 +4,7 @@ use dep::types::{
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::Empty
 };
 
-struct ReadRequestStateEnum {
+pub struct ReadRequestStateEnum {
     NADA: u8,
     PENDING: u8,
     SETTLED: u8,
@@ -16,7 +16,7 @@ global ReadRequestState = ReadRequestStateEnum {
     SETTLED: 2,
 };
 
-struct ReadRequestStatus {
+pub struct ReadRequestStatus {
     state: u8,
     hint_index: u32,
 }
@@ -41,7 +41,7 @@ trait ReadValueHint {
     fn read_request_index(self) -> u32;
 }
 
-struct PendingReadHint {
+pub struct PendingReadHint {
     read_request_index: u32,
     pending_value_index: u32,
 }
@@ -86,7 +86,13 @@ fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALU
 
 // Validate read requests against the historical tree root, for reading settled notes.
 // Use their membership witnesses to do so.
-fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let NUM_SETTLED_READS: u32, H, TREE_HEIGHT, LEAF_PREIMAGE>(
+fn validate_settled_read_requests<
+    let READ_REQUEST_LEN: u32,
+    let NUM_SETTLED_READS: u32,
+    H,
+    let TREE_HEIGHT: u32,
+    LEAF_PREIMAGE
+>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     hints: [H; NUM_SETTLED_READS],
     tree_root: Field
@@ -119,11 +125,11 @@ fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, T, let NUM_PENDING
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
         let status = read_request_statuses[i];
-        if status.state == ReadRequestState.PENDING {
+        if (status.state == ReadRequestState.PENDING) & (NUM_PENDING_READS != 0) {
             assert_eq(
                 pending_read_hints[status.hint_index].read_request_index(), i, "Hinted pending read request does not match status"
             );
-        } else if status.state == ReadRequestState.SETTLED {
+        } else if (status.state == ReadRequestState.SETTLED) & (NUM_SETTLED_READS != 0) {
             assert_eq(
                 settled_read_hints[status.hint_index].read_request_index(), i, "Hinted settled read request does not match status"
             );
@@ -143,7 +149,7 @@ pub fn verify_reset_read_requests<
     let NUM_PENDING_READS: u32,
     let NUM_SETTLED_READS: u32,
     H,
-    TREE_HEIGHT,
+    let TREE_HEIGHT: u32,
     LEAF_PREIMAGE
 >(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
@@ -230,9 +236,7 @@ mod tests {
 
     impl Empty for TestLeafPreimage {
         fn empty() -> Self {
-            TestLeafPreimage {
-                value: 0,
-            }
+            TestLeafPreimage { value: 0 }
         }
     }
 
@@ -562,4 +566,3 @@ mod tests {
         builder.verify();
     }
 }
-

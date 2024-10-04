@@ -69,11 +69,12 @@ export async function deployAztecContracts(
     RegistryBytecode,
     RollupAbi,
     RollupBytecode,
-
+    MockProofCommitmentEscrowAbi,
+    MockProofCommitmentEscrowBytecode,
     FeeJuicePortalAbi,
     FeeJuicePortalBytecode,
-    PortalERC20Abi,
-    PortalERC20Bytecode,
+    TestERC20Abi,
+    TestERC20Bytecode,
   } = await import('@aztec/l1-artifacts');
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
@@ -100,12 +101,16 @@ export async function deployAztecContracts(
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
+    },
+    proofCommitmentEscrow: {
+      contractAbi: MockProofCommitmentEscrowAbi,
+      contractBytecode: MockProofCommitmentEscrowBytecode,
     },
   };
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
@@ -118,7 +123,7 @@ export async function deployAztecContracts(
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */
-export async function setAssumeProvenUntil(
+export async function setAssumeProvenThrough(
   blockNumber: number,
   rollupAddress: EthAddress,
   walletClient: WalletClient<HttpTransport, Chain, Account>,
@@ -128,7 +133,7 @@ export async function setAssumeProvenUntil(
     abi: RollupAbi,
     client: walletClient,
   });
-  const hash = await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber)]);
+  const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
   await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
 }
 

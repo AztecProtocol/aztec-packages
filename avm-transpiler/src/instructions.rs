@@ -21,7 +21,7 @@ pub struct AvmInstruction {
     /// Any instructions with memory offset operands have the indirect flag
     /// Each bit is a boolean: 0:direct, 1:indirect
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
-    pub indirect: Option<u8>,
+    pub indirect: Option<AvmOperand>,
 
     /// Some instructions have a destination xor input tag
     /// Its usage will depend on the instruction.
@@ -34,7 +34,7 @@ pub struct AvmInstruction {
 impl Display for AvmInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "opcode {}", self.opcode.name())?;
-        if let Some(indirect) = self.indirect {
+        if let Some(indirect) = &self.indirect {
             write!(f, ", indirect: {}", indirect)?;
         }
         // This will be either inTag or dstTag depending on the operation
@@ -57,8 +57,8 @@ impl AvmInstruction {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.push(self.opcode as u8);
-        if let Some(indirect) = self.indirect {
-            bytes.push(indirect);
+        if let Some(indirect) = &self.indirect {
+            bytes.extend_from_slice(&indirect.to_be_bytes());
         }
         // This will be either inTag or dstTag depending on the operation
         if let Some(tag) = self.tag {
@@ -94,6 +94,7 @@ impl Default for AvmInstruction {
 #[derive(Copy, Clone, Debug)]
 pub enum AvmTypeTag {
     UNINITIALIZED,
+    UINT1,
     UINT8,
     UINT16,
     UINT32,

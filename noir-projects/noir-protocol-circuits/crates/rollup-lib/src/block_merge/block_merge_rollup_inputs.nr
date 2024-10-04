@@ -8,15 +8,13 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     BLOCK_MERGE_ROLLUP_INDEX,
 ];
 
-struct BlockMergeRollupInputs {
+pub struct BlockMergeRollupInputs {
     previous_rollup_data : [PreviousRollupBlockData; 2]
 }
 
 impl Empty for BlockMergeRollupInputs {
     fn empty() -> Self {
-        BlockMergeRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2]
-        }
+        BlockMergeRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2] }
     }
 }
 

@@ -1,19 +1,18 @@
 import type { AvmContext } from '../avm_context.js';
-import { type IntegralValue, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
-import { Opcode } from '../serialization/instruction_serialization.js';
+import { type IntegralValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { ThreeOperandInstruction, TwoOperandInstruction } from './instruction_impl.js';
+import { Instruction } from './instruction.js';
+import { ThreeOperandInstruction } from './instruction_impl.js';
 
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.dstOffset],
-      memory,
-    );
+    const operands = [this.aOffset, this.bOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
     this.checkTags(memory, this.inTag, aOffset, bOffset);
 
     const a = memory.getAs<IntegralValue>(aOffset);
@@ -22,7 +21,7 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     const res = this.compute(a, b);
     memory.set(dstOffset, res);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 
@@ -85,27 +84,31 @@ export class Shr extends ThreeOperandBitwiseInstruction {
   }
 }
 
-export class Not extends TwoOperandInstruction {
+export class Not extends Instruction {
   static readonly type: string = 'NOT';
   static readonly opcode = Opcode.NOT_8;
 
-  constructor(indirect: number, inTag: number, aOffset: number, dstOffset: number) {
-    super(indirect, inTag, aOffset, dstOffset);
+  static readonly wireFormat8 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT8, OperandType.UINT8];
+  static readonly wireFormat16 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
+
+  constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
+    super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [aOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.dstOffset], memory);
-    memory.checkTags(this.inTag, aOffset);
-    const a = memory.getAs<IntegralValue>(aOffset);
+    const operands = [this.srcOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(srcOffset));
+    const value = memory.getAs<IntegralValue>(srcOffset);
 
-    const res = a.not();
+    const res = value.not();
     memory.set(dstOffset, res);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 }

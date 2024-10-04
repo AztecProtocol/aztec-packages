@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
+#include <cstdint>
 
 namespace acir_format {
 
@@ -42,6 +43,33 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
+    // Oversize gates are a vector of mul_quad gates.
+    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
+        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
+        fr next_w4_wire_value = fr(0);
+        // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
+        for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
+            if (j == 0) {
+                next_w4_wire_value = builder.get_variable(big_constraint[0].d);
+            } else {
+                uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
+                big_constraint[j].d = next_w4_wire;
+                big_constraint[j].d_scaling = fr(-1);
+            }
+            builder.create_big_mul_add_gate(big_constraint[j], true);
+            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
+                                     big_constraint[j].mul_scaling +
+                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
+                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
+                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
+                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
+            next_w4_wire_value = -next_w4_wire_value;
+        }
+        uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
+        big_constraint.back().d = next_w4_wire;
+        big_constraint.back().d_scaling = fr(-1);
+        builder.create_big_mul_add_gate(big_constraint.back(), false);
+    }
 
     // Add logic constraint
     for (size_t i = 0; i < constraint_system.logic_constraints.size(); ++i) {
@@ -55,7 +83,11 @@ void build_constraints(Builder& builder,
     // Add range constraint
     for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
         const auto& constraint = constraint_system.range_constraints.at(i);
-        builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
+        uint32_t range = constraint.num_bits;
+        if (constraint_system.minimal_range.contains(constraint.witness)) {
+            range = constraint_system.minimal_range[constraint.witness];
+        }
+        builder.create_range_constraint(constraint.witness, range, "");
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.range_constraints.at(i));
     }
@@ -69,13 +101,6 @@ void build_constraints(Builder& builder,
     }
 
     // Add sha256 constraints
-    for (size_t i = 0; i < constraint_system.sha256_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.sha256_constraints.at(i);
-        create_sha256_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.sha256_constraints.at(i));
-    }
-
     for (size_t i = 0; i < constraint_system.sha256_compression.size(); ++i) {
         const auto& constraint = constraint_system.sha256_compression[i];
         create_sha256_compression_constraints(builder, constraint);
@@ -212,10 +237,10 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
     }
+
     // assert equals
     for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
         const auto& constraint = constraint_system.assert_equalities.at(i);
-
         builder.assert_equal(constraint.a, constraint.b);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.assert_equalities.at(i));
@@ -236,19 +261,22 @@ void build_constraints(Builder& builder,
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-        process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        AggregationObjectIndices current_aggregation_object =
+            stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+        current_aggregation_object = process_honk_recursion_constraints(
+            builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
 
 #ifndef DISABLE_AZTEC_VM
-        process_avm_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        current_aggregation_object = process_avm_recursion_constraints(
+            builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
 #endif
-
-        // If the circuit does not itself contain honk recursion constraints but is going to be
-        // proven with honk then recursively verified, add a default aggregation object
-        if (constraint_system.honk_recursion_constraints.empty() && honk_recursion &&
-            builder.is_recursive_circuit) { // Set a default aggregation object if we don't have
-                                            // one.
-            AggregationObjectIndices current_aggregation_object =
-                stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+        // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
+        // default one if the circuit is recursive and honk_recursion is true.
+        if (!constraint_system.honk_recursion_constraints.empty() ||
+            !constraint_system.avm_recursion_constraints.empty()) {
+            ASSERT(honk_recursion);
+            builder.add_recursive_proof(current_aggregation_object);
+        } else if (honk_recursion && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_recursive_proof(current_aggregation_object);
@@ -344,14 +372,12 @@ void process_plonk_recursion_constraints(Builder& builder,
     }
 }
 
-void process_honk_recursion_constraints(Builder& builder,
-                                        AcirFormat& constraint_system,
-                                        bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter)
+AggregationObjectIndices process_honk_recursion_constraints(Builder& builder,
+                                                            AcirFormat& constraint_system,
+                                                            bool has_valid_witness_assignments,
+                                                            GateCounter<Builder>& gate_counter,
+                                                            AggregationObjectIndices current_aggregation_object)
 {
-    AggregationObjectIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
@@ -361,35 +387,16 @@ void process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-
-    // Now that the circuit has been completely built, we add the output aggregation as public
-    // inputs.
-    if (!constraint_system.honk_recursion_constraints.empty()) {
-
-        // First add the output aggregation object as public inputs
-        // Set the indices as public inputs because they are no longer being
-        // created in ACIR
-        for (const auto& idx : current_aggregation_object) {
-            builder.set_public_input(idx);
-        }
-
-        // Make sure the verification key records the public input indices of the
-        // final recursion output.
-        builder.set_recursive_proof(current_aggregation_object);
-    }
+    return current_aggregation_object;
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): Probably makes sense to aggregate Honk and AVM
-// proofs together.
 #ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<Builder>& gate_counter)
+AggregationObjectIndices process_avm_recursion_constraints(Builder& builder,
+                                                           AcirFormat& constraint_system,
+                                                           bool has_valid_witness_assignments,
+                                                           GateCounter<Builder>& gate_counter,
+                                                           AggregationObjectIndices current_aggregation_object)
 {
-    AggregationObjectIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.avm_recursion_constraints) {
@@ -399,25 +406,7 @@ void process_avm_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
     }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): The following code will have to be adapted to
-    // support a circuit with both honk and avm recursion constraints.
-
-    // Now that the circuit has been completely built, we add
-    // the output aggregation as public inputs.
-    if (!constraint_system.avm_recursion_constraints.empty()) {
-
-        // First add the output aggregation object as public inputs
-        // Set the indices as public inputs because they are no longer being
-        // created in ACIR
-        for (const auto& idx : current_aggregation_object) {
-            builder.set_public_input(idx);
-        }
-
-        // Make sure the verification key records the public input indices of the
-        // final recursion output.
-        builder.set_recursive_proof(current_aggregation_object);
-    }
+    return current_aggregation_object;
 }
 #endif // DISABLE_AZTEC_VM
 
@@ -479,7 +468,7 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
 
 /**
  * @brief Create a kernel circuit from a constraint system and an IVC instance
- * @details This method processes ivc_recursion_constraints using the kernel completion logic contained in AztecIvc.
+ * @details This method processes ivc_recursion_constraints using the kernel completion logic contained in ClientIVC.
  * Since verification keys are known at the time of acir generation, the verification key witnesses contained in the
  * constraints are used directly to instantiate the recursive verifiers. On the other hand, the proof witnesses
  * contained in the constraints are generally 'dummy' values since proofs are not known during acir generation (with the
@@ -493,11 +482,11 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
  * @return MegaCircuitBuilder
  */
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness,
                                          const size_t size_hint)
 {
-    using StdlibVerificationKey = AztecIVC::RecursiveVerificationKey;
+    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
@@ -530,12 +519,14 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
 
-        // Reconstruct complete proof indices from acir constraint data (in which proof is stripped of public inputs)
+        // Reconstruct complete proof indices from acir constraint data (in which proof is
+        // stripped of public inputs)
         std::vector<uint32_t> complete_proof_indices =
             ProofSurgeon::create_indices_for_reconstructed_proof(constraint.proof, constraint.public_inputs);
         ASSERT(complete_proof_indices.size() == queue_entry.proof.size());
 
-        // Assert equality between the proof indices from the constraint data and those of the internal proof
+        // Assert equality between the proof indices from the constraint data and those of the
+        // internal proof
         for (auto [proof_value, proof_idx] : zip_view(queue_entry.proof, complete_proof_indices)) {
             circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
         }

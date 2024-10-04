@@ -96,12 +96,22 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     assert(
         left.end_global_variables.version == right.start_global_variables.version, "input blocks have different chain version"
     );
-    assert(
-        left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
-    );
-    assert(
-        left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
-    );
+
+    if right.is_padding() {
+        assert(
+            left.end_global_variables.block_number == right.start_global_variables.block_number, "input block numbers do not match"
+        );
+        assert(
+            left.end_global_variables.timestamp == right.start_global_variables.timestamp, "input block timestamps do not match"
+        );
+    } else {
+        assert(
+            left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
+        );
+        assert(
+            left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
+        );
+    }
 }
 
 pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) -> Field {
@@ -138,12 +148,16 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
 }
 // TODO(Miranda): combine fns?
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
-    accumulate_sha256(
-        [
-        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
-        previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
-    ]
-    )
+    if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
+        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
+    } else {
+        accumulate_sha256(
+            [
+            previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
+            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
+        ]
+        )
+    }
 }
 
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {

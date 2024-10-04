@@ -4,7 +4,7 @@ use crate::{
 };
 use std::ops::{Add, Sub};
 
-struct Gas {
+pub struct Gas {
     da_gas: u32,
     l2_gas: u32,
 }
@@ -56,7 +56,7 @@ impl Deserialize<GAS_LENGTH> for Gas {
 }
 
 impl Eq for Gas {
-    fn eq(self, other : Gas) -> bool {
+    fn eq(self, other: Gas) -> bool {
         (self.da_gas == other.da_gas) & (self.l2_gas == other.l2_gas)
     }
 }
@@ -74,4 +74,3 @@ fn serialization_of_empty() {
     let deserialized = Gas::deserialize(serialized);
     assert(item.eq(deserialized));
 }
-

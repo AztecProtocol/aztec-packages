@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, contract_instance::ContractInstance, utils::arr_copy_slice,
-    constants::CONTRACT_INSTANCE_LENGTH, utils::reader::Reader
+    address::AztecAddress, contract_instance::ContractInstance, constants::CONTRACT_INSTANCE_LENGTH,
+    utils::reader::Reader
 };
 
 #[oracle(getContractInstance)]

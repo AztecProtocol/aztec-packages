@@ -22,8 +22,8 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import {
   InboxAbi,
   OutboxAbi,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
   TokenPortalAbi,
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
@@ -82,16 +82,13 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   underlyingERC20: any;
 }> {
   if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(
-      walletClient,
-      publicClient,
-      PortalERC20Abi,
-      PortalERC20Bytecode,
-    ).then(({ address }) => address);
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode).then(
+      ({ address }) => address,
+    );
   }
   const underlyingERC20 = getContract({
     address: underlyingERC20Address!.toString(),
-    abi: PortalERC20Abi,
+    abi: TestERC20Abi,
     client: walletClient,
   });
 
@@ -114,7 +111,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   // deploy l2 token bridge and attach to the portal
   const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send().deployed();
 
-  if ((await token.methods.admin().simulate()) !== owner.toBigInt()) {
+  if ((await token.methods.get_admin().simulate()) !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
   }
 

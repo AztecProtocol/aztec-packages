@@ -8,7 +8,7 @@ use crate::abis::constant_rollup_data::ConstantRollupData;
 global BASE_ROLLUP_TYPE = 0;
 global MERGE_ROLLUP_TYPE = 1;
 
-struct BaseOrMergeRollupPublicInputs {
+pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
     rollup_type : u32,
@@ -37,9 +37,9 @@ struct BaseOrMergeRollupPublicInputs {
 impl Empty for BaseOrMergeRollupPublicInputs {
     fn empty() -> Self {
         BaseOrMergeRollupPublicInputs {
-            rollup_type : 0 as u32,
-            num_txs : 0 as u32,
-            constants : ConstantRollupData::empty(),
+            rollup_type: 0 as u32,
+            num_txs: 0 as u32,
+            constants: ConstantRollupData::empty(),
             start: PartialStateReference::empty(),
             end: PartialStateReference::empty(),
             start_sponge_blob: SpongeBlob::empty(),
@@ -67,24 +67,24 @@ impl Eq for BaseOrMergeRollupPublicInputs {
 }
 
 impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
-  fn serialize(self) -> [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH] {
-    let mut fields: BoundedVec<Field, BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
-    fields.push(self.rollup_type as Field);
-    fields.push(self.num_txs as Field);
-    fields.extend_from_array(self.constants.serialize());
-    fields.extend_from_array(self.start.serialize());
-    fields.extend_from_array(self.end.serialize());
-    fields.extend_from_array(self.start_sponge_blob.serialize());
-    fields.extend_from_array(self.end_sponge_blob.serialize());
-    // fields.push(self.txs_effects_hash as Field);
-    fields.push(self.out_hash as Field);
-    fields.push(self.accumulated_fees as Field);
+        fields.push(self.rollup_type as Field);
+        fields.push(self.num_txs as Field);
+        fields.extend_from_array(self.constants.serialize());
+        fields.extend_from_array(self.start.serialize());
+        fields.extend_from_array(self.end.serialize());
+        fields.extend_from_array(self.start_sponge_blob.serialize());
+        fields.extend_from_array(self.end_sponge_blob.serialize());
+        // fields.push(self.txs_effects_hash as Field);
+        fields.push(self.out_hash as Field);
+        fields.push(self.accumulated_fees as Field);
 
-    assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
+        assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
 
-    fields.storage
-  }
+        fields.storage
+    }
 }
 
 impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
@@ -103,9 +103,9 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
         accumulated_fees: reader.read()
     };
 
-    reader.finish();
-    item
-  }
+        reader.finish();
+        item
+    }
 }
 
 #[test]

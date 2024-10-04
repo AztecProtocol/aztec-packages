@@ -1,6 +1,7 @@
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
 import {
@@ -112,7 +113,6 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
@@ -148,15 +148,21 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
-  BlobPublicInputs,
-  Poseidon2Sponge,
+  EnqueuedCallData,
+  PublicAccumulatedDataArrayLengths,
   PublicDataLeafHint,
+  PublicInnerCallRequest,
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelInnerCircuitPrivateInputs,
+  PublicKernelInnerData,
+  PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
   SpongeBlob,
   TreeLeafReadRequest,
   TreeLeafReadRequestHint,
+  VMCircuitPublicInputs,
 } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
@@ -166,6 +172,7 @@ import {
   FeeRecipient,
 } from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
 import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import { EmptyBlockRootRollupInputs } from '../structs/rollup/empty_block_root_rollup_inputs.js';
 import { PreviousRollupBlockData } from '../structs/rollup/previous_rollup_block_data.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 
@@ -339,6 +346,10 @@ function makePublicValidationRequests(seed = 1) {
   );
 }
 
+function makePublicValidationRequestArrayLengths(seed = 1) {
+  return new PublicValidationRequestArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
+}
+
 export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
@@ -410,6 +421,19 @@ function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedDat
   );
 }
 
+function makePublicAccumulatedDataArrayLengths(seed = 1) {
+  return new PublicAccumulatedDataArrayLengths(
+    seed,
+    seed + 1,
+    seed + 2,
+    seed + 3,
+    seed + 4,
+    seed + 5,
+    seed + 6,
+    seed + 7,
+  );
+}
+
 /**
  * Creates arbitrary call context.
  * @param seed - The seed to use for generating the call context.
@@ -465,7 +489,12 @@ export function makePublicCircuitPublicInputs(
       ContractStorageUpdateRequest.empty,
     ),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.empty),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallRequest, seed + 0x600, PublicCallRequest.empty),
+    tupleGenerator(
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+      makePublicInnerCallRequest,
+      seed + 0x600,
+      PublicInnerCallRequest.empty,
+    ),
     tupleGenerator(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x700, NoteHash.empty),
     tupleGenerator(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x800, Nullifier.empty),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
@@ -491,15 +520,15 @@ export function makePublicKernelCircuitPublicInputs(
   seed = 1,
   fullAccumulatedData = true,
 ): PublicKernelCircuitPublicInputs {
-  const tupleGenerator = fullAccumulatedData ? makeTuple : makeHalfFullTuple;
   return new PublicKernelCircuitPublicInputs(
-    makePublicValidationRequests(seed),
-    makePublicAccumulatedData(seed, fullAccumulatedData),
-    makePublicAccumulatedData(seed, fullAccumulatedData),
-    makeConstantData(seed + 0x100),
+    makeConstantData(seed),
+    makePublicValidationRequests(seed + 0x100),
+    makePublicAccumulatedData(seed + 0x200, fullAccumulatedData),
+    makePublicAccumulatedData(seed + 0x300, fullAccumulatedData),
+    seed + 0x300,
+    makePublicCallRequest(seed + 0x400),
+    makeAztecAddress(seed + 0x500),
     RevertCode.OK,
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest, seed + 0x600, PublicCallRequest.empty),
-    makeAztecAddress(seed + 0x700),
   );
 }
 
@@ -548,6 +577,23 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
     makePartialStateReference(seed + 0x200),
     RevertCode.OK,
     makeAztecAddress(seed + 0x700),
+  );
+}
+
+export function makeVMCircuitPublicInputs(seed = 1) {
+  return new VMCircuitPublicInputs(
+    makeCombinedConstantData(seed),
+    makePublicCallRequest(seed + 0x100),
+    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicInnerCallRequest, seed + 0x200),
+    makePublicValidationRequestArrayLengths(seed + 0x300),
+    makePublicValidationRequests(seed + 0x310),
+    makePublicAccumulatedDataArrayLengths(seed + 0x400),
+    makePublicAccumulatedData(seed + 0x410),
+    seed + 0x500,
+    seed + 0x501,
+    makeGas(seed + 0x600),
+    fr(seed + 0x700),
+    false,
   );
 }
 
@@ -651,21 +697,26 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
   );
 }
 
-function makePublicCallStackItemCompressed(seed = 1, isPublicExecutionResult: boolean): PublicCallStackItemCompressed {
+function makePublicCallStackItemCompressed(seed = 1): PublicCallStackItemCompressed {
   const callContext = makeCallContext(seed);
   return new PublicCallStackItemCompressed(
     callContext.storageContractAddress,
     callContext,
     fr(seed + 0x20),
-    isPublicExecutionResult ? fr(seed + 0x30) : fr(0),
+    fr(seed + 0x30),
     RevertCode.OK,
-    isPublicExecutionResult ? makeGas(seed + 0x40) : Gas.empty(),
-    isPublicExecutionResult ? makeGas(seed + 0x50) : Gas.empty(),
+    makeGas(seed + 0x40),
+    makeGas(seed + 0x50),
   );
 }
 
-export function makePublicCallRequest(seed = 1, isPublicExecutionResult = false): PublicCallRequest {
-  return new PublicCallRequest(makePublicCallStackItemCompressed(seed, isPublicExecutionResult), seed + 0x60);
+export function makePublicCallRequest(seed = 1): PublicCallRequest {
+  const callContext = makeCallContext(seed);
+  return new PublicCallRequest(callContext.storageContractAddress, callContext, fr(seed + 0x20), seed + 0x60);
+}
+
+function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
+  return new PublicInnerCallRequest(makePublicCallStackItemCompressed(seed), seed + 0x60);
 }
 
 /**
@@ -679,7 +730,6 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
     // in the public kernel, function can't be a constructor or private
     new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false),
     makePublicCircuitPublicInputs(seed + 0x10, undefined, full),
-    false,
   );
   callStackItem.publicInputs.callContext.storageContractAddress = callStackItem.contractAddress;
   return callStackItem;
@@ -696,13 +746,29 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
   return publicCallData;
 }
 
+function makePublicKernelInnerData(seed = 1) {
+  return new PublicKernelInnerData(
+    makeVMCircuitPublicInputs(seed),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
+    VerificationKeyData.makeFake(),
+  );
+}
+
+export function makePublicKernelInnerCircuitPrivateInputs(seed = 1) {
+  return new PublicKernelInnerCircuitPrivateInputs(makePublicKernelInnerData(seed), makePublicCallData(seed + 0x1000));
+}
+
+function makeEnqueuedCallData(seed = 1) {
+  return new EnqueuedCallData(makeVMCircuitPublicInputs(seed), makeProof());
+}
+
 /**
  * Makes arbitrary public kernel inputs.
  * @param seed - The seed to use for generating the public kernel inputs.
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
+  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makeEnqueuedCallData(seed + 0x1000));
 }
 
 /**
@@ -793,21 +859,18 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
   });
 }
 
-export function makeGlobalVariables(
-  seed = 1,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-): GlobalVariables {
-  return new GlobalVariables(
-    new Fr(seed),
-    new Fr(seed + 1),
-    new Fr(blockNumber ?? seed + 2),
-    new Fr(slotNumber ?? seed + 3),
-    new Fr(seed + 4),
-    EthAddress.fromField(new Fr(seed + 5)),
-    AztecAddress.fromField(new Fr(seed + 6)),
-    new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
-  );
+export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
+  return GlobalVariables.from({
+    chainId: new Fr(seed),
+    version: new Fr(seed + 1),
+    blockNumber: new Fr(seed + 2),
+    slotNumber: new Fr(seed + 3),
+    timestamp: new Fr(seed + 4),
+    coinbase: EthAddress.fromField(new Fr(seed + 5)),
+    feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
+    gasFees: new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
+    ...compact(overrides),
+  });
 }
 
 export function makeGasFees(seed = 1) {
@@ -1025,6 +1088,25 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
   );
 }
 
+/**
+ * Makes empty block root rollup inputs.
+ * @param seed - The seed to use for generating the root rollup inputs.
+ * @param globalVariables - The global variables to use.
+ * @returns A block root rollup inputs.
+ */
+export function makeEmptyBlockRootRollupInputs(
+  seed = 0,
+  globalVariables?: GlobalVariables,
+): EmptyBlockRootRollupInputs {
+  return new EmptyBlockRootRollupInputs(
+    makeAppendOnlyTreeSnapshot(seed),
+    fr(seed + 0x100),
+    globalVariables ?? makeGlobalVariables(seed + 0x200),
+    fr(seed + 0x300),
+    fr(seed + 0x400),
+  );
+}
+
 export function makeRootParityInput<PROOF_LENGTH extends number>(
   proofSize: PROOF_LENGTH,
   seed = 0,
@@ -1105,7 +1187,10 @@ export function makeHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), blockNumber, slotNumber),
+    makeGlobalVariables((seed += 0x700), {
+      ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),
+      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
+    }),
     fr(seed + 0x800),
   );
 }

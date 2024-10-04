@@ -1,8 +1,7 @@
-import { PublicKernelType, type Tx, type TxValidator } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { PublicKernelPhase, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
-import { AbstractPhaseManager, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
+import { EnqueuedCallsProcessor, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -34,6 +33,10 @@ export class GasTxValidator implements TxValidator<Tx> {
     return [validTxs, invalidTxs];
   }
 
+  validateTx(tx: Tx): Promise<boolean> {
+    return this.#validateTxFee(tx);
+  }
+
   async #validateTxFee(tx: Tx): Promise<boolean> {
     const feePayer = tx.data.feePayer;
     // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
@@ -55,20 +58,20 @@ export class GasTxValidator implements TxValidator<Tx> {
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
+    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
     const claimFunctionCall = setupFns.find(
       fn =>
         fn.contractAddress.equals(this.#feeJuiceAddress) &&
         fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
-        fn.callContext.functionSelector.equals(
-          FeeJuiceArtifact.functions.find(f => f.name === '_increase_public_balance')!,
-        ) &&
-        fn.args[0].equals(feePayer) &&
+        fn.args.length > 2 &&
+        // Public functions get routed through the dispatch function, whose first argument is the target function selector.
+        fn.args[0].equals(FunctionSelector.fromSignature('_increase_public_balance((Field),Field)').toField()) &&
+        fn.args[1].equals(feePayer) &&
         !fn.callContext.isStaticCall &&
         !fn.callContext.isDelegateCall,
     );
 
-    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
+    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
     if (balance.lt(feeLimit)) {
       this.#log.info(`Rejecting transaction due to not enough fee payer balance`, { feePayer, balance, feeLimit });
       return false;

@@ -1,10 +1,10 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
-import { EthAddress } from '../index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 /**
@@ -137,5 +137,16 @@ export class FeeRecipient {
 
   toFields() {
     return serializeToFields(...FeeRecipient.getFields(this));
+  }
+
+  isEmpty() {
+    return this.value.isZero() && this.recipient.isZero();
+  }
+
+  toFriendlyJSON() {
+    if (this.isEmpty()) {
+      return {};
+    }
+    return { recipient: this.recipient.toString(), value: this.value.toString() };
   }
 }

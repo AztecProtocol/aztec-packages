@@ -52,7 +52,7 @@ struct AddressWithMode {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+    AvmTraceBuilder(VmPublicInputs<FF> public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
@@ -75,7 +75,7 @@ class AvmTraceBuilder {
     void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
-    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset);
     void op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
@@ -83,11 +83,13 @@ class AvmTraceBuilder {
     void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
 
     // Execution Environment
+    void op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
     void op_address(uint8_t indirect, uint32_t dst_offset);
     void op_storage_address(uint8_t indirect, uint32_t dst_offset);
     void op_sender(uint8_t indirect, uint32_t dst_offset);
     void op_function_selector(uint8_t indirect, uint32_t dst_offset);
     void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
+    void op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Globals
     void op_chain_id(uint8_t indirect, uint32_t dst_offset);
@@ -105,14 +107,16 @@ class AvmTraceBuilder {
     void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Machine State - Internal Control Flow
-    void op_jump(uint32_t jmp_dest);
+    // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
+    void op_jump(uint32_t jmp_dest, bool skip_gas = false);
     void op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset);
     // TODO(md): this program counter MUST be an operand to the OPCODE.
     void op_internal_call(uint32_t jmp_dest);
     void op_internal_return();
 
     // Machine State - Memory
-    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
+    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas = false);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
@@ -137,7 +141,7 @@ class AvmTraceBuilder {
     void op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset);
 
     // Control Flow - Contract Calls
-    void op_call(uint8_t indirect,
+    void op_call(uint16_t indirect,
                  uint32_t gas_offset,
                  uint32_t addr_offset,
                  uint32_t args_offset,
@@ -146,6 +150,15 @@ class AvmTraceBuilder {
                  uint32_t ret_size,
                  uint32_t success_offset,
                  uint32_t function_selector_offset);
+    void op_static_call(uint16_t indirect,
+                        uint32_t gas_offset,
+                        uint32_t addr_offset,
+                        uint32_t args_offset,
+                        uint32_t args_size,
+                        uint32_t ret_offset,
+                        uint32_t ret_size,
+                        uint32_t success_offset,
+                        uint32_t function_selector_offset);
     std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // REVERT Opcode (that just call return under the hood for now)
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
@@ -153,13 +166,12 @@ class AvmTraceBuilder {
     // Gadgets
     void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
-    void op_sha256(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_pedersen_hash(uint8_t indirect,
                           uint32_t gen_ctx_offset,
                           uint32_t output_offset,
                           uint32_t input_offset,
                           uint32_t input_size_offset);
-    void op_ec_add(uint8_t indirect,
+    void op_ec_add(uint16_t indirect,
                    uint32_t lhs_x_offset,
                    uint32_t lhs_y_offset,
                    uint32_t lhs_is_inf_offset,
@@ -178,14 +190,31 @@ class AvmTraceBuilder {
                             uint32_t input_size_offset,
                             uint32_t gen_ctx_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, uint32_t radix, uint32_t num_limbs);
+    void op_to_radix_le(uint8_t indirect,
+                        uint32_t src_offset,
+                        uint32_t dst_offset,
+                        uint32_t radix_offset,
+                        uint32_t num_limbs,
+                        uint8_t output_bits);
 
     // Future Gadgets -- pending changes in noir
-    void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
+    void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t state_offset, uint32_t inputs_offset);
     void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
 
-    std::vector<Row> finalize(bool range_check_required = ENABLE_PROVING);
+    std::vector<Row> finalize();
     void reset();
+
+    // These are used for testing only.
+    AvmTraceBuilder& set_range_check_required(bool required)
+    {
+        range_check_required = required;
+        return *this;
+    }
+    AvmTraceBuilder& set_full_precomputed_tables(bool required)
+    {
+        full_precomputed_tables = required;
+        return *this;
+    }
 
     struct MemOp {
         bool is_indirect;
@@ -203,8 +232,12 @@ class AvmTraceBuilder {
     std::vector<FF> returndata;
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
-    uint32_t external_call_counter = 0;
+    uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
+
+    // These exist due to testing only.
+    bool range_check_required = true;
+    bool full_precomputed_tables = true;
 
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
@@ -244,7 +277,18 @@ class AvmTraceBuilder {
                                                              uint32_t data_offset,
                                                              uint32_t metadata_offset);
 
-    void execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset);
+    void constrain_external_call(OpCode opcode,
+                                 uint16_t indirect,
+                                 uint32_t gas_offset,
+                                 uint32_t addr_offset,
+                                 uint32_t args_offset,
+                                 uint32_t args_size_offset,
+                                 uint32_t ret_offset,
+                                 uint32_t ret_size,
+                                 uint32_t success_offset,
+                                 [[maybe_unused]] uint32_t function_selector_offset);
+
+    void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
 
@@ -270,6 +314,7 @@ class AvmTraceBuilder {
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
 
     // TODO: remove these once everything is constrained.
+    AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
     void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);

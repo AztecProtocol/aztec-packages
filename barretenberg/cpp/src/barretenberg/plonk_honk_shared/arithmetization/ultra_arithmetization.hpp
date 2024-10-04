@@ -21,13 +21,18 @@ template <typename FF_> class UltraArith {
         T elliptic;
         T aux;
         T lookup;
-        T poseidon_external;
-        T poseidon_internal;
+        T poseidon2_external;
+        T poseidon2_internal;
 
         auto get()
         {
-            return RefArray{ pub_inputs, arithmetic, delta_range,       elliptic,
-                             aux,        lookup,     poseidon_external, poseidon_internal };
+            return RefArray{ pub_inputs, arithmetic, delta_range,        elliptic,
+                             aux,        lookup,     poseidon2_external, poseidon2_internal };
+        }
+
+        auto get_gate_blocks()
+        {
+            return RefArray{ arithmetic, delta_range, elliptic, aux, lookup, poseidon2_external, poseidon2_internal };
         }
 
         bool operator==(const UltraTraceBlocks& other) const = default;
@@ -44,8 +49,8 @@ template <typename FF_> class UltraArith {
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;
             this->lookup = FIXED_SIZE;
-            this->poseidon_external = FIXED_SIZE;
-            this->poseidon_internal = FIXED_SIZE;
+            this->poseidon2_external = FIXED_SIZE;
+            this->poseidon2_internal = FIXED_SIZE;
         }
     };
 
@@ -90,6 +95,12 @@ template <typename FF_> class UltraArith {
 
     struct TraceBlocks : public UltraTraceBlocks<UltraTraceBlock> {
 
+        TraceBlocks()
+        {
+            this->aux.has_ram_rom = true;
+            this->pub_inputs.is_pub_inputs = true;
+        }
+
         // Set fixed block sizes for use in structured trace
         void set_fixed_block_sizes(TraceStructure setting)
         {
@@ -101,7 +112,6 @@ template <typename FF_> class UltraArith {
             // We don't use Ultra in ClientIvc so no need for anything other than sizing for simple unit tests
             case TraceStructure::SMALL_TEST:
             case TraceStructure::CLIENT_IVC_BENCH:
-            case TraceStructure::AZTEC_IVC_BENCH:
             case TraceStructure::E2E_FULL_TEST:
                 fixed_block_sizes = SmallTestStructuredBlockSizes();
                 break;
@@ -111,16 +121,19 @@ template <typename FF_> class UltraArith {
             }
         }
 
-        TraceBlocks()
+        void compute_offsets(bool is_structured)
         {
-            this->aux.has_ram_rom = true;
-            this->pub_inputs.is_pub_inputs = true;
+            uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
+            for (auto& block : this->get()) {
+                block.trace_offset = offset;
+                offset += block.get_fixed_size(is_structured);
+            }
         }
 
         auto get()
         {
-            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,       this->elliptic,
-                             this->aux,        this->lookup,     this->poseidon_external, this->poseidon_internal };
+            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,        this->elliptic,
+                             this->aux,        this->lookup,     this->poseidon2_external, this->poseidon2_internal };
         }
 
         void summarize() const
@@ -132,13 +145,13 @@ template <typename FF_> class UltraArith {
             info("elliptic   :\t", this->elliptic.size());
             info("auxiliary  :\t", this->aux.size());
             info("lookups    :\t", this->lookup.size());
-            info("poseidon ext  :\t", this->poseidon_external.size());
-            info("poseidon int  :\t", this->poseidon_internal.size());
+            info("poseidon ext  :\t", this->poseidon2_external.size());
+            info("poseidon int  :\t", this->poseidon2_internal.size());
         }
 
         size_t get_total_structured_size()
         {
-            size_t total_size = 0;
+            size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
             for (auto block : this->get()) {
                 total_size += block.get_fixed_size();
             }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
-import {SampleLib} from "../../src/core/sequencer_selection/SampleLib.sol";
+import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 
 // Adding a contract to get some gas-numbers out.
 contract Sampler {

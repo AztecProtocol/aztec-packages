@@ -5,7 +5,6 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type PublicKey,
   type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -204,30 +203,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
   }
 
-  computeEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _eventTypeId: Fr,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: PublicKey,
-    _recipient: AztecAddress,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
-  }
-
-  computeEncryptedNoteLog(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _noteTypeId: NoteSelector,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: PublicKey,
-    _recipient: AztecAddress,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
-  }
-
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitUnencryptedLog');
   }
@@ -254,7 +229,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<void> {
+  ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
@@ -265,16 +240,12 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<void> {
+  ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }
 
   notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): void {
     throw new OracleMethodNotAvailableError('notifySetMinRevertibleSideEffectCounter');
-  }
-
-  aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
-    throw new OracleMethodNotAvailableError('encrypt');
   }
 
   debugLog(_message: string, _fields: Fr[]): void {

@@ -469,7 +469,6 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Utils = CommitmentSchemesUtils<Curve>;
 
   public:
     /**
@@ -527,7 +526,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
             scalar *= FF(-1);
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
-                FF zero = FF::from_witness(builder, 0);
+                FF zero = FF(0);
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, is_dummy_round);
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): is it kosher to reassign like this?
                 scalar = FF::conditional_assign(dummy_round, zero, scalar);
@@ -549,7 +548,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 return Commitment::batch_mul(commitments, scalars);
             }
         } else {
-            return Utils::batch_mul_native(commitments, scalars);
+            return batch_mul_native(commitments, scalars);
         }
     }
 
@@ -705,7 +704,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 return Commitment::batch_mul(commitments, scalars);
             }
         } else {
-            return Utils::batch_mul_native(commitments, scalars);
+            return batch_mul_native(commitments, scalars);
         }
     }
 

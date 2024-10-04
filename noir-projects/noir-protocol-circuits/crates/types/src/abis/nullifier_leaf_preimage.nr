@@ -5,7 +5,7 @@ use crate::{
     merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{Empty, Hash}
 };
 
-struct NullifierLeafPreimage {
+pub struct NullifierLeafPreimage {
     nullifier : Field,
     next_nullifier :Field,
     next_index : u32,
@@ -13,11 +13,7 @@ struct NullifierLeafPreimage {
 
 impl Empty for NullifierLeafPreimage {
     fn empty() -> Self {
-        Self {
-            nullifier : 0,
-            next_nullifier : 0,
-            next_index : 0,
-        }
+        Self { nullifier: 0, next_nullifier: 0, next_index: 0 }
     }
 }
 
@@ -77,11 +73,11 @@ impl NullifierLeafPreimage {
 }
 
 impl Eq for NullifierLeafPreimage {
-  fn eq(self, other: Self) -> bool {
-    (self.nullifier == other.nullifier) &
-    (self.next_nullifier == other.next_nullifier) &
-    (self.next_index == other.next_index)
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.nullifier == other.nullifier)
+            & (self.next_nullifier == other.next_nullifier)
+            & (self.next_index == other.next_index)
+    }
 }
 
 #[test]

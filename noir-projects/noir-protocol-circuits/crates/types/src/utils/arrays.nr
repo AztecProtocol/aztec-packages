@@ -1,3 +1,5 @@
+mod assert_array_appended;
+mod assert_array_prepended;
 mod assert_combined_array;
 mod assert_combined_sorted_transformed_value_array;
 mod assert_combined_transformed_array;
@@ -13,6 +15,8 @@ mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
+pub use assert_array_appended::{assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped};
+pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
 pub use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,
@@ -89,9 +93,8 @@ pub fn array_length<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
     length
 }
 
-pub fn array_concat<T, let N: u32, let M: u32, let S: u32>(array1: [T; N], array2: [T; M]) -> [T; S] {
-    assert_eq(N + M, S, "combined array length does not match return array length");
-    let mut result = [array1[0]; S];
+pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -> [T; N + M] {
+    let mut result = [array1[0]; N + M];
     for i in 1..N {
         result[i] = array1[i];
     }
@@ -222,13 +225,6 @@ fn test_array_concat() {
     let array1 = [4, 5];
     let concated = array_concat(array0, array1);
     assert_eq(concated, [1, 2, 3, 4, 5]);
-}
-
-#[test(should_fail_with="combined array length does not match return array length")]
-fn array_concat_fails_inconsistent_lengths() {
-    let array0 = [1, 2, 3];
-    let array1 = [4, 5];
-    let _concated: [Field; 4] = array_concat(array0, array1);
 }
 
 #[test]

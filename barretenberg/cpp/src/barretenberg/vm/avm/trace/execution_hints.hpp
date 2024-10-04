@@ -21,8 +21,8 @@ inline void read(uint8_t const*& it, ExternalCallHint& hint)
     using serialize::read;
     read(it, hint.success);
     read(it, hint.return_data);
-    read(it, hint.l2_gas_used);
     read(it, hint.da_gas_used);
+    read(it, hint.l2_gas_used);
     read(it, hint.end_side_effect_counter);
 }
 

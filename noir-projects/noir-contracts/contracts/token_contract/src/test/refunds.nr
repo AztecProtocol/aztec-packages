@@ -1,11 +1,11 @@
 use crate::{test::utils, Token, types::token_note::TokenNote};
 
 use dep::aztec::{
-    test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash,
     prelude::NoteHeader, protocol_types::storage::map::derive_storage_slot_in_map,
-    keys::getters::get_current_public_keys
+    keys::getters::get_public_keys
 };
 use dep::authwit::cheatcodes as authwit_cheatcodes;
+use std::test::OracleMock;
 
 #[test]
 unconstrained fn setup_refund_success() {
@@ -16,35 +16,31 @@ unconstrained fn setup_refund_success() {
     let fee_payer = recipient;
 
     let funded_amount = 1_000;
-    let user_randomness = 42;
-    let fee_payer_randomness = 123;
-    let mut context = env.private();
 
-    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(
-        fee_payer,
-        user,
-        funded_amount,
-        user_randomness,
-        fee_payer_randomness
-    );
+    // We use the same randomness for both the fee payer and the user as we currently don't have `OracleMock::mock_once()`
+    let fee_payer_randomness = 123;
+    let user_randomness = fee_payer_randomness;
+
+    let _ = OracleMock::mock("getRandomField").returns(fee_payer_randomness);
+
+    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(user, fee_payer, setup_refund_from_call_interface);
 
     env.impersonate(fee_payer);
 
     env.call_private_void(setup_refund_from_call_interface);
-    let mut context = env.private();
-    let user_npk_m_hash = get_current_public_keys(&mut context, user).npk_m.hash();
-    let fee_payer_npk_m_hash = get_current_public_keys(&mut context, fee_payer).npk_m.hash();
+    let user_npk_m_hash = get_public_keys(user).npk_m.hash();
+    let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
 
-    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, fee_payer);
-    let user_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, user);
+    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
+    let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
 
     // When the refund was set up, we would've spent the note worth mint_amount, and inserted a note worth
     //`mint_amount - funded_amount`. When completing the refund, we would've constructed a hash corresponding to a note
     // worth  `funded_amount - transaction_fee`. We "know" the transaction fee was 1 (it is hardcoded in
     // `executePublicFunction` TXE oracle) but we need to notify TXE of the note (preimage).
-    env.store_note_in_cache(
+    env.add_note(
         &mut TokenNote {
         amount: U128::from_integer(funded_amount - 1),
         npk_m_hash: user_npk_m_hash,
@@ -54,7 +50,7 @@ unconstrained fn setup_refund_success() {
         user_balances_slot,
         token_contract_address
     );
-    env.store_note_in_cache(
+    env.add_note(
         &mut TokenNote {
         amount: U128::from_integer(1),
         npk_m_hash: fee_payer_npk_m_hash,
@@ -82,17 +78,8 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
 
     // We set funded amount to 0 to make the transaction fee higher than the funded amount
     let funded_amount = 0;
-    let user_randomness = 42;
-    let fee_payer_randomness = 123;
-    let mut context = env.private();
 
-    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(
-        fee_payer,
-        user,
-        funded_amount,
-        user_randomness,
-        fee_payer_randomness
-    );
+    let setup_refund_from_call_interface = Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(user, fee_payer, setup_refund_from_call_interface);
 

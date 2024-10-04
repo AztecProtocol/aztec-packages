@@ -4,7 +4,7 @@ use crate::{
     constants::PUBLIC_DATA_TREE_HEIGHT
 };
 
-struct PublicDataHint {
+pub struct PublicDataHint {
     leaf_slot: Field,
     value: Field,
     override_counter: u32,
@@ -44,7 +44,7 @@ impl Empty for PublicDataHint {
             value: 0,
             override_counter: 0,
             membership_witness: MembershipWitness::empty(),
-            leaf_preimage: PublicDataTreeLeafPreimage::empty(),
+            leaf_preimage: PublicDataTreeLeafPreimage::empty()
         }
     }
 }

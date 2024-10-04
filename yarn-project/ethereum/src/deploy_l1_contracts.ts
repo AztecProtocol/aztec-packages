@@ -3,8 +3,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 
-import type { Abi, Narrow } from 'abitype';
+import type { Abi, AbiConstructor, Narrow } from 'abitype';
 import {
+  type AbiFunction,
   type Account,
   type Chain,
   type Hex,
@@ -89,6 +90,37 @@ export interface L1ContractArtifactsForDeployment {
    * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
+  /**
+   * Proof commitment escrow. Either mock or actual implementation.
+   */
+  proofCommitmentEscrow: ContractArtifacts;
+}
+
+export interface DeployL1ContractsArgs {
+  /**
+   * The address of the L2 Fee Juice contract.
+   */
+  l2FeeJuiceAddress: AztecAddress;
+  /**
+   * The vk tree root.
+   */
+  vkTreeRoot: Fr;
+  /**
+   * The block number to assume proven through.
+   */
+  assumeProvenThrough?: number;
+  /**
+   * The salt for CREATE2 deployment.
+   */
+  salt: number | undefined;
+  /**
+   * The initial validators for the rollup contract.
+   */
+  initialValidators?: EthAddress[];
+  /**
+   * Whether to deploy the real proof commitment escrow as opposed to the mock.
+   */
+  useRealProofCommitmentEscrow?: boolean;
 }
 
 export type L1Clients = {
@@ -144,13 +176,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: {
-    l2FeeJuiceAddress: AztecAddress;
-    vkTreeRoot: Fr;
-    assumeProvenUntil?: number;
-    salt: number | undefined;
-    initialValidators?: EthAddress[];
-  },
+  args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -190,9 +216,19 @@ export const deployL1Contracts = async (
 
   logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
 
+  // Mock implementation of escrow takes no arguments
+  const proofCommitmentEscrow = await deployer.deploy(
+    contractsToDeploy.proofCommitmentEscrow,
+    (contractsToDeploy.proofCommitmentEscrow.contractAbi as Abi).find(
+      (fn): fn is AbiConstructor => fn.type === 'constructor',
+    )?.inputs.length === 0
+      ? []
+      : [feeJuiceAddress.toString()],
+  );
+
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
-    getAddress(registryAddress.toString()),
     getAddress(feeJuicePortalAddress.toString()),
+    proofCommitmentEscrow.toString(),
     args.vkTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
@@ -222,6 +258,18 @@ export const deployL1Contracts = async (
 
   // Transaction hashes to await
   const txHashes: Hex[] = [];
+
+  // Remove this conditional once we dump the MockProofCommitmentEscrow
+  if (
+    (contractsToDeploy.proofCommitmentEscrow.contractAbi as Abi).find(fn => (fn as AbiFunction).name === 'initialize')
+  ) {
+    const proofCommitmentEscrowContract = getContract({
+      address: proofCommitmentEscrow.toString(),
+      abi: contractsToDeploy.proofCommitmentEscrow.contractAbi,
+      client: walletClient,
+    });
+    txHashes.push(await proofCommitmentEscrowContract.write.initialize([rollupAddress.toString()]));
+  }
 
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
   //        because there is circular dependency hell. This is a temporary solution. #3342
@@ -277,9 +325,9 @@ export const deployL1Contracts = async (
   }
 
   // Set initial blocks as proven if requested
-  if (args.assumeProvenUntil && args.assumeProvenUntil > 0) {
-    await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(args.assumeProvenUntil)], { account });
-    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenUntil}`);
+  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
+    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
+    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenThrough}`);
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
@@ -359,6 +407,50 @@ class L1Deployer {
   async waitForDeployments(): Promise<void> {
     await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
   }
+}
+
+/**
+ * Compiles a contract source code using the provided solc compiler.
+ * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
+ * @param contractName - Contract name within the file (eg HonkVerifier)
+ * @param source - Source code to compile
+ * @param solc - Solc instance
+ * @returns ABI and bytecode of the compiled contract
+ */
+export function compileContract(
+  fileName: string,
+  contractName: string,
+  source: string,
+  solc: { compile: (source: string) => string },
+): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
+  const input = {
+    language: 'Solidity',
+    sources: {
+      [fileName]: {
+        content: source,
+      },
+    },
+    settings: {
+      // we require the optimizer
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      evmVersion: 'paris',
+      outputSelection: {
+        '*': {
+          '*': ['evm.bytecode.object', 'abi'],
+        },
+      },
+    },
+  };
+
+  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+
+  const abi = output.contracts[fileName][contractName].abi;
+  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
+
+  return { abi, bytecode };
 }
 
 // docs:start:deployL1Contract

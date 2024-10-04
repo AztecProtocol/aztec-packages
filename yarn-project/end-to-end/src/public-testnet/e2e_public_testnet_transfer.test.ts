@@ -53,19 +53,14 @@ describe(`deploys and transfers a private only token`, () => {
   });
 
   it('calls a private function', async () => {
-    const initialBalance = 100000000000n;
+    const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
     secretKey1 = Fr.random();
     secretKey2 = Fr.random();
 
     logger.info(`Deploying accounts.`);
 
-    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2], {
-      interval: 0.1,
-      proven: true,
-      provenTimeout: 600,
-      timeout: 300,
-    });
+    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2], { interval: 0.1, timeout: 300 });
 
     logger.info(`Accounts deployed, deploying token.`);
 
@@ -84,18 +79,14 @@ describe(`deploys and transfers a private only token`, () => {
         skipInitialization: false,
         skipPublicSimulation: true,
       })
-      .deployed({
-        proven: true,
-        provenTimeout: 600,
-        timeout: 300,
-      });
+      .deployed({ timeout: 300 });
 
     logger.info(`Performing transfer.`);
 
     await token.methods
       .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
       .send()
-      .wait({ proven: true, provenTimeout: 600, timeout: 300 });
+      .wait({ timeout: 300 });
 
     logger.info(`Transfer completed`);
 

@@ -68,7 +68,6 @@ TEST_F(MSMTests, TestMSM)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
@@ -92,6 +91,7 @@ TEST_F(MSMTests, TestMSM)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

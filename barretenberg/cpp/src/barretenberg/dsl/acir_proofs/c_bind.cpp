@@ -93,8 +93,10 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     ProgramStack program_stack{ constraint_systems, witness_stack };
 
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
@@ -102,11 +104,15 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
         auto builder = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
+        builder.databus_propagation_data.is_kernel = is_kernel;
+        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
+
         ivc.accumulate(builder);
 
         program_stack.pop_back();
     }
     *result = ivc.prove_and_verify();
+    info("acir_fold_and_verify_program_stack result: ", *result);
 }
 
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)

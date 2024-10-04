@@ -83,8 +83,22 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
 
-    Fr& value_at(size_t i) { return evaluations[i - domain_start]; };
-    const Fr& value_at(size_t i) const { return evaluations[i - domain_start]; };
+    Fr& value_at(size_t i)
+    {
+        if constexpr (domain_start == 0) {
+            return evaluations[i];
+        } else {
+            return evaluations[i - domain_start];
+        }
+    };
+    const Fr& value_at(size_t i) const
+    {
+        if constexpr (domain_start == 0) {
+            return evaluations[i];
+        } else {
+            return evaluations[i - domain_start];
+        }
+    };
     size_t size() { return evaluations.size(); };
 
     // Check if the univariate is identically zero
@@ -357,7 +371,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     template <size_t EXTENDED_DOMAIN_END, size_t NUM_SKIPPED_INDICES = 0>
     Univariate<Fr, EXTENDED_DOMAIN_END, 0, NUM_SKIPPED_INDICES> extend_to() const
     {
-        const size_t EXTENDED_LENGTH = EXTENDED_DOMAIN_END - domain_start;
+        static constexpr size_t EXTENDED_LENGTH = EXTENDED_DOMAIN_END - domain_start;
         using Data = BarycentricData<Fr, LENGTH, EXTENDED_LENGTH>;
         static_assert(EXTENDED_LENGTH >= LENGTH);
 
@@ -465,6 +479,18 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
             }
         }
         return result;
+    }
+
+    template <size_t INITIAL_LENGTH> void self_extend_from()
+    {
+        if constexpr (INITIAL_LENGTH == 2) {
+            const Fr delta = value_at(1) - value_at(0);
+            Fr next = value_at(1);
+            for (size_t idx = 2; idx < LENGTH; idx++) {
+                next += delta;
+                value_at(idx) = next;
+            }
+        }
     }
 
     /**

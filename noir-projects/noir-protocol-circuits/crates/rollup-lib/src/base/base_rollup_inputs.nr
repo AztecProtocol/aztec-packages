@@ -41,7 +41,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_TAIL_INDEX,
 ];
 
-struct BaseRollupInputs {
+pub struct BaseRollupInputs {
     kernel_data: KernelData,
     start: PartialStateReference,
     start_sponge_blob: SpongeBlob,
@@ -487,11 +487,9 @@ mod tests {
     },
         partial_state_reference::PartialStateReference,
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        tests::{
-        fixtures, fixture_builder::FixtureBuilder,
-        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
-    },
-        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::full_field_less_than}, traits::Empty
+        tests::{fixtures, fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
+        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::{full_field_less_than, field_from_bytes_32_trunc}},
+        traits::Empty
     };
 
     struct NullifierInsertion {
@@ -499,8 +497,8 @@ mod tests {
         value: Field,
     }
 
-    global MAX_nullifiers_PER_TEST = 4;
-    global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
+    global MAX_nullifiers_PER_TEST: u32 = 4;
+    global MAX_PUBLIC_DATA_READS_PER_TEST: u32 = 2;
 
     fn update_public_data_tree<let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
@@ -613,10 +611,6 @@ mod tests {
         fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>
     }
 
-    fn test_compute_empty_root<let N: u32>(size: [Field; N]) -> Field {
-        compute_zero_hashes(size)[N - 1]
-    }
-
     impl BaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = BaseRollupInputsBuilder::empty();
@@ -628,6 +622,12 @@ mod tests {
             inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
             inputs
+        }
+
+        unconstrained fn new_with_previous_kernel(previous_vk_index: u32) -> Self {
+            let mut builder = BaseRollupInputsBuilder::new();
+            builder.kernel_data = builder.kernel_data.in_vk_tree(previous_vk_index);
+            builder
         }
 
         fn build_fee_payer_fee_juice_balance_read_hint(
@@ -739,7 +739,7 @@ mod tests {
             )
         }
 
-        fn build_inputs(mut self) -> BaseRollupInputs {
+        unconstrained fn build_inputs(mut self) -> BaseRollupInputs {
             let mut kernel_data = self.kernel_data.to_kernel_data();
 
             let start_note_hash_tree = NonEmptyMerkleTree::new(
@@ -869,7 +869,10 @@ mod tests {
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-            self.build_inputs().base_rollup_circuit()
+            let inputs = unsafe {
+                self.build_inputs()
+            };
+            inputs.base_rollup_circuit()
         }
 
         fn succeeds(self) {
@@ -1478,24 +1481,27 @@ mod tests {
 
     #[test]
     fn valid_previous_kernel_empty() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_EMPTY_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
+        };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_tail() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_TAIL_INDEX)
+        };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_public_tail() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PUBLIC_KERNEL_TAIL_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PUBLIC_KERNEL_TAIL_INDEX)
+        };
 
         let _res = builder.execute();
     }

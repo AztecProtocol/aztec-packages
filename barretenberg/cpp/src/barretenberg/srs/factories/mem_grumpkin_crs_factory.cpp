@@ -54,7 +54,10 @@ MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement
 std::shared_ptr<bb::srs::factories::ProverCrs<Grumpkin>> MemGrumpkinCrsFactory::get_prover_crs(size_t degree)
 {
     if (prover_crs_->get_monomial_size() < degree) {
-        throw_or_abort("prover trying to get too many points in MemGrumpkinCrsFactory!");
+        throw_or_abort(format("prover trying to get too many points in MemGrumpkinCrsFactory - ",
+                              degree,
+                              " is more than ",
+                              prover_crs_->get_monomial_size()));
     }
     return prover_crs_;
 }
@@ -62,7 +65,10 @@ std::shared_ptr<bb::srs::factories::ProverCrs<Grumpkin>> MemGrumpkinCrsFactory::
 std::shared_ptr<bb::srs::factories::VerifierCrs<Grumpkin>> MemGrumpkinCrsFactory::get_verifier_crs(size_t degree)
 {
     if (prover_crs_->get_monomial_size() < degree) {
-        throw_or_abort("verifier trying to get too many points in MemGrumpkinCrsFactory!");
+        throw_or_abort(format("verifier trying to get too many points in MemGrumpkinCrsFactory - ",
+                              degree,
+                              " is more than ",
+                              prover_crs_->get_monomial_size()));
     }
     return verifier_crs_;
 }

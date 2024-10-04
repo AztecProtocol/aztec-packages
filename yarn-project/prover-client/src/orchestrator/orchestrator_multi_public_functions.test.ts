@@ -1,4 +1,4 @@
-import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -38,25 +38,17 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
         }
 
-        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
-        const blockTicket = await context.orchestrator.startNewBlock(
-          numTransactions,
-          342 * numTransactions,
-          context.globalVariables,
-          [],
-        );
+        context.orchestrator.startNewEpoch(1, 1);
+        await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
 
-        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);
+        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        await context.orchestrator.setBlockCompleted();
+        const block = await context.orchestrator.setBlockCompleted();
+        await context.orchestrator.finaliseEpoch();
 
-        const result = await blockTicket.provingPromise;
-        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-        const finalisedBlock = await context.orchestrator.finaliseBlock();
-
-        expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+        expect(block.number).toEqual(context.blockNumber);
       },
     );
   });

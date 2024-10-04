@@ -1,5 +1,7 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 
+import { type PeerId } from '@libp2p/interface';
+
 /*
  * Request Response Sub Protocols
  */
@@ -17,9 +19,57 @@ export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL |
 export type ReqRespSubProtocolHandler = (msg: Buffer) => Promise<Uint8Array>;
 
 /**
+ * A type mapping from supprotocol to it's rate limits
+ */
+export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRateLimitQuota>;
+
+/**
+ * A rate limit quota
+ */
+export interface RateLimitQuota {
+  /**
+   * The time window in ms
+   */
+  quotaTimeMs: number;
+  /**
+   * The number of requests allowed within the time window
+   */
+  quotaCount: number;
+}
+
+export interface ProtocolRateLimitQuota {
+  /**
+   * The rate limit quota for a single peer
+   */
+  peerLimit: RateLimitQuota;
+  /**
+   * The rate limit quota for the global peer set
+   */
+  globalLimit: RateLimitQuota;
+}
+
+export const noopValidator = () => Promise.resolve(true);
+
+/**
  * A type mapping from supprotocol to it's handling funciton
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
+
+type ResponseValidator<RequestIdentifier, Response> = (
+  request: RequestIdentifier,
+  response: Response,
+  peerId: PeerId,
+) => Promise<boolean>;
+
+export type ReqRespSubProtocolValidators = {
+  [S in ReqRespSubProtocol]: ResponseValidator<any, any>;
+};
+
+export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
+  [PING_PROTOCOL]: noopValidator,
+  [STATUS_PROTOCOL]: noopValidator,
+  [TX_REQ_PROTOCOL]: noopValidator,
+};
 
 /**
  * Sub protocol map determines the request and response types for each

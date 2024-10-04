@@ -5,7 +5,7 @@ use crate::{
     utils::arrays::find_index_hint
 };
 
-struct KernelData {
+pub struct KernelData {
     public_inputs: KernelCircuitPublicInputs,
     proof: NestedRecursiveProof,
     vk: VerificationKey,
@@ -14,15 +14,10 @@ struct KernelData {
 }
 
 impl Verifiable for KernelData {
-  fn verify(self) {
-    let inputs = KernelCircuitPublicInputs::serialize(self.public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = KernelCircuitPublicInputs::serialize(self.public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl KernelData {

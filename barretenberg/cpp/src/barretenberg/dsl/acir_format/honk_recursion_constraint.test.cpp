@@ -96,7 +96,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .logic_constraints = { logic_constraint },
             .range_constraints = { range_a, range_b },
             .aes128_constraints = {},
-            .sha256_constraints = {},
             .sha256_compression = {},
             .schnorr_constraints = {},
             .ecdsa_k1_constraints = {},
@@ -120,6 +119,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .assert_equalities = {},
             .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
             .quad_constraints = {},
+            .big_quad_constraints = {},
             .block_constraints = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
         };
@@ -173,7 +173,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system{};
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = false;
+        constraint_system.recursive = true;
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();

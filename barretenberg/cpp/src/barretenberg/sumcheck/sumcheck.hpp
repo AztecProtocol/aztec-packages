@@ -209,7 +209,10 @@ template <typename Flavor> class SumcheckProver {
         auto round_univariate = round.compute_univariate(
             round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
         {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("rest of sumcheck round 1");
+#endif
 
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
@@ -227,7 +230,10 @@ template <typename Flavor> class SumcheckProver {
                                                       // We operate on partially_evaluated_polynomials in place.
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
+
+#ifdef TRACY_MEMORY
             ZoneScopedN("sumcheck loop");
+#endif
             // Write the round univariate to the transcript
             round_univariate = round.compute_univariate(round_idx,
                                                         partially_evaluated_polynomials,
@@ -737,6 +743,7 @@ template <typename Flavor> class SumcheckVerifier {
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
                 // Only utilize the checked value if this is not a constant proof size padding round

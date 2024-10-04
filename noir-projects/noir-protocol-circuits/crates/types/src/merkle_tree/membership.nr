@@ -6,17 +6,14 @@ use crate::{
     traits::Empty
 };
 
-struct MembershipWitness<let N: u32> {
+pub struct MembershipWitness<let N: u32> {
     leaf_index: Field,
     sibling_path: [Field; N]
 }
 
 impl<let N: u32> Empty for MembershipWitness<N> {
     fn empty() -> Self {
-        MembershipWitness {
-            leaf_index: 0,
-            sibling_path: [0; N]
-        }
+        MembershipWitness { leaf_index: 0, sibling_path: [0; N] }
     }
 }
 

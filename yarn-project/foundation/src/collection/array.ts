@@ -100,3 +100,18 @@ export function unique<T>(arr: T[]): T[] {
 export function compactArray<T>(arr: (T | undefined)[]): T[] {
   return arr.filter((x: T | undefined): x is T => x !== undefined);
 }
+
+/**
+ * Returns whether two arrays are equal. The arrays are equal if they have the same length and all elements are equal.
+ */
+export function areArraysEqual<T>(a: T[], b: T[], eq: (a: T, b: T) => boolean = (a: T, b: T) => a === b): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (!eq(a[i], b[i])) {
+      return false;
+    }
+  }
+  return true;
+}

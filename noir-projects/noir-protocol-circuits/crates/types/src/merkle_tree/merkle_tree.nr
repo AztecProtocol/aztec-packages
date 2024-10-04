@@ -1,16 +1,13 @@
 use crate::{traits::Empty, hash::merkle_hash};
 
-struct MerkleTree<let N: u32> {
+pub struct MerkleTree<let N: u32> {
     leaves: [Field; N],
     nodes: [Field; N],
 }
 
 impl<let N: u32> Empty for MerkleTree<N> {
     fn empty() -> Self {
-        MerkleTree {
-            leaves: [0; N],
-            nodes: [0; N]
-        }
+        MerkleTree { leaves: [0; N], nodes: [0; N] }
     }
 }
 
@@ -74,4 +71,3 @@ impl<let N: u32> MerkleTree<N> {
 pub fn sibling_index(index: u32) -> u32 {
     if index % 2 == 0 { index + 1 } else { index - 1 }
 }
-

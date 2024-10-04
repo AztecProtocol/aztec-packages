@@ -1,20 +1,21 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 // Interfaces
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 // Portals
 import {TokenPortal} from "./TokenPortal.sol";
@@ -52,8 +53,13 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup =
-      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(
+      IFeeJuicePortal(address(0)),
+      IProofCommitmentEscrow(address(0)),
+      bytes32(0),
+      address(this),
+      new address[](0)
+    );
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();
@@ -66,8 +72,8 @@ contract UniswapPortalTest is Test {
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
-    assertEq(rollup.provenBlockCount(), l2BlockNumber + 1);
+    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber + 1));
+    assertEq(rollup.getProvenBlockNumber(), l2BlockNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
@@ -91,7 +97,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
-        )
+      )
     });
 
     return message.sha256ToField();
@@ -123,7 +129,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-        )
+      )
     });
 
     return message.sha256ToField();
@@ -154,7 +160,7 @@ contract UniswapPortalTest is Test {
           secretHash,
           _caller
         )
-        )
+      )
     });
 
     return message.sha256ToField();

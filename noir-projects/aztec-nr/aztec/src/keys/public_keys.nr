@@ -3,22 +3,21 @@ use dep::protocol_types::{
     hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH},
     traits::{Deserialize, Serialize, Empty, is_empty, Hash}
 };
-use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
 global PUBLIC_KEYS_LENGTH: u32 = 12;
 
-struct PublicKeys {
+pub struct PublicKeys {
     npk_m: NpkM,
     ivpk_m: IvpkM,
     ovpk_m: OvpkM,
     tpk_m: TpkM,
 }
 
-trait ToPoint {
+pub trait ToPoint {
     fn to_point(self) -> Point;
 }
 
-struct NpkM {
+pub struct NpkM {
     inner: Point
 }
 
@@ -41,7 +40,7 @@ impl Hash for NpkM {
     }
 }
 
-struct IvpkM {
+pub struct IvpkM {
     inner: Point
 }
 
@@ -57,7 +56,7 @@ impl Serialize<POINT_LENGTH> for IvpkM {
     }
 }
 
-struct OvpkM {
+pub struct OvpkM {
     inner: Point
 }
 
@@ -79,7 +78,7 @@ impl Serialize<POINT_LENGTH> for OvpkM {
     }
 }
 
-struct TpkM {
+pub struct TpkM {
     inner: Point
 }
 
@@ -92,20 +91,20 @@ impl ToPoint for TpkM {
 impl Empty for PublicKeys {
     fn empty() -> Self {
         PublicKeys {
-            npk_m : NpkM { inner: Point::empty() },
-            ivpk_m : IvpkM { inner: Point::empty() },
-            ovpk_m : OvpkM { inner: Point::empty() },
-            tpk_m : TpkM { inner: Point::empty() }
+            npk_m: NpkM { inner: Point::empty() },
+            ivpk_m: IvpkM { inner: Point::empty() },
+            ovpk_m: OvpkM { inner: Point::empty() },
+            tpk_m: TpkM { inner: Point::empty() }
         }
     }
 }
 
 impl Eq for PublicKeys {
     fn eq(self, other: PublicKeys) -> bool {
-        ( self.npk_m.inner == other.npk_m.inner ) &
-        ( self.ivpk_m.inner == other.ivpk_m.inner ) &
-        ( self.ovpk_m.inner == other.ovpk_m.inner ) &
-        ( self.tpk_m.inner == other.tpk_m.inner )
+        (self.npk_m.inner == other.npk_m.inner)
+            & (self.ivpk_m.inner == other.ivpk_m.inner)
+            & (self.ovpk_m.inner == other.ovpk_m.inner)
+            & (self.tpk_m.inner == other.tpk_m.inner)
     }
 }
 
@@ -143,16 +142,16 @@ impl Serialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
     fn deserialize(serialized: [Field; PUBLIC_KEYS_LENGTH]) -> PublicKeys {
         PublicKeys {
-            npk_m: NpkM { inner: Point { x:serialized[0], y:serialized[1], is_infinite: serialized[2] as bool } },
-            ivpk_m: IvpkM { inner: Point { x:serialized[3], y: serialized[4], is_infinite: serialized[5] as bool } },
-            ovpk_m: OvpkM { inner: Point { x:serialized[6], y: serialized[7], is_infinite: serialized[8] as bool } },
-            tpk_m: TpkM { inner: Point { x:serialized[9], y: serialized[10], is_infinite: serialized[11] as bool } }
+            npk_m: NpkM { inner: Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] as bool } },
+            ivpk_m: IvpkM { inner: Point { x: serialized[3], y: serialized[4], is_infinite: serialized[5] as bool } },
+            ovpk_m: OvpkM { inner: Point { x: serialized[6], y: serialized[7], is_infinite: serialized[8] as bool } },
+            tpk_m: TpkM { inner: Point { x: serialized[9], y: serialized[10], is_infinite: serialized[11] as bool } }
         }
     }
 }
 
 #[test]
-fn compute_public_keys_hash() {
+unconstrained fn compute_public_keys_hash() {
     let keys = PublicKeys {
         npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
         ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
@@ -167,7 +166,7 @@ fn compute_public_keys_hash() {
 }
 
 #[test]
-fn compute_empty_hash() {
+unconstrained fn compute_empty_hash() {
     let keys = PublicKeys::empty();
 
     let actual = keys.hash();
@@ -177,7 +176,7 @@ fn compute_empty_hash() {
 }
 
 #[test]
-fn test_public_keys_serialization() {
+unconstrained fn test_public_keys_serialization() {
     let keys = PublicKeys {
         npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
         ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },

@@ -70,12 +70,13 @@ Now let's do the same for partial notes.
 
 1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `TokenNote`),
 2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`, where each `G_` is a generator point for a specific field in the note,
-3. pass the note hiding point to a public function,
-4. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the note hiding point (e.g. `NOTE_HIDING_POINT + G_amt * amount`),
-5. get the note hash by finalizing the note hiding point (the note hash is the x coordinate of the point),
-6. emit the note hash,
-7. manually construct the note in your application and add it to your node (PXE) --> this currently has to be done manually and not automatically via encrypted note logs because we have not yet implemented partial notes delivery (tracked in [issue #8238](https://github.com/AztecProtocol/aztec-packages/issues/8238))
-8. from this point on the flow of partial notes is the same as for normal notes.
+3. emit partial note log,
+4. pass the note hiding point to a public function,
+5. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the note hiding point (e.g. `NOTE_HIDING_POINT + G_amt * amount`),
+6. get the note hash by finalizing the note hiding point (the note hash is the x coordinate of the point),
+7. emit the note hash,
+8. emit the value added to the note in public as an unencrypted log (PXE then matches it with encrypted partial note log emitted from private),
+9. from this point on the flow of partial notes is the same as for normal notes.
 
 ### Private Fee Payment Example
 
@@ -128,15 +129,14 @@ P_b := P_b'+P_{fee} = (\text{transaction fee})*G_{amount} + \text{bob address}*G
 $$
 
 Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
-(Now Alice and Bob need to manually add the notes to their PXEs since [issue #8238](https://github.com/AztecProtocol/aztec-packages/issues/8238) remains to be implemented.)
 
 ### Private Fee Payment Implementation
 
 [`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
 
-This is implemented in the example token contract:
+This is implemented by applying the `partial_note` attribute:
 
-#include_code compute_note_hiding_point noir-projects/noir-contracts/contracts/token_contract/src/types/token_note.nr rust
+#include_code TokenNote noir-projects/noir-contracts/contracts/token_contract/src/types/token_note.nr rust
 
 Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-projects/aztec-nr/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
 

@@ -1,7 +1,7 @@
 use crate::{hash::hash_args_array, oracle::returns::unpack_returns};
 use dep::protocol_types::traits::Deserialize;
 
-struct PackedReturns {
+pub struct PackedReturns {
   packed_returns: Field,
 }
 
@@ -19,7 +19,11 @@ impl PackedReturns {
     }
 
     pub fn unpack<let N: u32>(self) -> [Field; N] {
-        let unpacked: [Field; N] = unpack_returns(self.packed_returns);
+        // We verify that the value returned by `unpack_returns` is the preimage of `packed_returns`, fully constraining
+        // it.
+        let unpacked: [Field; N] = unsafe {
+            unpack_returns(self.packed_returns)
+        };
         assert_eq(self.packed_returns, hash_args_array(unpacked));
         unpacked
     }

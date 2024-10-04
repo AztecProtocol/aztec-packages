@@ -4,7 +4,7 @@ use dep::types::{hash::accumulate_sha256};
 // hash functions.
 // TODO(Miranda): This is an interim version with 1 field sha256 - ideally we remove this and use accumulate_sha256 inside
 // the general MT
-struct Sha256MerkleTree<let N: u32> {
+pub struct Sha256MerkleTree<let N: u32> {
     leaves: [Field; N],
     nodes: [Field; N],
 }

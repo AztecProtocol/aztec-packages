@@ -1,18 +1,22 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract BoxReact {
     use dep::aztec::{
         keys::public_keys::{IvpkM, OvpkM},
         prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader, Point},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        macros::{storage::storage, functions::{private, public, initializer}}
     };
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::ValueNote;
 
-    #[aztec(storage)]
-    struct Storage {
-        numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
+    #[storage]
+    struct Storage<Context> {
+        numbers: Map<AztecAddress, PrivateMutable<ValueNote, Context>, Context>,
     }
 
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #[initializer]
     fn constructor(
         number: Field,
         owner: AztecAddress,
@@ -22,10 +26,10 @@ contract BoxReact {
     ) {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner_npk_m_hash);
-        numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+        numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
     }
 
-    #[aztec(private)]
+    #[private]
     fn setNumber(
         number: Field,
         owner: AztecAddress,
@@ -35,7 +39,7 @@ contract BoxReact {
     ) {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner_npk_m_hash);
-        numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+        numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
     }
 
     unconstrained fn getNumber(owner: AztecAddress) -> pub ValueNote {

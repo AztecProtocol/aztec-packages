@@ -9,7 +9,7 @@ use dep::types::{
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}
 };
 
-struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
+pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
     validation_requests: PrivateValidationRequests,
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     pending_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
@@ -81,11 +81,17 @@ impl<
         );
 
         // key_validation_requests
-        verify_reset_key_validation_requests(
-            self.validation_requests.scoped_key_validation_requests_and_generators,
-            self.key_validation_hints,
-            output.scoped_key_validation_requests_and_generators
-        );
+        if KEY_VALIDATION_REQUESTS == 0 {
+            assert_eq(
+                output.scoped_key_validation_requests_and_generators, self.validation_requests.scoped_key_validation_requests_and_generators, "mismatch scoped_key_validation_requests_and_generators"
+            );
+        } else {
+            verify_reset_key_validation_requests(
+                self.validation_requests.scoped_key_validation_requests_and_generators,
+                self.key_validation_hints,
+                output.scoped_key_validation_requests_and_generators
+            );
+        }
 
         // split_counter
         assert_eq(

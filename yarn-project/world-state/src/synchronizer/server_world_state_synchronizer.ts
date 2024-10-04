@@ -5,17 +5,20 @@ import {
   L2BlockDownloader,
   type L2BlockSource,
   type MerkleTreeAdminOperations,
+  WorldStateRunningState,
+  type WorldStateStatus,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
+import { MerkleTreeCalculator } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { SHA256Trunc } from '@aztec/merkle-tree';
 
 import {
   MerkleTreeAdminOperationsFacade,
@@ -24,11 +27,6 @@ import {
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
 import { type MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { type WorldStateConfig } from './config.js';
-import {
-  WorldStateRunningState,
-  type WorldStateStatus,
-  type WorldStateSynchronizer,
-} from './world_state_synchronizer.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource.
@@ -274,7 +272,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
     // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that
     // tree uses pedersen and we don't have access to the converted root.
-    await this.#verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
+    this.#verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
 
     // If the above check succeeds, we can proceed to handle the block.
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
@@ -304,18 +302,16 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    * @param inHash - The inHash of the block.
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
-  async #verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
-    const tree = new StandardTree(
-      openTmpStore(true),
-      new SHA256Trunc(),
-      'temp_in_hash_check',
+  #verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
+    const treeCalculator = new MerkleTreeCalculator(
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
-      0n,
-      Fr,
+      Buffer.alloc(32),
+      new SHA256Trunc().hash,
     );
-    await tree.appendLeaves(l1ToL2Messages);
 
-    if (!tree.getRoot(true).equals(inHash)) {
+    const root = treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+
+    if (!root.equals(inHash)) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
     }
   }

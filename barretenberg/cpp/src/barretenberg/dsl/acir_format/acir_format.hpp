@@ -5,7 +5,7 @@
 #include "avm_recursion_constraint.hpp"
 #endif
 
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -25,6 +25,7 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -40,7 +41,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> logic_constraints;
     std::vector<size_t> range_constraints;
     std::vector<size_t> aes128_constraints;
-    std::vector<size_t> sha256_constraints;
     std::vector<size_t> sha256_compression;
     std::vector<size_t> schnorr_constraints;
     std::vector<size_t> ecdsa_k1_constraints;
@@ -89,7 +89,6 @@ struct AcirFormat {
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
-    std::vector<Sha256Constraint> sha256_constraints;
     std::vector<Sha256Compression> sha256_compression;
     std::vector<SchnorrConstraint> schnorr_constraints;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
@@ -116,7 +115,13 @@ struct AcirFormat {
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
     bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
+    // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
     bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
+    // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
+    // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
+    // reduce the number of intermediate variables.
+    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -125,6 +130,7 @@ struct AcirFormat {
 
     // Set of constrained witnesses
     std::set<uint32_t> constrained_witness = {};
+    std::map<uint32_t, uint32_t> minimal_range = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -135,7 +141,6 @@ struct AcirFormat {
                    logic_constraints,
                    range_constraints,
                    aes128_constraints,
-                   sha256_constraints,
                    sha256_compression,
                    schnorr_constraints,
                    ecdsa_k1_constraints,
@@ -154,6 +159,8 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    ivc_recursion_constraints,
                    poly_triple_constraints,
+                   quad_constraints,
+                   big_quad_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
                    bigint_to_le_bytes_constraints,
@@ -210,7 +217,7 @@ Builder create_circuit(AcirFormat& constraint_system,
                        bool collect_gates_per_opcode = false);
 
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness = {},
                                          const size_t size_hint = 0);
 
