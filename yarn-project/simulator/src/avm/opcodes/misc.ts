@@ -40,6 +40,7 @@ export class DebugLog extends Instruction {
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
+
     context.machineState.consumeGas(this.gasCost());
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);

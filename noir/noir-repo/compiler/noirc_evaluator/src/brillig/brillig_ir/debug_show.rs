@@ -29,7 +29,7 @@ impl DebugToString for MemoryAddress {
         if *self == ReservedRegisters::free_memory_pointer() {
             "FreeMem".into()
         } else if *self == ReservedRegisters::stack_pointer() {
-            "PrevStack".into()
+            "StackPointer".into()
         } else {
             match self {
                 MemoryAddress::Direct(address) => format!("M{}", address),

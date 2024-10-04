@@ -52,10 +52,8 @@ pub(crate) enum ReservedRegisters {
 }
 
 impl ReservedRegisters {
-    /// The number of reserved registers.
-    ///
-    /// This is used to offset the general registers
-    /// which should not overwrite the special register
+    /// The number of reserved registers. These are allocated in the first memory positions.
+    /// The stack should start after the reserved registers.
     const NUM_RESERVED_REGISTERS: usize = 3;
 
     /// Returns the length of the reserved registers
@@ -63,17 +61,14 @@ impl ReservedRegisters {
         Self::NUM_RESERVED_REGISTERS
     }
 
-    /// Returns the previous stack pointer register. This will be used to restore the registers after a fn call.
     pub(crate) fn stack_pointer() -> MemoryAddress {
         MemoryAddress::direct(ReservedRegisters::StackPointer as usize)
     }
 
-    /// Returns the free memory pointer register. This will get used to allocate memory in runtime.
     pub(crate) fn free_memory_pointer() -> MemoryAddress {
         MemoryAddress::direct(ReservedRegisters::FreeMemoryPointer as usize)
     }
 
-    /// Returns the usize one register. This will be used to perform arithmetic operations.
     pub(crate) fn usize_one() -> MemoryAddress {
         MemoryAddress::direct(ReservedRegisters::UsizeOne as usize)
     }

@@ -98,7 +98,7 @@ impl RuntimeSeparatorContext {
     fn convert_acir_functions_called_from_brillig_to_brillig(&mut self, ssa: &mut Ssa) {
         for acir_func_id in self.acir_functions_called_from_brillig.iter() {
             let RuntimeType::Acir(inline_type) = ssa.functions[acir_func_id].runtime() else {
-                unreachable!("Function transformed to brillig should be ACIR")
+                unreachable!("Function to transform to brillig should be ACIR")
             };
             let cloned_id = ssa.clone_fn(*acir_func_id);
             let new_func =
