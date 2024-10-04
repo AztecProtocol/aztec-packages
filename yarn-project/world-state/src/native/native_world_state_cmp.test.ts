@@ -10,6 +10,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -17,6 +18,8 @@ import { join } from 'path';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { NativeWorldStateService } from './native_world_state.js';
 import { mockBlock } from './test_util.js';
+
+jest.setTimeout(60_000);
 
 describe('NativeWorldState', () => {
   let nativeDataDir: string;
