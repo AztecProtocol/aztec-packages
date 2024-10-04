@@ -20,9 +20,10 @@ contract Token {
 
     use dep::aztec::{
         context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
+        oracle::random::random,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress, FunctionSelector},
         encrypted_logs::{
-        encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
+        encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained, encrypt_and_emit_partial_log},
         encrypted_event_emission::encode_and_encrypt_event_unconstrained
     },
         keys::getters::get_public_keys,
@@ -457,17 +458,19 @@ contract Token {
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
         user: AztecAddress, // A user for which we are setting up the fee refund.
-        funded_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
-        user_randomness: Field, // A randomness to mix in with the generated refund note for the sponsored user.
-        fee_payer_randomness: Field // A randomness to mix in with the generated fee note for the fee payer.
+        funded_amount: Field // The amount the user funded the fee payer with (represents fee limit).
     ) {
         // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
         // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
         assert_current_call_valid_authwit(&mut context, user);
+
         // 2. Get all the relevant keys
-        let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
+        let fee_payer_keys = get_public_keys(fee_payer);
         let user_keys = get_public_keys(user);
+
+        let fee_payer_npk_m_hash = fee_payer_keys.npk_m.hash();
         let user_npk_m_hash = user_keys.npk_m.hash();
+
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
         // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
         // to the user in the `complete_refund(...)` function.
@@ -481,18 +484,50 @@ contract Token {
         storage.balances.at(user).add(user_keys.npk_m, change).emit(
             encode_and_encrypt_note_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
         );
-        // 4. Now we get the note hiding points.
-        let mut fee_payer_point = TokenNote::hiding_point().new(
+
+        // 4. Now we get the partial payloads
+        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
+        // notes we could just inject it in macros.
+        let fee_payer_randomness = unsafe {
+            random()
+        };
+        let user_randomness = unsafe {
+            random()
+        };
+
+        let fee_payer_partial_payload = TokenNote::partial_payload().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot
         );
-        let mut user_point = TokenNote::hiding_point().new(
+
+        let user_partial_payload = TokenNote::partial_payload().new(
             user_npk_m_hash,
             user_randomness,
             storage.balances.at(user).set.storage_slot
         );
-        // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+
+        // 5. We encrypt and emit the partial note log
+        encrypt_and_emit_partial_log(
+            &mut context,
+            fee_payer_partial_payload.log_plaintext,
+            fee_payer_keys,
+            fee_payer
+        );
+        encrypt_and_emit_partial_log(
+            &mut context,
+            user_partial_payload.log_plaintext,
+            user_keys,
+            user
+        );
+
+        // 6. We convert the hiding points to standard `Point` type as we cannot pass `TokenNoteHidingPoint` type
+        // as an argument to a function due to macro limitations (the `TokenNoteHidingPoint` type is macro generated
+        // and hence is not resolved soon enough by the compiler).
+        let fee_payer_point = fee_payer_partial_payload.hiding_point.to_point();
+        let user_point = user_partial_payload.hiding_point.to_point();
+
+        // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
@@ -500,11 +535,12 @@ contract Token {
             FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)")
         },
             [
-            fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
+            fee_payer_point.x, fee_payer_point.y, fee_payer_point.is_infinite as Field, user_point.x, user_point.y, user_point.is_infinite as Field, funded_amount
         ]
         );
     }
     // docs:end:setup_refund
+
     // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
     // docs:start:complete_refund
@@ -516,20 +552,33 @@ contract Token {
         // TODO(#7728): Remove the next line
         let funded_amount = U128::from_integer(funded_amount);
         let tx_fee = U128::from_integer(context.transaction_fee());
+
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#7796): we should try to prevent reverts here
         assert(funded_amount >= tx_fee, "funded amount not enough to cover tx fee");
+
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
         let refund_amount = funded_amount - tx_fee;
+
         // 3. We finalize the hiding points with the correct amounts to get the note hashes.
         let fee_payer_note_hash = fee_payer_hiding_point.finalize(tx_fee);
         let user_note_hash = user_hiding_point.finalize(refund_amount);
+
+        // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
+        // to reconstruct the note.
+        // TODO(#7728): Nuke the manual serialization on the next 2 lines
+        let serialized_tx_fee = [tx_fee.lo, tx_fee.hi];
+        let serialized_refund_amount = [refund_amount.lo, refund_amount.hi];
+        context.emit_unencrypted_log(serialized_tx_fee);
+        context.emit_unencrypted_log(serialized_refund_amount);
+
         // 5. At last we emit the note hashes.
         context.push_note_hash(fee_payer_note_hash);
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
     // docs:end:complete_refund
+
     /// Internal ///
     // docs:start:increase_public_balance
     #[public]
