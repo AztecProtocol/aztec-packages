@@ -29,14 +29,20 @@ impl Ssa {
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn remove_if_else(mut self) -> Ssa {
         for function in self.functions.values_mut() {
-            // This should match the check in flatten_cfg
-            if matches!(function.runtime(), RuntimeType::Brillig(_)) {
-                continue;
-            }
-
-            Context::default().remove_if_else(function);
+            function.remove_if_else();
         }
         self
+    }
+}
+
+impl Function {
+    pub(crate) fn remove_if_else(&mut self) {
+        // This should match the check in flatten_cfg
+        if matches!(function.runtime(), RuntimeType::Brillig(_)) {
+            // skip
+        } else {
+            Context::default().remove_if_else(self);
+        }
     }
 }
 
