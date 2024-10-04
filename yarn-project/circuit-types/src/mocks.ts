@@ -40,7 +40,7 @@ import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } fro
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
-import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulateReturnValues } from './tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
@@ -287,7 +287,7 @@ export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
     undefined,
     makeCombinedConstantData(),
     makeCombinedAccumulatedData(),
-    [accumulateReturnValues(privateExecutionResult)],
+    [accumulatePrivateReturnValues(privateExecutionResult)],
     {},
   );
   return new TxSimulationResult(privateExecutionResult, tx.data, output);

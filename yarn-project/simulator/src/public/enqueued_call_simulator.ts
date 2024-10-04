@@ -5,13 +5,11 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
-  type PublicExecutionResult,
   PublicKernelPhase,
   type PublicProvingRequest,
   type SimulationError,
   type Tx,
   UnencryptedFunctionL2Logs,
-  accumulateReturnValues,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -65,7 +63,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { collectExecutionResults } from './execution.js';
+import { type PublicExecutionResult, accumulatePublicReturnValues, collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -227,7 +225,7 @@ export class EnqueuedCallSimulator {
       provingRequests,
       kernelOutput,
       newUnencryptedLogs: topResult.allUnencryptedLogs,
-      returnValues: accumulateReturnValues(topResult),
+      returnValues: accumulatePublicReturnValues(topResult),
       gasUsed,
       revertReason,
     };

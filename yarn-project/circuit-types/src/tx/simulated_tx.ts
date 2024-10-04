@@ -19,7 +19,7 @@ export class PrivateSimulationResult {
   ) {}
 
   getPrivateReturnValues() {
-    return accumulateReturnValues(this.privateExecutionResult);
+    return accumulatePrivateReturnValues(this.privateExecutionResult);
   }
 
   toSimulatedTx(): Tx {
@@ -175,10 +175,8 @@ export class TxProvingResult extends TxSimulationResult {
  * @param executionResult
  * @returns
  */
-export function accumulateReturnValues(
-  executionResult: PublicExecutionResult | PrivateExecutionResult,
-): NestedProcessReturnValues {
+export function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult): NestedProcessReturnValues {
   const acc = new NestedProcessReturnValues(executionResult.returnValues);
-  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulateReturnValues(nestedExecution));
+  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePrivateReturnValues(nestedExecution));
   return acc;
 }
