@@ -182,17 +182,6 @@ template <class Curve> class CommitmentKey {
      * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
      *
      * @param polynomial
-     * @return Commitment
-     */
-
-    /**
-     * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
-     * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
-     * inputs in contiguous memory and commit to them using the normal pippenger algorithm.
-     * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. May not be efficient
-     * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
-     *
-     * @param polynomial
      * @param structured_sizes Structured size of the blocks from which the polynomial is comprised
      * @param actual_sizes The size of the block of non-zero elements in the corresponding fixed size block
      * @return Commitment
