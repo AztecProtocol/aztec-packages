@@ -138,7 +138,6 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
-  packBytecode,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -1362,7 +1361,7 @@ export function makeContractClassPublic(seed = 0): ContractClassPublic {
   const artifactHash = fr(seed + 1);
   const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = packBytecode(publicFunctions);
+  const packedBytecode = publicFunctions[0].bytecode;
   const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
   const id = computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
