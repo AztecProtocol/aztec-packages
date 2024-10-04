@@ -1,4 +1,4 @@
-use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
+use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}, meta::unquote};
 
 use super::utils::get_serialized_size;
 use super::utils::is_note;
@@ -30,6 +30,9 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         let (name, typ) = field;
         let (storage_field_constructor, serialized_size) = generate_storage_field_constructor(typ, quote { $slot }, false);
         storage_vars_constructors = storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
+        // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
+        // because that way a dev gets a more reasonable error if he defines a struct with the same name in
+        // a contract.
         storage_layout_fields = storage_layout_fields.push_back(quote { $name: dep::aztec::prelude::Storable });
         storage_layout_constructors = storage_layout_constructors.push_back(quote { $name: dep::aztec::prelude::Storable { slot: $slot } });
         //let with_context_generic = add_context_generic(typ, context_generic);
@@ -57,18 +60,25 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     let module = s.module();
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
+    let module_name_str = module_name.as_str_quote();
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
         $storage_impl
 
-        struct StorageLayout {
+        struct StorageLayoutFields {
             $storage_layout_fields
+        }
+
+        struct StorageLayout<let N: u32> {
+            contract_name: str<N>,
+            fields: StorageLayoutFields
         }
 
         #[abi(storage)]
         global $storage_layout_name = StorageLayout {
-            $storage_layout_constructors
+            contract_name: $module_name_str,
+            fields: StorageLayoutFields { $storage_layout_constructors }
         };
     }
 }

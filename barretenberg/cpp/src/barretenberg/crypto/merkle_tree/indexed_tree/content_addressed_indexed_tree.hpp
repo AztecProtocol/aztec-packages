@@ -23,6 +23,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -278,7 +279,8 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(s
         store_->get_meta(meta, *tx, false);
     }
 
-    if (meta.blockHeight > 0 || store_->get_fork_block().has_value()) {
+    // if the tree already contains leaves then it's been initialised in the past
+    if (meta.size > 0) {
         return;
     }
 

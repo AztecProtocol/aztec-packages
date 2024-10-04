@@ -47,14 +47,18 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
+  MockProofCommitmentEscrowAbi,
+  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
+  ProofCommitmentEscrowAbi,
+  ProofCommitmentEscrowBytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { AuthRegistryContract, RouterContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -113,7 +117,12 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: { salt?: number; initialValidators?: EthAddress[]; assumeProvenThrough?: number } = {
+  args: {
+    salt?: number;
+    initialValidators?: EthAddress[];
+    assumeProvenThrough?: number;
+    useRealProofCommitmentEscrow?: boolean;
+  } = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
   },
   chain: Chain = foundry,
@@ -136,12 +145,18 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
+    },
+    proofCommitmentEscrow: {
+      contractAbi: args.useRealProofCommitmentEscrow ? ProofCommitmentEscrowAbi : MockProofCommitmentEscrowAbi,
+      contractBytecode: args.useRealProofCommitmentEscrow
+        ? ProofCommitmentEscrowBytecode
+        : MockProofCommitmentEscrowBytecode,
     },
   };
 
@@ -241,7 +256,7 @@ async function setupWithRemoteEnvironment(
     walletClient,
     publicClient,
   };
-  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
@@ -284,7 +299,7 @@ async function setupWithRemoteEnvironment(
 }
 
 /** Options for the e2e tests setup */
-type SetupOptions = {
+export type SetupOptions = {
   /** State load */
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
@@ -462,7 +477,7 @@ export async function setup(
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
-  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {

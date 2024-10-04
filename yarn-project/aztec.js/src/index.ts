@@ -99,9 +99,6 @@ export {
   Comparator,
   CompleteAddress,
   EncryptedL2BlockL2Logs,
-  EncryptedLogHeader,
-  EncryptedNoteLogIncomingBody,
-  EncryptedLogOutgoingBody,
   EventType,
   ExtendedNote,
   UniqueNote,
@@ -134,10 +131,11 @@ export {
   merkleTreeIds,
   mockTx,
   mockEpochProofQuote,
-  TaggedLog,
+  EncryptedLogPayload,
   L1NotePayload,
   L1EventPayload,
   EpochProofQuote,
+  EpochProofQuotePayload,
 } from '@aztec/circuit-types';
 export { NodeInfo } from '@aztec/types/interfaces';
 

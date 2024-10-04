@@ -14,3 +14,4 @@ remove_old_images noir-projects
 yarn
 
 ./mock-protocol-circuits/bootstrap.sh
+(cd ./noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)

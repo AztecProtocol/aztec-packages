@@ -872,8 +872,9 @@ class MegaFlavor {
         Commitment lookup_read_tags_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
+        std::vector<Commitment> gemini_fold_comms;
+        std::vector<FF> gemini_fold_evals;
+        Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
 
         Transcript_() = default;
@@ -938,10 +939,14 @@ class MegaFlavor {
                                                                                                  num_frs_read));
             }
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+            }
+            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+
             kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
@@ -983,10 +988,13 @@ class MegaFlavor {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
             serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(zm_cq_comms[i], proof_data);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+                serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
-            serialize_to_buffer(zm_cq_comm, proof_data);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+                serialize_to_buffer(gemini_fold_evals[i], proof_data);
+            }
+            serialize_to_buffer(shplonk_q_comm, proof_data);
             serialize_to_buffer(kzg_w_comm, proof_data);
 
             ASSERT(proof_data.size() == old_proof_length);

@@ -10,7 +10,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import { type Fr, type Header } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -130,6 +130,22 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
     try {
       return Promise.resolve(Array.from(this.#blockStore.getBlocks(start, limit)));
+    } catch (err) {
+      // this function is sync so if any errors are thrown we need to make sure they're passed on as rejected Promises
+      return Promise.reject(err);
+    }
+  }
+
+  /**
+   * Gets up to `limit` amount of L2 blocks headers starting from `from`.
+   *
+   * @param start - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested L2 blocks
+   */
+  getBlockHeaders(start: number, limit: number): Promise<Header[]> {
+    try {
+      return Promise.resolve(Array.from(this.#blockStore.getBlockHeaders(start, limit)));
     } catch (err) {
       // this function is sync so if any errors are thrown we need to make sure they're passed on as rejected Promises
       return Promise.reject(err);

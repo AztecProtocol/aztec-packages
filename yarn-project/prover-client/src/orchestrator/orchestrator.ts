@@ -305,6 +305,10 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
+    if (!provingState.verifyState()) {
+      throw new Error(`Block proving failed: ${provingState.error}`);
+    }
+
     // We may need to pad the rollup with empty transactions
     const paddingTxCount = provingState.totalNumTxs - provingState.transactionsReceived;
     if (paddingTxCount > 0 && provingState.totalNumTxs > 2) {
@@ -344,6 +348,8 @@ export class ProvingOrchestrator implements EpochProver {
     logger.verbose(`Block ${provingState.globalVariables.blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState);
 
+    // If the proofs were faster than the block building, then we need to try the block root rollup again here
+    this.checkAndEnqueueBlockRootRollup(provingState);
     return provingState.block!;
   }
 
@@ -437,7 +443,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Assemble the L2 block
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
-    const l2Block = L2Block.fromFields({ archive: newArchive, header, body });
+    const l2Block = new L2Block(newArchive, header, body);
 
     if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
       throw new Error(
@@ -871,11 +877,17 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   // Executes the block root rollup circuit
-  private enqueueBlockRootRollup(provingState: BlockProvingState | undefined) {
-    if (!provingState?.verifyState()) {
+  private enqueueBlockRootRollup(provingState: BlockProvingState) {
+    if (!provingState.block) {
+      throw new Error(`Invalid proving state for block root rollup, block not available`);
+    }
+
+    if (!provingState.verifyState()) {
       logger.debug('Not running block root rollup, state no longer valid');
       return;
     }
+
+    provingState.blockRootRollupStarted = true;
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
 
@@ -1063,9 +1075,13 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  private checkAndEnqueueBlockRootRollup(provingState: BlockProvingState | undefined) {
+  private checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
     if (!provingState?.isReadyForBlockRootRollup()) {
       logger.debug('Not ready for root rollup');
+      return;
+    }
+    if (provingState.blockRootRollupStarted) {
+      logger.debug('Block root rollup already started');
       return;
     }
     this.enqueueBlockRootRollup(provingState);

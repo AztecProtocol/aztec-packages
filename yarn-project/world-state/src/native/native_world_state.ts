@@ -31,6 +31,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
+import assert from 'assert/strict';
 import bindings from 'bindings';
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
@@ -121,11 +122,19 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   }
 
   protected async init() {
-    const archive = await this.getTreeInfo(MerkleTreeId.ARCHIVE, false);
     this.initialHeader = await this.buildInitialHeader();
-    if (archive.size === 0n) {
-      await this.appendLeaves(MerkleTreeId.ARCHIVE, [this.initialHeader.hash()]);
-      await this.commit();
+
+    // validate the initial state
+    if (this.forkId === 0 && this.blockNumber === undefined) {
+      const archive = await this.getTreeInfo(MerkleTreeId.ARCHIVE, false);
+      if (archive.size === 0n) {
+        throw new Error("Archive tree can't be empty");
+      }
+
+      // the initial header _must_ be the first element in the archive tree
+      // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
+      const initialHeaderIndex = await this.findLeafIndex(MerkleTreeId.ARCHIVE, this.initialHeader.hash(), false);
+      assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
     }
   }
 

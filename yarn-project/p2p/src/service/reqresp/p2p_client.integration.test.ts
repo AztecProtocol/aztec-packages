@@ -1,4 +1,5 @@
 // An integration test for the p2p client to test req resp protocols
+import { MockBlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -14,7 +15,6 @@ import { generatePrivateKey } from 'viem/accounts';
 
 import { type AttestationPool } from '../../attestation_pool/attestation_pool.js';
 import { createP2PClient } from '../../client/index.js';
-import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { type EpochProofQuotePool } from '../../epoch_proof_quote_pool/epoch_proof_quote_pool.js';

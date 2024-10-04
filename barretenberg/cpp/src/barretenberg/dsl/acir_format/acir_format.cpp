@@ -43,6 +43,33 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
+    // Oversize gates are a vector of mul_quad gates.
+    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
+        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
+        fr next_w4_wire_value = fr(0);
+        // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
+        for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
+            if (j == 0) {
+                next_w4_wire_value = builder.get_variable(big_constraint[0].d);
+            } else {
+                uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
+                big_constraint[j].d = next_w4_wire;
+                big_constraint[j].d_scaling = fr(-1);
+            }
+            builder.create_big_mul_add_gate(big_constraint[j], true);
+            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
+                                     big_constraint[j].mul_scaling +
+                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
+                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
+                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
+                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
+            next_w4_wire_value = -next_w4_wire_value;
+        }
+        uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
+        big_constraint.back().d = next_w4_wire;
+        big_constraint.back().d_scaling = fr(-1);
+        builder.create_big_mul_add_gate(big_constraint.back(), false);
+    }
 
     // Add logic constraint
     for (size_t i = 0; i < constraint_system.logic_constraints.size(); ++i) {
@@ -486,20 +513,19 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
-    // Connect the proof/public_input witness indices from each constraint to the corresponding proof witnesses in the
-    // internal verification queue. This ensures that the witnesses utlized in constraints generated based on acir are
-    // properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
+    // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
+    // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
 
-        // Reconstruct complete proof indices from acir constraint data (in which proof is stripped of public inputs)
-        std::vector<uint32_t> complete_proof_indices =
-            ProofSurgeon::create_indices_for_reconstructed_proof(constraint.proof, constraint.public_inputs);
-        ASSERT(complete_proof_indices.size() == queue_entry.proof.size());
+        // Get the witness indices for the public inputs contained within the proof in the verification queue
+        std::vector<uint32_t> public_input_indices = ProofSurgeon::get_public_inputs_witness_indices_from_proof(
+            queue_entry.proof, constraint.public_inputs.size());
 
-        // Assert equality between the proof indices from the constraint data and those of the internal proof
-        for (auto [proof_value, proof_idx] : zip_view(queue_entry.proof, complete_proof_indices)) {
-            circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
+        // Assert equality between the internal public input witness indices and those in the acir constraint
+        for (auto [witness_idx, constraint_witness_idx] : zip_view(public_input_indices, constraint.public_inputs)) {
+            circuit.assert_equal(witness_idx, constraint_witness_idx);
         }
     }
 

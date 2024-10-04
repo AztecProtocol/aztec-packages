@@ -1,31 +1,51 @@
-import { type Note, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
+import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types';
+import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { type L1ContractAddresses } from '@aztec/ethereum';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import fs from 'fs';
+import {
+  type GetContractReturnType,
+  type Hex,
+  type PublicClient,
+  type WalletClient,
+  createWalletClient,
+  getContract,
+  http,
+  publicActions,
+} from 'viem';
+import { foundry } from 'viem/chains';
 
 /**
  * A class that provides utility functions for interacting with the chain.
  */
 export class CheatCodes {
   constructor(
-    /**
-     * The cheat codes for ethereum (L1).
-     */
+    /** Cheat codes for L1.*/
     public eth: EthCheatCodes,
-    /**
-     * The cheat codes for aztec.
-     */
+    /** Cheat codes for Aztec L2. */
     public aztec: AztecCheatCodes,
+    /** Cheat codes for the Aztec Rollup contract on L1. */
+    public rollup: RollupCheatCodes,
   ) {}
 
-  static create(rpcUrl: string, pxe: PXE): CheatCodes {
+  static async create(rpcUrl: string, pxe: PXE): Promise<CheatCodes> {
     const ethCheatCodes = new EthCheatCodes(rpcUrl);
     const aztecCheatCodes = new AztecCheatCodes(pxe, ethCheatCodes);
-    return new CheatCodes(ethCheatCodes, aztecCheatCodes);
+    const rollupCheatCodes = new RollupCheatCodes(
+      ethCheatCodes,
+      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+    );
+    return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
+  }
+
+  static createRollup(rpcUrl: string, addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
+    const ethCheatCodes = new EthCheatCodes(rpcUrl);
+    return new RollupCheatCodes(ethCheatCodes, addresses);
   }
 }
 
@@ -227,7 +247,7 @@ export class EthCheatCodes {
    * Send transactions impersonating an externally owned account or contract.
    * @param who - The address to impersonate
    */
-  public async startImpersonating(who: EthAddress): Promise<void> {
+  public async startImpersonating(who: EthAddress | Hex): Promise<void> {
     const res = await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
     if (res.error) {
       throw new Error(`Error impersonating ${who}: ${res.error.message}`);
@@ -239,7 +259,7 @@ export class EthCheatCodes {
    * Stop impersonating an account that you are currently impersonating.
    * @param who - The address to stop impersonating
    */
-  public async stopImpersonating(who: EthAddress): Promise<void> {
+  public async stopImpersonating(who: EthAddress | Hex): Promise<void> {
     const res = await this.rpcCall('hardhat_stopImpersonatingAccount', [who.toString()]);
     if (res.error) {
       throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
@@ -268,6 +288,96 @@ export class EthCheatCodes {
   public async getBytecode(contract: EthAddress): Promise<`0x${string}`> {
     const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
     return res.result;
+  }
+}
+
+/** Cheat codes for the L1 rollup contract. */
+export class RollupCheatCodes {
+  private client: WalletClient & PublicClient;
+  private rollup: GetContractReturnType<typeof RollupAbi, WalletClient>;
+
+  private logger = createDebugLogger('aztec:js:cheat_codes');
+
+  constructor(private ethCheatCodes: EthCheatCodes, private addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
+    this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
+    this.rollup = getContract({
+      abi: RollupAbi,
+      address: addresses.rollupAddress.toString(),
+      client: this.client,
+    });
+  }
+
+  /** Returns the current slot */
+  public async getSlot() {
+    const ts = BigInt((await this.client.getBlock()).timestamp);
+    return await this.rollup.read.getSlotAt([ts]);
+  }
+
+  /** Returns the current epoch */
+  public async getEpoch() {
+    const slotNumber = await this.getSlot();
+    return await this.rollup.read.getEpochAtSlot([slotNumber]);
+  }
+
+  /** Warps time in L1 until the next epoch */
+  public async advanceToNextEpoch() {
+    const slot = await this.getSlot();
+    const slotsUntilNextEpoch = BigInt(AZTEC_EPOCH_DURATION) - (slot % BigInt(AZTEC_EPOCH_DURATION)) + 1n;
+    const timeToNextEpoch = slotsUntilNextEpoch * BigInt(AZTEC_SLOT_DURATION);
+    const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
+    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch));
+    this.logger.verbose(`Advanced to next epoch`);
+  }
+
+  /** Returns the current proof claim (if any) */
+  public async getProofClaim(): Promise<EpochProofClaim | undefined> {
+    // REFACTOR: This code is duplicated from l1-publisher
+    const [epochToProve, basisPointFee, bondAmount, bondProviderHex, proposerClaimantHex] =
+      await this.rollup.read.proofClaim();
+
+    const bondProvider = EthAddress.fromString(bondProviderHex);
+    const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
+
+    if (bondProvider.isZero() && proposerClaimant.isZero() && epochToProve === 0n) {
+      return undefined;
+    }
+
+    return {
+      epochToProve,
+      basisPointFee,
+      bondAmount,
+      bondProvider,
+      proposerClaimant,
+    };
+  }
+
+  /**
+   * Marks the specified block (or latest if none) as proven
+   * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
+   */
+  public async markAsProven(maybeBlockNumber?: number | bigint) {
+    const blockNumber = maybeBlockNumber
+      ? BigInt(maybeBlockNumber)
+      : await this.rollup.read.tips().then(([pending]) => pending);
+
+    await this.asOwner(async account => {
+      // TODO: Figure out proper typing for viem
+      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account } as any);
+      this.logger.verbose(`Marked ${blockNumber} as proven`);
+    });
+  }
+
+  /**
+   * Executes an action impersonated as the owner of the Rollup contract.
+   * @param action - The action to execute
+   */
+  public async asOwner(
+    action: (owner: Hex, rollup: GetContractReturnType<typeof RollupAbi, WalletClient>) => Promise<void>,
+  ) {
+    const owner = await this.rollup.read.owner();
+    await this.ethCheatCodes.startImpersonating(owner);
+    await action(owner, this.rollup);
+    await this.ethCheatCodes.stopImpersonating(owner);
   }
 }
 

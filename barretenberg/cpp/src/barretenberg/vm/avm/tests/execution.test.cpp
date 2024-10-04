@@ -947,9 +947,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                "00"                                  // Indirect flag
                                "00000100"                            // output offset
                                "00000001"                            // state offset
-                               "0000000F"                            // state size
                                "00000009"                            // input offset
-                               "00000008"                            // input size
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000100"                            // ret offset 256
@@ -1267,7 +1265,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "07"                       // value
                                "06"                       // dst_offset
                                + to_hex(OpCode::ECADD) +  // opcode ECADD
-                               "40"                       // Indirect flag (sixth operand indirect)
+                               "0040"                     // Indirect flag (sixth operand indirect)
                                "00000000"                 // hash_index offset (direct)
                                "00000001"                 // dest offset (direct)
                                "00000002"                 // input offset (indirect)
@@ -1912,13 +1910,16 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     FF expected_hash = FF(std::string("0x006db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
+    // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
+    EXPECT_EQ(emit_log_row->main_ib, 40);
 
     uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
     auto emit_log_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
-    feed_output(emit_log_out_offset, 1, 2, 0);
+    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
+    feed_output(emit_log_out_offset, expected_hash, 2, 40);
 
     // CHECK SEND L2 TO L1 MSG
     auto send_row =
@@ -2280,7 +2281,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                "00000000"                     // dst_offset
                                + bytecode_preamble            // Load up memory offsets
                                + to_hex(OpCode::CALL) +       // opcode CALL
-                               "3f"                           // Indirect flag
+                               "003f"                         // Indirect flag
                                "00000011"                     // gas offset
                                "00000012"                     // addr offset
                                "00000013"                     // args offset
