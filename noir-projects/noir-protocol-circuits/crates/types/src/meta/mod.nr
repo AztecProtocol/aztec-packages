@@ -98,7 +98,14 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
             let nested_struct = typ.as_struct().unwrap();
             let params = nested_struct.0.fields();
             let struct_flattened = params.map(
-                | (param_name, param_type): (Quoted, Type) | flatten_to_fields(quote {$name.$param_name}, param_type, omit)
+                | (param_name, param_type): (Quoted, Type) | {
+                    let maybe_prefixed_name = if name == quote {} {
+                        quote { $param_name }
+                    } else {
+                        quote { $name.$param_name }
+                    };
+                    flatten_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
+                }
             );
             let struct_flattened_fields = struct_flattened.fold(
                 &[],
