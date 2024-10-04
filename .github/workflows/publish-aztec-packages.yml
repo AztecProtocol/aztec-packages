@@ -32,7 +32,9 @@ jobs:
         run: |
           TAG=${{ github.event.inputs.tag }}
           if [[ "$TAG" == aztec-packages-v* ]]; then
-            echo "Tag is valid. Proceeding with setup."
+            DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${DEPLOY_TAG#aztec-packages-v}
+            echo "Tag is valid. Proceeding with publishing v$VERSION."
           else
             echo "Invalid tag format. Expected aztec-packages-v*"
             exit 1
@@ -181,7 +183,8 @@ jobs:
       - name: Publish aztec manifests
         if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v}
 
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
@@ -233,22 +236,24 @@ jobs:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish yarn-project NPM packages
         run: |
-          VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./yarn-project+publish-npm \
             --DIST_TAG=latest \
-            --VERSION=$VERSION
+            --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish bb.js NPM package
         run: |
-          VERSION=${${{ env.DEPLOY_TAG }}#aztec-packages-v}
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./barretenberg/ts+publish-npm \
             --DIST_TAG=latest \
-            --VERSION=$VERSION
+            --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}

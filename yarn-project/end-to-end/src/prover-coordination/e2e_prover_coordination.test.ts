@@ -51,10 +51,8 @@ describe('e2e_prover_coordination', () => {
     snapshotManager = createSnapshotManager(
       `prover_coordination/e2e_json_coordination`,
       process.env.E2E_DATA_PATH,
-      {},
-      {
-        assumeProvenThrough: undefined,
-      },
+      { startProverNode: true },
+      { assumeProvenThrough: undefined },
     );
 
     await snapshotManager.snapshot('setup', addAccounts(2, logger), async ({ accountKeys }, ctx) => {
@@ -80,7 +78,7 @@ describe('e2e_prover_coordination', () => {
 
     ctx = await snapshotManager.setup();
 
-    await ctx.proverNode.stop();
+    await ctx.proverNode!.stop();
 
     cc = new EthCheatCodes(ctx.aztecNodeConfig.l1RpcUrl);
 
@@ -195,7 +193,7 @@ describe('e2e_prover_coordination', () => {
     });
 
     // Send in the quote
-    await ctx.proverNode.sendEpochProofQuote(quoteForEpoch0);
+    await ctx.proverNode!.sendEpochProofQuote(quoteForEpoch0);
 
     // Build a block, this should NOT use the above quote as it is for the current epoch (0)
     await contract.methods.create_note(recipient, recipient, 10).send().wait();
@@ -272,7 +270,7 @@ describe('e2e_prover_coordination', () => {
 
     const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes, proofQuoteInsufficientBond];
 
-    await Promise.all(allQuotes.map(x => ctx.proverNode.sendEpochProofQuote(x)));
+    await Promise.all(allQuotes.map(x => ctx.proverNode!.sendEpochProofQuote(x)));
 
     // now build another block and we should see the best valid quote being published
     await contract.methods.create_note(recipient, recipient, 10).send().wait();

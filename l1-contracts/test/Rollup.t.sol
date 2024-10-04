@@ -21,7 +21,6 @@ import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {MockProofCommitmentEscrow} from "@aztec/mock/MockProofCommitmentEscrow.sol";
 
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -68,16 +67,14 @@ contract RollupTest is DecoderBase {
 
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
-    feeJuicePortal = new FeeJuicePortal(address(this));
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize(
-      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
+    feeJuicePortal = new FeeJuicePortal(
+      address(this), address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
-    proofCommitmentEscrow = new MockProofCommitmentEscrow();
-    rollup =
-      new Rollup(feeJuicePortal, proofCommitmentEscrow, bytes32(0), address(this), new address[](0));
+    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
+    proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
 
     registry.upgrade(address(rollup));
 
@@ -97,6 +94,8 @@ contract RollupTest is DecoderBase {
     signedQuote = _quoteToSignedQuote(quote);
 
     testERC20.mint(signer, bond * 10);
+    vm.prank(signer);
+    testERC20.approve(address(proofCommitmentEscrow), bond * 10);
     vm.prank(signer);
     proofCommitmentEscrow.deposit(bond * 10);
 
