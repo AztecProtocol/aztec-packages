@@ -637,15 +637,6 @@ comptime fn inject_note_header(s: StructDefinition) {
     }
 }
 
-/// Checks whether a note struct `s` contains a `NoteHeader` field. If not, it automatically injects it. Then it
-/// generates and returns note properties and the note type id.
-comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
-    let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
-
-    (note_properties, note_type_id)
-}
-
 /// Injects `NoteHeader` to the note struct if not present and generates the following:
 /// - NoteTypeProperties
 /// - SetupPayload
@@ -665,7 +656,8 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     // We inject NoteHeader if it's not present in the note struct.
     inject_note_header(s);
 
-    let (common, note_type_id) = common_note_annotation(s);
+    let note_properties = generate_note_properties(s);
+    let note_type_id = compute_note_type_id(s.name());
     let (setup_payload_impl, setup_payload_name) = generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) = generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
@@ -679,7 +671,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     );
 
     quote {
-        $common
+        $note_properties
         $setup_payload_impl
         $finalization_payload_impl
         $note_interface_impl
@@ -687,13 +679,20 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     }
 }
 
+/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// - NoteTypeProperties
+/// - NoteInterface trait implementation
+/// - Registers the note in the global `NOTES` map.
+///
+/// For more details on the generated code, see the individual functions.
 pub comptime fn note(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
 
     // We inject NoteHeader if it's not present in the note struct.
     inject_note_header(s);
 
-    let (common, note_type_id) = common_note_annotation(s);
+    let note_properties = generate_note_properties(s);
+    let note_type_id = compute_note_type_id(s.name());
     let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
     register_note(
         s,
@@ -704,17 +703,21 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     );
 
     quote {
-        $common
+        $note_properties
         $note_interface_impl
     }
 }
 
-/// Checks whether a note struct `s` annotated with `#[note_custom_interface]` implements the `NoteInterface` trait.
+/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// - NoteTypeProperties
+///
+/// For more details on the generated code, see the individual functions.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     // We inject NoteHeader if it's not present in the note struct.
     inject_note_header(s);
 
-    let (common, note_type_id) = common_note_annotation(s);
+    let note_properties = generate_note_properties(s);
+    let note_type_id = compute_note_type_id(s.name());
     let serialized_len_type = fresh_type_variable();
     let note_interface_impl = s.as_type().get_trait_impl(quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }.as_trait_constraint());
     let name = s.name();
@@ -731,6 +734,6 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     );
 
     quote {
-        $common
+        $note_properties
     }
 }
