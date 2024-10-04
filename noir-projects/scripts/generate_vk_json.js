@@ -219,7 +219,10 @@ async function main() {
     ? artifactPath
     : await createFunctionArtifact(artifactPath, functionName, outputFolder);
 
-  const artifactName = functionName || path.basename(artifactPath, ".json");
+  const artifactName = [
+    path.basename(artifactPath, ".json"),
+    functionName ? `-${functionName}` : "",
+  ].join("");
 
   const syncWithS3 = true;
 
