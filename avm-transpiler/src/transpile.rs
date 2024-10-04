@@ -478,7 +478,7 @@ fn handle_external_call(
         );
     }
     let gas = inputs[0];
-    let gas_offset = match gas {
+    let gas_offset_ptr = match gas {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
             assert!(size == 2, "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)");
             pointer
@@ -495,7 +495,7 @@ fn handle_external_call(
     // This is an ACIR internal representation detail that leaks to the SSA.
     // Observe that below, we use `inputs[3]` and therefore skip the length field.
     let args = inputs[3];
-    let (args_offset, args_size_offset) = match args {
+    let (args_offset_ptr, args_size_offset) = match args {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
@@ -505,7 +505,7 @@ fn handle_external_call(
     };
 
     let ret_offset_maybe = destinations[0];
-    let (ret_offset, ret_size) = match ret_offset_maybe {
+    let (ret_offset_ptr, ret_size) = match ret_offset_maybe {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
         ValueOrArray::HeapVector(_) => panic!("Call instruction's return data must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`let returnData: [Field; <size>] = ...`)!"),
         _ => panic!("Call instruction's returnData destination should be a HeapArray input"),
@@ -526,21 +526,21 @@ fn handle_external_call(
         //   * selector direct
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&gas_offset)
+                .indirect_operand(&gas_offset_ptr)
                 .direct_operand(address_offset)
-                .indirect_operand(&args_offset)
+                .indirect_operand(&args_offset_ptr)
                 .direct_operand(&args_size_offset)
-                .indirect_operand(&ret_offset)
+                .indirect_operand(&ret_offset_ptr)
                 .direct_operand(success_offset)
                 .direct_operand(function_selector_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: gas_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: gas_offset_ptr.to_usize() as u32 },
             AvmOperand::U32 { value: address_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: args_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: args_offset_ptr.to_usize() as u32 },
             AvmOperand::U32 { value: args_size_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: ret_offset.to_usize() as u32 },
+            AvmOperand::U32 { value: ret_offset_ptr.to_usize() as u32 },
             AvmOperand::U32 { value: ret_size },
             AvmOperand::U32 { value: success_offset.to_usize() as u32 },
             AvmOperand::U32 { value: function_selector_offset.to_usize() as u32 },
@@ -1248,13 +1248,13 @@ fn handle_debug_log(
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::DEBUGLOG,
         // (left to right)
-        //  * fields_size_ptr direct
-        //  * fields_offset_ptr INDIRECT
+        //  * message_offset INDIRECT
         //  * (N/A) message_size is an immediate
-        //  * message_offset direct
+        //  * fields_offset_ptr INDIRECT
+        //  * fields_size_ptr direct
         indirect: Some(
             AddressingModeBuilder::default()
-                .direct_operand(message_offset)
+                .indirect_operand(message_offset)
                 .indirect_operand(fields_offset_ptr)
                 .direct_operand(fields_size_ptr)
                 .build(),
