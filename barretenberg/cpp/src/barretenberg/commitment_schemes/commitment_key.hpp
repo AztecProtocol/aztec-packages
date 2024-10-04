@@ -236,13 +236,13 @@ template <class Curve> class CommitmentKey {
         scalars.reserve(num_nonzero_scalars);
         points.reserve(num_nonzero_scalars * 2);
         for (const auto& range : endpoints) {
-            auto start_it = polynomial.span.begin() + range.first;
-            auto end_it = polynomial.span.begin() + range.second;
+            auto start_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.first);
+            auto end_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.second);
             scalars.insert(scalars.end(), start_it, end_it);
         }
         for (const auto& range : point_endpoints) {
-            auto start_it = point_table.begin() + range.first;
-            auto end_it = point_table.begin() + range.second;
+            auto start_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.first);
+            auto end_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.second);
             points.insert(points.end(), start_it, end_it);
         }
 
