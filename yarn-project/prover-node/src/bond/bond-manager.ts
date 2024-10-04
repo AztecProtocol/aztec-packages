@@ -25,7 +25,7 @@ export class BondManager {
 
     try {
       const current = await this.escrowContract.getProverDeposit();
-      if (current > minimum) {
+      if (current >= minimum) {
         this.logger.debug(`Current prover bond ${current} is above minimum ${minimum}`);
         return;
       }
