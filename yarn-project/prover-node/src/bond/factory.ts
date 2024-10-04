@@ -40,5 +40,8 @@ export async function createBondManager(
   const tokenContractAddress = await escrow.getTokenAddress();
   const token = new TokenContract(client, tokenContractAddress);
 
+  // Ensure the prover has enough balance to cover escrow and try to mint otherwise if on a dev environment
+  await token.ensureBalance((targetStake ?? minimumStake) * 3n);
+
   return new BondManager(token, escrow, minimumStake, targetStake ?? minimumStake);
 }
