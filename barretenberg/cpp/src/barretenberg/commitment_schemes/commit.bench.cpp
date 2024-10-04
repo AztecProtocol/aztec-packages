@@ -27,8 +27,8 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
     return polynomial;
 }
 
-constexpr size_t MIN_LOG_NUM_POINTS = 16;
-constexpr size_t MAX_LOG_NUM_POINTS = 20;
+// constexpr size_t MIN_LOG_NUM_POINTS = 16;
+constexpr size_t MAX_LOG_NUM_POINTS = 16;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
 constexpr size_t SPARSE_NUM_NONZERO = 100;
 
@@ -126,6 +126,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
         key->commit(polynomial);
     }
 }
+
 // Commit to a polynomial with dense random nonzero entries but NOT our happiest case of an exact power of 2
 // Note this used to be a 50% regression just subtracting a power of 2 by 1.
 template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::State& state)
@@ -139,27 +140,28 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
         key->commit(polynomial);
     }
 }
-BENCHMARK(bench_commit_zero<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_random<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_zero<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse_random<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_random<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
+    ->DenseRange(MAX_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+// BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 

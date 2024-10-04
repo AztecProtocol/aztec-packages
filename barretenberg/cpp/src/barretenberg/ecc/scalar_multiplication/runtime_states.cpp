@@ -53,6 +53,7 @@ pippenger_runtime_state<Curve>::pippenger_runtime_state(const size_t num_initial
 
     const size_t points_per_thread = static_cast<size_t>(num_points) / num_threads;
     parallel_for(num_threads, [&](size_t i) {
+        PROFILE_THIS_NAME("memset in Pippenger runtime state creation");
         const size_t thread_offset = i * points_per_thread;
         memset(reinterpret_cast<void*>(point_pairs_1 + thread_offset + (i * 16)),
                0,

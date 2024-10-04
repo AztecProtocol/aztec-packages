@@ -54,6 +54,8 @@ class GoblinMockCircuits {
      */
     static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
     {
+        PROFILE_THIS();
+
         if (large) { // Results in circuit size 2^19
             stdlib::generate_sha256_test_circuit(builder, 12);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 10);
@@ -83,6 +85,8 @@ class GoblinMockCircuits {
      */
     static void construct_mock_function_circuit(MegaBuilder& builder, bool large = false)
     {
+        PROFILE_THIS();
+
         // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
         // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
         const size_t NUM_ITERATIONS_LARGE = 12; // results in circuit size 2^19 (502238 gates)
@@ -119,6 +123,8 @@ class GoblinMockCircuits {
      */
     static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
     {
+        PROFILE_THIS();
+
         bb::MegaCircuitBuilder builder{ op_queue };
 
         // Add some goblinized ecc ops
@@ -145,6 +151,8 @@ class GoblinMockCircuits {
      */
     static void add_some_ecc_op_gates(MegaBuilder& builder)
     {
+        PROFILE_THIS();
+
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
             auto point = Point::random_element(&engine);
@@ -163,6 +171,8 @@ class GoblinMockCircuits {
      */
     static void construct_simple_circuit(MegaBuilder& builder)
     {
+        PROFILE_THIS();
+
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
     }
@@ -178,6 +188,8 @@ class GoblinMockCircuits {
      */
     static void construct_mock_folding_kernel(MegaBuilder& builder)
     {
+        PROFILE_THIS();
+
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
         const size_t NUM_MERKLE_CHECKS = 20;
@@ -196,6 +208,8 @@ class GoblinMockCircuits {
                                             const KernelInput& function_accum,
                                             const KernelInput& prev_kernel_accum)
     {
+        PROFILE_THIS();
+
         // Execute recursive aggregation of function proof
         auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
         auto proof = bb::convert_proof_to_witness(&builder, function_accum.proof);
