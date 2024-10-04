@@ -152,6 +152,7 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Starts off a new block
    * @param numTxs - The total number of transactions in the block.
+   * @param numTxsEffects - The total number of transaction effects in the block
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param verificationKeys - The private kernel verification keys
@@ -949,6 +950,9 @@ export class ProvingOrchestrator implements EpochProver {
       newArchiveSiblingPath: provingState.archiveTreeRootSiblingPath,
       previousBlockHash: provingState.previousBlockHash,
       proverId: this.proverId,
+      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      txEffects: padArrayEnd(txEffectsFields, Fr.ZERO, FIELDS_PER_BLOB),
+      blobCommitment: blob.commitmentToFields(),
     });
 
     this.deferredProving(

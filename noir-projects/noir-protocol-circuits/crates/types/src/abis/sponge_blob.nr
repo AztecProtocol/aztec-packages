@@ -19,7 +19,7 @@ use std::hash::poseidon2::Poseidon2;
 // Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
 global IV: Field = (FIELDS_PER_BLOB as Field) * 18446744073709551616;
 
-struct SpongeBlob {
+pub struct SpongeBlob {
     sponge: Poseidon2,
     fields: u32,
     expected_fields: u32, // The hinted number of tx effects this will absorb

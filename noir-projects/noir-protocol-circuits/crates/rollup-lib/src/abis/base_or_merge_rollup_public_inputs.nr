@@ -44,7 +44,6 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             end: PartialStateReference::empty(),
             start_sponge_blob: SpongeBlob::empty(),
             end_sponge_blob: SpongeBlob::empty(),
-            // txs_effects_hash : 0,
             out_hash: 0,
             accumulated_fees: 0
         }
@@ -52,18 +51,17 @@ impl Empty for BaseOrMergeRollupPublicInputs {
 }
 
 impl Eq for BaseOrMergeRollupPublicInputs {
-  fn eq(self, other: Self) -> bool {
-    (self.rollup_type == other.rollup_type) &
-    (self.num_txs == other.num_txs) &
-    (self.constants.eq(other.constants)) &
-    (self.start.eq(other.start)) &
-    (self.end.eq(other.end)) &
-    (self.start_sponge_blob.eq(other.start_sponge_blob)) &
-    (self.end_sponge_blob.eq(other.end_sponge_blob)) &
-    // (self.txs_effects_hash == other.txs_effects_hash) &
-    (self.out_hash == other.out_hash) &
-    (self.accumulated_fees == other.accumulated_fees)
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.rollup_type == other.rollup_type)
+            & (self.num_txs == other.num_txs)
+            & (self.constants.eq(other.constants))
+            & (self.start.eq(other.start))
+            & (self.end.eq(other.end))
+            & (self.start_sponge_blob.eq(other.start_sponge_blob))
+            & (self.end_sponge_blob.eq(other.end_sponge_blob))
+            & (self.out_hash == other.out_hash)
+            & (self.accumulated_fees == other.accumulated_fees)
+    }
 }
 
 impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
@@ -77,7 +75,6 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
         fields.extend_from_array(self.end.serialize());
         fields.extend_from_array(self.start_sponge_blob.serialize());
         fields.extend_from_array(self.end_sponge_blob.serialize());
-        // fields.push(self.txs_effects_hash as Field);
         fields.push(self.out_hash as Field);
         fields.push(self.accumulated_fees as Field);
 
@@ -98,7 +95,6 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
             end: reader.read_struct(PartialStateReference::deserialize),
             start_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
             end_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
-            // txs_effects_hash: reader.read(),
             out_hash: reader.read(),
             accumulated_fees: reader.read()
         };

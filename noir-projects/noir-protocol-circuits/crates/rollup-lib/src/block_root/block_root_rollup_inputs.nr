@@ -124,7 +124,6 @@ impl BlockRootRollupInputs {
         let mut fee_arr = [FeeRecipient::empty(); 32];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        // TODO(Miranda): assert left.start = spongeblob::new()?
         let blob_public_inputs = evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
 
         BlockRootOrBlockMergePublicInputs {

@@ -56,7 +56,7 @@ describe('prover/orchestrator', () => {
         });
 
         orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, [message]);
+        await orchestrator.startNewBlock(2, 1, globalVariables, [message]);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -85,7 +85,7 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, []);
+        await orchestrator.startNewBlock(2, 1, globalVariables, []);
         await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 1));
         await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 2));
 
