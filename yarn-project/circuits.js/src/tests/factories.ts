@@ -148,7 +148,9 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  BlobPublicInputs,
   EnqueuedCallData,
+  Poseidon2Sponge,
   PublicAccumulatedDataArrayLengths,
   PublicDataLeafHint,
   PublicInnerCallRequest,
@@ -1104,6 +1106,7 @@ export function makeEmptyBlockRootRollupInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x200),
     fr(seed + 0x300),
     fr(seed + 0x400),
+    makeBlobPublicInputs(seed + 0x500),
   );
 }
 

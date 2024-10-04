@@ -211,8 +211,8 @@ library Constants {
   uint256 internal constant VM_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2471;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
-  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 91;
+  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 50;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 97;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 75;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;

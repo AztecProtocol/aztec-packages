@@ -39,7 +39,8 @@ describe('prover/orchestrator/public-functions', () => {
         }
 
         context.orchestrator.startNewEpoch(1, 1);
-        await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
+        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+        await context.orchestrator.startNewBlock(numTransactions, 342 * numTransactions, context.globalVariables, []);
 
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
         expect(processed.length).toBe(numTransactions);

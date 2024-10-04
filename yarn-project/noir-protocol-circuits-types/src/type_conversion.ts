@@ -146,7 +146,7 @@ import {
   VMCircuitPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import type {
@@ -333,12 +333,9 @@ export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
 }
 
 export function mapBLS12BigNumToNoir(number: bigint): BigNum {
+  const hex = toHex(number, true);
   return {
-    limbs: [
-      '0x' + number.toString(16).substring(0, 4),
-      '0x' + number.toString(16).substring(4, 34),
-      '0x' + number.toString(16).substring(34),
-    ],
+    limbs: ['0x' + hex.substring(36), '0x' + hex.substring(6, 36), hex.substring(0, 6)],
   };
 }
 
@@ -2450,6 +2447,7 @@ export function mapEmptyBlockRootRollupInputsToNoir(
     global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
     vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
+    blob_public_inputs: mapBlobPublicInputsToNoir(rootRollupInputs.blobPublicInputs),
   };
 }
 

@@ -315,7 +315,12 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    await builder.startNewBlock(
+      txs.length,
+      toNumTxsEffects(txs, globalVariables.gasFees),
+      globalVariables,
+      l1ToL2Messages,
+    );
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }

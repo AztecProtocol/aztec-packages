@@ -12,12 +12,9 @@ pub struct FeeRecipient {
 
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
 impl Empty for FeeRecipient {
-  fn empty() -> Self {
-    Self {
-      recipient: EthAddress::zero(),
-      value: 0,
+    fn empty() -> Self {
+        Self { recipient: EthAddress::zero(), value: 0 }
     }
-  }
 }
 
 impl Serialize<FEE_RECIPIENT_LENGTH> for FeeRecipient {
@@ -73,7 +70,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: 0,
             prover_id: 0,
-            blob_public_inputs: BlobPublicInputs::empty(),
+            blob_public_inputs: BlobPublicInputs::empty()
         }
     }
 }
@@ -131,7 +128,7 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
             vk_tree_root: reader.read(),
             prover_id: reader.read(),
-            blob_public_inputs: reader.read_struct(BlobPublicInputs::deserialize),
+            blob_public_inputs: reader.read_struct(BlobPublicInputs::deserialize)
         };
 
         reader.finish();

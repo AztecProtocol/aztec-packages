@@ -15,6 +15,7 @@ import {
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  SpongeBlob,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -29,6 +30,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
  */
 export class LightweightBlockBuilder implements BlockBuilder {
   private numTxs?: number;
+  private spongeBlobState?: SpongeBlob;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
 
@@ -38,9 +40,15 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   constructor(private db: MerkleTreeOperations, private telemetry: TelemetryClient) {}
 
-  async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
+  async startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ): Promise<void> {
     this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
     this.numTxs = numTxs;
+    this.spongeBlobState = SpongeBlob.init(numTxsEffects);
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
@@ -56,6 +64,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       this.globalVariables!,
       this.db,
+      this.spongeBlobState!,
       VerificationKeyData.makeFake(),
     );
   }

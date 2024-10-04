@@ -5,6 +5,9 @@ import { poseidon2Hash } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
 import { Blob } from './index.js';
 
+// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+/* eslint-disable import/no-named-as-default-member */
+
 const {
   BYTES_PER_BLOB,
   blobToKzgCommitment,

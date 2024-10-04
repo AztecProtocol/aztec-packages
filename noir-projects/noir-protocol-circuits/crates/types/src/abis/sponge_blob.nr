@@ -72,11 +72,11 @@ impl SpongeBlob {
 impl Eq for SpongeBlob {
     // TODO: should Poseidon2 struct have a .eq() impl?
     fn eq(self, other: Self) -> bool {
-        (self.fields == other.fields) &
-        (self.sponge.cache == other.sponge.cache) &
-        (self.sponge.state == other.sponge.state) &
-        (self.sponge.cache_size == other.sponge.cache_size) &
-        (self.sponge.squeeze_mode == other.sponge.squeeze_mode)
+        (self.fields == other.fields)
+            & (self.sponge.cache == other.sponge.cache)
+            & (self.sponge.state == other.sponge.state)
+            & (self.sponge.cache_size == other.sponge.cache_size)
+            & (self.sponge.squeeze_mode == other.sponge.squeeze_mode)
     }
 }
 
@@ -101,21 +101,17 @@ impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
                 cache: [fields[0], fields[1], fields[2]],
                 state: [fields[3], fields[4], fields[5], fields[6]],
                 cache_size: fields[7] as u32,
-                squeeze_mode: fields[8] as bool,
+                squeeze_mode: fields[8] as bool
             },
             fields: fields[9] as u32,
-            expected_fields: fields[10] as u32,
+            expected_fields: fields[10] as u32
         }
     }
 }
 
 impl Empty for SpongeBlob {
     fn empty() -> Self {
-        Self {
-            sponge: Poseidon2::new(0),
-            fields: 0,
-            expected_fields: 0,
-        }
+        Self { sponge: Poseidon2::new(0), fields: 0, expected_fields: 0 }
     }
 }
 

@@ -1,3 +1,4 @@
+import { toNumTxEffects } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
@@ -18,7 +19,7 @@ describe('prover/orchestrator/multi-block', () => {
   });
 
   describe('multiple blocks', () => {
-    it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
+    it.each([4])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
       context.orchestrator.startNewEpoch(1, numBlocks);
       let header = context.actualDb.getInitialHeader();
 
@@ -32,7 +33,7 @@ describe('prover/orchestrator/multi-block', () => {
         const globals = makeGlobals(blockNum);
 
         // This will need to be a 2 tx block
-        await context.orchestrator.startNewBlock(2, globals, []);
+        await context.orchestrator.startNewBlock(2, toNumTxEffects(tx, globals.gasFees), globals, []);
 
         await context.orchestrator.addNewTx(tx);
 

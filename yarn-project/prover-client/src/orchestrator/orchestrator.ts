@@ -23,9 +23,11 @@ import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
+  BlobPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
+  FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   type KernelCircuitPublicInputs,
@@ -61,6 +63,8 @@ import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 import { type MerkleTreeOperations } from '@aztec/world-state';
+
+import { inspect } from 'util';
 
 import {
   buildBaseRollupInput,
@@ -157,7 +161,12 @@ export class ProvingOrchestrator implements EpochProver {
     [Attributes.BLOCK_SIZE]: numTxs,
     [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
   }))
-  public async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]) {
+  public async startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ) {
     if (!this.provingState) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting a block`);
     }
@@ -217,11 +226,6 @@ export class ProvingOrchestrator implements EpochProver {
     // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
     numTxsEffects = numTxs == 2 ? 684 : numTxsEffects;
 
-    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
-    // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
-    // TODO(Miranda): reset this when we cancel a block? (db does not seem to be reset)
-    this.spongeBlobState = SpongeBlob.init(numTxsEffects);
-
     // Update the local trees to include the new l1 to l2 messages
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
     const messageTreeSnapshotAfterInsertion = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db);
@@ -236,6 +240,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     this.provingState!.startNewBlock(
       numTxs,
+      numTxsEffects,
       globalVariables,
       l1ToL2MessagesPadded,
       messageTreeSnapshot,
@@ -261,7 +266,7 @@ export class ProvingOrchestrator implements EpochProver {
   }))
   public async addNewTx(tx: ProcessedTx): Promise<void> {
     const provingState = this?.provingState?.currentBlock;
-    if (!provingState) {
+    if (!provingState || !provingState.spongeBlobState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
 
@@ -393,6 +398,8 @@ export class ProvingOrchestrator implements EpochProver {
       globalVariables: lastBlock.header.globalVariables,
       vkTreeRoot: getVKTreeRoot(),
       proverId: this.proverId,
+      // TODO(Miranda): check below
+      blobPublicInputs: BlobPublicInputs.empty(),
     });
 
     logger.debug(`Enqueuing deferred proving for padding block to enqueue ${paddingBlockCount} paddings`);
@@ -565,6 +572,23 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   /**
+   * Collect all new nullifiers, commitments, and contracts from all txs in a block
+   * @returns The array of non empty tx effects.
+   */
+  private extractTxEffects(provingState: BlockProvingState) {
+    // Note: this check should ensure that we have all txs and their effects ready.
+    if (!provingState.finalRootParityInput?.publicInputs.shaRoot) {
+      throw new Error(`Invalid proving state, a block must be ready to be proven before its effects can be extracted.`);
+    }
+    const gasFees = provingState.globalVariables.gasFees;
+    const nonEmptyTxEffects: TxEffect[] = provingState.allTxs
+      .map(txProvingState => toTxEffect(txProvingState.processedTx, gasFees))
+      .filter(txEffect => !txEffect.isEmpty());
+
+    return nonEmptyTxEffects;
+  }
+
+  /**
    * Returns the proof for the current epoch.
    */
   public async finaliseEpoch() {
@@ -693,7 +717,7 @@ export class ProvingOrchestrator implements EpochProver {
     provingState: BlockProvingState | undefined,
     tx: ProcessedTx,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
-    if (!provingState?.verifyState() || !this.spongeBlobState) {
+    if (!provingState?.verifyState() || !provingState.spongeBlobState) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
@@ -706,7 +730,7 @@ export class ProvingOrchestrator implements EpochProver {
         makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
         provingState.globalVariables,
         this.db,
-        this.spongeBlobState,
+        provingState.spongeBlobState,
         VerificationKeyData.makeFake(),
       ),
     );
@@ -893,12 +917,12 @@ export class ProvingOrchestrator implements EpochProver {
     provingState.blockRootRollupStarted = true;
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
-    let txEffectsFields = this.extractTxEffects()
+    let txEffectsFields = this.extractTxEffects(provingState)
       .map(tx => tx.toFields())
       .flat();
-    if (txEffectsFields.length < this.spongeBlobState!.expectedFields) {
+    if (txEffectsFields.length < provingState.spongeBlobState!.expectedFields) {
       // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-      txEffectsFields = padArrayEnd(txEffectsFields, Fr.ZERO, this.spongeBlobState!.expectedFields);
+      txEffectsFields = padArrayEnd(txEffectsFields, Fr.ZERO, provingState.spongeBlobState!.expectedFields);
     }
 
     const blob = new Blob(txEffectsFields);

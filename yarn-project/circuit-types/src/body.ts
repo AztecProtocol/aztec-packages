@@ -5,7 +5,6 @@ import {
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 
@@ -51,9 +50,10 @@ export class Body {
    * @returns The txs effects hash.
    */
   getTxsEffectsHash() {
-    const emptyTxEffectHash = TxEffect.empty().hash();
-    const leaves: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    return computeUnbalancedMerkleRoot(leaves, emptyTxEffectHash);
+    // const emptyTxEffectHash = TxEffect.empty().hash();
+    // const leaves: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
+    // TODO(Miranda): cleanly remove txseffectshash
+    return Buffer.alloc(32); // computeUnbalancedMerkleRoot(leaves, emptyTxEffectHash);
   }
 
   get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {

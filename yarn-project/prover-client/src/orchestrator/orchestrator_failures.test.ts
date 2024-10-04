@@ -1,4 +1,4 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver, toNumTxsEffects } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -57,7 +57,12 @@ describe('prover/orchestrator/failures', () => {
       for (let i = 0; i < 3; i++) {
         const txs = times(3, j => makeBloatedProcessedTx(context.actualDb, i * 10 + j + 1));
         const msgs = [new Fr(i + 100)];
-        await orchestrator.startNewBlock(txs.length, makeGlobals(i + 1), msgs);
+        await orchestrator.startNewBlock(
+          txs.length,
+          toNumTxsEffects(txs, context.globalVariables.gasFees),
+          makeGlobals(i + 1),
+          msgs,
+        );
         for (const tx of txs) {
           await orchestrator.addNewTx(tx);
         }

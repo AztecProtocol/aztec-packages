@@ -53,7 +53,8 @@ describe('prover/bb_prover/full-rollup', () => {
         });
 
         log.info(`Starting new block #${blockNum}`);
-        await context.orchestrator.startNewBlock(totalTxs, globals, l1ToL2Messages);
+        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+        await context.orchestrator.startNewBlock(totalTxs, 342 * totalTxs, globals, l1ToL2Messages);
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.epochProver);
         expect(processed.length).toBe(nonEmptyTxs);
@@ -99,7 +100,13 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1);
 
-    await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, l1ToL2Messages);
+    // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+    await context.orchestrator.startNewBlock(
+      numTransactions,
+      342 * numTransactions,
+      context.globalVariables,
+      l1ToL2Messages,
+    );
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
 

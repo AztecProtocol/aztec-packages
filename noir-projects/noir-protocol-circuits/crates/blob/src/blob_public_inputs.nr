@@ -2,7 +2,7 @@ use crate::config::F;
 use types::traits::{Empty, Serialize, Deserialize};
 use bigint::BigNum;
 
-struct BlobPublicInputs {
+pub struct BlobPublicInputs {
     z: Field,
     y: F,
     kzg_commitment: [Field; 2],
@@ -19,17 +19,15 @@ impl BlobPublicInputs {
 
 impl Empty for BlobPublicInputs {
     fn empty() -> Self {
-        Self {
-            z: 0,
-            y: BigNum::new(),
-            kzg_commitment: [0; 2],
-        }
+        Self { z: 0, y: BigNum::new(), kzg_commitment: [0; 2] }
     }
 }
 
 impl Serialize<6> for BlobPublicInputs {
     fn serialize(self) -> [Field; 6] {
-        [self.z, self.y.limbs[0], self.y.limbs[1], self.y.limbs[2], self.kzg_commitment[0], self.kzg_commitment[1]]
+        [
+            self.z, self.y.limbs[0], self.y.limbs[1], self.y.limbs[2], self.kzg_commitment[0], self.kzg_commitment[1]
+        ]
     }
 }
 
@@ -37,7 +35,7 @@ impl Deserialize<6> for BlobPublicInputs {
     fn deserialize(fields: [Field; 6]) -> Self {
         Self {
             z: fields[0],
-            y: BigNum {limbs: [fields[1], fields[2], fields[3]]},
+            y: BigNum { limbs: [fields[1], fields[2], fields[3]] },
             kzg_commitment: [fields[4], fields[5]]
         }
     }
@@ -45,8 +43,6 @@ impl Deserialize<6> for BlobPublicInputs {
 
 impl Eq for BlobPublicInputs {
     fn eq(self, other: Self) -> bool {
-        (self.z == other.z) &
-        (self.y.eq(other.y)) &
-        (self.kzg_commitment.eq(other.kzg_commitment))
+        (self.z == other.z) & (self.y.eq(other.y)) & (self.kzg_commitment.eq(other.kzg_commitment))
     }
 }

@@ -1,4 +1,4 @@
-import { type Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
+import { type Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight, toTxEffect } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -227,9 +227,8 @@ export function buildHeaderFromCircuitOutputs(
 ) {
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-    sha256Trunc(
-      Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
-    ),
+    // TODO(Miranda): cleanly remove txseffectshash
+    Buffer.alloc(32),
     parityPublicInputs.shaRoot.toBuffer(),
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );

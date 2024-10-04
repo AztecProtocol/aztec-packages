@@ -59,7 +59,7 @@ pub fn assert_equal_constants(
 }
 
 // asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they
-// follow on from one-another). Ensures that right uses the tres that was updated by left.
+// follow on from one-another). Ensures that right uses the tree that was updated by left.
 pub fn assert_prev_rollups_follow_on_from_each_other(
     left: BaseOrMergeRollupPublicInputs,
     right: BaseOrMergeRollupPublicInputs
@@ -243,7 +243,7 @@ pub fn append_tx_effects_for_blob(
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     out_hash: Field,
-    mut start_sponge_blob: SpongeBlob
+    start_sponge_blob: SpongeBlob
 ) -> SpongeBlob {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
 
@@ -328,8 +328,12 @@ pub fn append_tx_effects_for_blob(
 
     assert_eq(offset, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS); // Sanity check
 
-    start_sponge_blob.absorb(tx_effects_hash_input, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
-    start_sponge_blob
+    // NB: using start.absorb & returning start caused issues in ghost values appearing in
+    // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
+    let mut out_sponge = start_sponge_blob;
+
+    out_sponge.absorb(tx_effects_hash_input, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
+    out_sponge
 }
 
 fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {

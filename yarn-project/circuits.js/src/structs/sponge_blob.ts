@@ -81,10 +81,6 @@ export class Poseidon2Sponge {
     return serializeToBuffer(this.cache, this.state, this.cacheSize, this.squeezeMode);
   }
 
-  clone() {
-    return new Poseidon2Sponge(this.cache, this.state, this.cacheSize, this.squeezeMode);
-  }
-
   static empty(): Poseidon2Sponge {
     return new Poseidon2Sponge(
       makeTuple(3, () => Fr.ZERO),

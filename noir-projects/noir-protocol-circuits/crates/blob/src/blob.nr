@@ -586,9 +586,9 @@ fn test_one_note() {
     // Our blob is all 0s, apart from one commitment of value 1 at position 0
     // It's in eval form => our barycentric formula to find p(z) becomes:
     //
-    //*         z^d - 1                ω^0        z^d - 1            1
-    //* p(z) = --------- .   note . --------- =  --------- . 1 . ---------
-    //*            d                 z - ω^0         d              z - 1
+    //         z^d - 1              omega^0      z^d - 1            1
+    // p(z) = --------- .   note . --------- =  --------- . 1 . ---------
+    //            d               z - omega^0       d             z - 1
     //
     //                               =>
     // We check that:

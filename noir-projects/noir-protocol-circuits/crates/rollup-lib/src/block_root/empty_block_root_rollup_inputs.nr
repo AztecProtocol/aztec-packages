@@ -1,6 +1,6 @@
-use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
+use crate::abis::block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient};
 use types::{abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables}};
-use crate::abis::block_root_or_block_merge_public_inputs::FeeRecipient;
+use blob::blob_public_inputs::BlobPublicInputs;
 
 pub struct EmptyBlockRootRollupInputs {
     archive: AppendOnlyTreeSnapshot,
@@ -9,6 +9,7 @@ pub struct EmptyBlockRootRollupInputs {
     vk_tree_root: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
+    blob_public_inputs: BlobPublicInputs,
 }
 
 impl EmptyBlockRootRollupInputs {
@@ -23,7 +24,8 @@ impl EmptyBlockRootRollupInputs {
             out_hash: 0, // out_hash is ignored when merging if the block proof is padding
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: self.vk_tree_root,
-            prover_id: self.prover_id
+            prover_id: self.prover_id,
+            blob_public_inputs: self.blob_public_inputs
         }
     }
 }

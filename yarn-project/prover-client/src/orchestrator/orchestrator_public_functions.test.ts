@@ -1,4 +1,4 @@
-import { PublicExecutionRequest, mockTx } from '@aztec/circuit-types';
+import { PublicExecutionRequest, mockTx, toNumTxsEffects } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -44,7 +44,12 @@ describe('prover/orchestrator/public-functions', () => {
 
         // This will need to be a 2 tx block
         context.orchestrator.startNewEpoch(1, 1);
-        await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+        await context.orchestrator.startNewBlock(
+          2,
+          toNumTxsEffects(processed, context.globalVariables.gasFees),
+          context.globalVariables,
+          [],
+        );
 
         for (const processedTx of processed) {
           await context.orchestrator.addNewTx(processedTx);
@@ -132,7 +137,12 @@ describe('prover/orchestrator/public-functions', () => {
 
       // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      await context.orchestrator.startNewBlock(
+        2,
+        toNumTxsEffects(processed, context.globalVariables.gasFees),
+        context.globalVariables,
+        [],
+      );
 
       for (const processedTx of processed) {
         await context.orchestrator.addNewTx(processedTx);

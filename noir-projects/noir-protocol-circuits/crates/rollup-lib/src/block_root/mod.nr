@@ -41,7 +41,7 @@ mod tests {
         let outputs = inputs.block_root_rollup_circuit();
 
         let mut expected_sponge = inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob;
-        expected_sponge.absorb(inputs.tx_effects, expected_sponge.expected_fields);
+        expected_sponge.absorb([1, 2], expected_sponge.expected_fields);
 
         assert(
             expected_sponge.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob)

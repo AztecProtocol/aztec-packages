@@ -45,7 +45,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             start_sponge_blob: SpongeBlob::empty(),
             end_sponge_blob: SpongeBlob::empty(),
             // txs_effects_hash : 0,
-            out_hash : 0,
+            out_hash: 0,
             accumulated_fees: 0
         }
     }
@@ -88,20 +88,20 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
 }
 
 impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
-  fn deserialize(fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH]) -> BaseOrMergeRollupPublicInputs {
-    let mut reader = Reader::new(fields);
-    let item = Self {
-        rollup_type: reader.read() as u32,
-        num_txs: reader.read() as u32,
-        constants: reader.read_struct(ConstantRollupData::deserialize),
-        start: reader.read_struct(PartialStateReference::deserialize),
-        end: reader.read_struct(PartialStateReference::deserialize),
-        start_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
-        end_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
-        // txs_effects_hash: reader.read(),
-        out_hash: reader.read(),
-        accumulated_fees: reader.read()
-    };
+    fn deserialize(fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH]) -> BaseOrMergeRollupPublicInputs {
+        let mut reader = Reader::new(fields);
+        let item = Self {
+            rollup_type: reader.read() as u32,
+            num_txs: reader.read() as u32,
+            constants: reader.read_struct(ConstantRollupData::deserialize),
+            start: reader.read_struct(PartialStateReference::deserialize),
+            end: reader.read_struct(PartialStateReference::deserialize),
+            start_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
+            end_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
+            // txs_effects_hash: reader.read(),
+            out_hash: reader.read(),
+            accumulated_fees: reader.read()
+        };
 
         reader.finish();
         item

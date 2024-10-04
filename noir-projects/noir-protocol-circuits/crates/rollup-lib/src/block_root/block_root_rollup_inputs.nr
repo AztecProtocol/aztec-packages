@@ -17,7 +17,6 @@ use types::{
     merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
     traits::Empty
 };
-use types::debug_log::debug_log_format;
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     BASE_ROLLUP_INDEX,
@@ -102,24 +101,6 @@ impl BlockRootRollupInputs {
 
         let total_fees = components::accumulate_fees(left, right);
 
-        // unsafe {
-        //     debug_log_format("Assembling header in block root rollup", []);
-        //     debug_log_format(
-        //         "header.last_archive={}",
-        //         left.constants.last_archive.serialize()
-        //     );
-        //     debug_log_format(
-        //         "header.content_commitment={}",
-        //         content_commitment.serialize()
-        //     );
-        //     debug_log_format("header.state={}", state.serialize());
-        //     debug_log_format(
-        //         "header.global_variables={}",
-        //         left.constants.global_variables.serialize()
-        //     );
-        //     debug_log_format("header.total_fees={0}", [total_fees]);
-        // }
-
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
@@ -175,7 +156,7 @@ impl Empty for BlockRootRollupInputs {
             previous_block_hash: 0,
             prover_id: 0,
             tx_effects: [0; FIELDS_PER_BLOB],
-            blob_commitment: [0; 2],
+            blob_commitment: [0; 2]
         }
     }
 }

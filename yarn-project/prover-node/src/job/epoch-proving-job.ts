@@ -84,8 +84,8 @@ export class EpochProvingJob {
           uuid: this.uuid,
           ...globalVariables,
         });
-
         // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+        // Start block proving
         await this.prover.startNewBlock(txCount, 342 * txCount, globalVariables, l1ToL2Messages);
 
         // Process public fns

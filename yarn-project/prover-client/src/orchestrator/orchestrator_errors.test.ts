@@ -1,3 +1,4 @@
+import { toNumTxsEffects } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -29,7 +30,12 @@ describe('prover/orchestrator/errors', () => {
       ];
 
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
+      await context.orchestrator.startNewBlock(
+        txs.length,
+        toNumTxsEffects(txs, context.globalVariables.gasFees),
+        context.globalVariables,
+        [],
+      );
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -46,11 +52,11 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if adding too many blocks', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      await context.orchestrator.startNewBlock(2, 1, context.globalVariables, []);
       await context.orchestrator.setBlockCompleted();
 
       await expect(
-        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, []),
+        async () => await context.orchestrator.startNewBlock(2, 1, context.globalVariables, []),
       ).rejects.toThrow('Epoch not accepting further blocks');
     });
 
@@ -76,7 +82,7 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if setting an incomplete block as completed', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(3, context.globalVariables, []);
+      await context.orchestrator.startNewBlock(3, 1, context.globalVariables, []);
       await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
         `Block not ready for completion: expecting ${3} more transactions.`,
       );
@@ -84,7 +90,7 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if adding to a cancelled block', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      await context.orchestrator.startNewBlock(2, 1, context.globalVariables, []);
       context.orchestrator.cancel();
 
       await expect(
@@ -97,7 +103,7 @@ describe('prover/orchestrator/errors', () => {
       async (blockSize: number) => {
         context.orchestrator.startNewEpoch(1, 1);
         await expect(
-          async () => await context.orchestrator.startNewBlock(blockSize, context.globalVariables, []),
+          async () => await context.orchestrator.startNewBlock(blockSize, 1, context.globalVariables, []),
         ).rejects.toThrow(`Invalid number of txs for block (got ${blockSize})`);
       },
     );
