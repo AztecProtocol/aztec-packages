@@ -564,10 +564,8 @@ export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; 
 export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
-  const batch = new BatchCall(sender, [
-    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
-    ...instances.map(instance => deployInstance(sender, instance!).request()),
-  ]);
+  await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+  const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts

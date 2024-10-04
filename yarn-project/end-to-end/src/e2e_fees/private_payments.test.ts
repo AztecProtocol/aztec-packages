@@ -117,7 +117,7 @@ describe('e2e_fees private_payment', () => {
     const localTx = await interaction.prove(settings);
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
-    const tx = await interaction.send(settings).wait();
+    const tx = await localTx.send().wait();
 
     /**
      * at present the user is paying DA gas for:

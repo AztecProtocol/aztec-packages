@@ -10,6 +10,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type Wallet } from '../account/index.js';
+import { DeployProvenTx } from '../account_manager/deploy_account_proven_tx.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -18,7 +19,6 @@ import { type Contract } from './contract.js';
 import { type ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
-import { DeployProvenTx } from './proven_tx.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
