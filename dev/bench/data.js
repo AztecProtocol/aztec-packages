@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728049837492,
+  "lastUpdate": 1728082788693,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "178573738731e2e74e4119a035f913da39675d85",
-          "message": "feat!: add support for u1 in the avm, ToRadix's radix arg is a memory addr (#8570)",
-          "timestamp": "2024-09-18T16:42:18Z",
-          "tree_id": "f09ff08650f56572e5fed8eb421c3357f0e29b70",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/178573738731e2e74e4119a035f913da39675d85"
-        },
-        "date": 1726678592240,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34367.03489499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31752.892575999995 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5091.098738,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4636.305603000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100427.212132,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100427212000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14667.392955000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14667393000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8532292416,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8532292416 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151704228,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151704228 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6941589044,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6941589044 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127877558,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127877558 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 127632281,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127632281 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec9dfdf9ba36d9bb2e3829a8cdd5b0ed94cbc3fb",
+          "message": "refactor(avm)!: remove CMOV opcode (#9030)\n\nIt's not emitted by Noir, and it needs special casing in the AVM\ncircuit. We discussed with Alvaro that we'd remove it.",
+          "timestamp": "2024-10-04T23:38:37+01:00",
+          "tree_id": "5aac8113e3cf0b1581a0d0310f9195373f9f95cd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec9dfdf9ba36d9bb2e3829a8cdd5b0ed94cbc3fb"
+        },
+        "date": 1728082781739,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31207.998299999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28825.623207000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5449.064601000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5082.764854 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94071.196319,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94071198000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15212.738652999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15212739000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8361160955,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8361160955 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152576280,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152576280 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6782398642,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6782398642 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125519994,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125519994 ns\nthreads: 1"
           }
         ]
       }
