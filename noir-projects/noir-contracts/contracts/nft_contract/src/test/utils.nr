@@ -1,10 +1,11 @@
+use crate::{types::nft_note::NFTNote, NFT};
 use dep::aztec::{
     hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
-use crate::{types::nft_note::NFTNote, NFT};
+use std::test::OracleMock;
 
 unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -57,13 +58,11 @@ unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: 
         NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
     );
 
+    // We mock the Oracle to return the note randomness such that later on we can manually add the note
+    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
+
     // We prepare the transfer with user being both the sender and the recipient (classical "shield" flow)
-    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(
-        owner,
-        owner,
-        note_randomness,
-        transient_storage_slot_randomness
-    );
+    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness);
     env.call_private_void(prepare_transfer_to_private_call_interface);
 
     // Finalize the transfer of the NFT
