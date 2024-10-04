@@ -95,7 +95,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      {},
+      { startProverNode: true },
       { assumeProvenThrough: undefined, useRealProofCommitmentEscrow: true },
     );
   }
@@ -155,10 +155,10 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+    this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,
       aztecNode: this.aztecNode,
-      proverNode: this.simulatedProverNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
