@@ -36,7 +36,7 @@ export BIN CRS_PATH VERBOSE BRANCH
 cd acir_tests
 
 # Convert them to array
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member regression_5045)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
