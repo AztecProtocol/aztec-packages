@@ -429,6 +429,11 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 });
             auto fold_result = folding_prover.prove();
 
+            // Reconstruct the commitment keys because they get freed at the end of oink now...
+            decider_pk_1->proving_key.commitment_key =
+                std::make_shared<UltraFlavor::CommitmentKey>(decider_pk_1->proving_key.circuit_size);
+            decider_pk_2->proving_key.commitment_key =
+                std::make_shared<UltraFlavor::CommitmentKey>(decider_pk_2->proving_key.circuit_size);
             // Create a folding verifier circuit
             auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
             auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
