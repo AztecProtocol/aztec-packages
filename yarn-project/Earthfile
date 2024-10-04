@@ -266,6 +266,8 @@ format-check:
 test:
     FROM +build
 
+    ENV DEBUG="aztec:*"
+    ENV LOG_LEVEL="debug"
     RUN yarn test
 
 run-e2e:
