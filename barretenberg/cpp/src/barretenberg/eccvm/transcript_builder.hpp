@@ -16,6 +16,7 @@ class ECCVMTranscriptBuilder {
     struct TranscriptRow {
 
         // These fields are populated in the first loop
+        bool transcript_msm_infinity = false;
         bool accumulator_empty = false;
         bool q_add = false;
         bool q_mul = false;
@@ -24,32 +25,33 @@ class ECCVMTranscriptBuilder {
         bool msm_transition = false;
         uint32_t pc = 0;
         uint32_t msm_count = 0;
+        bool msm_count_zero_at_transition = false;
         FF base_x = 0;
         FF base_y = 0;
+        bool base_infinity = false;
         uint256_t z1 = 0;
         uint256_t z2 = 0;
         bool z1_zero = false;
         bool z2_zero = false;
         uint32_t opcode = 0;
-        bool base_infinity = 0;
 
-        // Only final row
+        // These fields are populated after converting Jacobian to affine coordinates
         FF accumulator_x = 0;
         FF accumulator_y = 0;
-        // After the first loop, in add point coordinates
         FF msm_output_x = 0;
         FF msm_output_y = 0;
-
-        FF base_x_inverse = 0;
-        FF base_y_inverse = 0;
-        bool transcript_add_x_equal = false;
-        bool transcript_add_y_equal = false;
-        FF transcript_add_lambda = 0;
         FF transcript_msm_intermediate_x = 0;
         FF transcript_msm_intermediate_y = 0;
-        bool transcript_msm_infinity = false;
+
+        // Computed during the lambda numerator and denominator computation
+        bool transcript_add_x_equal = false;
+        bool transcript_add_y_equal = false;
+
+        // Computed after the batch inversion
+        FF base_x_inverse = 0;
+        FF base_y_inverse = 0;
+        FF transcript_add_lambda = 0;
         FF transcript_msm_x_inverse = 0;
-        bool msm_count_zero_at_transition = false;
         FF msm_count_at_transition_inverse = 0;
     };
 
@@ -68,7 +70,6 @@ class ECCVMTranscriptBuilder {
         static const AffineElement result =
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
 
-        // info(result);
         return result;
     }
     static AffineElement remove_offset_generator(const AffineElement& other)
@@ -99,10 +100,25 @@ class ECCVMTranscriptBuilder {
             return res;
         }
     };
+
+    /**
+     * @brief Computes the ECCVM transcript rows.
+     *
+     * @details This method processes the series of group operations extracted from ECCOpQueue, computing
+     * multi-scalar multiplications and point additions, while creating the
+     * transcript of the operations. In the first loop over the rows of ECCOpQueue, it mostly populates the
+     * TranscriptRow with boolean flags indicating the structure of the ops being performed, while performing
+     * elliptic curve operations in Jacobian coordinates, and then normalizes these points to affine coordinates. Batch
+     * inversion is used to optimize expensive finite field inversions.
+     *
+     * @param vm_operations ECCOpQueue
+     * @param total_number_of_muls The total number of multiplications in the series of operations.
+     *
+     * @return A vector of TranscriptRows
+     */
     static std::vector<TranscriptRow> compute_rows(const std::vector<VMOperation>& vm_operations,
                                                    const uint32_t total_number_of_muls)
     {
-        // const size_t num_transcript_entries = vm_operations.size() + 2;
         const size_t num_vm_entries = vm_operations.size();
         std::vector<TranscriptRow> transcript_state(num_vm_entries + 2);
 
@@ -119,8 +135,6 @@ class ECCVMTranscriptBuilder {
         Accumulator accumulator_trace(num_vm_entries);
         Accumulator intermediate_accumulator_trace(num_vm_entries);
 
-        // the `accumulator` accounts for the result of all group ops
-        // the `msm_accumulator` only
         VMState state{
             .pc = total_number_of_muls,
             .count = 0,
@@ -189,7 +203,7 @@ class ECCVMTranscriptBuilder {
                 process_add(entry, updated_state, state);
             }
 
-            // populate the first group of Transcript row's entries
+            // populate the first group of TranscriptRow entries
             populate_transcript_row(row, entry, state, num_muls, msm_transition, next_not_msm);
 
             msm_count_at_transition_inverse_trace[i] = ((state.count + num_muls) == 0) ? 0 : FF(state.count + num_muls);
@@ -210,7 +224,7 @@ class ECCVMTranscriptBuilder {
         normalize_accumulators(accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
 
         // Add required affine coordinates to the transcript
-        add_accumulators_coordinates_to_transcript(
+        add_affine_coordinates_to_transcript(
             transcript_state, accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
 
         // Process the slopes when adding points or results of MSMs
@@ -280,9 +294,9 @@ class ECCVMTranscriptBuilder {
     {
         const bool base_point_infinity = entry.base_point.is_point_at_infinity();
 
-        row.q_mul = entry.mul;
-        row.q_add = entry.add;
         row.accumulator_empty = state.is_accumulator_empty;
+        row.q_add = entry.add;
+        row.q_mul = entry.mul;
         row.q_eq = entry.eq;
         row.q_reset_accumulator = entry.reset;
         row.msm_transition = msm_transition;
@@ -348,23 +362,24 @@ class ECCVMTranscriptBuilder {
         Element::batch_normalize(&intermediate_accumulator_trace[0], intermediate_accumulator_trace.size());
     }
 
-    static void add_accumulators_coordinates_to_transcript(std::vector<TranscriptRow>& transcript_state,
-                                                           const Accumulator& accumulator_trace,
-                                                           const Accumulator& msm_accumulator_trace,
-                                                           const Accumulator& intermediate_accumulator_trace)
+    static void add_affine_coordinates_to_transcript(std::vector<TranscriptRow>& transcript_state,
+                                                     const Accumulator& accumulator_trace,
+                                                     const Accumulator& msm_accumulator_trace,
+                                                     const Accumulator& intermediate_accumulator_trace)
     {
         for (size_t i = 0; i < accumulator_trace.size(); ++i) {
+            TranscriptRow& row = transcript_state[i + 1];
             if (!accumulator_trace[i].is_point_at_infinity()) {
-                transcript_state[i + 1].accumulator_x = accumulator_trace[i].x;
-                transcript_state[i + 1].accumulator_y = accumulator_trace[i].y;
+                row.accumulator_x = accumulator_trace[i].x;
+                row.accumulator_y = accumulator_trace[i].y;
             }
             if (!msm_accumulator_trace[i].is_point_at_infinity()) {
-                transcript_state[i + 1].msm_output_x = msm_accumulator_trace[i].x;
-                transcript_state[i + 1].msm_output_y = msm_accumulator_trace[i].y;
+                row.msm_output_x = msm_accumulator_trace[i].x;
+                row.msm_output_y = msm_accumulator_trace[i].y;
             }
             if (!intermediate_accumulator_trace[i].is_point_at_infinity()) {
-                transcript_state[i + 1].transcript_msm_intermediate_x = intermediate_accumulator_trace[i].x;
-                transcript_state[i + 1].transcript_msm_intermediate_y = intermediate_accumulator_trace[i].y;
+                row.transcript_msm_intermediate_x = intermediate_accumulator_trace[i].x;
+                row.transcript_msm_intermediate_y = intermediate_accumulator_trace[i].y;
             }
         }
     }
@@ -387,7 +402,7 @@ class ECCVMTranscriptBuilder {
      */
 
     static void compute_inverse_trace_coordinates(const bool msm_transition,
-                                                  TranscriptRow& row,
+                                                  const TranscriptRow& row,
                                                   const Element& msm_output,
                                                   FF& transcript_msm_x_inverse_trace,
                                                   Element& msm_accumulator_trace,
@@ -410,8 +425,8 @@ class ECCVMTranscriptBuilder {
             lhsx = row.base_x;
             lhsy = row.base_y;
         }
-        auto rhsx = accumulator_trace.is_point_at_infinity() ? 0 : accumulator_trace.x;
-        auto rhsy = accumulator_trace.is_point_at_infinity() ? (0) : accumulator_trace.y;
+        const FF rhsx = accumulator_trace.is_point_at_infinity() ? 0 : accumulator_trace.x;
+        const FF rhsy = accumulator_trace.is_point_at_infinity() ? 0 : accumulator_trace.y;
         inverse_trace_x = lhsx - rhsx;
         inverse_trace_y = lhsy - rhsy;
     }
@@ -461,6 +476,7 @@ class ECCVMTranscriptBuilder {
         const bool vm_infinity = vm_point.is_point_at_infinity();
         const bool accumulator_infinity = accumulator.is_point_at_infinity();
 
+        // extract coordinates of the current point in ECCOpQueue
         const FF vm_x = vm_infinity ? 0 : vm_point.x;
         const FF vm_y = vm_infinity ? 0 : vm_point.y;
 
@@ -469,9 +485,9 @@ class ECCVMTranscriptBuilder {
         const FF accumulator_y = accumulator_infinity ? 0 : accumulator.y;
 
         row.transcript_add_x_equal = (vm_x == accumulator_x) || (vm_infinity && accumulator_infinity);
-
         row.transcript_add_y_equal = (vm_y == accumulator_y) || (vm_infinity && accumulator_infinity);
 
+        // compute the numerator and denominator of the slope
         if ((accumulator_x == vm_x) && (accumulator_y == vm_y) && !vm_infinity && !accumulator_infinity) {
             // Double case (x1 == x2, y1 == y2)
             add_lambda_denominator = vm_y + vm_y;
@@ -507,5 +523,4 @@ class ECCVMTranscriptBuilder {
         final_row.accumulator_empty = updated_state.is_accumulator_empty;
     }
 };
-
 } // namespace bb
