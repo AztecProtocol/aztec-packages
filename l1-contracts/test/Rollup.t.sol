@@ -74,8 +74,9 @@ contract RollupTest is DecoderBase {
       address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
     proofCommitmentEscrow = new MockProofCommitmentEscrow();
-    rollup =
-      new Rollup(feeJuicePortal, proofCommitmentEscrow, bytes32(0), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(
+      feeJuicePortal, proofCommitmentEscrow, bytes32(0), bytes32(0), address(this), new address[](0)
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
