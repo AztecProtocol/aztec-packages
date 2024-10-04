@@ -44,24 +44,16 @@ import {
   type DebugLogger,
   Fr,
   GrumpkinScalar,
-  SignerlessWallet,
   computeSecretHash,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 // eslint-disable-next-line no-restricted-imports
 import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
 import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import {
-  SchnorrAccountContractArtifact,
-  SchnorrHardcodedAccountContract,
-  SpamContract,
-  TokenContract,
-} from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
