@@ -2,7 +2,7 @@ import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, EthAddress, Fr, Header } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
-import { mkdir, rm } from 'fs/promises';
+import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -14,8 +14,7 @@ describe('NativeWorldState', () => {
   let rollupAddress: EthAddress;
 
   beforeAll(async () => {
-    dataDir = join(tmpdir(), 'world-state-test');
-    await mkdir(dataDir, { recursive: true });
+    dataDir = await mkdtemp(join(tmpdir(), 'world-state-test'));
     rollupAddress = EthAddress.random();
   });
 

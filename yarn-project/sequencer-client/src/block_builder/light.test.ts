@@ -84,6 +84,7 @@ describe('LightBlockBuilder', () => {
 
   afterEach(async () => {
     await fork.close();
+    await expectsFork.close();
     await db.close();
   });
 
