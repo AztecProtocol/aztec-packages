@@ -307,6 +307,56 @@ comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> 
     (generators_list, scalars_list, args_list, aux_vars)
 }
 
+/// Generates setup payload for a given note struct `s`. The setup payload contains log plaintext and hiding point.
+///
+/// Example:
+/// ```
+/// struct TokenNoteSetupPayload {
+///     log_plaintext: [u8; 160],
+///     hiding_point: aztec::protocol_types::point::Point
+/// }
+///
+/// impl TokenNoteSetupPayload {
+///     fn new(mut self, npk_m_hash: Field, randomness: Field, storage_slot: Field) -> TokenNoteSetupPayload {
+///         let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
+///             [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::G_slot],
+///             [
+///                 std::hash::from_field_unsafe(npk_m_hash),
+///                 std::hash::from_field_unsafe(randomness),
+///                 std::hash::from_field_unsafe(storage_slot)
+///             ]
+///         );
+///
+///         let let storage_slot_bytes = storage_slot.to_be_bytes();
+///         let let note_type_id_bytes = TokenNote::get_note_type_id().to_be_bytes();
+///
+///         for i in 0..32 {
+///             log_plaintext[i] = storage_slot_bytes[i];
+///             log_plaintext[32 + i] = note_type_id_bytes[i];
+///         }
+///
+///         let serialized_note = [npk_m_hash as Field, randomness as Field];
+///
+///         for i in 0..serialized_note.len() {
+///             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+///             for j in 0..32 {
+///                 log_plaintext[64 + i * 32 + j] = bytes[j];
+///             }
+///         }
+///
+///         TokenNoteSetupPayload {
+///             log_plaintext,
+///             hiding_point
+///         }
+///     }
+/// }
+///
+/// impl aztec::protocol_types::traits::Empty for TokenNoteSetupPayload {
+///     fn empty() -> Self {
+///         Self { log_plaintext: [0; 160], hiding_point: aztec::protocol_types::point::Point::empty() }
+///     }
+/// }
+/// ```
 comptime fn generate_setup_payload(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
@@ -355,6 +405,10 @@ comptime fn generate_setup_payload(
     }, setup_payload_name)
 }
 
+/// Generates setup log plaintext for a given note struct `s`. The setup log plaintext is computed by serializing
+/// storage slot from target function arguments, note type id from the note struct `s` and the fixed fields. The fixed
+/// fields are obtained by passing the whole note struct to the `flatten_to_fields(...)` function but omitting the
+/// `NoteHeader` and the nullable fields.
 comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
     log_plaintext_length: u32,
@@ -399,6 +453,38 @@ comptime fn get_setup_log_plaintext_body(
     }
 }
 
+/// Generates finalization payload for a given note struct `s`. The finalization payload contains log and note hash.
+///
+/// Example:
+/// ```
+/// struct TokenNoteFinalizationPayload {
+///     log: [Field; 2],
+///     note_hash: Field
+/// }
+///
+/// impl TokenNoteFinalizationPayload {
+///     fn new(mut self, hiding_point: aztec::protocol_types::point::Point, amount: U128) -> TokenNoteFinalizationPayload {
+///         self.log = [amount.lo as Field, amount.hi as Field];
+///
+///         let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
+///             [aztec::generators::Ga3, aztec::generators::Ga4],
+///             [
+///                 std::hash::from_field_unsafe(amount.lo),
+///                 std::hash::from_field_unsafe(amount.hi)
+///             ]
+///         ) + hiding_point;
+///
+///         self.note_hash = finalization_hiding_point.x;
+///         self
+///     }
+/// }
+///
+/// impl aztec::protocol_types::traits::Empty for TokenNoteFinalizationPayload {
+///     fn empty() -> Self {
+///         Self { log: [0; 2], note_hash: 0 }
+///     }
+/// }
+/// ```
 comptime fn generate_finalization_payload(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
