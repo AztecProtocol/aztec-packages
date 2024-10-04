@@ -245,8 +245,6 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
 
     DeciderProvingKey proving_key(builder);
-    proving_key.proving_key.commitment_key =
-        std::make_shared<UltraFlavor::CommitmentKey>(proving_key.proving_key.circuit_size);
     VerificationKey vk(proving_key.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
 }

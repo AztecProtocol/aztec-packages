@@ -1183,8 +1183,6 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
 
     // Construct a verification key from a partial form of the proving key which only has precomputed entities
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
-    prover.proving_key->proving_key.commitment_key =
-        std::make_shared<typename Flavor::CommitmentKey>(prover.proving_key->proving_key.circuit_size);
     VerificationKey vk(prover.proving_key->proving_key);
 
     auto serialized_vk = to_buffer(vk);
