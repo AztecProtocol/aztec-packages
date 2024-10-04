@@ -1,4 +1,4 @@
-import { type TxExecutionRequest, TxProvingResult } from '@aztec/circuit-types';
+import { type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
 import { type Fr, GasSettings } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
