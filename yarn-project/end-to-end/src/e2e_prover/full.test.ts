@@ -71,7 +71,7 @@ describe('full_prover', () => {
       await txPrivate.wait({ timeout: 300, interval: 10, proven: false });
 
       logger.info(`Sending public tx`);
-      const txPublic = privateProvenTx.send();
+      const txPublic = publicProvenTx.send();
       await txPublic.wait({ timeout: 300, interval: 10, proven: false });
 
       logger.info(`Both txs have been mined`);
