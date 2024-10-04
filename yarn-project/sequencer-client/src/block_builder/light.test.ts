@@ -68,19 +68,19 @@ describe('LightBlockBuilder', () => {
   let emptyVk: VerificationKeyData;
   let emptyVkWitness: MembershipWitness<typeof VK_TREE_HEIGHT>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     logger = createDebugLogger('aztec:sequencer-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
     vkRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyVk = VerificationKeyData.makeFake();
     emptyVkWitness = makeEmptyMembershipWitness(VK_TREE_HEIGHT);
+    db = await NativeWorldStateService.tmp();
   });
 
   beforeEach(async () => {
     globals = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
-    db = await NativeWorldStateService.tmp();
     fork = await db.fork();
     expectsFork = await db.fork();
     builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
@@ -89,6 +89,9 @@ describe('LightBlockBuilder', () => {
   afterEach(async () => {
     await fork.close();
     await expectsFork.close();
+  });
+
+  afterAll(async () => {
     await db.close();
   });
 
