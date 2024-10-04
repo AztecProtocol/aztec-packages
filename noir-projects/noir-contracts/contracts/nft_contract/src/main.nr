@@ -1,6 +1,5 @@
 mod types;
 mod test;
-mod hacky_partial_note;
 
 use dep::aztec::macros::aztec;
 
@@ -11,8 +10,8 @@ contract NFT {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note}, hash::pedersen_hash,
-        keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
+        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
+        hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize},
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}}
@@ -147,38 +146,15 @@ contract NFT {
         note_randomness: Field,
         transient_storage_slot_randomness: Field
     ) {
-        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
-        let to_npk_m_hash = get_public_keys(to).npk_m.hash();
+        let to_keys = get_public_keys(to);
+        let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
-        let hiding_point = NFTNote::hiding_point().new(to_npk_m_hash, note_randomness, to_note_slot);
 
-        // ####### HACKY PARTIAL NOTE EMISSION CODE (to be replaced in a followup PR with proper macro support) #######
-        // TODO(#8769): The following is a temporary partial notes delivery solution that should be eventually replaced.
-        let to_public_keys = get_public_keys(to);
-        let hacky_nft_note = crate::hacky_partial_note::NFTNote {
-            npk_m_hash: to_npk_m_hash,
-            randomness: note_randomness,
-            header: dep::aztec::prelude::NoteHeader::empty()
-        };
-        // `from` cannot receive any logs here as that would leak information of who is the note recipient. For this
-        // reason we encrypt outgoing to `to`.
-        let plaintext = hacky_nft_note.to_be_bytes(to_note_slot);
-        let encrypted_log: [u8; 480] = dep::aztec::encrypted_logs::payload::compute_encrypted_log(
-            context.this_address(),
-            context.request_ovsk_app(to_public_keys.ovpk_m.hash()),
-            to_public_keys.ovpk_m,
-            to_public_keys.ivpk_m,
-            to,
-            plaintext
-        );
-        let log_hash = dep::aztec::protocol_types::hash::sha256_to_field(encrypted_log);
+        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
+        let note_partial_payload = NFTNote::partial_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
-        // Unfortunately we need to push a dummy note hash to the context here because a note log requires having
-        // a counter that corresponds to a note hash in the same call.
-        let note_hash_counter = context.side_effect_counter;
-        context.push_note_hash(5);
-        context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
-        // ####### END OF HACKY PARTIAL NOTE EMISSION CODE #######
+        // We encrypt and emit the partial note log
+        encrypt_and_emit_partial_log(&mut context, note_partial_payload.log_plaintext, to_keys, to);
 
         // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
         // non-sender's slots
@@ -193,7 +169,7 @@ contract NFT {
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(hiding_point.inner, slot).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_partial_payload.hiding_point.to_point(), slot).enqueue(&mut context);
     }
 
     #[public]
