@@ -218,4 +218,6 @@ std::string to_hex(T value)
 
 std::string to_hex(bb::avm_trace::AvmMemoryTag tag);
 
+// Mutate the inputs
+void inject_end_gas_values(VmPublicInputs<FF>& public_inputs, std::vector<Row>& trace);
 } // namespace bb::avm_trace
