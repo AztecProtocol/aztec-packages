@@ -41,10 +41,6 @@ export class PrivateSimulationResult {
     return tx;
   }
 
-  /**
-   * Convert a SimulatedTx class object to a plain JSON object.
-   * @returns A plain object with SimulatedTx properties.
-   */
   public toJSON() {
     return {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
@@ -52,11 +48,6 @@ export class PrivateSimulationResult {
     };
   }
 
-  /**
-   * Convert a plain JSON object to a Tx class object.
-   * @param obj - A plain Tx JSON object.
-   * @returns A Tx class object.
-   */
   public static fromJSON(obj: any) {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
@@ -88,10 +79,6 @@ export class TxSimulationResult extends PrivateSimulationResult {
     );
   }
 
-  /**
-   * Convert a SimulatedTx class object to a plain JSON object.
-   * @returns A plain object with SimulatedTx properties.
-   */
   public override toJSON() {
     return {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
@@ -100,11 +87,6 @@ export class TxSimulationResult extends PrivateSimulationResult {
     };
   }
 
-  /**
-   * Convert a plain JSON object to a Tx class object.
-   * @param obj - A plain Tx JSON object.
-   * @returns A Tx class object.
-   */
   public static override fromJSON(obj: any) {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
@@ -139,10 +121,6 @@ export class TxProvingResult {
     return tx;
   }
 
-  /**
-   * Convert a SimulatedTx class object to a plain JSON object.
-   * @returns A plain object with SimulatedTx properties.
-   */
   public toJSON() {
     return {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
@@ -151,11 +129,6 @@ export class TxProvingResult {
     };
   }
 
-  /**
-   * Convert a plain JSON object to a Tx class object.
-   * @param obj - A plain Tx JSON object.
-   * @returns A Tx class object.
-   */
   public static fromJSON(obj: any) {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
