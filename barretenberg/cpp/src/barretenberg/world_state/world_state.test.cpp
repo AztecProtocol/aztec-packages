@@ -159,42 +159,86 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
     }
 }
 
+TEST_F(WorldStateTest, GetStateReference)
+{
+    WorldState ws(data_dir, map_size, thread_pool_size);
+
+    {
+        auto state_ref = ws.get_state_reference(WorldStateRevision::committed());
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::NULLIFIER_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"), 128UL));
+        }
+
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::NOTE_HASH_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d"), 0UL));
+        }
+
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"), 128UL));
+        }
+
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"), 0UL));
+        }
+    }
+
+    {
+        ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
+
+        auto state_ref = ws.get_state_reference(WorldStateRevision::uncommitted());
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::NULLIFIER_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"), 128UL));
+        }
+
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::NOTE_HASH_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x12dbc0ae893e0aa914df8ed20837148c89d78fbef9471ede1d39416d9660c169"), 1UL));
+        }
+
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"), 128UL));
+        }
+
+        {
+            auto snapshot = state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
+            EXPECT_EQ(
+                snapshot,
+                std::make_pair(bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"), 0UL));
+        }
+    }
+}
+
 TEST_F(WorldStateTest, GetInitialStateReference)
 {
     WorldState ws(data_dir, map_size, thread_pool_size);
 
-    auto state_ref = ws.get_state_reference(WorldStateRevision::committed());
+    auto before_commit = ws.get_initial_state_reference();
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
+    ws.commit();
 
-    EXPECT_EQ(state_ref.size(), 5);
+    auto after_commit = ws.get_initial_state_reference();
 
-    {
-        auto snapshot = state_ref.at(MerkleTreeId::NULLIFIER_TREE);
-        EXPECT_EQ(snapshot,
-                  std::make_pair(bb::fr("0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"), 128UL));
-    }
-
-    {
-        auto snapshot = state_ref.at(MerkleTreeId::NOTE_HASH_TREE);
-        EXPECT_EQ(snapshot,
-                  std::make_pair(bb::fr("0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d"), 0UL));
-    }
-
-    {
-        auto snapshot = state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE);
-        EXPECT_EQ(snapshot,
-                  std::make_pair(bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"), 128UL));
-    }
-
-    {
-        auto snapshot = state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
-        EXPECT_EQ(snapshot,
-                  std::make_pair(bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"), 0UL));
-    }
-
-    {
-        auto snapshot = state_ref.at(MerkleTreeId::ARCHIVE);
-        EXPECT_EQ(snapshot, std::make_pair(bb::fr(GENESIS_ARCHIVE_ROOT), 1UL));
-    }
+    EXPECT_EQ(before_commit, after_commit);
 }
 
 TEST_F(WorldStateTest, AppendOnlyTrees)
@@ -535,6 +579,71 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
     for (const auto& [tree_id, snapshot] : block_state_ref) {
         EXPECT_EQ(state_ref.at(tree_id), snapshot);
     }
+}
+
+TEST_F(WorldStateTest, RejectSyncBlockWithBadPublicWriteBatches)
+{
+    WorldState ws(data_dir, map_size, thread_pool_size);
+    StateReference block_state_ref = {
+        { MerkleTreeId::NULLIFIER_TREE,
+          { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
+        { MerkleTreeId::NOTE_HASH_TREE,
+          { fr("0x15dad063953d8d216c1db77739d6fb27e1b73a5beef748a1208898b3428781eb"), 1 } },
+        { MerkleTreeId::PUBLIC_DATA_TREE,
+          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+          { fr("0x20ea8ca97f96508aaed2d6cdc4198a41c77c640bfa8785a51bb905b9a672ba0b"), 1 } },
+    };
+
+    auto sync = [&]() {
+        return ws.sync_block(block_state_ref,
+                             fr(1),
+                             { 42 },
+                             { 43 },
+                             { NullifierLeafValue(144) },
+                             // this should be rejected because we can't have duplicate slots in the same batch
+                             { { PublicDataLeafValue(145, 1), PublicDataLeafValue(145, 2) } });
+    };
+
+    EXPECT_THROW(sync(), std::runtime_error);
+}
+
+TEST_F(WorldStateTest, RejectSyncBlockWithInvalidStateRef)
+{
+    WorldState ws(data_dir, map_size, thread_pool_size);
+    StateReference block_state_ref = {
+        { MerkleTreeId::NULLIFIER_TREE,
+          { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
+        { MerkleTreeId::NOTE_HASH_TREE,
+          { fr("0x15dad063953d8d216c1db77739d6fb27e1b73a5beef748a1208898b3428781eb"), 1 } },
+        { MerkleTreeId::PUBLIC_DATA_TREE,
+          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+          { fr("0x20ea8ca97f96508aaed2d6cdc4198a41c77c640bfa8785a51bb905b9a672ba0b"), 1 } },
+    };
+
+    auto sync = [&]() {
+        return ws.sync_block(block_state_ref,
+                             fr(1),
+                             { 42 },
+                             { 43 },
+                             { NullifierLeafValue(144) },
+                             // this should be rejected because public data tree root will not match the state ref above
+                             // (state ref above is for slot[145]=1, not slot[145]=2)
+                             { { PublicDataLeafValue(145, 2) } });
+    };
+
+    EXPECT_THROW(sync(), std::runtime_error);
+}
+
+TEST_F(WorldStateTest, SyncEmptyBlock)
+{
+    WorldState ws(data_dir, map_size, thread_pool_size);
+    StateReference block_state_ref = ws.get_state_reference(WorldStateRevision::committed());
+    ws.sync_block(block_state_ref, fr(1), {}, {}, {}, {});
+    StateReference after_sync = ws.get_state_reference(WorldStateRevision::committed());
+    EXPECT_EQ(block_state_ref, after_sync);
+    EXPECT_EQ(ws.find_leaf_index(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, fr(1)), 1);
 }
 
 TEST_F(WorldStateTest, ForkingAtBlock0SameState)

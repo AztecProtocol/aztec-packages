@@ -14,6 +14,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -226,15 +227,23 @@ StateReference WorldState::get_initial_state_reference() const
 
 StateReference WorldState::get_state_reference(WorldStateRevision revision, Fork::SharedPtr fork, bool initial_state)
 {
-    if (revision.forkId != 0 && fork->_forkId != revision.forkId) {
+    if (fork->_forkId != revision.forkId) {
         throw std::runtime_error("Fork does not match revision");
     }
 
-    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::vector<MerkleTreeId> tree_ids{
+        MerkleTreeId::NULLIFIER_TREE,
+        MerkleTreeId::NOTE_HASH_TREE,
+        MerkleTreeId::PUBLIC_DATA_TREE,
+        MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+    };
+
+    Signal signal(static_cast<uint32_t>(tree_ids.size()));
     StateReference state_reference;
     std::mutex state_ref_mutex;
 
-    for (const auto& [id, tree] : fork->_trees) {
+    for (auto id : tree_ids) {
+        const auto& tree = fork->_trees.at(id);
         auto callback = [&signal, &state_reference, &state_ref_mutex, initial_state, id](
                             const TypedResponse<TreeMetaResponse>& meta) {
             {
@@ -344,7 +353,7 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-bool WorldState::sync_block(StateReference& block_state_ref,
+bool WorldState::sync_block(const StateReference& block_state_ref,
                             fr block_header_hash,
                             const std::vector<bb::fr>& notes,
                             const std::vector<bb::fr>& l1_to_l2_messages,
@@ -353,16 +362,8 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 {
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     auto current_state = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, current_state)) {
-        // TODO (alexg) remove commit & rollback. All modifications should happen on forks
-        // Synching a block should always be done on top of a clean state
-        // so committing partial writes like we're doing here shouldn't be possible
-        //
-        // Disable updating the archive tree. Why? The only way to commit dirty state when synching a block is if the
-        // current node _built_ the block. If that's the case then the archive tree has already been updated by the
-        // node's orchestrator.
-        // append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
-        // just commit the dirty state
+    if (block_state_matches_world_state(block_state_ref, current_state) &&
+        is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
         commit();
         return true;
     }
@@ -370,7 +371,17 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     rollback();
 
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
-    auto decr = [&signal](const auto&) { signal.signal_decrement(); };
+    std::atomic_bool success = true;
+    std::string err_message;
+    auto decr = [&signal, &success, &err_message](const auto& resp) {
+        // take the first error
+        bool expected = true;
+        if (!resp.success && success.compare_exchange_strong(expected, false)) {
+            err_message = resp.message;
+        }
+
+        signal.signal_decrement();
+    };
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
@@ -384,22 +395,6 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     }
 
     {
-        auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        std::vector<PublicDataLeafValue> leaves;
-        size_t total_leaves = 0;
-        for (const auto& batch : public_writes) {
-            total_leaves += batch.size();
-        }
-
-        leaves.reserve(total_leaves);
-        for (const auto& batch : public_writes) {
-            leaves.insert(leaves.end(), batch.begin(), batch.end());
-        }
-        PublicDataTree::AddCompletionCallback completion = [&](const auto&) -> void { signal.signal_decrement(); };
-        wrapper.tree->add_or_update_values(leaves, 0, completion);
-    }
-
-    {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
         wrapper.tree->add_values(l1_to_l2_messages, decr);
     }
@@ -409,10 +404,38 @@ bool WorldState::sync_block(StateReference& block_state_ref,
         wrapper.tree->add_value(block_header_hash, decr);
     }
 
-    signal.wait_for_level();
+    // finally insert the public writes and wait for all the operations to end
+    {
+        // insert public writes in batches so that we can have different transactions modifying the same slot in the
+        // same L2 block
+        auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
+        size_t current_batch = 0;
+        PublicDataTree::AddCompletionCallback completion = [&](const auto& resp) -> void {
+            current_batch++;
+            if (current_batch == public_writes.size()) {
+                decr(resp);
+            } else {
+                wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
+            }
+        };
+
+        if (public_writes.empty()) {
+            signal.signal_decrement();
+        } else {
+            wrapper.tree->add_or_update_values(public_writes[current_batch], 0, completion);
+        }
+
+        // block inside this scope in order to keep current_batch/completion alive until the end of all operations
+        signal.wait_for_level();
+    }
+
+    if (!success) {
+        throw std::runtime_error("Failed to sync block: " + err_message);
+    }
 
     auto state_after_inserts = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, state_after_inserts)) {
+    if (block_state_matches_world_state(block_state_ref, state_after_inserts) &&
+        is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
         commit();
         return false;
     }
@@ -503,6 +526,18 @@ bool WorldState::block_state_matches_world_state(const StateReference& block_sta
 
     return std::all_of(
         tree_ids.begin(), tree_ids.end(), [=](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
+}
+
+bool WorldState::is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const
+{
+    std::optional<index_t> leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
+
+    if (!leaf_index.has_value()) {
+        return false;
+    }
+
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    return archive_state.meta.size == leaf_index.value() + 1;
 }
 
 } // namespace bb::world_state
