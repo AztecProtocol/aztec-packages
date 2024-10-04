@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "observability.fullname" . }}-prometheus
+  labels:
+    {{- include "observability.labels" . | nindent 4 }}
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "observability.selectorLabels" . | nindent 6 }}
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "observability.selectorLabels" . | nindent 8 }}
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: "{{ .Values.images.prometheus.image }}"
+          imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.ports.prometheus }}
+          volumeMounts:
+            - name: observability-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yaml
+      volumes:
+        - name: observability-config
+          configMap:
+            name: {{ include "observability.fullname" . }}-observability
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "observability.fullname" . }}-prometheus
+  labels:
+    {{- include "observability.labels" . | nindent 4 }}
+    app: prometheus
+spec:
+  type: {{ .Values.prometheus.service.type }}
+  ports:
+    - port: {{ .Values.ports.prometheus }}
+      targetPort: {{ .Values.ports.prometheus }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "observability.selectorLabels" . | nindent 4 }}
+    app: prometheus

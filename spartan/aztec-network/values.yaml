@@ -171,9 +171,6 @@ metrics:
   ports:
     otlp: 4316
     metrics: 4315
-    prometheus: 9090
-    grafana: 3000
-    jaeger: 16686
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10

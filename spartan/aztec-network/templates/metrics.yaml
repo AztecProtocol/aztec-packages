@@ -16,8 +16,6 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: metrics
     spec:
-      securityContext:
-        fsGroup: {{ .Values.metrics.fileSystemUser }} # required for Grafana write access to storage volume
       containers:
         - name: otel-collector
           image: "{{ .Values.images.otelCollector.image }}"
@@ -34,58 +32,10 @@ spec:
               mountPath: /etc/otel-collector-config.yaml
               subPath: otel-collector-config.yaml
 
-        - name: prometheus
-          image: "{{ .Values.images.prometheus.image }}"
-          ports:
-            - containerPort: {{ .Values.metrics.ports.prometheus }}
-          volumeMounts:
-            - name: metrics-config
-              mountPath: /etc/prometheus/prometheus.yml
-              subPath: prometheus.yaml
-
-        - name: grafana
-          image: "{{ .Values.images.grafana.image }}"
-          ports:
-            - containerPort: {{ .Values.metrics.ports.grafana }}
-          volumeMounts:
-            - name: metrics-config
-              mountPath: /etc/grafana/provisioning/dashboards/default.yml
-              subPath: grafana-default-dashboard.yml
-            - name: metrics-config
-              mountPath: /etc/grafana/provisioning/dashboards/aztec/aztec-dashboard.json
-              subPath: grafana-aztec-dashboard.json
-            - name: metrics-config
-              mountPath: /etc/grafana/provisioning/datasources/default.yaml
-              subPath: grafana-sources.yaml
-            - name: grafana-storage
-              mountPath: /var/lib/grafana
-          securityContext:
-            runAsUser: {{ .Values.metrics.fileSystemUser }} # required for Grafana write access to storage volume
-
-        - name: jaeger
-          image: "{{ .Values.images.jaeger.image }}"
-          ports:
-            - containerPort: {{ .Values.metrics.ports.jaeger }}
       volumes:
         - name: metrics-config
           configMap:
             name: {{ include "aztec-network.fullname" . }}-metrics
-        - name: grafana-storage
-          persistentVolumeClaim:
-            claimName: {{ include "aztec-network.fullname" . }}-grafana-pvc
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-grafana-pvc
-  labels:
-    app: {{ include "aztec-network.name" . }}
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: {{ .Values.metrics.storage }}
 ---
 apiVersion: v1
 kind: Service
@@ -104,22 +54,6 @@ spec:
       targetPort: metrics
       protocol: TCP
       name: metrics
-    - port: {{ .Values.metrics.ports.prometheus }}
-      targetPort: {{ .Values.metrics.ports.prometheus }}
-      protocol: TCP
-      name: prometheus
-    - port: {{ .Values.metrics.ports.grafana }}
-      targetPort: {{ .Values.metrics.ports.grafana }}
-      protocol: TCP
-      name: grafana
-    - port: {{ .Values.metrics.ports.jaeger }}
-      targetPort: {{ .Values.metrics.ports.jaeger }}
-      protocol: TCP
-      name: jaeger-ui
-    - port: 14250
-      targetPort: 14250
-      protocol: TCP
-      name: jaeger-collector
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: metrics

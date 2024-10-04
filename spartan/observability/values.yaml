@@ -1,0 +1,41 @@
+images:
+  grafana:
+    image: grafana/grafana
+    pullPolicy: IfNotPresent
+  prometheus:
+    image: prom/prometheus
+    pullPolicy: IfNotPresent
+  jaeger:
+    image: jaegertracing/all-in-one
+    pullPolicy: IfNotPresent
+
+
+grafana:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+  storage: 10Gi
+  fileSystemUser: 472
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+prometheus:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+# TODO: check the ports
+ports:
+  grafana: 3000
+  prometheus: 9090

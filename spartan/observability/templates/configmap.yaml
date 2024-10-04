@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "observability.fullname" . }}-observability
+  labels:
+    {{- include "observability.labels" . | nindent 4 }}
+
+## TODO: update all of these with value template files
+## TODO: add the scraping endpoints for the nodes into this
+# We just need to find the otel collector port in the other deployment?
+data:
+
+  prometheus.yaml: |
+    global:
+      evaluation_interval: 15s
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: otel-collector
+        static_configs:
+        - targets: ['localhost:8888']
+      - job_name: aztec
+        static_configs:
+        - targets: ['localhost:8889']
+
+  grafana-sources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: aztec-node-metrics
+        type: prometheus
+        url: http://localhost:{{ .Values.ports.prometheus }}
+        editable: false
+        isDefault: true
+        jsonData:
+          timeInterval: 10s
+
+  grafana-aztec-dashboard.json: |
+    {{ .Files.Get "files/grafana_dashboards/aztec/aztec-dashboard-all-in-one.json" | nindent 4 }}
+
+  grafana-default-dashboard.yml: |
+    {{ .Files.Get "files/grafana_dashboards/default.yml" | nindent 4 }}

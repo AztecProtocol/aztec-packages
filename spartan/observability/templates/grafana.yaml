@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "observability.fullname" . }}-grafana
+  labels:
+    {{- include "observability.labels" . | nindent 4 }}
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "observability.selectorLabels" . | nindent 6 }}
+      app: grafana
+  template:
+    metadata:
+      labels:
+        {{- include "observability.selectorLabels" . | nindent 8 }}
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: {{ .Values.grafana.fileSystemUser }} # required for Grafana write access to storage volume
+      containers:
+        - name: grafana
+          image: "{{ .Values.images.grafana.image }}"
+          imagePullPolicy: {{ .Values.images.grafana.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.ports.grafana }}
+          volumeMounts:
+            - name: observability-config
+              mountPath: /etc/grafana/provisioning/dashboards/default.yml
+              subPath: grafana-default-dashboard.yml
+            - name: observability-config
+              mountPath: /etc/grafana/provisioning/dashboards/aztec/aztec-dashboard.json
+              subPath: grafana-aztec-dashboard.json
+            - name: observability-config
+              mountPath: /etc/grafana/provisioning/datasources/default.yaml
+              subPath: grafana-sources.yaml
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+          securityContext:
+            runAsUser: {{ .Values.grafana.fileSystemUser }} # required for Grafana write access to storage volume
+      volumes:
+        - name: observability-config
+          configMap:
+            name: {{ include "observability.fullname" . }}-observability
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: {{ include "observability.fullname" . }}-grafana-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "observability.fullname" . }}-grafana
+  labels:
+    {{- include "observability.labels" . | nindent 4 }}
+    app: grafana
+spec:
+  type: {{ .Values.grafana.service.type }}
+  ports:
+    - port: {{ .Values.ports.grafana }}
+      targetPort: {{ .Values.ports.grafana }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "observability.selectorLabels" . | nindent 4 }}
+    app: grafana
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "observability.fullname" . }}-grafana-pvc
+  labels:
+    {{- include "observability.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.grafana.storage }}
