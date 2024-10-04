@@ -44,16 +44,24 @@ import {
   type DebugLogger,
   Fr,
   GrumpkinScalar,
+  SignerlessWallet,
   computeSecretHash,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 // eslint-disable-next-line no-restricted-imports
 import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
 import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import {
+  SchnorrAccountContractArtifact,
+  SchnorrHardcodedAccountContract,
+  SpamContract,
+  TokenContract,
+} from '@aztec/noir-contracts.js';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -241,15 +249,15 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.create({
+        const tx = deployMethod.send({
           contractAddressSalt: accountManager.salt,
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
         });
-        this.contractAddresses.push(accountManager.getAddress());
-        txs.push(deployMethod.send());
+        txs.push(tx);
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PrivateTransfer) {
