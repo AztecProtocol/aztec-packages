@@ -6,10 +6,10 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AvmExecutionHints,
-  Gas as AvmGas,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
   type Fr,
+  Gas,
   type L2ToL1Message,
   type LogHash,
   type NoteHash,
@@ -21,6 +21,8 @@ import {
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+
+import { type Gas as AvmGas } from '../avm/avm_gas.js';
 
 /**
  * The public function execution result.
@@ -145,8 +147,8 @@ export function resultToPublicCallRequest(result: PublicExecutionResult) {
     computeVarArgsHash(result.returnValues),
     // TODO(@just-mitch): need better mapping from simulator to revert code.
     result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
-    AvmGas.from(result.startGasLeft),
-    AvmGas.from(result.endGasLeft),
+    Gas.from(result.startGasLeft),
+    Gas.from(result.endGasLeft),
   );
   return new PublicInnerCallRequest(item, result.startSideEffectCounter.toNumber());
 }

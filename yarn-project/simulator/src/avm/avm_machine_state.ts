@@ -1,7 +1,6 @@
-import { type Gas } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
 
-import { GAS_DIMENSIONS } from './avm_gas.js';
+import { GAS_DIMENSIONS, type Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
 import { OutOfGasError } from './errors.js';
 
