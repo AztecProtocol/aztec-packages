@@ -201,4 +201,34 @@ TYPED_TEST(CommitmentKeyTest, CommitStructured)
     EXPECT_EQ(structured_commit_result, commit_result);
 }
 
+/**
+ * @brief Test commit_sparse on polynomial with zero start index.
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitZPerm)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
+
+    std::vector<uint32_t> structured_sizes = { 5, 6 };
+    std::vector<uint32_t> actual_sizes = { 3, 2 };
+    std::vector<Fr> poly_data = { 1, 3, 4, 5, 5, 2, 3, 4, 4, 4, 4 };
+
+    Polynomial poly(poly_data);
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    G1 sparse_commit_result = key->commit_sparse(poly);
+
+    key->commit_structured_z_perm(poly, structured_sizes, actual_sizes);
+
+    EXPECT_EQ(sparse_commit_result, commit_result);
+}
+
 } // namespace bb

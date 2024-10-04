@@ -30,7 +30,8 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
 // Generate a polynomial with random coefficients organized in isolated blocks
 template <typename FF>
 Polynomial<FF> structured_random_poly(const std::vector<uint32_t>& structured_sizes,
-                                      const std::vector<uint32_t>& actual_sizes)
+                                      const std::vector<uint32_t>& actual_sizes,
+                                      bool non_zero_dead_regions = false)
 {
     uint32_t full_size = 0;
     for (auto size : structured_sizes) {
@@ -54,6 +55,13 @@ Polynomial<FF> structured_random_poly(const std::vector<uint32_t>& structured_si
             polynomial.at(i) = FF::random_element();
         }
         start_idx += block_size;
+        // If indicated, populate the 'dead' regions of the blocks with a random constant (mimicking z_perm)
+        if (non_zero_dead_regions) {
+            FF const_random_coeff = FF::random_element();
+            for (size_t i = end_idx; i < start_idx; ++i) {
+                polynomial.at(i) = const_random_coeff;
+            }
+        }
     }
 
     return polynomial;
@@ -158,6 +166,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
         key->commit(polynomial);
     }
 }
+
 // Commit to a polynomial with dense random nonzero entries but NOT our happiest case of an exact power of 2
 // Note this used to be a 50% regression just subtracting a power of 2 by 1.
 template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::State& state)
@@ -214,25 +223,48 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
     }
 }
 
-BENCHMARK(bench_commit_zero<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_random<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
+// Commit to a polynomial with dense random nonzero entries
+template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+
+    std::vector<uint32_t> block_sizes = {
+        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
+    };
+    std::vector<uint32_t> actual_sizes = {
+        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
+    };
+
+    auto polynomial = structured_random_poly<Fr>(block_sizes, actual_sizes, /*non_zero_dead_regions=*/true);
+
+    for (auto _ : state) {
+        key->commit(polynomial);
+    }
+}
+
+// BENCHMARK(bench_commit_zero<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse_random<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_random<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
+// BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_z_perm<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)

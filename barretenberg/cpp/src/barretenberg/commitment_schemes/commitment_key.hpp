@@ -174,6 +174,78 @@ template <class Curve> class CommitmentKey {
         return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 
+    struct RangeEndpoints {
+        std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
+        std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
+    };
+
+    struct ScalarsPoints {
+        std::vector<Fr> scalars;
+        std::vector<G1> points;
+    };
+
+    RangeEndpoints compute_range_endpoints(const std::vector<uint32_t>& structured_sizes,
+                                           const std::vector<uint32_t>& actual_sizes,
+                                           bool dead_regions = false)
+    {
+        // Construct the endpoints of the ranges of active scalar regions
+        const size_t num_blocks = structured_sizes.size();
+        std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
+        scalar_endpoints.reserve(num_blocks);
+        uint32_t start_idx = 0;
+        uint32_t end_idx = 0;
+        if (dead_regions) {
+            for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
+                start_idx = end_idx + actual_size;
+                end_idx += block_size;
+                scalar_endpoints.emplace_back(start_idx, end_idx);
+            }
+        } else {
+            for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
+                end_idx = start_idx + actual_size;
+                scalar_endpoints.emplace_back(start_idx, end_idx);
+                start_idx += block_size;
+            }
+        }
+
+        // Accounting for endomorphism points, the corresponding ranges for the active region points are obtained by
+        // simply doubling the corresponding endpoints for the scalars
+        std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
+        point_endpoints.reserve(num_blocks);
+        for (const auto& range : scalar_endpoints) {
+            point_endpoints.emplace_back(2 * range.first, 2 * range.second);
+        }
+
+        return { scalar_endpoints, point_endpoints };
+    }
+
+    ScalarsPoints construct_contiguous_inputs_from_range_endpoints(PolynomialSpan<const Fr> polynomial,
+                                                                   std::span<const G1> point_table,
+                                                                   RangeEndpoints endpoints)
+    {
+        size_t total_num_scalars = 0;
+        for (const auto& range : endpoints.scalar_endpoints) {
+            total_num_scalars = range.second - range.first;
+        }
+
+        std::vector<Fr> scalars;
+        std::vector<G1> points;
+        scalars.reserve(total_num_scalars);
+        points.reserve(total_num_scalars * 2);
+        for (const auto& range : endpoints.scalar_endpoints) {
+            auto start_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.first);
+            auto end_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.second);
+            scalars.insert(scalars.end(), start_it, end_it);
+        }
+        for (const auto& range : endpoints.point_endpoints) {
+            auto start_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.first);
+            auto end_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.second);
+            points.insert(points.end(), start_it, end_it);
+        }
+
+        return { std::move(scalars), std::move(points) };
+    }
+
     /**
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
      * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
@@ -194,49 +266,53 @@ template <class Curve> class CommitmentKey {
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
-        size_t num_blocks = structured_sizes.size();
-        std::vector<std::pair<uint32_t, uint32_t>> endpoints;
-        std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
-        endpoints.reserve(num_blocks);
-        point_endpoints.reserve(num_blocks);
-        uint32_t start_idx = 0;
-        uint32_t end_idx = 0;
-        for (auto [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
-            end_idx = start_idx + actual_size;
-            endpoints.emplace_back(start_idx, end_idx);
-            point_endpoints.emplace_back(2 * start_idx, 2 * end_idx); // 2x accounts for interleaved endo points
-            start_idx += block_size;
-        }
+        RangeEndpoints active_range_endpoints = compute_range_endpoints(structured_sizes, actual_sizes);
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
-        uint32_t num_nonzero_scalars = 0;
-        for (auto size : actual_sizes) {
-            num_nonzero_scalars += size;
-        }
-
-        // Construct contiguous inputs from the nonzero regions of the input polynomial
-        // Note: in practice this accounts for ~5% of the total work of this method
-        std::vector<Fr> scalars;
-        std::vector<G1> points;
-        scalars.reserve(num_nonzero_scalars);
-        points.reserve(num_nonzero_scalars * 2);
-        for (const auto& range : endpoints) {
-            auto start_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.first);
-            auto end_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.second);
-            scalars.insert(scalars.end(), start_it, end_it);
-        }
-        for (const auto& range : point_endpoints) {
-            auto start_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.first);
-            auto end_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.second);
-            points.insert(points.end(), start_it, end_it);
-        }
+        auto [scalars, points] =
+            construct_contiguous_inputs_from_range_endpoints(polynomial, point_table, active_range_endpoints);
 
         // Call pippenger
         return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
+    }
+
+    Commitment commit_structured_z_perm(PolynomialSpan<const Fr> polynomial,
+                                        const std::vector<uint32_t>& structured_sizes,
+                                        const std::vector<uint32_t>& actual_sizes)
+    {
+        BB_OP_COUNT_TIME();
+        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+
+        // Commitment active_region_contribution = commit_structured(polynomial, structured_sizes, actual_sizes);
+
+        // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
+        auto [scalar_endpoints, point_endpoints] = compute_range_endpoints(structured_sizes, actual_sizes);
+        auto [dead_scalar_endpoints, dead_point_endpoints] =
+            compute_range_endpoints(structured_sizes, actual_sizes, true);
+
+        info("Active:");
+        for (auto range : scalar_endpoints) {
+            info("start = ", range.first);
+            info("end = ", range.second);
+        }
+        info("Dead:");
+        for (auto range : dead_scalar_endpoints) {
+            info("start = ", range.first);
+            info("end = ", range.second);
+        }
+
+        // // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
+        // // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
+        // // with our polynomial span.
+        // std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+
+        // Call pippenger
+        // return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
+        return Commitment{};
     }
 };
 
