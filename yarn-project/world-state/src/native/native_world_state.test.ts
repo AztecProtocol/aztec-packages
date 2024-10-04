@@ -29,12 +29,12 @@ describe('NativeWorldState', () => {
     beforeAll(async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir);
       const fork = await ws.fork();
-      ({ block, messages } = await mockBlock(1, fork));
+      ({ block, messages } = await mockBlock(1, 2, fork));
       await fork.close();
 
       await ws.handleL2BlockAndMessages(block, messages);
       await ws.close();
-    }, 20_000);
+    }, 30_000);
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir);

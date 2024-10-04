@@ -19,8 +19,8 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
-export async function mockBlock(blockNum = 1, fork: MerkleTreeWriteOperations) {
-  const l2Block = L2Block.random(blockNum, 32); // 32 txs
+export async function mockBlock(blockNum: number, size: number, fork: MerkleTreeWriteOperations) {
+  const l2Block = L2Block.random(blockNum, size);
   const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
 
   const paddedTxEffects = padArrayEnd(

@@ -199,7 +199,7 @@ describe('NativeWorldState', () => {
     it('syncs a new block from empty state', async () => {
       await assertSameState(nativeWS.getCommitted(), legacyWS.getCommitted());
       const tempFork = await nativeWS.fork();
-      const [_blockMS, { block, messages }] = await elapsed(mockBlock(1, tempFork));
+      const [_blockMS, { block, messages }] = await elapsed(mockBlock(1, 32, tempFork));
       await tempFork.close();
 
       const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
