@@ -2,8 +2,14 @@ dependencies:
 - name: opentelemetry-collector
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
   version: 0.104.0
-- name: eck-stack
-  repository: https://helm.elastic.co
-  version: 0.12.1
-digest: sha256:e95083de14387953eb4093eb2c6b98cf889e532cd097b21b15b1896cfa117e7c
-generated: "2024-09-06T19:31:29.086654335-04:00"
+- name: loki
+  repository: https://grafana.github.io/helm-charts
+  version: 6.16.0
+- name: grafana
+  repository: https://grafana.github.io/helm-charts
+  version: 8.5.2
+- name: tempo
+  repository: https://grafana.github.io/helm-charts
+  version: 1.10.3
+digest: sha256:5e47b464e5b422c744f66123798566d0a8680a54941f9e359fda22e8c95095ef
+generated: "2024-10-03T18:41:42.873048196-04:00"

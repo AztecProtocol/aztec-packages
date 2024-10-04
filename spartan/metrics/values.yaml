@@ -1,15 +1,25 @@
 opentelemetry-collector:
-  extraEnvs:
-    - name: ELASTICSEARCH_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: elasticsearch-es-elastic-user
-          key: elastic
-
   mode: daemonset
+
+  service:
+    enabled: true
 
   image:
     repository: "otel/opentelemetry-collector-contrib"
+
+  ports:
+    otlp-http:
+      enabled: true
+      containerPort: 4318
+      servicePort: 4318
+      hostPort: 4318
+      protocol: TCP
+    metrics:
+      enabled: true
+      containerPort: 8888
+      servicePort: 8888
+      hostPort: 8888
+      protocol: TCP
 
   presets:
     logsCollection:
@@ -19,58 +29,113 @@ opentelemetry-collector:
       enabled: true
   config:
     exporters:
-      debug: {}
-      elasticsearch:
-        endpoint: "https://elasticsearch-es-http.metrics.svc:9200/"
-        tls:
-          insecure_skip_verify: true
-        auth:
-          authenticator: basicauth
+      otlphttp/logs:
+        endpoint: http://metrics-loki.metrics:3100/otlp
+      otlp/tempo:
+        endpoint: http://metrics-tempo.metrics:4318
     extensions:
-      basicauth:
-        client_auth:
-          username: elastic
-          password: ${ELASTICSEARCH_PASSWORD}
-      # The health_check extension is mandatory for this chart.
-      # Without the health_check extension the collector will fail the readiness and liveliness probes.
-      # The health_check extension can be modified, but should never be removed.
       health_check:
         endpoint: ${env:MY_POD_IP}:13133
     processors:
       batch: {}
-      transform:
-        error_mode: ignore
-        log_statements:
-          - context: log
-            statements:
-              - merge_maps(attributes, ParseJSON(body), "upsert") where IsMatch(body, "^\\{")
-              # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/pkg/ottl/contexts/ottllog
-              - set(severity_number, 1) where attributes["level"] == "trace"
-              - set(severity_number, 5) where attributes["level"] == "debug"
-              - set(severity_number, 9) where attributes["level"] == "info"
-              - set(severity_number, 13) where attributes["level"] == "warn"
-              - set(severity_number, 17) where attributes["level"] == "error"
-              - set(severity_number, 21) where attributes["level"] == "fatal"
-              - set(body, attributes["message"])
-              - set(attributes["level"], nil)
-              - set(attributes["message"], nil)
     receivers:
       otlp:
         protocols:
           http:
             endpoint: ${env:MY_POD_IP}:4318
+          grpc:
+            endpoint: ${env:MY_POD_IP}:4317
     service:
-      extensions: [basicauth, health_check]
+      extensions: [health_check]
       telemetry:
         metrics:
           address: ${env:MY_POD_IP}:8888
       pipelines:
         logs:
-          exporters:
-            - elasticsearch
-            - debug
-          processors:
-            - transform
-            - batch
           receivers:
             - otlp
+          exporters:
+            - otlphttp/logs
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlp/tempo
+
+# Enable and configure the Loki subchart
+loki:
+  deploymentMode: SingleBinary
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: "filesystem"
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          index:
+            prefix: loki_index_
+            period: 24h
+          object_store: filesystem # we're storing on filesystem so there's no real persistence here.
+          schema: v13
+  singleBinary:
+    replicas: 1
+  read:
+    replicas: 0
+  backend:
+    replicas: 0
+  write:
+    replicas: 0
+
+# Enable and configure the Tempo subchart
+tempo:
+  minio:
+    enabled: true
+    mode: standalone
+    rootUser: grafana-tempo
+    rootPassword: supersecret
+    buckets:
+      # Default Tempo storage bucket
+      - name: tempo-traces
+        policy: none
+        purge: false
+  traces:
+    otlp:
+      grpc:
+        enabled: true
+      http:
+        enabled: true
+    zipkin:
+      enabled: false
+    jaeger:
+      thriftHttp:
+        enabled: false
+    opencensus:
+      enabled: false
+
+# Enable and configure Grafana
+grafana:
+  global:
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Loki
+            type: loki
+            url: http://metrics-loki.metrics:3100
+          - name: Tempo
+            type: tempo
+            url: http://metrics-tempo.metrics:3100
+    dashboards:
+      enabled: true
+      default:
+        aztec-dashboard:
+          file: dashboards/aztec-dashboard-all-in-one.json
+        tempo:
+          gnetId: 10578
+          revision: 1
+          datasource: Tempo
