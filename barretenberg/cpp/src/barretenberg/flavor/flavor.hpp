@@ -123,8 +123,8 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    std::vector<uint32_t> block_sizes;
-    std::vector<uint32_t> actual_sizes;
+    std::vector<uint32_t> fixed_block_sizes;
+    std::vector<uint32_t> actual_block_sizes;
 
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size,

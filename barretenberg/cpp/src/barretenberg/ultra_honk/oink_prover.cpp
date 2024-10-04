@@ -95,11 +95,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
         if (proving_key->is_structured) {
-            std::vector<uint32_t>& block_sizes = proving_key->proving_key.block_sizes;
-            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_sizes;
-            witness_commitments.w_l = commitment_key->commit_structured(polynomials().w_l, block_sizes, actual_sizes);
-            witness_commitments.w_r = commitment_key->commit_structured(polynomials().w_r, block_sizes, actual_sizes);
-            witness_commitments.w_o = commitment_key->commit_structured(polynomials().w_o, block_sizes, actual_sizes);
+            std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
+            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
+            witness_commitments.w_l = commitment_key->commit_structured(polynomials().w_l, fixed_sizes, actual_sizes);
+            witness_commitments.w_r = commitment_key->commit_structured(polynomials().w_r, fixed_sizes, actual_sizes);
+            witness_commitments.w_o = commitment_key->commit_structured(polynomials().w_o, fixed_sizes, actual_sizes);
         } else {
             witness_commitments.w_l = commitment_key->commit(polynomials().w_l);
             witness_commitments.w_r = commitment_key->commit(polynomials().w_r);
@@ -164,9 +164,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
         if (proving_key->is_structured) {
-            std::vector<uint32_t>& block_sizes = proving_key->proving_key.block_sizes;
-            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_sizes;
-            witness_commitments.w_4 = commitment_key->commit_structured(polynomials().w_4, block_sizes, actual_sizes);
+            std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
+            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
+            witness_commitments.w_4 = commitment_key->commit_structured(polynomials().w_4, fixed_sizes, actual_sizes);
         } else {
             witness_commitments.w_4 = commitment_key->commit(polynomials().w_4);
         }
