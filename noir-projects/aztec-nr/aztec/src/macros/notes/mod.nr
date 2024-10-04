@@ -628,21 +628,22 @@ comptime fn index_note_fields(
     (indexed_fixed_fields, indexed_nullable_fields)
 }
 
-/// Checks whether a note struct `s` contains a `NoteHeader` field. If not, it automatically injects it. Then it
-/// generates and returns note properties and the note type id.
-comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
-    // Automatically inject header if not present
+/// Injects `NoteHeader` to the note struct if not present.
+comptime fn inject_note_header(s: StructDefinition) {
     let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == NOTE_HEADER_TYPE);
     if (filtered_header.len() == 0) {
         let new_fields = s.fields().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);
     }
+}
+
+/// Checks whether a note struct `s` contains a `NoteHeader` field. If not, it automatically injects it. Then it
+/// generates and returns note properties and the note type id.
+comptime fn common_note_annotation(s: StructDefinition) -> (Quoted, Field) {
     let note_properties = generate_note_properties(s);
     let note_type_id = compute_note_type_id(s.name());
 
-    (quote {
-        $note_properties
-    }, note_type_id)
+    (note_properties, note_type_id)
 }
 
 /// Injects `NoteHeader` to the note struct if not present and generates the following:
@@ -660,6 +661,9 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
     // member in the serialized note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
+
+    // We inject NoteHeader if it's not present in the note struct.
+    inject_note_header(s);
 
     let (common, note_type_id) = common_note_annotation(s);
     let (setup_payload_impl, setup_payload_name) = generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
@@ -685,6 +689,10 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 
 pub comptime fn note(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
+
+    // We inject NoteHeader if it's not present in the note struct.
+    inject_note_header(s);
+
     let (common, note_type_id) = common_note_annotation(s);
     let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
     register_note(
@@ -703,6 +711,9 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 
 /// Checks whether a note struct `s` annotated with `#[note_custom_interface]` implements the `NoteInterface` trait.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
+    // We inject NoteHeader if it's not present in the note struct.
+    inject_note_header(s);
+
     let (common, note_type_id) = common_note_annotation(s);
     let serialized_len_type = fresh_type_variable();
     let note_interface_impl = s.as_type().get_trait_impl(quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }.as_trait_constraint());
