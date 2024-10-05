@@ -361,6 +361,45 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create)
     check_root(tree, memdb.root());
 }
 
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, committing_with_no_changes_should_succeed)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    EXPECT_NO_THROW(Store store(name, depth, db));
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    add_value(tree, VALUES[0]);
+    memdb.update_element(0, VALUES[0]);
+
+    commit_tree(tree, true);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+    commit_tree(tree, true);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+    // rollbacks should do nothing
+    rollback_tree(tree);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+    add_value(tree, VALUES[1]);
+
+    // committed should be the same
+    check_root(tree, memdb.root(), false);
+    check_size(tree, 1, false);
+
+    // rollback
+    rollback_tree(tree);
+    // commit should do nothing
+    commit_tree(tree, true);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+}
+
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
 {
     constexpr size_t depth = 10;
@@ -1290,6 +1329,15 @@ void test_unwind(std::string directory,
         }
         index_t expected_size = (i + 1) * batchSize;
         add_values(tree, to_add);
+
+        // attempting an unwind of the block being built should fail
+        unwind_block(tree, i + 1, false);
+
+        if (i > 0) {
+            // attemnpting an unwind of the most recent committed block should fail as we have uncommitted changes
+            unwind_block(tree, i, false);
+        }
+
         commit_tree(tree);
 
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
@@ -1308,6 +1356,8 @@ void test_unwind(std::string directory,
         const index_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
+        // attempting to unwind a block that is not the tip whould fail
+        unwind_block(tree, blockNumber + 1, false);
         unwind_block(tree, blockNumber);
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
 
@@ -1483,7 +1533,15 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
         check_leaf_keys_are_present(db, expectedPresentStart, expectedPresentEnd, toTest);
 
         if (i >= finalisedBlockDelay) {
+
             index_t blockToFinalise = expectedFinalisedBlock + 1;
+
+            // attemnpting to finalise a block that doesn't exist should fail
+            finalise_block(tree, blockToFinalise + numBlocks, false);
+
+            // finalising a block that is not the next one to be finalised should fail
+            finalise_block(tree, blockToFinalise + 1, false);
+
             finalise_block(tree, blockToFinalise, true);
 
             index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;

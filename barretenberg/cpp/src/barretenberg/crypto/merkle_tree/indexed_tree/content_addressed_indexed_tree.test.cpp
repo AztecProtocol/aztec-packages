@@ -14,6 +14,7 @@
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <future>
@@ -308,7 +309,7 @@ template <typename TypeOfTree> void check_unfinalised_block_height(TypeOfTree& t
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -378,7 +379,7 @@ template <typename TypeOfTree> void check_block_height(TypeOfTree& tree, index_t
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -2254,6 +2255,9 @@ void test_nullifier_tree_unwind(std::string directory,
     TreeType tree(std::move(store), pool, blockSize);
     NullifierMemoryTree<Poseidon2HashPolicy> memdb(depth, blockSize);
 
+    auto it = std::find_if(values.begin(), values.end(), [&](const fr& v) { return v != fr::zero(); });
+    bool emptyBlocks = it == values.end();
+
     uint32_t batchSize = blockSize;
 
     std::vector<fr_sibling_path> historicPathsZeroIndex;
@@ -2281,6 +2285,7 @@ void test_nullifier_tree_unwind(std::string directory,
         index_t expected_size = (i + 2) * batchSize;
         add_values(tree, to_add);
         commit_tree(tree);
+        std::cout << "Root " << memdb.root() << std::endl;
 
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
         historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
@@ -2297,10 +2302,16 @@ void test_nullifier_tree_unwind(std::string directory,
     for (uint32_t i = 0; i < blocksToRemove; i++) {
         const index_t blockNumber = numBlocks - i;
 
-        std::cout << "UNWIND FOR BLOCK " << blockNumber << std::endl;
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
+        std::cout << "Unwinding " << blockNumber << std::endl;
         unwind_block(tree, blockNumber);
-        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+        if (emptyBlocks) {
+            // with empty blocks, we should not find the block data but we do find the root
+            check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false, true);
+        } else {
+            // if blocks are not empty, this query should fail
+            check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+        }
 
         const index_t previousValidBlock = blockNumber - 1;
         // Indexed trees have an initial 'batch' inserted at startup
@@ -2318,23 +2329,26 @@ void test_nullifier_tree_unwind(std::string directory,
                            false,
                            true);
 
-        // Trying to find leaves appended in the block that was removed should fail
-        get_leaf<NullifierLeafValue>(tree, 1 + deletedBlockStartIndex, false, false);
+        if (!emptyBlocks) {
+            // Trying to find leaves appended in the block that was removed should fail
+            get_leaf<NullifierLeafValue>(tree, 1 + deletedBlockStartIndex, false, false);
 
-        check_find_leaf_index(
-            tree, leafValues[1 + deletedBlockStartIndexIntoLocalValues], 1 + deletedBlockStartIndex, false);
+            check_find_leaf_index(
+                tree, leafValues[1 + deletedBlockStartIndexIntoLocalValues], 1 + deletedBlockStartIndex, false);
+        }
 
         for (index_t j = 0; j < numBlocks; j++) {
             index_t historicBlockNumber = j + 1;
             bool expectedSuccess = historicBlockNumber <= previousValidBlock;
-            std::cout << "CHECK HERE " << historicBlockNumber << " prev " << previousValidBlock << " expected "
-                      << expectedSuccess << std::endl;
             check_historic_sibling_path(
                 tree, 0, historicBlockNumber, historicPathsZeroIndex[j], false, expectedSuccess);
             index_t maxSizeAtBlock = ((j + 2) * batchSize) - 1;
             check_historic_sibling_path(
                 tree, maxSizeAtBlock, historicBlockNumber, historicPathsMaxIndex[j], false, expectedSuccess);
 
+            if (emptyBlocks) {
+                continue;
+            }
             const index_t leafIndex = 1;
             const index_t expectedIndexInTree = leafIndex + batchSize;
             check_historic_leaf(
@@ -2347,15 +2361,31 @@ void test_nullifier_tree_unwind(std::string directory,
     }
 }
 
-TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_large_blocks)
+TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_blocks)
 {
 
     constexpr uint32_t numBlocks = 8;
     constexpr uint32_t numBlocksToUnwind = 4;
     std::vector<uint32_t> blockSizes = { 2, 4, 8, 16, 32 };
     for (const uint32_t& size : blockSizes) {
-        uint32_t actualSize = size * 1024;
+        uint32_t actualSize = size;
         std::vector<fr> values = create_values(actualSize * numBlocks);
+        std::stringstream ss;
+        ss << "DB " << actualSize;
+        test_nullifier_tree_unwind(
+            _directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_empty_blocks)
+{
+
+    constexpr uint32_t numBlocks = 8;
+    constexpr uint32_t numBlocksToUnwind = 4;
+    std::vector<uint32_t> blockSizes = { 2, 4, 8, 16, 32 };
+    for (const uint32_t& size : blockSizes) {
+        uint32_t actualSize = size;
+        std::vector<fr> values = std::vector<fr>(actualSize * numBlocks, fr::zero());
         std::stringstream ss;
         ss << "DB " << actualSize;
         test_nullifier_tree_unwind(

@@ -77,6 +77,21 @@ void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t block
     EXPECT_EQ(success, expectedSuccess);
 }
 
+void inline check_block_and_root_data(
+    LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
+{
+    BlockPayload blockData;
+    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
+    bool success = db->read_block_data(blockNumber, blockData, *tx);
+    EXPECT_EQ(success, expectedSuccess);
+    if (expectedSuccess) {
+        EXPECT_EQ(blockData.root, root);
+    }
+    NodePayload nodeData;
+    success = db->read_node(root, nodeData, *tx);
+    EXPECT_EQ(success, expectedRootSuccess);
+}
+
 void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
                                       index_t blockNumber,
                                       index_t expectedSize,

@@ -741,7 +741,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
                 if (blockNumber == 0) {
                     throw std::runtime_error("Invalid block number");
                 }
-                store_->remove_block(blockNumber, false);
+                store_->remove_historical_block(blockNumber);
             },
             on_completion);
     };
@@ -758,7 +758,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
                 if (blockNumber == 0) {
                     throw std::runtime_error("Invalid block number");
                 }
-                store_->remove_block(blockNumber, true);
+                store_->unwind_block(blockNumber);
             },
             on_completion);
     };
