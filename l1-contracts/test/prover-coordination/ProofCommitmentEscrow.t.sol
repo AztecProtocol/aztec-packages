@@ -32,8 +32,7 @@ contract TestProofCommitmentEscrow is Test {
 
   function setUp() public {
     TOKEN = new TestERC20();
-    ESCROW = new ProofCommitmentEscrow(TOKEN);
-    ESCROW.initialize(address(this));
+    ESCROW = new ProofCommitmentEscrow(TOKEN, address(this));
   }
 
   function testDeposit() public setupWithApproval(address(42), 100) {

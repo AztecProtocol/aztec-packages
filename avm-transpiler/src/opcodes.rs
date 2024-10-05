@@ -51,7 +51,6 @@ pub enum AvmOpcode {
     SET_FF,
     MOV_8,
     MOV_16,
-    CMOV,
     // World state
     SLOAD,
     SSTORE,
@@ -144,7 +143,6 @@ impl AvmOpcode {
             AvmOpcode::SET_FF => "SET_FF",
             AvmOpcode::MOV_8 => "MOV_8",
             AvmOpcode::MOV_16 => "MOV_16",
-            AvmOpcode::CMOV => "CMOV",
 
             // World State
             AvmOpcode::SLOAD => "SLOAD",   // Public Storage

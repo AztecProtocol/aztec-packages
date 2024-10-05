@@ -210,11 +210,11 @@ describe('guides/dapp/testing', () => {
         const call1 = token.methods.transfer(recipient.getAddress(), 80n);
         const call2 = token.methods.transfer(recipient.getAddress(), 50n);
 
-        await call1.prove();
-        await call2.prove();
+        const provenCall1 = await call1.prove();
+        const provenCall2 = await call2.prove();
 
-        await call1.send().wait();
-        await expect(call2.send().wait()).rejects.toThrow(/dropped/);
+        await provenCall1.send().wait();
+        await expect(provenCall2.send().wait()).rejects.toThrow(/dropped/);
         // docs:end:tx-dropped
       });
 

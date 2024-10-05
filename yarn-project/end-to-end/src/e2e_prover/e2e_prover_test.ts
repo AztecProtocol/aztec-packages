@@ -96,7 +96,7 @@ export class FullProverTest {
       `full_prover_integration/${testName}`,
       dataPath,
       { startProverNode: true },
-      { assumeProvenThrough: undefined, useRealProofCommitmentEscrow: true },
+      { assumeProvenThrough: undefined },
     );
   }
 
