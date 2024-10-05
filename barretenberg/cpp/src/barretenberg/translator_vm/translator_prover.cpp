@@ -56,16 +56,10 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     computed_witness = true;
 }
 
-std::shared_ptr<TranslatorProver::CommitmentKey> TranslatorProver::compute_commitment_key(size_t circuit_size)
+void TranslatorProver::compute_commitment_key(size_t circuit_size)
 {
-    assert(!(key->commitment_key));
-    if (key->commitment_key) {
-        return key->commitment_key;
-    }
-
     key->commitment_key = std::make_shared<CommitmentKey>(circuit_size);
-    return key->commitment_key;
-};
+}
 
 /**
  * @brief Add circuit size and values used in the relations to the transcript

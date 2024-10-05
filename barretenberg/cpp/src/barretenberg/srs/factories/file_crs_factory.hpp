@@ -56,7 +56,6 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
 
     ~FileProverCrs()
     {
-        info("FileProverCrs destructor");
 #ifdef TRACY_MEMORY
         ZoneScopedN("FileProverCrs destructor");
 #endif

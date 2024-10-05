@@ -128,16 +128,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
                 const size_t num_public_inputs,
                 std::shared_ptr<CommitmentKey_> commitment_key = nullptr)
     {
-        if (commitment_key == nullptr) {
-
-#ifdef TRACY_MEMORY
-            ZoneScopedN("init commitment key");
-#endif
-            // this->commitment_key = std::make_shared<CommitmentKey_>(dyadic_circuit_size);
-        } else {
-            // Don't create another commitment key if we already have one
-            this->commitment_key = commitment_key;
-        }
+        this->commitment_key = commitment_key;
         this->evaluation_domain = bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size);
         this->circuit_size = dyadic_circuit_size;
         this->log_circuit_size = numeric::get_msb(dyadic_circuit_size);
