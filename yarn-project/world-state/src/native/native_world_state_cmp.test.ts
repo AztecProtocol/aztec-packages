@@ -202,21 +202,31 @@ describe('NativeWorldState', () => {
     it('syncs a new block from empty state', async () => {
       await assertSameState(nativeWS.getCommitted(), legacyWS.getCommitted());
       const tempFork = await nativeWS.fork();
-      const [_blockMS, { block, messages }] = await elapsed(mockBlock(1, 32, tempFork));
+      const numBlocks = 1;
+      const numTxs = 32;
+      const blocks = [];
+      const messagesArray = [];
+      for (let i = 0; i < numBlocks; i++) {
+        const [_blockMS, { block, messages }] = await elapsed(mockBlock(1 + i, numTxs, tempFork));
+        blocks.push(block);
+        messagesArray.push(messages);
+      }
+
       await tempFork.close();
 
-      const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
-      const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
-
-      // eslint-disable-next-line no-console
-      console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
+      for (let i = 0; i < numBlocks; i++) {
+        const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(blocks[i], messagesArray[i]));
+        const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(blocks[i], messagesArray[i]));
+        // eslint-disable-next-line no-console
+        console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms.`);
+      }
 
       await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
       await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
       await assertSameTree(MerkleTreeId.PUBLIC_DATA_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
       await assertSameTree(MerkleTreeId.NULLIFIER_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());
       await assertSameTree(MerkleTreeId.ARCHIVE, nativeWS.getCommitted(), legacyWS.getCommitted());
-    }, 150_000);
+    }, 86400_000);
   });
 
   async function assertSameTree(

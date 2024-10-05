@@ -75,7 +75,7 @@ export class EpochProvingJob {
       // Get the genesis header if the first block of the epoch is the first block of the chain
       let previousHeader =
         this.blocks[0].number === 1
-          ? this.publicProcessorFactory.getInitialHeader()
+          ? this.db.getInitialHeader()
           : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
 
       for (const block of this.blocks) {

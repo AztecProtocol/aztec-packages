@@ -42,15 +42,6 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
 
   // Sync the indexed trees
   {
-    const nullifiersPadded = paddedTxEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-    );
-    await fork.batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      nullifiersPadded.map(nullifier => nullifier.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
-
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
     for (const txEffect of paddedTxEffects) {
       const publicDataWrites = padArrayEnd(
@@ -63,6 +54,14 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
         MerkleTreeId.PUBLIC_DATA_TREE,
         publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
         PUBLIC_DATA_SUBTREE_HEIGHT,
+      );
+
+      const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);
+
+      await fork.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        nullifiersPadded.map(nullifier => nullifier.toBuffer()),
+        NULLIFIER_SUBTREE_HEIGHT,
       );
     }
   }

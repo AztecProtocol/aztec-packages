@@ -73,10 +73,6 @@ export class PublicProcessorFactory {
       this.telemetryClient,
     );
   }
-
-  public getInitialHeader() {
-    return this.merkleTree.getInitialHeader();
-  }
 }
 
 /**
