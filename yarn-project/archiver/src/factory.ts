@@ -1,8 +1,9 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/utils';
-import { ProtocolContractAddress, ProtocolContractArtifact, protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type ContractClassPublic } from '@aztec/types/contracts';
 
 import { Archiver } from './archiver/archiver.js';
 import { type ArchiverConfig } from './archiver/config.js';
@@ -25,7 +26,16 @@ export async function createArchiver(
 }
 
 async function initWithProtocolContracts(store: KVArchiverDataStore) {
+  const blockNumber = 0;
   for (const name of protocolContractNames) {
-    await store.addContractArtifact(ProtocolContractAddress[name], ProtocolContractArtifact[name]);
+    const contract = getCanonicalProtocolContract(name);
+    const contractClassPublic: ContractClassPublic = {
+      ...contract.contractClass,
+      privateFunctions: [],
+      unconstrainedFunctions: [],
+    };
+    await store.addContractArtifact(contract.address, contract.artifact);
+    await store.addContractClasses([contractClassPublic], blockNumber);
+    await store.addContractInstances([contract.instance], blockNumber);
   }
 }
