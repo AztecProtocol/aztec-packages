@@ -54,8 +54,9 @@ if(CHECK_CIRCUIT_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES)
 endif()
 
-if(ENABLE_TRACY)
+if(ENABLE_TRACY_TIME_INSTRUMENTED)
     add_compile_options(-DTRACY_ENABLE)
+    add_compile_options(-DTRACY_INSTRUMENTED)
     SET(TRACY_LIBS Tracy::TracyClient)
 else()
     SET(TRACY_LIBS)
@@ -63,6 +64,7 @@ endif()
 
 if(TRACY_PROFILE_MEMORY)
   add_compile_options(-DTRACY_MEMORY)
+  add_compile_options(-DTRACY_INSTRUMENTED)
 endif()
 
 if(ENABLE_ASAN)

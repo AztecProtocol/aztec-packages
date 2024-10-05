@@ -45,7 +45,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     }
 }
 
-#define ARGS Arg(ClientIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
+#define ARGS Arg(ClientIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
 
 BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 

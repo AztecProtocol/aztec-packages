@@ -7,7 +7,7 @@
 #ifdef BB_USE_OP_COUNT_TIME_ONLY
 #define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
 #define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
-#elif defined TRACY_ENABLE
+#elif defined TRACY_INSTRUMENTED
 #define PROFILE_THIS() ZoneScopedN(__func__)
 #define PROFILE_THIS_NAME(name) ZoneScopedN(name)
 #else

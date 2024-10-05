@@ -10,8 +10,9 @@
 set -eux
 USER=${1:-$USER}
 BOX=$USER-box
-BENCHMARK=${2:-protogalaxy_bench}
-COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=fold_k/17}
+BENCHMARK=${2:-client_ivc_bench}
+COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=ClientIVCBench/Full/6}
+HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-time-instrumented}
@@ -25,17 +26,17 @@ cmake --build profiler/build --parallel
 
 
 cd ~/aztec-packages/barretenberg/cpp/ ;
-cmake --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
+cmake --preset $PRESET -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset $PRESET --target $BENCHMARK ;
 
 
 ! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
 cd ~/tracy/capture ;
 	git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 ;
-mkdir -p build && cd build && cmake .. && make -j ;
+mkdir -p build && cd build && cmake .. -DCMAKE_MESSAGE_LOG_LEVEL=Warning && make -j ;
 
 ./tracy-capture -a 127.0.0.1 -f -o ../trace-$BENCHMARK &
 sleep 0.1 ;
-cd ~/aztec-packages/barretenberg/cpp/build-$PRESET/
-$COMMAND ;
+cd ~/aztec-packages/barretenberg/cpp/build-$PRESET/ ;
+sudo HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY $COMMAND ;
 
 ~/tracy/profiler/build/tracy-profiler ~/tracy/capture/trace-$BENCHMARK

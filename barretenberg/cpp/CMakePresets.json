@@ -136,7 +136,7 @@
       "displayName": "Build for tracy time profiling via sampling",
       "description": "Build for tracy time profiling via sampling",
       "binaryDir": "build-tracy-time-sampled",
-      "inherits": "clang16",
+      "inherits": "default",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",
@@ -381,7 +381,7 @@
       "generator": "Ninja",
       "toolchainFile": "cmake/toolchains/wasm32-wasi.cmake",
       "environment": {
-        "WASI_SDK_PREFIX": "/opt/wasi-sdk",
+        "WASI_SDK_PREFIX": "/Users/cody/wasi-sdk-24.0-arm64-macos",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
@@ -417,7 +417,8 @@
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "ENABLE_TRACY": "ON"
       }
     },
     {
