@@ -308,7 +308,7 @@ template <typename TypeOfTree> void check_unfinalised_block_height(TypeOfTree& t
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.blockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -378,7 +378,7 @@ template <typename TypeOfTree> void check_block_height(TypeOfTree& tree, index_t
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.blockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);

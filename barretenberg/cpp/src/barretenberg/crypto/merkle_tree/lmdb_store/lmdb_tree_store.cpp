@@ -278,10 +278,16 @@ void LMDBTreeStore::write_leaf_key_by_index(const fr& leafKey, const index_t& in
     tx.put_value<LeafIndexKeyType>(key, data, *_leafIndexToKeyDatabase);
 }
 
-void LMDBTreeStore::delete_all_leaf_keys_after_index(const index_t& index, WriteTransaction& tx)
+void LMDBTreeStore::delete_all_leaf_keys_after_or_equal_index(const index_t& index, WriteTransaction& tx)
 {
     LeafIndexKeyType key(index);
     tx.delete_all_values_greater_or_equal_key(key, *_leafIndexToKeyDatabase);
+}
+
+void LMDBTreeStore::delete_all_leaf_keys_before_or_equal_index(const index_t& index, WriteTransaction& tx)
+{
+    LeafIndexKeyType key(index);
+    tx.delete_all_values_lesser_or_equal_key(key, *_leafIndexToKeyDatabase);
 }
 
 } // namespace bb::crypto::merkle_tree

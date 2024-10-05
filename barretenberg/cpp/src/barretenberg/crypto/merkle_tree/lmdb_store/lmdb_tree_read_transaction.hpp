@@ -46,6 +46,11 @@ class LMDBTreeReadTransaction : public LMDBTransaction {
                                              std::vector<std::vector<uint8_t>>& data,
                                              const LMDBDatabase& db) const;
 
+    template <typename T>
+    void get_all_values_lesser_or_equal_key(const T& key,
+                                            std::vector<std::vector<uint8_t>>& data,
+                                            const LMDBDatabase& db) const;
+
     bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
     void abort() override;
@@ -80,5 +85,13 @@ void LMDBTreeReadTransaction::get_all_values_greater_or_equal_key(const T& key,
                                                                   const LMDBDatabase& db) const
 {
     lmdb_queries::get_all_values_greater_or_equal_key(key, data, db, *this);
+}
+
+template <typename T>
+void LMDBTreeReadTransaction::get_all_values_lesser_or_equal_key(const T& key,
+                                                                 std::vector<std::vector<uint8_t>>& data,
+                                                                 const LMDBDatabase& db) const
+{
+    lmdb_queries::get_all_values_lesser_or_equal_key(key, data, db, *this);
 }
 } // namespace bb::crypto::merkle_tree

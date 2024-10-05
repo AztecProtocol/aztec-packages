@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
@@ -199,6 +200,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     std::optional<index_t> get_fork_block() const;
 
+    void advance_finalised_block(index_t blockNumber);
+
   private:
     std::string name_;
     uint32_t depth_;
@@ -254,7 +257,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void remove_leaf_indices(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
 
-    void remove_leaf_indices_after_index(const index_t& maxIndex, WriteTransaction& tx);
+    void remove_leaf_indices_after_or_equal_index(const index_t& maxIndex, WriteTransaction& tx);
 
     index_t constrain_tree_size(const RequestContext& requestContext, ReadTransaction& tx) const;
 
@@ -595,7 +598,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::enrich_meta_from_block(Tree
         m.size = initialised_from_block_->size;
         m.committedSize = initialised_from_block_->size;
         m.root = initialised_from_block_->root;
-        m.blockHeight = initialised_from_block_->blockNumber;
+        m.unfinalisedBlockHeight = initialised_from_block_->blockNumber;
     }
 }
 
@@ -623,7 +626,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     bool dataPresent = false;
     // We don't allow commits using images/forks
     if (initialised_from_block_.has_value()) {
-        throw std::runtime_error("Committing an image is forbidden");
+        throw std::runtime_error("Committing a fork is forbidden");
     }
     {
         ReadTransactionPtr tx = create_read_transaction();
@@ -647,18 +650,21 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         WriteTransactionPtr tx = create_write_transaction();
         try {
             if (dataPresent) {
-                std::cout << "Persisting data " << meta_.blockHeight + 1 << " as block " << asBlock << std::endl;
+                std::cout << "Persisting data " << meta_.unfinalisedBlockHeight + 1 << " as block " << asBlock
+                          << std::endl;
                 persist_leaf_indices(*tx);
                 persist_leaf_keys(meta_.committedSize, *tx);
                 persist_node(std::optional<fr>(currentRoot), 0, *tx);
                 if (asBlock) {
-                    ++meta_.blockHeight;
+                    ++meta_.unfinalisedBlockHeight;
                     if (meta_.oldestHistoricBlock == 0) {
                         meta_.oldestHistoricBlock = 1;
                     }
                     std::cout << "New root " << currentRoot << std::endl;
-                    BlockPayload block{ .size = meta_.size, .blockNumber = meta_.blockHeight, .root = currentRoot };
-                    dataStore_->write_block_data(meta_.blockHeight, block, *tx);
+                    BlockPayload block{ .size = meta_.size,
+                                        .blockNumber = meta_.unfinalisedBlockHeight,
+                                        .root = currentRoot };
+                    dataStore_->write_block_data(meta_.unfinalisedBlockHeight, block, *tx);
                 }
             }
             meta_.committedSize = meta_.size;
@@ -786,16 +792,63 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_meta(TreeMeta& m, W
 }
 
 template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(index_t blockNumber)
+{
+    TreeMeta meta;
+    BlockPayload blockPayload;
+    if (blockNumber < 1) {
+        throw std::runtime_error("Unable to remove block");
+    }
+    if (initialised_from_block_.has_value()) {
+        throw std::runtime_error("Advancing a fork is forbidden");
+    }
+    {
+        // read the persisted meta
+        ReadTransactionPtr tx = create_read_transaction();
+        get_meta(meta, *tx, false);
+        if (!dataStore_->read_block_data(blockNumber, blockPayload, *tx)) {
+            throw std::runtime_error("Failed to retrieve block data");
+        }
+    }
+    // can only finalise the next unfinalised block
+    if (meta.finalisedBlockHeight + 1 != blockNumber) {
+        std::stringstream ss;
+        ss << "Unable to finalise block " << blockNumber << " currently finalised block height "
+           << meta.finalisedBlockHeight << std::endl;
+        throw std::runtime_error(ss.str());
+    }
+    index_t highestIndexToRemove = blockPayload.size - 1;
+    ++meta.finalisedBlockHeight;
+    // commit the new finalised block
+    WriteTransactionPtr writeTx = create_write_transaction();
+    try {
+        put_meta(meta);
+        persist_meta(meta, *writeTx);
+        dataStore_->delete_all_leaf_keys_before_or_equal_index(highestIndexToRemove, *writeTx);
+        writeTx->commit();
+    } catch (std::exception& e) {
+        writeTx->try_abort();
+        throw;
+    }
+}
+
+template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::remove_block(const index_t& blockNumber, bool isUnwind)
 {
     TreeMeta meta;
     BlockPayload blockData;
     BlockPayload previousBlockData;
+    if (blockNumber < 1) {
+        throw std::runtime_error("Unable to remove block");
+    }
+    if (initialised_from_block_.has_value()) {
+        throw std::runtime_error("Removing a block on a fork is forbidden");
+    }
     {
         ReadTransactionPtr tx = create_read_transaction();
         get_meta(meta, *tx, false);
         if (isUnwind) {
-            if (blockNumber != meta.blockHeight) {
+            if (blockNumber != meta.unfinalisedBlockHeight) {
                 throw std::runtime_error("Block number is not the most recent");
             }
             if (blockNumber == 1) {
@@ -817,8 +870,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_block(const index_t&
         remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
         dataStore_->delete_block_data(blockNumber, *writeTx);
         if (isUnwind) {
-            remove_leaf_indices_after_index(previousBlockData.size, *writeTx);
-            meta.blockHeight--;
+            remove_leaf_indices_after_or_equal_index(previousBlockData.size, *writeTx);
+            meta.unfinalisedBlockHeight--;
             meta.size = previousBlockData.size;
             meta.committedSize = meta.size;
             meta.root = previousBlockData.root;
@@ -836,16 +889,16 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_block(const index_t&
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_indices_after_index(const index_t& index,
-                                                                                     WriteTransaction& tx)
+void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_indices_after_or_equal_index(const index_t& index,
+                                                                                              WriteTransaction& tx)
 {
     std::vector<bb::fr> leafKeys;
-    dataStore_->read_all_leaf_keys_after_index(index, leafKeys, tx);
+    dataStore_->read_all_leaf_keys_after_or_equal_index(index, leafKeys, tx);
     for (const fr& key : leafKeys) {
         std::cout << "Removing leaf key " << key << " at index " << index << std::endl;
         remove_leaf_indices(key, index, tx);
     }
-    dataStore_->delete_all_leaf_keys_after_index(index, tx);
+    dataStore_->delete_all_leaf_keys_after_or_equal_index(index, tx);
 }
 
 template <typename LeafValueType>
@@ -962,7 +1015,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     meta_.depth = depth_;
     meta_.initialSize = 0;
     meta_.oldestHistoricBlock = 0;
-    meta_.blockHeight = 0;
+    meta_.unfinalisedBlockHeight = 0;
+    meta_.finalisedBlockHeight = 0;
     WriteTransactionPtr tx = create_write_transaction();
     try {
         persist_meta(meta_, *tx);
@@ -991,7 +1045,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
             throw std::runtime_error("Tree must be initialised");
         }
 
-        if (meta_.blockHeight < blockNumber) {
+        if (meta_.unfinalisedBlockHeight < blockNumber) {
             throw std::runtime_error("Unable to initialise from future block");
         }
         BlockPayload blockData;

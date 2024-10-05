@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "lmdb.h"
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -13,16 +14,15 @@ bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBData
     std::vector<uint8_t> keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
+    bool success = false;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
 
-    MDB_val dbKey;
-    dbKey.mv_size = keySize;
-    dbKey.mv_data = (void*)keyBuffer.data();
-
-    MDB_val dbVal;
-
-    bool success = false;
     try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+        MDB_val dbVal;
+
         // Look for the key >= to that provided
         int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
         if (code == 0) {
@@ -90,17 +90,15 @@ bool get_value_or_previous(TKey& key,
     std::vector<uint8_t> keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
+    bool success = false;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
 
-    MDB_val dbKey;
-    dbKey.mv_size = keySize;
-    dbKey.mv_data = (void*)keyBuffer.data();
-
-    MDB_val dbVal;
-
-    bool success = false;
-
     try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+
+        MDB_val dbVal;
         // Look for the key >= to that provided
         int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
         if (code == 0) {
@@ -184,13 +182,12 @@ void get_all_values_greater_or_equal_key(const TKey& key,
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
 
-    MDB_val dbKey;
-    dbKey.mv_size = keySize;
-    dbKey.mv_data = (void*)keyBuffer.data();
-
-    MDB_val dbVal;
-
     try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+
+        MDB_val dbVal;
         // Look for the key >= to that provided
         int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
         while (true) {
@@ -229,13 +226,12 @@ void delete_all_values_greater_or_equal_key(const TKey& key, const LMDBDatabase&
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
 
-    MDB_val dbKey;
-    dbKey.mv_size = keySize;
-    dbKey.mv_data = (void*)keyBuffer.data();
-
-    MDB_val dbVal;
-
     try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+
+        MDB_val dbVal;
         // Look for the key >= to that provided
         int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
         while (true) {
@@ -259,6 +255,137 @@ void delete_all_values_greater_or_equal_key(const TKey& key, const LMDBDatabase&
                 break;
             } else {
                 throw_error("delete_all_values_greater_or_equal_key::mdb_cursor_get", code);
+            }
+        }
+    } catch (std::exception& e) {
+        call_lmdb_func(mdb_cursor_close, cursor);
+        throw;
+    }
+    call_lmdb_func(mdb_cursor_close, cursor);
+}
+
+template <typename TKey, typename TxType>
+void get_all_values_lesser_or_equal_key(const TKey& key,
+                                        std::vector<std::vector<uint8_t>>& data,
+                                        const LMDBDatabase& db,
+                                        const TxType& tx)
+{
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
+    MDB_cursor* cursor = nullptr;
+    call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
+
+    try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+
+        MDB_val dbVal;
+        // Look for the key >= to that provided
+        int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
+        if (code == 0) {
+            // we found the key, now determine if it is the exact key
+            std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
+            if (keyBuffer == temp) {
+                // we have the exact key, copy it's data
+                std::vector<uint8_t> temp;
+                copy_to_vector(dbVal, temp);
+                data.push_back(temp);
+            } else {
+                // not the exact key, either the same size but greater value or larger key size
+                // either way we just need to move down
+            }
+        } else if (code == MDB_NOTFOUND) {
+            // key not found. no key of greater size or same size and greater value, just move down
+        } else {
+            throw_error("get_all_values_lesser_or_equal_key::mdb_cursor_get", code);
+        }
+
+        // we now iterate down the keys until we run out
+        while (true) {
+            code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_PREV);
+
+            if (code == 0) {
+                // we have found a previous key, if it is a different size then we have reached the end of the data
+                if (dbKey.mv_size != keySize) {
+                    break;
+                }
+                // the same size, grab the value and go round again
+                std::vector<uint8_t> temp;
+                copy_to_vector(dbVal, temp);
+                data.push_back(temp);
+
+            } else if (MDB_NOTFOUND) {
+                // we have reached the end of the db
+                break;
+            } else {
+                throw_error("get_all_values_lesser_or_equal_key::mdb_cursor_get", code);
+            }
+        }
+    } catch (std::exception& e) {
+        call_lmdb_func(mdb_cursor_close, cursor);
+        throw;
+    }
+    call_lmdb_func(mdb_cursor_close, cursor);
+}
+
+template <typename TKey, typename TxType>
+void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& db, const TxType& tx)
+{
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
+    MDB_cursor* cursor = nullptr;
+    call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
+
+    try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+
+        MDB_val dbVal;
+        // Look for the key >= to that provided
+        int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
+        if (code == 0) {
+            // we found the key, now determine if it is the exact key
+            std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
+            if (keyBuffer == temp) {
+                // we have the exact key, delete it's data
+                code = mdb_cursor_del(cursor, 0);
+
+                if (code != 0) {
+                    throw_error("delete_all_values_lesser_or_equal_key::mdb_cursor_del", code);
+                }
+            } else {
+                // not the exact key, either the same size but greater value or larger key size
+                // either way we just need to move down
+            }
+        } else if (code == MDB_NOTFOUND) {
+            // key not found. no key of greater size or same size and greater value, just move down
+        } else {
+            throw_error("get_all_values_lesser_or_equal_key::mdb_cursor_get", code);
+        }
+
+        // we now iterate down the keys until we run out
+        while (true) {
+            code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_PREV);
+
+            if (code == 0) {
+                // we have found a previous key, if it is a different size then we have reached the end of the data
+                if (dbKey.mv_size != keySize) {
+                    break;
+                }
+                // we have the exact key, delete it's data
+                code = mdb_cursor_del(cursor, 0);
+
+                if (code != 0) {
+                    throw_error("delete_all_values_lesser_or_equal_key::mdb_cursor_del", code);
+                }
+
+            } else if (MDB_NOTFOUND) {
+                // we have reached the end of the db
+                break;
+            } else {
+                throw_error("get_all_values_lesser_or_equal_key::mdb_cursor_get", code);
             }
         }
     } catch (std::exception& e) {

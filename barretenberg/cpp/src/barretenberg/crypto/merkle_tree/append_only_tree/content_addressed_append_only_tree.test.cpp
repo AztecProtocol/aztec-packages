@@ -64,12 +64,24 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
     signal.wait_for_level();
 }
 
+void check_finalised_block_height(TreeType& tree, index_t expected_finalised_block)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_finalised_block);
+        signal.signal_level();
+    };
+    tree.get_meta_data(false, completion);
+    signal.wait_for_level();
+}
+
 void check_block_height(TreeType& tree, index_t expected_block_height)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.blockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -189,6 +201,17 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     };
 
     tree.add_values(values, completion);
+    signal.wait_for_level();
+}
+
+void finalise_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.finalise_block(blockNumber, completion);
     signal.wait_for_level();
 }
 
@@ -1422,5 +1445,50 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_bl
         std::stringstream ss;
         ss << "DB " << actualSize;
         test_unwind(_directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    uint32_t finalisedBlockDelay = 4;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+
+        index_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
+        check_finalised_block_height(tree, expectedFinalisedBlock);
+        index_t expectedPresentStart = i < finalisedBlockDelay ? 0 : (expectedFinalisedBlock * blockSize);
+        index_t expectedPresentEnd = ((i + 1) * blockSize) - 1;
+        std::vector<fr> toTest(values.begin() + static_cast<int64_t>(expectedPresentStart),
+                               values.begin() + static_cast<int64_t>(expectedPresentEnd + 1));
+        check_leaf_keys_are_present(db, expectedPresentStart, expectedPresentEnd, toTest);
+
+        if (i >= finalisedBlockDelay) {
+            index_t blockToFinalise = expectedFinalisedBlock + 1;
+            finalise_block(tree, blockToFinalise, true);
+
+            index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
+            std::cout << "Expected not present end " << expectedNotPresentEnd << std::endl;
+            check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
+        }
     }
 }

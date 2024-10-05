@@ -48,6 +48,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using RollbackCallback = std::function<void(const Response&)>;
     using RemoveHistoricBlockCallback = std::function<void(const Response&)>;
     using UnwindBlockCallback = std::function<void(const Response&)>;
+    using FinaliseBlockCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -200,6 +201,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void remove_historic_block(const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion);
 
     void unwind_block(const index_t& blockNumber, const UnwindBlockCallback& on_completion);
+
+    void finalise_block(const index_t& blockNumber, const FinaliseBlockCallback& on_completion);
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -756,6 +759,23 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
                     throw std::runtime_error("Invalid block number");
                 }
                 store_->remove_block(blockNumber, true);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalise_block(const index_t& blockNumber,
+                                                                          const FinaliseBlockCallback& on_completion)
+{
+    auto job = [=, this]() {
+        execute_and_report(
+            [=, this]() {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
+                store_->advance_finalised_block(blockNumber);
             },
             on_completion);
     };

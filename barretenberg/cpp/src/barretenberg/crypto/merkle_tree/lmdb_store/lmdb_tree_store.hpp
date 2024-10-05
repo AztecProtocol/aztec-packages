@@ -164,9 +164,14 @@ class LMDBTreeStore {
     template <typename TxType> bool read_leaf_key_by_index(const index_t& index, fr& leafKey, TxType& tx);
 
     template <typename TxType>
-    void read_all_leaf_keys_after_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
+    void read_all_leaf_keys_after_or_equal_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
 
-    void delete_all_leaf_keys_after_index(const index_t& index, WriteTransaction& tx);
+    void delete_all_leaf_keys_after_or_equal_index(const index_t& index, WriteTransaction& tx);
+
+    template <typename TxType>
+    void read_all_leaf_keys_before_or_equal_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
+
+    void delete_all_leaf_keys_before_or_equal_index(const index_t& index, WriteTransaction& tx);
 
   private:
     std::string _name;
@@ -237,11 +242,27 @@ template <typename TxType> bool LMDBTreeStore::read_leaf_key_by_index(const inde
 }
 
 template <typename TxType>
-void LMDBTreeStore::read_all_leaf_keys_after_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx)
+void LMDBTreeStore::read_all_leaf_keys_after_or_equal_index(const index_t& index,
+                                                            std::vector<bb::fr>& leafKeys,
+                                                            TxType& tx)
 {
     LeafIndexKeyType key(index);
     std::vector<std::vector<uint8_t>> values;
     tx.get_all_values_greater_or_equal_key(key, values, *_leafIndexToKeyDatabase);
+    for (const auto& value : values) {
+        fr leafKey = from_buffer<fr>(value);
+        leafKeys.push_back(leafKey);
+    }
+}
+
+template <typename TxType>
+void LMDBTreeStore::read_all_leaf_keys_before_or_equal_index(const index_t& index,
+                                                             std::vector<bb::fr>& leafKeys,
+                                                             TxType& tx)
+{
+    LeafIndexKeyType key(index);
+    std::vector<std::vector<uint8_t>> values;
+    tx.get_all_values_lesser_or_equal_key(key, values, *_leafIndexToKeyDatabase);
     for (const auto& value : values) {
         fr leafKey = from_buffer<fr>(value);
         leafKeys.push_back(leafKey);

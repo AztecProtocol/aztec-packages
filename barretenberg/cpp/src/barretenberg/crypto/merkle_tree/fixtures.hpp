@@ -116,6 +116,30 @@ void check_leaf_by_hash(LMDBTreeStore::SharedPtr db, IndexedLeaf<LeafType> leaf,
     }
 }
 
+void inline check_leaf_keys_are_present(LMDBTreeStore::SharedPtr db,
+                                        uint64_t startIndex,
+                                        uint64_t endIndex,
+                                        const std::vector<fr>& keys)
+{
+    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
+    for (uint64_t i = startIndex; i <= endIndex; i++) {
+        fr leafKey;
+        bool success = db->read_leaf_key_by_index(i, leafKey, *tx);
+        EXPECT_TRUE(success);
+        EXPECT_EQ(leafKey, keys[i - startIndex]);
+    }
+}
+
+void inline check_leaf_keys_are_not_present(LMDBTreeStore::SharedPtr db, uint64_t startIndex, uint64_t endIndex)
+{
+    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
+    for (uint64_t i = startIndex; i < endIndex; i++) {
+        fr leafKey;
+        bool success = db->read_leaf_key_by_index(i, leafKey, *tx);
+        EXPECT_FALSE(success);
+    }
+}
+
 void inline print_store_data(LMDBTreeStore::SharedPtr db, std::ostream& os)
 {
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();

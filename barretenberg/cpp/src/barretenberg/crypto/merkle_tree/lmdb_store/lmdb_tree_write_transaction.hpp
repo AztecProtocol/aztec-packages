@@ -49,6 +49,13 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
 
     template <typename T> void delete_all_values_greater_or_equal_key(const T& key, const LMDBDatabase& db) const;
 
+    template <typename T>
+    void get_all_values_lesser_or_equal_key(const T& key,
+                                            std::vector<std::vector<uint8_t>>& data,
+                                            const LMDBDatabase& db) const;
+
+    template <typename T> void delete_all_values_lesser_or_equal_key(const T& key, const LMDBDatabase& db) const;
+
     bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
     void commit();
@@ -88,5 +95,19 @@ template <typename T>
 void LMDBTreeWriteTransaction::delete_all_values_greater_or_equal_key(const T& key, const LMDBDatabase& db) const
 {
     lmdb_queries::delete_all_values_greater_or_equal_key(key, db, *this);
+}
+
+template <typename T>
+void LMDBTreeWriteTransaction::get_all_values_lesser_or_equal_key(const T& key,
+                                                                  std::vector<std::vector<uint8_t>>& data,
+                                                                  const LMDBDatabase& db) const
+{
+    lmdb_queries::get_all_values_lesser_or_equal_key(key, data, db, *this);
+}
+
+template <typename T>
+void LMDBTreeWriteTransaction::delete_all_values_lesser_or_equal_key(const T& key, const LMDBDatabase& db) const
+{
+    lmdb_queries::delete_all_values_lesser_or_equal_key(key, db, *this);
 }
 } // namespace bb::crypto::merkle_tree
