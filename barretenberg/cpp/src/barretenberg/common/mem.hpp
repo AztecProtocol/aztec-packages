@@ -4,6 +4,7 @@
 #include "tracy/Tracy.hpp"
 #include "wasm_export.hpp"
 #include <cstdlib>
+#include <jemalloc/jemalloc.h>
 #include <memory>
 
 // This can be altered to capture stack traces, though more expensive
