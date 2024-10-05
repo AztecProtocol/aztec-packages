@@ -29,7 +29,12 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field
     ) {
-        self.validate_initial_values(tx_request, private_call, vk_tree_root, protocol_contract_tree_root);
+        self.validate_initial_values(
+            tx_request,
+            private_call,
+            vk_tree_root,
+            protocol_contract_tree_root
+        );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
         offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
         self.validate_propagated_from_private_call(
@@ -71,7 +76,9 @@ impl PrivateKernelCircuitOutputValidator {
         );
         assert(is_empty(self.output.constants.global_variables), "constants.global_variables must be empty");
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
-        assert_eq(self.output.constants.protocol_contract_tree_root, protocol_contract_tree_root, "mismatch protocol_contract_tree_root");
+        assert_eq(
+            self.output.constants.protocol_contract_tree_root, protocol_contract_tree_root, "mismatch protocol_contract_tree_root"
+        );
 
         // First nullifier.
         let first_nullifier = create_first_nullifier(tx_request);

@@ -98,7 +98,11 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N], protocol_contract_tree_root: Field) {
+    pub fn validate<let N: u32>(
+        self,
+        accumulated_note_hashes: [ScopedNoteHash; N],
+        protocol_contract_tree_root: Field
+    ) {
         validate_contract_address(self.data, protocol_contract_tree_root);
         self.validate_call();
         self.validate_private_call_requests();
