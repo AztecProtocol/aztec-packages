@@ -259,7 +259,40 @@ template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::Sta
     auto polynomial = structured_random_poly<Fr>(block_sizes, actual_sizes, /*non_zero_dead_regions=*/true);
 
     for (auto _ : state) {
-        key->commit_structured_z_perm(polynomial, block_sizes, actual_sizes);
+        key->commit_structured(polynomial, block_sizes, actual_sizes);
+        // key->commit_structured_z_perm(polynomial, block_sizes, actual_sizes);
+    }
+}
+
+// Commit to a polynomial with dense random nonzero entries
+template <typename Curve> void bench_reduce_points(::benchmark::State& state)
+{
+    // using Fr = typename Curve::ScalarField;
+    using G1 = typename Curve::AffineElement;
+    using MsmSort = MsmSorter<Curve>;
+    using AddSequences = MsmSort::AdditionSequences;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+
+    std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
+
+    const size_t input_size = 24000;
+
+    MsmSort msm_sorter;
+    msm_sorter.denominators.resize(input_size >> 1); // need at most half as many denominators as scalars
+
+    // Extract raw SRS points from point point table points
+    for (size_t i = 0; i < input_size * 2; i += 2) {
+        msm_sorter.updated_points.emplace_back(point_table[i]);
+    }
+
+    std::vector<uint64_t> sequence_counts = { input_size };
+    std::span<G1> dead_range_points(msm_sorter.updated_points.data(), input_size);
+    [[maybe_unused]] AddSequences add_sequences{ sequence_counts, dead_range_points, {} };
+
+    for (auto _ : state) {
+        msm_sorter.batched_affine_add_in_place(add_sequences);
+        // key->commit_structured(polynomial, block_sizes, actual_sizes);
+        // key->commit_structured_z_perm(polynomial, block_sizes, actual_sizes);
     }
 }
 
@@ -290,12 +323,16 @@ template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::Sta
 // BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)
 //     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
 //     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm<curve::BN254>)
+// BENCHMARK(bench_commit_z_perm<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)
+//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+//     ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_reduce_points<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
 
 } // namespace bb
 

@@ -1,4 +1,5 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
@@ -292,6 +293,49 @@ TYPED_TEST(CommitmentKeyTest, CommitZPermRealistic)
 
     EXPECT_EQ(sparse_commit_result, commit_result);
     EXPECT_EQ(new_result, commit_result);
+}
+
+TYPED_TEST(CommitmentKeyTest, Reduce)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    using AffineAdder = BatchedAffineAddition<Curve>;
+    using AddSequences = AffineAdder::AdditionSequences;
+
+    const size_t input_size = 24000;
+    auto key = TestFixture::template create_commitment_key<CK>(input_size);
+    std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
+
+    Polynomial poly(input_size);
+    Fr const_val = Fr::random_element();
+    for (size_t i = 0; i < input_size; i++) {
+        poly.at(i) = const_val;
+    }
+
+    AffineAdder affine_adder;
+    affine_adder.denominators.resize(input_size >> 1); // need at most half as many denominators as scalars
+
+    // Extract raw SRS points from point point table points
+    std::vector<G1> raw_points;
+    raw_points.reserve(input_size);
+    for (size_t i = 0; i < input_size * 2; i += 2) {
+        raw_points.emplace_back(point_table[i]);
+    }
+
+    std::vector<uint64_t> sequence_counts = { input_size }; // single sequence
+    std::span<G1> points_to_add(raw_points.data(), input_size);
+    AddSequences add_sequences{ sequence_counts, points_to_add, {} };
+
+    affine_adder.batched_affine_add_in_place(add_sequences);
+
+    G1 expected_result = key->commit(poly);
+    G1 result = raw_points[0] * const_val;
+
+    EXPECT_EQ(result, expected_result);
 }
 
 } // namespace bb
