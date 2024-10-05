@@ -401,7 +401,7 @@ export function compileContract(
         enabled: true,
         runs: 200,
       },
-      evmVersion: 'paris',
+      evmVersion: 'cancun',
       outputSelection: {
         '*': {
           '*': ['evm.bytecode.object', 'abi'],

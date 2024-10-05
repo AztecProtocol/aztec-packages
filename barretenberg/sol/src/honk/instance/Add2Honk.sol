@@ -198,9 +198,9 @@ contract Add2HonkVerifier is IVerifier {
         Fr shiftedScalar;
         // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
-        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
-        Fr batchingChallenge;
         // Accumulator for powers of rho
+        Fr batchingChallenge;
+        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
     }
 
