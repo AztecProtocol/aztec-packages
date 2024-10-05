@@ -227,7 +227,7 @@ template <class Curve> class CommitmentKey {
     {
         size_t total_num_scalars = 0;
         for (const auto& range : endpoints.scalar_endpoints) {
-            total_num_scalars = range.second - range.first;
+            total_num_scalars += range.second - range.first;
         }
 
         std::vector<Fr> scalars;
@@ -306,7 +306,7 @@ template <class Curve> class CommitmentKey {
             construct_contiguous_inputs_from_range_endpoints(polynomial, point_table, dead_range_endpoints);
 
         MsmSort msm_sorter;
-        msm_sorter.denominators.resize(num_scalars);
+        msm_sorter.denominators.resize(num_scalars >> 1); // need at most half as many denominators as scalars
 
         // Extract raw SRS points from point point table points
         for (size_t i = 0; i < points.size(); i += 2) {

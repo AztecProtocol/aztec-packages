@@ -232,4 +232,66 @@ TYPED_TEST(CommitmentKeyTest, CommitZPerm)
     EXPECT_EQ(new_result, commit_result);
 }
 
+/**
+ * @brief Test commit_sparse on polynomial with zero start index.
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitZPermRealistic)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    std::vector<uint32_t> structured_sizes = {
+        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
+    };
+    std::vector<uint32_t> actual_sizes = {
+        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
+    };
+    bool non_zero_dead_regions = true;
+
+    uint32_t full_size = 0;
+    for (auto size : structured_sizes) {
+        full_size += size;
+    }
+
+    // In practice the polynomials will have a power-of-2 size
+    auto log2_n = static_cast<size_t>(numeric::get_msb(full_size));
+    if ((1UL << log2_n) != (full_size)) {
+        ++log2_n;
+    }
+    full_size = 1 << log2_n;
+
+    Polynomial polynomial(full_size);
+
+    uint32_t start_idx = 0;
+    uint32_t end_idx = 0;
+    for (auto [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
+        end_idx = start_idx + actual_size;
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            polynomial.at(i) = Fr::random_element();
+        }
+        start_idx += block_size;
+        // If indicated, populate the 'dead' regions of the blocks with a random constant (mimicking z_perm)
+        if (non_zero_dead_regions) {
+            Fr const_random_coeff = Fr::random_element();
+            for (size_t i = end_idx; i < start_idx; ++i) {
+                polynomial.at(i) = const_random_coeff;
+            }
+        }
+    }
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(full_size);
+    G1 commit_result = key->commit(polynomial);
+    G1 sparse_commit_result = key->commit_sparse(polynomial);
+
+    G1 new_result = key->commit_structured_z_perm(polynomial, structured_sizes, actual_sizes);
+
+    EXPECT_EQ(sparse_commit_result, commit_result);
+    EXPECT_EQ(new_result, commit_result);
+}
+
 } // namespace bb
