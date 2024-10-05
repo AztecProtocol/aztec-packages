@@ -13,7 +13,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, ensureAccountsPubliclyDeployed, setup } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
 
 jest.setTimeout(100_000);
@@ -40,7 +40,7 @@ describe('benchmarks/tx_size_fees', () => {
       feeRecipient: sequencerAddress,
     });
 
-    await publicDeployAccounts(aliceWallet, ctx.wallets);
+    await ensureAccountsPubliclyDeployed(aliceWallet, ctx.wallets);
   });
 
   // deploy the contracts

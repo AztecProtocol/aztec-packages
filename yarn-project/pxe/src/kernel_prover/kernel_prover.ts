@@ -1,4 +1,13 @@
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import {
+  type PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/circuit-types';
 import {
   Fr,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
@@ -23,14 +32,6 @@ import {
   isProtocolContract,
   protocolContractTreeRoot,
 } from '@aztec/protocol-contracts';
-import {
-  type ExecutionResult,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/simulator';
 
 import { type WitnessMap } from '@noir-lang/types';
 
@@ -67,7 +68,7 @@ export class KernelProver {
    */
   async prove(
     txRequest: TxRequest,
-    executionResult: ExecutionResult,
+    executionResult: PrivateExecutionResult,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
@@ -199,7 +200,7 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ callStackItem }: ExecutionResult, vk: VerificationKeyAsFields) {
+  private async createPrivateCallData({ callStackItem }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
     const { contractAddress, functionData } = callStackItem;
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
