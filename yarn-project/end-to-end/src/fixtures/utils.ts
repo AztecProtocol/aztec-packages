@@ -27,7 +27,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { type EthAddress } from '@aztec/circuits.js';
+import { type EthAddress, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
