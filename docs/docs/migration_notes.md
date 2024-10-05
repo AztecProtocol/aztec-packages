@@ -8,6 +8,29 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### Changes to PXE API and `ContractFunctionInteraction``
+
+PXE APIs have been refactored to better reflext the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
+
+* `.simulateTx`: Now returns a `TxSimulationResult`, containing the output of private execution, kernel simulation and public simulation (optional).
+* `.proveTx`: Now accepts the result of executing the private part of a transaction, so simulation doesn't have to happen again.
+
+Thanks to this refactor, `ContractFunctionInteraction` has been updated to remove its internal cache and avoid bugs due to its mutable nature. As a result our type-safe interfaces now have to be used as follows:
+
+```diff
+-const action = MyContract.at(address).method(args);
+-await action.prove();
+-await action.send().wait();
++const action = MyContract.at(address).method(args);
++const provenTx = await action.prove();
++await provenTx.send().wait();
+```
+
+It's still possible to use `.send()` as before, which will perform proving under the hood.
+
+More changes are coming to these APIs to better support gas estimation mechanisms and advanced features.
+
+
 ### Changes to public calling convention
 
 Contracts that include public functions (that is, marked with `#[public]`), are required to have a function `public_dispatch(selector: Field)` which acts as an entry point. This will be soon the only public function registered/deployed in contracts. The calling convention is updated so that external calls are made to this function.
