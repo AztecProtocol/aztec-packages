@@ -2,6 +2,7 @@ import { MerkleTreeId } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger, fmtLogData } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
+import { Timer } from '@aztec/foundation/timer';
 
 import assert from 'assert';
 import bindings from 'bindings';
@@ -107,6 +108,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     messageType: T,
     body: WorldStateRequest[T],
   ): Promise<WorldStateResponse[T]> {
+    const messageId = this.nextMessageId++;
     if (body) {
       let data: Record<string, any> = {};
       if ('treeId' in body) {
@@ -144,15 +146,41 @@ export class NativeWorldState implements NativeWorldStateInstance {
         }
       }
 
-      this.log.debug(`Calling ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);
+      if ('leaves' in body) {
+        data['leavesCount'] = body.leaves.length;
+      }
+
+      // sync operation
+      if ('paddedNoteHashes' in body) {
+        data['notesCount'] = body.paddedNoteHashes.length;
+        data['nullifiersCount'] = body.paddedNullifiers.length;
+        data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
+        data['publicDataWritesCount'] = body.batchesOfPaddedPublicDataWrites.reduce(
+          (acc, batch) => acc + batch.length,
+          0,
+        );
+      }
+
+      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);
     } else {
-      this.log.debug(`Calling ${WorldStateMessageType[messageType]}`);
+      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
-    const request = new TypedMessage(messageType, new MessageHeader({ messageId: this.nextMessageId++ }), body);
+    const timer = new Timer();
 
+    const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
     const encodedRequest = this.encoder.encode(request);
-    const encodedResponse = await this.instance.call(encodedRequest);
+    const encodingDuration = timer.ms();
+
+    let encodedResponse: any;
+    try {
+      encodedResponse = await this.instance.call(encodedRequest);
+    } catch (error) {
+      this.log.error(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} failed: ${error}`);
+      throw error;
+    }
+
+    const callDuration = timer.ms() - encodingDuration;
 
     const buf = Buffer.isBuffer(encodedResponse)
       ? encodedResponse
@@ -176,6 +204,16 @@ export class NativeWorldState implements NativeWorldStateInstance {
     }
 
     const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
+    const decodingDuration = timer.ms() - callDuration;
+    const totalDuration = timer.ms();
+    this.log.debug(
+      `Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms) ${fmtLogData({
+        totalDuration,
+        encodingDuration,
+        callDuration,
+        decodingDuration,
+      })}`,
+    );
 
     if (response.header.requestId !== request.header.messageId) {
       throw new Error(
