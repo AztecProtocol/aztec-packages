@@ -11,7 +11,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkProverOutput<Flavor>
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
     {
 
@@ -58,13 +58,18 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
+
+    if constexpr (IsUltraHonk<Flavor>) {
+        // Free the commitment key since we don't need it anymore
+        proving_key->proving_key.commitment_key = nullptr;
+    }
 }
 
 /**
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::execute_preamble_round");
     const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
@@ -87,7 +92,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
  * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
  * DataBus columns.
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
@@ -136,7 +141,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
  * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
@@ -172,7 +177,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
  * @brief Compute log derivative inverse polynomial and its commitment, if required
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::execute_log_derivative_inverse_round");
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
@@ -209,7 +214,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  * @brief Compute permutation and lookup grand product polynomials and their commitments
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation and lookup grand product polynomials
@@ -222,7 +227,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
 }
 
-template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::generate_alphas_round");
     RelationSeparator alphas;

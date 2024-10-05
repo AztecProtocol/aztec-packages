@@ -74,6 +74,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
+    info("proof constructed");
 
     auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.proving_key->proving_key);
     UltraVerifier verifier{ verification_key };

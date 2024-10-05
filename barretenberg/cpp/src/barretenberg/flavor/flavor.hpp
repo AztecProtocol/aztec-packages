@@ -370,7 +370,10 @@ template <typename T>
 concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsUltraOrMegaHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
+
+template <typename T>
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK>;
 
 template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,

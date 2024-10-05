@@ -85,6 +85,8 @@ template <class Curve> class CommitmentKey {
     {
         BB_OP_COUNT_TIME();
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
+        info("start index: ", polynomial.start_index);
+        info("size: ", polynomial.size());
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size()) + polynomial.start_index;
         auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
         // We only need the
