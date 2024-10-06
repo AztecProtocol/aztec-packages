@@ -38,7 +38,8 @@ function run_parallel() {
   fi
 }
 
-run_parallel ./boot-node.sh \
+run_parallel ./test-transfer.sh \
+  ./boot-node.sh \
  ./deploy-l1-contracts.sh \
  ./deploy-l2-contracts.sh \
  ./ethereum.sh \
