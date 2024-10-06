@@ -3,6 +3,8 @@
 # Starts a test scenario where as many pieces as practical are
 # just natively running - running on the same computer, no docker or k8s
 # Usage: ./network_test.sh <test>
+# Optional environment variables:
+#   INTERLEAVED (default: "false") should we just start all programs in the background?
 
 set -eu
 
@@ -25,9 +27,18 @@ fi
 
 cd "$REPO"/yarn-project/end-to-end/scripts/native-network
 rm -f l1-contracts.env l2-contracts.env
-# Pass all scripts to tmux-split-args
-"$REPO"/scripts/tmux-split-args native_network_test_session \
- ./boot-node.sh \
+
+function run_parallel() {
+  if [ "${INTERLEAVED:-false}" = true ] ; then
+    # Run in tmux for local debugging
+    "$REPO"/scripts/tmux_split_args.sh native_network_test_session $@
+  else
+    # Run interleaved for CI
+    "$REPO"/scripts/run_interleaved.sh $@
+  fi
+}
+
+run_parallel ./boot-node.sh \
  ./deploy-l1-contracts.sh \
  ./deploy-l2-contracts.sh \
  ./ethereum.sh \

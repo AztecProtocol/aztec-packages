@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -eu
-# Usage: tmux-splits-stdin <session-name> <command1> <command2>...
+# Usage: tmux-splits-stdin <session-name> <main command> <background commands>...
+# Runs commands in parallel in a tmux window.
+# *Finishes when the main command exits.*
+
+# Check if at least two commands are provided (otherwise what is the point)
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <main-command> <background commands>..."
+    exit 1
+fi
 
 # Launches tmux with 1 window that has as many panes as commands
 session_name=$1
@@ -29,6 +37,9 @@ for ((i=0; i<num_commands; i++)); do
   # Set the pane title
   tmux select-pane -t "$session_name:0.$i" -T "${commands[i]}"
 done
+
+# Ensure this finishes when pane 0 is finished
+tmux set-hook -t "$session_name" pane-exited "if [ '#{pane_id}' = '0' ]; kill-session -t mysession"
 
 # Now send commands to each pane
 for ((i=0; i<num_commands; i++)); do
