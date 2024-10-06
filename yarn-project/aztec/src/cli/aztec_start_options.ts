@@ -64,6 +64,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(true),
     },
+    {
+      flag: '--sandbox.enableGas',
+      description: 'Enable gas on sandbox start',
+      envVar: 'ENABLE_GAS',
+      ...booleanConfigHelper(),
+    },
   ],
   API: [
     {

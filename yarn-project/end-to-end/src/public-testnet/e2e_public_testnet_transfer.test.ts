@@ -22,7 +22,13 @@ describe(`deploys and transfers a private only token`, () => {
   beforeEach(async () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
-    ({ logger, pxe, teardown } = await setup(0, { stateLoad: undefined }, {}, chain));
+    ({ logger, pxe, teardown } = await setup(
+      0,
+      { skipProtocolContracts: true, stateLoad: undefined },
+      {},
+      false,
+      chain,
+    ));
   }, 600_000);
 
   afterEach(async () => {

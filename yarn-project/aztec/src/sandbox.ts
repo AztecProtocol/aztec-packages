@@ -1,7 +1,9 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
+import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
   type DeployL1Contracts,
   type L1ContractArtifactsForDeployment,
@@ -138,6 +140,8 @@ export async function deployContractsToL1(
 export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
+  /** Enable the contracts to track and pay for gas */
+  enableGas: boolean;
 };
 
 /**
@@ -183,6 +187,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
   const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
+
+  if (config.enableGas) {
+    await setupCanonicalL2FeeJuice(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+      aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
+    );
+  }
 
   const stop = async () => {
     await pxe.stop();

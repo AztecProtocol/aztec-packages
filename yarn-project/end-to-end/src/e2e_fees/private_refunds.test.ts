@@ -29,6 +29,7 @@ describe('e2e_fees/private_refunds', () => {
   beforeAll(async () => {
     await t.applyInitialAccountsSnapshot();
     await t.applyPublicDeployAccountsSnapshot();
+    await t.applySetupFeeJuiceSnapshot();
     await t.applyTokenAndFPC();
     await t.applyFundAliceWithTokens();
     ({ aliceWallet, aliceAddress, bobAddress, privateFPC, token } = await t.setup());

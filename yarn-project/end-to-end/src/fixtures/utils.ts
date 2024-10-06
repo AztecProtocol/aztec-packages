@@ -15,8 +15,10 @@ import {
   EthCheatCodes,
   type L1ContractArtifactsForDeployment,
   LogType,
+  NoFeePaymentMethod,
   type PXE,
   type SentTx,
+  SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
   createDebugLogger,
@@ -26,8 +28,9 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { type EthAddress, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { type EthAddress, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
@@ -44,6 +47,7 @@ import {
   TestERC20Abi,
   TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -203,6 +207,7 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
+  enableGas: boolean,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -231,6 +236,13 @@ async function setupWithRemoteEnvironment(
   };
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
+
+  const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
+  if (enableGas) {
+    await setupCanonicalFeeJuice(
+      new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+    );
+  }
 
   logger.verbose('Constructing available wallets from already registered accounts...');
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
@@ -264,6 +276,8 @@ export type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
+  /** Whether to skip deployment of protocol contracts (auth registry, etc) */
+  skipProtocolContracts?: boolean;
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
@@ -316,6 +330,7 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
+  enableGas = false,
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
@@ -374,7 +389,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
+    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
@@ -425,6 +440,13 @@ export async function setup(
   logger.verbose('Creating a pxe...');
 
   const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
+
+  if (!config.skipProtocolContracts && enableGas) {
+    logger.verbose('Setting up Fee Juice...');
+    await setupCanonicalFeeJuice(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+    );
+  }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
@@ -660,6 +682,26 @@ export async function expectMappingDelta<K, V extends number | bigint>(
   const diffs = outputs.map((output, i) => output - initialValues[i]);
 
   expect(diffs).toEqual(expectedDiffs);
+}
+
+/**
+ * Deploy the protocol contracts to a running instance.
+ */
+export async function setupCanonicalFeeJuice(pxe: PXE) {
+  // "deploy" the Fee Juice as it contains public functions
+  const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
+  const wallet = new SignerlessWallet(pxe);
+  const feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
+
+  try {
+    await feeJuice.methods
+      .initialize(feeJuicePortalAddress)
+      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
+      .wait();
+    getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
+  } catch (error) {
+    getLogger().info(`Fee Juice might have already been setup.`);
+  }
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
