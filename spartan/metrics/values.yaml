@@ -14,11 +14,17 @@ opentelemetry-collector:
       servicePort: 4318
       hostPort: 4318
       protocol: TCP
-    metrics:
+    otel-metrics:
       enabled: true
       containerPort: 8888
       servicePort: 8888
       hostPort: 8888
+      protocol: TCP
+    aztec-metrics:
+      enabled: true
+      containerPort: 8889
+      servicePort: 8889
+      hostPort: 8889
       protocol: TCP
 
   presets:
@@ -29,12 +35,17 @@ opentelemetry-collector:
       enabled: true
   config:
     exporters:
+      # debug:
+      #   verbosity: detailed
       otlphttp/logs:
         endpoint: http://metrics-loki.metrics:3100/otlp
       otlp/tempo:
         endpoint: http://metrics-tempo.metrics:4317
         tls:
           insecure: true
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
     extensions:
       health_check:
         endpoint: ${env:MY_POD_IP}:13133
@@ -56,6 +67,8 @@ opentelemetry-collector:
         logs:
           receivers:
             - otlp
+          processors:
+            - batch
           exporters:
             - otlphttp/logs
         traces:
@@ -65,6 +78,14 @@ opentelemetry-collector:
             - batch
           exporters:
             - otlp/tempo
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - prometheus
+            # - debug
 
 # Enable and configure the Loki subchart
 loki:
@@ -121,23 +142,48 @@ tempo:
 
 # Enable and configure Grafana
 grafana:
-  global:
-    datasources:
-      datasources.yaml:
-        apiVersion: 1
-        datasources:
-          - name: Loki
-            type: loki
-            url: http://metrics-loki.metrics:3100
-          - name: Tempo
-            type: tempo
-            url: http://metrics-tempo.metrics:3100
-    dashboards:
-      enabled: true
-      default:
-        aztec-dashboard:
-          file: dashboards/aztec-dashboard-all-in-one.json
-        tempo:
-          gnetId: 10578
-          revision: 1
-          datasource: Tempo
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://metrics-loki.metrics:3100
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: "default"
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      spartan-dashboard:
+        file: dashboards/spartan-dashboard.json
+
+prometheus:
+  server:
+    global:
+      evaluation_interval: 15s
+      scrape_interval: 15s
+  serverFiles:
+    prometheus.yml:
+      scrape_configs:
+        - job_name: otel-collector
+          static_configs:
+            - targets: ["metrics-opentelemetry-collector.metrics:8888"]
+        - job_name: aztec
+          static_configs:
+            - targets: ["metrics-opentelemetry-collector.metrics:8889"]
