@@ -52,6 +52,13 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* constraint_sy
                                                     uint8_t const* witness_buf,
                                                     bool* result);
 
+WASM_EXPORT void acir_verify_client_ivc(uint8_t const* proof_vec,
+                                        uint8_t const* accumulator_vec,
+                                        uint8_t const* final_vk_vec,
+                                        uint8_t const* eccvm_vk_vec,
+                                        uint8_t const* translator_vk_vec,
+                                        bool* result);
+
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf);
 
 WASM_EXPORT void acir_init_verification_key(in_ptr acir_composer_ptr);
