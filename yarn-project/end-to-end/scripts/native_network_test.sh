@@ -27,11 +27,11 @@ cd "$REPO"/yarn-project/end-to-end/scripts/native-network
 rm -f l1-contracts.env l2-contracts.env
 # Pass all scripts to tmux-split-args
 "$REPO"/scripts/tmux-split-args native_network_test_session \
-  boot-node.sh \
-  deploy-l1-contracts.sh \
-  deploy-l2-contracts.sh \
-  ethereum.sh \
-  prover-node.sh \
-  pxe.sh \
-  transaction-bot.sh \
-  "validator.sh 8081"
+ ./boot-node.sh \
+ ./deploy-l1-contracts.sh \
+ ./deploy-l2-contracts.sh \
+ ./ethereum.sh \
+ ./prover-node.sh \
+ ./pxe.sh \
+ ./transaction-bot.sh \
+ "./validator.sh 8081"
