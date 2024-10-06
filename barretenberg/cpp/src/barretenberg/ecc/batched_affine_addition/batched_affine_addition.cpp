@@ -4,6 +4,7 @@
 
 namespace bb {
 
+// WORKTODO repurpose this comment
 /**
  * @brief Reduce MSM inputs such that the set of scalars contains no duplicates by summing points which share a scalar.
  * @details Since point addition is substantially cheaper than scalar multiplication, it is more efficient in some cases
@@ -18,24 +19,7 @@ namespace bb {
  * single go for all additions to be performed across all sequences in a given round.
  *
  * 3) Perform rounds of pair-wise addition until each sequence is reduced to a single point.
- *
- * @tparam Curve
- * @param scalars
- * @param points
- * @return BatchedAffineAddition<Curve>::ReducedMsmInputs
  */
-// template <typename Curve>
-// BatchedAffineAddition<Curve>::ReducedMsmInputs BatchedAffineAddition<Curve>::reduce_msm_inputs(
-//     AdditionSequences add_sequences)
-// {
-//     // Perform rounds of pairwise addition until all sets of points sharing a scalar have been reduced to a single
-//     point batched_affine_add_in_place(add_sequences);
-
-//     // The reduced MSM inputs are the unique scalars and the reduced points
-//     std::span<Fr> output_scalars(unique_scalars.data(), num_unique_scalars);
-//     std::span<G1> output_points(updated_points.data(), num_unique_scalars);
-//     return { output_scalars, output_points };
-// }
 
 /**
  * @brief Batch compute inverses needed for a set of point addition sequences
@@ -46,7 +30,8 @@ namespace bb {
  * @param add_sequences
  */
 template <typename Curve>
-void BatchedAffineAddition<Curve>::batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences)
+std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
+    Curve>::batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences)
 {
     auto points = add_sequences.points;
     auto sequence_counts = add_sequences.sequence_counts;
@@ -58,10 +43,9 @@ void BatchedAffineAddition<Curve>::batch_compute_point_addition_slope_inverses(A
     }
 
     // Define scratch space for batched inverse computations and eventual storage of denominators
-    ASSERT(denominators.size() >= total_num_pairs);
-    std::span<Fq> scratch_space(denominators.data(), total_num_pairs);
-    std::vector<Fq> differences;
-    differences.reserve(total_num_pairs);
+    ASSERT(add_sequences.scratch_space.size() >= 2 * total_num_pairs);
+    std::span<Fq> denominators = add_sequences.scratch_space.subspan(0, total_num_pairs);
+    std::span<Fq> differences = add_sequences.scratch_space.subspan(total_num_pairs, 2 * total_num_pairs);
 
     // Compute and store successive products of differences (x_2 - x_1)
     Fq accumulator = 1;
@@ -78,10 +62,10 @@ void BatchedAffineAddition<Curve>::batch_compute_point_addition_slope_inverses(A
             ASSERT(x1 != x2);
 
             auto diff = x2 - x1;
-            differences.emplace_back(diff);
+            differences[pair_idx] = diff;
 
             // Store and update the running product of differences at each stage
-            scratch_space[pair_idx++] = accumulator;
+            denominators[pair_idx++] = accumulator;
             accumulator *= diff;
         }
         // If number of points in the sequence is odd, we skip the last one since it has no pair
@@ -94,9 +78,11 @@ void BatchedAffineAddition<Curve>::batch_compute_point_addition_slope_inverses(A
     // Compute the individual point-pair addition denominators 1/(x2 - x1)
     for (size_t i = 0; i < total_num_pairs; ++i) {
         size_t idx = total_num_pairs - 1 - i;
-        scratch_space[idx] *= inverse;
+        denominators[idx] *= inverse;
         inverse *= differences[idx];
     }
+
+    return denominators;
 }
 
 /**
@@ -119,7 +105,7 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
     }
 
     // Batch compute terms of the form 1/(x2 -x1) for each pair to be added in this round
-    batch_compute_point_addition_slope_inverses(add_sequences);
+    std::span<Fq> denominators = batch_compute_point_addition_slope_inverses(add_sequences);
 
     auto points = add_sequences.points;
     auto sequence_counts = add_sequences.sequence_counts;
@@ -170,21 +156,23 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     const size_t num_threads = 8;
     ASSERT(points.size() % num_threads == 0);
 
+    // instantiate scratch space for point addition denominators their calculation
+    std::vector<Fq> scratch_space_vector(points.size());
+    std::span<Fq> scratch_space(scratch_space_vector);
+
     std::vector<AdditionSequences> sequences;
     size_t points_per_thread = points.size() / num_threads; // Points per thread
     size_t offset = 0;
     for (size_t i = 0; i < num_threads; ++i) {
-        [[maybe_unused]] std::span<G1> seq_points =
-            points.subspan(offset, points_per_thread); // Subspan with index and length
-        offset += points_per_thread;
         std::vector<uint32_t> seq_counts = { static_cast<uint32_t>(points_per_thread) };
-        sequences.push_back(AdditionSequences(seq_counts, seq_points, {}));
+        std::span<G1> seq_points = points.subspan(offset, points_per_thread); // Subspan with index and length
+        std::span<Fq> seq_scratch_space = scratch_space.subspan(offset, points_per_thread);
+        sequences.push_back(AdditionSequences(seq_counts, seq_points, seq_scratch_space));
+        offset += points_per_thread;
     }
 
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        AffineAdder affine_adder(points_per_thread);
-        affine_adder.batched_affine_add_in_place(sequences[thread_idx]);
-    });
+    parallel_for(num_threads,
+                 [&](size_t thread_idx) { AffineAdder::batched_affine_add_in_place(sequences[thread_idx]); });
 
     info("Reduced point = ", sequences[0].points[0]);
 

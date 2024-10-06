@@ -301,6 +301,7 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
     using CK = CommitmentKey<Curve>;
     using G1 = Curve::AffineElement;
     using Fr = Curve::ScalarField;
+    using Fq = Curve::BaseField;
     using Polynomial = bb::Polynomial<Fr>;
 
     using AffineAdder = BatchedAffineAddition<Curve>;
@@ -325,10 +326,10 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
 
     std::vector<uint32_t> sequence_counts = { input_size }; // single sequence
     std::span<G1> points_to_add(raw_points.data(), input_size);
-    AddSequences add_sequences{ sequence_counts, points_to_add, {} };
+    std::vector<Fq> scratch_space(input_size);
+    AddSequences add_sequences{ sequence_counts, points_to_add, scratch_space };
 
-    AffineAdder affine_adder(input_size);
-    affine_adder.batched_affine_add_in_place(add_sequences);
+    AffineAdder::batched_affine_add_in_place(add_sequences);
 
     G1 expected_result = key->commit(poly);
     G1 result = raw_points[0] * const_val;

@@ -27,32 +27,12 @@ template <typename Curve> class BatchedAffineAddition {
     struct AdditionSequences {
         std::vector<uint32_t> sequence_counts;
         std::span<G1> points;
-        std::optional<std::span<Fq>> scratch_space;
+        std::span<Fq> scratch_space;
     };
 
-    // Set of reduced MSM inputs where all scalars are unique
-    struct ReducedMsmInputs {
-        std::span<Fr> scalars;
-        std::span<G1> points;
-    };
+    static std::span<Fq> batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences);
 
-    size_t num_unique_scalars = 0;
-    std::vector<Fq> denominators;
-
-    BatchedAffineAddition(const size_t num_scalars)
-    {
-        // WORKTODO: definitely dont want to resize here! reserve where possible!
-        // WORKTODO: some of these depend on stuff being allocated, e.g. denominators
-        denominators.resize(num_scalars / 2);
-    }
-
-    // ReducedMsmInputs reduce_msm_inputs(AdditionSequences add_sequences);
-
-    void batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences);
-
-    void batched_affine_add_in_place(AdditionSequences add_sequences);
-    // void batched_affine_add_in_place_parallel(const std::span<G1>& points, std::vector<uint32_t>&
-    // sequence_endpoints);
+    static void batched_affine_add_in_place(AdditionSequences add_sequences);
 
     /**
      * @brief Add two affine elements with the inverse in the slope term \lambda provided as input
@@ -67,7 +47,7 @@ template <typename Curve> class BatchedAffineAddition {
      * @param denominator 1/(x2 - x1)
      * @return Curve::AffineElement
      */
-    inline G1 affine_add_with_denominator(const G1& point_1, const G1& point_2, const Fq& denominator)
+    static inline G1 affine_add_with_denominator(const G1& point_1, const G1& point_2, const Fq& denominator)
     {
         const auto& x1 = point_1.x;
         const auto& y1 = point_1.y;
