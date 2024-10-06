@@ -47,10 +47,10 @@ function run_parallel() {
 # While the others are ran in the background, either in tmux or just interleaved
 run_parallel ./test-transfer.sh \
   ./boot-node.sh \
- ./deploy-l1-contracts.sh \
- ./deploy-l2-contracts.sh \
- ./ethereum.sh \
- ./prover-node.sh \
- ./pxe.sh \
- ./transaction-bot.sh \
- "./validator.sh 8081"
+  ./deploy-l1-contracts.sh \
+  ./deploy-l2-contracts.sh \
+  ./ethereum.sh \
+  ./prover-node.sh \
+  ./pxe.sh \
+  ./transaction-bot.sh \
+  "./validator.sh 8081"

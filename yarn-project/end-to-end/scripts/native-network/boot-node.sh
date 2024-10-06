@@ -33,9 +33,5 @@ done
 
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
 
-# Wait for anvil and deploy contracts
-# source this script to get the L1 contract addresses in env
-source "$REPO"/yarn-project/end-to-end/scripts/native-network/deploy-l1-contracts.sh
-
 # Start the Aztec node with the sequencer and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
