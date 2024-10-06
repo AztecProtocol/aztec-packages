@@ -140,6 +140,21 @@ tempo:
     opencensus:
       enabled: false
 
+prometheus:
+  server:
+    global:
+      evaluation_interval: 15s
+      scrape_interval: 15s
+  serverFiles:
+    prometheus.yml:
+      scrape_configs:
+        - job_name: otel-collector
+          static_configs:
+            - targets: ["metrics-opentelemetry-collector.metrics:8888"]
+        - job_name: aztec
+          static_configs:
+            - targets: ["metrics-opentelemetry-collector.metrics:8889"]
+
 # Enable and configure Grafana
 grafana:
   datasources:
@@ -157,33 +172,187 @@ grafana:
           uid: spartan-metrics-prometheus
           isDefault: true
           url: http://metrics-prometheus-server.metrics:80
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-      - name: "default"
-        orgId: 1
-        folder: ""
-        type: file
-        disableDeletion: false
-        editable: true
-        options:
-          path: /var/lib/grafana/dashboards/default
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
   dashboards:
     default:
+      # unfortunately, we can't use the `file` helper here, so we have to inline the dashboard
+      # json. This is a limitation of Helm.
+      # See https://github.com/helm/helm/issues/1892
       spartan-dashboard:
-        file: dashboards/spartan-dashboard.json
-
-prometheus:
-  server:
-    global:
-      evaluation_interval: 15s
-      scrape_interval: 15s
-  serverFiles:
-    prometheus.yml:
-      scrape_configs:
-        - job_name: otel-collector
-          static_configs:
-            - targets: ["metrics-opentelemetry-collector.metrics:8888"]
-        - job_name: aztec
-          static_configs:
-            - targets: ["metrics-opentelemetry-collector.metrics:8889"]
+        json: |
+          {
+          "annotations": {
+            "list": [
+              {
+                "builtIn": 1,
+                "datasource": {
+                  "type": "grafana",
+                  "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+              }
+            ]
+          },
+          "editable": true,
+          "fiscalYearStartMonth": 0,
+          "graphTooltip": 0,
+          "id": 1,
+          "links": [],
+          "panels": [
+            {
+              "datasource": {
+                "default": false,
+                "type": "prometheus",
+                "uid": "spartan-metrics-prometheus"
+              },
+              "description": "",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "series",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "mappings": [],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
+              },
+              "id": 1,
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "prometheus",
+                    "uid": "spartan-metrics-prometheus"
+                  },
+                  "editorMode": "code",
+                  "expr": "aztec_archiver_block_height",
+                  "legendFormat": "__auto",
+                  "range": true,
+                  "refId": "A"
+                }
+              ],
+              "title": "L2 Block Height",
+              "type": "timeseries"
+            }
+          ],
+          "schemaVersion": 39,
+          "tags": [],
+          "templating": {
+            "list": [
+              {
+                "current": {
+                  "selected": false,
+                  "text": "smoke",
+                  "value": "smoke"
+                },
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "spartan-metrics-prometheus"
+                },
+                "definition": "label_values(k8s_namespace_name)",
+                "hide": 0,
+                "includeAll": false,
+                "multi": false,
+                "name": "Deployment",
+                "options": [],
+                "query": {
+                  "qryType": 1,
+                  "query": "label_values(k8s_namespace_name)",
+                  "refId": "PrometheusVariableQueryEditor-VariableQuery"
+                },
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false,
+                "sort": 1,
+                "type": "query"
+              }
+            ]
+          },
+          "time": {
+            "from": "now-6h",
+            "to": "now"
+          },
+          "timepicker": {},
+          "timezone": "browser",
+          "title": "Spartan Deployments",
+          "uid": "ae01y5sn1bls0a",
+          "version": 1,
+          "weekStart": ""
+          }
