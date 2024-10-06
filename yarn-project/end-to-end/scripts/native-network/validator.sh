@@ -14,7 +14,7 @@ done
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
 
 echo "Waiting for Aztec Node..."
-until curl -s http://127.0.0.1:8080/status; do
+until curl -s http://127.0.0.1:8080/status >/dev/null ; do
   sleep 1
 done
 

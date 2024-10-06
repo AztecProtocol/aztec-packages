@@ -12,7 +12,7 @@ done
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
 
 # Get node info from the boot node
-output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-node-info -u $BOOT_NODE_URL)
+output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-node-info -u 127.0.0.1:8080)
 
 # Extract boot node ENR
 export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')

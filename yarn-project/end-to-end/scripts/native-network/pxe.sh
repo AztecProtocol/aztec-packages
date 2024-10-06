@@ -11,7 +11,7 @@ export DEBUG="aztec:*"
 export PXE_PORT="http://127.0.0.1:8079"
 
 echo "Waiting for Aztec Node..."
-until curl -s http://127.0.0.1:8080/status; do
+until curl -s http://127.0.0.1:8080/status >/dev/null ; do
   sleep 1
 done
 
