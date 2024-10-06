@@ -341,10 +341,13 @@ void add_value(TypeOfTree& tree, const LeafValueType& value, bool expectedSucces
 }
 
 template <typename LeafValueType, typename TypeOfTree>
-void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values)
+void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool expectedSuccess = true)
 {
     Signal signal;
-    auto completion = [&](const TypedResponse<AddDataResponse>&) -> void { signal.signal_level(); };
+    auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>& response) -> void {
+        EXPECT_EQ(response.success, expectedSuccess);
+        signal.signal_level();
+    };
 
     tree.add_or_update_values(values, completion);
     signal.wait_for_level();
@@ -1554,6 +1557,67 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
 
     lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(60, 0));
     EXPECT_EQ(lowLeaf.index, 2);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_inserting_a_duplicate_committed_nullifier_should_fail)
+{
+    const uint32_t batch_size = 16;
+    uint32_t depth = 10;
+    ThreadPoolPtr multi_workers = make_thread_pool(1);
+    NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
+
+    std::string name1 = random_string();
+    LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(_directory, name1, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree = TreeType(std::move(store1), multi_workers, batch_size);
+
+    std::vector<fr> values = create_values(batch_size);
+    std::vector<NullifierLeafValue> nullifierValues(batch_size);
+    std::transform(
+        values.begin(), values.end(), nullifierValues.begin(), [](const fr& v) { return NullifierLeafValue(v); });
+
+    add_values(tree, nullifierValues);
+    commit_tree(tree);
+
+    // create a new set of values
+    std::vector<fr> values2 = create_values(batch_size);
+
+    // copy one of the previous values into the middle of the batch
+    values2[batch_size / 2] = values[0];
+    std::vector<NullifierLeafValue> nullifierValues2(batch_size);
+    std::transform(
+        values2.begin(), values2.end(), nullifierValues2.begin(), [](const fr& v) { return NullifierLeafValue(v); });
+    add_values(tree, nullifierValues2, false);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_inserting_a_duplicate_uncommitted_nullifier_should_fail)
+{
+    const uint32_t batch_size = 16;
+    uint32_t depth = 10;
+    ThreadPoolPtr multi_workers = make_thread_pool(1);
+    NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
+
+    std::string name1 = random_string();
+    LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(_directory, name1, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
+    auto tree = TreeType(std::move(store1), multi_workers, batch_size);
+
+    std::vector<fr> values = create_values(batch_size);
+    std::vector<NullifierLeafValue> nullifierValues(batch_size);
+    std::transform(
+        values.begin(), values.end(), nullifierValues.begin(), [](const fr& v) { return NullifierLeafValue(v); });
+
+    add_values(tree, nullifierValues);
+
+    // create a new set of values
+    std::vector<fr> values2 = create_values(batch_size);
+
+    // copy one of the previous values into the middle of the batch
+    values2[batch_size / 2] = values[0];
+    std::vector<NullifierLeafValue> nullifierValues2(batch_size);
+    std::transform(
+        values2.begin(), values2.end(), nullifierValues2.begin(), [](const fr& v) { return NullifierLeafValue(v); });
+    add_values(tree, nullifierValues2, false);
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_historic_blocks)
