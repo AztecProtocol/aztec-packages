@@ -1,5 +1,6 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/ecc//batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include <benchmark/benchmark.h>
@@ -269,30 +270,59 @@ template <typename Curve> void bench_reduce_points(::benchmark::State& state)
 {
     // using Fr = typename Curve::ScalarField;
     using G1 = typename Curve::AffineElement;
-    using MsmSort = MsmSorter<Curve>;
-    using AddSequences = MsmSort::AdditionSequences;
+    using AffineAdder = BatchedAffineAddition<Curve>;
+    using AddSequences = AffineAdder::AdditionSequences;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
 
-    const size_t input_size = 24000;
+    const size_t input_size = 1 << 15;
 
-    MsmSort msm_sorter;
-    msm_sorter.denominators.resize(input_size >> 1); // need at most half as many denominators as scalars
+    AffineAdder affine_adder(input_size);
 
     // Extract raw SRS points from point point table points
+    std::vector<G1> raw_points;
+    raw_points.reserve(input_size);
     for (size_t i = 0; i < input_size * 2; i += 2) {
-        msm_sorter.updated_points.emplace_back(point_table[i]);
+        raw_points.emplace_back(point_table[i]);
     }
 
-    std::vector<uint64_t> sequence_counts = { input_size };
-    std::span<G1> dead_range_points(msm_sorter.updated_points.data(), input_size);
+    std::vector<uint32_t> sequence_counts = { input_size };
+    std::span<G1> dead_range_points(raw_points.data(), input_size);
     [[maybe_unused]] AddSequences add_sequences{ sequence_counts, dead_range_points, {} };
 
     for (auto _ : state) {
-        msm_sorter.batched_affine_add_in_place(add_sequences);
+        affine_adder.batched_affine_add_in_place(add_sequences);
         // key->commit_structured(polynomial, block_sizes, actual_sizes);
         // key->commit_structured_z_perm(polynomial, block_sizes, actual_sizes);
+    }
+}
+
+// Commit to a polynomial with dense random nonzero entries
+template <typename Curve> void bench_reduce_points_large(::benchmark::State& state)
+{
+    // using Fr = typename Curve::ScalarField;
+    using G1 = typename Curve::AffineElement;
+    using AddManager = AdditionManager<Curve>;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+
+    std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
+
+    const size_t input_size = 16 * 1 << 15;
+
+    // Extract raw SRS points from point point table points
+    std::vector<G1> raw_points;
+    raw_points.reserve(input_size);
+    for (size_t i = 0; i < input_size * 2; i += 2) {
+        raw_points.emplace_back(point_table[i]);
+    }
+
+    std::span<G1> points(raw_points.begin(), input_size);
+    std::vector<uint32_t> sequence_endpoints = {};
+    AddManager add_manager;
+
+    for (auto _ : state) {
+        add_manager.batched_affine_add_in_place_parallel(points, sequence_endpoints);
     }
 }
 
@@ -330,6 +360,10 @@ template <typename Curve> void bench_reduce_points(::benchmark::State& state)
 //     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
 //     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_reduce_points<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+BENCHMARK(bench_reduce_points_large<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond)
     ->Iterations(1);

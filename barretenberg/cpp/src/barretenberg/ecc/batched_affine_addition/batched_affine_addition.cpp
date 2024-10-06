@@ -147,7 +147,7 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
         }
 
         // Update the sequence counts in place for the next round
-        const uint64_t updated_sequence_count = static_cast<uint64_t>(num_pairs) + static_cast<uint64_t>(overflow);
+        const uint32_t updated_sequence_count = static_cast<uint32_t>(num_pairs) + static_cast<uint32_t>(overflow);
         count = updated_sequence_count;
 
         // More additions are required if any sequence has not yet been reduced to a single point
@@ -163,6 +163,44 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
     }
 }
 
+template <typename Curve>
+std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched_affine_add_in_place_parallel(
+    const std::span<G1>& points, [[maybe_unused]] std::vector<uint32_t>& sequence_endpoints)
+{
+    const size_t num_threads = 8;
+    ASSERT(points.size() % num_threads == 0);
+
+    std::vector<AdditionSequences> sequences;
+    size_t points_per_thread = points.size() / num_threads; // Points per thread
+    size_t offset = 0;
+    for (size_t i = 0; i < num_threads; ++i) {
+        [[maybe_unused]] std::span<G1> seq_points =
+            points.subspan(offset, points_per_thread); // Subspan with index and length
+        offset += points_per_thread;
+        std::vector<uint32_t> seq_counts = { static_cast<uint32_t>(points_per_thread) };
+        sequences.push_back(AdditionSequences(seq_counts, seq_points, {}));
+    }
+
+    parallel_for(num_threads, [&](size_t thread_idx) {
+        AffineAdder affine_adder(points_per_thread);
+        affine_adder.batched_affine_add_in_place(sequences[thread_idx]);
+    });
+
+    info("Reduced point = ", sequences[0].points[0]);
+
+    std::vector<G1> reduced_points;
+    for (const auto& seq : sequences) {
+        // Extract the first num-sequence-counts many points from each add sequence
+        for (size_t i = 0; i < seq.sequence_counts.size(); ++i) {
+            reduced_points.emplace_back(seq.points[i]);
+        }
+    }
+
+    return reduced_points;
+}
+
 template class BatchedAffineAddition<curve::Grumpkin>;
 template class BatchedAffineAddition<curve::BN254>;
+template class AdditionManager<curve::Grumpkin>;
+template class AdditionManager<curve::BN254>;
 } // namespace bb

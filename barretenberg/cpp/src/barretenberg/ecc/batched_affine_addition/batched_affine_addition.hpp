@@ -25,7 +25,7 @@ template <typename Curve> class BatchedAffineAddition {
 
     // Storage for a set of points to be sorted and reduced
     struct AdditionSequences {
-        std::span<uint64_t> sequence_counts;
+        std::vector<uint32_t> sequence_counts;
         std::span<G1> points;
         std::optional<std::span<Fq>> scratch_space;
     };
@@ -37,15 +37,13 @@ template <typename Curve> class BatchedAffineAddition {
     };
 
     size_t num_unique_scalars = 0;
-    std::vector<uint64_t> sequence_counts;
     std::vector<Fq> denominators;
 
-    BatchedAffineAddition(const size_t num_scalars = 0)
+    BatchedAffineAddition(const size_t num_scalars)
     {
         // WORKTODO: definitely dont want to resize here! reserve where possible!
         // WORKTODO: some of these depend on stuff being allocated, e.g. denominators
-        sequence_counts.resize(num_scalars);
-        denominators.resize(num_scalars);
+        denominators.resize(num_scalars / 2);
     }
 
     // ReducedMsmInputs reduce_msm_inputs(AdditionSequences add_sequences);
@@ -53,6 +51,8 @@ template <typename Curve> class BatchedAffineAddition {
     void batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences);
 
     void batched_affine_add_in_place(AdditionSequences add_sequences);
+    // void batched_affine_add_in_place_parallel(const std::span<G1>& points, std::vector<uint32_t>&
+    // sequence_endpoints);
 
     /**
      * @brief Add two affine elements with the inverse in the slope term \lambda provided as input
@@ -79,6 +79,18 @@ template <typename Curve> class BatchedAffineAddition {
         Fq y3 = lambda * (x1 - x3) - y1;
         return { x3, y3 };
     }
+};
+
+template <typename Curve> class AdditionManager {
+    using G1 = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
+    using Fq = typename Curve::BaseField;
+    using AffineAdder = BatchedAffineAddition<Curve>;
+    using AdditionSequences = AffineAdder::AdditionSequences;
+
+  public:
+    std::vector<G1> batched_affine_add_in_place_parallel(const std::span<G1>& points,
+                                                         std::vector<uint32_t>& sequence_endpoints);
 };
 
 } // namespace bb

@@ -306,7 +306,7 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
     using AffineAdder = BatchedAffineAddition<Curve>;
     using AddSequences = AffineAdder::AdditionSequences;
 
-    const size_t input_size = 24000;
+    const size_t input_size = 1 << 15;
     auto key = TestFixture::template create_commitment_key<CK>(input_size);
     std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
 
@@ -316,8 +316,49 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
         poly.at(i) = const_val;
     }
 
-    AffineAdder affine_adder;
-    affine_adder.denominators.resize(input_size >> 1); // need at most half as many denominators as scalars
+    // Extract raw SRS points from point point table points
+    std::vector<G1> raw_points;
+    raw_points.reserve(input_size);
+    for (size_t i = 0; i < input_size * 2; i += 2) {
+        raw_points.emplace_back(point_table[i]);
+    }
+
+    std::vector<uint32_t> sequence_counts = { input_size }; // single sequence
+    std::span<G1> points_to_add(raw_points.data(), input_size);
+    AddSequences add_sequences{ sequence_counts, points_to_add, {} };
+
+    AffineAdder affine_adder(input_size);
+    affine_adder.batched_affine_add_in_place(add_sequences);
+
+    G1 expected_result = key->commit(poly);
+    G1 result = raw_points[0] * const_val;
+
+    info("Raw point = ", raw_points[0]);
+
+    EXPECT_EQ(result, expected_result);
+}
+
+TYPED_TEST(CommitmentKeyTest, ReduceLarge)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    using AddManager = AdditionManager<Curve>;
+
+    const size_t num_chunks = 8;
+    const size_t chunk_size = 1 << 15;
+    const size_t input_size = num_chunks * chunk_size;
+    auto key = TestFixture::template create_commitment_key<CK>(input_size);
+    std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
+
+    Polynomial poly(input_size);
+    Fr const_val = Fr::random_element();
+    for (size_t i = 0; i < input_size; i++) {
+        poly.at(i) = const_val;
+    }
 
     // Extract raw SRS points from point point table points
     std::vector<G1> raw_points;
@@ -326,14 +367,17 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
         raw_points.emplace_back(point_table[i]);
     }
 
-    std::vector<uint64_t> sequence_counts = { input_size }; // single sequence
-    std::span<G1> points_to_add(raw_points.data(), input_size);
-    AddSequences add_sequences{ sequence_counts, points_to_add, {} };
-
-    affine_adder.batched_affine_add_in_place(add_sequences);
+    std::span<G1> points(raw_points.begin(), input_size);
+    std::vector<uint32_t> sequence_endpoints = {};
+    AddManager add_manager;
+    auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_endpoints);
 
     G1 expected_result = key->commit(poly);
-    G1 result = raw_points[0] * const_val;
+
+    G1 result = reduced_points[0] * const_val;
+    for (size_t i = 1; i < reduced_points.size(); ++i) {
+        result = result + reduced_points[i] * const_val;
+    }
 
     EXPECT_EQ(result, expected_result);
 }
