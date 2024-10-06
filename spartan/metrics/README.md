@@ -3,14 +3,14 @@ This is a chart intended to be installed once per k8s cluster, and provides moni
 ## Installation
 
 ```bash
-# From the spartan directory
-./scripts/setup_metrics_dashboard.sh
+# From the spartan/metrics directory
+./install.sh
 ```
 
 ## Access
 ```bash
-# From the spartan directory
-./scripts/forward_metrics_dashboard.sh
+# From the spartan/metrics directory
+./forward.sh
 ```
 
 Follow the instructions printed to access the dashboard.
