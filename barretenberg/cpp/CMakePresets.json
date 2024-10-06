@@ -128,7 +128,7 @@
       "binaryDir": "build-tracy-time-instrumented",
       "inherits": "default",
       "cacheVariables": {
-        "ENABLE_TRACY": "ON"
+        "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
       }
     },
     {
