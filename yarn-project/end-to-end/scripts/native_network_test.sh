@@ -29,7 +29,7 @@ cd "$REPO"/yarn-project/end-to-end/scripts/native-network
 rm -f l1-contracts.env l2-contracts.env
 
 function run_parallel() {
-  if [ "${INTERLEAVED:-false}" = true ] ; then
+  if [ "${INTERLEAVED:-false}" = "false" ] ; then
     # Run in tmux for local debugging
     "$REPO"/scripts/tmux_split_args.sh native_network_test_session $@
   else
@@ -38,6 +38,8 @@ function run_parallel() {
   fi
 }
 
+# We exit with the return code of the first command
+# While the others are ran in the background, either in tmux or just interleaved
 run_parallel ./test-transfer.sh \
   ./boot-node.sh \
  ./deploy-l1-contracts.sh \
