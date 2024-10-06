@@ -31,10 +31,10 @@ rm -f l1-contracts.env l2-contracts.env
 function run_parallel() {
   if [ "${INTERLEAVED:-false}" = "false" ] ; then
     # Run in tmux for local debugging
-    "$REPO"/scripts/tmux_split_args.sh native_network_test_session $@
+    "$REPO"/scripts/tmux_split_args.sh native_network_test_session "$@"
   else
     # Run interleaved for CI
-    "$REPO"/scripts/run_interleaved.sh $@
+    "$REPO"/scripts/run_interleaved.sh "$@"
   fi
 }
 

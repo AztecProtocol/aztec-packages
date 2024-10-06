@@ -39,7 +39,7 @@ for ((i=0; i<num_commands; i++)); do
 done
 
 # Ensure this finishes when pane 0 is finished
-tmux set-hook -t "$session_name" pane-exited "if [ '#{pane_id}' = '0' ]; kill-session -t mysession"
+# tmux set-hook -t "$session_name" pane-exited "if [ \"#{pane_id}\" = \"0\" ]; then kill-session -t \"$session_name\"; fi"
 
 # Now send commands to each pane
 for ((i=0; i<num_commands; i++)); do
