@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-# Usage: tmux-splits-stdin <session-name> <main command> <background commands>...
+# Usage: tmux_splits_args.sh <session-name> <main command> <background commands>...
 # Runs commands in parallel in a tmux window.
 # *Finishes when the main command exits.*
 
@@ -39,7 +39,7 @@ for ((i=0; i<num_commands; i++)); do
 done
 
 # Ensure this finishes when pane 0 is finished
-# tmux set-hook -t "$session_name" pane-exited "if [ \"#{pane_id}\" = \"0\" ]; then kill-session -t \"$session_name\"; fi"
+tmux set-hook -t "$session_name" pane-exited "if-shell -F '#{==:#{pane_index},0}' 'kill-session -t \"$session_name\"'"
 
 # Now send commands to each pane
 for ((i=0; i<num_commands; i++)); do

@@ -46,9 +46,9 @@ function run_parallel() {
 # We exit with the return code of the first command
 # While the others are ran in the background, either in tmux or just interleaved
 run_parallel ./test-transfer.sh \
-  ./boot-node.sh \
   ./deploy-l1-contracts.sh \
   ./deploy-l2-contracts.sh \
+  ./boot-node.sh \
   ./ethereum.sh \
   ./prover-node.sh \
   ./pxe.sh \
