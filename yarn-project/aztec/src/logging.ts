@@ -32,9 +32,23 @@ function createWinstonLocalFileLogger() {
 
 /** Creates a winston logger that logs everything to stdout in json format */
 function createWinstonJsonStdoutLogger() {
+  const ignoreAztecPattern = format(info => {
+    if (
+      ['aztec:avm_simulator', 'aztec:libp2p_service', 'aztec:circuits:artifact_hash', 'json-rpc'].some(pattern =>
+        info.module.startsWith(pattern),
+      )
+    ) {
+      return false; // Skip logging this message
+    }
+    return info;
+  });
   return winston.createLogger({
     level: process.env.LOG_LEVEL ?? 'info',
-    transports: [new winston.transports.Console({ format: format.combine(format.timestamp(), format.json()) })],
+    transports: [
+      new winston.transports.Console({
+        format: format.combine(format.timestamp(), ignoreAztecPattern(), format.json()),
+      }),
+    ],
   });
 }
 

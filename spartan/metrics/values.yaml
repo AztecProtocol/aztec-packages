@@ -32,7 +32,9 @@ opentelemetry-collector:
       otlphttp/logs:
         endpoint: http://metrics-loki.metrics:3100/otlp
       otlp/tempo:
-        endpoint: http://metrics-tempo.metrics:4318
+        endpoint: http://metrics-tempo.metrics:4317
+        tls:
+          insecure: true
     extensions:
       health_check:
         endpoint: ${env:MY_POD_IP}:13133
