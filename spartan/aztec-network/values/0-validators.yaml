@@ -1,6 +1,0 @@
-validator:
-  replicas: 0
-
-bootNode:
-  validator:
-    disabled: true

@@ -49,7 +49,7 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  replicas: 1
+  replicas: 0
   service:
     p2pPort: 40400
     nodePort: 8080
