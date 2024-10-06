@@ -1,6 +1,13 @@
 #!/bin/bash
 
 set -eu
+
+# Get the name of the script without the path and extension
+SCRIPT_NAME=$(basename "$0" .sh)
+
+# Redirect stdout and stderr to <script_name>.log while also printing to the console
+exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
+
 # Run our test assuming the port in pxe.sh
 # Wait for the Aztec Node to be ready
 echo "Waiting for Aztec Node..."

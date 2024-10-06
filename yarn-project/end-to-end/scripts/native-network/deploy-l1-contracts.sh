@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Get the name of the script without the path and extension
+SCRIPT_NAME=$(basename "$0" .sh)
+
+# Redirect stdout and stderr to <script_name>.log while also printing to the console
+exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
+
 # Deploys L1 contracts and captures the output
 
 set -eu
@@ -36,3 +42,5 @@ export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 EOCONFIG
 
 echo "Contract addresses saved to l1-contracts.env"
+sleep 5
+tmux kill-pane

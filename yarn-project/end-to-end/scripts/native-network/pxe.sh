@@ -1,6 +1,12 @@
 #!/bin/bash
 set -eu
 
+# Get the name of the script without the path and extension
+SCRIPT_NAME=$(basename "$0" .sh)
+
+# Redirect stdout and stderr to <script_name>.log while also printing to the console
+exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
+
 # Starts the PXE (Private eXecution Environment) service
 # Set environment variables
 export ETHEREUM_HOST="http://127.0.0.1:8545"

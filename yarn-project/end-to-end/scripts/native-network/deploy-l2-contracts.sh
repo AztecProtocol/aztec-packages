@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Get the name of the script without the path and extension
+SCRIPT_NAME=$(basename "$0" .sh)
+
+# Redirect stdout and stderr to <script_name>.log while also printing to the console
+exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
+
 # Deploys L2 contracts
 
 set -eu
@@ -19,3 +25,6 @@ node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/
 echo "Deployed L2 contracts"
 # Use file just as done signal
 echo "" > l2-contracts.env
+echo "Wrote to l2-contracts.env to signal completion"
+sleep 5
+tmux kill-pane
