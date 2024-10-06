@@ -11,22 +11,16 @@ import FeeJuiceJson from '../artifacts/FeeJuice.json' assert { type: 'json' };
 import MultiCallEntrypointJson from '../artifacts/MultiCallEntrypoint.json' assert { type: 'json' };
 import RouterJson from '../artifacts/Router.json' assert { type: 'json' };
 
-export type ProtocolContractName =
-  | 'AuthRegistry'
-  | 'ContractInstanceDeployer'
-  | 'ContractClassRegisterer'
-  | 'MultiCallEntrypoint'
-  | 'FeeJuice'
-  | 'Router';
-
-export const protocolContractNames: ProtocolContractName[] = [
+export const protocolContractNames = [
   'AuthRegistry',
   'ContractInstanceDeployer',
   'ContractClassRegisterer',
   'MultiCallEntrypoint',
   'FeeJuice',
   'Router',
-];
+] as const;
+
+export type ProtocolContractName = (typeof protocolContractNames)[number];
 
 export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
   AuthRegistry: loadContractArtifact(AuthRegistryJson as NoirCompiledContract),

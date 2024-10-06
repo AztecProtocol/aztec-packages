@@ -93,17 +93,13 @@ async function generateDeclarationFile(destName: string) {
   await fs.writeFile(path.join(destArtifactsDir, `${destName}.d.json.ts`), content);
 }
 
-function generateNameType(names: string[]) {
-  return `
-    export type ProtocolContractName = ${names.map(name => `'${name}'`).join('|\n')};
-  `;
-}
-
 function generateNames(names: string[]) {
   return `
-    export const protocolContractNames: ProtocolContractName[] = [
+    export const protocolContractNames = [
       ${names.map(name => `'${name}'`).join(',\n')}
-    ];
+    ] as const;
+
+    export type ProtocolContractName = typeof protocolContractNames[number];
   `;
 }
 
@@ -166,8 +162,6 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
     import { type ContractArtifact } from '@aztec/foundation/abi';
     import { loadContractArtifact } from '@aztec/types/abi';
     import { type NoirCompiledContract } from '@aztec/types/noir';
-
-    ${generateNameType(names)}
 
     ${generateNames(names)}
 

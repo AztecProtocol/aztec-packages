@@ -19,6 +19,7 @@ import { makeTuple } from '@aztec/foundation/array';
 export function makeBloatedProcessedTx(
   historicalHeaderOrDb: Header | MerkleTreeOperations,
   vkRoot: Fr,
+  protocolContractTreeRoot: Fr,
   seed = 0x1,
   overrides: { inclusionFee?: Fr } = {},
 ) {
@@ -26,6 +27,7 @@ export function makeBloatedProcessedTx(
   const tx = mockTx(seed);
   const kernelOutput = KernelCircuitPublicInputs.empty();
   kernelOutput.constants.vkTreeRoot = vkRoot;
+  kernelOutput.constants.protocolContractTreeRoot = protocolContractTreeRoot;
   kernelOutput.constants.historicalHeader =
     'getInitialHeader' in historicalHeaderOrDb ? historicalHeaderOrDb.getInitialHeader() : historicalHeaderOrDb;
   kernelOutput.end.publicDataUpdateRequests = makeTuple(

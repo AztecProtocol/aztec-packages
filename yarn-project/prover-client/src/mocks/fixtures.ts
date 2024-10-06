@@ -91,7 +91,7 @@ export async function getSimulationProvider(
 }
 
 export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0x1) =>
-  makeBloatedProcessedTxWithVKRoot(builderDb, getVKTreeRoot(), seed);
+  makeBloatedProcessedTxWithVKRoot(builderDb, getVKTreeRoot(), protocolContractTreeRoot, seed);
 
 export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
   const header = builderDb.getInitialHeader();

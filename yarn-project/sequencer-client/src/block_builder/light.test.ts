@@ -144,7 +144,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a single tx header', async () => {
-    const txs = times(1, i => makeBloatedProcessedTx(db, vkRoot, i));
+    const txs = times(1, i => makeBloatedProcessedTx(db, vkRoot, protocolContractTreeRoot, i));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -162,7 +162,8 @@ describe('LightBlockBuilder', () => {
   });
 
   // Makes a tx with a non-zero inclusion fee for testing
-  const makeTx = (i: number) => makeBloatedProcessedTx(db, vkRoot, i, { inclusionFee: new Fr(i) });
+  const makeTx = (i: number) =>
+    makeBloatedProcessedTx(db, vkRoot, protocolContractTreeRoot, i, { inclusionFee: new Fr(i) });
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
