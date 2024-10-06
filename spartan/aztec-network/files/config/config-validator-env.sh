@@ -28,6 +28,7 @@ aztec add-l1-validator --validator $address --rollup $rollup_address
 
 aztec fast-forward-epochs --rollup $rollup_address --count 1
 
+
 # Write the addresses to a file in the shared volume
 cat <<EOF > /shared/contracts.env
 export BOOTSTRAP_NODES=$boot_node_enr
