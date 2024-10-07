@@ -1,4 +1,5 @@
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include <algorithm>
 #include <execution>
 #include <set>
@@ -151,50 +152,20 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
 }
 
 template <typename Curve>
-std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched_affine_add_in_place_parallel(
-    const std::span<G1>& points, [[maybe_unused]] std::vector<uint32_t>& sequence_endpoints)
-{
-    const size_t num_threads = 8;
-    ASSERT(points.size() % num_threads == 0);
-
-    // instantiate scratch space for point addition denominators their calculation
-    std::vector<Fq> scratch_space_vector(points.size());
-    std::span<Fq> scratch_space(scratch_space_vector);
-
-    std::vector<AdditionSequences> sequences;
-    size_t points_per_thread = points.size() / num_threads; // Points per thread
-    size_t offset = 0;
-    for (size_t i = 0; i < num_threads; ++i) {
-        std::vector<size_t> seq_counts = { points_per_thread };
-        std::span<G1> seq_points = points.subspan(offset, points_per_thread); // Subspan with index and length
-        std::span<Fq> seq_scratch_space = scratch_space.subspan(offset, points_per_thread);
-        sequences.push_back(AdditionSequences(seq_counts, seq_points, seq_scratch_space));
-        offset += points_per_thread;
-    }
-
-    parallel_for(num_threads,
-                 [&](size_t thread_idx) { AffineAdder::batched_affine_add_in_place(sequences[thread_idx]); });
-
-    info("Reduced point = ", sequences[0].points[0]);
-
-    std::vector<G1> reduced_points;
-    for (const auto& seq : sequences) {
-        // Extract the first num-sequence-counts many points from each add sequence
-        for (size_t i = 0; i < seq.sequence_counts.size(); ++i) {
-            reduced_points.emplace_back(seq.points[i]);
-        }
-    }
-
-    return reduced_points;
-}
-
-template <typename Curve>
 typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::strategize_threads(
-    const std::span<G1>& points, const std::vector<size_t>& sequence_endpoints)
+    const std::span<G1>& points, const std::vector<size_t>& sequence_counts, const std::span<Fq>& scratch_space)
 {
+    // Compute the endpoints of the sequences within the points array from the sequence counts
+    std::vector<size_t> sequence_endpoints;
+    size_t total_count = 0;
+    for (const auto& count : sequence_counts) {
+        total_count += count;
+        sequence_endpoints.emplace_back(total_count);
+    }
+
     // Assign the points across the available threads as evenly as possible
     const size_t total_num_points = points.size();
-    const size_t num_threads = 3; // WORKTODO: actually determine this
+    const size_t num_threads = 4; // WORKTODO: actually determine this
     const size_t base_thread_size = total_num_points / num_threads;
     const size_t leftover_size = total_num_points % num_threads;
     std::vector<size_t> thread_sizes(num_threads, base_thread_size);
@@ -204,10 +175,12 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::strategize_t
 
     // Construct the thread endpoints and the thread_points according to the distribution determined above
     std::vector<std::span<G1>> thread_points;
+    std::vector<std::span<Fq>> thread_scratch_space;
     std::vector<size_t> thread_endpoints;
     size_t point_index = 0;
     for (auto size : thread_sizes) {
         thread_points.push_back(points.subspan(point_index, size));
+        thread_scratch_space.push_back(scratch_space.subspan(point_index, size));
         point_index += size;
         thread_endpoints.emplace_back(point_index);
     }
@@ -252,11 +225,57 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::strategize_t
     }
 
     std::vector<AdditionSequences> addition_sequences;
-    std::span<Fq> scratch_space(fake_scratch_space);
     for (size_t i = 0; i < num_threads; ++i) {
-        addition_sequences.emplace_back(thread_sequence_counts[i], thread_points[i], scratch_space);
+        addition_sequences.emplace_back(thread_sequence_counts[i], thread_points[i], thread_scratch_space[i]);
+    }
+    for (const auto& sequence : addition_sequences) {
+        info("Counts:");
+        for (auto count : sequence.sequence_counts) {
+            info("count = ", count);
+        }
+        info("Points size = ", sequence.points.size());
+        info("Scratch size = ", sequence.scratch_space.size());
+    }
+    for (const auto& tags : thread_sequence_tags) {
+        info("Tags:");
+        for (auto tag : tags) {
+            info("tag = ", tag);
+        }
     }
     return { addition_sequences, thread_sequence_tags };
+}
+
+template <typename Curve>
+std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched_affine_add_in_place_parallel(
+    const std::span<G1>& points, const std::vector<size_t>& sequence_counts)
+{
+    // instantiate scratch space for point addition denominators their calculation
+    std::vector<Fq> scratch_space_vector(points.size());
+    std::span<Fq> scratch_space(scratch_space_vector);
+
+    auto [addition_sequences, sequence_tags] = strategize_threads(points, sequence_counts, scratch_space);
+
+    const size_t num_threads = addition_sequences.size();
+    parallel_for(num_threads,
+                 [&](size_t thread_idx) { AffineAdder::batched_affine_add_in_place(addition_sequences[thread_idx]); });
+
+    std::vector<G1> reduced_points;
+    size_t prev_tag = std::numeric_limits<size_t>::max();
+    for (auto [sequences, tags] : zip_view(addition_sequences, sequence_tags)) {
+        // Extract the first num-sequence-counts many points from each add sequence
+        for (size_t i = 0; i < sequences.sequence_counts.size(); ++i) {
+            if (tags[i] == prev_tag) {
+                reduced_points.back() = reduced_points.back() + sequences.points[i];
+            } else {
+                reduced_points.emplace_back(sequences.points[i]);
+            }
+            prev_tag = tags[i];
+        }
+    }
+
+    info("reduced_points.size() = ", reduced_points.size());
+
+    return reduced_points;
 }
 
 template class BatchedAffineAddition<curve::Grumpkin>;

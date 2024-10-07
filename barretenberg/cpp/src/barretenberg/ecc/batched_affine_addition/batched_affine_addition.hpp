@@ -77,9 +77,11 @@ template <typename Curve> class AdditionManager {
 
   public:
     std::vector<G1> batched_affine_add_in_place_parallel(const std::span<G1>& points,
-                                                         std::vector<uint32_t>& sequence_endpoints);
+                                                         const std::vector<size_t>& sequence_counts);
 
-    ThreadData strategize_threads(const std::span<G1>& points, const std::vector<size_t>& sequence_endpoints);
+    ThreadData strategize_threads(const std::span<G1>& points,
+                                  const std::vector<size_t>& sequence_counts,
+                                  const std::span<Fq>& scratch_space);
 };
 
 } // namespace bb

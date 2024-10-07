@@ -339,6 +339,24 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
     EXPECT_EQ(result, expected_result);
 }
 
+TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
+{
+    using Curve = TypeParam;
+    using G1 = Curve::AffineElement;
+    //  using Fr = Curve::ScalarField;
+    using Fq = Curve::BaseField;
+
+    using AddManager = AdditionManager<Curve>;
+
+    std::vector<size_t> sequence_counts = { 7, 8, 6, 9 };
+    size_t total_num_points = 30;
+
+    std::vector<G1> points(total_num_points);
+    std::vector<Fq> scratch_space(total_num_points);
+    AddManager add_manager;
+    auto [addition_sequences, sequence_tags] = add_manager.strategize_threads(points, sequence_counts, scratch_space);
+}
+
 TYPED_TEST(CommitmentKeyTest, ReduceLarge)
 {
     using Curve = TypeParam;
@@ -349,9 +367,10 @@ TYPED_TEST(CommitmentKeyTest, ReduceLarge)
 
     using AddManager = AdditionManager<Curve>;
 
-    const size_t num_chunks = 8;
-    const size_t chunk_size = 1 << 15;
+    const size_t num_chunks = 5;
+    const size_t chunk_size = 100;
     const size_t input_size = num_chunks * chunk_size;
+    std::vector<size_t> sequence_counts(num_chunks, chunk_size);
     auto key = TestFixture::template create_commitment_key<CK>(input_size);
     std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
 
@@ -371,7 +390,7 @@ TYPED_TEST(CommitmentKeyTest, ReduceLarge)
     std::span<G1> points(raw_points.begin(), input_size);
     std::vector<uint32_t> sequence_endpoints = {};
     AddManager add_manager;
-    auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_endpoints);
+    auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_counts);
 
     G1 expected_result = key->commit(poly);
 
@@ -381,40 +400,6 @@ TYPED_TEST(CommitmentKeyTest, ReduceLarge)
     }
 
     EXPECT_EQ(result, expected_result);
-}
-
-TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
-{
-    using Curve = TypeParam;
-    using G1 = Curve::AffineElement;
-
-    using AddManager = AdditionManager<Curve>;
-
-    std::vector<size_t> sequence_counts = { 7, 8, 6, 9 };
-    size_t total_num_points = 0;
-    std::vector<size_t> sequence_endpoints;
-    for (const auto& count : sequence_counts) {
-        total_num_points += count;
-        sequence_endpoints.emplace_back(total_num_points);
-    }
-
-    std::vector<G1> points(total_num_points);
-    AddManager add_manager;
-    auto [addition_sequences, sequence_tags] = add_manager.strategize_threads(points, sequence_endpoints);
-
-    for (auto sequence : addition_sequences) {
-        info("Counts:");
-        for (auto count : sequence.sequence_counts) {
-            info("count = ", count);
-        }
-        info("Points size = ", sequence.points.size());
-    }
-    for (auto tags : sequence_tags) {
-        info("Tags:");
-        for (auto tag : tags) {
-            info("tag = ", tag);
-        }
-    }
 }
 
 } // namespace bb
