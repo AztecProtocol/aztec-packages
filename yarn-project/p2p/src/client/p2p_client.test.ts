@@ -6,9 +6,9 @@ import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { expect, jest } from '@jest/globals';
 
-import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
+import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool, type P2PService } from '../index.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { P2PClient } from './p2p_client.js';
 
 /**
