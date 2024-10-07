@@ -40,7 +40,7 @@ export async function executePrivateFunction(
   });
   const duration = timer.ms();
   const partialWitness = acirExecutionResult.partialWitness;
-  const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
+  const returnWitness = context.getReturnData(artifact, partialWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
   // TODO (alexg) estimate this size

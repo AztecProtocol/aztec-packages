@@ -191,6 +191,7 @@ library Constants {
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 544;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 691;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 547;
+  uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 39;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 42;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
