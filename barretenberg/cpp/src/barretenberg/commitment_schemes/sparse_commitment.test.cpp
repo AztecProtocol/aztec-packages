@@ -324,7 +324,7 @@ TYPED_TEST(CommitmentKeyTest, Reduce)
         raw_points.emplace_back(point_table[i]);
     }
 
-    std::vector<uint32_t> sequence_counts = { input_size }; // single sequence
+    std::vector<size_t> sequence_counts = { input_size }; // single sequence
     std::span<G1> points_to_add(raw_points.data(), input_size);
     std::vector<Fq> scratch_space(input_size);
     AddSequences add_sequences{ sequence_counts, points_to_add, scratch_space };
@@ -385,13 +385,24 @@ TYPED_TEST(CommitmentKeyTest, ReduceLarge)
 
 TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
 {
-    // std::set<uint32_t> thread_endpoints = { 0, 10, 20 };
-    // std::set<uint32_t> sequence_endpoints = { 0, 7, 15, 20 };
     using Curve = TypeParam;
+    using G1 = Curve::AffineElement;
 
     using AddManager = AdditionManager<Curve>;
 
-    AddManager::strategize_threads();
+    std::vector<size_t> sequence_endpoints = { 7, 15, 21 };
+    size_t total_num_points = sequence_endpoints.back();
+    std::vector<G1> points(total_num_points);
+    AddManager add_manager;
+    auto [addition_sequences, sequence_tags] = add_manager.strategize_threads(points, sequence_endpoints);
+
+    for (auto sequence : addition_sequences) {
+        info("Counts:");
+        for (auto count : sequence.sequence_counts) {
+            info("count = ", count);
+        }
+        info("Points size = ", sequence.points.size());
+    }
 }
 
 } // namespace bb

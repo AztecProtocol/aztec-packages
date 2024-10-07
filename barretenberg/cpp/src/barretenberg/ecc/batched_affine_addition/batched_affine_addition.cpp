@@ -165,7 +165,7 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     size_t points_per_thread = points.size() / num_threads; // Points per thread
     size_t offset = 0;
     for (size_t i = 0; i < num_threads; ++i) {
-        std::vector<uint32_t> seq_counts = { static_cast<uint32_t>(points_per_thread) };
+        std::vector<size_t> seq_counts = { points_per_thread };
         std::span<G1> seq_points = points.subspan(offset, points_per_thread); // Subspan with index and length
         std::span<Fq> seq_scratch_space = scratch_space.subspan(offset, points_per_thread);
         sequences.push_back(AdditionSequences(seq_counts, seq_points, seq_scratch_space));
@@ -188,15 +188,13 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     return reduced_points;
 }
 
-template <typename Curve> void AdditionManager<Curve>::strategize_threads()
+template <typename Curve>
+typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::strategize_threads(
+    const std::span<G1>& points, const std::vector<size_t>& sequence_endpoints)
 {
-    std::vector<size_t> sequence_endpoints = { 7, 15, 21 };
-
-    size_t total_num_points = sequence_endpoints.back();
-    std::vector<G1> points(total_num_points);
-
     // Assign the points across the available threads as evenly as possible
-    const size_t num_threads = 2;
+    const size_t total_num_points = points.size();
+    const size_t num_threads = 2; // WORKTODO: actually determine this
     const size_t base_thread_size = total_num_points / num_threads;
     const size_t leftover_size = total_num_points % num_threads;
     std::vector<size_t> thread_sizes(num_threads, base_thread_size);
@@ -205,11 +203,11 @@ template <typename Curve> void AdditionManager<Curve>::strategize_threads()
     }
 
     // Construct the thread endpoints and the thread_points according to the distribution determined above
-    std::vector<size_t> thread_endpoints;
     std::vector<std::span<G1>> thread_points;
+    std::vector<size_t> thread_endpoints;
     size_t point_index = 0;
     for (auto size : thread_sizes) {
-        thread_points.emplace_back(points.begin() + static_cast<std::ptrdiff_t>(point_index), size);
+        thread_points.push_back(points.subspan(point_index, size));
         point_index += size;
         thread_endpoints.emplace_back(point_index);
     }
@@ -221,30 +219,24 @@ template <typename Curve> void AdditionManager<Curve>::strategize_threads()
         info("points.size(): ", points.size());
     }
 
-    // Resulting vector to store the union
+    // Construct the union of the thread and sequence endpoints by combining, sorting, then removing duplicates
     std::vector<size_t> all_endpoints;
-
-    // Merge the two vectors
-    all_endpoints.reserve(thread_endpoints.size() + sequence_endpoints.size()); // Preallocate memory
+    all_endpoints.reserve(thread_endpoints.size() + sequence_endpoints.size());
     all_endpoints.insert(all_endpoints.end(), thread_endpoints.begin(), thread_endpoints.end());
     all_endpoints.insert(all_endpoints.end(), sequence_endpoints.begin(), sequence_endpoints.end());
-
-    // Sort the merged vector
     std::sort(all_endpoints.begin(), all_endpoints.end());
-
-    // Remove duplicates from the sorted vector
     auto last = std::unique(all_endpoints.begin(), all_endpoints.end());
     all_endpoints.erase(last, all_endpoints.end());
 
     size_t prev_endpoint = 0;
     size_t thread_idx = 0;
     size_t sequence_idx = 0;
-    std::vector<std::vector<size_t>> sequence_counts(num_threads);
-    std::vector<std::vector<size_t>> sequence_tags(num_threads);
+    std::vector<std::vector<size_t>> thread_sequence_counts(num_threads);
+    std::vector<std::vector<size_t>> thread_sequence_tags(num_threads);
     for (auto& endpoint : all_endpoints) {
         size_t chunk_size = endpoint - prev_endpoint;
-        sequence_counts[thread_idx].emplace_back(chunk_size);
-        sequence_tags[thread_idx].emplace_back(sequence_idx);
+        thread_sequence_counts[thread_idx].emplace_back(chunk_size);
+        thread_sequence_tags[thread_idx].emplace_back(sequence_idx);
         if (endpoint == thread_endpoints[thread_idx]) {
             thread_idx++;
         }
@@ -254,18 +246,17 @@ template <typename Curve> void AdditionManager<Curve>::strategize_threads()
         prev_endpoint = endpoint;
     }
 
-    for (const auto& counts : sequence_counts) {
-        info("Counts:");
-        for (auto count : counts) {
-            info("count = ", count);
-        }
+    if (thread_sequence_counts.size() != thread_points.size()) {
+        info("Mismatch in sequence count construction!");
+        ASSERT(false);
     }
-    for (const auto& tags : sequence_tags) {
-        info("Tags:");
-        for (auto tag : tags) {
-            info("tag = ", tag);
-        }
+
+    std::vector<AdditionSequences> addition_sequences;
+    std::span<Fq> scratch_space(fake_scratch_space);
+    for (size_t i = 0; i < num_threads; ++i) {
+        addition_sequences.emplace_back(thread_sequence_counts[i], thread_points[i], scratch_space);
     }
+    return { addition_sequences, thread_sequence_tags };
 }
 
 template class BatchedAffineAddition<curve::Grumpkin>;

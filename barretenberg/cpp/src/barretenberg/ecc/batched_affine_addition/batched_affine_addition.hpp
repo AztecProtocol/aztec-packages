@@ -25,7 +25,7 @@ template <typename Curve> class BatchedAffineAddition {
 
     // Storage for a set of points to be sorted and reduced
     struct AdditionSequences {
-        std::vector<uint32_t> sequence_counts;
+        std::vector<size_t> sequence_counts;
         std::span<G1> points;
         std::span<Fq> scratch_space;
     };
@@ -68,11 +68,18 @@ template <typename Curve> class AdditionManager {
     using AffineAdder = BatchedAffineAddition<Curve>;
     using AdditionSequences = AffineAdder::AdditionSequences;
 
+    std::vector<Fq> fake_scratch_space = { 1 }; // WORKTODO: allocate real thing via constructor
+
+    struct ThreadData {
+        std::vector<AdditionSequences> addition_sequences;
+        std::vector<std::vector<size_t>> sequence_tags;
+    };
+
   public:
     std::vector<G1> batched_affine_add_in_place_parallel(const std::span<G1>& points,
                                                          std::vector<uint32_t>& sequence_endpoints);
 
-    static void strategize_threads();
+    ThreadData strategize_threads(const std::span<G1>& points, const std::vector<size_t>& sequence_endpoints);
 };
 
 } // namespace bb
