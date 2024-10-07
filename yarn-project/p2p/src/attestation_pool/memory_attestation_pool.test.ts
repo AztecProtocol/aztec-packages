@@ -41,6 +41,7 @@ describe('MemoryAttestationPool', () => {
     await ap.addAttestations(attestations);
 
     // Check metrics have been updated.
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
 
@@ -49,6 +50,8 @@ describe('MemoryAttestationPool', () => {
 
     // Delete by slot
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
@@ -99,11 +102,15 @@ describe('MemoryAttestationPool', () => {
 
     await ap.addAttestations(attestations);
 
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
+
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     expect(retreivedAttestations).toEqual(attestations);
 
     await ap.deleteAttestations(attestations);
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const gottenAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(gottenAfterDelete.length).toBe(0);
@@ -135,11 +142,15 @@ describe('MemoryAttestationPool', () => {
 
     await ap.addAttestations(attestations);
 
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
+
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     expect(retreivedAttestations).toEqual(attestations);
 
     await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);

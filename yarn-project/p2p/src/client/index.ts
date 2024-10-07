@@ -35,8 +35,8 @@ export const createP2PClient = async (
   let config = { ..._config };
   const store = deps.store ?? (await createStore('p2p', config, createDebugLogger('aztec:p2p:lmdb')));
   const txPool = deps.txPool ?? new AztecKVTxPool(store, telemetry);
-  const attestationsPool = deps.attestationsPool ?? new InMemoryAttestationPool();
-  const epochProofQuotePool = deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool();
+  const attestationsPool = deps.attestationsPool ?? new InMemoryAttestationPool(telemetry);
+  const epochProofQuotePool = deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(telemetry);
 
   let p2pService;
 
