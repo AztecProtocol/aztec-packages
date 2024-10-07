@@ -96,7 +96,6 @@ runs:
 
     - name: Ensure Tester Cleanup
       uses: gacts/run-and-post-run@v1
-      if: always()
       with:
         post: scripts/run_on_tester "sudo shutdown now" || true
 
