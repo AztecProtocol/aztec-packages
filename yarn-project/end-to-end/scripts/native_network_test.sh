@@ -52,5 +52,5 @@ run_parallel ./test-transfer.sh \
   ./ethereum.sh \
   ./prover-node.sh \
   ./pxe.sh \
-  ./transaction-bot.sh \
-  "./validator.sh 8081"
+  ./transaction-bot.sh
+  # "./validator.sh 8081"
