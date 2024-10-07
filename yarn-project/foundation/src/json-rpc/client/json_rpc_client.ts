@@ -5,10 +5,13 @@
 import { type RemoteObject } from 'comlink';
 import { format } from 'util';
 
+
+
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
 import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
+
 
 export { JsonStringify } from '../convert.js';
 
@@ -56,10 +59,11 @@ export async function defaultFetch(
     throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
   if (!resp.ok) {
+    const errorMessage = `(JSON-RPC PROPAGATED) (host ${host}) (method ${rpcMethod}) (code ${resp.status}) ${responseJson.error.message}`;
     if (noRetry || (resp.status >= 400 && resp.status < 500)) {
-      throw new NoRetryError('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
+      throw new NoRetryError(errorMessage);
     } else {
-      throw new Error('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
+      throw new Error(errorMessage);
     }
   }
 
