@@ -11,6 +11,7 @@ import {
   parseEthereumAddress,
   pxeOption,
 } from '../../utils/commands.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
@@ -24,6 +25,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       ETHEREUM_HOST,
     )
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option('--validators <string>', 'Comma separated list of validators')
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -34,6 +36,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--json', 'Output the contract addresses in JSON format')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
+
+      const initialValidators = options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
       await deployL1Contracts(
         options.rpcUrl,
         options.l1ChainId,
@@ -41,6 +45,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.mnemonic,
         options.salt,
         options.json,
+        initialValidators,
         log,
         debugLogger,
       );

@@ -49,7 +49,7 @@ data:
     set -e
 
     # Run the deploy-l1-contracts command and capture the output
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts)
+    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators {{ join "," .Values.validatorAddresses | quote }})
 
     echo "$output"
 

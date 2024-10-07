@@ -1,6 +1,7 @@
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { deployAztecContracts } from '../../utils/aztec.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 export async function deployL1Contracts(
   rpcUrl: string,
@@ -9,10 +10,19 @@ export async function deployL1Contracts(
   mnemonic: string,
   salt: number | undefined,
   json: boolean,
+  initialValidators: EthAddress[],
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
-  const { l1ContractAddresses } = await deployAztecContracts(rpcUrl, chainId, privateKey, mnemonic, salt, debugLogger);
+  const { l1ContractAddresses } = await deployAztecContracts(
+    rpcUrl,
+    chainId,
+    privateKey,
+    mnemonic,
+    salt,
+    initialValidators,
+    debugLogger,
+  );
 
   if (json) {
     log(
