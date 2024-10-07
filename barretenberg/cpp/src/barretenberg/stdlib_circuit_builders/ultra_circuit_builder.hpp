@@ -321,7 +321,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
         this->zero_idx = put_constant_variable(FF::zero());
-        this->one_idx = put_constant_variable(FF::one());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
     /**
@@ -360,7 +359,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
         this->zero_idx = put_constant_variable(FF::zero());
-        this->one_idx = put_constant_variable(FF::one());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
 
         this->is_recursive_circuit = recursive;
