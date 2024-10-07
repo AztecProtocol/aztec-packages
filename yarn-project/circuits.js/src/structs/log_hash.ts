@@ -40,10 +40,6 @@ export class LogHash implements Ordered {
     return `value=${this.value} counter=${this.counter} length=${this.length}`;
   }
 
-  scope(contractAddress: AztecAddress) {
-    return new ScopedLogHash(this, contractAddress);
-  }
-
   [inspect.custom](): string {
     return `LogHash { ${this.toString()} }`;
   }

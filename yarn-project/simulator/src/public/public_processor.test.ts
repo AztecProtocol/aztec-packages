@@ -848,8 +848,6 @@ describe('public_processor', () => {
         expect.anything(), // pendingNullifiers
         new Fr(txFee),
         expect.anything(), // SideEffectCounter
-        expect.anything(), // PublicValidationRequestArrayLengths
-        expect.anything(), // PublicAccumulatedDataArrayLengths
       ];
 
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
