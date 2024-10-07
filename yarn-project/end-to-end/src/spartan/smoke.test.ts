@@ -1,5 +1,9 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
+
+import { createPublicClient, getAddress, getContract, http } from 'viem';
+import { foundry } from 'viem/chains';
 
 const { PXE_URL } = process.env;
 if (!PXE_URL) {
@@ -20,10 +24,9 @@ describe('sample test', () => {
     expect(info.enr).toMatch(/^enr:-/);
   });
 
-  /**
-   * Leaving this test commented out because it requires the ethereum node
-   * to be running and forwarded, e.g.
-   * kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // Leaving this test skipped commented out because it requires the ethereum node
+  // to be running and forwarded, e.g.
+  // kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
 
   it('should be able to get rollup info', async () => {
     const info = await pxe.getNodeInfo();
@@ -48,5 +51,4 @@ describe('sample test', () => {
     console.log('myArchive', myArchive.toString());
     console.log('provenEpochNumber', provenEpochNumber.toString());
   });
-  */
 });
