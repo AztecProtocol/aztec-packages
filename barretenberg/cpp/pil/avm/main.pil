@@ -120,7 +120,6 @@ namespace main(256);
     //===== MEMORY OPCODES ==========================================================
     pol commit sel_op_set;
     pol commit sel_op_mov;
-    pol commit sel_op_cmov;
 
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
@@ -160,7 +159,7 @@ namespace main(256);
     // A helper witness being the inverse of some value
     // to show a non-zero equality
     pol commit inv;
-    pol commit id_zero; // Boolean telling whether id is zero (cmov opcode)
+    pol commit id_zero; // Boolean telling whether id is zero (jmp opcode)
 
     //===== MEMORY MODEL ========================================================
     // ind_addr_a -> (gets resolved to)
@@ -285,7 +284,6 @@ namespace main(256);
     // Might be removed if derived from opcode based on a lookup of constants
     sel_op_set * (1 - sel_op_set) = 0;
     sel_op_mov * (1 - sel_op_mov) = 0;
-    sel_op_cmov * (1 - sel_op_cmov) = 0;
 
     op_err * (1 - op_err) = 0;
     tag_err * (1 - tag_err) = 0; // Potential optimization (boolean constraint derivation from equivalence check to mem)?
@@ -424,7 +422,7 @@ namespace main(256);
     pol SEL_ALL_BINARY = sel_op_and + sel_op_or + sel_op_xor;
     pol SEL_ALL_GADGET = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak + sel_op_pedersen
                        + sel_op_ecadd + sel_op_pedersen_commit + sel_op_msm;
-    pol SEL_ALL_MEMORY = sel_op_cmov + sel_op_mov + sel_op_set;
+    pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol OPCODE_SELECTORS = sel_op_fdiv + sel_op_calldata_copy + sel_op_get_contract_instance
                          + SEL_ALL_ALU + SEL_ALL_BINARY + SEL_ALL_MEMORY + SEL_ALL_GADGET
                          + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + SEL_ALL_LEFTGAS
@@ -457,35 +455,32 @@ namespace main(256);
     //====== MEMORY OPCODES CONSTRAINTS =========================================
 
     // TODO: consolidate with zero division error handling
-    // TODO: Ensure that operation decompostion will ensure mutual exclusivity of sel_op_cmov and sel_op_jumpi
 
-    // When sel_op_cmov or sel_op_jumpi == 1, we need id == 0 <==> id_zero == 0
+    // When sel_op_jumpi == 1, we need id == 0 <==> id_zero == 0
     // This can be achieved with the 2 following relations.
     // inv is an extra witness to show that we can invert id, i.e., inv = id^(-1)
     // If id == 0, we have to set inv = 1 to satisfy the second relation,
     // because id_zero == 1 from the first relation.
-    #[CMOV_CONDITION_RES_1]
-    (sel_op_cmov + sel_op_jumpi) * (id * inv - 1 + id_zero) = 0;
-    #[CMOV_CONDITION_RES_2]
-    (sel_op_cmov + sel_op_jumpi) * id_zero * (1 - inv) = 0;
+    #[JMP_CONDITION_RES_1]
+    sel_op_jumpi * (id * inv - 1 + id_zero) = 0;
+    #[JMP_CONDITION_RES_2]
+    sel_op_jumpi * id_zero * (1 - inv) = 0;
 
     // Boolean selectors telling whether we move ia to ic or ib to ic.
     // Boolean constraints and mutual exclusivity are derived from their
-    // respective definitions based on sel_op_mov, sel_op_cmov, and id_zero.
+    // respective definitions based on sel_op_mov, and id_zero.
     pol commit sel_mov_ia_to_ic;
     pol commit sel_mov_ib_to_ic;
 
     // For MOV, we copy ia to ic.
-    // For CMOV, we copy ia to ic if id is NOT zero, otherwise we copy ib to ic.
-    sel_mov_ia_to_ic = sel_op_mov + sel_op_cmov * (1 - id_zero);
-    sel_mov_ib_to_ic = sel_op_cmov * id_zero;
+    sel_mov_ia_to_ic = sel_op_mov * (1 - id_zero);
 
     #[MOV_SAME_VALUE_A]
     sel_mov_ia_to_ic * (ia - ic) = 0; // Ensure that the correct value is moved/copied.
     #[MOV_SAME_VALUE_B]
     sel_mov_ib_to_ic * (ib - ic) = 0; // Ensure that the correct value is moved/copied.
     #[MOV_MAIN_SAME_TAG]
-    (sel_op_mov + sel_op_cmov) * (r_in_tag - w_in_tag) = 0;
+    sel_op_mov * (r_in_tag - w_in_tag) = 0;
 
     // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
     // the operation is not copied to the ALU table.
@@ -580,16 +575,16 @@ namespace main(256);
     slice.sel_start {slice.clk, slice.space_id, slice.col_offset, slice.cnt, slice.addr, slice.sel_cd_cpy, slice.sel_return};
 
     #[PERM_MAIN_MEM_A]
-    sel_mem_op_a {clk, space_id, mem_addr_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_ia_to_ic, sel_op_cmov}
+    sel_mem_op_a {clk, space_id, mem_addr_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_ia_to_ic}
     is
     mem.sel_op_a {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw
-                , mem.r_in_tag, mem.w_in_tag, mem.sel_mov_ia_to_ic, mem.sel_op_cmov};
+                , mem.r_in_tag, mem.w_in_tag, mem.sel_mov_ia_to_ic};
 
     #[PERM_MAIN_MEM_B]
-    sel_mem_op_b {clk, space_id, mem_addr_b, ib, rwb, r_in_tag, w_in_tag, sel_mov_ib_to_ic, sel_op_cmov}
+    sel_mem_op_b {clk, space_id, mem_addr_b, ib, rwb, r_in_tag, w_in_tag, sel_mov_ib_to_ic}
     is
     mem.sel_op_b {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw
-                , mem.r_in_tag, mem.w_in_tag, mem.sel_mov_ib_to_ic, mem.sel_op_cmov};
+                , mem.r_in_tag, mem.w_in_tag, mem.sel_mov_ib_to_ic};
 
     #[PERM_MAIN_MEM_C]
     sel_mem_op_c {clk, space_id, mem_addr_c, ic, rwc, r_in_tag, w_in_tag}
@@ -597,10 +592,10 @@ namespace main(256);
     mem.sel_op_c {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw, mem.r_in_tag, mem.w_in_tag};
 
     #[PERM_MAIN_MEM_D]
-    sel_mem_op_d {clk, space_id, mem_addr_d, id, rwd, r_in_tag, w_in_tag, sel_op_cmov}
+    sel_mem_op_d {clk, space_id, mem_addr_d, id, rwd, r_in_tag, w_in_tag}
     is
     mem.sel_op_d {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw
-                , mem.r_in_tag, mem.w_in_tag, mem.sel_op_cmov};
+                , mem.r_in_tag, mem.w_in_tag};
 
     #[PERM_MAIN_MEM_IND_ADDR_A]
     sel_resolve_ind_addr_a {clk, space_id, ind_addr_a, mem_addr_a}

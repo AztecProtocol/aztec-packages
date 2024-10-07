@@ -53,11 +53,15 @@ export class Signature {
 
     const r = reader.readObject(Buffer32);
     const s = reader.readObject(Buffer32);
-    const v = reader.readUInt8();
+    const v = parseInt(sig.slice(2 + 64 * 2), 16);
 
     const isEmpty = r.isZero() && s.isZero();
 
     return new Signature(r, s, v, isEmpty);
+  }
+
+  static random(): Signature {
+    return new Signature(Buffer32.random(), Buffer32.random(), Math.floor(Math.random() * 2), false);
   }
 
   static empty(): Signature {

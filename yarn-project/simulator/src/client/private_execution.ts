@@ -1,3 +1,4 @@
+import { PrivateExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import { Fr, FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 import type { FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
@@ -9,7 +10,6 @@ import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
-import { type ExecutionResult } from './execution_result.js';
 
 /**
  * Execute a private function and return the execution result.
@@ -19,10 +19,10 @@ export async function executePrivateFunction(
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  log = createDebugLogger('aztec:simulator:secret_execution'),
-): Promise<ExecutionResult> {
+  log = createDebugLogger('aztec:simulator:private_execution'),
+): Promise<PrivateExecutionResult> {
   const functionName = await context.getDebugFunctionName();
-  log.verbose(`Executing external function ${contractAddress}:${functionSelector}(${functionName})`);
+  log.verbose(`Executing external function ${functionName}@${contractAddress}`);
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
@@ -75,20 +75,20 @@ export async function executePrivateFunction(
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
-  return {
+  return new PrivateExecutionResult(
     acir,
+    Buffer.from(artifact.verificationKey!, 'hex'),
     partialWitness,
     callStackItem,
-    returnValues: rawReturnValues,
     noteHashLeafIndexMap,
     newNotes,
     noteHashNullifierCounterMap,
-    vk: Buffer.from(artifact.verificationKey!, 'hex'),
+    rawReturnValues,
     nestedExecutions,
     enqueuedPublicFunctionCalls,
-    noteEncryptedLogs,
     publicTeardownFunctionCall,
+    noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,
-  };
+  );
 }

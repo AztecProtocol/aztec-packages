@@ -1,14 +1,10 @@
 import { createAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig } from '@aztec/aztec-node';
-import { type AztecNode, type DebugLogger, Fr, type PXE } from '@aztec/aztec.js';
-import { NULL_KEY } from '@aztec/ethereum';
+import { type DebugLogger, Fr, type PXE } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
-import { type ProverNode, type ProverNodeConfig, getProverNodeConfigFromEnv } from '@aztec/prover-node';
 
 import { foundry, sepolia } from 'viem/chains';
 
-import { createAndSyncProverNode } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
+import { setup } from '../fixtures/utils.js';
 
 // process.env.SEQ_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
 // process.env.PROVER_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
@@ -18,10 +14,6 @@ import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 describe(`deploys and transfers a private only token`, () => {
   let secretKey1: Fr;
   let secretKey2: Fr;
-  let proverConfig: ProverNodeConfig;
-  let config: AztecNodeConfig;
-  let aztecNode: AztecNode;
-  let proverNode: ProverNode;
 
   let pxe: PXE;
   let logger: DebugLogger;
@@ -30,25 +22,16 @@ describe(`deploys and transfers a private only token`, () => {
   beforeEach(async () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
-    ({ logger, pxe, teardown, config, aztecNode } = await setup(
+    ({ logger, pxe, teardown } = await setup(
       0,
       { skipProtocolContracts: true, stateLoad: undefined },
       {},
       false,
       chain,
     ));
-    proverConfig = getProverNodeConfigFromEnv();
-    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-    proverConfig.publisherPrivateKey =
-      proverConfig.publisherPrivateKey === NULL_KEY
-        ? `0x${proverNodePrivateKey?.toString('hex')}`
-        : proverConfig.publisherPrivateKey;
-
-    proverNode = await createAndSyncProverNode(proverConfig.publisherPrivateKey, config, aztecNode);
   }, 600_000);
 
   afterEach(async () => {
-    await proverNode.stop();
     await teardown();
   });
 

@@ -1,4 +1,4 @@
-import { Note, TxHash } from '@aztec/circuit-types';
+import { Note, TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey, Vector } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -26,6 +26,8 @@ export class DeferredNoteDao {
     public noteHashes: Fr[],
     /** The next available leaf index for the note hash tree for this transaction */
     public dataStartIndexForTx: number,
+    /** Unencrypted logs for the transaction (used to complete partial notes) */
+    public unencryptedLogs: UnencryptedTxL2Logs,
   ) {}
 
   toBuffer(): Buffer {
@@ -38,6 +40,7 @@ export class DeferredNoteDao {
       this.txHash,
       new Vector(this.noteHashes),
       this.dataStartIndexForTx,
+      this.unencryptedLogs,
     );
   }
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -51,6 +54,7 @@ export class DeferredNoteDao {
       reader.readObject(TxHash),
       reader.readVector(Fr),
       reader.readNumber(),
+      reader.readObject(UnencryptedTxL2Logs),
     );
   }
 }

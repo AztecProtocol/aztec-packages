@@ -197,7 +197,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_calldata_copy{};
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
-    FF main_sel_op_cmov{};
     FF main_sel_op_dagasleft{};
     FF main_sel_op_div{};
     FF main_sel_op_ecadd{};
@@ -280,7 +279,6 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
     FF mem_sel_op_poseidon_read_a{};
     FF mem_sel_op_poseidon_read_b{};
@@ -715,7 +713,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 701;
+    static constexpr size_t SIZE = 699;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

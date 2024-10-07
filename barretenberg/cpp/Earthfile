@@ -1,7 +1,7 @@
 VERSION 0.8
 
 # Note, this is only used on the main build path, caching test artifacts is less useful
-# As those only run if there are changes anyway
+# As those only run if there are changes anyway.
 CACHE_BUILD_BIN:
   FUNCTION
   ARG command
