@@ -6,7 +6,7 @@ use types::abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs;
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs
-) -> return_data PublicKernelCircuitPublicInputs {
+) -> pub PublicKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelTailToPublicCircuitPrivateInputs::new(previous_kernel, previous_kernel_public_inputs);
     private_inputs.execute()
 }
