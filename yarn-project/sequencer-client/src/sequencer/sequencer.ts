@@ -421,86 +421,82 @@ export class Sequencer {
     const numRealTxs = validTxs.length;
     const blockSize = Math.max(2, numRealTxs);
 
-    const fork = await this.worldState.fork();
+    await using fork = await this.worldState.fork();
+    // We create a fresh processor each time to reset any cached state (eg storage writes)
+    const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
+    const blockBuildingTimer = new Timer();
+    const blockBuilder = this.blockBuilderFactory.create(fork);
+    await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+
+    const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(fork)),
+    );
+    if (failedTxs.length > 0) {
+      const failedTxData = failedTxs.map(fail => fail.tx);
+      this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
+      await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+    }
+
+    await this.publisher.validateBlockForSubmission(proposalHeader);
+
+    if (
+      !this.shouldProposeBlock(historicalHeader, {
+        validTxsCount: validTxs.length,
+        processedTxsCount: processedTxs.length,
+      })
+    ) {
+      // TODO: Roll back changes to world state
+      throw new Error('Should not propose the block');
+    }
+
+    // All real transactions have been added, set the block as full and complete the proving.
+    const block = await blockBuilder.setBlockCompleted();
+
+    // TODO(@PhilWindle) We should probably periodically check for things like another
+    // block being published before ours instead of just waiting on our block
+
+    await this.publisher.validateBlockForSubmission(block.header);
+
+    const workDuration = workTimer.ms();
+    this.log.verbose(
+      `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
+        'hex',
+      )})`,
+      {
+        eventName: 'l2-block-built',
+        duration: workDuration,
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: blockBuildingTimer.ms(),
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats,
+    );
+
+    if (this.isFlushing) {
+      this.log.verbose(`Flushing completed`);
+    }
+
+    const txHashes = validTxs.map(tx => tx.getTxHash());
+
+    this.isFlushing = false;
+    this.log.verbose('Collecting attestations');
+    const attestations = await this.collectAttestations(block, txHashes);
+    this.log.verbose('Attestations collected');
+
+    this.log.verbose('Collecting proof quotes');
+    const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
+    this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
+
     try {
-      // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
-      const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(fork);
-      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
-
-      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(fork)),
+      await this.publishL2Block(block, attestations, txHashes, proofQuote);
+      this.metrics.recordPublishedBlock(workDuration);
+      this.log.info(
+        `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
+          workDuration,
+        )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
       );
-      if (failedTxs.length > 0) {
-        const failedTxData = failedTxs.map(fail => fail.tx);
-        this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
-        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
-      }
-
-      await this.publisher.validateBlockForSubmission(proposalHeader);
-
-      if (
-        !this.shouldProposeBlock(historicalHeader, {
-          validTxsCount: validTxs.length,
-          processedTxsCount: processedTxs.length,
-        })
-      ) {
-        // TODO: Roll back changes to world state
-        throw new Error('Should not propose the block');
-      }
-
-      // All real transactions have been added, set the block as full and complete the proving.
-      const block = await blockBuilder.setBlockCompleted();
-
-      // TODO(@PhilWindle) We should probably periodically check for things like another
-      // block being published before ours instead of just waiting on our block
-
-      await this.publisher.validateBlockForSubmission(block.header);
-
-      const workDuration = workTimer.ms();
-      this.log.verbose(
-        `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
-          'hex',
-        )})`,
-        {
-          eventName: 'l2-block-built',
-          duration: workDuration,
-          publicProcessDuration: publicProcessorDuration,
-          rollupCircuitsDuration: blockBuildingTimer.ms(),
-          ...block.getStats(),
-        } satisfies L2BlockBuiltStats,
-      );
-
-      if (this.isFlushing) {
-        this.log.verbose(`Flushing completed`);
-      }
-
-      const txHashes = validTxs.map(tx => tx.getTxHash());
-
-      this.isFlushing = false;
-      this.log.verbose('Collecting attestations');
-      const attestations = await this.collectAttestations(block, txHashes);
-      this.log.verbose('Attestations collected');
-
-      this.log.verbose('Collecting proof quotes');
-      const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
-      this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
-
-      try {
-        await this.publishL2Block(block, attestations, txHashes, proofQuote);
-        this.metrics.recordPublishedBlock(workDuration);
-        this.log.info(
-          `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
-            workDuration,
-          )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
-        );
-      } catch (err) {
-        this.metrics.recordFailedBlock();
-        throw err;
-      }
-    } finally {
-      await fork.close();
+    } catch (err) {
+      this.metrics.recordFailedBlock();
+      throw err;
     }
   }
 

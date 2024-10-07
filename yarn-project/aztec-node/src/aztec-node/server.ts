@@ -730,37 +730,32 @@ export class AztecNodeService implements AztecNode {
       this.telemetry,
     );
 
-    const fork = await this.worldStateSynchronizer.fork();
+    await using fork = await this.worldStateSynchronizer.fork();
+    const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
 
-    try {
-      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
-
-      // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, returns] = await processor.process([tx]);
-      // REFACTOR: Consider returning the error/revert rather than throwing
-      if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
-        throw failedTxs[0].error;
-      }
-      const { reverted } = partitionReverts(processedTxs);
-      if (reverted.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
-        throw reverted[0].revertReason;
-      }
-      this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
-      const [processedTx] = processedTxs;
-      return new PublicSimulationOutput(
-        processedTx.encryptedLogs,
-        processedTx.unencryptedLogs,
-        processedTx.revertReason,
-        processedTx.data.constants,
-        processedTx.data.end,
-        returns,
-        processedTx.gasUsed,
-      );
-    } finally {
-      await fork.close();
+    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
+    const [processedTxs, failedTxs, returns] = await processor.process([tx]);
+    // REFACTOR: Consider returning the error/revert rather than throwing
+    if (failedTxs.length) {
+      this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
+      throw failedTxs[0].error;
     }
+    const { reverted } = partitionReverts(processedTxs);
+    if (reverted.length) {
+      this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
+      throw reverted[0].revertReason;
+    }
+    this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
+    const [processedTx] = processedTxs;
+    return new PublicSimulationOutput(
+      processedTx.encryptedLogs,
+      processedTx.unencryptedLogs,
+      processedTx.revertReason,
+      processedTx.data.constants,
+      processedTx.data.end,
+      returns,
+      processedTx.gasUsed,
+    );
   }
 
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {

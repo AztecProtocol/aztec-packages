@@ -33,18 +33,26 @@ import {
 } from './message.js';
 import { type NativeWorldStateInstance } from './native_world_state_instance.js';
 
-export class MerkleTreesFacade implements MerkleTreeReadOperations {
+export class MerkleTreesFacade implements MerkleTreeReadOperations, AsyncDisposable {
+  protected open = true;
+
   constructor(
     protected readonly instance: NativeWorldStateInstance,
     protected readonly initialHeader: Header,
     protected readonly revision: WorldStateRevision,
   ) {}
 
+  protected assertOpen() {
+    assert.equal(this.open, true, 'MerkleTreeOperations instance is closed');
+  }
+
   getInitialHeader(): Header {
+    this.assertOpen();
     return this.initialHeader;
   }
 
   findLeafIndex(treeId: MerkleTreeId, value: MerkleTreeLeafType<MerkleTreeId>): Promise<bigint | undefined> {
+    this.assertOpen();
     return this.findLeafIndexAfter(treeId, value, 0n);
   }
 
@@ -53,6 +61,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     leaf: MerkleTreeLeafType<MerkleTreeId>,
     startIndex: bigint,
   ): Promise<bigint | undefined> {
+    this.assertOpen();
     const index = await this.instance.call(WorldStateMessageType.FIND_LEAF_INDEX, {
       leaf: serializeLeaf(hydrateLeaf(treeId, leaf)),
       revision: this.revision,
@@ -68,6 +77,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getLeafPreimage(treeId: IndexedTreeId, leafIndex: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
+    this.assertOpen();
     const resp = await this.instance.call(WorldStateMessageType.GET_LEAF_PREIMAGE, {
       leafIndex,
       revision: this.revision,
@@ -81,6 +91,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     treeId: ID,
     leafIndex: bigint,
   ): Promise<MerkleTreeLeafType<ID> | undefined> {
+    this.assertOpen();
     const resp = await this.instance.call(WorldStateMessageType.GET_LEAF_VALUE, {
       leafIndex,
       revision: this.revision,
@@ -103,6 +114,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     treeId: IndexedTreeId,
     value: bigint,
   ): Promise<{ index: bigint; alreadyPresent: boolean } | undefined> {
+    this.assertOpen();
     const resp = await this.instance.call(WorldStateMessageType.FIND_LOW_LEAF, {
       key: new Fr(value),
       revision: this.revision,
@@ -115,6 +127,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getSiblingPath<N extends number>(treeId: MerkleTreeId, leafIndex: bigint): Promise<SiblingPath<N>> {
+    this.assertOpen();
     const siblingPath = await this.instance.call(WorldStateMessageType.GET_SIBLING_PATH, {
       leafIndex,
       revision: this.revision,
@@ -125,6 +138,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getStateReference(): Promise<StateReference> {
+    this.assertOpen();
     const resp = await this.instance.call(WorldStateMessageType.GET_STATE_REFERENCE, {
       revision: this.revision,
     });
@@ -140,6 +154,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getInitialStateReference(): Promise<StateReference> {
+    this.assertOpen();
     const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, void 0);
 
     return new StateReference(
@@ -153,6 +168,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
+    this.assertOpen();
     const resp = await this.instance.call(WorldStateMessageType.GET_TREE_INFO, {
       treeId: treeId,
       revision: this.revision,
@@ -165,6 +181,24 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
       treeId,
     };
   }
+
+  public async close(): Promise<void> {
+    if (!this.open) {
+      return Promise.resolve();
+    }
+
+    this.open = false;
+    await this.cleanup();
+    return Promise.resolve();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
+  }
+
+  protected cleanup(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
@@ -175,6 +209,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   }
 
   async updateArchive(header: Header): Promise<void> {
+    this.assertOpen();
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
       blockHeaderHash: header.hash().toBuffer(),
@@ -183,6 +218,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   }
 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
+    this.assertOpen();
     await this.instance.call(WorldStateMessageType.APPEND_LEAVES, {
       leaves: leaves.map(leaf => leaf as any),
       forkId: this.revision.forkId,
@@ -195,6 +231,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     rawLeaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    this.assertOpen();
     const leaves = rawLeaves.map((leaf: Buffer) => hydrateLeaf(treeId, leaf)).map(serializeLeaf);
     const resp = await this.instance.call(WorldStateMessageType.BATCH_INSERT, {
       leaves,
@@ -221,7 +258,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     };
   }
 
-  public async close(): Promise<void> {
+  protected override async cleanup(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
   }

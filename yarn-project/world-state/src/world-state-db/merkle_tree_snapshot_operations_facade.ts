@@ -135,4 +135,8 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
   getInitialHeader(): Header {
     throw new Error('Getting initial header not supported on snapshot.');
   }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return Promise.resolve();
+  }
 }

@@ -104,7 +104,7 @@ export type MerkleTreeLeafValue<ID extends MerkleTreeId> = LeafValueTypes[ID];
 /**
  * Defines the interface for operations on a set of Merkle Trees.
  */
-export interface MerkleTreeReadOperations {
+export interface MerkleTreeReadOperations extends AsyncDisposable {
   /**
    * Returns information about the given tree.
    * @param treeId - The tree to be queried.

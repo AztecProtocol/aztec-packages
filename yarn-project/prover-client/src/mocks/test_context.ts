@@ -23,7 +23,7 @@ import {
   type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase, MerkleTrees } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import * as fs from 'fs/promises';
@@ -42,6 +42,7 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
+    public ws: MerkleTreeAdminDatabase,
     public actualDb: MerkleTreeWriteOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
@@ -72,13 +73,15 @@ export class TestContext {
     const telemetry = new NoopTelemetryClient();
 
     let actualDb: MerkleTreeWriteOperations;
+    let ws: MerkleTreeAdminDatabase;
 
     if (worldState === 'native') {
-      const ws = await NativeWorldStateService.tmp();
+      ws = await NativeWorldStateService.tmp();
       actualDb = await ws.fork();
     } else {
-      const ws = await MerkleTrees.new(openTmpStore(), telemetry);
-      actualDb = await ws.getLatest();
+      const merkleTrees = await MerkleTrees.new(openTmpStore(), telemetry);
+      ws = merkleTrees;
+      actualDb = await merkleTrees.getLatest();
     }
 
     const processor = PublicProcessor.create(
@@ -126,6 +129,7 @@ export class TestContext {
       processor,
       simulationProvider,
       globalVariables,
+      ws,
       actualDb,
       localProver,
       agent,
@@ -138,6 +142,8 @@ export class TestContext {
 
   async cleanup() {
     await this.proverAgent.stop();
+    await this.actualDb.close();
+    await this.ws.close();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }

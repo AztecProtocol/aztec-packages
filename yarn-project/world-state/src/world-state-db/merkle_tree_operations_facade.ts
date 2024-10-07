@@ -170,4 +170,8 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
   close(): Promise<void> {
     return Promise.resolve();
   }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
+  }
 }
