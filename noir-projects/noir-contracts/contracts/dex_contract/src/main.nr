@@ -223,8 +223,15 @@ contract DEX {
     // Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
     // whether we are swapping `token0` for `token1` or vice versa. Similartly to `remove_liquidity` function it is
     // expected that the user transfers the `token_in` to the pool in a `BatchCall` before calling this function.
+    //
+    // TODO: Do we want to support flash swaps?
     #[public]
-    fn swap_exact_tokens_for_tokens(amount_in: u64, amount_out_min: u64, from_0_to_1: bool) {
+    fn swap_exact_tokens_for_tokens(
+        amount_in: u64,
+        amount_out_min: u64,
+        from_0_to_1: bool,
+        transfer_preparer_storage_slot_commitment: Field
+    ) {
         _lock(&mut context);
 
         let state = storage.state.read();
@@ -246,6 +253,11 @@ contract DEX {
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
         // TODO: Implement UniswapV2Pair._swap(amounts, path, to) here. The code above is from router.
+        let token_out = Token::at(token_address_out);
+        token_out.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
+
+        // Do we want to bother wieht the 'UniswapV2: K' check here or is this fine for PoC?
+        // https://github.com/Uniswap/v2-core/blob/ee547b17853e71ed4e0101ccfd52e70d5acded58/contracts/UniswapV2Pair.sol#L182
 
         _unlock(&mut context);
     }
