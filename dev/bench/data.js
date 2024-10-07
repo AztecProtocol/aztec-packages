@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728300559629,
+  "lastUpdate": 1728304896791,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3b78058288edbbe18a2eb8c81de5576c8a9478ab",
-          "message": "feat(avm): set avm circuit subgroup size (#8537)\n\nI had to make a few changes in this PR, so bear with me.\n\nInside you there are two wolves:\n* The size of the generated trace (which I'll call the \"trace\"): e.g., you run a loop from 1 to 1000 and get a trace with size 1000 (or, if you will, ~2^18 if you add the precomputed columns)\n* The size of the polynomials used for proving: aka circuit subgroup size. We need to set this to some number, since the VK and other things depend on it.\n\nIn this PR I'm setting the latter to 2^21. Is that all? No, because this still needs to work with traces <  2^21. Can't you just resize the trace to 2^21 and call it a day? You can, but then your memory and time will suck.\n\nThis PR therefore does the following: Suppose your trace has size 1000 and you know already our subgroup size is set to 2^21. The polynomials will be initialized with a real size of 1000 rows, and a virtual size of 2^21. Then the values will be set from our generated trace.\n* This is far better in terms of memory because you only \"pay for what you use\"*.\n* This is also far better in terms of time, because resizing the trace to 2^21 takes _forever_ (like 20s+). This is because we currently use `std::vector` which forces the initialization of every field, even if you previously reserved memory (which btw is fast).\n\nExtra: I also did some cleanups, in particular I try to rely less on environment variables and have a clear flow separation between \"prod\" and tests.\n* bb avm_prove only runs check circuit if you really ask for it.\n* bb avm_prove uses full proving by default (all range checks and precomputed tables). This will in particular help with a more realistic devnet/testnet.\n* tests manually set the above options\n* check-circuit only checks rows up to the \"trace\" size; this should make it faster and still sound.\n* the 2^21 size does not (effectively) affect check-circuit\n\nResults: I'm running [this program](https://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1726072481664099?thread_ts=1726066963.338779&cid=C04DL2L1UP2), which at 2^22 rows took 6 minutes and 280GB ram. Let's then suppose that for 2^21 it would've taken 3 minutes and 140GB ram.\n* After this PR, proving takes 49 seconds, and 31GB ram. (note that the time gains include as well the last few PRs)\n\n*that is, if you use 1000 rows, you allocate 1000 rows. Sparcity is not yet taken into account. We need some more changes for that.",
-          "timestamp": "2024-09-18T20:58:12+01:00",
-          "tree_id": "ec719e9bbdb65edf6d41c962ba985d572d5bd739",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3b78058288edbbe18a2eb8c81de5576c8a9478ab"
-        },
-        "date": 1726690468439,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34534.05058300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31890.514240999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5092.531742000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4705.447382000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99315.197722,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99315198000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14625.478427999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14625479000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8608850086,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8608850086 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152497694,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152497694 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6986861723,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6986861723 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125798624,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125798624 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126175319,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126175319 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "77c05f5469bad85e1394c05e1878791bac084559",
+          "message": "feat: Origin Tags Part 2 (#8936)\n\nThis PR extends the Origin Tags ( a taint mechanism for stdlib\r\nprimitives) to:\r\n1) bigfield\r\n2) byte_array\r\n3) safe_uint\r\n\r\nAnd extends tests with checks that the tags are preserved or merged\r\ncorrectly",
+          "timestamp": "2024-10-07T12:23:50Z",
+          "tree_id": "4485a23b7695ab303133bf69e61a89d36399727f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/77c05f5469bad85e1394c05e1878791bac084559"
+        },
+        "date": 1728304889141,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31389.185714000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29118.732181 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5499.343877000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5211.185672 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93480.270636,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93480273000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15623.004671000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15623004000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8202521167,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8202521167 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152825139,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152825139 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6694137785,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6694137785 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 124890961,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 124890961 ns\nthreads: 1"
           }
         ]
       }
