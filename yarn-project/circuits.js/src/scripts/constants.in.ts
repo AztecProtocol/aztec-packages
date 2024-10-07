@@ -333,6 +333,8 @@ function parseNoirFile(fileContent: string): ParsedContent {
 function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
   const constants: { [key: string]: string } = {};
 
+  const knownBigInts = ['AZTEC_EPOCH_DURATION', 'FEE_RECIPIENT_LENGTH'];
+
   // Create JS expressions. It is not as easy as just evaluating the expression!
   // We basically need to convert everything to BigInts, otherwise things don't fit.
   // However, (1) the bigints need to be initialized from strings; (2) everything needs to
@@ -352,6 +354,8 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .split(' ')
         // ...and then we convert each term to a BigInt if it is a number.
         .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        // .. also, we convert the known bigints to BigInts.
+        .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.
         .join(' ');
       return `var ${name} = ${guardedRhs};`;
