@@ -390,8 +390,14 @@ TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
 
     using AddManager = AdditionManager<Curve>;
 
-    std::vector<size_t> sequence_endpoints = { 7, 15, 21 };
-    size_t total_num_points = sequence_endpoints.back();
+    std::vector<size_t> sequence_counts = { 7, 8, 6, 9 };
+    size_t total_num_points = 0;
+    std::vector<size_t> sequence_endpoints;
+    for (const auto& count : sequence_counts) {
+        total_num_points += count;
+        sequence_endpoints.emplace_back(total_num_points);
+    }
+
     std::vector<G1> points(total_num_points);
     AddManager add_manager;
     auto [addition_sequences, sequence_tags] = add_manager.strategize_threads(points, sequence_endpoints);
@@ -402,6 +408,12 @@ TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
             info("count = ", count);
         }
         info("Points size = ", sequence.points.size());
+    }
+    for (auto tags : sequence_tags) {
+        info("Tags:");
+        for (auto tag : tags) {
+            info("tag = ", tag);
+        }
     }
 }
 

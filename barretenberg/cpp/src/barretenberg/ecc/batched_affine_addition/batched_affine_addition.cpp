@@ -194,7 +194,7 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::strategize_t
 {
     // Assign the points across the available threads as evenly as possible
     const size_t total_num_points = points.size();
-    const size_t num_threads = 2; // WORKTODO: actually determine this
+    const size_t num_threads = 3; // WORKTODO: actually determine this
     const size_t base_thread_size = total_num_points / num_threads;
     const size_t leftover_size = total_num_points % num_threads;
     std::vector<size_t> thread_sizes(num_threads, base_thread_size);
