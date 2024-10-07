@@ -252,12 +252,22 @@ contract DEX {
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        // TODO: Implement UniswapV2Pair._swap(amounts, path, to) here. The code above is from router.
+        // Below is a snippet from UniswapV2Pair._swap(amounts, path, to) here. The code above is from router.
         let token_out = Token::at(token_address_out);
         token_out.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
 
         // Do we want to bother wieht the 'UniswapV2: K' check here or is this fine for PoC?
         // https://github.com/Uniswap/v2-core/blob/ee547b17853e71ed4e0101ccfd52e70d5acded58/contracts/UniswapV2Pair.sol#L182
+
+        // Update the reserves
+        let updated_state = State {
+            token0: state.token0,
+            token1: state.token1,
+            liquidity_token: state.liquidity_token,
+            reserve0: token0.balance_of_public(context.this_address()).view(&mut context) as u64,
+            reserve1: token1.balance_of_public(context.this_address()).view(&mut context) as u64
+        };
+        storage.state.write(updated_state);
 
         _unlock(&mut context);
     }
