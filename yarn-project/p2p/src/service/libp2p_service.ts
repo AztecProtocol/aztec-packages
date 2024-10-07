@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   type ClientProtocolCircuitVerifier,
+  EpochProofQuote,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
@@ -57,6 +58,7 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
+import { EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -98,6 +100,7 @@ export class LibP2PService implements P2PService {
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
+    private epochProofQuotePool: EpochProofQuotePool,
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
@@ -202,6 +205,7 @@ export class LibP2PService implements P2PService {
     peerId: PeerId,
     txPool: TxPool,
     attestationPool: AttestationPool,
+    epochProofQuotePool: EpochProofQuotePool,
     l2BlockSource: L2BlockSource,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
@@ -291,6 +295,7 @@ export class LibP2PService implements P2PService {
       peerDiscoveryService,
       txPool,
       attestationPool,
+      epochProofQuotePool,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
@@ -372,6 +377,10 @@ export class LibP2PService implements P2PService {
       const block = BlockProposal.fromBuffer(Buffer.from(message.data));
       await this.processBlockFromPeer(block);
     }
+    if (message.topic == EpochProofQuote.p2pTopic) {
+      const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(message.data));
+      this.processEpochProofQuoteFromPeer(epochProofQuote);
+    }
 
     return;
   }
@@ -402,6 +411,11 @@ export class LibP2PService implements P2PService {
     if (attestation != undefined) {
       this.propagate(attestation);
     }
+  }
+
+  private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
+    this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);
+    this.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
