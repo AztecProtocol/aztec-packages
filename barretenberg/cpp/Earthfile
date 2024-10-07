@@ -140,11 +140,6 @@ preset-gcc:
   RUN cmake --preset gcc -Bbuild && cmake --build build
   SAVE ARTIFACT build/bin
 
-preset-gcc-pic:
-    FROM +source
-    RUN cmake --preset gcc-pic -Bbuild && cmake --build build && rm -rf build/{deps,lib,src}
-    SAVE ARTIFACT build/bin
-
 preset-fuzzing:
   FROM +source
   RUN cmake --preset fuzzing -Bbuild && cmake --build build
