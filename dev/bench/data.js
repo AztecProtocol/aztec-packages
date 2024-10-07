@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728292630241,
+  "lastUpdate": 1728300559629,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d7536395f2406a22a76f15d01114730c84edc18",
-          "message": "chore(avm): simplify bb-prover and other AVM tests (#8627)\n\nIdea\n* since this test is only proving TS -> BB and hints, just prove once.\n* cpp tests run only check-circuit (and will run full proving nightly)\n\nProblem: the test catches some bug, so I disable it for now. Ilyas is\nworking on a fix.",
-          "timestamp": "2024-09-18T18:45:25+01:00",
-          "tree_id": "5e6431cbc05cfc3ab3d0b6157c67f27c22ca2053",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d7536395f2406a22a76f15d01114730c84edc18"
-        },
-        "date": 1726682688495,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34453.855825000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31526.71045700001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5209.434158999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4800.642081999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100466.15019100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100466150000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14615.517485,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14615518000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8620062058,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8620062058 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151865072,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151865072 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 7063396375,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 7063396375 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128268116,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128268116 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126479378,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126479378 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c9c385b2d8d3d8284d981a7393500a04fd78d38",
+          "message": "chore(ci): finally isolate bb-native-tests (#9039)\n\nThis has been spilling over too often, let's make sure it only affects\r\nan isolated runner",
+          "timestamp": "2024-10-07T11:10:57Z",
+          "tree_id": "e53ee880ff5239d7c33c9ab7dffab27ad91875c0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9c9c385b2d8d3d8284d981a7393500a04fd78d38"
+        },
+        "date": 1728300552065,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31485.173594000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29325.629146 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5551.114627999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5214.800816 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92740.762223,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92740765000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15727.797608,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15727797000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8279679011,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8279679011 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152106973,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152106973 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6764292153,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6764292153 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126175319,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126175319 ns\nthreads: 1"
           }
         ]
       }
