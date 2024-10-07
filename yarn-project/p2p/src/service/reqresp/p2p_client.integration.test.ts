@@ -13,13 +13,13 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { multiaddr } from '@multiformats/multiaddr';
 import { generatePrivateKey } from 'viem/accounts';
 
-import { type AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { createP2PClient } from '../../client/index.js';
 import { type P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { type AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { type TxPool } from '../../mem_pools/tx_pool/index.js';
+import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { convertToMultiaddr } from '../../util.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
 import { createLibP2PPeerId } from '../index.js';

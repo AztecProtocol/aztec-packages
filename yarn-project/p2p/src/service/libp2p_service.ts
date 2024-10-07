@@ -32,10 +32,8 @@ import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
-import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import { type MemPools } from '../mem_pools/interface.js';
 import {
   DataTxValidator,
   DoubleSpendTxValidator,
@@ -59,7 +57,6 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { MemPools } from '../mem_pools/interface.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
