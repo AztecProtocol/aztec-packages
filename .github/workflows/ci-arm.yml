@@ -81,8 +81,9 @@ jobs:
           concurrency_key: build-arm
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
+          sudo shutdown -P 60 # necessary to get around builtin hard timeout
           earthly-ci ./yarn-project+export-e2e-test-images
 
   # all the non-bench end-to-end integration tests for aztec
