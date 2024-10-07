@@ -4,7 +4,6 @@ use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 use types::abis::private_kernel::private_call_data::PrivateCallDataWithoutPublicInputs;
 use types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 
-#[recursive]
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,

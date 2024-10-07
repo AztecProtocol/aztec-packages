@@ -18,7 +18,6 @@ global NOTE_HASH_SILOING_AMOUNT = MAX_NOTE_HASHES_PER_TX; // 64
 global NULLIFIER_SILOING_AMOUNT = MAX_NULLIFIERS_PER_TX; // 64
 global ENCRYPTED_LOG_SILOING_AMOUNT = MAX_ENCRYPTED_LOGS_PER_TX; // 8
 
-#[recursive]
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,
