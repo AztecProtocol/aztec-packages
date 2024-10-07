@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728082788693,
+  "lastUpdate": 1728292630241,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b6bc7c3f5064255480e3d4443471c2c50007d0ca",
-          "message": "feat(avm): return oracle (#8629)",
-          "timestamp": "2024-09-18T18:45:20+01:00",
-          "tree_id": "0a5c13d7de785d0a5ff5089b2f8967d741a8500a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b6bc7c3f5064255480e3d4443471c2c50007d0ca"
-        },
-        "date": 1726682586580,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34327.86124800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 31423.202041999994 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5083.4778000000115,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4686.312184 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99599.157467,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99599158000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14572.314676999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14572315000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8511867570,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8511867570 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152617260,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152617260 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6994840683,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6994840683 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128406848,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128406848 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 125519994,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125519994 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "527d820fcadc24105e43b819da1ad9d848b755ca",
+          "message": "feat: lazy commitment key allocation for better memory (#9017)\n\nResolves https://github.com/AztecProtocol/barretenberg/issues/1121.\r\n\r\nWe currently create the commitment key at the beginning, when we create\r\nthe proving key. However, we do not have to do this and should not do\r\nthis because the commitment key ends up being a huge portion of memory,\r\nat around 930MB for 2^20 circuits. We instead just create it when we\r\nneed to. For UltraHonk, that ends up being during Oink and during\r\nGemini. For ClientIVC, we allocate and free a commitment key for each\r\noink we do, and also for the final decider.\r\n\r\nUltraHonk on a 2^20 circuit peak memory drops from 2420MiB to 1786MiB:\r\n\r\n<img width=\"1016\" alt=\"Screenshot 2024-10-04 at 5 33 25 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/8f5760f8-e2b8-4b86-a0db-1ed68e0acf9f\">\r\n\r\nClientIVC memory stays mostly unchanged because need to keep the\r\ncommitment key mostly throughout all of the folding parts.\r\n\r\nI expect the bench timing for UltraHonk to be slightly worse given that\r\nwe reallocate the commitment key. ClientIVCBench should also be worse\r\nbecause we do more commitment key allocations.\r\n\r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   Iterations UserCounters...\r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      33391 ms        30977 ms            1 Arithmetic::accumulate=3.89126M Arithmetic::accumulate(t)=7.33056G Auxiliary::accumulate=1.98134M Auxiliary::accumulate(t)=13.0892G COMMIT::databus=108 COMMIT::databus(t)=8.88751M COMMIT::databus_inverses=36 COMMIT::databus_inverses(t)=11.2725M COMMIT::ecc_op_wires=48 COMMIT::ecc_op_wires(t)=38.6915M COMMIT::lookup_counts_tags=12 COMMIT::lookup_counts_tags(t)=193.353M COMMIT::lookup_inverses=12 COMMIT::lookup_inverses(t)=255.969M COMMIT::wires=24 COMMIT::wires(t)=2.21199G COMMIT::z_perm=12 COMMIT::z_perm(t)=2.32652G DatabusRead::accumulate=447 DatabusRead::accumulate(t)=1.53355M Decider::construct_proof=1 Decider::construct_proof(t)=1.68437G DeciderProvingKey(Circuit&)=12 DeciderProvingKey(Circuit&)(t)=2.86109G DeltaRange::accumulate=1.87876M DeltaRange::accumulate(t)=4.1979G ECCVMProver(CircuitBuilder&)=1 ECCVMProver(CircuitBuilder&)(t)=229.598M ECCVMProver::construct_proof=1 ECCVMProver::construct_proof(t)=2.57466G Elliptic::accumulate=183.692k Elliptic::accumulate(t)=452.417M Goblin::merge=23 Goblin::merge(t)=117.072M Lookup::accumulate=1.66365M Lookup::accumulate(t)=3.69193G MegaFlavor::get_row=6.18565M MegaFlavor::get_row(t)=4.20034G OinkProver::execute_grand_product_computation_round=12 OinkProver::execute_grand_product_computation_round(t)=3.59544G OinkProver::execute_log_derivative_inverse_round=12 OinkProver::execute_log_derivative_inverse_round(t)=2.48433G OinkProver::execute_preamble_round=12 OinkProver::execute_preamble_round(t)=274.895k OinkProver::execute_sorted_list_accumulator_round=12 OinkProver::execute_sorted_list_accumulator_round(t)=772.217M OinkProver::execute_wire_commitments_round=12 OinkProver::execute_wire_commitments_round(t)=1.68854G OinkProver::generate_alphas_round=12 OinkProver::generate_alphas_round(t)=3.58973M Permutation::accumulate=10.6427M Permutation::accumulate(t)=40.3554G PoseidonExt::accumulate=30.452k PoseidonExt::accumulate(t)=76.5906M PoseidonInt::accumulate=210.454k PoseidonInt::accumulate(t)=371.576M ProtogalaxyProver::prove=11 ProtogalaxyProver::prove(t)=19.5665G ProtogalaxyProver_::combiner_quotient_round=11 ProtogalaxyProver_::combiner_quotient_round(t)=8.3951G ProtogalaxyProver_::compute_row_evaluations=11 ProtogalaxyProver_::compute_row_evaluations(t)=1.72459G ProtogalaxyProver_::perturbator_round=11 ProtogalaxyProver_::perturbator_round(t)=2.61146G ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key=11 ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)=7.8871G ProtogalaxyProver_::update_target_sum_and_fold=11 ProtogalaxyProver_::update_target_sum_and_fold(t)=672.681M TranslatorCircuitBuilder::constructor=1 TranslatorCircuitBuilder::constructor(t)=32.7314M TranslatorProver=1 TranslatorProver(t)=46.9982M TranslatorProver::construct_proof=1 TranslatorProver::construct_proof(t)=843.494M batch_mul_with_endomorphism=16 batch_mul_with_endomorphism(t)=405.64M commit=542 commit(t)=6.73009G commit_sparse=36 commit_sparse(t)=11.2568M compute_combiner=11 compute_combiner(t)=7.9922G compute_perturbator=11 compute_perturbator(t)=2.61115G compute_univariate=51 compute_univariate(t)=2.16081G construct_circuits=12 construct_circuits(t)=4.36072G pippenger=214 pippenger(t)=100.623M pippenger_unsafe_optimized_for_non_dyadic_polys=542 pippenger_unsafe_optimized_for_non_dyadic_polys(t)=6.6333G\r\nBenchmarking lock deleted.\r\nclient_ivc_bench.json                 100% 6936   183.4KB/s   00:00    \r\nfunction                                  ms     % sum\r\nconstruct_circuits(t)                   4361    13.53%\r\nDeciderProvingKey(Circuit&)(t)          2861     8.88%\r\nProtogalaxyProver::prove(t)            19566    60.69%\r\nDecider::construct_proof(t)             1684     5.22%\r\nECCVMProver(CircuitBuilder&)(t)          230     0.71%\r\nECCVMProver::construct_proof(t)         2575     7.99%\r\nTranslatorProver::construct_proof(t)     843     2.62%\r\nGoblin::merge(t)                         117     0.36%\r\n\r\nTotal time accounted for: 32237ms/33391ms = 96.55%\r\n\r\nMajor contributors:\r\nfunction                                  ms    % sum\r\ncommit(t)                               6730   20.88%\r\ncompute_combiner(t)                     7992   24.79%\r\ncompute_perturbator(t)                  2611    8.10%\r\ncompute_univariate(t)                   2161    6.70%\r\n\r\nBreakdown of ProtogalaxyProver::prove:\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    7887    40.31%\r\nProtogalaxyProver_::perturbator_round(t)                         2611    13.35%\r\nProtogalaxyProver_::combiner_quotient_round(t)                   8395    42.91%\r\nProtogalaxyProver_::update_target_sum_and_fold(t)                 673     3.44%\r\n\r\nRelation contributions (times to be interpreted relatively):\r\nTotal time accounted for (ms):    69567\r\noperation                       ms     % sum\r\nArithmetic::accumulate(t)     7331    10.54%\r\nPermutation::accumulate(t)   40355    58.01%\r\nLookup::accumulate(t)         3692     5.31%\r\nDeltaRange::accumulate(t)     4198     6.03%\r\nElliptic::accumulate(t)        452     0.65%\r\nAuxiliary::accumulate(t)     13089    18.82%\r\nEccOp::accumulate(t)             0     0.00%\r\nDatabusRead::accumulate(t)       2     0.00%\r\nPoseidonExt::accumulate(t)      77     0.11%\r\nPoseidonInt::accumulate(t)     372     0.53%\r\n\r\nCommitment contributions:\r\nTotal time accounted for (ms):     5047\r\noperation                          ms     % sum\r\nCOMMIT::wires(t)                 2212    43.83%\r\nCOMMIT::z_perm(t)                2327    46.10%\r\nCOMMIT::databus(t)                  9     0.18%\r\nCOMMIT::ecc_op_wires(t)            39     0.77%\r\nCOMMIT::lookup_inverses(t)        256     5.07%\r\nCOMMIT::databus_inverses(t)        11     0.22%\r\nCOMMIT::lookup_counts_tags(t)     193     3.83%\r\n```",
+          "timestamp": "2024-10-07T09:36:52+01:00",
+          "tree_id": "f24ea9d3f7611e14f4cf2575baeae982448bf022",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/527d820fcadc24105e43b819da1ad9d848b755ca"
+        },
+        "date": 1728292623113,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31365.980160999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29165.816042 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5548.407053999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5198.47903 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93286.967249,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93286970000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15681.361652000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15681362000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8254268335,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8254268335 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152138066,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152138066 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6752561988,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6752561988 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126479378,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126479378 ns\nthreads: 1"
           }
         ]
       }
