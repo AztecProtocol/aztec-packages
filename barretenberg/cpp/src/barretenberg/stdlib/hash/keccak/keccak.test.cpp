@@ -193,7 +193,7 @@ TEST(stdlib_keccak, test_single_block)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    builder.print_num_gates();
+    builder.print_num_estimated_finalized_gates();
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -218,7 +218,7 @@ TEST(stdlib_keccak, test_double_block)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    builder.print_num_gates();
+    builder.print_num_estimated_finalized_gates();
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -294,7 +294,7 @@ TEST(stdlib_keccak, test_permutation_opcode_single_block)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    builder.print_num_gates();
+    builder.print_num_estimated_finalized_gates();
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -317,7 +317,7 @@ TEST(stdlib_keccak, test_permutation_opcode_double_block)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    builder.print_num_gates();
+    builder.print_num_estimated_finalized_gates();
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);

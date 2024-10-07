@@ -152,14 +152,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_gates() const override
+    virtual void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<MegaArith<FF>>::get_num_gates_split_into_components(
+        UltraCircuitBuilder_<MegaArith<FF>>::get_num_estimated_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
 

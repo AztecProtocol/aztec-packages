@@ -506,7 +506,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @param ramcount return argument, extra gates due to ram read/writes
      * @param nnfcount return argument, extra gates due to queued non native field gates
      */
-    void get_num_gates_split_into_components(
+    void get_num_estimated_gates_split_into_components(
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
         count = this->num_gates;
@@ -609,7 +609,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
     }
 
@@ -675,14 +675,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_gates() const override
+    void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
 
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount

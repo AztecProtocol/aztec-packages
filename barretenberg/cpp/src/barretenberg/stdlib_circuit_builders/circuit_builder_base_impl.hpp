@@ -18,7 +18,7 @@ template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finali
     return num_gates;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::print_num_gates() const
+template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
 {
     std::cout << num_gates << std::endl;
 }
