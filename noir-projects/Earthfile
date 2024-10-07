@@ -15,6 +15,7 @@ source:
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
 build-contracts:
+  ARG RAYON_NUM_THREADS
   LOCALLY
   LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
   FROM +source
@@ -28,10 +29,12 @@ build-contracts:
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
 
   RUN yarn
-  RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
+  ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
+  RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler  ./bootstrap.sh
   SAVE ARTIFACT noir-contracts
 
 build-protocol-circuits:
+  ARG RAYON_NUM_THREADS
   LOCALLY
   LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
   FROM +source
@@ -41,10 +44,13 @@ build-protocol-circuits:
   # Install bb
   COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   RUN yarn
+
+  ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
   RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT noir-protocol-circuits
 
 build-mock-protocol-circuits:
+  ARG RAYON_NUM_THREADS
   LOCALLY
   LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
   FROM +source
@@ -54,10 +60,14 @@ build-mock-protocol-circuits:
   # Install bb
   COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   RUN yarn
+
+  ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
+  RUN echo "building with num threads $RAYON_NUM_THREADS"
   RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT mock-protocol-circuits
 
 build:
+  ARG RAYON_NUM_THREADS
   FROM +source
   BUILD +build-contracts
   BUILD +build-protocol-circuits

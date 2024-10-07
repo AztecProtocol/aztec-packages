@@ -1,0 +1,12 @@
+validator:
+  debug: "aztec:*,-aztec:avm_simulator:*,-aztec:libp2p_service"
+  replicas: 16
+  resources:
+    requests:
+      memory: "512Mi"
+  validator:
+    disabled: false
+
+bootNode:
+  validator:
+    disabled: true
