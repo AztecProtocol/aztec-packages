@@ -196,7 +196,7 @@ TEST(ultra_circuit, ranges)
 
     uint_t a(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     builder.set_variable_name(a.get_witness_index(), "a");
-    builder.finalize_circuit();
+    builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
@@ -220,7 +220,7 @@ TEST(ultra_circuit, lookup_tables)
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
     builder.set_variable_name(c.get_witness_index(), "c");
-    builder.finalize_circuit();
+    builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     uint32_t modulus_base = 16;

@@ -19,7 +19,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 {
     // Create a copy of the input circuit and finalize it
     Builder builder{ builder_in };
-    builder.finalize_circuit();
+    builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;

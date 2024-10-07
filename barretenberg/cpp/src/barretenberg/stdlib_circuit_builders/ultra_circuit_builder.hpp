@@ -423,7 +423,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 #endif // NDEBUG
     }
 
-    void finalize_circuit(const bool ensure_nonzero = false);
+    void finalize_circuit(const bool ensure_nonzero);
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
