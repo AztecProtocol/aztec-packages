@@ -42,6 +42,11 @@ export class CheatCodes {
     );
     return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
   }
+
+  static createRollup(rpcUrl: string, addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
+    const ethCheatCodes = new EthCheatCodes(rpcUrl);
+    return new RollupCheatCodes(ethCheatCodes, addresses);
+  }
 }
 
 /**
@@ -120,7 +125,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger.info(`Mined ${numberOfBlocks} blocks`);
+    this.logger.verbose(`Mined ${numberOfBlocks} blocks`);
   }
 
   /**
@@ -133,7 +138,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting balance for ${account}: ${res.error.message}`);
     }
-    this.logger.info(`Set balance for ${account} to ${balance}`);
+    this.logger.verbose(`Set balance for ${account} to ${balance}`);
   }
 
   /**
@@ -145,7 +150,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    this.logger.info(`Set block interval to ${interval}`);
+    this.logger.verbose(`Set block interval to ${interval}`);
   }
 
   /**
@@ -157,7 +162,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     }
-    this.logger.info(`Set next block timestamp to ${timestamp}`);
+    this.logger.verbose(`Set next block timestamp to ${timestamp}`);
   }
 
   /**
@@ -170,7 +175,7 @@ export class EthCheatCodes {
       throw new Error(`Error warping: ${res.error.message}`);
     }
     await this.mine();
-    this.logger.info(`Warped to ${timestamp}`);
+    this.logger.verbose(`Warped to ${timestamp}`);
   }
 
   /**
@@ -184,7 +189,7 @@ export class EthCheatCodes {
     }
     const jsonContent = JSON.stringify(res.result);
     fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
-    this.logger.info(`Dumped state to ${fileName}`);
+    this.logger.verbose(`Dumped state to ${fileName}`);
   }
 
   /**
@@ -197,7 +202,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error loading state: ${res.error.message}`);
     }
-    this.logger.info(`Loaded state from ${fileName}`);
+    this.logger.verbose(`Loaded state from ${fileName}`);
   }
 
   /**
@@ -223,7 +228,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     }
-    this.logger.info(`Set storage for contract ${contract} at ${slot} to ${value}`);
+    this.logger.verbose(`Set storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**
@@ -247,7 +252,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error impersonating ${who}: ${res.error.message}`);
     }
-    this.logger.info(`Impersonating ${who}`);
+    this.logger.verbose(`Impersonating ${who}`);
   }
 
   /**
@@ -259,7 +264,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
     }
-    this.logger.info(`Stopped impersonating ${who}`);
+    this.logger.verbose(`Stopped impersonating ${who}`);
   }
 
   /**
@@ -272,7 +277,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
     }
-    this.logger.info(`Set bytecode for ${contract} to ${bytecode}`);
+    this.logger.verbose(`Set bytecode for ${contract} to ${bytecode}`);
   }
 
   /**

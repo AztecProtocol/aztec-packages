@@ -137,6 +137,8 @@ global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de503
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
+// Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
+global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
 // CONTRACT CLASS CONSTANTS
 global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 20000;
@@ -467,7 +469,6 @@ global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 18;
 global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 18;
 global AVM_SET_BASE_L2_GAS: u32 = 18;
 global AVM_MOV_BASE_L2_GAS: u32 = 23;
-global AVM_CMOV_BASE_L2_GAS: u32 = 34;
 global AVM_SLOAD_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_PUBLIC_DATA_READ;
 global AVM_SSTORE_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_PUBLIC_DATA_UPDATE;
 global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 26 + L2_GAS_PER_NOTE_HASH_READ_REQUEST;
@@ -484,7 +485,7 @@ global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQ
 global AVM_DELEGATECALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
 global AVM_RETURN_BASE_L2_GAS: u32 = 28;
 global AVM_REVERT_BASE_L2_GAS: u32 = 28;
-global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 10;
+global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12; // Must be equal to AVM_JUMP_BASE_L2_GAS as long as circuit implements debugLog as a jump
 global AVM_KECCAK_BASE_L2_GAS: u32 = 3000;
 global AVM_POSEIDON2_BASE_L2_GAS: u32 = 78;
 global AVM_SHA256_BASE_L2_GAS: u32 = 2610;

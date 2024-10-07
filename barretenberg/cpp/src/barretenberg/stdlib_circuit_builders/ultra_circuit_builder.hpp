@@ -319,9 +319,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
         this->zero_idx = put_constant_variable(FF::zero());
-        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        this->one_idx = put_constant_variable(FF::one());
+
+        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1123)
     };
     /**
      * @brief Constructor from data generated from ACIR
@@ -359,7 +360,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
         this->zero_idx = put_constant_variable(FF::zero());
-        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        this->one_idx = put_constant_variable(FF::one());
+        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1123)
 
         this->is_recursive_circuit = recursive;
     };
@@ -426,7 +428,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void add_gates_to_ensure_all_polys_are_non_zero();
 
     void create_add_gate(const add_triple_<FF>& in) override;
-
+    void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in);
     void create_big_mul_gate(const mul_quad_<FF>& in);

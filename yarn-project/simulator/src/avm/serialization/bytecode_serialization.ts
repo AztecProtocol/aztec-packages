@@ -1,7 +1,6 @@
 import {
   Add,
   And,
-  CMov,
   Call,
   CalldataCopy,
   Cast,
@@ -114,7 +113,6 @@ const INSTRUCTION_SET = () =>
     [Opcode.SET_FF, Set.as(Set.wireFormatFF).deserialize],
     [Opcode.MOV_8, Mov.as(Mov.wireFormat8).deserialize],
     [Opcode.MOV_16, Mov.as(Mov.wireFormat16).deserialize],
-    [CMov.opcode, Instruction.deserialize.bind(CMov)],
 
     // World State
     [SLoad.opcode, Instruction.deserialize.bind(SLoad)], // Public Storage

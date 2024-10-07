@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     traits::{Deserialize, Serialize}, address::AztecAddress,
-    abis::{private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     contract_instance::ContractInstance
 };
 
@@ -10,6 +10,7 @@ use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
 use crate::oracle::{execution::{get_block_number, get_contract_address}};
+use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
 unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
@@ -83,7 +84,9 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         let original_fn_selector = cheatcodes::get_function_selector();
         let calldata = call_interface.get_args();
 
-        cheatcodes::set_fn_selector(call_interface.get_selector());
+        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
+        let calldata = &[call_interface.get_selector().to_field()].append(calldata);
+        cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
         cheatcodes::set_is_static_call(call_interface.get_is_static());

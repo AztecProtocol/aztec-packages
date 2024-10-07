@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: ./e2e_test.sh <test>
+# Usage: ./e2e_test.sh <test> <...extra_args>
 # Optional environment variables:
 #   HARDWARE_CONCURRENCY (default: "")
 
@@ -8,6 +8,8 @@ set -eu
 
 # Main positional parameter
 TEST="$1"
+shift
+
 # Default values for environment variables
 HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 FAKE_PROOFS="${FAKE_PROOFS:-}"
@@ -18,4 +20,4 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
   exit 1
 fi
 
-docker run -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" -e FAKE_PROOFS="$FAKE_PROOFS" --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST"
+docker run -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" -e FAKE_PROOFS="$FAKE_PROOFS" --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST" $@
