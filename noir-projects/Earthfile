@@ -27,7 +27,7 @@ build-contracts:
   SAVE ARTIFACT noir-contracts
 
 build-protocol-circuits:
-  ARG RAYON_NUM_THREADS=1 # temporary default while memory is high
+  ARG RAYON_NUM_THREADS
   LOCALLY
   LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
   FROM +source
