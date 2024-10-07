@@ -20,6 +20,7 @@ import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/ep
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import { MemPools } from '../mem_pools/interface.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -190,6 +191,10 @@ export class P2PClient implements P2P {
   private synchedLatestBlockNumber: AztecSingleton<number>;
   private synchedProvenBlockNumber: AztecSingleton<number>;
 
+  private txPool: TxPool;
+  private attestationPool: AttestationPool;
+  private epochProofQuotePool: EpochProofQuotePool;
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -202,9 +207,7 @@ export class P2PClient implements P2P {
   constructor(
     store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
-    private txPool: TxPool,
-    private attestationPool: AttestationPool,
-    private epochProofQuotePool: EpochProofQuotePool,
+    mempools: MemPools,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
     private log = createDebugLogger('aztec:p2p'),
@@ -219,6 +222,10 @@ export class P2PClient implements P2P {
 
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+
+    this.txPool = mempools.txPool;
+    this.attestationPool = mempools.attestationPool;
+    this.epochProofQuotePool = mempools.epochProofQuotePool;
   }
 
   #assertIsReady() {

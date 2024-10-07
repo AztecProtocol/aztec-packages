@@ -59,6 +59,7 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
+import { MemPools } from '../mem_pools/interface.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -98,9 +99,7 @@ export class LibP2PService implements P2PService {
     private config: P2PConfig,
     private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
-    private txPool: TxPool,
-    private attestationPool: AttestationPool,
-    private epochProofQuotePool: EpochProofQuotePool,
+    private mempools: MemPools,
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
@@ -203,9 +202,7 @@ export class LibP2PService implements P2PService {
     config: P2PConfig,
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
-    txPool: TxPool,
-    attestationPool: AttestationPool,
-    epochProofQuotePool: EpochProofQuotePool,
+    mempools: MemPools,
     l2BlockSource: L2BlockSource,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
@@ -278,7 +275,7 @@ export class LibP2PService implements P2PService {
      */
     const txHandler = (msg: Buffer): Promise<Uint8Array> => {
       const txHash = TxHash.fromBuffer(msg);
-      const foundTx = txPool.getTxByHash(txHash);
+      const foundTx = mempools.txPool.getTxByHash(txHash);
       const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
       return Promise.resolve(asUint8Array);
     };
@@ -293,9 +290,7 @@ export class LibP2PService implements P2PService {
       config,
       node,
       peerDiscoveryService,
-      txPool,
-      attestationPool,
-      epochProofQuotePool,
+      mempools,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
@@ -392,7 +387,7 @@ export class LibP2PService implements P2PService {
    */
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
     this.logger.verbose(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
-    await this.attestationPool.addAttestations([attestation]);
+    await this.mempools.attestationPool.addAttestations([attestation]);
   }
 
   /**Process block from peer
@@ -415,7 +410,7 @@ export class LibP2PService implements P2PService {
 
   private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
     this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);
-    this.epochProofQuotePool.addQuote(epochProofQuote);
+    this.mempools.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
@@ -434,7 +429,7 @@ export class LibP2PService implements P2PService {
     const isValidTx = await this.validatePropagatedTx(tx, peerId);
 
     if (isValidTx) {
-      await this.txPool.addTxs([tx]);
+      await this.mempools.txPool.addTxs([tx]);
     }
   }
 

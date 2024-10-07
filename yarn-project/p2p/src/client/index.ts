@@ -16,6 +16,7 @@ import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { getPublicIp, resolveAddressIfNecessary, splitAddressPort } from '../util.js';
+import { MemPools } from '../mem_pools/interface.js';
 
 export * from './p2p_client.js';
 
@@ -28,15 +29,19 @@ export const createP2PClient = async (
   deps: {
     txPool?: TxPool;
     store?: AztecKVStore;
-    attestationsPool?: AttestationPool;
+    attestationPool?: AttestationPool;
     epochProofQuotePool?: EpochProofQuotePool;
   } = {},
 ) => {
   let config = { ..._config };
   const store = deps.store ?? (await createStore('p2p', config, createDebugLogger('aztec:p2p:lmdb')));
-  const txPool = deps.txPool ?? new AztecKVTxPool(store, telemetry);
-  const attestationsPool = deps.attestationsPool ?? new InMemoryAttestationPool();
-  const epochProofQuotePool = deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool();
+
+  const mempools: MemPools = {
+    txPool: deps.txPool ?? new AztecKVTxPool(store, telemetry),
+    attestationPool: deps.attestationPool ?? new InMemoryAttestationPool(),
+    epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(),
+  };
+
 
   let p2pService;
 
@@ -51,9 +56,7 @@ export const createP2PClient = async (
       config,
       discoveryService,
       peerId,
-      txPool,
-      attestationsPool,
-      epochProofQuotePool,
+      mempools,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
@@ -65,9 +68,7 @@ export const createP2PClient = async (
   return new P2PClient(
     store,
     l2BlockSource,
-    txPool,
-    attestationsPool,
-    epochProofQuotePool,
+    mempools,
     p2pService,
     config.keepProvenTxsInPoolFor,
   );
