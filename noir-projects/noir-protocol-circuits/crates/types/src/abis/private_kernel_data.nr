@@ -42,11 +42,6 @@ pub struct PrivateKernelDataWithoutPublicInputs {
 
 impl PrivateKernelDataWithoutPublicInputs {
     pub fn to_private_kernel_data(self, public_inputs: PrivateKernelCircuitPublicInputs) -> PrivateKernelData {
-        PrivateKernelData {
-            public_inputs,
-            vk: self.vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
-        }
+        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 }
