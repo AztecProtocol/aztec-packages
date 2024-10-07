@@ -321,7 +321,7 @@ jobs:
         with:
           runner_type: 128core-tester-x86
           run: |
-            scripts/earthly-ci --exec-stats --no-output +test --hardware_concurrency=64
+            scripts/earthly-ci --exec-stats --no-output ./barretenberg/cpp+test --hardware_concurrency=64
 
   bb-js-test:
     needs: [build, changes]
