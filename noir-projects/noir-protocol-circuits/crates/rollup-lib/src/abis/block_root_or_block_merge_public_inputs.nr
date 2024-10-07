@@ -98,7 +98,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.extend_from_array(self.start_global_variables.serialize());
         fields.extend_from_array(self.end_global_variables.serialize());
         fields.push(self.out_hash as Field);
-        for i in 0..32 {
+        for i in 0..AZTEC_EPOCH_DURATION {
             fields.extend_from_array(self.fees[i].serialize());
         }
         fields.push(self.vk_tree_root as Field);

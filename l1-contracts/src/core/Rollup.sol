@@ -241,7 +241,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     tips.provenBlockNumber = endBlockNumber;
 
-    for (uint256 i = 0; i < 32; i++) {
+    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
       address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
       uint256 fees = uint256(publicInputs[10 + i * 2]);
 
@@ -528,7 +528,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
-    //   fees: [FeeRecipient; 32],
+    //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   prover_id: Field
     // }

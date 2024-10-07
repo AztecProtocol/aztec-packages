@@ -27,8 +27,9 @@ describe('sample test', () => {
   // Leaving this test skipped commented out because it requires the ethereum node
   // to be running and forwarded, e.g.
   // kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // also because it assumes foundry.
 
-  it('should be able to get rollup info', async () => {
+  it.skip('should be able to get rollup info', async () => {
     const info = await pxe.getNodeInfo();
     const publicClient = createPublicClient({
       chain: foundry,
