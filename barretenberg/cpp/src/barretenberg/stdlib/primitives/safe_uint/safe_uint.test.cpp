@@ -46,7 +46,7 @@ TYPED_TEST(SafeUintTest, TestConstructorWithValueOutOfRangeFails)
 
     field_ct a(witness_ct(&builder, 100));
 
-    // Check the tag is preserved during constructiong
+    // Check the tag is preserved during construction
     a.set_origin_tag(first_and_third_merged_tag);
     suint_ct b(a, 2, "b");
 
@@ -98,7 +98,6 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
     // should allow largest power of 3 smaller than r iterations, which is 159. Hence below we should exceed r, and
     // expect a throw
     field_ct a(witness_ct(&builder, 2));
-
     suint_ct c(a, 2);
     suint_ct d(a, 2);
     // should not fail on 159 iterations, since 3**160 < r < 3**161

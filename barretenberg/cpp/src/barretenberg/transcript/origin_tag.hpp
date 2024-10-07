@@ -37,7 +37,12 @@
     const auto first_to_fourth_merged_tag =                                                                            \
         OriginTag(first_second_third_merged_tag,                                                                       \
                   next_submitted_value_origin_tag); /* A tag describing a value computed from values submitted in the  \
-                                 0th round and challenges generated in the 0th and 1st round*/
+                                 0th and 1st round and challenges generated in the 0th and 1st round*/                 \
+    const auto instant_death_tag = []() {                                                                              \
+        auto some_tag = OriginTag();                                                                                   \
+        some_tag.poison();                                                                                             \
+        return some_tag;                                                                                               \
+    }(); /* A tag that causes and abort on any arithmetic*/
 
 namespace bb {
 

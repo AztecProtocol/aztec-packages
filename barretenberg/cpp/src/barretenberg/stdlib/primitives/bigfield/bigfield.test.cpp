@@ -104,6 +104,11 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(a.binary_basis_limbs[2].element.get_origin_tag(), clear_tag);
         EXPECT_EQ(a.binary_basis_limbs[3].element.get_origin_tag(), clear_tag);
         EXPECT_EQ(a.prime_basis_limb.get_origin_tag(), clear_tag);
+
+#ifndef NDEBUG
+        a.set_origin_tag(instant_death_tag);
+        EXPECT_THROW(a + a, std::runtime_error);
+#endif
     }
     static void test_mul()
     {
