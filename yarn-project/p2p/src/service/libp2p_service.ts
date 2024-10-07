@@ -34,6 +34,7 @@ import { createLibp2p } from 'libp2p';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
+import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../tx_pool/index.js';
 import {
   DataTxValidator,
@@ -58,7 +59,6 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
