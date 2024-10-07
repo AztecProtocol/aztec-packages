@@ -8,6 +8,7 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
+REPO=$(git rev-parse --show-toplevel)
 # Run our test assuming the port in pxe.sh
 # Wait for the Aztec Node to be ready
 echo "Waiting for Aztec Node..."

@@ -39,14 +39,6 @@ export ADDRESS=$(echo $json_account | jq -r '.address')
 export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
-
-# Add L1 validator
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS
-
-# Fast forward epochs
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
-
-# Set environment variables
 export LOG_LEVEL="debug"
 export LOG_JSON="1"
 export DEBUG="aztec:*,-aztec:avm_simulator:*"
@@ -60,5 +52,9 @@ export P2P_UDP_ANNOUNCE_ADDR="0.0.0.0:40400"
 export P2P_TCP_LISTEN_ADDR="0.0.0.0:40400"
 export P2P_UDP_LISTEN_ADDR="0.0.0.0:40400"
 
+# Add L1 validator
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS
+# Fast forward epochs
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
 # Start the Validator Node with the sequencer and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node -- --archiver --sequencer
