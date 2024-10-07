@@ -311,10 +311,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_equality()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_num_gates();
+        // We need to remove the constant factor
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 4));
         bool_ct r = a == b;
+        auto gates_before = builder.get_num_gates();
+        field_ct c(witness_ct(&builder, 4));
+        field_ct f(witness_ct(&builder, 4));
+        r = a == b;
 
         auto gates_after = builder.get_num_gates();
         EXPECT_EQ(r.get_value(), true);
@@ -337,11 +341,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_equality_false()
     {
         Builder builder = Builder();
-
+        field_ct c(witness_ct(&builder, 4));
+        field_ct d(witness_ct(&builder, 3));
+        bool_ct r = c == d;
         auto gates_before = builder.get_num_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
-        bool_ct r = a == b;
+        r = a == b;
 
         EXPECT_EQ(r.get_value(), false);
 
@@ -365,12 +371,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_equality_with_constants()
     {
         Builder builder = Builder();
-
-        auto gates_before = builder.get_num_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b = 3;
         field_ct c = 7;
         bool_ct r = a * c == b * c + c && b + 1 == a;
+        auto gates_before = builder.get_num_gates();
+        a = witness_ct(&builder, 4);
+        r = a * c == b * c + c && b + 1 == a;
 
         EXPECT_EQ(r.get_value(), true);
 

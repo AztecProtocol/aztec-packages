@@ -28,9 +28,10 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
 
+    bool_ct a = witness_ct(&builder, bb::fr::one());
     auto gates_before = builder.get_num_gates();
 
-    bool_ct a = witness_ct(&builder, bb::fr::one());
+    a = witness_ct(&builder, bb::fr::one());
     bool_ct b = witness_ct(&builder, bb::fr::zero());
 
     a.set_origin_tag(submitted_value_origin_tag);
@@ -79,9 +80,13 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
-    if (!IsSimulator<Builder>) {
+    if (std::is_same_v<Builder, bb::StandardCircuitBuilder>) {
         auto gates_after = builder.get_num_gates();
         EXPECT_EQ(gates_after - gates_before, 6UL);
+    }
+    if (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+        auto gates_after = builder.get_num_gates();
+        EXPECT_EQ(gates_after - gates_before, 5UL);
     }
 }
 
