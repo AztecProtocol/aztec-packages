@@ -1,6 +1,7 @@
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include <algorithm>
 #include <execution>
+#include <set>
 
 namespace bb {
 
@@ -185,6 +186,86 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     }
 
     return reduced_points;
+}
+
+template <typename Curve> void AdditionManager<Curve>::strategize_threads()
+{
+    std::vector<size_t> sequence_endpoints = { 7, 15, 21 };
+
+    size_t total_num_points = sequence_endpoints.back();
+    std::vector<G1> points(total_num_points);
+
+    // Assign the points across the available threads as evenly as possible
+    const size_t num_threads = 2;
+    const size_t base_thread_size = total_num_points / num_threads;
+    const size_t leftover_size = total_num_points % num_threads;
+    std::vector<size_t> thread_sizes(num_threads, base_thread_size);
+    for (size_t i = 0; i < leftover_size; ++i) {
+        thread_sizes[i]++;
+    }
+
+    // Construct the thread endpoints and the thread_points according to the distribution determined above
+    std::vector<size_t> thread_endpoints;
+    std::vector<std::span<G1>> thread_points;
+    size_t point_index = 0;
+    for (auto size : thread_sizes) {
+        thread_points.emplace_back(points.begin() + static_cast<std::ptrdiff_t>(point_index), size);
+        point_index += size;
+        thread_endpoints.emplace_back(point_index);
+    }
+
+    for (const auto& end : thread_endpoints) {
+        info("end: ", end);
+    }
+    for (const auto& points : thread_points) {
+        info("points.size(): ", points.size());
+    }
+
+    // Resulting vector to store the union
+    std::vector<size_t> all_endpoints;
+
+    // Merge the two vectors
+    all_endpoints.reserve(thread_endpoints.size() + sequence_endpoints.size()); // Preallocate memory
+    all_endpoints.insert(all_endpoints.end(), thread_endpoints.begin(), thread_endpoints.end());
+    all_endpoints.insert(all_endpoints.end(), sequence_endpoints.begin(), sequence_endpoints.end());
+
+    // Sort the merged vector
+    std::sort(all_endpoints.begin(), all_endpoints.end());
+
+    // Remove duplicates from the sorted vector
+    auto last = std::unique(all_endpoints.begin(), all_endpoints.end());
+    all_endpoints.erase(last, all_endpoints.end());
+
+    size_t prev_endpoint = 0;
+    size_t thread_idx = 0;
+    size_t sequence_idx = 0;
+    std::vector<std::vector<size_t>> sequence_counts(num_threads);
+    std::vector<std::vector<size_t>> sequence_tags(num_threads);
+    for (auto& endpoint : all_endpoints) {
+        size_t chunk_size = endpoint - prev_endpoint;
+        sequence_counts[thread_idx].emplace_back(chunk_size);
+        sequence_tags[thread_idx].emplace_back(sequence_idx);
+        if (endpoint == thread_endpoints[thread_idx]) {
+            thread_idx++;
+        }
+        if (endpoint == sequence_endpoints[sequence_idx]) {
+            sequence_idx++;
+        }
+        prev_endpoint = endpoint;
+    }
+
+    for (const auto& counts : sequence_counts) {
+        info("Counts:");
+        for (auto count : counts) {
+            info("count = ", count);
+        }
+    }
+    for (const auto& tags : sequence_tags) {
+        info("Tags:");
+        for (auto tag : tags) {
+            info("tag = ", tag);
+        }
+    }
 }
 
 template class BatchedAffineAddition<curve::Grumpkin>;

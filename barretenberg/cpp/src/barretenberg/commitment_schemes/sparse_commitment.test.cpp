@@ -383,4 +383,15 @@ TYPED_TEST(CommitmentKeyTest, ReduceLarge)
     EXPECT_EQ(result, expected_result);
 }
 
+TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
+{
+    // std::set<uint32_t> thread_endpoints = { 0, 10, 20 };
+    // std::set<uint32_t> sequence_endpoints = { 0, 7, 15, 20 };
+    using Curve = TypeParam;
+
+    using AddManager = AdditionManager<Curve>;
+
+    AddManager::strategize_threads();
+}
+
 } // namespace bb
