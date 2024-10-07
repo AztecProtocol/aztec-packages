@@ -33,8 +33,6 @@ barretenberg-acir-tests-bb:
     # Note that the script will skip the Plonk related tests
     RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
 
-    # Construct and separately verify a UltraHonk proof for a single program
-    RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh sha256
     # Construct and separately verify a MegaHonk proof for all acir programs
     RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
     # Construct and verify a UltraHonk proof for a single program

@@ -35,11 +35,9 @@ export BIN CRS_PATH VERBOSE BRANCH
 
 cd acir_tests
 
-echo $HONK
-
 # Convert them to array
-# These are not regressions but tests that check proper handling of dependencies or circuits that are part of a workspace
-# Running these require extra gluecode so they are skipped for the purpose of these tests
+# There are no issues witht the tests below but as they check proper handling of dependencies or circuits that are part of a workspace
+# running these require extra gluecode so they are skipped for the purpose of this script
 SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
@@ -49,7 +47,7 @@ SKIP_ARRAY+=(regression_5045)
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
     # Don't run programs with Honk recursive verifier
-    SKIP_ARRAY+=(verify_honk_proof)
+    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof double_verify_honk_proof_recursive)
 fi
 
 if [ "$HONK" = true ]; then
