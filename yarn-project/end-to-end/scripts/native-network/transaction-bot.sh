@@ -42,4 +42,4 @@ export PXE_PROVER_ENABLED="false"
 export PROVER_REAL_PROOFS="false"
 
 # Start the bot
-node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --pxe --bot
+node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --port=8077 --pxe --bot
