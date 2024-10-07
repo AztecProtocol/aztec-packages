@@ -12,8 +12,8 @@ import {
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
+  CombinedConstantData,
   Gas,
-  GlobalVariables,
   Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -689,7 +689,7 @@ export class TXE implements TypedOracle {
 
     const executionResult = executor.simulate(
       execution,
-      GlobalVariables.empty(),
+      CombinedConstantData.empty(),
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],

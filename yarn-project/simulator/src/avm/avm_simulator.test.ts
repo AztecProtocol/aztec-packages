@@ -10,6 +10,7 @@ import { type Fieldable } from '@aztec/foundation/serialize';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
+import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
@@ -30,7 +31,23 @@ import {
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
-import { Add, CalldataCopy, Return, Set } from './opcodes/index.js';
+import {
+  Add,
+  CalldataCopy,
+  EmitNoteHash,
+  EmitNullifier,
+  EmitUnencryptedLog,
+  type Instruction,
+  Jump,
+  L1ToL2MessageExists,
+  NoteHashExists,
+  NullifierExists,
+  Return,
+  SLoad,
+  SStore,
+  SendL2ToL1Message,
+  Set,
+} from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
@@ -934,6 +951,62 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!)).toMatch(
           'Values are not equal',
         );
+      });
+    });
+
+    describe('Side effect trace errors on overflow', () => {
+      const trace = new PublicEnqueuedCallSideEffectTrace();
+      const persistableState = initPersistableStateManager({ worldStateDB, trace });
+
+      it.each([
+        ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
+        ['Public storage reads', () => new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 0)],
+        [
+          'Note hash checks',
+          () => new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffest=*/ 0, /*existsOffset=*/ 1),
+        ],
+        ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
+        [
+          'Nullifier checks',
+          () => new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffest=*/ 0, /*existsOffset=*/ 1),
+        ],
+        ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
+        [
+          'L1 to L2 message checks',
+          () =>
+            new L1ToL2MessageExists(
+              /*indirect=*/ 0,
+              /*msgHashOffset=*/ 0,
+              /*msgLeafIndexOffest=*/ 0,
+              /*existsOffset=*/ 1,
+            ),
+        ],
+        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logOffset=*/ 0, /*logSizeOffest=*/ 1)],
+        [
+          'New L1 to L2 messages',
+          () => new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),
+        ],
+      ])(`Overrun of %s`, async (_sideEffectType: string, createInstr: () => Instruction) => {
+        const bytecode = encodeToBytecode([
+          new Set(/*indirect*/ 0, TypeTag.FIELD, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, TypeTag.FIELD, /*value*/ 100, /*dstOffset*/ 100).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 1, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+          createInstr(),
+          // change value at memory offset 0 so each instr operates on a different value (important for nullifier emission)
+          new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(
+            Opcode.ADD_8,
+            Add.wireFormat8,
+          ),
+          // infinitely loop back to the tested instruction
+          // infinite loop should break on side effect overrun error,
+          // but otherwise will run out of gas
+          new Jump(/*jumpOffset*/ 2),
+        ]);
+        const context = initContext({ persistableState });
+        const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
+        expect(results.reverted).toBe(true);
+        expect(results.output).toEqual([]);
+        expect(results.revertReason?.message).toMatch('Reached the limit');
       });
     });
   });
