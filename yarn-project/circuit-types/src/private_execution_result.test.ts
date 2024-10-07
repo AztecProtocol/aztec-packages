@@ -2,33 +2,33 @@ import { PublicExecutionRequest } from '@aztec/circuit-types';
 import { Fr, PrivateCallStackItem } from '@aztec/circuits.js';
 
 import {
-  type ExecutionResult,
+  PrivateExecutionResult,
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
-} from './execution_result.js';
+} from './private_execution_result.js';
 
-function emptyExecutionResult(): ExecutionResult {
-  return {
-    acir: Buffer.from(''),
-    vk: Buffer.from(''),
-    partialWitness: new Map(),
-    callStackItem: PrivateCallStackItem.empty(),
-    noteHashLeafIndexMap: new Map(),
-    newNotes: [],
-    noteHashNullifierCounterMap: new Map(),
-    returnValues: [],
-    nestedExecutions: [],
-    enqueuedPublicFunctionCalls: [],
-    publicTeardownFunctionCall: PublicExecutionRequest.empty(),
-    noteEncryptedLogs: [],
-    encryptedLogs: [],
-    unencryptedLogs: [],
-  };
+function emptyExecutionResult(): PrivateExecutionResult {
+  return new PrivateExecutionResult(
+    Buffer.from(''),
+    Buffer.from(''),
+    new Map(),
+    PrivateCallStackItem.empty(),
+    new Map(),
+    [],
+    new Map(),
+    [],
+    [],
+    [],
+    PublicExecutionRequest.empty(),
+    [],
+    [],
+    [],
+  );
 }
 
 describe('execution_result', () => {
-  let executionResult: ExecutionResult;
+  let executionResult: PrivateExecutionResult;
 
   beforeEach(() => {
     executionResult = emptyExecutionResult();

@@ -14,7 +14,7 @@ import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-c
 import { afterAll, jest } from '@jest/globals';
 import { getContract } from 'viem';
 
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
 describe('e2e_lending_contract', () => {
@@ -66,7 +66,7 @@ describe('e2e_lending_contract', () => {
   beforeAll(async () => {
     ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues } = await setup(1));
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    await publicDeployAccounts(wallet, [wallet]);
+    await ensureAccountsPubliclyDeployed(wallet, [wallet]);
 
     const rollup = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),

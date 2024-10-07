@@ -53,7 +53,7 @@ spec:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
       containers:
-        - name: aztec
+        - name: boot-node
           image: {{ .Values.images.aztec.image }}
           command:
             [

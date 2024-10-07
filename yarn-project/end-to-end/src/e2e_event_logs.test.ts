@@ -14,7 +14,7 @@ import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/
 
 import { jest } from '@jest/globals';
 
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
@@ -31,7 +31,7 @@ describe('Logs', () => {
   beforeAll(async () => {
     ({ teardown, wallets, aztecNode: node, pxe } = await setup(2));
 
-    await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
+    await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
 
     testLogContract = await TestLogContract.deploy(wallets[0]).send().deployed();
 
