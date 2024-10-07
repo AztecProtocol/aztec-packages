@@ -93,7 +93,6 @@ impl Default for AvmInstruction {
 #[allow(clippy::upper_case_acronyms, dead_code)]
 #[derive(Copy, Clone, Debug)]
 pub enum AvmTypeTag {
-    UNINITIALIZED,
     UINT1,
     UINT8,
     UINT16,
