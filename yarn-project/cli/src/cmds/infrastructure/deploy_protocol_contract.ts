@@ -2,21 +2,25 @@ import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@az
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type LogFn } from '@aztec/foundation/log';
 
+
+
 import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '../misc/deploy_contracts.js';
+
 
 export async function deployProtocolContracts(
   rpcUrl: string,
   l1ChainId: number,
   json: boolean,
-  waitForProven: boolean,
+  skipProofWait: boolean,
   log: LogFn,
 ) {
   const waitOpts: WaitOpts = {
     timeout: 180,
     interval: 1,
-    proven: waitForProven,
+    proven: !skipProofWait,
     provenTimeout: 600,
   };
+  log('deployProtocolContracts: Wait options for deployments' + JSON.stringify(waitOpts));
   log('deployProtocolContracts: Creating PXE client...');
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));

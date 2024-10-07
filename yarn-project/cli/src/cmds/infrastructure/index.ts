@@ -1,8 +1,13 @@
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
+
+
 import { type Command } from 'commander';
 
+
+
 import { ETHEREUM_HOST, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
+
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   program
@@ -11,16 +16,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(pxeOption)
     .addOption(l1ChainIdOption)
     .option('--json', 'Output the contract addresses in JSON format')
-    .option('--waitForProven', 'Should we wait for proofs to be posted?', true)
+    .option('--skipProofWait', "Don't wait for proofs to land.")
     .action(async options => {
       const { deployProtocolContracts } = await import('./deploy_protocol_contract.js');
-      await deployProtocolContracts(
-        options.rpcUrl,
-        options.l1ChainId,
-        options.json,
-        options.waitForProven,
-        log,
-      );
+      await deployProtocolContracts(options.rpcUrl, options.l1ChainId, options.json, options.skipProofWait, log);
     });
 
   program
