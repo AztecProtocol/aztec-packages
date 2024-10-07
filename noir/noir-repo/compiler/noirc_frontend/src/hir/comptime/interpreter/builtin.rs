@@ -20,8 +20,9 @@ use rustc_hash::FxHashMap as HashMap;
 use crate::{
     ast::{
         ArrayLiteral, BlockExpression, ConstrainKind, Expression, ExpressionKind, ForRange,
-        FunctionKind, FunctionReturnType, IntegerBitSize, LValue, Literal, Pattern, Statement,
-        StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData, Visibility,
+        FunctionKind, FunctionReturnType, Ident, IntegerBitSize, LValue, Literal, Pattern,
+        Signedness, Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
+        Visibility,
     },
     hir::{
         comptime::{
@@ -30,10 +31,13 @@ use crate::{
             InterpreterError, Value,
         },
         def_collector::dc_crate::CollectedItems,
+        def_map::ModuleDefId,
     },
-    hir_def::function::FunctionBody,
-    macros_api::{HirExpression, HirLiteral, Ident, ModuleDefId, NodeInterner, Signedness},
-    node_interner::{DefinitionKind, TraitImplKind},
+    hir_def::{
+        expr::{HirExpression, HirLiteral},
+        function::FunctionBody,
+    },
+    node_interner::{DefinitionKind, NodeInterner, TraitImplKind},
     parser,
     token::{Attribute, SecondaryAttribute, Token},
     Kind, QuotedType, ResolvedGeneric, Shared, Type, TypeVariable,
@@ -189,6 +193,9 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "type_as_array" => type_as_array(arguments, return_type, location),
             "type_as_constant" => type_as_constant(arguments, return_type, location),
             "type_as_integer" => type_as_integer(arguments, return_type, location),
+            "type_as_mutable_reference" => {
+                type_as_mutable_reference(arguments, return_type, location)
+            }
             "type_as_slice" => type_as_slice(arguments, return_type, location),
             "type_as_str" => type_as_str(arguments, return_type, location),
             "type_as_struct" => type_as_struct(arguments, return_type, location),
@@ -201,6 +208,7 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "type_implements" => type_implements(interner, arguments, location),
             "type_is_bool" => type_is_bool(arguments, location),
             "type_is_field" => type_is_field(arguments, location),
+            "type_is_unit" => type_is_unit(arguments, location),
             "type_of" => type_of(arguments, location),
             "typed_expr_as_function_definition" => {
                 typed_expr_as_function_definition(interner, arguments, return_type, location)
@@ -208,7 +216,15 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "typed_expr_get_type" => {
                 typed_expr_get_type(interner, arguments, return_type, location)
             }
+            "unresolved_type_as_mutable_reference" => {
+                unresolved_type_as_mutable_reference(interner, arguments, return_type, location)
+            }
+            "unresolved_type_as_slice" => {
+                unresolved_type_as_slice(interner, arguments, return_type, location)
+            }
+            "unresolved_type_is_bool" => unresolved_type_is_bool(interner, arguments, location),
             "unresolved_type_is_field" => unresolved_type_is_field(interner, arguments, location),
+            "unresolved_type_is_unit" => unresolved_type_is_unit(interner, arguments, location),
             "zeroed" => zeroed(return_type),
             _ => {
                 let item = format!("Comptime evaluation for builtin function {name}");
@@ -400,11 +416,11 @@ fn struct_def_add_generic(
         }
     }
 
-    let type_var = TypeVariable::unbound(interner.next_type_variable_id());
+    let type_var_kind = Kind::Normal;
+    let type_var = TypeVariable::unbound(interner.next_type_variable_id(), type_var_kind);
     let span = generic_location.span;
-    let kind = Kind::Normal;
-    let typ = Type::NamedGeneric(type_var.clone(), name.clone(), kind.clone());
-    let new_generic = ResolvedGeneric { name, type_var, span, kind };
+    let typ = Type::NamedGeneric(type_var.clone(), name.clone());
+    let new_generic = ResolvedGeneric { name, type_var, span };
     the_struct.generics.push(new_generic);
 
     Ok(Value::Type(typ))
@@ -422,7 +438,7 @@ fn struct_def_as_type(
     let struct_def = struct_def_rc.borrow();
 
     let generics = vecmap(&struct_def.generics, |generic| {
-        Type::NamedGeneric(generic.type_var.clone(), generic.name.clone(), generic.kind.clone())
+        Type::NamedGeneric(generic.type_var.clone(), generic.name.clone())
     });
 
     drop(struct_def);
@@ -851,6 +867,21 @@ fn type_as_integer(
     })
 }
 
+// fn as_mutable_reference(self) -> Option<Type>
+fn type_as_mutable_reference(
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    type_as(arguments, return_type, location, |typ| {
+        if let Type::MutableReference(typ) = typ {
+            Some(Value::Type(*typ))
+        } else {
+            None
+        }
+    })
+}
+
 // fn as_slice(self) -> Option<Type>
 fn type_as_slice(
     arguments: Vec<(Value, Location)>,
@@ -1009,6 +1040,14 @@ fn type_is_field(arguments: Vec<(Value, Location)>, location: Location) -> IResu
     Ok(Value::Bool(matches!(typ, Type::FieldElement)))
 }
 
+// fn is_unit(self) -> bool
+fn type_is_unit(arguments: Vec<(Value, Location)>, location: Location) -> IResult<Value> {
+    let value = check_one_argument(arguments, location)?;
+    let typ = get_type(value)?;
+
+    Ok(Value::Bool(matches!(typ, Type::Unit)))
+}
+
 // fn type_of<T>(x: T) -> Type
 fn type_of(arguments: Vec<(Value, Location)>, location: Location) -> IResult<Value> {
     let (value, _) = check_one_argument(arguments, location)?;
@@ -1111,6 +1150,49 @@ fn typed_expr_get_type(
     option(return_type, option_value)
 }
 
+// fn as_mutable_reference(self) -> Option<UnresolvedType>
+fn unresolved_type_as_mutable_reference(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    unresolved_type_as(interner, arguments, return_type, location, |typ| {
+        if let UnresolvedTypeData::MutableReference(typ) = typ {
+            Some(Value::UnresolvedType(typ.typ))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_slice(self) -> Option<UnresolvedType>
+fn unresolved_type_as_slice(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    unresolved_type_as(interner, arguments, return_type, location, |typ| {
+        if let UnresolvedTypeData::Slice(typ) = typ {
+            Some(Value::UnresolvedType(typ.typ))
+        } else {
+            None
+        }
+    })
+}
+
+// fn is_bool(self) -> bool
+fn unresolved_type_is_bool(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let typ = get_unresolved_type(interner, self_argument)?;
+    Ok(Value::Bool(matches!(typ, UnresolvedTypeData::Bool)))
+}
+
 // fn is_field(self) -> bool
 fn unresolved_type_is_field(
     interner: &NodeInterner,
@@ -1120,6 +1202,36 @@ fn unresolved_type_is_field(
     let self_argument = check_one_argument(arguments, location)?;
     let typ = get_unresolved_type(interner, self_argument)?;
     Ok(Value::Bool(matches!(typ, UnresolvedTypeData::FieldElement)))
+}
+
+// fn is_unit(self) -> bool
+fn unresolved_type_is_unit(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let typ = get_unresolved_type(interner, self_argument)?;
+    Ok(Value::Bool(matches!(typ, UnresolvedTypeData::Unit)))
+}
+
+// Helper function for implementing the `unresolved_type_as_...` functions.
+fn unresolved_type_as<F>(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+    f: F,
+) -> IResult<Value>
+where
+    F: FnOnce(UnresolvedTypeData) -> Option<Value>,
+{
+    let value = check_one_argument(arguments, location)?;
+    let typ = get_unresolved_type(interner, value)?;
+
+    let option_value = f(typ);
+
+    option(return_type, option_value)
 }
 
 // fn zeroed<T>() -> T
@@ -1192,14 +1304,14 @@ fn zeroed(return_type: Type) -> IResult<Value> {
             Ok(Value::Pointer(Shared::new(element), false))
         }
         // Optimistically assume we can resolve this type later or that the value is unused
-        Type::TypeVariable(_, _)
+        Type::TypeVariable(_)
         | Type::Forall(_, _)
         | Type::Constant(..)
         | Type::InfixExpr(..)
         | Type::Quoted(_)
         | Type::Error
         | Type::TraitAsType(..)
-        | Type::NamedGeneric(_, _, _) => Ok(Value::Zeroed(return_type)),
+        | Type::NamedGeneric(_, _) => Ok(Value::Zeroed(return_type)),
     }
 }
 
@@ -1510,7 +1622,8 @@ fn expr_as_for_range(
 ) -> IResult<Value> {
     expr_as(interner, arguments, return_type, location, |expr| {
         if let ExprValue::Statement(StatementKind::For(for_statement)) = expr {
-            if let ForRange::Range(from, to) = for_statement.range {
+            if let ForRange::Range(bounds) = for_statement.range {
+                let (from, to) = bounds.into_half_open();
                 let identifier =
                     Value::Quoted(Rc::new(vec![Token::Ident(for_statement.identifier.0.contents)]));
                 let from = Value::expression(from.kind);
@@ -2075,7 +2188,7 @@ fn fmtstr_quoted_contents(
 
 // fn fresh_type_variable() -> Type
 fn fresh_type_variable(interner: &NodeInterner) -> IResult<Value> {
-    Ok(Value::Type(interner.next_type_variable()))
+    Ok(Value::Type(interner.next_type_variable_with_kind(Kind::Any)))
 }
 
 // fn add_attribute<let N: u32>(self, attribute: str<N>)
