@@ -155,6 +155,8 @@ template <typename FF> struct AvmFullRow {
     FF main_ind_addr_d{};
     FF main_internal_return_ptr{};
     FF main_inv{};
+    FF main_is_fake_row{};
+    FF main_is_gas_accounted{};
     FF main_kernel_in_offset{};
     FF main_kernel_out_offset{};
     FF main_l1_to_l2_msg_exists_write_offset{};
@@ -195,7 +197,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_calldata_copy{};
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
-    FF main_sel_op_cmov{};
     FF main_sel_op_dagasleft{};
     FF main_sel_op_div{};
     FF main_sel_op_ecadd{};
@@ -278,7 +279,6 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
     FF mem_sel_op_poseidon_read_a{};
     FF mem_sel_op_poseidon_read_b{};

@@ -407,14 +407,6 @@ export class Sequencer {
 
     const newGlobalVariables = proposalHeader.globalVariables;
 
-    // Kick off the process of collecting and validating proof quotes here so it runs alongside block building
-    const proofQuotePromise = this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt()).catch(
-      e => {
-        this.log.warn(`Failed to create proof claim quote ${e}`);
-        return undefined;
-      },
-    );
-
     this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
@@ -491,17 +483,17 @@ export class Sequencer {
     const attestations = await this.collectAttestations(block, txHashes);
     this.log.verbose('Attestations collected');
 
-    const proofQuote = await proofQuotePromise;
-
+    this.log.verbose('Collecting proof quotes');
+    const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
     this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
 
     try {
       await this.publishL2Block(block, attestations, txHashes, proofQuote);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
-        `Submitted rollup block ${block.number} with ${
-          processedTxs.length
-        } transactions duration=${workDuration}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+        `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
+          workDuration,
+        )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
       );
     } catch (err) {
       this.metrics.recordFailedBlock();
@@ -548,42 +540,47 @@ export class Sequencer {
   }
 
   protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
-    // Find out which epoch we are currently in
-    const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
-    if (epochForBlock < 1n) {
-      // It's the 0th epoch, nothing to be proven yet
-      this.log.verbose(`First epoch has no claim`);
-      return undefined;
-    }
-    const epochToProve = epochForBlock - 1n;
-    // Find out the next epoch that can be claimed
-    const canClaim = await this.publisher.nextEpochToClaim();
-    if (canClaim != epochToProve) {
-      // It's not the one we are looking to claim
-      this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
-      return undefined;
-    }
-    // Get quotes for the epoch to be proven
-    const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
-    this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
-    for (const quote of quotes) {
-      this.log.verbose(inspect(quote.payload));
-    }
-    // ensure these quotes are still valid for the slot and have the contract validate them
-    const validQuotesPromise = Promise.all(
-      quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),
-    );
+    try {
+      // Find out which epoch we are currently in
+      const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
+      if (epochForBlock < 1n) {
+        // It's the 0th epoch, nothing to be proven yet
+        this.log.verbose(`First epoch has no claim`);
+        return undefined;
+      }
+      const epochToProve = epochForBlock - 1n;
+      // Find out the next epoch that can be claimed
+      const canClaim = await this.publisher.nextEpochToClaim();
+      if (canClaim != epochToProve) {
+        // It's not the one we are looking to claim
+        this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
+        return undefined;
+      }
+      // Get quotes for the epoch to be proven
+      const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
+      this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
+      for (const quote of quotes) {
+        this.log.verbose(inspect(quote.payload));
+      }
+      // ensure these quotes are still valid for the slot and have the contract validate them
+      const validQuotesPromise = Promise.all(
+        quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),
+      );
 
-    const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
-    if (!validQuotes.length) {
-      this.log.verbose(`Failed to find any valid proof quotes`);
+      const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
+      if (!validQuotes.length) {
+        this.log.verbose(`Failed to find any valid proof quotes`);
+        return undefined;
+      }
+      // pick the quote with the lowest fee
+      const sortedQuotes = validQuotes.sort(
+        (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
+      );
+      return sortedQuotes[0];
+    } catch (err) {
+      this.log.error(`Failed to create proof claim for previous epoch: ${err}`);
       return undefined;
     }
-    // pick the quote with the lowest fee
-    const sortedQuotes = validQuotes.sort(
-      (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
-    );
-    return sortedQuotes[0];
   }
 
   /**

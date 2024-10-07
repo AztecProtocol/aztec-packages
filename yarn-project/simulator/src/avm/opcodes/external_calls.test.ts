@@ -36,7 +36,7 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        0x01, // indirect
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
         ...Buffer.from('12345678', 'hex'), // gasOffset
         ...Buffer.from('a2345678', 'hex'), // addrOffset
         ...Buffer.from('b2345678', 'hex'), // argsOffset
@@ -47,7 +47,7 @@ describe('External Calls', () => {
         ...Buffer.from('f3345678', 'hex'), // functionSelectorOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x01,
+        /*indirect=*/ 0x1234,
         /*gasOffset=*/ 0x12345678,
         /*addrOffset=*/ 0xa2345678,
         /*argsOffset=*/ 0xb2345678,
@@ -185,7 +185,7 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        0x01, // indirect
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
         ...Buffer.from('12345678', 'hex'), // gasOffset
         ...Buffer.from('a2345678', 'hex'), // addrOffset
         ...Buffer.from('b2345678', 'hex'), // argsOffset
@@ -196,7 +196,7 @@ describe('External Calls', () => {
         ...Buffer.from('f3345678', 'hex'), // functionSelectorOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x01,
+        /*indirect=*/ 0x1234,
         /*gasOffset=*/ 0x12345678,
         /*addrOffset=*/ 0xa2345678,
         /*argsOffset=*/ 0xb2345678,

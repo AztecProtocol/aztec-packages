@@ -69,7 +69,6 @@ export async function deployAztecContracts(
     RegistryBytecode,
     RollupAbi,
     RollupBytecode,
-
     FeeJuicePortalAbi,
     FeeJuicePortalBytecode,
     TestERC20Abi,

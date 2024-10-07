@@ -53,7 +53,7 @@ spec:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
       containers:
-        - name: aztec
+        - name: boot-node
           image: {{ .Values.images.aztec.image }}
           command:
             [
@@ -123,11 +123,19 @@ spec:
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
-        - name: shared-volume
-          emptyDir: {}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-deploy-contracts-script
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "aztec-network.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.bootNode.storage }}
 ---
 apiVersion: v1
 kind: Service
@@ -136,7 +144,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
+  type: ClusterIP
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
@@ -145,3 +153,22 @@ spec:
       name: p2p
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-boot-node-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: boot-node
+  ports:
+    - port: {{ .Values.bootNode.service.p2pPort }}
+      name: p2p
+    - port: {{ .Values.bootNode.service.nodePort }}
+      name: node
+{{ end }}

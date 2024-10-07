@@ -116,6 +116,7 @@ Builder create_inner_circuit()
         .assert_equalities = {},
         .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -279,6 +280,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

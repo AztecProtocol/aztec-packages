@@ -13,6 +13,10 @@ namespace bb {
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 {
+    if (proving_key->proving_key.commitment_key == nullptr) {
+        proving_key->proving_key.commitment_key =
+            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    }
     {
 
 #ifdef TRACY_MEMORY
@@ -58,6 +62,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
+
+    // Free the commitment key
+    proving_key->proving_key.commitment_key = nullptr;
 }
 
 /**
@@ -94,9 +101,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        witness_commitments.w_l = commitment_key->commit(proving_key->proving_key.polynomials.w_l);
-        witness_commitments.w_r = commitment_key->commit(proving_key->proving_key.polynomials.w_r);
-        witness_commitments.w_o = commitment_key->commit(proving_key->proving_key.polynomials.w_o);
+        witness_commitments.w_l =
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_l);
+        witness_commitments.w_r =
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_r);
+        witness_commitments.w_o =
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_o);
     }
 
     auto wire_comms = witness_commitments.get_wires();
@@ -113,7 +123,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
                                                              commitment_labels.get_ecc_op_wires())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::ecc_op_wires");
-                commitment = commitment_key->commit(polynomial);
+                commitment = proving_key->proving_key.commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
@@ -125,7 +135,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
                       commitment_labels.get_databus_entities())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::databus");
-                commitment = commitment_key->commit(polynomial);
+                commitment = proving_key->proving_key.commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
@@ -152,13 +162,14 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::lookup_counts_tags");
         witness_commitments.lookup_read_counts =
-            commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_counts);
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_counts);
         witness_commitments.lookup_read_tags =
-            commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_tags);
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_tags);
     }
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        witness_commitments.w_4 = commitment_key->commit(proving_key->proving_key.polynomials.w_4);
+        witness_commitments.w_4 =
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_4);
     }
 
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_counts,
@@ -185,7 +196,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::lookup_inverses");
         witness_commitments.lookup_inverses =
-            commitment_key->commit(proving_key->proving_key.polynomials.lookup_inverses);
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_inverses);
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);
@@ -198,7 +209,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                       commitment_labels.get_databus_inverses())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
-                commitment = commitment_key->commit_sparse(polynomial);
+                commitment = proving_key->proving_key.commitment_key->commit_sparse(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
@@ -217,7 +228,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::z_perm");
-        witness_commitments.z_perm = commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
+        witness_commitments.z_perm =
+            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
 }

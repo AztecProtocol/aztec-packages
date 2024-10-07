@@ -1,5 +1,4 @@
-import { type AccountWallet, AztecAddress, BatchCall, ExtendedNote, Fr, Note } from '@aztec/aztec.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { type AccountWallet, AztecAddress, BatchCall, Fr } from '@aztec/aztec.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { NFTContract } from '@aztec/noir-contracts.js';
 
@@ -65,16 +64,15 @@ describe('NFT', () => {
     // it would be the uniswap contract.
     const recipient = user1Wallet.getAddress();
     const sender = recipient;
-    const noteRandomness = Fr.random();
     const transientStorageSlotRandomness = Fr.random();
     const transferPreparerStorageSlotCommitment = pedersenHash(
       [user1Wallet.getAddress(), transientStorageSlotRandomness],
       TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX,
     );
 
-    const { txHash, debugInfo } = await new BatchCall(user1Wallet, [
+    const { debugInfo } = await new BatchCall(user1Wallet, [
       nftContractAsUser1.methods
-        .prepare_transfer_to_private(sender, recipient, noteRandomness, transientStorageSlotRandomness)
+        .prepare_transfer_to_private(sender, recipient, transientStorageSlotRandomness)
         .request(),
       nftContractAsUser1.methods
         .finalize_transfer_to_private(TOKEN_ID, transferPreparerStorageSlotCommitment)
@@ -85,24 +83,6 @@ describe('NFT', () => {
 
     const publicOwnerAfter = await nftContractAsUser1.methods.owner_of(TOKEN_ID).simulate();
     expect(publicOwnerAfter).toEqual(AztecAddress.ZERO);
-
-    // TODO(#8238): Since we don't yet have a partial note delivery we have to manually add it to PXE
-    const nftNote = new Note([
-      new Fr(TOKEN_ID),
-      user1Wallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash(),
-      noteRandomness,
-    ]);
-
-    await user1Wallet.addNote(
-      new ExtendedNote(
-        nftNote,
-        user1Wallet.getAddress(),
-        nftContractAsUser1.address,
-        deriveStorageSlotInMap(NFTContract.storage.private_nfts.slot, user1Wallet.getAddress()),
-        NFTContract.notes.NFTNote.id,
-        txHash,
-      ),
-    );
 
     // We should get 4 data writes setting values to 0 - 3 for note hiding point and 1 for public owner (we transfer
     // to private so public owner is set to 0). Ideally we would have here only 1 data write as the 4 values change

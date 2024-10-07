@@ -1,14 +1,26 @@
 import {
   type AuthWitness,
   type AztecNode,
+  CountedLog,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
   EncryptedL2Log,
   EncryptedL2NoteLog,
   Note,
+  NoteAndSlot,
   type NoteStatus,
+  type PrivateExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { CallContext, FunctionSelector, type Header, PrivateContextInputs, type TxContext } from '@aztec/circuits.js';
+import {
+  CallContext,
+  FunctionSelector,
+  type Header,
+  PUBLIC_DISPATCH_SELECTOR,
+  PrivateContextInputs,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -20,13 +32,6 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import {
-  CountedLog,
-  CountedNoteLog,
-  CountedPublicExecutionRequest,
-  type ExecutionResult,
-  type NoteAndSlot,
-} from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -57,7 +62,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
-  private nestedExecutions: ExecutionResult[] = [];
+  private nestedExecutions: PrivateExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
@@ -296,11 +301,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       },
       counter,
     );
-    this.newNotes.push({
-      storageSlot,
-      noteTypeId,
-      note,
-    });
+    this.newNotes.push(new NoteAndSlot(note, storageSlot, noteTypeId));
   }
 
   /**
@@ -383,7 +384,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     return Fr.fromBuffer(log.hash());
   }
 
-  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
     if (
       childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
@@ -494,7 +495,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
-      `Created PublicExecutionRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+      `Created PublicExecutionRequest to ${targetArtifact.name}@${targetContractAddress}, of type [${callType}], side-effect counter [${sideEffectCounter}]`,
     );
 
     const request = PublicExecutionRequest.from({
@@ -528,16 +529,27 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+    // WARNING: This is insecure and should be temporary!
+    // The oracle repacks the arguments and returns a new args_hash.
+    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+    // b) this is only temporary.
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'enqueued',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
       isDelegateCall,
     );
+    return newArgsHash;
   }
 
   /**
@@ -558,16 +570,27 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+    // WARNING: This is insecure and should be temporary!
+    // The oracle repacks the arguments and returns a new args_hash.
+    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+    // b) this is only temporary.
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'teardown',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
       isDelegateCall,
     );
+    return newArgsHash;
   }
 
   public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {

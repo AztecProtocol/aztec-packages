@@ -28,13 +28,17 @@ import {
   TokenContract,
 } from '@aztec/noir-contracts.js';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type ProverNode } from '@aztec/prover-node';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, deployCanonicalFeeJuice, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import {
+  type BalancesFn,
+  deployCanonicalFeeJuice,
+  ensureAccountsPubliclyDeployed,
+  getBalancesFn,
+} from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -55,7 +59,6 @@ export class FeesTest {
   public logger: DebugLogger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
-  public proverNode!: ProverNode;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -175,10 +178,9 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig, proverNode }) => {
+      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
-        this.proverNode = proverNode;
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -208,7 +210,7 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      publicDeployAccounts(this.aliceWallet, this.wallets),
+      ensureAccountsPubliclyDeployed(this.aliceWallet, this.wallets),
     );
   }
 
