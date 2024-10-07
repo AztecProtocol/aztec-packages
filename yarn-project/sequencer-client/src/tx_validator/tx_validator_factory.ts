@@ -25,17 +25,17 @@ export class TxValidatorFactory {
   nullifierSource: NullifierSource;
   publicStateSource: PublicStateSource;
   constructor(
-    private db: MerkleTreeReadOperations,
+    private committedDb: MerkleTreeReadOperations,
     private contractDataSource: ContractDataSource,
     private enforceFees: boolean,
   ) {
     this.nullifierSource = {
-      getNullifierIndex: nullifier => this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()),
+      getNullifierIndex: nullifier => this.committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()),
     };
 
     this.publicStateSource = {
       storageRead: (contractAddress, slot) => {
-        return readPublicState(this.db, contractAddress, slot);
+        return readPublicState(this.committedDb, contractAddress, slot);
       },
     };
   }
@@ -50,7 +50,9 @@ export class TxValidatorFactory {
     );
   }
 
-  validatorForProcessedTxs(): TxValidator<ProcessedTx> {
-    return new DoubleSpendTxValidator(this.nullifierSource);
+  validatorForProcessedTxs(fork: MerkleTreeReadOperations): TxValidator<ProcessedTx> {
+    return new DoubleSpendTxValidator({
+      getNullifierIndex: nullifier => fork.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()),
+    });
   }
 }

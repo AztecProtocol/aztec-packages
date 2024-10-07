@@ -509,24 +509,23 @@ export const addAccounts =
     ]);
 
     logger.verbose('Simulating account deployment...');
-    const accountManagers = await asyncMap(accountKeys, async ([secretKey, signPk]) => {
-      const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
-      // Unfortunately the function below is not stateless and we call it here because it takes a long time to run and
-      // the results get stored within the account object. By calling it here we increase the probability of all the
-      // accounts being deployed in the same block because it makes the deploy() method basically instant.
-      await account.getDeployMethod().then(d =>
-        d.prove({
+    const provenTxs = await Promise.all(
+      accountKeys.map(async ([secretKey, signPk]) => {
+        const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
+        const deployMethod = await account.getDeployMethod();
+
+        const provenTx = await deployMethod.prove({
           contractAddressSalt: account.salt,
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
-        }),
-      );
-      return account;
-    });
+        });
+        return provenTx;
+      }),
+    );
 
     logger.verbose('Deploying accounts...');
-    const txs = await Promise.all(accountManagers.map(account => account.deploy()));
+    const txs = await Promise.all(provenTxs.map(provenTx => provenTx.send()));
     await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: waitUntilProven })));
 
     return { accountKeys };

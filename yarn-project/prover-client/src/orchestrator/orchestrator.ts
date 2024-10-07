@@ -370,16 +370,16 @@ export class ProvingOrchestrator implements EpochProver {
       [Attributes.EPOCH_SIZE]: this.provingState.totalNumBlocks,
     };
   })
-  private padEpoch() {
+  private padEpoch(): Promise<void> {
     const provingState = this.provingState!;
     const lastBlock = provingState.currentBlock?.block;
     if (!lastBlock) {
-      throw new Error(`Epoch needs at least one completed block in order to be padded`);
+      return Promise.reject(new Error(`Epoch needs at least one completed block in order to be padded`));
     }
 
     const paddingBlockCount = Math.max(2, provingState.totalNumBlocks) - provingState.blocks.length;
     if (paddingBlockCount === 0) {
-      return;
+      return Promise.resolve();
     }
 
     logger.debug(`Padding epoch proof with ${paddingBlockCount} empty block proofs`);
@@ -418,6 +418,7 @@ export class ProvingOrchestrator implements EpochProver {
         }
       },
     );
+    return Promise.resolve();
   }
 
   private async buildBlock(provingState: BlockProvingState) {
@@ -569,7 +570,7 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
     }
 
-    this.padEpoch();
+    await this.padEpoch();
 
     const result = await this.provingPromise!;
     if (result.status === 'failure') {

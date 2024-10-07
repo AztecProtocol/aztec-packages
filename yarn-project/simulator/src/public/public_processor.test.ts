@@ -38,18 +38,14 @@ import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  type PublicExecutionResult,
-  type PublicExecutor,
-  WASMSimulator,
-  computeFeePayerBalanceLeafSlot,
-} from '@aztec/simulator';
+import { type PublicExecutor, WASMSimulator, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicExecutionResultBuilder, makeFunctionCall } from '../mocks/fixtures.js';
+import { type PublicExecutionResult } from './execution.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';

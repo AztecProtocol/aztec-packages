@@ -442,7 +442,7 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
 
     // TODO (alexg) should we rollback here?
     // Potentiall not since all the changes exist only in-memory and this error will cause the process to die
-    throw std::runtime_error("Block state does not match world state");
+    throw std::runtime_error("Can't synch block: block state does not match world state");
 }
 
 GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision revision,

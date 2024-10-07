@@ -21,6 +21,8 @@ import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEsc
 import {TokenPortal} from "./TokenPortal.sol";
 import {UniswapPortal} from "./UniswapPortal.sol";
 
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
+
 contract UniswapPortalTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
 
@@ -53,13 +55,7 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup = new Rollup(
-      IFeeJuicePortal(address(0)),
-      IProofCommitmentEscrow(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    rollup = new Rollup(new MockFeeJuicePortal(), bytes32(0), address(this), new address[](0));
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();

@@ -1310,12 +1310,13 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.binary_instruction(zero, num, twos_complement, BrilligBinaryOp::Sub);
 
         // absolute_value = result_is_negative ? twos_complement : num
-        self.brillig_context.conditional_mov_instruction(
-            absolute_value.address,
-            result_is_negative.address,
-            twos_complement.address,
-            num.address,
-        );
+        self.brillig_context.codegen_branch(result_is_negative.address, |ctx, is_negative| {
+            if is_negative {
+                ctx.mov_instruction(absolute_value.address, twos_complement.address);
+            } else {
+                ctx.mov_instruction(absolute_value.address, num.address);
+            }
+        });
 
         self.brillig_context.deallocate_single_addr(zero);
         self.brillig_context.deallocate_single_addr(max_positive);
