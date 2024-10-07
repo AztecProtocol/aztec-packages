@@ -2,7 +2,10 @@ import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@az
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type LogFn } from '@aztec/foundation/log';
 
+
+
 import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '../misc/deploy_contracts.js';
+
 
 const waitOpts: WaitOpts = {
   timeout: 180,
@@ -12,18 +15,19 @@ const waitOpts: WaitOpts = {
 };
 
 export async function deployProtocolContracts(rpcUrl: string, l1ChainId: number, json: boolean, log: LogFn) {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  // const { TokenContract } = await import('@aztec/noir-contracts.js');
+  log('deployProtocolContracts: Creating PXE client...');
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));
 
+  log('deployProtocolContracts: Deploying canonical auth registry...');
   // Deploy Auth Registry
   const authRegistryAddress = await deployCanonicalAuthRegistry(deployer, waitOpts);
 
+  log('deployProtocolContracts: Getting fee juice portal address...');
   // Deploy Fee Juice
   const feeJuicePortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
-  const feeJuiceAddress = await deployCanonicalL2FeeJuice(deployer, feeJuicePortalAddress, waitOpts);
+  log('deployProtocolContracts: Deploying fee juice portal...');
+  const feeJuiceAddress = await deployCanonicalL2FeeJuice(deployer, feeJuicePortalAddress, waitOpts, log);
 
   if (json) {
     log(

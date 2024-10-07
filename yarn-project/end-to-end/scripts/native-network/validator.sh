@@ -7,7 +7,7 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
-export PORT="$1"
+PORT="$1"
 
 # Starts the Validator Node
 REPO=$(git rev-parse --show-toplevel)
@@ -40,7 +40,6 @@ export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export LOG_LEVEL="debug"
-export LOG_JSON="1"
 export DEBUG="aztec:*,-aztec:avm_simulator:*"
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export P2P_ENABLED="true"
@@ -57,4 +56,4 @@ node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator
 # Fast forward epochs
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
 # Start the Validator Node with the sequencer and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node -- --archiver --sequencer
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer

@@ -25,7 +25,6 @@ export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 
 # Set environment variables
 export LOG_LEVEL="debug"
-export LOG_JSON="1"
 export DEBUG="aztec:*"
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export PROVER_REAL_PROOFS="false"
