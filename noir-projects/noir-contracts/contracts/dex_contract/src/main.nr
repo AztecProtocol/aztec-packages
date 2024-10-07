@@ -262,16 +262,7 @@ contract DEX {
         _unlock(&mut context);
     }
 
-    // Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
-    // whether we are swapping `token0` for `token1` or vice versa.
-    #[public]
-    fn swap_tokens_for_exact_tokens(amount_out: u64, amount_in_max: u64, from_0_to_1: bool) {
-        _lock(&mut context);
-
-        // TODO
-
-        _unlock(&mut context);
-    }
+    // Note: swap_tokens_for_exact_tokens is not important for our purposes so I am not doing it.
 
     // After locking and unlocking there will be 1 public data write because we always commit the last change and
     // "val1 --> val2 --> val1" does not result in 0 public data writes. TODO: Either optimize this or introduce
