@@ -8,14 +8,7 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import {
-  type CombinedConstantData,
-  type Gas,
-  type GlobalVariables,
-  Header,
-  type Nullifier,
-  type TxContext,
-} from '@aztec/circuits.js';
+import { type Gas, type GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -162,7 +155,7 @@ export class TestContext {
   ) {
     const defaultExecutorImplementation = (
       execution: PublicExecutionRequest,
-      _constants: CombinedConstantData,
+      _globalVariables: GlobalVariables,
       availableGas: Gas,
       _txContext: TxContext,
       _pendingNullifiers: Nullifier[],
@@ -202,7 +195,7 @@ export class TestContext {
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       execution: PublicExecutionRequest,
-      constants: CombinedConstantData,
+      globalVariables: GlobalVariables,
       availableGas: Gas,
       txContext: TxContext,
       pendingNullifiers: Nullifier[],
