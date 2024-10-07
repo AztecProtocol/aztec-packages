@@ -4,14 +4,19 @@ import { type LogFn } from '@aztec/foundation/log';
 
 import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '../misc/deploy_contracts.js';
 
-const waitOpts: WaitOpts = {
-  timeout: 180,
-  interval: 1,
-  proven: true,
-  provenTimeout: 600,
-};
-
-export async function deployProtocolContracts(rpcUrl: string, l1ChainId: number, json: boolean, log: LogFn) {
+export async function deployProtocolContracts(
+  rpcUrl: string,
+  l1ChainId: number,
+  json: boolean,
+  waitForProven: boolean,
+  log: LogFn,
+) {
+  const waitOpts: WaitOpts = {
+    timeout: 180,
+    interval: 1,
+    proven: waitForProven,
+    provenTimeout: 600,
+  };
   log('deployProtocolContracts: Creating PXE client...');
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));

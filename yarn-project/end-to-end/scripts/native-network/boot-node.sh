@@ -38,4 +38,4 @@ function filter_noise() {
 }
 
 # Start the Aztec node with the sequencer and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe | filter_noise
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe 2>&1 | filter_noise

@@ -17,7 +17,7 @@ export async function deployCanonicalL2FeeJuice(
   deployer: Wallet,
   feeJuicePortalAddress: EthAddress,
   waitOpts = DefaultWaitOpts,
-  log: LogFn
+  log: LogFn,
 ): Promise<AztecAddress> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
@@ -31,10 +31,10 @@ export async function deployCanonicalL2FeeJuice(
 
   const publicBytecode = canonicalFeeJuice.contractClass.packedBytecode;
   const encodedBytecode = bufferAsFields(publicBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
-  log("deployCanonicalL2FeeJuice: Adding capsule...");
+  log('deployCanonicalL2FeeJuice: Adding capsule...');
   await deployer.addCapsule(encodedBytecode);
   const feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, deployer);
-  log("deployCanonicalL2FeeJuice: Calling deploy on fee juice contract...");
+  log('deployCanonicalL2FeeJuice: Calling deploy on fee juice contract...');
   await feeJuiceContract.methods
     .deploy(
       canonicalFeeJuice.contractClass.artifactHash,

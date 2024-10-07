@@ -11,9 +11,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(pxeOption)
     .addOption(l1ChainIdOption)
     .option('--json', 'Output the contract addresses in JSON format')
+    .option('--waitForProven', 'Should we wait for proofs to be posted?', 'true')
     .action(async options => {
       const { deployProtocolContracts } = await import('./deploy_protocol_contract.js');
-      await deployProtocolContracts(options.rpcUrl, options.l1ChainId, options.json, log);
+      await deployProtocolContracts(
+        options.rpcUrl,
+        options.l1ChainId,
+        options.json,
+        options.waitForProven === 'true',
+        log,
+      );
     });
 
   program
