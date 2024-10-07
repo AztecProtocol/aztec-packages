@@ -19,13 +19,16 @@ until curl -s -X POST -H 'content-type: application/json' \
 done
 echo "Done waiting."
 
+# TODO(AD): Add option for prover-enabled mode
+WAIT_FOR_PROVEN="false"
+
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export PXE_URL="http://127.0.0.1:8079"
-node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-protocol-contracts
+node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-protocol-contracts --waitForProven "$WAIT_FOR_PROVEN"
 echo "Deployed L2 contracts"
 # Use file just as done signal
 echo "" > l2-contracts.env
 echo "Wrote to l2-contracts.env to signal completion"
 sleep 5
-tmux kill-pane
+tmux kill-pane -t $(tmux display -p '#{pane_id}')

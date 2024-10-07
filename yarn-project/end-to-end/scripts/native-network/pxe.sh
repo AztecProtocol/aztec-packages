@@ -14,9 +14,6 @@ export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export LOG_LEVEL="debug"
 export DEBUG="aztec:*"
 
-# TODO(AD): Add option for prover-enabled mode
-WAIT_FOR_PROVEN="false"
-
 echo "Waiting for Aztec Node..."
 until curl -s http://127.0.0.1:8080/status >/dev/null ; do
   sleep 1
@@ -28,4 +25,4 @@ function filter_noise() {
 }
 
 # Start the PXE service
-node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --waitForProven="$WAIT_FOR_PROVEN" --port=8079 --pxe 2>&1 | filter_noise
+node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --port=8079 --pxe 2>&1 | filter_noise

@@ -34,7 +34,7 @@ echo "Done waiting."
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
 
 function filter_noise() {
-  grep -Ev "node_getProvenBlockNumber|getBlocks|Last block mined|Running random nodes query|Not creating block because not enough txs in the pool"
+  grep -Ev "node_getProvenBlockNumber|getBlocks|Last block mined|Running random nodes query|Not creating block because not enough txs in the pool|Peers to connect"
 }
 
 # Start the Aztec node with the sequencer and archiver

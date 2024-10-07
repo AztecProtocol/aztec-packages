@@ -44,4 +44,4 @@ EOCONFIG
 
 echo "Contract addresses saved to l1-contracts.env"
 sleep 5
-tmux kill-pane
+tmux kill-pane -t $(tmux display -p '#{pane_id}')
