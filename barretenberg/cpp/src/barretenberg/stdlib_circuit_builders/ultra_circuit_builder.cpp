@@ -156,7 +156,6 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     create_dummy_gate(blocks.aux, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
-    this->one_idx = put_constant_variable(FF::one());
     create_big_add_gate({ this->zero_idx, this->zero_idx, this->zero_idx, this->one_idx, 0, 0, 0, 1, -1 });
 
     // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
