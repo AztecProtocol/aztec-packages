@@ -322,7 +322,7 @@ jobs:
           runner_type: 128core-tester-x86
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci --exec-stats --no-output ./barretenberg/cpp+test --hardware_concurrency=32
+            scripts/earthly-ci --exec-stats --no-output --no-cache ./barretenberg/cpp+test --hardware_concurrency=32
 
   bb-js-test:
     needs: [build, changes]
