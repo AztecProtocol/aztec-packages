@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728304896791,
+  "lastUpdate": 1728314397005,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e4172318af81ac2ac8535c89d3e5afc72d33ba29",
-          "message": "feat(avm): avm recursive TS/Noir integration (#8611)\n\nReverts AztecProtocol/aztec-packages#8610\r\n\r\n@jeanmon I have put an e2e-all label on this as it has broke master with\r\nmy changes, unfortunately, it seems we need to make sure we're not\r\nimporting jest mock outside of a dev setting\r\n\r\n---------\r\n\r\nCo-authored-by: jeanmon <jean@aztecprotocol.com>",
-          "timestamp": "2024-09-18T21:48:03Z",
-          "tree_id": "b9c64623e0ec47f2a310557506c89256c35bde11",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e4172318af81ac2ac8535c89d3e5afc72d33ba29"
-        },
-        "date": 1726697092297,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 34725.06695799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 32181.748418999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5180.609067999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4795.414558 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99708.02511599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99708026000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14738.087916,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14738088000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8630409294,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8630409294 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152862691,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152862691 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 7079316974,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 7079316974 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125167764,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125167764 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 124890961,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 124890961 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "62f6b8aeb92bfb266a0df647a0dd33cfdb021f5f",
+          "message": "chore: prove_then_verify_ultra_honk on all  existing acir tests (#9042)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1124.\n\nEnsure all acir tests are configured to run with UH as a precursor to the full switch and add `double_verify_honk_proof` and `double_verify_honk_proof_recursive` Noir programs to be tested as part of the acir tests. In Plonk, we also have `double_verify_nested_proof`, which aggregates two recursive proof (produced with `double_verify_proof_recursive`). That is because those proofs will have 16  additional frs representing the public inputs' indices of the recursive proof. Unlike this, we don't have different proof sizes when we handle recursive proofs for Honk but instead parse an initial default aggregation object in case the proof isn't produced from recursively verifying another proof.",
+          "timestamp": "2024-10-07T15:34:46+01:00",
+          "tree_id": "42a8268d4928a6fd2bb02758179ef6c51abe3622",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/62f6b8aeb92bfb266a0df647a0dd33cfdb021f5f"
+        },
+        "date": 1728314389845,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31442.99158800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29064.737737 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5559.153756000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5234.710751 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93679.89475800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93679897000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15718.389173999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15718389000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8275903175,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8275903175 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151350961,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151350961 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6729221848,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6729221848 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127134992,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127134992 ns\nthreads: 1"
           }
         ]
       }
