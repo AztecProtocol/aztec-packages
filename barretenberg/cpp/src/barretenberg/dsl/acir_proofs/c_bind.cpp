@@ -79,6 +79,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     UltraVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
+    info("verified: ", *result);
 }
 
 WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
@@ -243,8 +244,8 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
 
-    DeciderProvingKey prover_inst(builder);
-    VerificationKey vk(prover_inst.proving_key);
+    DeciderProvingKey proving_key(builder);
+    VerificationKey vk(proving_key.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
 }
 
