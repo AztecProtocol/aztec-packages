@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256, type Secp256k1Signer } from '@aztec/foundation/crypto';
+import { type Secp256k1Signer, keccak256 } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
