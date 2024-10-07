@@ -67,11 +67,11 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
 {{- define "aztec-network.otelCollectorMetricsEndpoint" -}}
-{{ include "aztec-network.metricsHost" . }}:{{ .Values.metrics.ports.otlp }}/v1/metrics
+http://metrics-opentelemetry-collector.metrics:4318/v1/metrics
 {{- end -}}
 
 {{- define "aztec-network.otelCollectorTracesEndpoint" -}}
-{{ include "aztec-network.metricsHost" . }}:{{ .Values.metrics.ports.otlp }}/v1/traces
+http://metrics-opentelemetry-collector.metrics:4318/v1/traces
 {{- end -}}
 
 

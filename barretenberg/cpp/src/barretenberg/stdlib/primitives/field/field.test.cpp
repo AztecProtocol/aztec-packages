@@ -961,7 +961,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         const auto first_two_merged_tag = OriginTag(submitted_value_origin_tag, challenge_origin_tag);
         const auto first_and_third_merged_tag = OriginTag(submitted_value_origin_tag, next_challenge_tag);
-        const auto all_merged_tag = OriginTag(first_two_merged_tag, next_challenge_tag);
+        const auto first_second_third_merged_tag = OriginTag(first_two_merged_tag, next_challenge_tag);
 
         a.set_origin_tag(submitted_value_origin_tag);
         b.set_origin_tag(challenge_origin_tag);
@@ -997,11 +997,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto h = field_ct(witness_ct(&builder, bb::fr::random_element()));
         h.set_origin_tag(next_challenge_tag);
         auto i = a.madd(b, h);
-        EXPECT_EQ(i.get_origin_tag(), all_merged_tag);
+        EXPECT_EQ(i.get_origin_tag(), first_second_third_merged_tag);
 
         // add_two merges tags
         auto j = a.add_two(b, h);
-        EXPECT_EQ(j.get_origin_tag(), all_merged_tag);
+        EXPECT_EQ(j.get_origin_tag(), first_second_third_merged_tag);
 
         // Normalize preserves tag
 
@@ -1024,7 +1024,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(l.get_origin_tag(), first_and_third_merged_tag);
 
         auto m = field_ct::conditional_assign(k, a, b);
-        EXPECT_EQ(m.get_origin_tag(), all_merged_tag);
+        EXPECT_EQ(m.get_origin_tag(), first_second_third_merged_tag);
 
         // Accumulate merges tags
         const size_t MAX_ACCUMULATED_ELEMENTS = 16;
