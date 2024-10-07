@@ -305,24 +305,23 @@ jobs:
         run: earthly-ci --no-output +preset-gcc
 
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
-  # only ran on x86 for resource reasons (memory intensive)
+  # ran on own runner for resource reasons (memory x cpu intensive)
   bb-native-tests:
+    runs-on: ubuntu-20.04
     needs: [build, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
-        with:
-          # must be globally unique for build x runner
-          concurrency_key: bb-native-tests-x86
       - name: "Native Prover Tests"
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 40
-        # limit our parallelism to half our cores
-        run: earthly-ci --exec-stats --no-output +test --hardware_concurrency=64
+        uses: ./.github/ensure-tester
+        # note: tester by default times out at 30, would need to delay shutdwon for more
+        timeout-minutes: 30
+        with:
+          runner_type: 128core-tester-x86
+          run: |
+            scripts/earthly-ci --exec-stats --no-output +test --hardware_concurrency=64
 
   bb-js-test:
     needs: [build, changes]
