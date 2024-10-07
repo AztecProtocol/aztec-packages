@@ -101,7 +101,6 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.SET_FF]: makeCost(c.AVM_SET_BASE_L2_GAS, 0),
   [Opcode.MOV_8]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
   [Opcode.MOV_16]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
-  [Opcode.CMOV]: makeCost(c.AVM_CMOV_BASE_L2_GAS, 0),
   [Opcode.SLOAD]: makeCost(c.AVM_SLOAD_BASE_L2_GAS, 0),
   [Opcode.SSTORE]: makeCost(c.AVM_SSTORE_BASE_L2_GAS, c.AVM_SSTORE_BASE_DA_GAS),
   [Opcode.NOTEHASHEXISTS]: makeCost(c.AVM_NOTEHASHEXISTS_BASE_L2_GAS, 0),

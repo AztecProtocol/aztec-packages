@@ -20,7 +20,7 @@ namespace mem(256);
     pol commit r_in_tag; // Instruction memory tag ("foreign key" pointing to main.r_in_tag)
     pol commit w_in_tag; // Instruction memory tag ("foreign key" pointing to main.w_in_tag)
     pol commit skip_check_tag; // A boolean value which relaxes the consistency check in memory
-                               // trace between tag and r_in_tag. Required for CMOV opcode.
+                               // trace between tag and r_in_tag. Required for JMPI opcode.
 
     // Indicator of the intermediate register pertaining to the memory operation (foreign key to main.sel_mem_op_XXX)
     pol commit sel_op_a;
@@ -56,11 +56,10 @@ namespace mem(256);
     // Selector for calldata_copy/return memory operations triggered from memory slice gadget.
     pol commit sel_op_slice;
 
-    // Selectors related to MOV/CMOV opcodes (copied from main trace for loading operation on intermediated register ia/ib)
+    // Selectors related to MOV opcodes (copied from main trace for loading operation on intermediated register ia/ib)
     // Boolean constraint is performed in main trace.
     pol commit sel_mov_ia_to_ic;
     pol commit sel_mov_ib_to_ic;
-    pol commit sel_op_cmov;
 
     // Error columns
     pol commit tag_err; // Boolean (1 if r_in_tag != tag is detected)
@@ -91,7 +90,7 @@ namespace mem(256);
     sel_mem = SEL_DIRECT_MEM_OP_A + SEL_DIRECT_MEM_OP_B + SEL_DIRECT_MEM_OP_C + SEL_DIRECT_MEM_OP_D +
               sel_resolve_ind_addr_a + sel_resolve_ind_addr_b + sel_resolve_ind_addr_c + sel_resolve_ind_addr_d
               + sel_op_slice;
-              
+
     // Maximum one memory operation enabled per row
     sel_mem * (sel_mem - 1) = 0; // TODO: might be infered by the main trace
 
@@ -145,11 +144,11 @@ namespace mem(256);
     // Optimization: We removed the term (1 - main.sel_first)
     #[MEM_LAST_ACCESS_DELIMITER]
     (1 - lastAccess) * (glob_addr' - glob_addr) = 0;
-    
+
     // We need: lastAccess == 1 ==> glob_addr' > glob_addr
     // The above implies: glob_addr' == glob_addr ==> lastAccess == 0
     // This condition does not apply on the last row.
- 
+
     // In addition, we need glob_addr' == glob_addr ==> tsp' > tsp
     // For all rows pertaining to the memory trace (sel_mem == 1) except the last one,
     // i.e., when sel_rng_chk == 1, we compute the difference:
@@ -166,11 +165,11 @@ namespace mem(256);
     // This condition does not apply on the last row.
     // Note: in barretenberg, a shifted polynomial will be 0 on the last row (shift is not cyclic)
     // Note2: in barretenberg, if a poynomial is shifted, its non-shifted equivalent must be 0 on the first row
-    
+
     // Optimization: We removed the term (1 - main.sel_first) and (1 - last)
     #[MEM_READ_WRITE_VAL_CONSISTENCY]
     (1 - lastAccess) * (1 - rw') * (val' - val) = 0;
-    
+
     // lastAccess == 0 && rw' == 0 ==> tag == tag'
     // Optimization: We removed the term (1 - main.sel_first) and (1 - last)
     #[MEM_READ_WRITE_TAG_CONSISTENCY]
@@ -183,9 +182,9 @@ namespace mem(256);
     lastAccess * (1 - rw') * val' = 0;
 
     // TODO: Verfiy that skip_check_tag cannot be enabled maliciously by the prover.
-    // Skip check tag enabled for some MOV/CMOV opcodes and RETURN opcode (sel_op_slice)
+    // Skip check tag enabled for some MOV opcodes and RETURN opcode (sel_op_slice)
     #[SKIP_CHECK_TAG]
-    skip_check_tag = sel_op_cmov * (sel_op_d + sel_op_a * (1-sel_mov_ia_to_ic) + sel_op_b * (1-sel_mov_ib_to_ic)) + sel_op_slice;
+    skip_check_tag = sel_op_slice;
 
     // Memory tag consistency check for load operations, i.e., rw == 0.
     // We want to prove that r_in_tag == tag <==> tag_err == 0
@@ -200,7 +199,7 @@ namespace mem(256);
     // instead of (r_in_tag - tag)^(-1) as this allows to store zero by default (i.e., when tag_err == 0).
     // The new column one_min_inv is set to 1 - (r_in_tag - tag)^(-1) when tag_err == 1
     // but must be set to 0 when tags are matching and tag_err = 0
-    // Relaxation: This relation is relaxed when skip_check_tag is enabled or for 
+    // Relaxation: This relation is relaxed when skip_check_tag is enabled or for
     // uninitialized memory, i.e. tag == 0.
     #[MEM_IN_TAG_CONSISTENCY_1]
     tag * (1 - skip_check_tag) * (1 - rw) * ((r_in_tag - tag) * (1 - one_min_inv) - tag_err) = 0;
@@ -251,7 +250,7 @@ namespace mem(256);
     sel_op_poseidon_write_c * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
     sel_op_poseidon_write_d * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
 
-    //====== MOV/CMOV Opcode Tag Constraint =====================================
+    //====== MOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for
     // the load operation pertaining to Ia resp. Ib.
     // The permutation check #[PERM_MAIN_MEM_A/B] guarantees that the r_in_tag
