@@ -461,9 +461,7 @@ export class Sequencer {
 
     const workDuration = workTimer.ms();
     this.log.verbose(
-      `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
-        'hex',
-      )})`,
+      `Assembled block ${block.number} (with hash: ${block.header.hash().toString()})`,
       {
         eventName: 'l2-block-built',
         duration: workDuration,

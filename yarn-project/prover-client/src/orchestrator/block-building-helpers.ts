@@ -227,8 +227,6 @@ export function buildHeaderFromCircuitOutputs(
 ) {
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-    // TODO(Miranda): cleanly remove txseffectshash
-    Buffer.alloc(32),
     parityPublicInputs.shaRoot.toBuffer(),
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );
@@ -280,12 +278,7 @@ export async function buildHeaderFromTxEffects(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
 
-  const contentCommitment = new ContentCommitment(
-    new Fr(body.numberOfTxsIncludingPadded),
-    body.getTxsEffectsHash(),
-    parityShaRoot,
-    outHash,
-  );
+  const contentCommitment = new ContentCommitment(new Fr(body.numberOfTxsIncludingPadded), parityShaRoot, outHash);
 
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   return new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees);

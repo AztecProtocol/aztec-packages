@@ -166,21 +166,6 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
     merkle_tree.get_root()
 }
 
-/**
- * @brief From two previous rollup data, compute a single txs effects hash
- *
- * @param previous_rollup_data
- * @return The hash of the transaction effects stored in 2 fields
- */
-// pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-//     accumulate_sha256(
-//         [
-//         previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
-//         previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash
-//     ]
-//     )
-// }
-
 fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
     let siloed_logs = unencrypted_logs_hashes.map(
         |log: ScopedLogHash| {
@@ -231,7 +216,6 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
 // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-// global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + 1 + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
 
 // TODO(Miranda): For now just absorbing effects to poseidon sponge in the same structure as the old tx_effects hash
 // Idea is to recreate all below effects in block_root, then add to a blob

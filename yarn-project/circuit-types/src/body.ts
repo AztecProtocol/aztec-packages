@@ -39,21 +39,7 @@ export class Body {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
   emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
-  emptyTxEffectHash: ${TxEffect.empty().hash().toString('hex')},
-  txsEffectsHash: ${this.getTxsEffectsHash().toString('hex')},
 }`;
-  }
-
-  /**
-   * Computes the transactions effects hash for the L2 block
-   * This hash is also computed in the `TxDecoder`.
-   * @returns The txs effects hash.
-   */
-  getTxsEffectsHash() {
-    // const emptyTxEffectHash = TxEffect.empty().hash();
-    // const leaves: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    // TODO(Miranda): cleanly remove txseffectshash
-    return Buffer.alloc(32); // computeUnbalancedMerkleRoot(leaves, emptyTxEffectHash);
   }
 
   get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {

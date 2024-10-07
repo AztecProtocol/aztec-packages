@@ -143,44 +143,6 @@ export class TxEffect {
   }
 
   /**
-   * Computes the hash of the TxEffect object.
-   * @returns The hash of the TxEffect object.
-   * @dev This function must correspond with compute_tx_effects_hash() in Noir and TxsDecoder.sol decode().
-   */
-  hash() {
-    const padBuffer = (buf: Buffer, length: number) => Buffer.concat([buf, Buffer.alloc(length - buf.length)]);
-
-    const noteHashesBuffer = padBuffer(serializeToBuffer(this.noteHashes), Fr.SIZE_IN_BYTES * MAX_NOTE_HASHES_PER_TX);
-    const nullifiersBuffer = padBuffer(serializeToBuffer(this.nullifiers), Fr.SIZE_IN_BYTES * MAX_NULLIFIERS_PER_TX);
-    const outHashBuffer = this.txOutHash();
-    const publicDataWritesBuffer = padBuffer(
-      serializeToBuffer(this.publicDataWrites),
-      PublicDataWrite.SIZE_IN_BYTES * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
-
-    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
-    const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
-    const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
-
-    const inputValue = Buffer.concat([
-      this.revertCode.toHashPreimage(),
-      this.transactionFee.toBuffer(),
-      noteHashesBuffer,
-      nullifiersBuffer,
-      outHashBuffer,
-      publicDataWritesBuffer,
-      this.noteEncryptedLogsLength.toBuffer(),
-      this.encryptedLogsLength.toBuffer(),
-      this.unencryptedLogsLength.toBuffer(),
-      noteEncryptedLogsHashKernel0,
-      encryptedLogsHashKernel0,
-      unencryptedLogsHashKernel0,
-    ]);
-
-    return sha256Trunc(inputValue);
-  }
-
-  /**
    * Computes txOutHash of this tx effect.
    * TODO(#7218): Revert to fixed height tree for outbox
    * @dev Follows computeTxOutHash in TxsDecoder.sol and new_sha in variable_merkle_tree.nr

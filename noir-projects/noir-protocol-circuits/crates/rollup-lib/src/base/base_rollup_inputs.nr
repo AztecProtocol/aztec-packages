@@ -155,7 +155,6 @@ impl BaseRollupInputs {
             },
             start_sponge_blob: self.start_sponge_blob,
             end_sponge_blob,
-            // txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: transaction_fee
         }

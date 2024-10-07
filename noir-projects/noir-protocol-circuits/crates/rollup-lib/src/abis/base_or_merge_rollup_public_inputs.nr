@@ -27,8 +27,6 @@ pub struct BaseOrMergeRollupPublicInputs {
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to U128
 
-    // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    // txs_effects_hash : Field,
     out_hash : Field,
 
     accumulated_fees: Field

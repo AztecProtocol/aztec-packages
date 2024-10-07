@@ -291,7 +291,6 @@ export class L1Publisher {
       formattedSignatures,
       `0x${attestationData.digest.toString('hex')}`,
       ts,
-      `0x${header.contentCommitment.txsEffectsHash.toString('hex')}`,
       flags,
     ] as const;
 

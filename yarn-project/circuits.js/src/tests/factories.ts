@@ -1168,10 +1168,9 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
 /**
  * Makes content commitment
  */
-export function makeContentCommitment(seed = 0, txsEffectsHash: Buffer | undefined = undefined): ContentCommitment {
+export function makeContentCommitment(seed = 0): ContentCommitment {
   return new ContentCommitment(
     new Fr(seed),
-    txsEffectsHash ?? toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
   );
@@ -1184,11 +1183,10 @@ export function makeHeader(
   seed = 0,
   blockNumber: number | undefined = undefined,
   slotNumber: number | undefined = undefined,
-  txsEffectsHash: Buffer | undefined = undefined,
 ): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment(seed + 0x200, txsEffectsHash),
+    makeContentCommitment(seed + 0x200),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),

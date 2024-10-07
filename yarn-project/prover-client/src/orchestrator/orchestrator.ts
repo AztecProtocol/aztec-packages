@@ -455,14 +455,6 @@ export class ProvingOrchestrator implements EpochProver {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
     const l2Block = new L2Block(newArchive, header, body);
 
-    if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
-      throw new Error(
-        `Txs effects hash mismatch, ${l2Block.body
-          .getTxsEffectsHash()
-          .toString('hex')} == ${header.contentCommitment.txsEffectsHash.toString('hex')} `,
-      );
-    }
-
     logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
     provingState.block = l2Block;
   }
