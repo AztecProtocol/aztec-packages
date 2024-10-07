@@ -20,6 +20,7 @@ import {
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
+  PrivateCircuitPublicInputs,
   PrivateContextInputs,
   type TxContext,
 } from '@aztec/circuits.js';
@@ -120,12 +121,12 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Get the return data from the partial witness.
+   * Get the private circuit public inputs from the partial witness.
    * @param artifact - The function artifact
    * @param partialWitness - The partial witness, result of simulating the function.
-   * @returns - The return data.
+   * @returns - The public inputs.
    */
-  public getReturnData(artifact: FunctionArtifact, partialWitness: ACVMWitness): Fr[] {
+  public extractPublicInputs(artifact: FunctionArtifact, partialWitness: ACVMWitness): PrivateCircuitPublicInputs {
     const parametersSize = countArgumentsSize(artifact) + PRIVATE_CONTEXT_INPUTS_LENGTH;
     const returnsSize = PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
     const returnData = [];
@@ -137,7 +138,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       }
       returnData.push(fromACVMField(returnedField));
     }
-    return returnData;
+    return PrivateCircuitPublicInputs.fromFields(returnData);
   }
 
   /**

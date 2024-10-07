@@ -1,6 +1,6 @@
 import { PrivateExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { Fr, FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr, FunctionData, PrivateCallStackItem } from '@aztec/circuits.js';
 import type { FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -40,8 +40,7 @@ export async function executePrivateFunction(
   });
   const duration = timer.ms();
   const partialWitness = acirExecutionResult.partialWitness;
-  const returnWitness = context.getReturnData(artifact, partialWitness);
-  const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+  const publicInputs = context.extractPublicInputs(artifact, partialWitness);
 
   // TODO (alexg) estimate this size
   const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
