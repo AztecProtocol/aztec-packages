@@ -598,7 +598,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * the circuit is finalized due to a failure to account for "de-duplication" when computing how many
      * non-native-field gates will be present.
      */
-    size_t get_num_gates() const override
+    size_t get_estimated_num_finalized_gates() const override
     {
         // if circuit finalized already added extra gates
         if (circuit_finalized) {
@@ -622,9 +622,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     {
         UltraCircuitBuilder_<Arithmetization> builder; // instantiate new builder
 
-        size_t num_gates_prior = builder.get_num_gates();
+        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
         builder.add_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
+        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
 
         return num_gates_post - num_gates_prior;
     }
@@ -664,10 +664,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      *
      * @return size_t
      */
-    size_t get_total_circuit_size() const
+    size_t get_estimated_total_circuit_size() const
     {
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
-        auto num_filled_gates = get_num_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 

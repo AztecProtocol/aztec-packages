@@ -20,7 +20,7 @@ class StandardCircuit : public CircuitBase {
                              const std::string& tag = "",
                              bool enable_optimizations = true);
 
-    inline size_t get_num_gates() const { return selectors.size(); };
+    inline size_t get_estimated_num_finalized_gates() const { return selectors.size(); };
 
     size_t prepare_gates(size_t cursor);
     bool simulate_circuit_eval(std::vector<bb::fr>& witness) const override;

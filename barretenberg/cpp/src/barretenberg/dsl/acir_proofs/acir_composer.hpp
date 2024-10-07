@@ -32,8 +32,11 @@ class AcirComposer {
     bool verify_proof(std::vector<uint8_t> const& proof);
 
     std::string get_solidity_verifier();
-    size_t get_total_circuit_size() { return builder_.get_total_circuit_size(); };
-    size_t get_dyadic_circuit_size() { return builder_.get_circuit_subgroup_size(builder_.get_total_circuit_size()); };
+    size_t get_estimated_total_circuit_size() { return builder_.get_estimated_total_circuit_size(); };
+    size_t get_estimated_dyadic_circuit_size()
+    {
+        return builder_.get_circuit_subgroup_size(builder_.get_estimated_total_circuit_size());
+    };
 
     std::vector<bb::fr> serialize_proof_into_fields(std::vector<uint8_t> const& proof, size_t num_inner_public_inputs);
 

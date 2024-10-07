@@ -28,7 +28,7 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
 
-    auto gates_before = builder.get_num_gates();
+    auto gates_before = builder.get_estimated_num_finalized_gates();
 
     bool_ct a = witness_ct(&builder, bb::fr::one());
     bool_ct b = witness_ct(&builder, bb::fr::zero());
@@ -80,7 +80,7 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     EXPECT_EQ(result, true);
 
     if (!IsSimulator<Builder>) {
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 6UL);
     }
 }
@@ -534,7 +534,7 @@ TYPED_TEST(BoolTest, ConditionalAssign)
 
         EXPECT_EQ(result.get_value(), condition ? left : right);
     }
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }

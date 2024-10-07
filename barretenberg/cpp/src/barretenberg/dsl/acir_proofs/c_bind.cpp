@@ -19,11 +19,11 @@ WASM_EXPORT void acir_get_circuit_sizes(
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
     auto builder = acir_format::create_circuit(constraint_system, 1 << 19, {}, *honk_recursion);
-    *exact = htonl((uint32_t)builder.get_num_gates());
+    *exact = htonl((uint32_t)builder.get_estimated_num_finalized_gates());
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    auto total_with_extra_gates = builder.get_total_circuit_size() + num_extra_gates;
+    auto total_with_extra_gates = builder.get_estimated_total_circuit_size() + num_extra_gates;
     *total = htonl((uint32_t)total_with_extra_gates);
-    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
+    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_estimated_total_circuit_size()));
 }
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
@@ -68,6 +68,8 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    // lets just randomly allocate 500MB of things here and then free it
 
     auto builder =
         acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/true);

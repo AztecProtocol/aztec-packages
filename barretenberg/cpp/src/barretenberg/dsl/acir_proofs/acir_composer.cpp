@@ -35,7 +35,7 @@ void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system,
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(
         constraint_system, size_hint_, witness, false, std::make_shared<bb::ECCOpQueue>(), collect_gates_per_opcode);
-    vinfo("gates: ", builder_.get_total_circuit_size());
+    vinfo("gates: ", builder_.get_estimated_total_circuit_size());
     vinfo("circuit is recursive friendly: ", builder_.is_recursive_circuit);
 }
 
