@@ -76,6 +76,11 @@ export class Signature {
     return serializeToBuffer([this.r, this.s, this.v]);
   }
 
+  getSize(): number {
+    // 32 bytes for r, 32 bytes for s, 4 bytes for v
+    return Buffer32.SIZE + Buffer32.SIZE + 4;
+  }
+
   to0xString(): `0x${string}` {
     return `0x${this.r.toString()}${this.s.toString()}${this.v.toString(16)}`;
   }

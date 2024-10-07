@@ -84,6 +84,11 @@ export class EpochProofQuotePayload {
     };
   }
 
+  getSize(): number {
+    // 32 bytes for epochToProve, 32 bytes for validUntilSlot, 32 bytes for bondAmount, 20 bytes for prover, 4 bytes for basisPointFee
+    return (32 + 32 + 32 + EthAddress.SIZE_IN_BYTES + 4);
+  }
+
   [inspect.custom](): string {
     return `EpochProofQuotePayload { epochToProve: ${this.epochToProve}, validUntilSlot: ${this.validUntilSlot}, bondAmount: ${this.bondAmount}, prover: ${this.prover}, basisPointFee: ${this.basisPointFee} }`;
   }

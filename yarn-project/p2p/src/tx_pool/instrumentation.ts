@@ -1,24 +1,24 @@
-import { type Tx } from '@aztec/circuit-types';
+import { Gossipable } from '@aztec/circuit-types';
 import { Attributes, type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
 export type TxStatus = 'pending' | 'mined';
 
 /**
- * Instrumentation class for the TxPool.
+ * Instrumentation class for the Pools (TxPool, AttestationPool, etc).
  */
-export class TxPoolInstrumentation {
+export class PoolInstrumentation<PoolObject extends Gossipable> {
   /** The number of txs in the mempool */
-  private txInMempool: UpDownCounter;
+  private objectsInMempool: UpDownCounter;
   /** Tracks tx size */
-  private txSize: Histogram;
+  private objectSize: Histogram;
 
   constructor(telemetry: TelemetryClient, name: string) {
     const meter = telemetry.getMeter(name);
-    this.txInMempool = meter.createUpDownCounter(Metrics.MEMPOOL_TX_COUNT, {
+    this.objectsInMempool = meter.createUpDownCounter(Metrics.MEMPOOL_TX_COUNT, {
       description: 'The current number of transactions in the mempool',
     });
 
-    this.txSize = meter.createHistogram(Metrics.MEMPOOL_TX_SIZE, {
+    this.objectSize = meter.createHistogram(Metrics.MEMPOOL_TX_SIZE, {
       unit: 'By',
       description: 'The size of transactions in the mempool',
       advice: {
@@ -35,39 +35,59 @@ export class TxPoolInstrumentation {
     });
   }
 
-  public recordTxSize(tx: Tx) {
-    this.txSize.record(tx.getSize());
+  public recordSize(poolObject: PoolObject) {
+    this.objectSize.record(poolObject.getSize());
   }
 
   /**
-   * Updates the metrics with the new transactions.
-   * @param txs - The transactions to record
+   * Updates the metrics with the new objects.
+   * @param txs - The objects to record
    */
-  public recordAddedTxs(status: string, count = 1) {
+  public recordAddedObjectsWithStatus(status: string, count = 1) {
     if (count < 0) {
       throw new Error('Count must be positive');
     }
     if (count === 0) {
       return;
     }
-    this.txInMempool.add(count, {
+    this.objectsInMempool.add(count, {
       [Attributes.STATUS]: status,
     });
   }
 
-  /**
-   * Updates the metrics by removing transactions from the mempool.
-   * @param count - The number of transactions to remove from the mempool
-   */
-  public recordRemovedTxs(status: string, count = 1) {
+  public recordAddedObjects(count = 1) {
     if (count < 0) {
       throw new Error('Count must be positive');
     }
     if (count === 0) {
       return;
     }
-    this.txInMempool.add(-1 * count, {
+    this.objectsInMempool.add(count);
+  }
+
+  /**
+   * Updates the metrics by removing objects from the mempool.
+   * @param count - The number of objects to remove from the mempool
+   */
+  public recordRemovedObjectsWithStatus(status: string, count = 1) {
+    if (count < 0) {
+      throw new Error('Count must be positive');
+    }
+    if (count === 0) {
+      return;
+    }
+    this.objectsInMempool.add(-1 * count, {
       [Attributes.STATUS]: status,
     });
+  }
+
+  public recordRemovedObjects(count = 1) {
+    if (count < 0) {
+      throw new Error('Count must be positive');
+    }
+    if (count === 0) {
+      return;
+    }
+    this.objectsInMempool.add(-1 * count);
   }
 }

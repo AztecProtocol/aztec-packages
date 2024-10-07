@@ -3,7 +3,7 @@ import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { TxPoolInstrumentation } from './instrumentation.js';
+import { PoolInstrumentation } from './instrumentation.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -17,7 +17,7 @@ export class InMemoryTxPool implements TxPool {
   private minedTxs: Set<bigint>;
   private pendingTxs: Set<bigint>;
 
-  private metrics: TxPoolInstrumentation;
+  private metrics: PoolInstrumentation<Tx>;
 
   /**
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
@@ -27,7 +27,7 @@ export class InMemoryTxPool implements TxPool {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Set();
     this.pendingTxs = new Set();
-    this.metrics = new TxPoolInstrumentation(telemetry, 'InMemoryTxPool');
+    this.metrics = new PoolInstrumentation(telemetry, 'InMemoryTxPool');
   }
 
   public markAsMined(txHashes: TxHash[]): Promise<void> {
@@ -36,8 +36,8 @@ export class InMemoryTxPool implements TxPool {
       this.minedTxs.add(key);
       this.pendingTxs.delete(key);
     }
-    this.metrics.recordRemovedTxs('pending', txHashes.length);
-    this.metrics.recordAddedTxs('mined', txHashes.length);
+    this.metrics.recordRemovedObjectsWithStatus('pending', txHashes.length);
+    this.metrics.recordAddedObjectsWithStatus('mined', txHashes.length);
     return Promise.resolve();
   }
 
@@ -88,12 +88,12 @@ export class InMemoryTxPool implements TxPool {
       this.txs.set(key, tx);
       if (!this.minedTxs.has(key)) {
         pending++;
-        this.metrics.recordTxSize(tx);
+        this.metrics.recordSize(tx);
         this.pendingTxs.add(key);
       }
     }
 
-    this.metrics.recordAddedTxs('pending', pending);
+    this.metrics.recordAddedObjectsWithStatus('pending', pending);
     return Promise.resolve();
   }
 
@@ -113,8 +113,8 @@ export class InMemoryTxPool implements TxPool {
       deletedMined += this.minedTxs.delete(key) ? 1 : 0;
     }
 
-    this.metrics.recordRemovedTxs('pending', deletedPending);
-    this.metrics.recordRemovedTxs('mined', deletedMined);
+    this.metrics.recordRemovedObjectsWithStatus('pending', deletedPending);
+    this.metrics.recordRemovedObjectsWithStatus('mined', deletedMined);
 
     return Promise.resolve();
   }

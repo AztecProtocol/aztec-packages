@@ -4,7 +4,7 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSet } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { TxPoolInstrumentation } from './instrumentation.js';
+import { PoolInstrumentation } from './instrumentation.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -23,7 +23,7 @@ export class AztecKVTxPool implements TxPool {
 
   #log: Logger;
 
-  #metrics: TxPoolInstrumentation;
+  #metrics: PoolInstrumentation<Tx>;
 
   /**
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
@@ -37,7 +37,7 @@ export class AztecKVTxPool implements TxPool {
 
     this.#store = store;
     this.#log = log;
-    this.#metrics = new TxPoolInstrumentation(telemetry, 'AztecKVTxPool');
+    this.#metrics = new PoolInstrumentation(telemetry, 'AztecKVTxPool');
   }
 
   public markAsMined(txHashes: TxHash[]): Promise<void> {
@@ -51,8 +51,8 @@ export class AztecKVTxPool implements TxPool {
           void this.#pendingTxs.delete(key);
         }
       }
-      this.#metrics.recordRemovedTxs('pending', deleted);
-      this.#metrics.recordAddedTxs('mined', txHashes.length);
+      this.#metrics.recordRemovedObjectsWithStatus('pending', deleted);
+      this.#metrics.recordAddedObjectsWithStatus('mined', txHashes.length);
     });
   }
 
@@ -107,11 +107,11 @@ export class AztecKVTxPool implements TxPool {
           pendingCount++;
           // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
           void this.#pendingTxs.add(key);
-          this.#metrics.recordTxSize(tx);
+          this.#metrics.recordSize(tx);
         }
       }
 
-      this.#metrics.recordAddedTxs('pending', pendingCount);
+      this.#metrics.recordAddedObjectsWithStatus('pending', pendingCount);
     });
   }
 
@@ -138,8 +138,8 @@ export class AztecKVTxPool implements TxPool {
         }
       }
 
-      this.#metrics.recordRemovedTxs('pending', pendingDeleted);
-      this.#metrics.recordRemovedTxs('mined', minedDeleted);
+      this.#metrics.recordRemovedObjectsWithStatus('pending', pendingDeleted);
+      this.#metrics.recordRemovedObjectsWithStatus('mined', minedDeleted);
     });
   }
 

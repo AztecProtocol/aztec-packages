@@ -50,4 +50,12 @@ export class ConsensusPayload implements Signable {
   static empty(): ConsensusPayload {
     return new ConsensusPayload(Header.empty(), Fr.ZERO, []);
   }
+
+  /**
+   * Get the size of the consensus payload in bytes.
+   * @returns The size of the consensus payload.
+   */
+  getSize(): number {
+    return (this.header.getSize() + this.archive.size + this.txHashes.length * TxHash.SIZE);
+  }
 }

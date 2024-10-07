@@ -72,4 +72,8 @@ export class BlockAttestation extends Gossipable {
   static empty(): BlockAttestation {
     return new BlockAttestation(ConsensusPayload.empty(), Signature.empty());
   }
+
+  getSize(): number {
+    return (this.payload.getSize() + this.signature.getSize());
+  }
 }

@@ -75,4 +75,8 @@ export class BlockProposal extends Gossipable {
     const reader = BufferReader.asReader(buf);
     return new BlockProposal(reader.readObject(ConsensusPayload), reader.readObject(Signature));
   }
+
+  getSize(): number {
+    return (this.payload.getSize() + this.signature.getSize());
+  }
 }

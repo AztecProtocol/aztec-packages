@@ -4,16 +4,31 @@ import { type PrivateKeyAccount } from 'viem';
 
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
 import { generateAccount, mockAttestation } from './mocks.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { BlockAttestation } from '@aztec/circuit-types';
+import { PoolInstrumentation } from '../tx_pool/instrumentation.js';
+import { mock, MockProxy } from 'jest-mock-extended';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
 
 describe('MemoryAttestationPool', () => {
   let ap: InMemoryAttestationPool;
   let signers: PrivateKeyAccount[];
+  const telemetry = new NoopTelemetryClient();
+
+  // Check that metrics are recorded correctly
+  let metricsMock: MockProxy<PoolInstrumentation<BlockAttestation>>;
 
   beforeEach(() => {
-    ap = new InMemoryAttestationPool();
+    // Use noop telemetry client while testing.
+
+    ap = new InMemoryAttestationPool(telemetry);
     signers = Array.from({ length: NUMBER_OF_SIGNERS_PER_TEST }, generateAccount);
+
+
+    metricsMock = mock<PoolInstrumentation<BlockAttestation>>();
+    // Can i overwrite this like this??
+    (ap as any).metrics = metricsMock;
   });
 
   it('should add attestations to pool', async () => {
@@ -24,6 +39,8 @@ describe('MemoryAttestationPool', () => {
     const proposalId = attestations[0].p2pMessageIdentifier().toString();
 
     await ap.addAttestations(attestations);
+
+    // Check metrics have been updated.
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
 
