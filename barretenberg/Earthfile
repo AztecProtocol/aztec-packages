@@ -29,7 +29,7 @@ barretenberg-acir-tests-bb:
     # This ensures we test independent pk construction through real/garbage witness data paths.
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
 
-    # Run the acir test through native bb build prove_then_verify flow for UltraPlonk
+    # Run the acir test through native bb build prove_then_verify_ultra_honk flow
     # Note that the script will skip the Plonk related tests
     RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
 

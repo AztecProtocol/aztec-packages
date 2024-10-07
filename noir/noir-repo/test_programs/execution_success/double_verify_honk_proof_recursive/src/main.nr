@@ -10,7 +10,7 @@ fn main(
     proof: [Field; SIZE_OF_PROOF_IF_LOGN_IS_28],
     public_inputs: pub [Field; 1],
     key_hash: Field,
-    // The second proof, currently set to be identical
+    // The second proof, currently set to be identical to the first proof
     proof_b: [Field; SIZE_OF_PROOF_IF_LOGN_IS_28]
 ) {
     std::verify_proof_with_type(
