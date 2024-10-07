@@ -14,6 +14,7 @@ echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env ] ; do
   sleep 1
 done
+echo "Done waiting."
 
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
 

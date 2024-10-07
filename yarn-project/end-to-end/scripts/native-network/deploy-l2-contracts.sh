@@ -17,7 +17,7 @@ until curl -s -X POST -H 'content-type: application/json' \
   http://127.0.0.1:8079 | grep -q '"enr:-'; do
   sleep 1
 done
-echo "PXE service is ready!"
+echo "Done waiting."
 
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"

@@ -16,6 +16,7 @@ until curl -s -X POST -H 'Content-Type: application/json' \
   http://127.0.0.1:8545 2>/dev/null | grep -q 'result' ; do
   sleep 1
 done
+echo "Done waiting."
 
 # Run the deploy-l1-contracts command and capture the output
 export ETHEREUM_HOST="http://127.0.0.1:8545"

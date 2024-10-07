@@ -24,6 +24,7 @@ echo "Waiting for l2 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l2-contracts.env ] ; do
   sleep 1
 done
+echo "Done waiting."
 
 # Set environment variables
 export ETHEREUM_HOST="http://127.0.0.1:8545"

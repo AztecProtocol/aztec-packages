@@ -11,7 +11,6 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 # Set environment variables
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
-export LOG_JSON="1"
 export LOG_LEVEL="debug"
 export DEBUG="aztec:*"
 
@@ -19,6 +18,11 @@ echo "Waiting for Aztec Node..."
 until curl -s http://127.0.0.1:8080/status >/dev/null ; do
   sleep 1
 done
+echo "Done waiting."
+
+function filter_noise() {
+  grep -v node_getProvenBlockNumber
+}
 
 # Start the PXE service
-node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --port=8079 --pxe
+node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --port=8079 --pxe | filter_noise

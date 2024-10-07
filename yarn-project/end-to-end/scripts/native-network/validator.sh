@@ -23,6 +23,7 @@ echo "Waiting for Aztec Node..."
 until curl -s http://127.0.0.1:8080/status >/dev/null ; do
   sleep 1
 done
+echo "Done waiting."
 
 # Set the boot node URL
 BOOT_NODE_URL="http://127.0.0.1:8080"
@@ -46,8 +47,8 @@ export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
 export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
 export SEQ_MIN_TX_PER_BLOCK="1"
-export P2P_TCP_ANNOUNCE_ADDR="0.0.0.0:40400"
-export P2P_UDP_ANNOUNCE_ADDR="0.0.0.0:40400"
+export P2P_TCP_ANNOUNCE_ADDR="127.0.0.1:40400"
+export P2P_UDP_ANNOUNCE_ADDR="127.0.0.1:40400"
 export P2P_TCP_LISTEN_ADDR="0.0.0.0:40400"
 export P2P_UDP_LISTEN_ADDR="0.0.0.0:40400"
 

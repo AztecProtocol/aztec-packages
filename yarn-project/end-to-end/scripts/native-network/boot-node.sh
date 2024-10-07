@@ -12,7 +12,6 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 # Set environment variables
 export PORT="8080"
 export LOG_LEVEL="debug"
-export LOG_JSON="1"
 export DEBUG="aztec:*,-aztec:avm_simulator:*"
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export P2P_ENABLED="true"
@@ -30,8 +29,13 @@ echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env ] ; do
   sleep 1
 done
+echo "Done waiting."
 
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
 
+function filter_noise() {
+  grep -Ev "node_getProvenBlockNumber|getBlocks|Last block mined|Running random nodes query|Not creating block because not enough txs in the pool"
+}
+
 # Start the Aztec node with the sequencer and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe | filter_noise
