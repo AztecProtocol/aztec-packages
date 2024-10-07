@@ -7,4 +7,4 @@ export ENV_VARS_TO_INJECT="WALLET_DATA_DIRECTORY SSH_AUTH_SOCK"
 
 mkdir -p $WALLET_DATA_DIRECTORY
 
-$(dirname $0)/.aztec-run aztecprotocol/cli-wallet "$@"
+$(dirname $0)/.aztec-run aztecprotocol/cli-wallet $@

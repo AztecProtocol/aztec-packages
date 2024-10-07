@@ -36,7 +36,7 @@ fi
 # echo "Parent PID: $PARENT_PID"
 
 # Start anvil in the background.
-anvil "$@" &
+anvil $@ &
 CHILD_PID=$!
 
 cleanup() {

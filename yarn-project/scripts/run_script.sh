@@ -11,4 +11,4 @@ REPO="yarn-project"
 retry docker pull $(calculate_image_uri $REPO)
 retry docker tag $(calculate_image_uri $REPO) aztecprotocol/$REPO:latest
 
-docker run ${DOCKER_RUN_OPTS:-} --rm aztecprotocol/$REPO:latest "$@"
+docker run ${DOCKER_RUN_OPTS:-} --rm aztecprotocol/$REPO:latest $@

@@ -13,4 +13,4 @@ if [[ -n "${SSH_AUTH_SOCK_SOCAT_PORT:-}" ]]; then
     export SSH_AUTH_SOCK="${SOCKET:-}"
 fi
 
-node --no-warnings /usr/src/yarn-project/cli-wallet/dest/bin/index.js "$@"
+node --no-warnings /usr/src/yarn-project/cli-wallet/dest/bin/index.js $@
