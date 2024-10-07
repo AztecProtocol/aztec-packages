@@ -38,7 +38,7 @@ class UltraCircuit : public CircuitBase {
     UltraCircuit& operator=(UltraCircuit&& other) = default;
     ~UltraCircuit() override = default;
 
-    inline size_t get_estimated_num_finalized_gates() const
+    inline size_t get_num_gates() const
     {
         return selectors[0].size() + selectors[1].size() + selectors[2].size() + selectors[3].size() +
                selectors[4].size() + selectors[5].size();

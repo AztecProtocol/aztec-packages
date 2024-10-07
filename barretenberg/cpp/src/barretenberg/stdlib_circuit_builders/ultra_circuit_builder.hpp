@@ -584,6 +584,16 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
+     * @brief Get the number of gates in a finalized circuit.
+     * @return size_t
+     */
+    size_t get_num_finalized_gates() const override
+    {
+        ASSERT(circuit_finalized);
+        return this->num_gates;
+    }
+
+    /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
      * 2) Number of public inputs, as we'll need to add a gate for each of them
@@ -656,7 +666,24 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
-     * @brief Get the size of the circuit if it was finalized now
+     * @brief Get the actual finalized size of the circuit. Assumes the circuit is finalized already.
+     *
+     * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
+     * account the possibility that the tables will dominate the size and checks both the plookup argument
+     * size and the general circuit size
+     *
+     * @return size_t
+     */
+    size_t get_finalized_total_circuit_size() const
+    {
+        ASSERT(circuit_finalized);
+        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
+        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+    }
+
+    /**
+     * @brief Get the estimated size of the circuit if it was finalized now
      *
      * @details This method estimates the size of the circuit without rounding up to the next power of 2. It takes into
      * account the possibility that the tables will dominate the size and checks both the estimated plookup argument
