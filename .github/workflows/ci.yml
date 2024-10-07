@@ -308,7 +308,7 @@ jobs:
   # ran on own runner for resource reasons (memory x cpu intensive)
   bb-native-tests:
     runs-on: ubuntu-20.04
-    needs: [build, changes]
+    needs: [build-images, changes]
     if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
