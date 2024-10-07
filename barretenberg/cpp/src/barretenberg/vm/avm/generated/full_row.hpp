@@ -722,11 +722,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 699;
-=======
-    static constexpr size_t SIZE = 710;
->>>>>>> 036c90241a (9001: Constrain start and end gas)
+    static constexpr size_t SIZE = 708;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
