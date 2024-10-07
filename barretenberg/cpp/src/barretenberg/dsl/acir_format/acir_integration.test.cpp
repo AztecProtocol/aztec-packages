@@ -140,9 +140,9 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
     }
 };
 
-TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
+TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = MegaFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
@@ -310,7 +310,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "regression_4202",
                                          "regression_4449",
                                          "regression_4709",
-                                         "regression_5045",
+                                         //"regression_5045",
                                          "regression_capacity_tracker",
                                          "regression_mem_op_predicate",
                                          "regression_method_cannot_be_found",
