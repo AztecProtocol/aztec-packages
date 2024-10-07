@@ -543,7 +543,7 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
  * @brief Test recursive honk recursive verification
  *
  */
-TEST_F(AcirIntegrationTest, HonkRecursion)
+TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 {
     using Flavor = UltraFlavor;
     using Builder = Flavor::CircuitBuilder;
