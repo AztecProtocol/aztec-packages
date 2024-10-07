@@ -27,6 +27,18 @@ dependencies:
   - name: opentelemetry-collector
     version: 0.104.0
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-  - name: eck-stack
-    version: 0.12.1
-    repository: https://helm.elastic.co
+  - name: loki
+    version: "6.16.0"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: loki.enabled
+  - name: grafana
+    version: "8.5.2"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled
+  - name: tempo
+    version: "1.10.3"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: tempo.enabled
+  - name: prometheus
+    version: "25.27.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
