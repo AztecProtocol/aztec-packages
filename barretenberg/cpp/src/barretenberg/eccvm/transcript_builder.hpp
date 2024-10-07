@@ -69,7 +69,6 @@ class ECCVMTranscriptBuilder {
         static constexpr auto offset_generator_base = CycleGroup::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
         static const AffineElement result =
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
-
         return result;
     }
     static AffineElement remove_offset_generator(const AffineElement& other)
@@ -120,7 +119,9 @@ class ECCVMTranscriptBuilder {
                                                    const uint32_t total_number_of_muls)
     {
         const size_t num_vm_entries = vm_operations.size();
-        std::vector<TranscriptRow> transcript_state(num_vm_entries + 2);
+        // The transcript contains an extra zero row at the beginning and the accumulated state at the end
+        const size_t transcript_size = num_vm_entries + 2;
+        std::vector<TranscriptRow> transcript_state(transcript_size);
 
         // These vectors track quantities that we need to invert.
         // We fill these vectors and then perform batch inversions to amortize the cost of FF inverts
@@ -148,6 +149,9 @@ class ECCVMTranscriptBuilder {
         // add an empty row. 1st row all zeroes because of our shiftable polynomials
         transcript_state[0] = (TranscriptRow{});
 
+        // during the first iteration over the ECCOpQueue, the operations are being performed using Jacobian
+        // coordinates and the base point coordinates are recorded in the transcript. at the same time, the transcript
+        // logic is being populated
         for (size_t i = 0; i < num_vm_entries; i++) {
             TranscriptRow& row = transcript_state[i + 1];
             const VMOperation& entry = vm_operations[i];
@@ -175,6 +179,7 @@ class ECCVMTranscriptBuilder {
             }
 
             const bool last_row = (i == (num_vm_entries - 1));
+
             // msm transition = current row is doing a lookup to validate output = msm output
             // i.e. next row is not part of MSM and current row is part of MSM
             //   or next row is irrelevant and current row is a straight MUL
@@ -220,14 +225,15 @@ class ECCVMTranscriptBuilder {
                 state.msm_accumulator = offset_generator();
             }
         }
-        // Compute affine coordinates of accumulated points
+        // compute affine coordinates of the accumulated points
         normalize_accumulators(accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
 
-        // Add required affine coordinates to the transcript
+        // add required affine coordinates to the transcript
         add_affine_coordinates_to_transcript(
             transcript_state, accumulator_trace, msm_accumulator_trace, intermediate_accumulator_trace);
 
-        // Process the slopes when adding points or results of MSMs
+        // process the slopes when adding points or results of MSMs. to increase efficiency, we use batch inversion
+        // after the loop
         for (size_t i = 0; i < accumulator_trace.size(); ++i) {
             TranscriptRow& row = transcript_state[i + 1];
             const bool msm_transition = row.msm_transition;
@@ -262,13 +268,14 @@ class ECCVMTranscriptBuilder {
                 inverse_trace_y[i] = 0;
             }
         }
-        // Compute slopes, etc
-        batch_invert(inverse_trace_x,
-                     inverse_trace_y,
-                     transcript_msm_x_inverse_trace,
-                     add_lambda_denominator,
-                     msm_count_at_transition_inverse_trace,
-                     num_vm_entries);
+
+        // Perform all required inversions at once
+        FF::batch_invert(&inverse_trace_x[0], num_vm_entries);
+        FF::batch_invert(&inverse_trace_y[0], num_vm_entries);
+        FF::batch_invert(&transcript_msm_x_inverse_trace[0], num_vm_entries);
+        FF::batch_invert(&add_lambda_denominator[0], num_vm_entries);
+        FF::batch_invert(&msm_count_at_transition_inverse_trace[0], num_vm_entries);
+
         // Populate the fields of the transcript row containing inverted scalars
         for (size_t i = 0; i < num_vm_entries; ++i) {
             TranscriptRow& row = transcript_state[i + 1];
@@ -279,12 +286,33 @@ class ECCVMTranscriptBuilder {
             row.msm_count_at_transition_inverse = msm_count_at_transition_inverse_trace[i];
         }
 
+        // process the final row containing the result of the sequence of group ops in ECCOpQueue
         finalize_transcript(transcript_state, updated_state);
 
         return transcript_state;
     }
 
   private:
+    /**
+     * @brief Populate the transcript rows with the information parsed after the first iteration over the ECCOpQueue
+     *
+     * @details Processes the state of the accumulator, base point, and the operation flags
+     * (addition, multiplication, equality check, and reset), as well as information about MSM transitions.
+     *
+     * Processes the following values:
+     *  - The 'accumulator_is_empty' flag.
+     *  - Base point's coordinates when applicable.
+     *  - MSM transitions and the number of MSMs.
+     *  - Setting flags for  `add`, `mul`, `eq`, or `reset` operations.
+     *  - The opcode field.
+     *
+     * @param row The transcript row to populate.
+     * @param entry The current VM operation being processed.
+     * @param state The current VM state before the operation is applied.
+     * @param num_muls The number of multiplications involved in the current operation.
+     * @param msm_transition A boolean indicating whether the operation represents an MSM transition.
+     * @param next_not_msm A boolean indicating if the next operation is not part of an ongoing MSM.
+     */
     static void populate_transcript_row(TranscriptRow& row,
                                         const VMOperation& entry,
                                         const VMState& state,
@@ -313,14 +341,34 @@ class ECCVMTranscriptBuilder {
         row.opcode = Opcode{ .add = entry.add, .mul = entry.mul, .eq = entry.eq, .reset = entry.reset }.value();
     }
 
+    /**
+     * @brief Process scalar multiplication from the ECCOpQueue.
+     *
+     * @details If the entry indicates a multiplication operation, the
+     * base point from the ECCOpQueue is multiplied by the corresponding full scalar. The result is added to the
+     * 'msm_accumulator' field of the updated state.
+     *
+     * @param entry Current ECCOpQueue entry
+     * @param updated_state The state of the ECCVM to be updated with the result of the multiplication
+     * @param state The current state of the ECCVM
+     */
     static void process_mul(const VMOperation& entry, VMState& updated_state, const VMState& state)
     {
-
         const auto P = typename CycleGroup::element(entry.base_point);
         const auto R = typename CycleGroup::element(state.msm_accumulator);
         updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
     }
 
+    /**
+     * @brief Process addition from the ECCOpQueue.
+     *
+     * @details If the entry indicates an addition operation, the
+     * base point from the ECCOpQueue is added to the main accumulator.
+     *
+     * @param entry Current ECCOpQueue entry
+     * @param updated_state The state of the ECCVM to be updated with the result of the addition
+     * @param state The current state of the ECCVM
+     */
     static void process_add(const VMOperation& entry, VMState& updated_state, const VMState& state)
     {
 
@@ -332,6 +380,18 @@ class ECCVMTranscriptBuilder {
         updated_state.is_accumulator_empty = updated_state.accumulator.is_point_at_infinity();
     }
 
+    /**
+     * @brief
+     *
+     * @details Handles the transition that occurs after the completion of an MSM operation.
+     * It updates the accumulator with the result of the MSM, removing the contribution of the offset generator. It
+     * checks if the MSM output is a point at infinity and sets the corresponding flag in the transcript, and also sets
+     * the `is_accumulator_empty` flag.
+     *
+     * @param row Current transcript row
+     * @param updated_state The state of the ECCVM to be updated with the result of the addition
+     * @param state The current state of the ECCVM
+     */
     static void process_msm_transition(TranscriptRow& row, VMState& updated_state, const VMState& state)
     {
         if (state.is_accumulator_empty) {
@@ -342,16 +402,16 @@ class ECCVMTranscriptBuilder {
         }
         updated_state.is_accumulator_empty = updated_state.accumulator.is_point_at_infinity();
 
-        Element msm_output = updated_state.msm_accumulator - offset_generator();
+        const Element msm_output = updated_state.msm_accumulator - offset_generator();
         row.transcript_msm_infinity = msm_output.is_point_at_infinity();
     }
     /**
      * @brief Batched conversion of points in accumulators from Jacobian coordinates \f$ (X, Y, Z) \f$ to affine
      * coordinates \f$ (x = X/Z^2, y = Y/Z^3 ) \f$.
      *
-     * @param accumulator_trace
-     * @param msm_accumulator_trace
-     * @param intermediate_accumulator_trace
+     * @param accumulator_trace Accumulator for all group ops
+     * @param msm_accumulator_trace Accumulator for all MSMs
+     * @param intermediate_accumulator_trace Accumulator for the ongoing MSM
      */
     static void normalize_accumulators(Accumulator& accumulator_trace,
                                        Accumulator& msm_accumulator_trace,
@@ -361,7 +421,15 @@ class ECCVMTranscriptBuilder {
         Element::batch_normalize(&msm_accumulator_trace[0], msm_accumulator_trace.size());
         Element::batch_normalize(&intermediate_accumulator_trace[0], intermediate_accumulator_trace.size());
     }
-
+    /**
+     * @brief Once the point coordinates are converted from Jacobian to affine coordinates, we populate
+     * \f$(x,y)\f$-coordinates of the corresponding accumulators.
+     *
+     * @param transcript_state ECCVM Transcript
+     * @param accumulator_trace Accumulator for all group ops
+     * @param msm_accumulator_trace Accumulator for all MSMs
+     * @param intermediate_accumulator_trace Accumulator for the ongoing MSM
+     */
     static void add_affine_coordinates_to_transcript(std::vector<TranscriptRow>& transcript_state,
                                                      const Accumulator& accumulator_trace,
                                                      const Accumulator& msm_accumulator_trace,
@@ -498,20 +566,13 @@ class ECCVMTranscriptBuilder {
             add_lambda_numerator = accumulator_y - vm_y;
         }
     }
-    static void batch_invert(std::vector<FF>& inverse_trace_x,
-                             std::vector<FF>& inverse_trace_y,
-                             std::vector<FF>& transcript_msm_x_inverse_trace,
-                             std::vector<FF>& add_lambda_denominator,
-                             std::vector<FF>& msm_count_at_transition_inverse_trace,
-                             const size_t num_vm_entries)
-    {
-        FF::batch_invert(&inverse_trace_x[0], num_vm_entries);
-        FF::batch_invert(&inverse_trace_y[0], num_vm_entries);
-        FF::batch_invert(&transcript_msm_x_inverse_trace[0], num_vm_entries);
-        FF::batch_invert(&add_lambda_denominator[0], num_vm_entries);
-        FF::batch_invert(&msm_count_at_transition_inverse_trace[0], num_vm_entries);
-    }
-
+    /**
+     * @brief Place the number of the MSMs and the coordinates of the accumualted result in the last row of the
+     * transcript
+     *
+     * @param transcript_state
+     * @param updated_state
+     */
     static void finalize_transcript(std::vector<TranscriptRow>& transcript_state, const VMState& updated_state)
     {
         TranscriptRow& final_row = transcript_state.back();
