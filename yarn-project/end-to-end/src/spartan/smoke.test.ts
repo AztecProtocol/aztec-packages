@@ -19,4 +19,34 @@ describe('smoke test', () => {
     // expect enr to be a string starting with 'enr:-'
     expect(info.enr).toMatch(/^enr:-/);
   });
+
+  /**
+   * Leaving this test commented out because it requires the ethereum node
+   * to be running and forwarded, e.g.
+   * kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+
+  it('should be able to get rollup info', async () => {
+    const info = await pxe.getNodeInfo();
+    const publicClient = createPublicClient({
+      chain: foundry,
+      transport: http('http://localhost:8545'),
+    });
+
+    const rollupContract = getContract({
+      address: getAddress(info.l1ContractAddresses.rollupAddress.toString()),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [pendingBlockNum, pendingArchive, provenBlockNum, provenArchive, myArchive, provenEpochNumber] =
+      await rollupContract.read.status([60n]);
+    console.log('pendingBlockNum', pendingBlockNum.toString());
+    console.log('pendingArchive', pendingArchive.toString());
+    console.log('provenBlockNum', provenBlockNum.toString());
+    console.log('provenArchive', provenArchive.toString());
+    console.log('myArchive', myArchive.toString());
+    console.log('provenEpochNumber', provenEpochNumber.toString());
+  });
+  */
 });
