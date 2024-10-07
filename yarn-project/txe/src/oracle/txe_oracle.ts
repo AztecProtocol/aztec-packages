@@ -19,12 +19,9 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
-  PrivateCircuitPublicInputs,
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -60,7 +57,7 @@ import {
   acvm,
   createSimulationError,
   extractCallStack,
-  fromACVMField,
+  extractPublicInputs,
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
@@ -68,8 +65,6 @@ import {
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
-
-import { type WitnessMap } from '@noir-lang/acvm_js';
 
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -603,7 +598,7 @@ export class TXE implements TypedOracle {
         throw createSimulationError(execError);
       });
       const duration = timer.ms();
-      const publicInputs = this.extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
+      const publicInputs = extractPublicInputs(artifact, acirExecutionResult.partialWitness);
 
       const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
       this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
@@ -662,21 +657,6 @@ export class TXE implements TypedOracle {
     const fields = [...privateContextInputs.toFields(), ...args];
 
     return toACVMWitness(0, fields);
-  }
-
-  public extractPrivateCircuitPublicInputs(abi: FunctionAbi, partialWitness: WitnessMap): PrivateCircuitPublicInputs {
-    const parametersSize = countArgumentsSize(abi) + PRIVATE_CONTEXT_INPUTS_LENGTH;
-    const returnsSize = PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
-    const returnData = [];
-    // Return values always appear in the witness after arguments.
-    for (let i = parametersSize; i < parametersSize + returnsSize; i++) {
-      const returnedField = partialWitness.get(i);
-      if (returnedField === undefined) {
-        throw new Error(`Missing return value for index ${i}`);
-      }
-      returnData.push(fromACVMField(returnedField));
-    }
-    return PrivateCircuitPublicInputs.fromFields(returnData);
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {

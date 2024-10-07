@@ -17,10 +17,8 @@ import {
   CallContext,
   FunctionSelector,
   type Header,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
-  PrivateCircuitPublicInputs,
   PrivateContextInputs,
   type TxContext,
 } from '@aztec/circuits.js';
@@ -31,7 +29,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
-import { type ACVMWitness, type NoteData, fromACVMField, toACVMWitness } from '../acvm/index.js';
+import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
@@ -118,27 +116,6 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
-  }
-
-  /**
-   * Get the private circuit public inputs from the partial witness.
-   * @param artifact - The function artifact
-   * @param partialWitness - The partial witness, result of simulating the function.
-   * @returns - The public inputs.
-   */
-  public extractPublicInputs(artifact: FunctionArtifact, partialWitness: ACVMWitness): PrivateCircuitPublicInputs {
-    const parametersSize = countArgumentsSize(artifact) + PRIVATE_CONTEXT_INPUTS_LENGTH;
-    const returnsSize = PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
-    const returnData = [];
-    // Return values always appear in the witness after arguments.
-    for (let i = parametersSize; i < parametersSize + returnsSize; i++) {
-      const returnedField = partialWitness.get(i);
-      if (returnedField === undefined) {
-        throw new Error(`Missing return value for index ${i}`);
-      }
-      returnData.push(fromACVMField(returnedField));
-    }
-    return PrivateCircuitPublicInputs.fromFields(returnData);
   }
 
   /**
