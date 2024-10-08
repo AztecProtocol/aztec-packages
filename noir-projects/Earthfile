@@ -56,11 +56,10 @@ build-mock-protocol-circuits:
 
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
   RUN echo "building with num threads $RAYON_NUM_THREADS"
-  RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+  RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo PARALLEL_VK=false ./bootstrap.sh
   SAVE ARTIFACT mock-protocol-circuits
 
 build:
-  ARG RAYON_NUM_THREADS
   FROM +source
   BUILD +build-contracts
   BUILD +build-protocol-circuits
