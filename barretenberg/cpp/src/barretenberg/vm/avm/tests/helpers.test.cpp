@@ -52,13 +52,6 @@ void validate_trace(std::vector<Row>&& trace,
         avm_trace::dump_trace_as_csv(trace, avm_dump_trace_path);
     }
 
-    // Inject computed end gas values in the public inputs
-    // This is ok because validate_trace is only used in cpp tests.
-    // TS integration tests will provide the correct end gas values in the public inputs and
-    // this will be validated.
-    auto public_inputs_with_end_gas = public_inputs;
-    avm_trace::inject_end_gas_values(public_inputs_with_end_gas, trace);
-
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
@@ -71,7 +64,7 @@ void validate_trace(std::vector<Row>&& trace,
         AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
         std::vector<std::vector<FF>> public_inputs_as_vec =
-            bb::avm_trace::copy_public_inputs_columns(public_inputs_with_end_gas, calldata, returndata);
+            bb::avm_trace::copy_public_inputs_columns(public_inputs, calldata, returndata);
 
         bool verified = verifier.verify_proof(proof, { public_inputs_as_vec });
 
@@ -129,8 +122,8 @@ VmPublicInputsNT generate_base_public_inputs()
 {
     VmPublicInputsNT public_inputs;
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-    kernel_inputs.at(DA_START_GAS_KERNEL_INPUTS_COL_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-    kernel_inputs.at(L2_START_GAS_KERNEL_INPUTS_COL_OFFSET) = DEFAULT_INITIAL_L2_GAS;
+    kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
+    kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
     std::get<0>(public_inputs) = kernel_inputs;
     return public_inputs;
 }
