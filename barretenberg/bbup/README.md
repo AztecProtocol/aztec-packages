@@ -2,7 +2,7 @@
 
 BBup is a CLI tool that makes it easy to install the [Barretenberg](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/README.md) proving backend.
 
-Although extensible, it assumes you are using [Noir](https://noir-lang.org) as the frontend language.
+It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 
 ## Installation
 

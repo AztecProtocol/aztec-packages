@@ -53,7 +53,7 @@ export async function installBB(version: string, spinner: Ora) {
   const bbPath = path.join(home, ".bb");
 
   spinner.start(`Installing to ${bbPath}`);
-  const tempTarPath = path.join(home, "temp.tar.gz");
+  const tempTarPath = path.join(fs.mkdtempSync("bb-"), "temp.tar.gz");
 
   if (
     !["x86_64", "aarch64"].includes(architecture) ||
@@ -76,6 +76,8 @@ export async function installBB(version: string, spinner: Ora) {
     createGunzip(),
     tar.extract(bbPath)
   );
+
+  fs.rmSync(path.dirname(tempTarPath), { recursive: true });
   spinner.stopAndPersist({
     text: `Installed barretenberg to ${bbPath}`,
     symbol: logSymbols.success,
