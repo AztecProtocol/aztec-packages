@@ -260,17 +260,6 @@ export class LibP2PService implements P2PService {
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              // TODO(md): Think about adding these back in
-              // [BlockProposal.p2pTopic]: createTopicScoreParams({
-              //   topicWeight: 1,
-              //   invalidMessageDeliveriesWeight: -20,
-              //   invalidMessageDeliveriesDecay: 0.5,
-              // }),
-              // [BlockAttestation.p2pTopic]: createTopicScoreParams({
-              //   topicWeight: 1,
-              //   invalidMessageDeliveriesWeight: -20,
-              //   invalidMessageDeliveriesDecay: 0.5,
-              // }),
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,
