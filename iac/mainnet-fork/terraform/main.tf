@@ -116,7 +116,7 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
   container_definitions = jsonencode([
     {
       name      = "${var.DEPLOY_TAG}-mainnet-fork"
-      image     = "${var.DOCKERHUB_ACCOUNT}/mainnet-fork:${var.DEPLOY_TAG}"
+      image     = "${var.DOCKERHUB_ACCOUNT}/mainnet-fork:${var.IMAGE_TAG}"
       essential = true
       environment = [
         { name = "API_KEY", value = "${var.API_KEY}" },

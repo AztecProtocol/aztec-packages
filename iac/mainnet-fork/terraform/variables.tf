@@ -35,3 +35,7 @@ variable "MAINNET_FORK_MEMORY_UNITS" {
   type    = string
   default = "4096"
 }
+
+variable "IMAGE_TAG" {
+  type = string
+}
