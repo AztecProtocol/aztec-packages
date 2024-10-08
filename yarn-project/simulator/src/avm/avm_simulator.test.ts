@@ -176,6 +176,25 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
   });
 
+  it('ec_add should not revert', async () => {
+    // This test performs the same doubling as in elliptic_curve_add_and_double
+    // But the optimizer is not able to optimize out the addition
+    const calldata: Fr[] = [
+      new Fr(1), // P1x
+      new Fr(17631683881184975370165255887551781615748388533673675138860n), // P1y
+      new Fr(0), // P1inf
+      new Fr(1), // P2x
+      new Fr(17631683881184975370165255887551781615748388533673675138860n), // P2y
+      new Fr(0), // P2inf
+    ];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('elliptic_curve_add');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+  });
+
   it('elliptic curve operations', async () => {
     const context = initContext();
 
