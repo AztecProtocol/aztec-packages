@@ -111,7 +111,7 @@ bb contract_ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json 
 
 ## Development
 
-The following packages are required for building:
+The following packages are required for building from source:
 
 - cmake >= 3.24
 - Ninja (used by the presets as the default generator)
