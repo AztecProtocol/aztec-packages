@@ -107,6 +107,6 @@ TEST(polynomial_evaluation, private)
 
     bool res = smt_timer(&s);
     ASSERT_FALSE(res);
-    info("Gates: ", circuit.get_estimated_num_finalized_gates());
+    info("Gates: ", circuit.get_num_gates());
     info("Result: ", s.getResult());
 }

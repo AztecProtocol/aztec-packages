@@ -33,7 +33,7 @@ StandardCircuit::StandardCircuit(
     // Perform all relaxations for gates or
     // add gate in its normal state to solver
     size_t i = 0;
-    while (i < this->get_estimated_num_finalized_gates()) {
+    while (i < this->get_num_gates()) {
         i = this->prepare_gates(i);
     }
 }
@@ -379,7 +379,7 @@ size_t StandardCircuit::handle_range_constraint(size_t cursor)
             CircuitProps range_props = this->cached_subcircuits[SubcircuitType::RANGE][2 * mid + odd];
             CircuitSchema range_circuit = range_props.circuit;
 
-            range_flag = cursor + range_props.num_gates <= this->get_estimated_num_finalized_gates();
+            range_flag = cursor + range_props.num_gates <= this->get_num_gates();
             if (range_flag) {
                 for (size_t j = 0; j < range_props.num_gates; j++) {
                     // It is possible for gates to be equal but wires to be not, but I think it's very
