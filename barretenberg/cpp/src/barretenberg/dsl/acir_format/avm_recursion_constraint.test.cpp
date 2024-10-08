@@ -42,7 +42,8 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    static InnerBuilder create_inner_circuit(const std::vector<FF>& kernel_public_inputs_vec)
+    // mutate the input kernel_public_inputs_vec to add end gas values
+    static InnerBuilder create_inner_circuit(std::vector<FF>& kernel_public_inputs_vec)
     {
         auto public_inputs = convert_public_inputs(kernel_public_inputs_vec);
         AvmTraceBuilder trace_builder(public_inputs);
@@ -55,6 +56,12 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
         trace_builder.op_mul(0, 1, 1, 3, AvmMemoryTag::U8);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
+
+        avm_trace::inject_end_gas_values(public_inputs, trace);
+        kernel_public_inputs_vec.at(DA_END_GAS_LEFT_PCPI_OFFSET) =
+            std::get<KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET);
+        kernel_public_inputs_vec.at(L2_END_GAS_LEFT_PCPI_OFFSET) =
+            std::get<KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET);
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();

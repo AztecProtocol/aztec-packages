@@ -41,9 +41,12 @@ class AvmRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
+    VmPublicInputsNT public_inputs;
+
     // Generate an extremely simple avm trace
-    static AvmCircuitBuilder generate_avm_circuit(VmPublicInputsNT public_inputs)
+    AvmCircuitBuilder generate_avm_circuit()
     {
+        public_inputs = generate_base_public_inputs();
         AvmTraceBuilder trace_builder(public_inputs);
         AvmCircuitBuilder builder;
 
@@ -52,6 +55,8 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
+
+        inject_end_gas_values(public_inputs, trace);
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
@@ -63,8 +68,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    const auto public_inputs = generate_base_public_inputs();
-    AvmCircuitBuilder circuit_builder = generate_avm_circuit(public_inputs);
+    AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
     InnerVerifier verifier = composer.create_verifier(circuit_builder);

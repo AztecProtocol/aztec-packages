@@ -33,8 +33,8 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
 {
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {};
 
-    kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = FF(startGas.l2_gas);
-    kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = FF(startGas.da_gas);
+    kernel_inputs[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET] = FF(startGas.l2_gas);
+    kernel_inputs[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET] = FF(startGas.da_gas);
 
     VmPublicInputsNT public_inputs;
     std::get<0>(public_inputs) = kernel_inputs;

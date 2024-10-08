@@ -40,8 +40,8 @@ VmPublicInputsNT get_base_public_inputs()
     }
 
     // Set high initial gas
-    kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = INITIAL_GAS;
-    kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = INITIAL_GAS;
+    kernel_inputs[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET] = INITIAL_GAS;
+    kernel_inputs[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET] = INITIAL_GAS;
 
     // Copy the kernel inputs into the public inputs object
     std::get<KERNEL_INPUTS>(public_inputs) = kernel_inputs;
@@ -210,8 +210,8 @@ TEST_F(AvmKernelPositiveTests, kernelSender)
         EXPECT_TRUE(row != trace.end());
 
         expect_row(row,
-                   /*kernel_in_offset=*/SENDER_SELECTOR,
-                   /*ia=*/SENDER_SELECTOR +
+                   /*kernel_in_offset=*/SENDER_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/SENDER_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -244,8 +244,8 @@ TEST_F(AvmKernelPositiveTests, kernelAddress)
         EXPECT_TRUE(address_row != trace.end());
 
         expect_row(address_row,
-                   /*kernel_in_offset=*/ADDRESS_SELECTOR,
-                   /*ia=*/ADDRESS_SELECTOR +
+                   /*kernel_in_offset=*/ADDRESS_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/ADDRESS_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -277,8 +277,8 @@ TEST_F(AvmKernelPositiveTests, kernelStorageAddress)
         EXPECT_TRUE(storage_address_row != trace.end());
 
         expect_row(storage_address_row,
-                   /*kernel_in_offset=*/STORAGE_ADDRESS_SELECTOR,
-                   /*ia=*/STORAGE_ADDRESS_SELECTOR +
+                   /*kernel_in_offset=*/STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -313,8 +313,8 @@ TEST_F(AvmKernelPositiveTests, kernelFunctionSelector)
         EXPECT_TRUE(row != trace.end());
 
         expect_row(row,
-                   /*kernel_in_offset=*/FUNCTION_SELECTOR_SELECTOR,
-                   /*ia=*/FUNCTION_SELECTOR_SELECTOR +
+                   /*kernel_in_offset=*/FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -347,8 +347,8 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/FEE_PER_DA_GAS_SELECTOR,
-                   /*ia=*/FEE_PER_DA_GAS_SELECTOR +
+                   /*kernel_in_offset=*/FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -381,8 +381,8 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerL2)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/FEE_PER_L2_GAS_SELECTOR,
-                   /*ia=*/FEE_PER_L2_GAS_SELECTOR +
+                   /*kernel_in_offset=*/FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -415,8 +415,8 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/TRANSACTION_FEE_SELECTOR,
-                   /*ia=*/TRANSACTION_FEE_SELECTOR +
+                   /*kernel_in_offset=*/TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -449,8 +449,8 @@ TEST_F(AvmKernelPositiveTests, kernelIsStaticCall)
         EXPECT_TRUE(row != trace.end());
 
         expect_row(row,
-                   /*kernel_in_offset=*/IS_STATIC_CALL_SELECTOR,
-                   /*ia=*/IS_STATIC_CALL_SELECTOR +
+                   /*kernel_in_offset=*/IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -483,8 +483,8 @@ TEST_F(AvmKernelPositiveTests, kernelChainId)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/CHAIN_ID_SELECTOR,
-                   /*ia=*/CHAIN_ID_SELECTOR +
+                   /*kernel_in_offset=*/CHAIN_ID_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/CHAIN_ID_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -517,8 +517,8 @@ TEST_F(AvmKernelPositiveTests, kernelVersion)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/VERSION_SELECTOR,
-                   /*ia=*/VERSION_SELECTOR +
+                   /*kernel_in_offset=*/VERSION_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/VERSION_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -551,8 +551,8 @@ TEST_F(AvmKernelPositiveTests, kernelBlockNumber)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/BLOCK_NUMBER_SELECTOR,
-                   /*ia=*/BLOCK_NUMBER_SELECTOR +
+                   /*kernel_in_offset=*/BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a=*/dst_offset,
@@ -585,8 +585,8 @@ TEST_F(AvmKernelPositiveTests, kernelTimestamp)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_in_offset=*/TIMESTAMP_SELECTOR,
-                   /*ia=*/TIMESTAMP_SELECTOR +
+                   /*kernel_in_offset=*/TIMESTAMP_KERNEL_INPUTS_COL_OFFSET,
+                   /*ia=*/TIMESTAMP_KERNEL_INPUTS_COL_OFFSET +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
                    /*mem_addr_a*/ dst_offset,
@@ -646,7 +646,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/SENDER_SELECTOR,
+            /*kernel_in_offset=*/SENDER_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -670,7 +670,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/ADDRESS_SELECTOR,
+            /*kernel_in_offset=*/ADDRESS_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -696,7 +696,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaStorageAddress)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/STORAGE_ADDRESS_SELECTOR,
+            /*kernel_in_offset=*/STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -722,7 +722,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaFunctionSelector)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/FUNCTION_SELECTOR_SELECTOR,
+            /*kernel_in_offset=*/FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -748,7 +748,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/FEE_PER_DA_GAS_SELECTOR,
+            /*kernel_in_offset=*/FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -774,7 +774,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/FEE_PER_L2_GAS_SELECTOR,
+            /*kernel_in_offset=*/FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -800,7 +800,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/TRANSACTION_FEE_SELECTOR,
+            /*kernel_in_offset=*/TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -824,7 +824,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/CHAIN_ID_SELECTOR,
+            /*kernel_in_offset=*/CHAIN_ID_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -848,7 +848,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/VERSION_SELECTOR,
+            /*kernel_in_offset=*/VERSION_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -874,7 +874,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/BLOCK_NUMBER_SELECTOR,
+            /*kernel_in_offset=*/BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a=*/dst_offset,
@@ -900,7 +900,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
 
         expect_row(
             row,
-            /*kernel_in_offset=*/TIMESTAMP_SELECTOR,
+            /*kernel_in_offset=*/TIMESTAMP_KERNEL_INPUTS_COL_OFFSET,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*ind_a*/ indirect,
             /*mem_addr_a*/ dst_offset,

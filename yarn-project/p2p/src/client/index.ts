@@ -53,6 +53,7 @@ export const createP2PClient = async (
       peerId,
       txPool,
       attestationsPool,
+      epochProofQuotePool,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
