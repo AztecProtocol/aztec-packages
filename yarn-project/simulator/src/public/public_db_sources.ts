@@ -1,4 +1,10 @@
-import { MerkleTreeId, NullifierMembershipWitness, type Tx } from '@aztec/circuit-types';
+import {
+  MerkleTreeId,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  NullifierMembershipWitness,
+  type Tx,
+} from '@aztec/circuit-types';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
@@ -26,7 +32,6 @@ import {
   type ContractDataSource,
   type ContractInstanceWithAddress,
 } from '@aztec/types/contracts';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
@@ -124,7 +129,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
   private publicCheckpointedWriteCache: Map<bigint, Fr> = new Map();
   private publicUncommittedWriteCache: Map<bigint, Fr> = new Map();
 
-  constructor(private db: MerkleTreeOperations, dataSource: ContractDataSource) {
+  constructor(private db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
     super(dataSource);
   }
 
@@ -149,17 +154,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
       return committed;
     }
 
-    const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return Fr.ZERO;
-    }
-
-    const preimage = (await this.db.getLeafPreimage(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      lowLeafResult.index,
-    )) as PublicDataTreeLeafPreimage;
-
-    return preimage.value;
+    return await readPublicState(this.db, contract, slot);
   }
 
   /**
@@ -324,4 +319,20 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     this.publicUncommittedWriteCache = new Map<bigint, Fr>();
     return Promise.resolve();
   }
+}
+
+export async function readPublicState(db: MerkleTreeReadOperations, contract: AztecAddress, slot: Fr): Promise<Fr> {
+  const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+
+  const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+  if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+    return Fr.ZERO;
+  }
+
+  const preimage = (await db.getLeafPreimage(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    lowLeafResult.index,
+  )) as PublicDataTreeLeafPreimage;
+
+  return preimage.value;
 }

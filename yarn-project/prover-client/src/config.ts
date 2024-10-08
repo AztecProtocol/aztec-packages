@@ -5,6 +5,8 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
  * The prover configuration.
  */
 export type ProverClientConfig = ProverConfig & {
+  /** The URL to the Aztec prover node to take proving jobs from */
+  proverJobSourceUrl?: string;
   /** The working directory to use for simulation/proving */
   acvmWorkingDirectory: string;
   /** The path to the ACVM binary */
@@ -16,6 +18,10 @@ export type ProverClientConfig = ProverConfig & {
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
+  proverJobSourceUrl: {
+    env: 'PROVER_JOB_SOURCE_URL',
+    description: 'The URL to the Aztec prover node to take proving jobs from',
+  },
   acvmWorkingDirectory: {
     env: 'ACVM_WORKING_DIRECTORY',
     description: 'The working directory to use for simulation/proving',

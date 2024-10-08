@@ -32,7 +32,8 @@ export async function createBondManager(
   overrides: Partial<ProverBondManagerConfig> = {},
 ) {
   const config = { ...getProverBondManagerConfigFromEnv(), ...compact(overrides) };
-  const { proverMinimumStakeAmount: minimumStake, proverTargetStakeAmount: targetStake } = config;
+  const { proverMinimumEscrowAmount: minimumStake, proverTargetEscrowAmount: maybeTargetStake } = config;
+  const targetStake = maybeTargetStake ?? minimumStake * 2n;
 
   const escrowContractAddress = EthAddress.fromString(await rollupContract.read.PROOF_COMMITMENT_ESCROW());
   const escrow = new EscrowContract(client, escrowContractAddress);
@@ -41,7 +42,7 @@ export async function createBondManager(
   const token = new TokenContract(client, tokenContractAddress);
 
   // Ensure the prover has enough balance to cover escrow and try to mint otherwise if on a dev environment
-  await token.ensureBalance((targetStake ?? minimumStake) * 3n);
+  await token.ensureBalance(targetStake * 2n);
 
-  return new BondManager(token, escrow, minimumStake, targetStake ?? minimumStake);
+  return new BondManager(token, escrow, minimumStake, targetStake);
 }

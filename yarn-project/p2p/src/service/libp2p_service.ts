@@ -487,7 +487,7 @@ export class LibP2PService implements P2PService {
     // double spend validation
     const doubleSpendValidator = new DoubleSpendTxValidator({
       getNullifierIndex: async (nullifier: Fr) => {
-        const merkleTree = this.worldStateSynchronizer.getLatest();
+        const merkleTree = this.worldStateSynchronizer.getCommitted();
         const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
         return index;
       },

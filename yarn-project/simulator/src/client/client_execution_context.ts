@@ -17,6 +17,7 @@ import {
   CallContext,
   FunctionSelector,
   type Header,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   type TxContext,
@@ -108,8 +109,12 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext,
       this.sideEffectCounter,
     );
+    const privateContextInputsAsFields = privateContextInputs.toFields();
+    if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
+      throw new Error('Invalid private context inputs size');
+    }
 
-    const fields = [...privateContextInputs.toFields(), ...args];
+    const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
   }
 
