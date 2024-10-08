@@ -397,6 +397,24 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     });
   }
 
+  async setProven(toBlockNumber: bigint) {
+    await this.call(WorldStateMessageType.PROVE_BLOCKS, {
+      toBlockNumber,
+    });
+  }
+
+  async removeHistoricalBlocks(toBlockNumber: bigint) {
+    await this.call(WorldStateMessageType.PROVE_BLOCKS, {
+      toBlockNumber,
+    });
+  }
+
+  async unwindBlocks(toBlockNumber: bigint) {
+    await this.call(WorldStateMessageType.PROVE_BLOCKS, {
+      toBlockNumber,
+    });
+  }
+
   updateLeaf<ID extends IndexedTreeId>(
     _treeId: ID,
     _leaf: NullifierLeafPreimage | Buffer,

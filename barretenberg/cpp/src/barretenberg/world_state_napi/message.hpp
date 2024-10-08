@@ -37,6 +37,10 @@ enum WorldStateMessageType {
     CREATE_FORK,
     DELETE_FORK,
 
+    PROVE_BLOCKS,
+    UNWIND_BLOCKS,
+    REMOVE_HISTORICAL_BLOCKS,
+
     CLOSE = 999,
 };
 
@@ -58,6 +62,11 @@ struct CreateForkResponse {
 struct DeleteForkRequest {
     uint64_t forkId;
     MSGPACK_FIELDS(forkId);
+};
+
+struct WorldStateStatus {
+    index_t unfinalisedBlockNumber;
+    MSGPACK_FIELDS(unfinalisedBlockNumber);
 };
 
 struct TreeIdAndRevisionRequest {
@@ -141,6 +150,11 @@ struct FindLowLeafResponse {
     MSGPACK_FIELDS(alreadyPresent, index);
 };
 
+struct BlockShiftRequest {
+    index_t toBlockNumber;
+    MSGPACK_FIELDS(toBlockNumber);
+};
+
 template <typename T> struct AppendLeavesRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
@@ -179,8 +193,8 @@ struct SyncBlockRequest {
 };
 
 struct SyncBlockResponse {
-    bool isBlockOurs;
-    MSGPACK_FIELDS(isBlockOurs);
+    WorldStateStatus status;
+    MSGPACK_FIELDS(status);
 };
 
 } // namespace bb::world_state

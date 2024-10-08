@@ -29,12 +29,7 @@ struct WorldStateRevision {
 
     MSGPACK_FIELDS(forkId, blockNumber, includeUncommitted)
 
-    // using Revision = std::variant<WorldStateRevision::FinalisedBlock, WorldStateRevision::CurrentState,
-    // WorldStateRevision::ForkId>; Revision inner;
-
     static WorldStateRevision committed() { return WorldStateRevision{ .includeUncommitted = false }; }
     static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
-    // static WorldStateRevision finalised_block(uint32_t block_number) { return { WorldStateRevision{ .blockNumber =
-    // block_number } }; }
 };
 } // namespace bb::world_state

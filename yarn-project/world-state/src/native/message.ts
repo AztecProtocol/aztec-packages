@@ -71,6 +71,10 @@ export enum WorldStateMessageType {
   CREATE_FORK,
   DELETE_FORK,
 
+  PROVE_BLOCKS,
+  UNWIND_BLOCKS,
+  REMOVE_HISTORICAL_BLOCKS,
+
   CLOSE = 999,
 }
 
@@ -103,6 +107,10 @@ export type SerializedIndexedLeaf = {
 
 interface WithLeafValue {
   leaf: SerializedLeafValue;
+}
+
+interface BlockShiftRequest {
+  toBlockNumber: bigint;
 }
 
 interface WithLeaves {
@@ -214,6 +222,10 @@ export type WorldStateRequest = {
   [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
   [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
 
+  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: BlockShiftRequest;
+  [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
+  [WorldStateMessageType.PROVE_BLOCKS]: BlockShiftRequest;
+
   [WorldStateMessageType.CLOSE]: void;
 };
 
@@ -241,6 +253,10 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
+
+  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: void;
+  [WorldStateMessageType.UNWIND_BLOCKS]: void;
+  [WorldStateMessageType.PROVE_BLOCKS]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };

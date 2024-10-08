@@ -56,6 +56,10 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
     bool delete_fork(msgpack::object& obj, msgpack::sbuffer& buffer);
 
     bool close(msgpack::object& obj, msgpack::sbuffer& buffer);
+
+    bool set_proven(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool unwind(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool remove_historical(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 };
 
 } // namespace bb::world_state

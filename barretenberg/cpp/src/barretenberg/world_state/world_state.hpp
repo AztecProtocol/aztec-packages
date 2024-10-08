@@ -18,6 +18,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include "barretenberg/world_state_napi/message.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <exception>
@@ -192,7 +193,7 @@ class WorldState {
     /**
      * @brief Commits the current state of the world state.
      */
-    void commit();
+    bool commit();
 
     /**
      * @brief Rolls back any uncommitted changes made to the world state.
@@ -204,15 +205,22 @@ class WorldState {
      *
      * @param block The block to synchronize with.
      */
-    bool sync_block(const StateReference& block_state_ref,
-                    fr block_header_hash,
-                    const std::vector<bb::fr>& notes,
-                    const std::vector<bb::fr>& l1_to_l2_messages,
-                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
+    WorldStateStatus sync_block(
+        const StateReference& block_state_ref,
+        fr block_header_hash,
+        const std::vector<bb::fr>& notes,
+        const std::vector<bb::fr>& l1_to_l2_messages,
+        const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+        const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
     uint64_t create_fork(index_t blockNumber);
     void delete_fork(uint64_t forkId);
+
+    WorldStateStatus set_proven_blocks(const index_t& toBlockNumber);
+    WorldStateStatus unwind_blocks(const index_t& toBlockNumber);
+    WorldStateStatus remove_historical_blocks(const index_t& toBlockNumber);
+
+    void get_status(WorldStateStatus& status);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -230,6 +238,10 @@ class WorldState {
     Fork::SharedPtr create_new_fork(index_t blockNumber);
 
     bool is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const;
+
+    bool set_proven_block(const index_t& toBlockNumber);
+    bool unwind_block(const index_t& toBlockNumber);
+    bool remove_historical_block(const index_t& toBlockNumber);
 
     static bb::fr compute_initial_archive(StateReference initial_state_ref);
 

@@ -13,6 +13,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include "barretenberg/world_state_napi/message.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -323,18 +324,27 @@ void WorldState::update_archive(const StateReference& block_state_ref, fr block_
     }
 }
 
-void WorldState::commit()
+bool WorldState::commit()
 {
+    std::atomic_bool success = true;
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal](auto&& wrapper) { wrapper.tree->commit([&](const Response&) { signal.signal_decrement(); }); },
+            [&signal](auto&& wrapper) {
+                wrapper.tree->commit([&](const Response& response) {
+                    if (!response.success) {
+                        success = false;
+                    }
+                    signal.signal_decrement();
+                });
+            },
             tree);
     }
 
     signal.wait_for_level(0);
+    return success;
 }
 
 void WorldState::rollback()
@@ -352,21 +362,25 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-bool WorldState::sync_block(const StateReference& block_state_ref,
-                            fr block_header_hash,
-                            const std::vector<bb::fr>& notes,
-                            const std::vector<bb::fr>& l1_to_l2_messages,
-                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                            const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
+WorldStateStatus WorldState::sync_block(
+    const StateReference& block_state_ref,
+    fr block_header_hash,
+    const std::vector<bb::fr>& notes,
+    const std::vector<bb::fr>& l1_to_l2_messages,
+    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
 {
+    WorldStateStatus status;
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     auto current_state = get_state_reference(WorldStateRevision::uncommitted());
     if (block_state_matches_world_state(block_state_ref, current_state) &&
         is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        commit();
-        return true;
+        if (!commit()) {
+            throw std::runtime_error("Commit failed");
+        }
+        get_status(status);
+        return status;
     }
-
     rollback();
 
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -435,13 +449,14 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
     auto state_after_inserts = get_state_reference(WorldStateRevision::uncommitted());
     if (block_state_matches_world_state(block_state_ref, state_after_inserts) &&
         is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        commit();
-        return false;
+        if (!commit()) {
+            throw std::runtime_error("Commit failed");
+        }
+        get_status(status);
+        return status;
     }
-
-    // TODO (alexg) should we rollback here?
-    // Potentiall not since all the changes exist only in-memory and this error will cause the process to die
-    throw std::runtime_error("Block state does not match world state");
+    rollback();
+    throw std::runtime_error("Failed to sync block");
 }
 
 GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision revision,
@@ -476,6 +491,104 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
     signal.wait_for_level();
     return low_leaf_info;
+}
+
+WorldStateStatus WorldState::set_proven_blocks(const index_t& toBlockNumber)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
+        throw std::runtime_error("Unable to finalise bllock, already finalised");
+    }
+    for (index_t blockNumber = archive_state.meta.finalisedBlockHeight + 1; blockNumber < toBlockNumber;
+         blockNumber++) {
+        if (!set_proven_block(blockNumber)) {
+            throw std::runtime_error("Failed to set finalised block");
+        }
+    }
+    return get_status();
+}
+WorldStateStatus WorldState::unwind_blocks(const index_t& toBlockNumber)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    if (toBlockNumber >= archive_state.meta.unfinalisedBlockHeight) {
+        throw std::runtime_error("Unable to unwind bllock, block number ");
+    }
+    for (index_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber; blockNumber--) {
+        if (!unwind_block(blockNumber)) {
+            throw std::runtime_error("Failed to unwind block");
+        }
+    }
+    return get_status();
+}
+WorldStateStatus WorldState::remove_historical_blocks(const index_t& toBlockNumber)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
+        throw std::runtime_error("Unable to remove historical block");
+    }
+    for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
+        if (!unwind_block(blockNumber)) {
+            throw std::runtime_error("Failed to remove historical block");
+        }
+    }
+    return get_status();
+}
+
+bool WorldState::set_proven_block(const index_t& toBlockNumber)
+{
+    std::atomic_bool success = true;
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal](auto&& wrapper) {
+                wrapper.tree->finalise_block(toBlockNumber, [&signal](const Response& resp) {
+                    success = success && resp.success;
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    return success;
+}
+bool WorldState::unwind_block(const index_t& toBlockNumber)
+{
+    std::atomic_bool success = true;
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal](auto&& wrapper) {
+                wrapper.tree->unwind_block(toBlockNumber, [&signal](const Response& resp) {
+                    success = success && resp.success;
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    return success;
+}
+bool WorldState::remove_historical_block(const index_t& toBlockNumber)
+{
+    std::atomic_bool success = true;
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal](auto&& wrapper) {
+                wrapper.tree->remove_historic_block(toBlockNumber, [&signal](const Response& resp) {
+                    success = success && resp.success;
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    return success;
 }
 
 bb::fr WorldState::compute_initial_archive(StateReference initial_state_ref)
@@ -537,6 +650,13 @@ bool WorldState::is_archive_tip(WorldStateRevision revision, bb::fr block_header
 
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     return archive_state.meta.size == leaf_index.value() + 1;
+}
+
+void WorldState::get_status(WorldStateStatus& status)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    status.unfinalisedBlockNumber = archive_state.meta.unfinalisedBlockHeight;
 }
 
 } // namespace bb::world_state
