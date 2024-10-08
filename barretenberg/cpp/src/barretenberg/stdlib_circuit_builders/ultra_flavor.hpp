@@ -395,7 +395,7 @@ class UltraFlavor {
         {
             // Compute inverses for conventional lookups
             compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation<FF>>(
-                this->polynomials, relation_parameters, this->circuit_size);
+                this->polynomials, relation_parameters, this->dyadic_circuit_size);
         }
 
         /**
@@ -408,7 +408,7 @@ class UltraFlavor {
             auto public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
                                                                               relation_parameters.beta,
                                                                               relation_parameters.gamma,
-                                                                              this->circuit_size,
+                                                                              this->dyadic_circuit_size,
                                                                               this->pub_inputs_offset);
             relation_parameters.public_input_delta = public_input_delta;
 
@@ -435,7 +435,7 @@ class UltraFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key.circuit_size;
+            this->circuit_size = proving_key.dyadic_circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
@@ -443,7 +443,7 @@ class UltraFlavor {
             this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
 
             if (proving_key.commitment_key == nullptr) {
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.dyadic_circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);

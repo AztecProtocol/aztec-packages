@@ -47,7 +47,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
         BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        circuit.finalize_circuit(/*ensure_nonzero=*/true);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
         const bool is_structured = (trace_structure != TraceStructure::NONE);
@@ -60,6 +60,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         } else {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         }
+        info("dyadic circuit size: ", dyadic_circuit_size);
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);

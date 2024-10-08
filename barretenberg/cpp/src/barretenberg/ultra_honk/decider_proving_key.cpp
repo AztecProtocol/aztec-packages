@@ -26,6 +26,9 @@ template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic
     // to allow for shifts.
     size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
+    info("min_size_due_to_lookups: ", min_size_due_to_lookups);
+    info("min_size_of_execution_trace: ", min_size_of_execution_trace);
+    info("total_num_gates: ", total_num_gates);
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }

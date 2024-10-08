@@ -197,12 +197,10 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     }
     // Construct a bberg circuit from the acir representation
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size());
-    init_bn254_crs(srs_size);
 
     // Construct Honk proof
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.dyadic_circuit_size);
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
@@ -1090,12 +1088,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     }
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size());
-    info("srs size: ", srs_size);
-    init_bn254_crs(srs_size);
-
-    return Prover{ builder };
+    auto prover = Prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.dyadic_circuit_size);
+    return std::move(prover);
 }
 
 /**
@@ -1219,12 +1214,10 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/true);
     auto witness = get_witness(witnessPath);
     auto builder = acir_format::create_circuit<Builder>(constraints, 0, witness, honk_recursion);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size());
-    init_bn254_crs(srs_size);
 
     // Construct Honk proof and verification key
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.dyadic_circuit_size);
     std::vector<FF> proof = prover.construct_proof();
     VerificationKey verification_key(prover.proving_key->proving_key);
 
@@ -1371,12 +1364,10 @@ void prove_honk_output_all(const std::string& bytecodePath,
     auto witness = get_witness(witnessPath);
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size());
-    init_bn254_crs(srs_size);
 
     // Construct Honk proof
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.dyadic_circuit_size);
     auto proof = prover.construct_proof();
 
     // We have been given a directory, we will write the proof and verification key

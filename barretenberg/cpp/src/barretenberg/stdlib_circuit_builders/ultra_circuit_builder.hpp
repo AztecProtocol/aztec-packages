@@ -664,7 +664,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
-     * @brief Get the actual finalized size of the circuit. Assumes the circuit is finalized already.
+     * @brief Get the actual finalized size of a Plonk circuit. Assumes the circuit is finalized already.
      *
      * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
      * account the possibility that the tables will dominate the size and checks both the plookup argument
@@ -676,7 +676,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     {
         ASSERT(circuit_finalized);
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
+        info("minimum_circuit_size: ", minimum_circuit_size);
         auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        info("num_filled_gates: ", num_filled_gates);
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 
