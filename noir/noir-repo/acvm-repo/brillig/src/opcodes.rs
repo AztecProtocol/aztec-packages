@@ -39,6 +39,13 @@ impl MemoryAddress {
             MemoryAddress::Relative(offset) => offset,
         }
     }
+
+    pub fn is_relative(&self) -> bool {
+        match self {
+            MemoryAddress::Relative(_) => true,
+            MemoryAddress::Direct(_) => false,
+        }
+    }
 }
 
 /// Describes the memory layout for an array/vector element

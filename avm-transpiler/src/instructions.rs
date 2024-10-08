@@ -144,22 +144,15 @@ pub(crate) struct AddressingModeBuilder {
 }
 
 impl AddressingModeBuilder {
-    fn is_relative(&self, address: &MemoryAddress) -> bool {
-        match address {
-            MemoryAddress::Relative(_) => true,
-            MemoryAddress::Direct(_) => false,
-        }
-    }
-
     pub(crate) fn direct_operand(mut self, address: &MemoryAddress) -> Self {
-        self.relative.push(self.is_relative(address));
+        self.relative.push(address.is_relative());
         self.indirect.push(false);
 
         self
     }
 
     pub(crate) fn indirect_operand(mut self, address: &MemoryAddress) -> Self {
-        self.relative.push(self.is_relative(address));
+        self.relative.push(address.is_relative());
         self.indirect.push(true);
 
         self

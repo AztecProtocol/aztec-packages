@@ -95,8 +95,8 @@ struct InlineContext {
     /// the control flow graph has been flattened.
     inline_no_predicates_functions: bool,
 
-    // We keep track of the recursive functions in the SSA to avoid inlining them in a brillig context.
-    recursive_functions: BTreeSet<FunctionId>,
+    // These are the functions of the program that we shouldn't inline.
+    functions_not_to_inline: BTreeSet<FunctionId>,
 }
 
 /// The per-function inlining context contains information that is only valid for one function.
@@ -261,7 +261,7 @@ fn should_retain_recursive(
         return;
     }
 
-    // We'll use some heuristics to decide wether to inline or not.
+    // We'll use some heuristics to decide whether to inline or not.
     // We compute the weight (roughly the number of instructions) of the function after inlining
     // And the interface cost of the function (the inherent cost at the callsite, roughly the number of args and returns)
     // We then can compute an approximation of the cost of inlining vs the cost of retaining the function
@@ -359,7 +359,7 @@ impl InlineContext {
         ssa: &Ssa,
         entry_point: FunctionId,
         inline_no_predicates_functions: bool,
-        recursive_functions: BTreeSet<FunctionId>,
+        functions_not_to_inline: BTreeSet<FunctionId>,
     ) -> InlineContext {
         let source = &ssa.functions[&entry_point];
         let mut builder = FunctionBuilder::new(source.name().to_owned(), entry_point);
@@ -370,7 +370,7 @@ impl InlineContext {
             entry_point,
             call_stack: CallStack::new(),
             inline_no_predicates_functions,
-            recursive_functions,
+            functions_not_to_inline,
         }
     }
 
@@ -651,7 +651,7 @@ impl<'function> PerFunctionContext<'function> {
         } else {
             // If the called function is brillig, we inline only if it's into brillig and the function is not recursive
             matches!(ssa.functions[&self.context.entry_point].runtime(), RuntimeType::Brillig(_))
-                && !self.context.recursive_functions.contains(&called_func_id)
+                && !self.context.functions_not_to_inline.contains(&called_func_id)
         }
     }
 
@@ -820,9 +820,10 @@ mod test {
         function_builder::FunctionBuilder,
         ir::{
             basic_block::BasicBlockId,
+            function::RuntimeType,
             instruction::{BinaryOp, Intrinsic, TerminatorInstruction},
             map::Id,
-            types::Type,
+            types::{NumericType, Type},
         },
     };
 
@@ -1091,5 +1092,94 @@ mod test {
         // }
         let main = ssa.main();
         assert_eq!(main.reachable_blocks().len(), 4);
+    }
+
+    #[test]
+    fn inliner_disabled() {
+        // brillig fn foo {
+        //   b0():
+        //     v0 = call bar()
+        //     return v0
+        // }
+        // brillig fn bar {
+        //   b0():
+        //     return 72
+        // }
+        let foo_id = Id::test_new(0);
+        let mut builder = FunctionBuilder::new("foo".into(), foo_id);
+        builder.set_runtime(RuntimeType::Brillig(InlineType::default()));
+
+        let bar_id = Id::test_new(1);
+        let bar = builder.import_function(bar_id);
+        let results = builder.insert_call(bar, Vec::new(), vec![Type::field()]).to_vec();
+        builder.terminate_with_return(results);
+
+        builder.new_brillig_function("bar".into(), bar_id, InlineType::default());
+        let expected_return = 72u128;
+        let seventy_two = builder.field_constant(expected_return);
+        builder.terminate_with_return(vec![seventy_two]);
+
+        let ssa = builder.finish();
+        assert_eq!(ssa.functions.len(), 2);
+
+        let inlined = ssa.inline_functions(f64::NEG_INFINITY);
+        // No inlining has happened
+        assert_eq!(inlined.functions.len(), 2);
+    }
+
+    #[test]
+    fn conditional_inlining() {
+        // In this example we call a larger abrillig function 3 times so the inliner refuses to inline the function.
+        // brillig fn foo {
+        //   b0():
+        //     v0 = call bar()
+        //     v1 = call bar()
+        //     v2 = call bar()
+        //     return v0
+        // }
+        // brillig fn bar {
+        //   b0():
+        //     jmpif 1 then: b1, else: b2
+        //   b1():
+        //     jmp b3(Field 1)
+        //   b3(v3: Field):
+        //     return v3
+        //   b2():
+        //     jmp b3(Field 2)
+        // }
+        let foo_id = Id::test_new(0);
+        let mut builder = FunctionBuilder::new("foo".into(), foo_id);
+        builder.set_runtime(RuntimeType::Brillig(InlineType::default()));
+
+        let bar_id = Id::test_new(1);
+        let bar = builder.import_function(bar_id);
+        let v0 = builder.insert_call(bar, Vec::new(), vec![Type::field()]).to_vec();
+        let _v1 = builder.insert_call(bar, Vec::new(), vec![Type::field()]).to_vec();
+        let _v2 = builder.insert_call(bar, Vec::new(), vec![Type::field()]).to_vec();
+        builder.terminate_with_return(v0);
+
+        builder.new_brillig_function("bar".into(), bar_id, InlineType::default());
+        let bar_v0 =
+            builder.numeric_constant(1_usize, Type::Numeric(NumericType::Unsigned { bit_size: 1 }));
+        let then_block = builder.insert_block();
+        let else_block = builder.insert_block();
+        let join_block = builder.insert_block();
+        builder.terminate_with_jmpif(bar_v0, then_block, else_block);
+        builder.switch_to_block(then_block);
+        let one = builder.numeric_constant(FieldElement::one(), Type::field());
+        builder.terminate_with_jmp(join_block, vec![one]);
+        builder.switch_to_block(else_block);
+        let two = builder.numeric_constant(FieldElement::from(2_u128), Type::field());
+        builder.terminate_with_jmp(join_block, vec![two]);
+        let join_param = builder.add_block_parameter(join_block, Type::field());
+        builder.switch_to_block(join_block);
+        builder.terminate_with_return(vec![join_param]);
+
+        let ssa = builder.finish();
+        assert_eq!(ssa.functions.len(), 2);
+
+        let inlined = ssa.inline_functions(0f64);
+        // No inlining has happened
+        assert_eq!(inlined.functions.len(), 2);
     }
 }
