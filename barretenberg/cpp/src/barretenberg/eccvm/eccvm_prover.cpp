@@ -1,6 +1,7 @@
 #include "eccvm_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -113,21 +114,18 @@ void ECCVMProver::execute_relation_check_rounds()
 void ECCVMProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
+    using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    // Execute the ZeroMorph protocol to produce a univariate opening claim for the multilinear evaluations produced by
-    // Sumcheck
-    auto multivariate_to_univariate_opening_claim =
-        ZeroMorph::prove(key->circuit_size,
-                         key->polynomials.get_unshifted(),
-                         key->polynomials.get_to_be_shifted(),
-                         sumcheck_output.claimed_evaluations.get_unshifted(),
-                         sumcheck_output.claimed_evaluations.get_shifted(),
-                         sumcheck_output.challenge,
-                         key->commitment_key,
-                         transcript);
+    // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
+    // evaluations produced by Sumcheck
+    auto multivariate_to_univariate_opening_claim = Shplemini::prove(key->circuit_size,
+                                                                     key->polynomials.get_unshifted(),
+                                                                     key->polynomials.get_to_be_shifted(),
+                                                                     sumcheck_output.challenge,
+                                                                     key->commitment_key,
+                                                                     transcript);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");

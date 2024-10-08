@@ -1,6 +1,6 @@
 #include "./eccvm_recursive_verifier.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -19,7 +19,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
 
     RelationParameters<FF> relation_parameters;
@@ -72,14 +72,18 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    auto multivariate_to_univariate_opening_claim = ZeroMorph::verify(circuit_size,
-                                                                      commitments.get_unshifted(),
-                                                                      commitments.get_to_be_shifted(),
-                                                                      claimed_evaluations.get_unshifted(),
-                                                                      claimed_evaluations.get_shifted(),
-                                                                      multivariate_challenge,
-                                                                      key->pcs_verification_key->get_g1_identity(),
-                                                                      transcript);
+    // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
+    // produced by the unified protocol
+    auto batch_opening_claims = Shplemini::compute_batch_opening_claim(circuit_size,
+                                                                       commitments.get_unshifted(),
+                                                                       commitments.get_to_be_shifted(),
+                                                                       claimed_evaluations.get_unshifted(),
+                                                                       claimed_evaluations.get_shifted(),
+                                                                       multivariate_challenge,
+                                                                       key->pcs_verification_key->get_g1_identity(),
+                                                                       transcript);
+    // Reduce the accumulator to a single opening claim
+    auto multivariate_to_univariate_opening_claim = PCS::reduce_batch_opening_claim(batch_opening_claims);
 
     const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
