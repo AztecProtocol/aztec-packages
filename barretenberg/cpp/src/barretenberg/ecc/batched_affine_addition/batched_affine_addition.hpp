@@ -7,28 +7,29 @@
 
 namespace bb {
 
-/**
- * @brief Reduce MSM inputs such that the set of scalars contains no duplicates by summing points which share a scalar.
- *
- * @warning This class is intended to reduce MSMs with EC points that are fully random, e.g. those from an SRS. It does
- * not necessarily handle the case where two adjacent points are equal or the inverse of one another (i.e. where x_i ==
- * x_{i+1})
- *
- * @tparam Curve
- */
 template <typename Curve> class BatchedAffineAddition {
-
-  public:
     using G1 = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
 
-    // Storage for a set of points to be sorted and reduced
     struct AdditionSequences {
         std::vector<size_t> sequence_counts;
         std::span<G1> points;
         std::span<Fq> scratch_space;
     };
+
+    struct ThreadData {
+        std::vector<AdditionSequences> addition_sequences;
+        std::vector<std::vector<size_t>> sequence_tags;
+    };
+
+  public:
+    static std::vector<G1> add_in_place(const std::span<G1>& points, const std::vector<size_t>& sequence_counts);
+
+  private:
+    static ThreadData construct_thread_data(const std::span<G1>& points,
+                                            const std::vector<size_t>& sequence_counts,
+                                            const std::span<Fq>& scratch_space);
 
     static std::span<Fq> batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences);
 
@@ -59,27 +60,6 @@ template <typename Curve> class BatchedAffineAddition {
         Fq y3 = lambda * (x1 - x3) - y1;
         return { x3, y3 };
     }
-};
-
-template <typename Curve> class AdditionManager {
-    using G1 = typename Curve::AffineElement;
-    using Fr = typename Curve::ScalarField;
-    using Fq = typename Curve::BaseField;
-    using AffineAdder = BatchedAffineAddition<Curve>;
-    using AdditionSequences = AffineAdder::AdditionSequences;
-
-    struct ThreadData {
-        std::vector<AdditionSequences> addition_sequences;
-        std::vector<std::vector<size_t>> sequence_tags;
-    };
-
-  public:
-    std::vector<G1> batched_affine_add_in_place_parallel(const std::span<G1>& points,
-                                                         const std::vector<size_t>& sequence_counts);
-
-    ThreadData construct_thread_data(const std::span<G1>& points,
-                                     const std::vector<size_t>& sequence_counts,
-                                     const std::span<Fq>& scratch_space);
 };
 
 } // namespace bb

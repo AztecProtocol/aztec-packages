@@ -272,7 +272,7 @@ template <class Curve> class CommitmentKey {
                                                               const std::vector<uint32_t>& actual_sizes)
     {
         BB_OP_COUNT_TIME();
-        using AdditionManager = AdditionManager<Curve>;
+        using BatchedAddition = BatchedAffineAddition<Curve>;
 
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
@@ -303,8 +303,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Reduce each sequence to a single point
-        AdditionManager add_manager;
-        auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_counts);
+        auto reduced_points = BatchedAddition::add_in_place(points, sequence_counts);
 
         // Populate the set of unique scalars with first coeff from each range (values assumed constant over each range)
         std::vector<Fr> unique_scalars;

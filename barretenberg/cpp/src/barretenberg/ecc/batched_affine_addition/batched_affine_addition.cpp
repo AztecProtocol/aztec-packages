@@ -152,7 +152,7 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
 }
 
 template <typename Curve>
-typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_thread_data(
+typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::construct_thread_data(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts, const std::span<Fq>& scratch_space)
 {
     // Compute the endpoints of the sequences within the points array from the sequence counts
@@ -234,7 +234,7 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
 }
 
 template <typename Curve>
-std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched_affine_add_in_place_parallel(
+std::vector<typename BatchedAffineAddition<Curve>::G1> BatchedAffineAddition<Curve>::add_in_place(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts)
 {
     // instantiate scratch space for point addition denominators their calculation
@@ -244,8 +244,7 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     auto [addition_sequences, sequence_tags] = construct_thread_data(points, sequence_counts, scratch_space);
 
     const size_t num_threads = addition_sequences.size();
-    parallel_for(num_threads,
-                 [&](size_t thread_idx) { AffineAdder::batched_affine_add_in_place(addition_sequences[thread_idx]); });
+    parallel_for(num_threads, [&](size_t thread_idx) { batched_affine_add_in_place(addition_sequences[thread_idx]); });
 
     std::vector<G1> reduced_points;
     size_t prev_tag = std::numeric_limits<size_t>::max();
@@ -264,8 +263,6 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     return reduced_points;
 }
 
-template class BatchedAffineAddition<curve::Grumpkin>;
 template class BatchedAffineAddition<curve::BN254>;
-template class AdditionManager<curve::Grumpkin>;
-template class AdditionManager<curve::BN254>;
+template class BatchedAffineAddition<curve::Grumpkin>;
 } // namespace bb
