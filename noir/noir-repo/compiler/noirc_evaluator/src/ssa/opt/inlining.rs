@@ -44,18 +44,18 @@ impl Ssa {
     ///
     /// This step should run after runtime separation, since it relies on the runtime of the called functions being final.
     #[tracing::instrument(level = "trace", skip(self))]
-    pub(crate) fn inline_functions(self, aggressiveness: f64) -> Ssa {
+    pub(crate) fn inline_functions(self, aggressiveness: i64) -> Ssa {
         Self::inline_functions_inner(self, aggressiveness, false)
     }
 
     // Run the inlining pass where functions marked with `InlineType::NoPredicates` as not entry points
-    pub(crate) fn inline_functions_with_no_predicates(self, aggressiveness: f64) -> Ssa {
+    pub(crate) fn inline_functions_with_no_predicates(self, aggressiveness: i64) -> Ssa {
         Self::inline_functions_inner(self, aggressiveness, true)
     }
 
     fn inline_functions_inner(
         mut self,
-        aggressiveness: f64,
+        aggressiveness: i64,
         inline_no_predicates_functions: bool,
     ) -> Ssa {
         let inline_sources =
@@ -161,7 +161,7 @@ fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
 fn get_functions_to_inline_into(
     ssa: &Ssa,
     inline_no_predicates_functions: bool,
-    aggressiveness: f64,
+    aggressiveness: i64,
 ) -> BTreeSet<FunctionId> {
     let mut brillig_entry_points = BTreeSet::default();
     let mut acir_entry_points = BTreeSet::default();
@@ -226,10 +226,10 @@ fn should_retain_recursive(
     ssa: &Ssa,
     func: FunctionId,
     times_called: &HashMap<FunctionId, usize>,
-    should_retain_function: &mut HashMap<FunctionId, (bool, f64)>,
+    should_retain_function: &mut HashMap<FunctionId, (bool, i64)>,
     mut explored_functions: im::HashSet<FunctionId>,
     inline_no_predicates_functions: bool,
-    aggressiveness: f64,
+    aggressiveness: i64,
 ) {
     // We have already decided on this function
     if should_retain_function.get(&func).is_some() {
@@ -237,7 +237,7 @@ fn should_retain_recursive(
     }
     // Recursive, this function won't be inlined
     if explored_functions.contains(&func) {
-        should_retain_function.insert(func, (true, 0f64));
+        should_retain_function.insert(func, (true, 0));
         return;
     }
     explored_functions.insert(func);
@@ -265,34 +265,32 @@ fn should_retain_recursive(
     // We compute the weight (roughly the number of instructions) of the function after inlining
     // And the interface cost of the function (the inherent cost at the callsite, roughly the number of args and returns)
     // We then can compute an approximation of the cost of inlining vs the cost of retaining the function
-    let inlined_function_weights: f64 = called_functions
-        .iter()
-        .map(|called_function| {
-            let (should_retain, weight) = should_retain_function[called_function];
-            if should_retain {
-                0.0
-            } else {
-                weight
-            }
-        })
-        .sum();
+    // We do this computation using saturating i64s to avoid overflows
+    let inlined_function_weights: i64 = called_functions.iter().fold(0, |acc, called_function| {
+        let (should_retain, weight) = should_retain_function[called_function];
+        if should_retain {
+            acc
+        } else {
+            acc.saturating_add(weight)
+        }
+    });
 
-    let this_function_weight =
-        inlined_function_weights + (compute_function_own_weight(&ssa.functions[&func]) as f64);
+    let this_function_weight = inlined_function_weights
+        .saturating_add(compute_function_own_weight(&ssa.functions[&func]) as i64);
 
-    let interface_cost = compute_function_interface_cost(&ssa.functions[&func]) as f64;
+    let interface_cost = compute_function_interface_cost(&ssa.functions[&func]) as i64;
 
-    let times_called = times_called[&func] as f64;
+    let times_called = times_called[&func] as i64;
 
-    let inline_cost = times_called * this_function_weight;
-    let retain_cost = times_called * interface_cost + this_function_weight;
+    let inline_cost = times_called.saturating_mul(this_function_weight);
+    let retain_cost = times_called.saturating_mul(interface_cost) + this_function_weight;
 
     let runtime = ssa.functions[&func].runtime();
     // We inline if the aggressiveness is higher than inline cost minus the retain cost
     // If aggressiveness is infinite, we'll always inline
     // If aggressiveness is 0, we'll inline when the inline cost is lower than the retain cost
     // If aggressiveness is minus infinity, we'll never inline (other than in the mandatory cases)
-    let should_inline = ((inline_cost - retain_cost) < aggressiveness)
+    let should_inline = ((inline_cost.saturating_sub(retain_cost)) < aggressiveness)
         || runtime.is_inline_always()
         || (runtime.is_no_predicates() && inline_no_predicates_functions);
 
@@ -304,7 +302,7 @@ fn compute_functions_to_retain(
     entry_points: &BTreeSet<FunctionId>,
     times_called: &HashMap<FunctionId, usize>,
     inline_no_predicates_functions: bool,
-    aggressiveness: f64,
+    aggressiveness: i64,
 ) -> BTreeSet<FunctionId> {
     let mut should_retain_function = HashMap::default();
 
@@ -853,7 +851,7 @@ mod test {
         let ssa = builder.finish();
         assert_eq!(ssa.functions.len(), 2);
 
-        let inlined = ssa.inline_functions(f64::INFINITY);
+        let inlined = ssa.inline_functions(i64::MAX);
         assert_eq!(inlined.functions.len(), 1);
     }
 
@@ -919,7 +917,7 @@ mod test {
         let ssa = builder.finish();
         assert_eq!(ssa.functions.len(), 4);
 
-        let inlined = ssa.inline_functions(f64::INFINITY);
+        let inlined = ssa.inline_functions(i64::MAX);
         assert_eq!(inlined.functions.len(), 1);
     }
 
@@ -993,7 +991,7 @@ mod test {
         //   b6():
         //     return Field 120
         // }
-        let inlined = ssa.inline_functions(f64::INFINITY);
+        let inlined = ssa.inline_functions(i64::MAX);
         assert_eq!(inlined.functions.len(), 1);
 
         let main = inlined.main();
@@ -1076,7 +1074,7 @@ mod test {
         builder.switch_to_block(join_block);
         builder.terminate_with_return(vec![join_param]);
 
-        let ssa = builder.finish().inline_functions(f64::INFINITY);
+        let ssa = builder.finish().inline_functions(i64::MAX);
         // Expected result:
         // fn main f3 {
         //   b0(v0: u1):
@@ -1121,7 +1119,7 @@ mod test {
         let ssa = builder.finish();
         assert_eq!(ssa.functions.len(), 2);
 
-        let inlined = ssa.inline_functions(f64::NEG_INFINITY);
+        let inlined = ssa.inline_functions(i64::MIN);
         // No inlining has happened
         assert_eq!(inlined.functions.len(), 2);
     }
@@ -1177,7 +1175,7 @@ mod test {
         let ssa = builder.finish();
         assert_eq!(ssa.functions.len(), 2);
 
-        let inlined = ssa.inline_functions(0f64);
+        let inlined = ssa.inline_functions(0);
         // No inlining has happened
         assert_eq!(inlined.functions.len(), 2);
     }

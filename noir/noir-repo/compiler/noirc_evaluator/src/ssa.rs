@@ -69,7 +69,7 @@ pub struct SsaEvaluatorOptions {
     pub skip_underconstrained_check: bool,
 
     /// The higher the value, the more inlined brillig functions will be.
-    pub inliner_aggressiveness: f64,
+    pub inliner_aggressiveness: i64,
 }
 
 pub(crate) struct ArtifactsAndWarnings(Artifacts, Vec<SsaReport>);
