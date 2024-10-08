@@ -163,6 +163,11 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
         sequence_endpoints.emplace_back(total_count);
     }
 
+    if (points.size() != total_count) {
+        info("Number of input points does not match sequence counts!");
+        ASSERT(false);
+    }
+
     // Assign the points across the available threads as evenly as possible
     const size_t total_num_points = points.size();
     const size_t num_threads = 4; // WORKTODO: actually determine this
@@ -185,9 +190,9 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
         thread_endpoints.emplace_back(point_index);
     }
 
-    for (const auto& end : thread_endpoints) {
-        info("end: ", end);
-    }
+    // for (const auto& end : thread_endpoints) {
+    //     info("end: ", end);
+    // }
     for (const auto& points : thread_points) {
         info("points.size(): ", points.size());
     }
@@ -228,14 +233,14 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
     for (size_t i = 0; i < num_threads; ++i) {
         addition_sequences.emplace_back(thread_sequence_counts[i], thread_points[i], thread_scratch_space[i]);
     }
-    for (const auto& sequence : addition_sequences) {
-        info("Counts:");
-        for (auto count : sequence.sequence_counts) {
-            info("count = ", count);
-        }
-        info("Points size = ", sequence.points.size());
-        info("Scratch size = ", sequence.scratch_space.size());
-    }
+    // for (const auto& sequence : addition_sequences) {
+    //     info("Counts:");
+    //     for (auto count : sequence.sequence_counts) {
+    //         info("count = ", count);
+    //     }
+    //     info("Points size = ", sequence.points.size());
+    //     info("Scratch size = ", sequence.scratch_space.size());
+    // }
     for (const auto& tags : thread_sequence_tags) {
         info("Tags:");
         for (auto tag : tags) {

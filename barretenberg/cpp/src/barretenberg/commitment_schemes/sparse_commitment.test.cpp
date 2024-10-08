@@ -36,6 +36,8 @@ std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpki
     return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
 }
 
+// WORKTODO: method for mock structured poly? maybe in shared space somewhere?
+
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 
 TYPED_TEST_SUITE(CommitmentKeyTest, Curves);
@@ -203,7 +205,7 @@ TYPED_TEST(CommitmentKeyTest, CommitStructured)
 }
 
 /**
- * @brief Test commit_sparse on polynomial with zero start index.
+ * @brief WORKTODO
  *
  */
 TYPED_TEST(CommitmentKeyTest, CommitZPerm)
@@ -224,17 +226,16 @@ TYPED_TEST(CommitmentKeyTest, CommitZPerm)
 
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
 
-    G1 new_result = key->commit_structured_z_perm(poly, structured_sizes, actual_sizes);
+    G1 expected_result = key->commit(poly);
 
-    EXPECT_EQ(sparse_commit_result, commit_result);
-    EXPECT_EQ(new_result, commit_result);
+    G1 result = key->commit_structured_with_nonzero_constant_blocks(poly, structured_sizes, actual_sizes);
+
+    EXPECT_EQ(result, expected_result);
 }
 
 /**
- * @brief Test commit_sparse on polynomial with zero start index.
+ * @brief WORKTODO
  *
  */
 TYPED_TEST(CommitmentKeyTest, CommitZPermRealistic)
@@ -286,117 +287,10 @@ TYPED_TEST(CommitmentKeyTest, CommitZPermRealistic)
 
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(full_size);
-    G1 commit_result = key->commit(polynomial);
-    G1 sparse_commit_result = key->commit_sparse(polynomial);
 
-    G1 new_result = key->commit_structured_z_perm(polynomial, structured_sizes, actual_sizes);
+    G1 expected_result = key->commit(polynomial);
 
-    EXPECT_EQ(sparse_commit_result, commit_result);
-    EXPECT_EQ(new_result, commit_result);
-}
-
-TYPED_TEST(CommitmentKeyTest, Reduce)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Fq = Curve::BaseField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    using AffineAdder = BatchedAffineAddition<Curve>;
-    using AddSequences = AffineAdder::AdditionSequences;
-
-    const size_t input_size = 1 << 15;
-    auto key = TestFixture::template create_commitment_key<CK>(input_size);
-    std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
-
-    Polynomial poly(input_size);
-    Fr const_val = Fr::random_element();
-    for (size_t i = 0; i < input_size; i++) {
-        poly.at(i) = const_val;
-    }
-
-    // Extract raw SRS points from point point table points
-    std::vector<G1> raw_points;
-    raw_points.reserve(input_size);
-    for (size_t i = 0; i < input_size * 2; i += 2) {
-        raw_points.emplace_back(point_table[i]);
-    }
-
-    std::vector<size_t> sequence_counts = { input_size }; // single sequence
-    std::span<G1> points_to_add(raw_points.data(), input_size);
-    std::vector<Fq> scratch_space(input_size);
-    AddSequences add_sequences{ sequence_counts, points_to_add, scratch_space };
-
-    AffineAdder::batched_affine_add_in_place(add_sequences);
-
-    G1 expected_result = key->commit(poly);
-    G1 result = raw_points[0] * const_val;
-
-    info("Raw point = ", raw_points[0]);
-
-    EXPECT_EQ(result, expected_result);
-}
-
-TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
-{
-    using Curve = TypeParam;
-    using G1 = Curve::AffineElement;
-    //  using Fr = Curve::ScalarField;
-    using Fq = Curve::BaseField;
-
-    using AddManager = AdditionManager<Curve>;
-
-    std::vector<size_t> sequence_counts = { 7, 8, 6, 9 };
-    size_t total_num_points = 30;
-
-    std::vector<G1> points(total_num_points);
-    std::vector<Fq> scratch_space(total_num_points);
-    AddManager add_manager;
-    auto [addition_sequences, sequence_tags] =
-        add_manager.construct_thread_data(points, sequence_counts, scratch_space);
-}
-
-TYPED_TEST(CommitmentKeyTest, ReduceLarge)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    using AddManager = AdditionManager<Curve>;
-
-    const size_t num_chunks = 5;
-    const size_t chunk_size = 100;
-    const size_t input_size = num_chunks * chunk_size;
-    std::vector<size_t> sequence_counts(num_chunks, chunk_size);
-    auto key = TestFixture::template create_commitment_key<CK>(input_size);
-    std::span<G1> point_table = key->srs->get_monomial_points().subspan(0);
-
-    Polynomial poly(input_size);
-    Fr const_val = Fr::random_element();
-    for (size_t i = 0; i < input_size; i++) {
-        poly.at(i) = const_val;
-    }
-
-    // Extract raw SRS points from point point table points
-    std::vector<G1> points;
-    points.reserve(input_size);
-    for (size_t i = 0; i < input_size * 2; i += 2) {
-        points.emplace_back(point_table[i]);
-    }
-
-    AddManager add_manager;
-    auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_counts);
-
-    G1 expected_result = key->commit(poly);
-
-    G1 result = reduced_points[0] * const_val;
-    for (size_t i = 1; i < reduced_points.size(); ++i) {
-        result = result + reduced_points[i] * const_val;
-    }
+    G1 result = key->commit_structured_with_nonzero_constant_blocks(polynomial, structured_sizes, actual_sizes);
 
     EXPECT_EQ(result, expected_result);
 }
