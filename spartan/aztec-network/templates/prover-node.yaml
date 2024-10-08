@@ -74,9 +74,8 @@ spec:
             # get private proofs from the boot node
             - name: PROVER_COORDINATION_NODE_URL
               value: {{ include "aztec-network.bootNodeUrl" . | quote }}
-            # prover agent gets jobs from itself
-            - name: AZTEC_NODE_URL
-              value: "$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
+            - name: PROVER_JOB_SOURCE_URL
+              value: "http://$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
           resources:
