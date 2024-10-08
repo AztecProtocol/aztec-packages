@@ -6,6 +6,12 @@ It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 
 ## Installation
 
+### Dependencies
+
+TODO
+
+### Installation script
+
 BBup is an installer for whatever version of BB you may want. Install BBup with:
 
 ```bash
