@@ -101,7 +101,7 @@ function fmtErr(msg: string, err?: Error | unknown): string {
  * Formats structured log data as a string for console output.
  * @param data - Optional log data.
  */
-function fmtLogData(data?: LogData): string {
+export function fmtLogData(data?: LogData): string {
   return Object.entries(data ?? {})
     .map(([key, value]) => `${key}=${typeof value === 'object' && 'toString' in value ? value.toString() : value}`)
     .join(' ');

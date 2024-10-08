@@ -11,19 +11,19 @@ import {
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
 import { ProtocolCircuitVks, getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 export class PublicKernelTailSimulator {
   constructor(
-    private db: MerkleTreeOperations,
+    private db: MerkleTreeReadOperations,
     private publicKernelSimulator: PublicKernelCircuitSimulator,
     private hintsBuilder: HintsBuilder,
   ) {}
 
-  static create(db: MerkleTreeOperations, publicKernelSimulator: PublicKernelCircuitSimulator) {
+  static create(db: MerkleTreeReadOperations, publicKernelSimulator: PublicKernelCircuitSimulator) {
     const hintsBuilder = new HintsBuilder(db);
     return new PublicKernelTailSimulator(db, publicKernelSimulator, hintsBuilder);
   }
