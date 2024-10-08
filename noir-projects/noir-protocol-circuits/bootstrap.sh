@@ -20,7 +20,7 @@ node ./scripts/generate_variants.js
 
 echo "Compiling protocol circuits..."
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-RAYON_NUM_THREADS=1 $NARGO compile --silence-warnings
+RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1} $NARGO compile --silence-warnings
 
 BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo Using BB hash $BB_HASH
@@ -60,4 +60,3 @@ else
   done
 
 fi
-
