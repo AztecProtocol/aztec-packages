@@ -57,7 +57,7 @@ import {
   acvm,
   createSimulationError,
   extractCallStack,
-  extractPublicInputs,
+  extractPrivateCircuitPublicInputs,
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
@@ -598,7 +598,7 @@ export class TXE implements TypedOracle {
         throw createSimulationError(execError);
       });
       const duration = timer.ms();
-      const publicInputs = extractPublicInputs(artifact, acirExecutionResult.partialWitness);
+      const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
       const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
       this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {

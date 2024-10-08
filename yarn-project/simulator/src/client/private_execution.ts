@@ -47,7 +47,7 @@ export async function executePrivateFunction(
   });
   const duration = timer.ms();
   const partialWitness = acirExecutionResult.partialWitness;
-  const publicInputs = extractPublicInputs(artifact, partialWitness);
+  const publicInputs = extractPrivateCircuitPublicInputs(artifact, partialWitness);
 
   // TODO (alexg) estimate this size
   const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
@@ -105,7 +105,7 @@ export async function executePrivateFunction(
  * @param partialWitness - The partial witness, result of simulating the function.
  * @returns - The public inputs.
  */
-export function extractPublicInputs(
+export function extractPrivateCircuitPublicInputs(
   artifact: FunctionArtifact,
   partialWitness: ACVMWitness,
 ): PrivateCircuitPublicInputs {
