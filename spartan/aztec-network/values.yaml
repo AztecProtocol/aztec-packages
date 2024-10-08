@@ -37,7 +37,7 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  replicas: 0
+  replicas: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -154,3 +154,4 @@ ethereum:
     limits:
       memory: "4Gi"
       cpu: "1"
+  storage: "8Gi"
