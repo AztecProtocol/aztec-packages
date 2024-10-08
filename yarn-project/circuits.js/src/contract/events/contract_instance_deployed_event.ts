@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
@@ -16,6 +16,7 @@ export class ContractInstanceDeployedEvent {
     public readonly initializationHash: Fr,
     public readonly publicKeysHash: Fr,
     public readonly deployer: AztecAddress,
+    public readonly ivpkM: Point,
   ) {}
 
   static isContractInstanceDeployedEvent(log: Buffer) {
@@ -42,6 +43,7 @@ export class ContractInstanceDeployedEvent {
     const initializationHash = reader.readObject(Fr);
     const publicKeysHash = reader.readObject(Fr);
     const deployer = reader.readObject(AztecAddress);
+    const ivpkM = reader.readObject(Point);
 
     return new ContractInstanceDeployedEvent(
       address,
@@ -51,6 +53,7 @@ export class ContractInstanceDeployedEvent {
       initializationHash,
       publicKeysHash,
       deployer,
+      ivpkM,
     );
   }
 
@@ -67,6 +70,7 @@ export class ContractInstanceDeployedEvent {
       publicKeysHash: this.publicKeysHash,
       salt: this.salt,
       deployer: this.deployer,
+      ivpkM: this.ivpkM,
     };
   }
 }

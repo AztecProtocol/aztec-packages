@@ -6,6 +6,7 @@ import { FUNCTION_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
+import { PublicKeys } from '../../types/public_keys.js';
 
 /**
  * Private call data.
@@ -31,7 +32,7 @@ export class PrivateCallData {
     /**
      * Public keys hash of the contract instance.
      */
-    public publicKeysHash: Fr,
+    public publicKeys: PublicKeys,
     /**
      * Salted initialization hash of the contract instance.
      */
@@ -57,7 +58,7 @@ export class PrivateCallData {
       fields.vk,
       fields.contractClassArtifactHash,
       fields.contractClassPublicBytecodeCommitment,
-      fields.publicKeysHash,
+      fields.publicKeys,
       fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
       fields.acirHash,
@@ -88,7 +89,7 @@ export class PrivateCallData {
       reader.readObject(VerificationKeyAsFields),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readObject(PublicKeys),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
       reader.readObject(Fr),

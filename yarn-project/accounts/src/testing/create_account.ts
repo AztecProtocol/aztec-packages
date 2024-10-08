@@ -11,9 +11,19 @@ import { getSchnorrAccount } from '../schnorr/index.js';
  * @returns - A wallet for a fresh account.
  */
 export function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
-  const secretKey = Fr.random();
-  const signingKey = deriveSigningKey(secretKey);
-  return getSchnorrAccount(pxe, secretKey, signingKey).waitSetup();
+  let account;
+  do {
+    const secretKey = Fr.random();
+    const signingKey = deriveSigningKey(secretKey);
+    try {
+      const potentialAccount = getSchnorrAccount(pxe, secretKey, signingKey);
+      potentialAccount.getCompleteAddress();
+      account = potentialAccount;
+    } catch (err) {
+      console.log(err);
+    }
+  } while (account === undefined);
+  return account.waitSetup();
 }
 
 /**
@@ -27,20 +37,37 @@ export function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
 export async function createAccounts(
   pxe: PXE,
   numberOfAccounts = 1,
-  secrets: Fr[] = [],
+  secretsAndSalts: [Fr, Fr][] = [],
   waitOpts: WaitOpts = { interval: 0.1 },
 ): Promise<AccountWalletWithSecretKey[]> {
-  if (secrets.length == 0) {
-    secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
-  } else if (secrets.length > 0 && secrets.length !== numberOfAccounts) {
+  const confirmedSecretsAndSalts: [Fr, Fr][] = [];
+
+  if (secretsAndSalts.length == 0) {
+    confirmedSecretsAndSalts.push(...Array.from({ length: numberOfAccounts }, () => {
+      let secretAndSalt: [Fr, Fr] = [Fr.ZERO, Fr.ZERO];
+      do {
+        const secretKey = Fr.random();
+        const signingKey = deriveSigningKey(secretKey);
+        try {
+          const potentialAccount = getSchnorrAccount(pxe, secretKey, signingKey);
+          potentialAccount.getCompleteAddress();
+          secretAndSalt = [secretKey, potentialAccount.getInstance().salt];
+        } catch (err) {
+          console.log(err);
+        }
+      } while (secretAndSalt[0] === Fr.ZERO);
+
+      return secretAndSalt;
+    }));
+  } else if (secretsAndSalts.length > 0 && secretsAndSalts.length !== numberOfAccounts) {
     throw new Error('Secrets array must be empty or have the same length as the number of accounts');
   }
 
   // Prepare deployments
   const accountsAndDeployments = await Promise.all(
-    secrets.map(async secret => {
+    secretsAndSalts.map(async ([secret, salt])  => {
       const signingKey = deriveSigningKey(secret);
-      const account = getSchnorrAccount(pxe, secret, signingKey);
+      const account = getSchnorrAccount(pxe, secret, signingKey, salt);
       const deployMethod = await account.getDeployMethod();
       const provenTx = await deployMethod.prove({
         contractAddressSalt: account.salt,

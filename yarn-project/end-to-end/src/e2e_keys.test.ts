@@ -44,7 +44,7 @@ describe('Keys', () => {
     ({ aztecNode, pxe, teardown, wallet } = await setup(2));
     testContract = await TestContract.deploy(wallet).send().deployed();
 
-    [account] = await createAccounts(pxe, 1, [secret]);
+    [account] = await createAccounts(pxe, 1, [[secret, secret]]);
   });
 
   afterAll(() => teardown());

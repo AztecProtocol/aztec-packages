@@ -9,7 +9,7 @@ import {
   computePrivateFunctionsTree,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { type ContractClass, type ContractInstance } from '@aztec/types/contracts';
 
@@ -17,13 +17,14 @@ describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);
 
   type FixtureContractData = Omit<ContractClass, 'version' | 'publicFunctions'> &
-    Pick<ContractInstance, 'publicKeysHash' | 'salt'> &
+    Pick<ContractInstance, 'publicKeysHash' | 'salt' | 'ivpkM'> &
     Pick<ContractClass, 'privateFunctions'> & { toString: () => string };
 
   const defaultContract: FixtureContractData = {
     artifactHash: new Fr(12345),
     packedBytecode: Buffer.from([3, 4, 5, 6, 7]),
     publicKeysHash: new Fr(45678),
+    ivpkM: new Point(new Fr(123), new Fr(456), false),
     salt: new Fr(56789),
     privateFunctions: [
       { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(0) },
@@ -36,6 +37,7 @@ describe('Data generation for noir tests', () => {
     artifactHash: new Fr(1212),
     packedBytecode: Buffer.from([3, 4, 3, 4]),
     publicKeysHash: new Fr(4545),
+    ivpkM: new Point(new Fr(123), new Fr(456), false),
     salt: new Fr(5656),
     privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(0) }],
     toString: () => 'parentContract',

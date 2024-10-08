@@ -1,6 +1,7 @@
 import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  CompleteAddress,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
@@ -58,6 +59,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
+    private completeAddress?: CompleteAddress,
   ) {
     super(wallet);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
@@ -221,11 +223,15 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       this.instance = getContractInstanceFromDeployParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
-        publicKeysHash: this.publicKeysHash,
+        publicKeys: this.completeAddress?.publicKeys,
         constructorArtifact: this.constructorArtifact,
         deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
       });
+      if (this.completeAddress !== undefined) {
+        this.instance.address = this.completeAddress.address;
+      }
     }
+
     return this.instance;
   }
 

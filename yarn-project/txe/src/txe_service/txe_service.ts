@@ -6,6 +6,7 @@ import {
   Header,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
+  PublicKeys,
   computePartialAddress,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
@@ -94,11 +95,13 @@ export class TXEService {
     _length: ForeignCallSingle,
     args: ForeignCallArray,
     publicKeysHash: ForeignCallSingle,
+    publicKeys: ForeignCallArray,
   ) {
     const initializerStr = fromArray(initializer)
       .map(char => String.fromCharCode(char.toNumber()))
       .join('');
     const decodedArgs = fromArray(args);
+    const publicKeysFrArray = fromArray(publicKeys);
     const publicKeysHashFr = fromSingle(publicKeysHash);
     this.logger.debug(
       `Deploy ${artifact.name} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
@@ -108,7 +111,7 @@ export class TXEService {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: publicKeysHashFr,
+      publicKeys: PublicKeys.fromFields(publicKeysFrArray),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -166,13 +169,13 @@ export class TXEService {
   async addAccount(secret: ForeignCallSingle) {
     const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-    const hash = keys.publicKeys.hash();
+    // const hash = keys.publicKeys.hash();
     const artifact = SchnorrAccountContractArtifact;
     const instance = getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: hash,
+      publicKeys: keys.publicKeys,
       constructorArtifact: 'constructor',
       deployer: AztecAddress.ZERO,
     });

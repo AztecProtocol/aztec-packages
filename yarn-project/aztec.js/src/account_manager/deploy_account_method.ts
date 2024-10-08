@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/circuits.js';
+import { CompleteAddress, type Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionArtifact,
@@ -29,6 +29,7 @@ export class DeployAccountMethod extends DeployMethod {
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
     feePaymentNameOrArtifact?: string | FunctionArtifact,
+    completeAddress?: CompleteAddress,
   ) {
     super(
       publicKeysHash,
@@ -37,6 +38,7 @@ export class DeployAccountMethod extends DeployMethod {
       (address, wallet) => Contract.at(address, artifact, wallet),
       args,
       constructorNameOrArtifact,
+      completeAddress,
     );
 
     this.#authWitnessProvider = authWitnessProvider;

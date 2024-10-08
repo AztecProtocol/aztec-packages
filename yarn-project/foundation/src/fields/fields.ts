@@ -387,6 +387,10 @@ export class Fq extends BaseField {
       value: this.toString(),
     };
   }
+
+  add(rhs: Fq) {
+    return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
 }
 
 // For deserializing JSON.

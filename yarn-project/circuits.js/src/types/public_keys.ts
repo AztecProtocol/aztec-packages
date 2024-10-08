@@ -41,6 +41,10 @@ export class PublicKeys {
     );
   }
 
+  static random(): PublicKeys {
+    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
+  }
+
   static empty(): PublicKeys {
     return new PublicKeys(Point.ZERO, Point.ZERO, Point.ZERO, Point.ZERO);
   }

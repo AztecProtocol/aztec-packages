@@ -1,6 +1,6 @@
 import { AztecAddress, type ContractInstanceWithAddress, Fr, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { type PublicKeys } from '@aztec/circuits.js';
+import { Point, type PublicKeys } from '@aztec/circuits.js';
 import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
@@ -26,6 +26,7 @@ export async function addContract(
     publicKeysHash: publicKeys?.hash() ?? Fr.ZERO,
     address,
     deployer: deployer ?? AztecAddress.ZERO,
+    ivpkM: new Point(new Fr(123), new Fr(456), false),
   };
   const computed = computeContractAddressFromInstance(instance);
   if (!computed.equals(address)) {

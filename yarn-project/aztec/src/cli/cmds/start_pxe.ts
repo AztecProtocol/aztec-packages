@@ -19,6 +19,7 @@ import {
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
+import { Point, PublicKeys } from '@aztec/circuits.js';
 
 const contractAddressesUrl = 'http://static.aztec.network';
 
@@ -105,6 +106,7 @@ export async function addPXE(
         deployer: AztecAddress.ZERO,
         contractClassId: getContractClassFromArtifact(artifact!).id,
         publicKeysHash: Fr.ZERO,
+        ivpkM: Point.ZERO,
       };
       userLog(`Registering ${name} at ${address.toString()}`);
       await pxe.registerContract({ artifact, instance });
