@@ -701,7 +701,7 @@ template <typename Builder = UltraCircuitBuilder> void gateCount(const std::stri
     for (auto constraint_system : constraint_systems) {
         auto builder = acir_format::create_circuit<Builder>(
             constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
-        builder.finalize_circuit();
+        builder.finalize_circuit(/* ensure_nonzero= */ true);
         size_t circuit_size = builder.num_gates;
 
         // Build individual circuit report
