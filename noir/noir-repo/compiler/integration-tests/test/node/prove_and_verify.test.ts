@@ -215,7 +215,6 @@ it('UltraHonk end-to-end proof creation and verification (inner)', async () => {
   // bb.js part
   //
   // Proof creation
-  const honkBackend = await UltraHonkBackend.new(assert_lt_program);
   const proof = await honkBackend.generateProof(witness);
 
   // Proof verification
