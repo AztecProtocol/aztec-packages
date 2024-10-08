@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, Option } from "commander";
 const program = new Command();
 import { installBB } from "./shell.js";
 import ora from "ora";
@@ -12,30 +12,31 @@ const spinner = ora({ color: "blue", discardStdin: false });
 const bbup = program
   .command("install", { isDefault: true })
   .description("Installs Barretenberg.")
-  .option(
-    "-f, --frontend",
-    "Match the version of a specific frontend language",
-    "noir"
-  );
-
-const options = bbup.opts();
-
-if (options.frontend === "noir") {
-  bbup
-    .requiredOption(
+  .addOption(
+    new Option(
       "-v, --version <version>",
-      "The Noir version to match",
-      "current"
-    )
-    .action(async ({ version }) => {
-      let resolvedVersion = version;
-      if (version === "current") {
+      "The Barretenberg version to install"
+    ).implies({ noirVersion: null })
+  )
+  .addOption(
+    new Option(
+      "-nv, --noir-version <version>",
+      "The Noir version to match"
+    ).default("current")
+  )
+  .action(async ({ version, noirVersion }) => {
+    let resolvedBBVersion = "";
+    if (noirVersion) {
+      let resolvedNoirVersion = noirVersion;
+      if (noirVersion === "current") {
         spinner.start(`Querying noir version from nargo`);
         try {
           const output = execSync("nargo --version", { encoding: "utf-8" });
-          resolvedVersion = output.match(/nargo version = (\d+\.\d+\.\d+)/)![1];
+          resolvedNoirVersion = output.match(
+            /nargo version = (\d+\.\d+\.\d+)/
+          )![1];
           spinner.stopAndPersist({
-            text: `Resolved noir version ${resolvedVersion} from nargo`,
+            text: `Resolved noir version ${resolvedNoirVersion} from nargo`,
             symbol: logSymbols.success,
           });
         } catch (e) {
@@ -48,19 +49,23 @@ if (options.frontend === "noir") {
       }
 
       spinner.start(
-        `Getting compatible barretenberg version for noir version ${resolvedVersion}`
+        `Getting compatible barretenberg version for noir version ${resolvedNoirVersion}`
       );
-      const compatibleVersion = await getBbVersionForNoir(
-        resolvedVersion,
+      resolvedBBVersion = await getBbVersionForNoir(
+        resolvedNoirVersion,
         spinner
       );
       spinner.stopAndPersist({
-        text: `Resolved to barretenberg version ${compatibleVersion}`,
+        text: `Resolved to barretenberg version ${resolvedBBVersion}`,
         symbol: logSymbols.success,
       });
-      spinner.start(`Installing barretenberg`);
-      await installBB(compatibleVersion, spinner);
-    });
-}
+    } else if (version) {
+      resolvedBBVersion = version;
+    }
+
+    spinner.start(`Installing barretenberg`);
+
+    await installBB(resolvedBBVersion, spinner);
+  });
 
 bbup.parse();

@@ -25,11 +25,16 @@ bbup
 
 ### Options
 
-You can specify the `-f` flag to match a different frontend language. At the moment only Noir is available, so `-f noir` is defaulted.
-
-You can pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-v` flag, or specify `nightly` for the nightly version. Examples:
+You can install any specific version of `bb` with the `-v` flag. Example:
 
 ```bash
-bbup -v 0.34.0 # installs the barretenberg version compatible with Noir 0.34.0 release
-bbup -v nightly # installs the barretenberg version compatible with Noir nightly release
+bbup -v 0.56.0
+```
+
+You can also can pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
+
+```bash
+bbup # installs the barretenberg version matching your current nargo version
+bbup -nv 0.34.0 # installs the barretenberg version compatible with Noir 0.34.0 release
+bbup -nv nightly # installs the barretenberg version compatible with Noir nightly release
 ```

@@ -1,6 +1,6 @@
-import axios from 'axios';
-import logSymbols from 'log-symbols';
-import { Ora } from 'ora';
+import axios from "axios";
+import logSymbols from "log-symbols";
+import { Ora } from "ora";
 
 async function getNamedVersions(githubToken?: string) {
   const fetchOpts = {
@@ -9,15 +9,23 @@ async function getNamedVersions(githubToken?: string) {
     headers: {},
   };
 
-  if (githubToken) fetchOpts.headers = { Authorization: `token ${githubToken}` };
+  if (githubToken)
+    fetchOpts.headers = { Authorization: `token ${githubToken}` };
 
-  const { data } = await axios.get(`https://api.github.com/repos/noir-lang/noir/releases`, fetchOpts);
+  const { data } = await axios.get(
+    `https://api.github.com/repos/noir-lang/noir/releases`,
+    fetchOpts
+  );
 
   const stable = data.filter(
     (release: any) =>
-      !release.tag_name.includes('aztec') && !release.tag_name.includes('nightly') && !release.prerelease,
+      !release.tag_name.includes("aztec") &&
+      !release.tag_name.includes("nightly") &&
+      !release.prerelease
   )[0].tag_name;
-  const nightly = data.filter((release: any) => release.tag_name.startsWith('nightly'))[0].tag_name;
+  const nightly = data.filter((release: any) =>
+    release.tag_name.startsWith("nightly")
+  )[0].tag_name;
 
   return {
     stable,
@@ -25,10 +33,14 @@ async function getNamedVersions(githubToken?: string) {
   };
 }
 
-export async function getBbVersionForNoir(noirVersion: string, spinner: Ora, githubToken?: string) {
-  let url = '';
+export async function getBbVersionForNoir(
+  noirVersion: string,
+  spinner: Ora,
+  githubToken?: string
+) {
+  let url = "";
 
-  if (noirVersion === 'stable' || noirVersion === 'nightly') {
+  if (noirVersion === "stable" || noirVersion === "nightly") {
     spinner.start(`Resolving noir version ${noirVersion}...`);
     const resolvedVersions = await getNamedVersions(githubToken);
     spinner.stopAndPersist({
