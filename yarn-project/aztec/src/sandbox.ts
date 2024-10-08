@@ -192,6 +192,8 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await setupCanonicalL2FeeJuice(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
       aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
+      undefined,
+      logger.info,
     );
   }
 
