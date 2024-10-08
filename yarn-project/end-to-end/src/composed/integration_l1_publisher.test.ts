@@ -12,6 +12,7 @@ import {
 // eslint-disable-next-line no-restricted-imports
 import {
   type BlockBuilder,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
@@ -41,7 +42,12 @@ import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
+import {
+  type MerkleTreeAdminDatabase,
+  NativeWorldStateService,
+  ServerWorldStateSynchronizer,
+  type WorldStateConfig,
+} from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
@@ -90,7 +96,8 @@ describe('L1Publisher integration', () => {
   let publisher: L1Publisher;
 
   let builder: BlockBuilder;
-  let builderDb: MerkleTrees;
+  let builderDb: MerkleTreeAdminDatabase;
+  let fork: MerkleTreeWriteOperations;
 
   // The header of the last block
   let prevHeader: Header;
@@ -146,7 +153,7 @@ describe('L1Publisher integration', () => {
     });
 
     const tmpStore = openTmpStore();
-    builderDb = await MerkleTrees.new(tmpStore, new NoopTelemetryClient());
+    builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
@@ -156,7 +163,8 @@ describe('L1Publisher integration', () => {
     };
     worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = new LightweightBlockBuilder(await builderDb.getLatest(), new NoopTelemetryClient());
+    fork = await worldStateSynchronizer.fork();
+    builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
 
     publisher = new L1Publisher(
       {
@@ -174,11 +182,16 @@ describe('L1Publisher integration', () => {
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
-    prevHeader = builderDb.getInitialHeader();
+    prevHeader = fork.getInitialHeader();
 
     // We jump to the next epoch such that the committee can be setup.
     const timeToJump = await rollup.read.EPOCH_DURATION();
     await progressTimeBySlot(timeToJump);
+  });
+
+  afterEach(async () => {
+    await fork.close();
+    await worldStateSynchronizer.stop();
   });
 
   const makeEmptyProcessedTx = () =>

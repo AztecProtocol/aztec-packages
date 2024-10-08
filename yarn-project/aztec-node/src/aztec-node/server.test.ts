@@ -4,8 +4,8 @@ import {
   type L1ToL2MessageSource,
   type L2BlockSource,
   type L2LogsSource,
-  type MerkleTreeAdminOperations,
   MerkleTreeId,
+  type MerkleTreeReadOperations,
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -23,7 +23,7 @@ import { AztecNodeService } from './server.js';
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
-  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
 
   let lastBlockNumber: number;
 
@@ -37,10 +37,10 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeAdminOperations>();
+    merkleTreeOps = mock<MerkleTreeReadOperations>();
 
     const worldState = mock<WorldStateSynchronizer>({
-      getLatest: () => Promise.resolve(merkleTreeOps),
+      getCommitted: () => merkleTreeOps,
     });
 
     const l2BlockSource = mock<L2BlockSource>({

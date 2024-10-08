@@ -1,7 +1,7 @@
 VERSION 0.8
 
 # Note, this is only used on the main build path, caching test artifacts is less useful
-# As those only run if there are changes anyway
+# As those only run if there are changes anyway.
 CACHE_BUILD_BIN:
   FUNCTION
   ARG command
@@ -139,11 +139,6 @@ preset-gcc:
   FROM +source
   RUN cmake --preset gcc -Bbuild && cmake --build build
   SAVE ARTIFACT build/bin
-
-preset-gcc-pic:
-    FROM +source
-    RUN cmake --preset gcc-pic -Bbuild && cmake --build build && rm -rf build/{deps,lib,src}
-    SAVE ARTIFACT build/bin
 
 preset-fuzzing:
   FROM +source

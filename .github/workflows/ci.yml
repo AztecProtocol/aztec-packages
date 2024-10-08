@@ -304,43 +304,25 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +preset-gcc
 
-  bb-gcc-pic:
-    needs: [build-images, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      # Only allow one memory-hunger prover test to use this runner
-      - uses: ./.github/ci-setup-action
-        with:
-          # must be globally unique for build x runner
-          concurrency_key: bb-gcc-pic
-      - name: "Ensure GCC PIC Builds"
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 40
-        # limit our parallelism to half our cores
-        run: earthly-ci --no-output +preset-gcc-pic
-
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
-  # only ran on x86 for resource reasons (memory intensive)
+  # ran on own runner for resource reasons (memory x cpu intensive)
   bb-native-tests:
-    needs: [build, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ubuntu-20.04
+    needs: [build-images, changes]
     if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
-        with:
-          # must be globally unique for build x runner
-          concurrency_key: bb-native-tests-x86
       - name: "Native Prover Tests"
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 40
-        # limit our parallelism to half our cores
-        run: earthly-ci --exec-stats --no-output +test --hardware_concurrency=64
+        uses: ./.github/ensure-tester
+        # note: tester by default times out at 30, would need to delay shutdwon for more
+        timeout-minutes: 30
+        with:
+          runner_type: 128core-tester-x86
+          run: |
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci --exec-stats --no-output --no-cache ./barretenberg/cpp+test --hardware_concurrency=32
 
   bb-js-test:
     needs: [build, changes]
@@ -492,7 +474,7 @@ jobs:
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
-    needs: [build, changes, build]
+    needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' || needs.changes.outputs.txe == 'true'
     steps:
@@ -504,7 +486,7 @@ jobs:
       - name: "Noir Projects"
         timeout-minutes: 40
         run: |
-          earthly-ci --no-output ./noir-projects/+test
+          earthly-ci --no-output ./noir-projects/+test --RAYON_NUM_THREADS=$(nproc)
 
   avm-format:
     needs: [build, changes]
@@ -768,7 +750,6 @@ jobs:
       # - acir-bench # non-blocking
       # - bench-summary # non-blocking
       - bb-gcc
-      - bb-gcc-pic
       - bb-native-tests
       - bb-js-test
       - noir-build-acir-tests

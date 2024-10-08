@@ -479,7 +479,7 @@ export class Archiver implements ArchiveSource {
       block = await this.getBlock(block.number - 1);
     }
 
-    return blocks;
+    return blocks.reverse();
   }
 
   public async isEpochComplete(epochNumber: bigint): Promise<boolean> {

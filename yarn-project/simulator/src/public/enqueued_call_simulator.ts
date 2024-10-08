@@ -61,10 +61,9 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
-import { accumulateReturnValues } from '../common/index.js';
-import { type PublicExecutionResult, collectExecutionResults } from './execution.js';
+import { type PublicExecutionResult, accumulatePublicReturnValues, collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -103,7 +102,7 @@ export type EnqueuedCallResult = {
 export class EnqueuedCallSimulator {
   private log: DebugLogger;
   constructor(
-    private db: MerkleTreeOperations,
+    private db: MerkleTreeReadOperations,
     private publicExecutor: PublicExecutor,
     private publicKernelSimulator: PublicKernelCircuitSimulator,
     private globalVariables: GlobalVariables,
@@ -226,7 +225,7 @@ export class EnqueuedCallSimulator {
       provingRequests,
       kernelOutput,
       newUnencryptedLogs: topResult.allUnencryptedLogs,
-      returnValues: accumulateReturnValues(topResult),
+      returnValues: accumulatePublicReturnValues(topResult),
       gasUsed,
       revertReason,
     };

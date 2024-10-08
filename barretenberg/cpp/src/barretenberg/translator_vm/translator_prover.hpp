@@ -30,7 +30,7 @@ class TranslatorProver {
     explicit TranslatorProver(CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript);
 
     void compute_witness(CircuitBuilder& circuit_builder);
-    std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size);
+    void compute_commitment_key(size_t circuit_size);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_and_sorted_constraints_commitments_round();
@@ -47,8 +47,6 @@ class TranslatorProver {
     std::shared_ptr<ProvingKey> key;
 
     CommitmentLabels commitment_labels;
-
-    std::shared_ptr<CommitmentKey> commitment_key;
 
     SumcheckOutput<Flavor> sumcheck_output;
 

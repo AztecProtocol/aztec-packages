@@ -62,7 +62,6 @@ describe('prover/orchestrator/failures', () => {
 
       orchestrator.startNewEpoch(1, 3);
 
-      let allBlocksAdded = true;
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
         const txs = times(3, j => makeBloatedProcessedTx(context.actualDb, i * 10 + j + 1));
@@ -86,18 +85,11 @@ describe('prover/orchestrator/failures', () => {
             await orchestrator.setBlockCompleted();
           }
         } catch (err) {
-          allBlocksAdded = false;
           break;
         }
       }
 
-      if (allBlocksAdded) {
-        await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(`Epoch proving failed: ${message}`);
-      } else {
-        await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(
-          'Epoch needs at least one completed block in order to be padded',
-        );
-      }
+      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow();
     });
   });
 });

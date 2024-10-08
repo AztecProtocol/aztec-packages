@@ -35,6 +35,13 @@ struct BlockPayload {
     }
 };
 
+inline std::ostream& operator<<(std::ostream& os, const BlockPayload& block)
+{
+    os << "BlockPayload{size: " << std::dec << block.size << ", blockNumber: " << std::dec << block.blockNumber
+       << ", root: " << block.root << "}";
+    return os;
+}
+
 struct Indices {
     std::vector<index_t> indices;
 

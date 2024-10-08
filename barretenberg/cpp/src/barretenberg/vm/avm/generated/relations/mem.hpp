@@ -12,7 +12,7 @@ template <typename FF_> class memImpl {
 
     static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             2, 3, 4, 3, 4, 3, 3, 2, 3, 3, 4, 4, 4,
-                                                                            4, 4, 6, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            4, 2, 6, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -218,11 +218,7 @@ template <typename FF_> class memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = (new_term.mem_skip_check_tag -
-                        ((new_term.mem_sel_op_cmov *
-                          ((new_term.mem_sel_op_d + (new_term.mem_sel_op_a * (FF(1) - new_term.mem_sel_mov_ia_to_ic))) +
-                           (new_term.mem_sel_op_b * (FF(1) - new_term.mem_sel_mov_ib_to_ic)))) +
-                         new_term.mem_sel_op_slice));
+            auto tmp = (new_term.mem_skip_check_tag - new_term.mem_sel_op_slice);
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }

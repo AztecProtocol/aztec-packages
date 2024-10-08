@@ -128,6 +128,9 @@ async function handlePartialNote<T>(
             daoConstructor,
           );
         } catch (e) {
+          // We ignore the key prefix error because that is expected to be triggered when an incorrect value
+          // is inserted at the position of `npk_m_hash`. This happens commonly because we are brute forcing
+          // the unencrypted logs.
           if (!(e as any).message.includes('Could not find key prefix.')) {
             throw e;
           }

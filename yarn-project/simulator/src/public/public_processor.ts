@@ -1,5 +1,6 @@
 import {
   type FailedTx,
+  type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
   type ProcessedTxHandler,
@@ -24,7 +25,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type SimulationProvider } from '../providers/index.js';
 import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
@@ -40,7 +40,6 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
  */
 export class PublicProcessorFactory {
   constructor(
-    private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private simulator: SimulationProvider,
     private telemetryClient: TelemetryClient,
@@ -52,8 +51,12 @@ export class PublicProcessorFactory {
    * @param globalVariables - The global variables for the block being processed.
    * @returns A new instance of a PublicProcessor.
    */
-  public create(maybeHistoricalHeader: Header | undefined, globalVariables: GlobalVariables): PublicProcessor {
-    const { merkleTree, telemetryClient } = this;
+  public create(
+    merkleTree: MerkleTreeWriteOperations,
+    maybeHistoricalHeader: Header | undefined,
+    globalVariables: GlobalVariables,
+  ): PublicProcessor {
+    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
@@ -79,7 +82,7 @@ export class PublicProcessorFactory {
 export class PublicProcessor {
   private metrics: PublicProcessorMetrics;
   constructor(
-    protected db: MerkleTreeOperations,
+    protected db: MerkleTreeWriteOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
@@ -93,7 +96,7 @@ export class PublicProcessor {
   }
 
   static create(
-    db: MerkleTreeOperations,
+    db: MerkleTreeWriteOperations,
     publicExecutor: PublicExecutor,
     publicKernelSimulator: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,

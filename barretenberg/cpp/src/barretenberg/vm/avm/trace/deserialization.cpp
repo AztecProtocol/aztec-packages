@@ -98,8 +98,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::SET_FF, { OperandType::INDIRECT8, OperandType::TAG, OperandType::FF, OperandType::UINT16 } },
     { OpCode::MOV_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
     { OpCode::MOV_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::CMOV,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
 
     // Side Effects - Public Storage
     { OpCode::SLOAD, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },

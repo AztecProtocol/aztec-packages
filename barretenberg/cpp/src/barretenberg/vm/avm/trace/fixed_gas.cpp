@@ -62,7 +62,6 @@ const std::unordered_map<OpCode, FixedGasTable::GasRow> GAS_COST_TABLE = {
     { OpCode::SET_FF, make_cost(AVM_SET_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::MOV_8, make_cost(AVM_MOV_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::MOV_16, make_cost(AVM_MOV_BASE_L2_GAS, 0, 0, 0) },
-    { OpCode::CMOV, make_cost(AVM_CMOV_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::SLOAD, make_cost(AVM_SLOAD_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::SSTORE, make_cost(AVM_SSTORE_BASE_L2_GAS, AVM_SSTORE_BASE_DA_GAS, 0, 0) },
     { OpCode::NOTEHASHEXISTS, make_cost(AVM_NOTEHASHEXISTS_BASE_L2_GAS, 0, 0, 0) },

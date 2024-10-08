@@ -118,7 +118,6 @@ class AvmTraceBuilder {
     // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
     void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas = false);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
-    void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
     // World State
     void op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset);

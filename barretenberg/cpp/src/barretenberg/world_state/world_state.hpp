@@ -355,7 +355,7 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
             wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
         }
@@ -384,12 +384,16 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
 
     Signal signal;
 
-    bool success = false;
+    bool success = true;
+    std::string error_msg;
 
     if constexpr (std::is_same_v<bb::fr, T>) {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
-        auto callback = [&signal, &success](const auto& resp) {
-            success = resp.success;
+        auto callback = [&](const auto& resp) {
+            if (!resp.success) {
+                success = false;
+                error_msg = resp.message;
+            }
             signal.signal_level(0);
         };
         wrapper.tree->add_values(leaves, callback);
@@ -397,8 +401,11 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
-        typename Tree::AddCompletionCallbackWithWitness callback = [&signal, &success](const auto& resp) {
-            success = resp.success;
+        typename Tree::AddCompletionCallback callback = [&](const auto& resp) {
+            if (!resp.success) {
+                success = false;
+                error_msg = resp.message;
+            }
             signal.signal_level(0);
         };
         wrapper.tree->add_or_update_values(leaves, 0, callback);
@@ -407,7 +414,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     signal.wait_for_level(0);
 
     if (!success) {
-        throw std::runtime_error("Failed to append leaves");
+        throw std::runtime_error("Failed to append leaves: " + error_msg);
     }
 }
 
@@ -426,28 +433,19 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     Signal signal;
     BatchInsertionResult<T> result;
     const auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
-    bool success = false;
+    bool success = true;
     std::string error_msg;
 
     wrapper.tree->add_or_update_values(
         leaves, subtree_depth, [&](const TypedResponse<AddIndexedDataResponse<T>>& response) {
-            success = response.success;
-            if (!response.success) {
+            if (response.success) {
+                result.low_leaf_witness_data = *response.inner.low_leaf_witness_data;
+                result.sorted_leaves = *response.inner.sorted_leaves;
+                result.subtree_path = response.inner.subtree_path;
+            } else {
+                success = false;
                 error_msg = response.message;
-                return;
             }
-
-            result.low_leaf_witness_data.reserve(response.inner.low_leaf_witness_data->size());
-            std::copy(response.inner.low_leaf_witness_data->begin(),
-                      response.inner.low_leaf_witness_data->end(),
-                      std::back_inserter(result.low_leaf_witness_data));
-
-            result.sorted_leaves.reserve(response.inner.sorted_leaves->size());
-            std::copy(response.inner.sorted_leaves->begin(),
-                      response.inner.sorted_leaves->end(),
-                      std::back_inserter(result.sorted_leaves));
-
-            result.subtree_path = response.inner.subtree_path;
 
             signal.signal_level(0);
         });
@@ -455,7 +453,7 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     signal.wait_for_level();
 
     if (!success) {
-        throw std::runtime_error(error_msg);
+        throw std::runtime_error("Failed to batch insert indexed leaves: " + error_msg);
     }
 
     return result;

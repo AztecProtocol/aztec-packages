@@ -680,7 +680,12 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  async executePublicFunction(targetContractAddress: AztecAddress, args: Fr[], callContext: CallContext, counter: number) {
+  async executePublicFunction(
+    targetContractAddress: AztecAddress,
+    args: Fr[],
+    callContext: CallContext,
+    counter: number,
+  ) {
     const executor = new PublicExecutor(
       new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),

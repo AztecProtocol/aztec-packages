@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type Secp256k1Signer } from '@aztec/foundation/crypto';
+import { type Secp256k1Signer, keccak256 } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -20,7 +20,8 @@ export class EpochProofQuote extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return new Buffer32(this.signature.toBuffer());
+    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
+    return new Buffer32(keccak256(this.signature.toBuffer()));
   }
 
   override toBuffer(): Buffer {

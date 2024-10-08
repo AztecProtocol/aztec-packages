@@ -5,7 +5,7 @@ import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registr
 import { jest } from '@jest/globals';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 150_000;
 
@@ -21,7 +21,7 @@ describe('e2e_authwit_tests', () => {
   beforeAll(async () => {
     ({ wallets } = await setup(2));
     // docs:start:public_deploy_accounts
-    await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
+    await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
     // docs:end:public_deploy_accounts
 
     const nodeInfo = await wallets[0].getNodeInfo();

@@ -12,18 +12,6 @@ images:
   foundry:
     image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
     pullPolicy: IfNotPresent
-  otelCollector:
-    image: otel/opentelemetry-collector-contrib
-    pullPolicy: IfNotPresent
-  prometheus:
-    image: prom/prometheus
-    pullPolicy: IfNotPresent
-  grafana:
-    image: grafana/grafana
-    pullPolicy: IfNotPresent
-  jaeger:
-    image: jaegertracing/all-in-one
-    pullPolicy: IfNotPresent
 
 bootNode:
   replicas: 1
@@ -31,7 +19,7 @@ bootNode:
     p2pPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -49,12 +37,12 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  replicas: 1
+  replicas: 0
   service:
     p2pPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -76,7 +64,7 @@ proverNode:
   service:
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   realProofs: false
   proverAgentEnabled: true
   resources:
@@ -90,7 +78,7 @@ proverNode:
 
 pxe:
   logLevel: "debug"
-  debug: "aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   service:
     port: 8080
@@ -111,7 +99,7 @@ pxe:
 
 bot:
   logLevel: "debug"
-  debug: "aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   botPrivateKey: "0xcafe"
   txIntervalSeconds: 5
@@ -166,19 +154,3 @@ ethereum:
     limits:
       memory: "4Gi"
       cpu: "1"
-
-metrics:
-  ports:
-    otlp: 4316
-    metrics: 4315
-    prometheus: 9090
-    grafana: 3000
-    jaeger: 16686
-  readinessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 5
-    successThreshold: 1
-    failureThreshold: 3
-  storage: "8Gi"
-  fileSystemUser: 472

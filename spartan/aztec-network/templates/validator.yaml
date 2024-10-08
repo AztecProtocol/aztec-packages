@@ -34,7 +34,7 @@ spec:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
       containers:
-        - name: aztec
+        - name: validator
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
