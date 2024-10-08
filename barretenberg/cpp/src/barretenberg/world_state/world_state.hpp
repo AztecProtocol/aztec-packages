@@ -63,7 +63,7 @@ class WorldState {
      * @param tree_id The ID of the tree
      * @return TreeInfo
      */
-    crypto::merkle_tree::TreeMetaResponse get_tree_info(WorldStateRevision revision, MerkleTreeId tree_id) const;
+    crypto::merkle_tree::TreeMetaResponse get_tree_info(const WorldStateRevision& revision, MerkleTreeId tree_id) const;
 
     /**
      * @brief Gets the state reference for all the trees in the world state
@@ -71,7 +71,7 @@ class WorldState {
      * @param revision The revision to query
      * @return StateReference
      */
-    StateReference get_state_reference(WorldStateRevision revision) const;
+    StateReference get_state_reference(const WorldStateRevision& revision) const;
 
     /**
      * @brief Gets the initial state reference for all the trees in the world state
@@ -88,7 +88,7 @@ class WorldState {
      * @param leaf_index The index of the leaf
      * @return crypto::merkle_tree::fr_sibling_path
      */
-    crypto::merkle_tree::fr_sibling_path get_sibling_path(WorldStateRevision revision,
+    crypto::merkle_tree::fr_sibling_path get_sibling_path(const WorldStateRevision& revision,
                                                           MerkleTreeId tree_id,
                                                           index_t leaf_index) const;
 
@@ -102,7 +102,7 @@ class WorldState {
      * @return std::optional<T> The IndexedLeaf object or nullopt if the leaf does not exist
      */
     template <typename T>
-    std::optional<crypto::merkle_tree::IndexedLeaf<T>> get_indexed_leaf(WorldStateRevision revision,
+    std::optional<crypto::merkle_tree::IndexedLeaf<T>> get_indexed_leaf(const WorldStateRevision& revision,
                                                                         MerkleTreeId tree_id,
                                                                         index_t leaf_index) const;
 
@@ -116,7 +116,7 @@ class WorldState {
      * @return std::optional<T> The value of the leaf or nullopt if the leaf does not exist
      */
     template <typename T>
-    std::optional<T> get_leaf(WorldStateRevision revision, MerkleTreeId tree_id, index_t leaf_index) const;
+    std::optional<T> get_leaf(const WorldStateRevision& revision, MerkleTreeId tree_id, index_t leaf_index) const;
 
     /**
      * @brief Finds the leaf that would have its nextIdx/nextValue fields modified if the target leaf were to be
@@ -127,9 +127,9 @@ class WorldState {
      * @param leaf_key The leaf to find the predecessor of
      * @return PredecessorInfo
      */
-    crypto::merkle_tree::GetLowIndexedLeafResponse find_low_leaf_index(WorldStateRevision revision,
+    crypto::merkle_tree::GetLowIndexedLeafResponse find_low_leaf_index(const WorldStateRevision& revision,
                                                                        MerkleTreeId tree_id,
-                                                                       fr leaf_key) const;
+                                                                       const bb::fr& leaf_key) const;
 
     /**
      * @brief Finds the index of a leaf in a tree
@@ -141,7 +141,7 @@ class WorldState {
      * @return std::optional<index_t>
      */
     template <typename T>
-    std::optional<index_t> find_leaf_index(WorldStateRevision revision,
+    std::optional<index_t> find_leaf_index(const WorldStateRevision& revision,
                                            MerkleTreeId tree_id,
                                            const T& leaf,
                                            index_t start_index = 0) const;
@@ -186,7 +186,7 @@ class WorldState {
      * @param fork_id The fork ID to update.
      */
     void update_archive(const StateReference& block_state_ref,
-                        fr block_header_hash,
+                        const bb::fr& block_header_hash,
                         Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
@@ -205,14 +205,14 @@ class WorldState {
      * @param block The block to synchronize with.
      */
     bool sync_block(const StateReference& block_state_ref,
-                    fr block_header_hash,
+                    const bb::fr& block_header_hash,
                     const std::vector<bb::fr>& notes,
                     const std::vector<bb::fr>& l1_to_l2_messages,
                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                     const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
     uint64_t create_fork(index_t blockNumber);
-    void delete_fork(uint64_t forkId);
+    void delete_fork(Fork::Id forkId);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -229,11 +229,11 @@ class WorldState {
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
     Fork::SharedPtr create_new_fork(index_t blockNumber);
 
-    bool is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const;
+    bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
-    static bb::fr compute_initial_archive(StateReference initial_state_ref);
+    static bb::fr compute_initial_archive(const StateReference& initial_state_ref);
 
-    static StateReference get_state_reference(WorldStateRevision revision,
+    static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,
                                               bool initial_state = false);
 
@@ -242,7 +242,7 @@ class WorldState {
 };
 
 template <typename T>
-std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(const WorldStateRevision rev,
+std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(const WorldStateRevision& rev,
                                                                                 MerkleTreeId id,
                                                                                 index_t leaf) const
 {
@@ -277,7 +277,9 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
 }
 
 template <typename T>
-std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleTreeId tree_id, index_t leaf_index) const
+std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
+                                      MerkleTreeId tree_id,
+                                      index_t leaf_index) const
 {
     using namespace crypto::merkle_tree;
 
@@ -323,7 +325,7 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleT
 }
 
 template <typename T>
-std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
+std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev,
                                                    MerkleTreeId id,
                                                    const T& leaf,
                                                    index_t start_index) const
