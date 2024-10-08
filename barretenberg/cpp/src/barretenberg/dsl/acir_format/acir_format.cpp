@@ -427,6 +427,16 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {
+    // lets just randomly allocate 480MB of things here and then free it
+    {
+        std::array<SlabVector<UltraFlavor::FF>, 15> vecs;
+        for (size_t i = 0; i < (1 << 20); ++i) {
+            for (auto& vec : vecs) {
+                vec.emplace_back(i);
+            }
+        }
+    }
+
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
     };
