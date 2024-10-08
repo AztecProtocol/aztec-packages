@@ -1,5 +1,5 @@
 import {
-  type MerkleTreeOperations,
+  type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
   type ProcessedTx,
   ProvingRequestType,
@@ -93,7 +93,7 @@ export class EnqueuedCallsProcessor {
   }
 
   static create(
-    db: MerkleTreeOperations,
+    db: MerkleTreeReadOperations,
     publicExecutor: PublicExecutor,
     publicKernelSimulator: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,

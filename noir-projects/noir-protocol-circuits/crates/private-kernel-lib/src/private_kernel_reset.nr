@@ -8,7 +8,7 @@ use dep::reset_kernel_lib::{
     PrivateValidationRequestProcessor, TransientDataIndexHint
 };
 use dep::types::{
-    abis::private_kernel_data::PrivateKernelData,
+    abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs
 };
@@ -40,6 +40,14 @@ impl<
     let KEY_VALIDATION_REQUESTS: u32,
     let TRANSIENT_DATA_AMOUNT: u32
 > PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> {
+    fn new(
+        previous_kernel: PrivateKernelDataWithoutPublicInputs,
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+        hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT>
+    ) -> Self {
+        Self { previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs), hints }
+    }
+
     unconstrained fn generate_output(
         self,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,

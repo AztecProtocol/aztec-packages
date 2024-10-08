@@ -18,17 +18,6 @@ export class BarretenbergVerifier {
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-        this.options.threads = navigator.hardwareConcurrency;
-      } else {
-        try {
-          const os = await import('os');
-          this.options.threads = os.cpus().length;
-        } catch (e) {
-          console.log('Could not detect environment. Falling back to one thread.', e);
-        }
-      }
-
       const api = await Barretenberg.new(this.options);
       await api.initSRSForCircuitSize(0);
 
