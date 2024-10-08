@@ -272,7 +272,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                                     multilinear_evaluations,
+                                                                     RefArray{ eval1, eval2 },
+                                                                     RefArray{ eval2_shift },
                                                                      RefArray{ commitment1, commitment2 },
                                                                      RefArray{ commitment2 },
                                                                      verifier_transcript);

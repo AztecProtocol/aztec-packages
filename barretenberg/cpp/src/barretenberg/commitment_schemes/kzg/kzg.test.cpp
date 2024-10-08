@@ -106,7 +106,8 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                                     multilinear_evaluations,
+                                                                     RefArray{ eval1, eval2 },
+                                                                     RefArray{ eval2_shift },
                                                                      RefArray{ commitment1, commitment2 },
                                                                      RefArray{ commitment2 },
                                                                      verifier_transcript);

@@ -272,14 +272,15 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                   RefSpan<Commitment> shifted_commitments,
                                                   RefSpan<Fr> unshifted_evaluations,
                                                   RefSpan<Fr> shifted_evaluations,
-                                                  RefSpan<Fr> concatenated_evaluations,
                                                   const Fr& multivariate_batching_challenge,
-                                                  const Fr& unshifted_scalar,
+                                                  const Fr& unshifted_scalar, // possibly these need to be modified
                                                   const Fr& shifted_scalar,
                                                   std::vector<Commitment>& commitments,
                                                   std::vector<Fr>& scalars,
-                                                  Fr& batched_evaluation)
+                                                  Fr& batched_evaluation,
+                                                  [[maybe_unused]] RefSpan<Fr> concatenated_evaluations = {})
     {
+        // I think what needs to happen here is that i construct without doingt he MSM
         Fr current_batching_challenge = Fr(1);
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
