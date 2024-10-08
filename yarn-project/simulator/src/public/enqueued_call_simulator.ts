@@ -134,7 +134,7 @@ export class EnqueuedCallSimulator {
 
     // If this is the first enqueued call in public, constants will be empty
     // because private kernel does not expose them.
-    const constants = previousPublicKernelOutput.constants;
+    const constants = previousPublicKernelOutput.constants.clone();
     constants.globalVariables = this.globalVariables;
 
     const result = await this.publicExecutor.simulate(
