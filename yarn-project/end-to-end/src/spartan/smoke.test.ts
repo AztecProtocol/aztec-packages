@@ -45,11 +45,11 @@ describe('sample test', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [pendingBlockNum, pendingArchive, provenBlockNum, provenArchive, myArchive, provenEpochNumber] =
       await rollupContract.read.status([60n]);
-    console.log('pendingBlockNum', pendingBlockNum.toString());
-    console.log('pendingArchive', pendingArchive.toString());
-    console.log('provenBlockNum', provenBlockNum.toString());
-    console.log('provenArchive', provenArchive.toString());
-    console.log('myArchive', myArchive.toString());
-    console.log('provenEpochNumber', provenEpochNumber.toString());
+    // console.log('pendingBlockNum', pendingBlockNum.toString());
+    // console.log('pendingArchive', pendingArchive.toString());
+    // console.log('provenBlockNum', provenBlockNum.toString());
+    // console.log('provenArchive', provenArchive.toString());
+    // console.log('myArchive', myArchive.toString());
+    // console.log('provenEpochNumber', provenEpochNumber.toString());
   });
 });
