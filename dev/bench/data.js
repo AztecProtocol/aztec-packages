@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728398865081,
+  "lastUpdate": 1728400513648,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7247ddba274e691a7c5220848caf1fa9d6aa911e",
-          "message": "feat: reduce max memory in translator by freeing accumulator and eccvm (#8253)\n\nWe free the accumulator as soon as the decider_prover is done, the\r\neccvm_builder as soon as the eccvm_prover is constructed, the\r\ntranslator_builder as soon as the translator_prover is constructed, and\r\nthe eccvm_prover, as soon as we pass all the necessary information to\r\nthe translator_builder. The peak memory drops by 18MB, but what's\r\nsignificant is that the translator is no longer the bottleneck of the\r\nbenchmark, mostly due to freeing the accumulator.\r\n\r\nThe peak memory during the eccvm/translator drops from 666MiB to 328MiB,\r\na drop of 338MiB, which is approximately the size of one instance and\r\nthe commitment key, which is as expected.\r\nBefore:\r\n<img width=\"1180\" alt=\"Screenshot 2024-09-20 at 1 55 13 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/469fe1e0-01ac-4e4e-a794-0266d15b4a5f\">\r\n\r\nAfter:\r\n<img width=\"1193\" alt=\"Screenshot 2024-09-19 at 6 28 39 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/2f5c8873-5aa4-4631-a6f1-9a01aeef633c\">",
-          "timestamp": "2024-09-20T23:59:32Z",
-          "tree_id": "df47871825ea1b7f0403881d1e32c4f9bd913aa5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7247ddba274e691a7c5220848caf1fa9d6aa911e"
-        },
-        "date": 1726878103331,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35508.039739,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 33102.333335 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5065.420864000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4657.826131999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99999.80876700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99999809000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14631.000183999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14631000000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8463736260,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8463736260 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152397387,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152397387 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6882939781,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6882939781 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126519853,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126519853 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 126014718,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126014718 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2c9ae2853bb75cd736583406a57e96645bd2e88",
+          "message": "refactor: eccvm transcript builder (#9026)\n\n* improved the structure of the main method compute_rows\r\n* cleaned up logic without modifying it\r\n* improved code sharing \r\n* added docs (not very detailed but should be helpful)\r\n\r\n* added the point at infinity test to ECCVMCircuitBuilderTests. this\r\ntest passing means that we are not handling point at infinity correctly",
+          "timestamp": "2024-10-08T15:32:43+01:00",
+          "tree_id": "9e84ebadb5e5ae0745b8f78095c4b0ea11c90064",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d2c9ae2853bb75cd736583406a57e96645bd2e88"
+        },
+        "date": 1728400506127,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31344.235303000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29034.491273 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5526.763727000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5214.549549 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93590.01770899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93590019000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15709.828442,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15709829000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8314204894,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8314204894 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151597464,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151597464 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6743186490,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6743186490 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126461114,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126461114 ns\nthreads: 1"
           }
         ]
       }
