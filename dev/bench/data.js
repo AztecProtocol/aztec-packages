@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728382119471,
+  "lastUpdate": 1728382121599,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "581801863529cd2b437cb51b041ada17a96949e0",
-          "message": "fix: new commit_sparse bug and new tests (#8649)\n\nThis bug in commit_sparse was due to an assumption that the size of the\r\npolynomial was a power of 2. The structured polynomials work recently\r\nmade this assumption incorrect as we can set start and end indices for a\r\npolynomial. One note is that the bug only happens if the size is large\r\nenough (bigger than the number of cpus from `get_num_cpus_pow2()`)\r\nbecause we otherwise would use 1 thread (which divides any number).\r\n\r\nThe 3 new tests test commit_sparse on a polynomial that has a size !=\r\nvirtual_size, a start_idx != 0, and a larger test case where both are\r\ntrue. This larger test case fails without the fix.",
-          "timestamp": "2024-09-19T16:34:31Z",
-          "tree_id": "270c43f72abe1960a8a5aff7dc9b6e90fad9496c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/581801863529cd2b437cb51b041ada17a96949e0"
-        },
-        "date": 1726764561470,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35655.197654999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 32488.129645999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5088.553306999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4698.823001000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100479.304955,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100479305000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14616.722498999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14616723000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8526541678,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8526541678 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 157193732,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 157193732 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 7043269759,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 7043269759 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127775528,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127775528 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,74 @@ window.BENCHMARK_DATA = {
             "value": 125198813,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125198813 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "a239865a98bd32fcde3f53e0834df0bc7575b0ee",
+          "message": "chore(master): Release 0.57.0",
+          "timestamp": "2024-10-08T09:33:04Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8788/commits/a239865a98bd32fcde3f53e0834df0bc7575b0ee"
+        },
+        "date": 1728382114733,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31416.616177000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29361.243734000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5549.348579999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5247.957131000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92872.524948,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92872527000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15633.363484,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15633364000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8220286368,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8220286368 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151246902,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151246902 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6737942735,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6737942735 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127725021,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127725021 ns\nthreads: 1"
           }
         ]
       }
