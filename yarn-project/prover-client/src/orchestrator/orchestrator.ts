@@ -58,6 +58,7 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
@@ -328,6 +329,7 @@ export class ProvingOrchestrator implements EpochProver {
         provingState.globalVariables.chainId,
         provingState.globalVariables.version,
         getVKTreeRoot(),
+        protocolContractTreeRoot,
       );
       const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
       for (let i = 0; i < paddingTxCount; i++) {
@@ -389,6 +391,7 @@ export class ProvingOrchestrator implements EpochProver {
       blockHash: lastBlock.header.hash(),
       globalVariables: lastBlock.header.globalVariables,
       vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
       proverId: this.proverId,
     });
 
@@ -490,6 +493,7 @@ export class ProvingOrchestrator implements EpochProver {
               unprovenPaddingTx.data.constants.txContext.chainId,
               unprovenPaddingTx.data.constants.txContext.version,
               getVKTreeRoot(),
+              protocolContractTreeRoot,
             ),
             signal,
             provingState.epochNumber,

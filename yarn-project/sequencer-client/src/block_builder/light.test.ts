@@ -35,6 +35,7 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
   buildBaseRollupInput,
   buildHeaderFromCircuitOutputs,
@@ -158,7 +159,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a single tx header', async () => {
-    const txs = times(1, i => makeBloatedProcessedTx(fork, vkRoot, i));
+    const txs = times(1, i => makeBloatedProcessedTx(fork, vkRoot, protocolContractTreeRoot, i));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -176,7 +177,8 @@ describe('LightBlockBuilder', () => {
   });
 
   // Makes a tx with a non-zero inclusion fee for testing
-  const makeTx = (i: number) => makeBloatedProcessedTx(fork, vkRoot, i, { inclusionFee: new Fr(i) });
+  const makeTx = (i: number) =>
+    makeBloatedProcessedTx(fork, vkRoot, protocolContractTreeRoot, i, { inclusionFee: new Fr(i) });
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
@@ -203,7 +205,13 @@ describe('LightBlockBuilder', () => {
       txs = [
         ...txs,
         ...times(2 - txs.length, () =>
-          makeEmptyProcessedTx(expectsFork.getInitialHeader(), globals.chainId, globals.version, vkRoot),
+          makeEmptyProcessedTx(
+            expectsFork.getInitialHeader(),
+            globals.chainId,
+            globals.version,
+            vkRoot,
+            protocolContractTreeRoot,
+          ),
         ),
       ];
       // No need to run a merge if there's 0-2 txs

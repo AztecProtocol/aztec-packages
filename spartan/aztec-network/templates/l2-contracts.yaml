@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-deploy-l2-contracts
+  name: {{ include "aztec-network.fullname" . }}-setup-l2-contracts
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -9,11 +9,11 @@ spec:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
-        app: deploy-l2-contracts
+        app: setup-l2-contracts
     spec:
       restartPolicy: OnFailure
       containers:
-        - name: deploy-l2-contracts
+        - name: setup-l2-contracts
           image: {{ .Values.images.aztec.image }}
           command:
             - /bin/bash
@@ -27,8 +27,8 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-protocol-contracts
-              echo "Deployed L2 contracts"
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts
+              echo "L2 contracts initialized"
           env:
             - name: PXE_URL
               value: {{ include "aztec-network.pxeUrl" . | quote }}
