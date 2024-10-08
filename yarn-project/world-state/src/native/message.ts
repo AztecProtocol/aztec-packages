@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, INITIAL_L2_BLOCK_NUM, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export type MessageHeaderInit = {
@@ -49,6 +49,7 @@ export class TypedMessage<T, B> {
 export enum WorldStateMessageType {
   GET_TREE_INFO = 100,
   GET_STATE_REFERENCE,
+  GET_INITIAL_STATE_REFERENCE,
 
   GET_LEAF_VALUE,
   GET_LEAF_PREIMAGE,
@@ -66,10 +67,19 @@ export enum WorldStateMessageType {
   ROLLBACK,
 
   SYNC_BLOCK,
+
+  CREATE_FORK,
+  DELETE_FORK,
+
+  CLOSE = 999,
 }
 
 interface WithTreeId {
   treeId: MerkleTreeId;
+}
+
+interface WithForkId {
+  forkId: number;
 }
 
 interface WithWorldStateRevision {
@@ -134,9 +144,9 @@ interface FindLowLeafResponse {
   alreadyPresent: boolean;
 }
 
-interface AppendLeavesRequest extends WithTreeId, WithLeaves {}
+interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
 
-interface BatchInsertRequest extends WithTreeId, WithLeaves {
+interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
   subtreeDepth: number;
 }
 interface BatchInsertResponse {
@@ -149,14 +159,15 @@ interface BatchInsertResponse {
   subtree_path: Tuple<Buffer, number>;
 }
 
-interface UpdateArchiveRequest {
+interface UpdateArchiveRequest extends WithForkId {
   blockStateRef: BlockStateReference;
-  blockHash: Buffer;
+  blockHeaderHash: Buffer;
 }
 
 interface SyncBlockRequest {
+  blockNumber: number;
   blockStateRef: BlockStateReference;
-  blockHash: Fr;
+  blockHeaderHash: Fr;
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];
@@ -167,9 +178,22 @@ interface SyncBlockResponse {
   isBlockOurs: boolean;
 }
 
+interface CreateForkRequest {
+  blockNumber: number;
+}
+
+interface CreateForkResponse {
+  forkId: number;
+}
+
+interface DeleteForkRequest {
+  forkId: number;
+}
+
 export type WorldStateRequest = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoRequest;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceRequest;
+  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: void;
 
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafRequest;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageRequest;
@@ -187,11 +211,17 @@ export type WorldStateRequest = {
   [WorldStateMessageType.ROLLBACK]: void;
 
   [WorldStateMessageType.SYNC_BLOCK]: SyncBlockRequest;
+
+  [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
+  [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
+
+  [WorldStateMessageType.CLOSE]: void;
 };
 
 export type WorldStateResponse = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoResponse;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceResponse;
+  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: GetStateReferenceResponse;
 
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafResponse;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageResponse;
@@ -209,21 +239,28 @@ export type WorldStateResponse = {
   [WorldStateMessageType.ROLLBACK]: void;
 
   [WorldStateMessageType.SYNC_BLOCK]: SyncBlockResponse;
+
+  [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
+  [WorldStateMessageType.DELETE_FORK]: void;
+
+  [WorldStateMessageType.CLOSE]: void;
 };
 
-export type WorldStateRevision = -1 | 0 | UInt32;
-export function worldStateRevision(includeUncommittedOrBlock: false | true | number): WorldStateRevision {
-  if (typeof includeUncommittedOrBlock === 'number') {
-    if (includeUncommittedOrBlock < INITIAL_L2_BLOCK_NUM || !Number.isInteger(includeUncommittedOrBlock)) {
-      throw new TypeError('Invalid block number: ' + includeUncommittedOrBlock);
-    }
-
-    return includeUncommittedOrBlock;
-  } else if (includeUncommittedOrBlock) {
-    return -1;
-  } else {
-    return 0;
-  }
+export type WorldStateRevision = {
+  forkId: number;
+  blockNumber: number;
+  includeUncommitted: boolean;
+};
+export function worldStateRevision(
+  includeUncommitted: boolean,
+  forkId: number | undefined,
+  blockNumber: number | undefined,
+): WorldStateRevision {
+  return {
+    forkId: forkId ?? 0,
+    blockNumber: blockNumber ?? 0,
+    includeUncommitted,
+  };
 }
 
 type TreeStateReference = readonly [Buffer, number | bigint];
