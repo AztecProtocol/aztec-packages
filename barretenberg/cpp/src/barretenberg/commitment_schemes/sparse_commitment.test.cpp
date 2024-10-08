@@ -354,7 +354,8 @@ TYPED_TEST(CommitmentKeyTest, ThreadStrategy)
     std::vector<G1> points(total_num_points);
     std::vector<Fq> scratch_space(total_num_points);
     AddManager add_manager;
-    auto [addition_sequences, sequence_tags] = add_manager.strategize_threads(points, sequence_counts, scratch_space);
+    auto [addition_sequences, sequence_tags] =
+        add_manager.construct_thread_data(points, sequence_counts, scratch_space);
 }
 
 TYPED_TEST(CommitmentKeyTest, ReduceLarge)
@@ -381,14 +382,12 @@ TYPED_TEST(CommitmentKeyTest, ReduceLarge)
     }
 
     // Extract raw SRS points from point point table points
-    std::vector<G1> raw_points;
-    raw_points.reserve(input_size);
+    std::vector<G1> points;
+    points.reserve(input_size);
     for (size_t i = 0; i < input_size * 2; i += 2) {
-        raw_points.emplace_back(point_table[i]);
+        points.emplace_back(point_table[i]);
     }
 
-    std::span<G1> points(raw_points.begin(), input_size);
-    std::vector<uint32_t> sequence_endpoints = {};
     AddManager add_manager;
     auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_counts);
 

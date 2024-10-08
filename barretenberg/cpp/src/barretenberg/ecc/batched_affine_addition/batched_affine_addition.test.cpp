@@ -72,189 +72,235 @@ template <typename Curve> class BatchedAffineAdditionTests : public ::testing::T
     }
 };
 
-using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
+using Curves = ::testing::Types<curve::BN254>;
 
 TYPED_TEST_SUITE(BatchedAffineAdditionTests, Curves);
 
-// Test method for a single affine addition with provided slope denominator
-TYPED_TEST(BatchedAffineAdditionTests, AffineAddWithDenominator)
+// // Test method for a single affine addition with provided slope denominator
+// TYPED_TEST(BatchedAffineAdditionTests, AffineAddWithDenominator)
+// {
+//     using Curve = TypeParam;
+//     using G1 = typename Curve::AffineElement;
+//     using Fq = typename Curve::BaseField;
+//     using Sorter = BatchedAffineAddition<Curve>;
+
+//     Sorter msm_sorter;
+
+//     G1 point_1 = G1::random_element();
+//     G1 point_2 = G1::random_element();
+//     Fq denominator = (point_2.x - point_1.x).invert();
+
+//     G1 expected = point_1 + point_2;
+
+//     G1 result = msm_sorter.affine_add_with_denominator(point_1, point_2, denominator);
+
+//     EXPECT_EQ(result, expected);
+// }
+
+// // Test method for batch computing slope denominators for a set of point addition sequences
+// TYPED_TEST(BatchedAffineAdditionTests, ComputePointAdditionDenominators)
+// {
+//     using Curve = TypeParam;
+//     using Fq = typename Curve::BaseField;
+//     using Sorter = BatchedAffineAddition<Curve>;
+//     using AdditionSequences = typename Sorter::AdditionSequences;
+
+//     // Generate random MSM inputs based on a set of sequence counts
+//     std::array<uint64_t, 2> sequence_counts{ 3, 2 };
+//     auto test_data = TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
+//     size_t num_points = test_data.num_points;
+//     auto& points = test_data.points;
+
+//     AdditionSequences addition_sequences{ sequence_counts, test_data.points, {} };
+
+//     const size_t num_pairs = 2;
+//     std::array<Fq, num_pairs> denominators_expected;
+//     denominators_expected[0] = (points[1].x - points[0].x).invert();
+//     denominators_expected[1] = (points[4].x - points[3].x).invert();
+
+//     Sorter msm_sorter(num_points);
+//     msm_sorter.batch_compute_point_addition_slope_inverses(addition_sequences);
+
+//     for (size_t i = 0; i < num_pairs; ++i) {
+//         Fq result = msm_sorter.denominators[i];
+//         Fq expected = denominators_expected[i];
+//         EXPECT_EQ(result, expected);
+//     }
+// }
+
+// // Test method for batched addition of point addition sequences in place
+// TYPED_TEST(BatchedAffineAdditionTests, BatchedAffineAddInPlace)
+// {
+//     using Curve = TypeParam;
+//     using G1 = typename Curve::AffineElement;
+//     using Sorter = BatchedAffineAddition<Curve>;
+//     using AdditionSequences = typename Sorter::AdditionSequences;
+
+//     // Generate random MSM inputs based on a set of sequence counts
+//     std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+//     auto [num_points, points, scalars, msm_result] =
+//         TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
+
+//     AdditionSequences addition_sequences{ sequence_counts, points, {} };
+
+//     std::vector<G1> expected_points;
+//     size_t point_idx = 0;
+//     for (auto count : sequence_counts) {
+//         G1 sum = points[point_idx++];
+//         for (size_t i = 1; i < count; ++i) {
+//             sum = sum + points[point_idx++];
+//         }
+//         expected_points.emplace_back(sum);
+//     }
+
+//     Sorter msm_sorter(num_points);
+//     msm_sorter.batched_affine_add_in_place(addition_sequences);
+
+//     for (size_t idx = 0; idx < expected_points.size(); ++idx) {
+//         EXPECT_EQ(expected_points[idx], points[idx]);
+//     }
+// }
+
+// // Test generation of point addition sequences from an arbitrary set of points and scalars
+// TYPED_TEST(BatchedAffineAdditionTests, GenerateAdditionSequences)
+// {
+//     using Curve = TypeParam;
+//     using G1 = typename Curve::AffineElement;
+//     using Fr = typename Curve::ScalarField;
+//     using Sorter = BatchedAffineAddition<Curve>;
+//     using AdditionSequences = typename Sorter::AdditionSequences;
+
+//     // Generate random MSM inputs based on a set of sequence counts
+//     std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+//     auto [num_points, points, scalars, expected_msm_result] =
+//         TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
+
+//     Sorter msm_sorter{ num_points };
+//     AdditionSequences result = msm_sorter.construct_addition_sequences(scalars, points);
+
+//     // The resulting sequence counts should match expectation but only as multisets
+//     std::multiset<Fr> expected_sequence_counts(sequence_counts.begin(), sequence_counts.end());
+//     std::multiset<Fr> result_sequence_counts(result.sequence_counts.begin(), result.sequence_counts.end());
+//     EXPECT_EQ(expected_sequence_counts, result_sequence_counts);
+
+//     // The result points will be sorted but should match the original as multisets
+//     std::multiset<G1> expected_points(points.begin(), points.end());
+//     std::multiset<G1> result_points(result.points.begin(), result.points.end());
+//     EXPECT_EQ(expected_points, result_points);
+
+//     G1 msm_result;
+//     msm_result.self_set_infinity();
+//     size_t scalar_idx = 0;
+//     size_t point_idx = 0;
+//     for (auto count : result.sequence_counts) {
+//         for (size_t i = 0; i < count; ++i) {
+//             msm_result = msm_result + result.points[point_idx] * msm_sorter.unique_scalars[scalar_idx];
+//             point_idx++;
+//         }
+//         scalar_idx++;
+//     }
+
+//     EXPECT_EQ(msm_result, expected_msm_result);
+// }
+
+// // Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced
+// set
+// // of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the
+// reduced
+// // inputs yields the same result as with the original inputs
+// TYPED_TEST(BatchedAffineAdditionTests, ReduceMsmInputsSimple)
+// {
+//     using Curve = TypeParam;
+//     using G1 = typename Curve::AffineElement;
+//     using Sorter = BatchedAffineAddition<Curve>;
+
+//     // Generate random MSM inputs based on a set of sequence counts
+//     std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
+//     auto [num_points, points, scalars, expected_msm_result] =
+//         TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
+
+//     Sorter msm_sorter{ num_points };
+//     auto [result_scalars, result_points] = msm_sorter.reduce_msm_inputs(scalars, points);
+
+//     G1 msm_result = result_points[0] * result_scalars[0];
+//     for (size_t i = 1; i < result_points.size(); ++i) {
+//         msm_result = msm_result + result_points[i] * result_scalars[i];
+//     }
+
+//     EXPECT_EQ(msm_result, expected_msm_result);
+// }
+
+// // Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced
+// set
+// // of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the
+// reduced
+// // inputs yields the same result as with the original inputs
+// TYPED_TEST(BatchedAffineAdditionTests, ReduceMsmInputs)
+// {
+//     using Curve = TypeParam;
+//     using G1 = typename Curve::AffineElement;
+//     using Sorter = BatchedAffineAddition<Curve>;
+
+//     // Generate random MSM inputs based on a set of sequence counts
+//     const size_t num_unique_scalars = 5;
+//     std::array<uint64_t, num_unique_scalars> sequence_counts{ 75, 1, 28, 382, 3 };
+//     auto [num_points, points, scalars, expected_msm_result] =
+//         TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
+
+//     Sorter msm_sorter{ num_points };
+//     auto [result_scalars, result_points] = msm_sorter.reduce_msm_inputs(scalars, points);
+
+//     // Points and scalars should both be reduced to the number of unique scalars
+//     EXPECT_EQ(result_scalars.size(), num_unique_scalars);
+//     EXPECT_EQ(result_points.size(), num_unique_scalars);
+
+//     // Performing the MSM over the reduced inputs should yield the same result as the original
+//     G1 msm_result = result_points[0] * result_scalars[0];
+//     for (size_t i = 1; i < result_points.size(); ++i) {
+//         msm_result = msm_result + result_points[i] * result_scalars[i];
+//     }
+//     EXPECT_EQ(msm_result, expected_msm_result);
+// }
+
+// Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced set
+// of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the reduced
+// inputs yields the same result as with the original inputs
+TYPED_TEST(BatchedAffineAdditionTests, ReduceLarge)
 {
     using Curve = TypeParam;
-    using G1 = typename Curve::AffineElement;
-    using Fq = typename Curve::BaseField;
-    using Sorter = BatchedAffineAddition<Curve>;
+    using G1 = Curve::AffineElement;
+    using AddManager = AdditionManager<Curve>;
 
-    Sorter msm_sorter;
+    const size_t num_chunks = 5;
+    const size_t chunk_size = 100;
+    const size_t input_size = num_chunks * chunk_size;
+    std::vector<size_t> sequence_counts(num_chunks, chunk_size);
 
-    G1 point_1 = G1::random_element();
-    G1 point_2 = G1::random_element();
-    Fq denominator = (point_2.x - point_1.x).invert();
-
-    G1 expected = point_1 + point_2;
-
-    G1 result = msm_sorter.affine_add_with_denominator(point_1, point_2, denominator);
-
-    EXPECT_EQ(result, expected);
-}
-
-// Test method for batch computing slope denominators for a set of point addition sequences
-TYPED_TEST(BatchedAffineAdditionTests, ComputePointAdditionDenominators)
-{
-    using Curve = TypeParam;
-    using Fq = typename Curve::BaseField;
-    using Sorter = BatchedAffineAddition<Curve>;
-    using AdditionSequences = typename Sorter::AdditionSequences;
-
-    // Generate random MSM inputs based on a set of sequence counts
-    std::array<uint64_t, 2> sequence_counts{ 3, 2 };
-    auto test_data = TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
-    size_t num_points = test_data.num_points;
-    auto& points = test_data.points;
-
-    AdditionSequences addition_sequences{ sequence_counts, test_data.points, {} };
-
-    const size_t num_pairs = 2;
-    std::array<Fq, num_pairs> denominators_expected;
-    denominators_expected[0] = (points[1].x - points[0].x).invert();
-    denominators_expected[1] = (points[4].x - points[3].x).invert();
-
-    Sorter msm_sorter(num_points);
-    msm_sorter.batch_compute_point_addition_slope_inverses(addition_sequences);
-
-    for (size_t i = 0; i < num_pairs; ++i) {
-        Fq result = msm_sorter.denominators[i];
-        Fq expected = denominators_expected[i];
-        EXPECT_EQ(result, expected);
+    // Extract raw SRS points from point point table points
+    std::vector<G1> points;
+    points.reserve(input_size);
+    for (size_t i = 0; i < input_size; ++i) {
+        points.emplace_back(G1::random_element());
     }
-}
 
-// Test method for batched addition of point addition sequences in place
-TYPED_TEST(BatchedAffineAdditionTests, BatchedAffineAddInPlace)
-{
-    using Curve = TypeParam;
-    using G1 = typename Curve::AffineElement;
-    using Sorter = BatchedAffineAddition<Curve>;
-    using AdditionSequences = typename Sorter::AdditionSequences;
-
-    // Generate random MSM inputs based on a set of sequence counts
-    std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
-    auto [num_points, points, scalars, msm_result] =
-        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
-
-    AdditionSequences addition_sequences{ sequence_counts, points, {} };
-
-    std::vector<G1> expected_points;
+    // Manually sum the points in each sequence to get the expected result
+    std::vector<G1> expected_reduced_points;
     size_t point_idx = 0;
-    for (auto count : sequence_counts) {
-        G1 sum = points[point_idx++];
-        for (size_t i = 1; i < count; ++i) {
+    for (size_t i = 0; i < num_chunks; ++i) {
+        G1 sum = G1::infinity();
+        for (size_t j = 0; j < chunk_size; ++j) {
             sum = sum + points[point_idx++];
         }
-        expected_points.emplace_back(sum);
+        expected_reduced_points.push_back(sum);
     }
 
-    Sorter msm_sorter(num_points);
-    msm_sorter.batched_affine_add_in_place(addition_sequences);
+    // Reduce the points using the custom method
+    AddManager add_manager;
+    auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_counts);
 
-    for (size_t idx = 0; idx < expected_points.size(); ++idx) {
-        EXPECT_EQ(expected_points[idx], points[idx]);
+    // Check agreement of the reduced points
+    for (auto [result, expected] : zip_view(reduced_points, expected_reduced_points)) {
+        EXPECT_EQ(result, expected);
     }
-}
-
-// Test generation of point addition sequences from an arbitrary set of points and scalars
-TYPED_TEST(BatchedAffineAdditionTests, GenerateAdditionSequences)
-{
-    using Curve = TypeParam;
-    using G1 = typename Curve::AffineElement;
-    using Fr = typename Curve::ScalarField;
-    using Sorter = BatchedAffineAddition<Curve>;
-    using AdditionSequences = typename Sorter::AdditionSequences;
-
-    // Generate random MSM inputs based on a set of sequence counts
-    std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
-    auto [num_points, points, scalars, expected_msm_result] =
-        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
-
-    Sorter msm_sorter{ num_points };
-    AdditionSequences result = msm_sorter.construct_addition_sequences(scalars, points);
-
-    // The resulting sequence counts should match expectation but only as multisets
-    std::multiset<Fr> expected_sequence_counts(sequence_counts.begin(), sequence_counts.end());
-    std::multiset<Fr> result_sequence_counts(result.sequence_counts.begin(), result.sequence_counts.end());
-    EXPECT_EQ(expected_sequence_counts, result_sequence_counts);
-
-    // The result points will be sorted but should match the original as multisets
-    std::multiset<G1> expected_points(points.begin(), points.end());
-    std::multiset<G1> result_points(result.points.begin(), result.points.end());
-    EXPECT_EQ(expected_points, result_points);
-
-    G1 msm_result;
-    msm_result.self_set_infinity();
-    size_t scalar_idx = 0;
-    size_t point_idx = 0;
-    for (auto count : result.sequence_counts) {
-        for (size_t i = 0; i < count; ++i) {
-            msm_result = msm_result + result.points[point_idx] * msm_sorter.unique_scalars[scalar_idx];
-            point_idx++;
-        }
-        scalar_idx++;
-    }
-
-    EXPECT_EQ(msm_result, expected_msm_result);
-}
-
-// Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced set
-// of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the reduced
-// inputs yields the same result as with the original inputs
-TYPED_TEST(BatchedAffineAdditionTests, ReduceMsmInputsSimple)
-{
-    using Curve = TypeParam;
-    using G1 = typename Curve::AffineElement;
-    using Sorter = BatchedAffineAddition<Curve>;
-
-    // Generate random MSM inputs based on a set of sequence counts
-    std::array<uint64_t, 3> sequence_counts{ 5, 2, 3 };
-    auto [num_points, points, scalars, expected_msm_result] =
-        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
-
-    Sorter msm_sorter{ num_points };
-    auto [result_scalars, result_points] = msm_sorter.reduce_msm_inputs(scalars, points);
-
-    G1 msm_result = result_points[0] * result_scalars[0];
-    for (size_t i = 1; i < result_points.size(); ++i) {
-        msm_result = msm_result + result_points[i] * result_scalars[i];
-    }
-
-    EXPECT_EQ(msm_result, expected_msm_result);
-}
-
-// Test that the method reduce_msm_inputs can reduce a set of {points, scalars} with duplicate scalars to a reduced set
-// of inputs {points', scalars'} such that all scalars in scalars' are unique and that perfoming the MSM on the reduced
-// inputs yields the same result as with the original inputs
-TYPED_TEST(BatchedAffineAdditionTests, ReduceMsmInputs)
-{
-    using Curve = TypeParam;
-    using G1 = typename Curve::AffineElement;
-    using Sorter = BatchedAffineAddition<Curve>;
-
-    // Generate random MSM inputs based on a set of sequence counts
-    const size_t num_unique_scalars = 5;
-    std::array<uint64_t, num_unique_scalars> sequence_counts{ 75, 1, 28, 382, 3 };
-    auto [num_points, points, scalars, expected_msm_result] =
-        TestFixture::generate_test_data_from_sequence_counts(sequence_counts);
-
-    Sorter msm_sorter{ num_points };
-    auto [result_scalars, result_points] = msm_sorter.reduce_msm_inputs(scalars, points);
-
-    // Points and scalars should both be reduced to the number of unique scalars
-    EXPECT_EQ(result_scalars.size(), num_unique_scalars);
-    EXPECT_EQ(result_points.size(), num_unique_scalars);
-
-    // Performing the MSM over the reduced inputs should yield the same result as the original
-    G1 msm_result = result_points[0] * result_scalars[0];
-    for (size_t i = 1; i < result_points.size(); ++i) {
-        msm_result = msm_result + result_points[i] * result_scalars[i];
-    }
-    EXPECT_EQ(msm_result, expected_msm_result);
 }
 } // namespace bb

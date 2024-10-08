@@ -152,7 +152,7 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
 }
 
 template <typename Curve>
-typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::strategize_threads(
+typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_thread_data(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts, const std::span<Fq>& scratch_space)
 {
     // Compute the endpoints of the sequences within the points array from the sequence counts
@@ -253,7 +253,7 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
     std::vector<Fq> scratch_space_vector(points.size());
     std::span<Fq> scratch_space(scratch_space_vector);
 
-    auto [addition_sequences, sequence_tags] = strategize_threads(points, sequence_counts, scratch_space);
+    auto [addition_sequences, sequence_tags] = construct_thread_data(points, sequence_counts, scratch_space);
 
     const size_t num_threads = addition_sequences.size();
     parallel_for(num_threads,

@@ -68,8 +68,6 @@ template <typename Curve> class AdditionManager {
     using AffineAdder = BatchedAffineAddition<Curve>;
     using AdditionSequences = AffineAdder::AdditionSequences;
 
-    std::vector<Fq> fake_scratch_space = { 1 }; // WORKTODO: allocate real thing via constructor
-
     struct ThreadData {
         std::vector<AdditionSequences> addition_sequences;
         std::vector<std::vector<size_t>> sequence_tags;
@@ -79,9 +77,9 @@ template <typename Curve> class AdditionManager {
     std::vector<G1> batched_affine_add_in_place_parallel(const std::span<G1>& points,
                                                          const std::vector<size_t>& sequence_counts);
 
-    ThreadData strategize_threads(const std::span<G1>& points,
-                                  const std::vector<size_t>& sequence_counts,
-                                  const std::span<Fq>& scratch_space);
+    ThreadData construct_thread_data(const std::span<G1>& points,
+                                     const std::vector<size_t>& sequence_counts,
+                                     const std::span<Fq>& scratch_space);
 };
 
 } // namespace bb
