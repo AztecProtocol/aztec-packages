@@ -674,7 +674,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
     auto builder =
         create_circuit(constraint_system, /*size_hint*/ 0, witness, false, std::make_shared<bb::ECCOpQueue>(), true);
 
-    EXPECT_EQ(constraint_system.gates_per_opcode, std::vector<size_t>({ 3, 1 }));
+    EXPECT_EQ(constraint_system.gates_per_opcode, std::vector<size_t>({ 2, 1 }));
 }
 
 TEST_F(AcirFormatTests, TestBigAdd)

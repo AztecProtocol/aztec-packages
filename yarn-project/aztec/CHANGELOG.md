@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.57.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.56.0...aztec-package-v0.57.0) (2024-10-07)
+
+
+### Features
+
+* Consolidate spartan metrics ([#9037](https://github.com/AztecProtocol/aztec-packages/issues/9037)) ([0cff28b](https://github.com/AztecProtocol/aztec-packages/commit/0cff28b7582c0bccde453c86e05af23121011dfe))
+* Proposers claim proving rights ([#8832](https://github.com/AztecProtocol/aztec-packages/issues/8832)) ([f8b0802](https://github.com/AztecProtocol/aztec-packages/commit/f8b0802b72d7db864d55ed12939f63670e46d71f))
+* Prover escrow and 712-signed quotes ([#8877](https://github.com/AztecProtocol/aztec-packages/issues/8877)) ([2f1d19a](https://github.com/AztecProtocol/aztec-packages/commit/2f1d19ac3baa35800ac941f0941461addad7ab66))
+* Prover node sends quotes on new epochs ([#8864](https://github.com/AztecProtocol/aztec-packages/issues/8864)) ([4adf860](https://github.com/AztecProtocol/aztec-packages/commit/4adf8600dab5b7e177b84b6920674024c01b4e25)), closes [#8684](https://github.com/AztecProtocol/aztec-packages/issues/8684) [#8683](https://github.com/AztecProtocol/aztec-packages/issues/8683)
+* Prover node stakes to escrow contract ([#8975](https://github.com/AztecProtocol/aztec-packages/issues/8975)) ([9eb8815](https://github.com/AztecProtocol/aztec-packages/commit/9eb8815dc00641d6568e952b336e6f7348728054))
+
+
+### Bug Fixes
+
+* L1 request intervals ([#8997](https://github.com/AztecProtocol/aztec-packages/issues/8997)) ([780fd62](https://github.com/AztecProtocol/aztec-packages/commit/780fd6210d0b1f8fc386135082ef443b449b3cdf))
+
+
+### Miscellaneous
+
+* Add memoize decorator ([#8976](https://github.com/AztecProtocol/aztec-packages/issues/8976)) ([1d9711b](https://github.com/AztecProtocol/aztec-packages/commit/1d9711b0a145f47bfe6d4d64b6837873e2725d2f))
+* Bump foundry ([#8868](https://github.com/AztecProtocol/aztec-packages/issues/8868)) ([bfd0b8e](https://github.com/AztecProtocol/aztec-packages/commit/bfd0b8e6932c2b2fdf6e1c35c3c324edec92118a))
+* Fix the transfer test we run in kind clusters ([#8796](https://github.com/AztecProtocol/aztec-packages/issues/8796)) ([7c42ef0](https://github.com/AztecProtocol/aztec-packages/commit/7c42ef09bfc006c1d9725ac89e315d9a84c430fc))
+* Remove mock proof commitment escrow ([#9011](https://github.com/AztecProtocol/aztec-packages/issues/9011)) ([4873c7b](https://github.com/AztecProtocol/aztec-packages/commit/4873c7bc850092e2962fcaf747ec60f19e89ba92))
+
 ## [0.56.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.55.1...aztec-package-v0.56.0) (2024-09-25)
 
 
