@@ -159,7 +159,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
+    acir_composer.create_finalized_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
 
     Timer pk_timer;
@@ -668,8 +668,7 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-    acir_composer.finalize_circuit();
+    acir_composer.create_finalized_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
@@ -778,7 +777,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system);
+    acir_composer.create_finalized_circuit(constraint_system);
     acir_composer.finalize_circuit();
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
@@ -797,7 +796,7 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system);
+    acir_composer.create_finalized_circuit(constraint_system);
     acir_composer.finalize_circuit();
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
@@ -1307,7 +1306,7 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
+    acir_composer.create_finalized_circuit(constraint_system, witness);
     acir_composer.finalize_circuit();
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();

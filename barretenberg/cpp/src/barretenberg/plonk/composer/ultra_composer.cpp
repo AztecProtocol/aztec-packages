@@ -148,7 +148,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
         return circuit_proving_key;
     }
 
-    circuit.finalize_circuit(/*ensure_nonzero=*/true);
+    circuit.finalize_circuit(/*ensure_nonzero=*/false);
 
     const size_t subgroup_size = circuit.get_circuit_subgroup_size(circuit.get_finalized_total_circuit_size());
 
