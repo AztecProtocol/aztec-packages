@@ -288,8 +288,8 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs<FF> public_inputs,
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET]),
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET]));
+        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET]),
+        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET]));
 }
 
 /**************************************************************************************************
@@ -2459,7 +2459,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     auto [resolved_log_offset, resolved_log_size_offset] =
         unpack_indirects<2>(indirect, { log_offset, log_size_offset });
 
-    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_SELECTOR];
+    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_KERNEL_INPUTS_COL_OFFSET];
     std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
 
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
@@ -3528,8 +3528,13 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (size_t i = 0; i < main_trace_size; i++) {
         main_trace[i].main_sel_execution_row = FF(1);
     }
-    // This selector corresponds to the last row of the EXECUTION trace.
-    main_trace.back().main_sel_last = FF(1);
+
+    // Append row with selector toggling execution end.
+    const Row end_exec_row = Row{ .main_sel_execution_end = FF(1) };
+    main_trace.emplace_back(end_exec_row);
+
+    // Set selector for toggling execution start (we have the guarantee that at least one row exists in main_trace)
+    main_trace[0].main_sel_start_exec = FF(1);
 
     // We only need to pad with zeroes to the size to the largest trace here,
     // pow_2 padding is handled in the subgroup_size check in BB.
@@ -3654,7 +3659,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
     // Finalize cmp gadget of the ALU trace
     auto cmp_trace_size = alu_trace_builder.cmp_builder.get_cmp_trace_size();
-    // HERE IS THE SEG FAULT BUG
     if (main_trace_size < cmp_trace_size) {
         main_trace_size = cmp_trace_size;
         main_trace.resize(cmp_trace_size, {});
@@ -3762,8 +3766,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
      * ONLY FIXED TABLES FROM HERE ON
      **********************************************************************************************/
 
-    Row first_row = Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) };
-    main_trace.insert(main_trace.begin(), first_row);
+    main_trace.insert(main_trace.begin(), Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) });
 
     /**********************************************************************************************
      * BYTES TRACE INCLUSION
