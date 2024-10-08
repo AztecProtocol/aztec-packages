@@ -19,6 +19,8 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
+import { type NativeWorldStateService } from '../native/native_world_state.js';
+
 export async function mockBlock(blockNum: number, size: number, fork: MerkleTreeWriteOperations) {
   const l2Block = L2Block.random(blockNum, size);
   const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
@@ -78,6 +80,22 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
     block: l2Block,
     messages: l1ToL2Messages,
   };
+}
+
+export async function mockBlocks(from: number, count: number, numTxs: number, worldState: NativeWorldStateService) {
+  const tempFork = await worldState.fork(from - 1);
+
+  const blocks = [];
+  const messagesArray = [];
+  for (let blockNumber = from; blockNumber < from + count; blockNumber++) {
+    const { block, messages } = await mockBlock(blockNumber, numTxs, tempFork);
+    blocks.push(block);
+    messagesArray.push(messages);
+  }
+
+  await tempFork.close();
+
+  return { blocks, messages: messagesArray };
 }
 
 export async function assertSameState(forkA: MerkleTreeReadOperations, forkB: MerkleTreeReadOperations) {

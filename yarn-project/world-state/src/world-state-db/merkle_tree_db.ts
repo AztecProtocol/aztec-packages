@@ -57,6 +57,33 @@ export interface MerkleTreeAdminDatabase {
    */
   fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
 
+  /**
+   * Removes all historical snapshots up to but not including the given block number
+   * @param toBlockNumber The block number of the new oldest historical block
+   * @returns The new WorldStateStatus
+   */
+  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Removes all pending blocks down to but not including the given block number
+   * @param toBlockNumber The block number of the new tip of the pending chain,
+   * @returns The new WorldStateStatus
+   */
+  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Advances the finalised block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * @returns The new WorldStateStatus
+   */
+  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Gets the current status of the database.
+   * @returns The current WorldStateStatus.
+   */
+  getStatus(): Promise<WorldStateStatus>;
+
   /** Stops the database */
   close(): Promise<void>;
 }
