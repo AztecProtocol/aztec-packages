@@ -1,5 +1,6 @@
 import {
   type FailedTx,
+  type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
   type ProcessedTxHandler,
@@ -9,9 +10,7 @@ import {
   validateProcessedTx,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
   ContractClassRegisteredEvent,
-  FEE_JUICE_ADDRESS,
   type GlobalVariables,
   type Header,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -21,10 +20,9 @@ import {
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type SimulationProvider } from '../providers/index.js';
 import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
@@ -40,7 +38,6 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
  */
 export class PublicProcessorFactory {
   constructor(
-    private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private simulator: SimulationProvider,
     private telemetryClient: TelemetryClient,
@@ -52,8 +49,12 @@ export class PublicProcessorFactory {
    * @param globalVariables - The global variables for the block being processed.
    * @returns A new instance of a PublicProcessor.
    */
-  public create(maybeHistoricalHeader: Header | undefined, globalVariables: GlobalVariables): PublicProcessor {
-    const { merkleTree, telemetryClient } = this;
+  public create(
+    merkleTree: MerkleTreeWriteOperations,
+    maybeHistoricalHeader: Header | undefined,
+    globalVariables: GlobalVariables,
+  ): PublicProcessor {
+    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
@@ -70,10 +71,6 @@ export class PublicProcessorFactory {
       this.telemetryClient,
     );
   }
-
-  public getInitialHeader() {
-    return this.merkleTree.getInitialHeader();
-  }
 }
 
 /**
@@ -83,7 +80,7 @@ export class PublicProcessorFactory {
 export class PublicProcessor {
   private metrics: PublicProcessorMetrics;
   constructor(
-    protected db: MerkleTreeOperations,
+    protected db: MerkleTreeWriteOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
@@ -97,7 +94,7 @@ export class PublicProcessor {
   }
 
   static create(
-    db: MerkleTreeOperations,
+    db: MerkleTreeWriteOperations,
     publicExecutor: PublicExecutor,
     publicKernelSimulator: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
@@ -220,7 +217,7 @@ export class PublicProcessor {
       return finalPublicDataUpdateRequests;
     }
 
-    const feeJuiceAddress = AztecAddress.fromBigInt(FEE_JUICE_ADDRESS);
+    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
     const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
@@ -273,7 +270,10 @@ export class PublicProcessor {
     });
 
     this.metrics.recordClassRegistration(
-      ...ContractClassRegisteredEvent.fromLogs(tx.unencryptedLogs.unrollLogs(), ClassRegistererAddress),
+      ...ContractClassRegisteredEvent.fromLogs(
+        tx.unencryptedLogs.unrollLogs(),
+        ProtocolContractAddress.ContractClassRegisterer,
+      ),
     );
 
     const phaseCount = processedPhases.length;

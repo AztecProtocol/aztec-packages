@@ -59,6 +59,9 @@ impl PublicKernelOutputValidator {
         assert_eq(out.tx_context, prev.tx_context, "mismatch tx_context");
         assert_eq(out.vk_tree_root, prev.vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
+            out.protocol_contract_tree_root, prev.protocol_contract_tree_root, "mismatch protocol_contract_tree_root"
+        );
+        assert_eq(
             out.global_variables, self.enqueued_call.constants.global_variables, "mismatch global_variables"
         );
     }

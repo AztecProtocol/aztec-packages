@@ -75,7 +75,6 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
 # run our test in the host network namespace (so we can access the above with localhost)
 docker run --rm --network=host \
-  -e SCENARIO=default \
   -e PXE_URL=http://localhost:9082 \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \

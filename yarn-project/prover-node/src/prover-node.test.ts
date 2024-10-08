@@ -6,7 +6,7 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeAdminOperations,
+  type MerkleTreeWriteOperations,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
@@ -65,7 +65,7 @@ describe('prover-node', () => {
   let jobs: {
     job: MockProxy<EpochProvingJob>;
     cleanUp: (job: EpochProvingJob) => Promise<void>;
-    db: MerkleTreeAdminOperations;
+    db: MerkleTreeWriteOperations;
     epochNumber: bigint;
   }[];
 
@@ -115,7 +115,7 @@ describe('prover-node', () => {
     config = { maxPendingJobs: 3, pollingIntervalMs: 10 };
 
     // World state returns a new mock db every time it is asked to fork
-    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeAdminOperations>()));
+    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
     worldState.status.mockResolvedValue({ syncedToL2Block: 1, state: WorldStateRunningState.RUNNING });
 
     // Publisher returns its sender address
@@ -287,7 +287,7 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      db: MerkleTreeAdminOperations,
+      db: MerkleTreeWriteOperations,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {

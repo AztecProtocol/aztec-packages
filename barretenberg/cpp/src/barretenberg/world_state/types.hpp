@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 #include <variant>
 
@@ -16,23 +17,24 @@ enum MerkleTreeId {
     ARCHIVE = 4,
 };
 
+std::string getMerkleTreeName(MerkleTreeId id);
+
 using TreeStateReference = std::pair<bb::fr, bb::crypto::merkle_tree::index_t>;
 using StateReference = std::unordered_map<MerkleTreeId, TreeStateReference>;
 
 struct WorldStateRevision {
-    struct FinalisedBlock {
-        uint32_t block;
-    };
+    uint64_t forkId{ 0 };
+    uint64_t blockNumber{ 0 };
+    bool includeUncommitted{ false };
 
-    struct CurrentState {
-        bool uncommitted;
-    };
+    MSGPACK_FIELDS(forkId, blockNumber, includeUncommitted)
 
-    using Revision = std::variant<WorldStateRevision::FinalisedBlock, WorldStateRevision::CurrentState>;
-    Revision inner;
+    // using Revision = std::variant<WorldStateRevision::FinalisedBlock, WorldStateRevision::CurrentState,
+    // WorldStateRevision::ForkId>; Revision inner;
 
-    static WorldStateRevision committed() { return { CurrentState{ false } }; }
-    static WorldStateRevision uncommitted() { return { CurrentState{ true } }; }
-    static WorldStateRevision finalised_block(uint32_t block_number) { return { FinalisedBlock{ block_number } }; }
+    static WorldStateRevision committed() { return WorldStateRevision{ .includeUncommitted = false }; }
+    static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
+    // static WorldStateRevision finalised_block(uint32_t block_number) { return { WorldStateRevision{ .blockNumber =
+    // block_number } }; }
 };
 } // namespace bb::world_state
