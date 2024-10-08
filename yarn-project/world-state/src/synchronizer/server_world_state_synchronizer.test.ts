@@ -1,11 +1,4 @@
-import {
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  MerkleTreeId,
-  SiblingPath,
-  WorldStateRunningState,
-} from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, L2Block, type L2BlockSource, WorldStateRunningState } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -13,12 +6,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { INITIAL_LEAF, Pedersen, SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { type MerkleTreeAdminDb, type MerkleTrees, type WorldStateConfig } from '../index.js';
+import { type MerkleTreeAdminDatabase, type MerkleTrees, type WorldStateConfig } from '../index.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 const LATEST_BLOCK_NUMBER = 5;
@@ -45,14 +38,7 @@ describe('server_world_state_synchronizer', () => {
     getL1ToL2Messages: jest.fn(() => Promise.resolve(l1ToL2Messages)),
   });
 
-  const merkleTreeDb = mock<MerkleTreeAdminDb>({
-    getTreeInfo: jest.fn(() =>
-      Promise.resolve({ depth: 8, treeId: MerkleTreeId.NOTE_HASH_TREE, root: Buffer.alloc(32, 0), size: 0n }),
-    ),
-    getSiblingPath: jest.fn(() => {
-      const pedersen: Pedersen = new Pedersen();
-      return Promise.resolve(SiblingPath.ZERO(32, INITIAL_LEAF, pedersen) as SiblingPath<number>);
-    }),
+  const merkleTreeDb = mock<MerkleTreeAdminDatabase>({
     handleL2BlockAndMessages: jest.fn(() => Promise.resolve({ isBlockOurs: false })),
   });
 

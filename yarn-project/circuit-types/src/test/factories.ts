@@ -1,4 +1,4 @@
-import { type MerkleTreeOperations, makeProcessedTx, mockTx } from '@aztec/circuit-types';
+import { type MerkleTreeReadOperations, makeProcessedTx, mockTx } from '@aztec/circuit-types';
 import {
   Fr,
   GasSettings,
@@ -17,7 +17,7 @@ import { makeTuple } from '@aztec/foundation/array';
 
 /** Makes a bloated processed tx for testing purposes. */
 export function makeBloatedProcessedTx(
-  historicalHeaderOrDb: Header | MerkleTreeOperations,
+  historicalHeaderOrDb: Header | MerkleTreeReadOperations,
   vkRoot: Fr,
   seed = 0x1,
   overrides: { inclusionFee?: Fr } = {},

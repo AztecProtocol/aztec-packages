@@ -1,9 +1,11 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
+
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include <utility>
 
 namespace bb::crypto::merkle_tree {
-LMDBDatabaseCreationTransaction::LMDBDatabaseCreationTransaction(LMDBEnvironment& env)
-    : LMDBTransaction(env)
+LMDBDatabaseCreationTransaction::LMDBDatabaseCreationTransaction(LMDBEnvironment::SharedPtr env)
+    : LMDBTransaction(std::move(env))
 {}
 void LMDBDatabaseCreationTransaction::commit() const
 {

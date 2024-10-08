@@ -112,12 +112,7 @@ impl DataBus {
 
 impl FunctionBuilder {
     /// Insert a value into a data bus builder
-    fn add_to_data_bus(
-        &mut self,
-        value: ValueId,
-        databus: &mut DataBusBuilder,
-        within_array: bool,
-    ) {
+    fn add_to_data_bus(&mut self, value: ValueId, databus: &mut DataBusBuilder) {
         assert!(databus.databus.is_none(), "initializing finalized call data");
         let typ = self.current_function.dfg[value].get_type().clone();
         match typ {
@@ -126,18 +121,23 @@ impl FunctionBuilder {
                 databus.index += 1;
             }
             Type::Array(typ, len) => {
-                assert!(!within_array, "nested arrays are not supported");
                 databus.map.insert(value, databus.index);
-                for i in 0..len {
-                    for (subitem_index, subitem_typ) in typ.iter().enumerate() {
-                        let index = i * typ.len() + subitem_index;
-                        // load each element of the array
-                        let index = self
+
+                let mut index = 0;
+                for _i in 0..len {
+                    for subitem_typ in typ.iter() {
+                        // load each element of the array, and add it to the databus
+                        let index_var = self
                             .current_function
                             .dfg
                             .make_constant(FieldElement::from(index as i128), Type::length_type());
-                        let element = self.insert_array_get(value, index, subitem_typ.clone());
-                        self.add_to_data_bus(element, databus, true);
+                        let element = self.insert_array_get(value, index_var, subitem_typ.clone());
+                        index += match subitem_typ {
+                            Type::Array(_, _) | Type::Slice(_) => subitem_typ.element_size(),
+                            Type::Numeric(_) => 1,
+                            _ => unreachable!("Unsupported type for databus"),
+                        };
+                        self.add_to_data_bus(element, databus);
                     }
                 }
             }
@@ -157,7 +157,7 @@ impl FunctionBuilder {
         call_data_id: Option<u32>,
     ) -> DataBusBuilder {
         for value in values {
-            self.add_to_data_bus(*value, &mut databus, false);
+            self.add_to_data_bus(*value, &mut databus);
         }
         let len = databus.values.len();
 
