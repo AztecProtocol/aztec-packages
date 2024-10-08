@@ -115,7 +115,7 @@ describe('prover-node', () => {
     config = { maxPendingJobs: 3, pollingIntervalMs: 10 };
 
     // World state returns a new mock db every time it is asked to fork
-    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
+    worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
     worldState.status.mockResolvedValue({ syncedToL2Block: 1, state: WorldStateRunningState.RUNNING });
 
     // Publisher returns its sender address
@@ -176,14 +176,6 @@ describe('prover-node', () => {
       await proverNode.handleClaim(claim);
 
       expect(jobs[0].epochNumber).toEqual(10n);
-    });
-
-    it('fails to start proving if world state is synced past the first block in the epoch', async () => {
-      // This test will probably be no longer necessary once we have the proper world state
-      worldState.status.mockResolvedValue({ syncedToL2Block: 21, state: WorldStateRunningState.RUNNING });
-      await proverNode.handleClaim(claim);
-
-      expect(jobs.length).toEqual(0);
     });
 
     it('does not prove the same epoch twice', async () => {

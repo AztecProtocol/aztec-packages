@@ -5,11 +5,11 @@ export interface WorldStateConfig {
   /** The frequency in which to check. */
   worldStateBlockCheckIntervalMS: number;
 
-  /** Size of queue of L2 blocks to store. */
-  l2QueueSize: number;
-
   /** Whether to follow only the proven chain. */
   worldStateProvenBlocksOnly: boolean;
+
+  /** Size of the batch for each get-blocks request from the synchronizer to the archiver. */
+  worldStateBlockRequestBatchSize?: number;
 }
 
 export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
@@ -19,16 +19,15 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
     defaultValue: 100,
     description: 'The frequency in which to check.',
   },
-  l2QueueSize: {
-    env: 'WS_L2_BLOCK_QUEUE_SIZE',
-    parseEnv: (val: string) => +val,
-    defaultValue: 1000,
-    description: 'Size of queue of L2 blocks to store.',
-  },
   worldStateProvenBlocksOnly: {
     env: 'WS_PROVEN_BLOCKS_ONLY',
     description: 'Whether to follow only the proven chain.',
     ...booleanConfigHelper(),
+  },
+  worldStateBlockRequestBatchSize: {
+    env: 'WS_BLOCK_REQUEST_BATCH_SIZE',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'Size of the batch for each get-blocks request from the synchronizer to the archiver.',
   },
 };
 
