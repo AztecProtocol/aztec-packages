@@ -154,7 +154,6 @@ describe('benchmarks/proving', () => {
       await pxe.registerContract(initialTokenContract);
       await pxe.registerContract(initialTestContract);
       await pxe.registerContract(initialFpContract);
-      await pxe.registerContract(initialGasContract);
 
       await pxe.registerRecipient(recipient);
 
