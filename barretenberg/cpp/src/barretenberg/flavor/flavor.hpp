@@ -108,7 +108,7 @@ class PrecomputedEntitiesBase {
  */
 template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
-    size_t dyadic_circuit_size;
+    size_t circuit_size;
     bool contains_recursive_proof;
     AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
@@ -130,7 +130,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     {
         this->commitment_key = commitment_key;
         this->evaluation_domain = bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size);
-        this->dyadic_circuit_size = dyadic_circuit_size;
+        this->circuit_size = dyadic_circuit_size;
         this->log_circuit_size = numeric::get_msb(dyadic_circuit_size);
         this->num_public_inputs = num_public_inputs;
     };

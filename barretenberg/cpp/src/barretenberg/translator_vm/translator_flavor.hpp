@@ -678,11 +678,11 @@ class TranslatorFlavor {
             : Base(compute_dyadic_circuit_size(builder), 0)
             , batching_challenge_v(builder.batching_challenge_v)
             , evaluation_input_x(builder.evaluation_input_x)
-            , polynomials(this->dyadic_circuit_size)
+            , polynomials(this->circuit_size)
         {
             // First and last lagrange polynomials (in the full circuit size)
             polynomials.lagrange_first.at(0) = 1;
-            polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+            polynomials.lagrange_last.at(circuit_size - 1) = 1;
 
             // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
             // polynomials at second and second to last indices in the minicircuit
@@ -767,7 +767,7 @@ class TranslatorFlavor {
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key->dyadic_circuit_size;
+            this->circuit_size = proving_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
