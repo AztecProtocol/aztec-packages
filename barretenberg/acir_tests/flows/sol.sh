@@ -12,7 +12,7 @@ export PROOF_AS_FIELDS="$(pwd)/proof_fields.json"
 $BIN prove -o proof $FLAGS
 $BIN write_vk  -o vk $FLAGS
 $BIN proof_as_fields -k vk $FLAGS -p $PROOF
-$BIN contract -k vk $FLAGS $FLAGS -o Key.sol
+$BIN contract -k vk $FLAGS $BFLAG -o Key.sol
 
 # Export the paths to the environment variables for the js test runner
 export KEY_PATH="$(pwd)/Key.sol"

@@ -60,7 +60,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         } else {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         }
-        info("dyadic circuit size: ", dyadic_circuit_size);
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);

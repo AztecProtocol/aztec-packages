@@ -700,8 +700,8 @@ template <typename Builder = UltraCircuitBuilder> void gateCount(const std::stri
         auto builder = acir_format::create_circuit<Builder>(
             constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        info("num gates in gateCount: ", builder.num_gates);
         size_t circuit_size = builder.num_gates;
+        vinfo("Calculated circuit size in gateCount: ", circuit_size);
 
         // Build individual circuit report
         std::string gates_per_opcode_str;

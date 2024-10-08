@@ -13,14 +13,15 @@
 #include <cstdint>
 #include <memory>
 
-WASM_EXPORT void acir_get_circuit_sizes(
-    uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
+WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec,
+                                        bool const* honk_recursion,
+                                        uint32_t* total,
+                                        uint32_t* subgroup)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
     auto builder = acir_format::create_circuit(constraint_system, 1 << 19, {}, *honk_recursion);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
-    *exact = htonl((uint32_t)builder.get_finalized_total_circuit_size()); // WORKTODO: add a todo here to remove it?
     *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
     *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size()));
 }

@@ -8,7 +8,6 @@ FLAGS="-c $CRS_PATH $VFLAG"
 export PROOF="$(pwd)/proof"
 export PROOF_AS_FIELDS="$(pwd)/proof_fields.json"
 
-echo $VFLAG
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove_ultra_keccak_honk -o proof $FLAGS $BFLAG
 $BIN write_vk_ultra_keccak_honk -o vk $FLAGS $BFLAG

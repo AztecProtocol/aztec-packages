@@ -48,8 +48,8 @@ function getWitness(witnessPath: string) {
 async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
   debug(`computing circuit size...`);
   const bytecode = getBytecode(bytecodePath);
-  const [exact, total, subgroup] = await api.acirGetCircuitSizes(bytecode, honkRecursion);
-  return { exact, total, subgroup };
+  const [total, subgroup] = await api.acirGetCircuitSizes(bytecode, honkRecursion);
+  return { total, subgroup };
 }
 
 async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
