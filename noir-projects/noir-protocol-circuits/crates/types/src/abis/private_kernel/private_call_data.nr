@@ -3,7 +3,8 @@ use crate::{
     private_call_stack_item::{PrivateCallStackItemWithoutPublicInputs, PrivateCallStackItem},
     private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
-    address::{SaltedInitializationHash, PublicKeysHash}, constants::{FUNCTION_TREE_HEIGHT,PROTOCOL_CONTRACT_TREE_HEIGHT},
+    address::{SaltedInitializationHash, PublicKeysHash},
+    constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
     merkle_tree::membership::MembershipWitness, recursion::{verification_key::VerificationKey}
 };
 
