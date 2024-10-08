@@ -242,6 +242,7 @@ export function convertPrivateKernelInitInputsToWitnessMap(
   const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelInitArtifact.abi, {
     tx_request: mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.callStackItem.publicInputs,
