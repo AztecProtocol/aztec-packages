@@ -408,7 +408,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                 HeapValueType::Array { value_types, size: type_size },
             ) if *type_size == size => {
                 let start = self.memory.read_ref(pointer_index);
-                self.read_slice_of_values_from_memory(start.unwrap_direct(), size, value_types)
+                self.read_slice_of_values_from_memory(start, size, value_types)
                     .into_iter()
                     .map(|mem_value| mem_value.to_field())
                     .collect::<Vec<_>>()
@@ -420,7 +420,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
             ) => {
                 let start = self.memory.read_ref(pointer_index);
                 let size = self.memory.read(size_index).to_usize();
-                self.read_slice_of_values_from_memory(start.unwrap_direct(), size, value_types)
+                self.read_slice_of_values_from_memory(start, size, value_types)
                     .into_iter()
                     .map(|mem_value| mem_value.to_field())
                     .collect::<Vec<_>>()
@@ -436,12 +436,13 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
     /// nested arrays/vectors according to the sequence of value types.
     fn read_slice_of_values_from_memory(
         &self,
-        start: usize,
+        start: MemoryAddress,
         size: usize,
         value_types: &[HeapValueType],
     ) -> Vec<MemoryValue<F>> {
+        assert!(!start.is_relative(), "read_slice_of_values_from_memory requires direct addresses");
         if HeapValueType::all_simple(value_types) {
-            self.memory.read_slice(MemoryAddress::direct(start), size).to_vec()
+            self.memory.read_slice(start, size).to_vec()
         } else {
             // Check that the sequence of value types fit an integer number of
             // times inside the given size.
@@ -452,7 +453,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
             (0..size)
                 .zip(value_types.iter().cycle())
                 .flat_map(|(i, value_type)| {
-                    let value_address = MemoryAddress::direct(start + i);
+                    let value_address = start.offset(i);
                     match value_type {
                         HeapValueType::Simple(_) => {
                             vec![self.memory.read(value_address)]
@@ -461,7 +462,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                             let array_address = self.memory.read_ref(value_address);
 
                             self.read_slice_of_values_from_memory(
-                                array_address.unwrap_direct() + 1,
+                                array_address.offset(1),
                                 *size,
                                 value_types,
                             )
@@ -470,7 +471,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                             let vector_address = self.memory.read_ref(value_address);
                             let size_address =
                                 MemoryAddress::direct(vector_address.unwrap_direct() + 1);
-                            let items_start = vector_address.unwrap_direct() + 2;
+                            let items_start = vector_address.offset(2);
                             let vector_size = self.memory.read(size_address).to_usize();
                             self.read_slice_of_values_from_memory(
                                 items_start,
@@ -526,7 +527,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                                let destination = self.memory.read_ref(*pointer_index);
                                let return_type = value_type;
                                let mut flatten_values_idx = 0; //index of values read from flatten_values
-                               self.write_slice_of_values_to_memory(destination.unwrap_direct(), &output.fields(), &mut flatten_values_idx, return_type)?;
+                               self.write_slice_of_values_to_memory(destination, &output.fields(), &mut flatten_values_idx, return_type)?;
                             } else {
                                 self.write_values_to_memory_slice(*pointer_index, values, value_types)?;
                             }
@@ -540,7 +541,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                     let destination = self.memory.read_ref(*pointer_index);
                     let return_type = value_type;
                     let mut flatten_values_idx = 0; //index of values read from flatten_values
-                    self.write_slice_of_values_to_memory(destination.unwrap_direct(), &output.fields(), &mut flatten_values_idx, return_type)?;
+                    self.write_slice_of_values_to_memory(destination, &output.fields(), &mut flatten_values_idx, return_type)?;
             }
         }
             (
@@ -634,19 +635,19 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
     /// The function returns the address of the next value to be written
     fn write_slice_of_values_to_memory(
         &mut self,
-        destination: usize,
+        destination: MemoryAddress,
         values: &Vec<F>,
         values_idx: &mut usize,
         value_type: &HeapValueType,
     ) -> Result<(), String> {
+        assert!(
+            !destination.is_relative(),
+            "write_slice_of_values_to_memory requires direct addresses"
+        );
         let mut current_pointer = destination;
         match value_type {
             HeapValueType::Simple(bit_size) => {
-                self.write_value_to_memory(
-                    MemoryAddress::direct(destination),
-                    &values[*values_idx],
-                    *bit_size,
-                )?;
+                self.write_value_to_memory(destination, &values[*values_idx], *bit_size)?;
                 *values_idx += 1;
                 Ok(())
             }
@@ -656,26 +657,22 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                         match typ {
                             HeapValueType::Simple(len) => {
                                 self.write_value_to_memory(
-                                    MemoryAddress::direct(current_pointer),
+                                    current_pointer,
                                     &values[*values_idx],
                                     *len,
                                 )?;
                                 *values_idx += 1;
-                                current_pointer += 1;
+                                current_pointer = current_pointer.offset(1);
                             }
                             HeapValueType::Array { .. } => {
-                                let destination = self
-                                    .memory
-                                    .read_ref(MemoryAddress::direct(current_pointer))
-                                    .unwrap_direct()
-                                    + 1;
+                                let destination = self.memory.read_ref(current_pointer).offset(1);
                                 self.write_slice_of_values_to_memory(
                                     destination,
                                     values,
                                     values_idx,
                                     typ,
                                 )?;
-                                current_pointer += 1;
+                                current_pointer = current_pointer.offset(1);
                             }
                             HeapValueType::Vector { .. } => {
                                 return Err(format!(

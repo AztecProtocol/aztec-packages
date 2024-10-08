@@ -46,6 +46,13 @@ impl MemoryAddress {
             MemoryAddress::Direct(_) => false,
         }
     }
+
+    pub fn offset(&self, amount: usize) -> Self {
+        match self {
+            MemoryAddress::Direct(address) => MemoryAddress::Direct(address + amount),
+            MemoryAddress::Relative(offset) => MemoryAddress::Relative(offset + amount),
+        }
+    }
 }
 
 /// Describes the memory layout for an array/vector element
