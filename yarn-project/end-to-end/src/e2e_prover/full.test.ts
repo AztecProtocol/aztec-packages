@@ -53,22 +53,25 @@ describe('full_prover', () => {
 
       // Prove them
       logger.info(`Proving txs`);
-      const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+      const provingOpts = { skipPublicSimulation: true };
+      const [publicProvenTx, privateProvenTx] = await Promise.all([
+        publicInteraction.prove(provingOpts),
+        privateInteraction.prove(provingOpts),
+      ]);
 
       // Verify them
       logger.info(`Verifying txs`);
-      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
-      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+      await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
+      await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
       // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
       // and we have more than one block in the epoch we end up proving
       logger.info(`Sending private tx`);
-      const sendOpts = { skipPublicSimulation: true };
-      const txPrivate = privateInteraction.send(sendOpts);
+      const txPrivate = privateProvenTx.send();
       await txPrivate.wait({ timeout: 300, interval: 10, proven: false });
 
       logger.info(`Sending public tx`);
-      const txPublic = publicInteraction.send(sendOpts);
+      const txPublic = publicProvenTx.send();
       await txPublic.wait({ timeout: 300, interval: 10, proven: false });
 
       logger.info(`Both txs have been mined`);
@@ -90,6 +93,7 @@ describe('full_prover', () => {
       // Send another tx so the sequencer can assemble a block that includes the prover node claim
       // so the prover node starts proving
       logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
+      const sendOpts = { skipPublicSimulation: true };
       await provenAssets[0].methods
         .transfer(recipient, privateSendAmount)
         .send(sendOpts)

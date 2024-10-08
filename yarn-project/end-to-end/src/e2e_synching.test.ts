@@ -241,15 +241,15 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.create({
+        const tx = deployMethod.send({
           contractAddressSalt: accountManager.salt,
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
         });
-        this.contractAddresses.push(accountManager.getAddress());
-        txs.push(deployMethod.send());
+        txs.push(tx);
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PrivateTransfer) {

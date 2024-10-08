@@ -628,62 +628,6 @@ TEST_F(AvmExecutionTests, movOpcode)
     validate_trace(std::move(trace), public_inputs);
 }
 
-// Positive test with CMOV.
-TEST_F(AvmExecutionTests, cmovOpcode)
-{
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "03"                      // val 3
-                               "10"                      // a_offset 16
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U16) +
-                               "04"                      // val 4
-                               "11"                      // b_offset 17
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "05"                       // val 5
-                               "20"                       // cond_offset 32
-                               + to_hex(OpCode::CMOV) +   // opcode CMOV
-                               "00"                       // Indirect flag
-                               "00000010"                 // a_offset 16
-                               "00000011"                 // b_offset 17
-                               "00000020"                 // cond_offset 32
-                               "00000012"                 // dst_offset 18
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "00000000"                 // ret offset 0
-                               "00000000";                // ret size 0
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    ASSERT_THAT(instructions, SizeIs(5));
-
-    // CMOV
-    EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::CMOV),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint32_t>(16),
-                                        VariantWith<uint32_t>(17),
-                                        VariantWith<uint32_t>(32),
-                                        VariantWith<uint32_t>(18)))));
-
-    auto trace = gen_trace_from_instr(instructions);
-
-    // Find the first row enabling the CMOV selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cmov == 1; });
-    EXPECT_EQ(row->main_ia, 3);
-    EXPECT_EQ(row->main_ib, 4);
-    EXPECT_EQ(row->main_ic, 3);
-    EXPECT_EQ(row->main_id, 5);
-
-    validate_trace(std::move(trace), public_inputs);
-}
-
 // Positive test with indirect MOV.
 TEST_F(AvmExecutionTests, indMovOpcode)
 {

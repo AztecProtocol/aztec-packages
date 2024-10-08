@@ -865,7 +865,8 @@ contract RollupTest is DecoderBase {
       _proverId
     ];
 
-    bytes32[64] memory fees;
+    bytes32[] memory fees = new bytes32[](Constants.AZTEC_EPOCH_DURATION * 2);
+
     fees[0] = bytes32(uint256(uint160(_feeRecipient)));
     fees[1] = bytes32(_feeAmount);
 

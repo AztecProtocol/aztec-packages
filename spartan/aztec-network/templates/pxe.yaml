@@ -18,7 +18,7 @@ spec:
         app: pxe
     spec:
       containers:
-        - name: aztec
+        - name: pxe
           image: "{{ .Values.images.aztec.image }}"
           command:
             - "/bin/bash"

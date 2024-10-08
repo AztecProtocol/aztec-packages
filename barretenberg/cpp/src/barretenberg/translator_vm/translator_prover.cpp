@@ -56,15 +56,10 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     computed_witness = true;
 }
 
-std::shared_ptr<TranslatorProver::CommitmentKey> TranslatorProver::compute_commitment_key(size_t circuit_size)
+void TranslatorProver::compute_commitment_key(size_t circuit_size)
 {
-    if (commitment_key) {
-        return commitment_key;
-    }
-
-    commitment_key = std::make_shared<CommitmentKey>(circuit_size);
-    return commitment_key;
-};
+    key->commitment_key = std::make_shared<CommitmentKey>(circuit_size);
+}
 
 /**
  * @brief Add circuit size and values used in the relations to the transcript
@@ -95,7 +90,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
     auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
     }
 }
 
@@ -146,7 +141,7 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
 
-    transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->polynomials.z_perm));
+    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
 
 /**
@@ -183,12 +178,12 @@ void TranslatorProver::execute_pcs_rounds()
                          sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
                          sumcheck_output.claimed_evaluations.get_shifted(),
                          sumcheck_output.challenge,
-                         commitment_key,
+                         key->commitment_key,
                          transcript,
                          key->polynomials.get_concatenated(),
                          sumcheck_output.claimed_evaluations.get_concatenated(),
                          key->polynomials.get_groups_to_be_concatenated());
-    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+    PCS::compute_opening_proof(key->commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof TranslatorProver::export_proof()
