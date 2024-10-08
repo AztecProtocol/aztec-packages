@@ -7,14 +7,14 @@ use types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 unconstrained fn main(
     tx_request: TxRequest,
     vk_tree_root: Field,
-    private_kernel_data: Field,
+    protocol_contract_tree_root: Field,
     private_call: PrivateCallDataWithoutPublicInputs,
     app_public_inputs: PrivateCircuitPublicInputs
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
         tx_request,
         vk_tree_root,
-        private_kernel_data,
+        protocol_contract_tree_root,
         private_call,
         app_public_inputs
     );
