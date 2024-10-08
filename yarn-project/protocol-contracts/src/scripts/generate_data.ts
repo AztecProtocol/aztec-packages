@@ -44,7 +44,7 @@ async function clearDestDir() {
     if (err.code === 'ENOENT') {
       // If the directory does not exist, do nothing.
     } else {
-      throw err;
+      log(`Error removing dest directory: ${err}`);
     }
   }
   await fs.mkdir(destArtifactsDir, { recursive: true });

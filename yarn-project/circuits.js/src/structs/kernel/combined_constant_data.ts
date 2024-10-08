@@ -44,6 +44,10 @@ export class CombinedConstantData {
     );
   }
 
+  clone(): CombinedConstantData {
+    return CombinedConstantData.fromBuffer(this.toBuffer());
+  }
+
   getSize() {
     return (
       this.historicalHeader.getSize() +

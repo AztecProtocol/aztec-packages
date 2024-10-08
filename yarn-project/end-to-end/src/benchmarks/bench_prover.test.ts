@@ -60,6 +60,7 @@ describe('benchmarks/proving', () => {
         minTxsPerBlock: 1,
       },
       {},
+      true,
     );
 
     schnorrWalletSalt = Fr.random();
@@ -153,7 +154,6 @@ describe('benchmarks/proving', () => {
       await pxe.registerContract(initialTokenContract);
       await pxe.registerContract(initialTestContract);
       await pxe.registerContract(initialFpContract);
-      await pxe.registerContract(initialGasContract);
 
       await pxe.registerRecipient(recipient);
 
