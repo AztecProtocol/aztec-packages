@@ -73,7 +73,7 @@ describe('It compiles noir program code, receiving circuit bytes and abi object.
 
     const recursion_program = await getCircuit(`${base_relative_path}/${circuit_recursion}`);
 
-    const recursion_backend = new BarretenbergBackend(recursion_program);
+    const recursion_backend = await BarretenbergBackend.new(recursion_program);
 
     const { witness: recursion_witnessUint8Array } = await new Noir(recursion_program).execute(recursion_inputs);
 

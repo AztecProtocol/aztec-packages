@@ -3,10 +3,11 @@ import { flattenFieldsAsArray } from './public_inputs.js';
 import { BackendOptions, BarretenbergVerifier as BarretenbergVerifierInternal } from '@aztec/bb.js';
 
 export class BarretenbergVerifier {
-  private verifier!: BarretenbergVerifierInternal;
+  constructor(private verifier: BarretenbergVerifierInternal) {}
 
-  constructor(options: BackendOptions = { threads: 1 }) {
-    this.verifier = new BarretenbergVerifierInternal(options);
+  static async new(options?: BackendOptions): Promise<BarretenbergVerifier> {
+    const verifier = await BarretenbergVerifierInternal.new(options);
+    return new BarretenbergVerifier(verifier);
   }
 
   /** @description Verifies a proof */
@@ -31,10 +32,11 @@ export function reconstructProofWithPublicInputs(proofData: ProofData): Uint8Arr
 }
 
 export class UltraHonkVerifier {
-  private verifier!: BarretenbergVerifierInternal;
+  constructor(private verifier: BarretenbergVerifierInternal) {}
 
-  constructor(options: BackendOptions = { threads: 1 }) {
-    this.verifier = new BarretenbergVerifierInternal(options);
+  static async new(options?: BackendOptions): Promise<BarretenbergVerifier> {
+    const verifier = await BarretenbergVerifierInternal.new(options);
+    return new BarretenbergVerifier(verifier);
   }
 
   /** @description Verifies a proof */

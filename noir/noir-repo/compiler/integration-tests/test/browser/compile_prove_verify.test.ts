@@ -59,7 +59,7 @@ test_cases.forEach((testInfo) => {
     const program = new Noir(noir_program);
     const { witness } = await program.execute(inputs);
 
-    const backend = new BarretenbergBackend(noir_program);
+    const backend = await BarretenbergBackend.new(noir_program);
     const proof = await backend.generateProof(witness);
 
     // JS verification
