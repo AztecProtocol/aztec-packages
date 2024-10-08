@@ -3,7 +3,7 @@ import { Fr } from '@aztec/circuits.js';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
 import { type EpochProver } from './epoch-prover.js';
-import { type MerkleTreeOperations } from './merkle_tree_operations.js';
+import { type MerkleTreeReadOperations } from './merkle_tree_operations.js';
 import { type ProvingJobSource } from './proving-job.js';
 
 /**
@@ -86,7 +86,7 @@ function parseProverId(str: string) {
  * Provides the ability to generate proofs and build rollups.
  */
 export interface EpochProverManager {
-  createEpochProver(db: MerkleTreeOperations): EpochProver;
+  createEpochProver(db: MerkleTreeReadOperations): EpochProver;
 
   start(): Promise<void>;
 

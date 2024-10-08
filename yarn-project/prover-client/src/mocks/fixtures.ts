@@ -1,5 +1,7 @@
 import {
   MerkleTreeId,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
 } from '@aztec/circuit-types';
@@ -23,7 +25,6 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import path from 'path';
@@ -90,10 +91,10 @@ export async function getSimulationProvider(
   return new WASMSimulator();
 }
 
-export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0x1) =>
+export const makeBloatedProcessedTx = (builderDb: MerkleTreeReadOperations, seed = 0x1) =>
   makeBloatedProcessedTxWithVKRoot(builderDb, getVKTreeRoot(), protocolContractTreeRoot, seed);
 
-export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
+export const makeEmptyProcessedTx = (builderDb: MerkleTreeReadOperations, chainId: Fr, version: Fr) => {
   const header = builderDb.getInitialHeader();
   return makeEmptyProcessedTxFromHistoricalTreeRoots(
     header,
@@ -105,7 +106,7 @@ export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: F
 };
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
-export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: ProcessedTx[]) => {
+export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, txs: ProcessedTx[]) => {
   await db.appendLeaves(
     MerkleTreeId.NOTE_HASH_TREE,
     txs.flatMap(tx =>
@@ -151,5 +152,5 @@ export const makeGlobals = (blockNumber: number) => {
   );
 };
 
-export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): ProcessedTx =>
+export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeReadOperations): ProcessedTx =>
   makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);

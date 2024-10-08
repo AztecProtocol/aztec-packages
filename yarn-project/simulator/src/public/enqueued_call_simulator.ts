@@ -61,7 +61,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { type PublicExecutionResult, accumulatePublicReturnValues, collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
@@ -102,7 +102,7 @@ export type EnqueuedCallResult = {
 export class EnqueuedCallSimulator {
   private log: DebugLogger;
   constructor(
-    private db: MerkleTreeOperations,
+    private db: MerkleTreeReadOperations,
     private publicExecutor: PublicExecutor,
     private publicKernelSimulator: PublicKernelCircuitSimulator,
     private globalVariables: GlobalVariables,
@@ -122,48 +122,33 @@ export class EnqueuedCallSimulator {
   ): Promise<EnqueuedCallResult> {
     const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
     const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
-
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
-    const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
-      previousPublicKernelOutput.validationRequests,
-    );
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
-
-    // If this is the first enqueued call in public, constants will be empty
-    // because private kernel does not expose them.
-    const constants = previousPublicKernelOutput.constants;
-    constants.globalVariables = this.globalVariables;
-
     const result = await this.publicExecutor.simulate(
       executionRequest,
-      constants,
+      this.globalVariables,
       availableGas,
       tx.data.constants.txContext,
       pendingNullifiers,
       transactionFee,
       startSideEffectCounter,
-      previousValidationRequestArrayLengths,
-      previousAccumulatedDataArrayLengths,
     );
 
     const callStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
     callStack[0].item.contractAddress = callRequest.contractAddress;
     callStack[0].item.callContext = callRequest.callContext;
     callStack[0].item.argsHash = callRequest.argsHash;
-
+    const prevAccumulatedData =
+      phase === PublicKernelPhase.SETUP
+        ? previousPublicKernelOutput.endNonRevertibleData
+        : previousPublicKernelOutput.end;
     const accumulatedData = PublicAccumulatedData.empty();
     accumulatedData.publicCallStack[0] = callRequest;
-
     const startVMCircuitOutput = new VMCircuitPublicInputs(
       previousPublicKernelOutput.constants,
       callRequest,
       callStack,
-      previousValidationRequestArrayLengths,
+      PublicValidationRequestArrayLengths.new(previousPublicKernelOutput.validationRequests),
       PublicValidationRequests.empty(),
-      previousAccumulatedDataArrayLengths,
+      PublicAccumulatedDataArrayLengths.new(prevAccumulatedData),
       accumulatedData,
       startSideEffectCounter,
       startSideEffectCounter,

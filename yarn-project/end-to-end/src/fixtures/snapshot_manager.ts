@@ -273,8 +273,8 @@ async function createAndSyncProverNode(
     proverNodePollingIntervalMs: 200,
     quoteProviderBasisPointFee: 100,
     quoteProviderBondAmount: 1000n,
-    proverMinimumStakeAmount: 1000n,
-    proverTargetStakeAmount: 2000n,
+    proverMinimumEscrowAmount: 1000n,
+    proverTargetEscrowAmount: 2000n,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,

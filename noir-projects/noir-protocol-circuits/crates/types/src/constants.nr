@@ -293,10 +293,8 @@ global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 1 /
 
 // + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees
 global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH + 5;
-// + 64 for 32 * FeeRecipient { recipient, value }, + 4 for previous_block_hash, end_block_hash, out_hash, vk_tree_root + 1 temporarily for prover_id
-global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 1 /* previous_block_hash */ + 1 /* end_block_hash */ + 2 * GLOBAL_VARIABLES_LENGTH + 1 /* out_hash */ + 32 * FEE_RECIPIENT_LENGTH + 1 /* vk_tree_root */ + 1 /* protocol_contract_tree_root */ + 1 /* prover_id */;
-
-global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + 32 * FEE_RECIPIENT_LENGTH;
+global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 1 /* previous_block_hash */ + 1 /* end_block_hash */ + 2 * GLOBAL_VARIABLES_LENGTH + 1 /* out_hash */ + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH + 1 /* vk_tree_root */ + 1 /* protocol_contract_tree_root */ + 1 /* prover_id */;
+global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
 
 global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;

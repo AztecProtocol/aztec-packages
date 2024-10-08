@@ -245,7 +245,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function submitEpochRootProof(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
@@ -259,7 +259,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     tips.provenBlockNumber = endBlockNumber;
 
-    for (uint256 i = 0; i < 32; i++) {
+    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
       address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
       uint256 fees = uint256(publicInputs[10 + i * 2]);
 
@@ -488,7 +488,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) public view override(IRollup) returns (bytes32[] memory) {
     uint256 previousBlockNumber = tips.provenBlockNumber;
@@ -546,7 +546,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
-    //   fees: [FeeRecipient; 32],
+    //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field
@@ -581,19 +581,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // out_hash: root of this epoch's l2 to l1 message tree
     publicInputs[8] = _args[5];
 
-    // fees[9-72]: array of recipient-value pairs
-    for (uint256 i = 0; i < 64; i++) {
+    uint256 feesLength = Constants.AZTEC_EPOCH_DURATION * 2;
+    // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
+    for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[9 + i] = _fees[i];
     }
+    uint256 feesEnd = 9 + feesLength;
 
     // vk_tree_root
-    publicInputs[73] = vkTreeRoot;
+    publicInputs[feesEnd] = vkTreeRoot;
 
     // protocol_contract_tree_root
-    publicInputs[74] = protocolContractTreeRoot;
+    publicInputs[feesEnd + 1] = protocolContractTreeRoot;
 
     // prover_id: id of current epoch's prover
-    publicInputs[75] = _args[6];
+    publicInputs[feesEnd + 2] = _args[6];
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
@@ -604,7 +606,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 76] = part;
+      publicInputs[i + feesEnd + 3] = part;
     }
 
     return publicInputs;

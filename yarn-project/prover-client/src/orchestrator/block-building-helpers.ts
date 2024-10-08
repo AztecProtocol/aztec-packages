@@ -1,4 +1,11 @@
-import { type Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
+import {
+  type Body,
+  MerkleTreeId,
+  type MerkleTreeWriteOperations,
+  type ProcessedTx,
+  TxEffect,
+  getTreeHeight,
+} from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -54,7 +61,7 @@ import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
@@ -72,7 +79,7 @@ export async function buildBaseRollupInput(
   tx: ProcessedTx,
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
-  db: MerkleTreeOperations,
+  db: MerkleTreeWriteOperations,
   kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
@@ -252,7 +259,7 @@ export async function buildHeaderFromTxEffects(
   body: Body,
   globalVariables: GlobalVariables,
   l1ToL2Messages: Fr[],
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ) {
   const stateReference = new StateReference(
     await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
@@ -292,7 +299,7 @@ export async function buildHeaderFromTxEffects(
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
   blockHeader: Header,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ) {
   await Promise.all([
     validateState(blockHeader.state, db),
@@ -300,7 +307,7 @@ export async function validateBlockRootOutput(
   ]);
 }
 
-export async function validateState(state: StateReference, db: MerkleTreeOperations) {
+export async function validateState(state: StateReference, db: MerkleTreeReadOperations) {
   const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
     async (id: MerkleTreeId) => {
       return { key: id, value: await getTreeSnapshot(id, db) };
@@ -317,7 +324,7 @@ export async function validateState(state: StateReference, db: MerkleTreeOperati
   );
 }
 
-export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeOperations) {
+export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);
   const path = await db.getSiblingPath(treeId, size);
   return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
@@ -376,7 +383,7 @@ export function getPreviousRollupBlockDataFromPublicInputs(
 
 export async function getConstantRollupData(
   globalVariables: GlobalVariables,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ): Promise<ConstantRollupData> {
   return ConstantRollupData.from({
     vkTreeRoot: getVKTreeRoot(),
@@ -386,7 +393,7 @@ export async function getConstantRollupData(
   });
 }
 
-export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations): Promise<AppendOnlyTreeSnapshot> {
+export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeReadOperations): Promise<AppendOnlyTreeSnapshot> {
   const treeInfo = await db.getTreeInfo(id);
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
@@ -416,7 +423,7 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
   );
 }
 
-export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeOperations) {
+export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
   const allPublicDataUpdateRequests = padArrayEnd(
     tx.finalPublicDataUpdateRequests,
     PublicDataUpdateRequest.empty(),
@@ -484,7 +491,7 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
 export async function getSubtreeSiblingPath(
   treeId: MerkleTreeId,
   subtreeHeight: number,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ): Promise<Fr[]> {
   const nextAvailableLeafIndex = await db.getTreeInfo(treeId).then(t => t.size);
   const fullSiblingPath = await db.getSiblingPath(treeId, nextAvailableLeafIndex);
@@ -498,7 +505,7 @@ export async function getMembershipWitnessFor<N extends number>(
   value: Fr,
   treeId: MerkleTreeId,
   height: N,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ): Promise<MembershipWitness<N>> {
   // If this is an empty tx, then just return zeroes
   if (value.isZero()) {
