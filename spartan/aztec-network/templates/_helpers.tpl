@@ -82,10 +82,10 @@ http://metrics-opentelemetry-collector.metrics:4318/v1/traces
 {{- if $value -}}
   {{- if kindIs "string" $value -}}
     {{- if ne $value "" -}}
---{{ $name }} {{ $value }}
+--{{ $name }} {{ $value }}{{ " " }}
     {{- end -}}
   {{- else -}}
---{{ $name }} {{ $value }}
+--{{ $name }} {{ $value }}{{ " " }}
   {{- end -}}
 {{- end -}}
 {{- end -}}
