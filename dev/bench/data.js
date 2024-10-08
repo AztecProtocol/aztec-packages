@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728382121599,
+  "lastUpdate": 1728387139320,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8bfc769d7cbd6f88bfa7926c051a329ee0fd3468",
-          "message": "fix(avm): fix tests under proving (#8640)\n\nThere was a bug in `commit_sparse` which broke one of the tests but\nLucas fixed it.\nSee\nhttps://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1726738000560929?thread_ts=1726728397.210449&cid=C04DL2L1UP2\n\nThis PR also fixes the other tests that were failing, and re-enables the\nbb-prover test.\n\n---------\n\nCo-authored-by: Maddiaa0 <47148561+Maddiaa0@users.noreply.github.com>",
-          "timestamp": "2024-09-20T09:22:50+01:00",
-          "tree_id": "62032ee772f547afa88cf782cf946f05e8c78ecf",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8bfc769d7cbd6f88bfa7926c051a329ee0fd3468"
-        },
-        "date": 1726821511849,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35557.231949,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 32893.423675 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5093.001473999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4674.004397999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100276.62659200002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100276627000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14531.35694,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14531357000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8511005529,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8511005529 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152320052,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152320052 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6976493661,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6976493661 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128881344,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128881344 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 127725021,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127725021 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41f393443396cae77e09a09df07d42e6d5ff5618",
+          "message": "feat: new world state (#8776)\n\nThis PR enables a new WorldState implementation written in C++. This\r\nbrings huge performance benefits.\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
+          "timestamp": "2024-10-08T11:50:50+01:00",
+          "tree_id": "81c7e61087f1df3ef47219e0aca4ff67e0a91808",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/41f393443396cae77e09a09df07d42e6d5ff5618"
+        },
+        "date": 1728387132138,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31434.155544999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29005.590862999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5543.888069000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5170.902692000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93094.40584200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93094408000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15820.047713000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15820048000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8283113151,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8283113151 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153126336,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153126336 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6728643109,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6728643109 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126046456,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126046456 ns\nthreads: 1"
           }
         ]
       }
