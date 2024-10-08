@@ -58,6 +58,7 @@ export async function deployAztecContracts(
   privateKey: string | undefined,
   mnemonic: string,
   salt: number | undefined,
+  initialValidators: EthAddress[],
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
   const {
@@ -114,6 +115,7 @@ export async function deployAztecContracts(
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt,
+    initialValidators,
   });
 }
 
