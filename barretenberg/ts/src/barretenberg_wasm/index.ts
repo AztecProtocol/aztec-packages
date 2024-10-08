@@ -27,7 +27,7 @@ async function getAvailableThreads(): Promise<number> {
       const os = await import('os');
       return os.cpus().length;
     } catch (e) {
-      console.log('Could not detect environment. Falling back to one thread.', e);
+      debug(`Could not detect environment. Falling back to one thread.: {e}`);
       return 1;
     }
   }

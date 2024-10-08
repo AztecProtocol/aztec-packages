@@ -136,7 +136,7 @@ export class TXEService {
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = fromSingle(contractAddress);
-    const db = trees.asLatest();
+    const db = await trees.getLatest();
 
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
@@ -618,6 +618,7 @@ export class TXEService {
     _encryptedLog: ForeignCallSingle,
     _counter: ForeignCallSingle,
   ) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
@@ -626,10 +627,12 @@ export class TXEService {
     _encryptedNote: ForeignCallArray,
     _counter: ForeignCallSingle,
   ) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
   emitEncryptedEventLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedEvent: Buffer, _counter: number) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
@@ -678,7 +681,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -686,7 +689,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public async setPublicTeardownFunctionCall(
@@ -697,7 +700,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -705,7 +708,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
@@ -749,5 +752,15 @@ export class TXEService {
       );
     }
     return toForeignCallResult([toArray(witness)]);
+  }
+
+  emitUnencryptedLog(_contractAddress: ForeignCallSingle, _message: ForeignCallArray, _counter: ForeignCallSingle) {
+    // TODO(#8811): Implement
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
+    // TODO(#8811): Implement
+    return toForeignCallResult([]);
   }
 }

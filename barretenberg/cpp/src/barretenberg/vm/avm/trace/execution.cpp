@@ -604,13 +604,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)));
             break;
-        case OpCode::CMOV:
-            trace_builder.op_cmov(std::get<uint8_t>(inst.operands.at(0)),
-                                  std::get<uint32_t>(inst.operands.at(1)),
-                                  std::get<uint32_t>(inst.operands.at(2)),
-                                  std::get<uint32_t>(inst.operands.at(3)),
-                                  std::get<uint32_t>(inst.operands.at(4)));
-            break;
 
             // World State
         case OpCode::SLOAD:
@@ -673,7 +666,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
             // Control Flow - Contract Calls
         case OpCode::CALL:
-            trace_builder.op_call(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_call(std::get<uint16_t>(inst.operands.at(0)),
                                   std::get<uint32_t>(inst.operands.at(1)),
                                   std::get<uint32_t>(inst.operands.at(2)),
                                   std::get<uint32_t>(inst.operands.at(3)),
@@ -684,7 +677,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(8)));
             break;
         case OpCode::STATICCALL:
-            trace_builder.op_static_call(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_static_call(std::get<uint16_t>(inst.operands.at(0)),
                                          std::get<uint32_t>(inst.operands.at(1)),
                                          std::get<uint32_t>(inst.operands.at(2)),
                                          std::get<uint32_t>(inst.operands.at(3)),
@@ -748,7 +741,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(4)));
             break;
         case OpCode::ECADD:
-            trace_builder.op_ec_add(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_ec_add(std::get<uint16_t>(inst.operands.at(0)),
                                     std::get<uint32_t>(inst.operands.at(1)),
                                     std::get<uint32_t>(inst.operands.at(2)),
                                     std::get<uint32_t>(inst.operands.at(3)),
@@ -779,9 +772,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                 std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)),
-                                                std::get<uint32_t>(inst.operands.at(4)),
-                                                std::get<uint32_t>(inst.operands.at(5)));
+                                                std::get<uint32_t>(inst.operands.at(3)));
             break;
 
         case OpCode::KECCAKF1600:

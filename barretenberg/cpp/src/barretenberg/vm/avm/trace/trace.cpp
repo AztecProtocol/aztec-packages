@@ -95,7 +95,7 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
  * @tparam N The number of memory offsets to resolve.
  */
 template <size_t N>
-std::array<AddressWithMode, N> unpack_indirects(uint8_t indirect, std::array<uint32_t, N> mem_offsets)
+std::array<AddressWithMode, N> unpack_indirects(uint16_t indirect, std::array<uint32_t, N> mem_offsets)
 {
     std::array<AddressWithMode, N> addr_mode_arr;
 
@@ -230,8 +230,8 @@ void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag
     // op_set increments the pc, so we need to store the current pc and then jump back to it
     // to legaly reset the pc.
     auto current_pc = pc;
-    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag);
-    op_jump(current_pc);
+    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, true);
+    op_jump(current_pc, true);
 }
 
 template <typename T>
@@ -1636,12 +1636,14 @@ void AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
  *
  * @param jmp_dest - The destination to jump to
  */
-void AvmTraceBuilder::op_jump(uint32_t jmp_dest)
+void AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMP_16);
+    if (!skip_gas) {
+        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_16);
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1822,7 +1824,7 @@ void AvmTraceBuilder::op_internal_return()
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto [resolved_c] = unpack_indirects<1>(indirect, { dst_offset });
@@ -1832,7 +1834,9 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
-    gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+    if (!skip_gas) {
+        gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1912,119 +1916,6 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .main_sel_op_mov = 1,
         .main_sel_resolve_ind_addr_a = static_cast<uint32_t>(indirect_src_flag),
         .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_dst_flag),
-        .main_tag_err = static_cast<uint32_t>(!tag_match),
-        .main_w_in_tag = static_cast<uint32_t>(tag),
-    });
-}
-
-/**
- * @brief Copy value and tag from a memory cell at position src_offset to the
- *        memory cell at position dst_offset. src_offset is a_offset if the value
- *        defined by cond_offset is non-zero. Otherwise, src_offset is b_offset.
- *
- * @param indirect A byte encoding information about indirect/direct memory access.
- * @param a_offset Offset of first candidate source memory cell
- * @param b_offset Offset of second candidate source memory cell
- * @param cond_offset Offset of the condition determining the source offset (a_offset or b_offset)
- * @param dst_offset Offset of destination memory cell
- */
-void AvmTraceBuilder::op_cmov(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset)
-{
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    bool tag_match = true;
-    uint32_t direct_a_offset = a_offset;
-    uint32_t direct_b_offset = b_offset;
-    uint32_t direct_cond_offset = cond_offset;
-    uint32_t direct_dst_offset = dst_offset;
-
-    bool indirect_a_flag = is_operand_indirect(indirect, 0);
-    bool indirect_b_flag = is_operand_indirect(indirect, 1);
-    bool indirect_cond_flag = is_operand_indirect(indirect, 2);
-    bool indirect_dst_flag = is_operand_indirect(indirect, 3);
-
-    if (indirect_a_flag) {
-        auto read_ind_a =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, a_offset);
-        direct_a_offset = uint32_t(read_ind_a.val);
-        tag_match = tag_match && read_ind_a.tag_match;
-    }
-
-    if (indirect_b_flag) {
-        auto read_ind_b =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_B, b_offset);
-        direct_b_offset = uint32_t(read_ind_b.val);
-        tag_match = tag_match && read_ind_b.tag_match;
-    }
-
-    if (indirect_cond_flag) {
-        auto read_ind_d =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_D, cond_offset);
-        direct_cond_offset = uint32_t(read_ind_d.val);
-        tag_match = tag_match && read_ind_d.tag_match;
-    }
-
-    if (indirect_dst_flag) {
-        auto read_ind_c =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, dst_offset);
-        direct_dst_offset = uint32_t(read_ind_c.val);
-        tag_match = tag_match && read_ind_c.tag_match;
-    }
-
-    // Reading from memory and loading into ia or ib without tag check. We also load the conditional value
-    // in id without any tag check.
-    std::array<AvmMemTraceBuilder::MemEntry, 3> const cmov_res = mem_trace_builder.read_and_load_cmov_opcode(
-        call_ptr, clk, direct_a_offset, direct_b_offset, direct_cond_offset);
-
-    AvmMemTraceBuilder::MemEntry const& a_mem_entry = cmov_res.at(0);
-    AvmMemTraceBuilder::MemEntry const& b_mem_entry = cmov_res.at(1);
-    AvmMemTraceBuilder::MemEntry const& cond_mem_entry = cmov_res.at(2);
-
-    const bool id_zero = cond_mem_entry.val == 0;
-
-    auto const& val = id_zero ? b_mem_entry.val : a_mem_entry.val;
-    auto const& tag = id_zero ? b_mem_entry.tag : a_mem_entry.tag;
-
-    // Write into memory from intermediate register ic.
-    mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
-
-    FF const inv = !id_zero ? cond_mem_entry.val.invert() : 1;
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::CMOV);
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_call_ptr = call_ptr,
-        .main_ia = a_mem_entry.val,
-        .main_ib = b_mem_entry.val,
-        .main_ic = val,
-        .main_id = cond_mem_entry.val,
-        .main_id_zero = static_cast<uint32_t>(id_zero),
-        .main_ind_addr_a = indirect_a_flag ? a_offset : 0,
-        .main_ind_addr_b = indirect_b_flag ? b_offset : 0,
-        .main_ind_addr_c = indirect_dst_flag ? dst_offset : 0,
-        .main_ind_addr_d = indirect_cond_flag ? cond_offset : 0,
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_inv = inv,
-        .main_mem_addr_a = direct_a_offset,
-        .main_mem_addr_b = direct_b_offset,
-        .main_mem_addr_c = direct_dst_offset,
-        .main_mem_addr_d = direct_cond_offset,
-        .main_pc = pc++,
-        .main_r_in_tag = static_cast<uint32_t>(tag),
-        .main_rwc = 1,
-        .main_sel_mem_op_a = 1,
-        .main_sel_mem_op_b = 1,
-        .main_sel_mem_op_c = 1,
-        .main_sel_mem_op_d = 1,
-        .main_sel_mov_ia_to_ic = static_cast<uint32_t>(!id_zero),
-        .main_sel_mov_ib_to_ic = static_cast<uint32_t>(id_zero),
-        .main_sel_op_cmov = 1,
-        .main_sel_resolve_ind_addr_a = static_cast<uint32_t>(indirect_a_flag),
-        .main_sel_resolve_ind_addr_b = static_cast<uint32_t>(indirect_b_flag),
-        .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_dst_flag),
-        .main_sel_resolve_ind_addr_d = static_cast<uint32_t>(indirect_cond_flag),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(tag),
     });
@@ -2334,7 +2225,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
     }
     // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    op_jump(old_pc + 1, true); // TODO(8945)
 }
 
 void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
@@ -2409,7 +2300,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
     }
     // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    op_jump(old_pc + 1, true); // TODO(8945)
 }
 
 void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
@@ -2657,7 +2548,7 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
 
 // Helper/implementation for CALL and STATICCALL
 void AvmTraceBuilder::constrain_external_call(OpCode opcode,
-                                              uint8_t indirect,
+                                              uint16_t indirect,
                                               uint32_t gas_offset,
                                               uint32_t addr_offset,
                                               uint32_t args_offset,
@@ -2733,7 +2624,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // Write the return data to memory
     write_slice_to_memory(resolved_ret_offset, AvmMemoryTag::FF, hint.return_data);
     // Write the success flag to memory
-    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U1, std::vector<FF>{ hint.success });
+    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U8, std::vector<FF>{ hint.success });
     external_call_counter++;
 
     // Adjust the side_effect_counter to the value at the end of the external call but not static call.
@@ -2759,7 +2650,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
  * stored
  * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
-void AvmTraceBuilder::op_call(uint8_t indirect,
+void AvmTraceBuilder::op_call(uint16_t indirect,
                               uint32_t gas_offset,
                               uint32_t addr_offset,
                               uint32_t args_offset,
@@ -2798,7 +2689,7 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
  * stored
  * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
-void AvmTraceBuilder::op_static_call(uint8_t indirect,
+void AvmTraceBuilder::op_static_call(uint16_t indirect,
                                      uint32_t gas_offset,
                                      uint32_t addr_offset,
                                      uint32_t args_offset,
@@ -3147,7 +3038,7 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
 }
 
-void AvmTraceBuilder::op_ec_add(uint8_t indirect,
+void AvmTraceBuilder::op_ec_add(uint16_t indirect,
                                 uint32_t lhs_x_offset,
                                 uint32_t lhs_y_offset,
                                 uint32_t lhs_is_inf_offset,
@@ -3445,22 +3336,15 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
 void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
                                             uint32_t output_offset,
                                             uint32_t state_offset,
-                                            uint32_t state_size_offset,
-                                            uint32_t inputs_offset,
-                                            uint32_t inputs_size_offset)
+                                            uint32_t inputs_offset)
 {
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
-    auto [resolved_output_offset,
-          resolved_state_offset,
-          resolved_state_size_offset,
-          resolved_inputs_offset,
-          resolved_inputs_size_offset] =
-        unpack_indirects<5>(indirect,
-                            { output_offset, state_offset, state_size_offset, inputs_offset, inputs_size_offset });
+    auto [resolved_output_offset, resolved_state_offset, resolved_inputs_offset] =
+        unpack_indirects<3>(indirect, { output_offset, state_offset, inputs_offset });
 
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
@@ -3685,7 +3569,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.mem_one_min_inv = src.m_one_min_inv;
         dest.mem_sel_mov_ia_to_ic = FF(static_cast<uint32_t>(src.m_sel_mov_ia_to_ic));
         dest.mem_sel_mov_ib_to_ic = FF(static_cast<uint32_t>(src.m_sel_mov_ib_to_ic));
-        dest.mem_sel_op_cmov = FF(static_cast<uint32_t>(src.m_sel_cmov));
         dest.mem_sel_op_slice = FF(static_cast<uint32_t>(src.m_sel_op_slice));
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
@@ -3735,11 +3618,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
             }
         }
 
-        if (src.m_sel_cmov || src.m_sel_op_slice) {
-            dest.mem_skip_check_tag =
-                dest.mem_sel_op_cmov * (dest.mem_sel_op_d + dest.mem_sel_op_a * (-dest.mem_sel_mov_ia_to_ic + 1) +
-                                        dest.mem_sel_op_b * (-dest.mem_sel_mov_ib_to_ic + 1)) +
-                dest.mem_sel_op_slice;
+        if (src.m_sel_op_slice) {
+            dest.mem_skip_check_tag = dest.mem_sel_op_b * (-dest.mem_sel_mov_ib_to_ic + 1) + dest.mem_sel_op_slice;
         }
 
         if (i + 1 < mem_trace_size) {
@@ -3862,12 +3742,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     gas_trace_builder.finalize(main_trace);
     // We need to assert here instead of finalize until we figure out inter-trace threading
-    for (size_t i = 0; i < gas_trace_size; i++) {
-        auto& dest = main_trace.at(i);
-        range_check_builder.assert_range(
-            uint128_t(dest.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(dest.main_clk));
-        range_check_builder.assert_range(
-            uint128_t(dest.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(dest.main_clk));
+    for (size_t i = 0; i < main_trace_size; i++) {
+        auto& row = main_trace.at(i);
+        if (row.main_is_gas_accounted) {
+            range_check_builder.assert_range(
+                uint128_t(row.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(row.main_clk));
+            range_check_builder.assert_range(
+                uint128_t(row.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(row.main_clk));
+        }
     }
 
     /**********************************************************************************************

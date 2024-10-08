@@ -109,7 +109,6 @@ export class UltraHonkBackend {
   async instantiate(): Promise<void> {
     if (!this.initialized) {
       this.initialized = true;
-
       const honkRecursion = true;
       await this.api.acirInitSRS(this.acirUncompressedBytecode, honkRecursion);
 

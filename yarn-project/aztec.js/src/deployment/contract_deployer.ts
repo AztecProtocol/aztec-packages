@@ -3,8 +3,8 @@ import { type ContractArtifact } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';
+import { Contract } from '../contract/contract.js';
 import { DeployMethod } from '../contract/deploy_method.js';
-import { Contract } from '../contract/index.js';
 
 /**
  * A class for deploying contract.

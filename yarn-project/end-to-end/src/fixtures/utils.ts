@@ -49,12 +49,12 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { AuthRegistryContract, RouterContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -113,7 +113,11 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: { salt?: number; initialValidators?: EthAddress[]; assumeProvenThrough?: number } = {
+  args: {
+    salt?: number;
+    initialValidators?: EthAddress[];
+    assumeProvenThrough?: number;
+  } = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
   },
   chain: Chain = foundry,
@@ -136,8 +140,8 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
@@ -241,7 +245,7 @@ async function setupWithRemoteEnvironment(
     walletClient,
     publicClient,
   };
-  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
@@ -284,7 +288,7 @@ async function setupWithRemoteEnvironment(
 }
 
 /** Options for the e2e tests setup */
-type SetupOptions = {
+export type SetupOptions = {
   /** State load */
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
@@ -299,6 +303,12 @@ type SetupOptions = {
   l1BlockTime?: number;
   /** Anvil Start time */
   l1StartTime?: number;
+  /** The anvil time where we should at the earliest be seeing L2 blocks */
+  l2StartTime?: number;
+  /** How far we should assume proven */
+  assumeProvenThrough?: number;
+  /** Whether to start a prover node */
+  startProverNode?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -405,11 +415,17 @@ export async function setup(
       config.l1RpcUrl,
       publisherHdAccount!,
       logger,
-      { salt: opts.salt, initialValidators: opts.initialValidators },
+      { salt: opts.salt, initialValidators: opts.initialValidators, assumeProvenThrough: opts.assumeProvenThrough },
       chain,
     ));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  if (opts.l2StartTime) {
+    // This should only be used in synching test or when you need to have a stable
+    // timestamp for the first l2 block.
+    await ethCheatCodes.warp(opts.l2StartTime);
+  }
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodes(config.l1RpcUrl),
@@ -462,7 +478,7 @@ export async function setup(
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
-  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {
@@ -546,13 +562,26 @@ export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; 
  */
 
 // docs:start:public_deploy_accounts
-export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
-  const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
-  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
-  const batch = new BatchCall(sender, [
-    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
-    ...instances.map(instance => deployInstance(sender, instance!).request()),
-  ]);
+export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToDeploy: Wallet[]) {
+  // We have to check whether the accounts are already deployed. This can happen if the test runs against
+  // the sandbox and the test accounts exist
+  const accountsAndAddresses = await Promise.all(
+    accountsToDeploy.map(async account => {
+      const address = account.getAddress();
+      return {
+        address,
+        deployed: await sender.isContractPubliclyDeployed(address),
+      };
+    }),
+  );
+  const instances = await Promise.all(
+    accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
+  );
+  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
+    await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+  }
+  const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts

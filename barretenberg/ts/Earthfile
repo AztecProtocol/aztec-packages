@@ -5,11 +5,13 @@ CACHE:
   ARG command
   ARG build_artifacts
   ARG prefix
-  DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
-    --prefix="bb.js-$prefix" \
-    --command="$command" \
-    --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
-    --build_artifacts="$build_artifacts"
+  # TODO(#8929): reinstate bb.js caching
+  RUN $command
+  # DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
+  #   --prefix="bb.js-$prefix" \
+  #   --command="$command" \
+  #   --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
+  #   --build_artifacts="$build_artifacts"
 
 deps:
     FROM ../../build-images+from-registry
@@ -68,6 +70,20 @@ build:
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz
     SAVE ARTIFACT /usr/src/barretenberg/ts build
+
+publish-npm:
+    FROM +build
+    ARG VERSION
+    ARG DIST_TAG
+    ARG DRY_RUN=0
+    RUN --secret NPM_TOKEN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > /usr/src/barretenberg/ts/.npmrc
+    WORKDIR /usr/src/barretenberg/ts
+    RUN jq --arg v $VERSION '.version = $v' package.json > _tmp.json && mv  _tmp.json package.json
+    RUN if [ "$DRY_RUN" = "1" ]; then \
+        npm publish --tag $DIST_TAG --access public --dry-run; \
+    else \
+        npm publish --tag $DIST_TAG --access public; \
+    fi
 
 test:
     FROM +deps

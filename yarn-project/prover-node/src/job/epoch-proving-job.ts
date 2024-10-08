@@ -4,12 +4,14 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProverCoordination,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
@@ -28,7 +30,12 @@ export class EpochProvingJob {
   private log = createDebugLogger('aztec:epoch-proving-job');
   private uuid: string;
 
+  private runPromise: Promise<void> | undefined;
+
   constructor(
+    private db: MerkleTreeWriteOperations,
+    private epochNumber: bigint,
+    private blocks: L2Block[],
     private prover: EpochProver,
     private publicProcessorFactory: PublicProcessorFactory,
     private publisher: L1Publisher,
@@ -50,28 +57,29 @@ export class EpochProvingJob {
   }
 
   /**
-   * Proves the given block range and submits the proof to L1.
-   * @param fromBlock - Start block.
-   * @param toBlock - Last block (inclusive).
+   * Proves the given epoch and submits the proof to L1.
    */
-  public async run(fromBlock: number, toBlock: number) {
-    if (fromBlock > toBlock) {
-      throw new Error(`Invalid block range: ${fromBlock} to ${toBlock}`);
-    }
-
-    const epochNumber = fromBlock; // Use starting block number as epoch number
-    const epochSize = toBlock - fromBlock + 1;
-    this.log.info(`Starting epoch proving job`, { fromBlock, toBlock, epochNumber, uuid: this.uuid });
+  public async run() {
+    const epochNumber = Number(this.epochNumber);
+    const epochSize = this.blocks.length;
+    this.log.info(`Starting epoch proving job`, { epochSize, epochNumber, uuid: this.uuid });
     this.state = 'processing';
     const timer = new Timer();
 
+    const { promise, resolve } = promiseWithResolvers<void>();
+    this.runPromise = promise;
+
     try {
       this.prover.startNewEpoch(epochNumber, epochSize);
-      let previousHeader = (await this.l2BlockSource.getBlock(fromBlock - 1))?.header;
 
-      for (let blockNumber = fromBlock; blockNumber <= toBlock; blockNumber++) {
+      // Get the genesis header if the first block of the epoch is the first block of the chain
+      let previousHeader =
+        this.blocks[0].number === 1
+          ? this.db.getInitialHeader()
+          : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
+
+      for (const block of this.blocks) {
         // Gather all data to prove this block
-        const block = await this.getBlock(blockNumber);
         const globalVariables = block.header.globalVariables;
         const txHashes = block.body.txEffects.map(tx => tx.txHash);
         const txCount = block.body.numberOfTxsIncludingPadded;
@@ -94,7 +102,7 @@ export class EpochProvingJob {
         await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
 
         // Process public fns
-        const publicProcessor = this.publicProcessorFactory.create(previousHeader, globalVariables);
+        const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
         await this.processTxs(publicProcessor, txs, txCount);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,
@@ -109,11 +117,12 @@ export class EpochProvingJob {
 
       this.state = 'awaiting-prover';
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
-      this.log.info(`Finalised proof for epoch`, { epochNumber, fromBlock, toBlock, uuid: this.uuid });
+      this.log.info(`Finalised proof for epoch`, { epochNumber, uuid: this.uuid });
 
       this.state = 'publishing-proof';
-      await this.publisher.submitEpochProof({ epochNumber, fromBlock, toBlock, publicInputs, proof });
-      this.log.info(`Submitted proof for epoch`, { epochNumber, fromBlock, toBlock, uuid: this.uuid });
+      const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
+      await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
+      this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
 
       this.state = 'completed';
       this.metrics.recordProvingJob(timer);
@@ -122,19 +131,15 @@ export class EpochProvingJob {
       this.state = 'failed';
     } finally {
       await this.cleanUp(this);
+      resolve();
     }
   }
 
-  public stop() {
+  public async stop() {
     this.prover.cancel();
-  }
-
-  private async getBlock(blockNumber: number): Promise<L2Block> {
-    const block = await this.l2BlockSource.getBlock(blockNumber);
-    if (!block) {
-      throw new Error(`Block ${blockNumber} not found in L2 block source`);
+    if (this.runPromise) {
+      await this.runPromise;
     }
-    return block;
   }
 
   private async getTxs(txHashes: TxHash[]): Promise<Tx[]> {

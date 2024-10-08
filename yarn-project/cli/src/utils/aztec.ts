@@ -69,11 +69,10 @@ export async function deployAztecContracts(
     RegistryBytecode,
     RollupAbi,
     RollupBytecode,
-
     FeeJuicePortalAbi,
     FeeJuicePortalBytecode,
-    PortalERC20Abi,
-    PortalERC20Bytecode,
+    TestERC20Abi,
+    TestERC20Bytecode,
   } = await import('@aztec/l1-artifacts');
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
@@ -100,8 +99,8 @@ export async function deployAztecContracts(
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,

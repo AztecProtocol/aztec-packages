@@ -182,12 +182,12 @@ export class LibP2PService implements P2PService {
     await this.discoveryRunningPromise?.stop();
     this.logger.debug('Stopping peer discovery service...');
     await this.peerDiscoveryService.stop();
+    this.logger.debug('Request response service stopped...');
+    await this.reqresp.stop();
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
     this.logger.debug('Stopping request response service...');
-    await this.reqresp.stop();
-    this.logger.debug('Request response service stopped...');
   }
 
   /**
@@ -481,7 +481,7 @@ export class LibP2PService implements P2PService {
     // double spend validation
     const doubleSpendValidator = new DoubleSpendTxValidator({
       getNullifierIndex: async (nullifier: Fr) => {
-        const merkleTree = this.worldStateSynchronizer.getLatest();
+        const merkleTree = this.worldStateSynchronizer.getCommitted();
         const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
         return index;
       },

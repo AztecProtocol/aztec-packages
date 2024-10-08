@@ -9,22 +9,45 @@ const randomSigner = () => {
   return new Secp256k1Signer(pk);
 };
 
-describe('Signature serialization / deserialization', () => {
-  it('Should serialize / deserialize', () => {
-    const signer = randomSigner();
+describe('eth signature', () => {
+  let message: Buffer32;
+  let signer: Secp256k1Signer;
+  let signature: Signature;
 
-    const originalMessage = Fr.random();
-    const message = Buffer32.fromField(originalMessage);
+  beforeAll(() => {
+    signer = randomSigner();
+    message = Buffer32.fromField(Fr.random());
+    signature = signer.sign(message);
+  });
 
-    const signature = signer.sign(message);
-
-    // Serde
+  it('should serialize / deserialize to buffer', () => {
     const serialized = signature.toBuffer();
     const deserialized = Signature.fromBuffer(serialized);
     expect(deserialized).toEqual(signature);
+  });
 
-    // Recover signature
+  it('should serialize / deserialize real signature to hex string', () => {
+    const serialized = signature.to0xString();
+    const deserialized = Signature.from0xString(serialized);
+    expect(deserialized).toEqual(signature);
+  });
+
+  it('should recover signer from signature', () => {
     const sender = recoverAddress(message, signature);
     expect(sender).toEqual(signer.address);
+  });
+
+  it('should serialize / deserialize to hex string with 1-digit v', () => {
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 1, false);
+    const serialized = signature.to0xString();
+    const deserialized = Signature.from0xString(serialized);
+    expect(deserialized).toEqual(signature);
+  });
+
+  it('should serialize / deserialize to hex string with 2-digit v', () => {
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 26, false);
+    const serialized = signature.to0xString();
+    const deserialized = Signature.from0xString(serialized);
+    expect(deserialized).toEqual(signature);
   });
 });

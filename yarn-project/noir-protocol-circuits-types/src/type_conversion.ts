@@ -1,4 +1,5 @@
 import {
+  AZTEC_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
@@ -87,7 +88,7 @@ import {
   type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelResetHints,
   type PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
@@ -1825,16 +1826,14 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
   NLL_RR_SETTLED extends number,
   KEY_VALIDATION_REQUESTS extends number,
   NUM_TRANSIENT_DATA_HINTS extends number,
-  TAG extends string,
 >(
-  inputs: PrivateKernelResetCircuitPrivateInputs<
+  inputs: PrivateKernelResetCircuitPrivateInputsVariants<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
     KEY_VALIDATION_REQUESTS,
-    NUM_TRANSIENT_DATA_HINTS,
-    TAG
+    NUM_TRANSIENT_DATA_HINTS
   >,
 ): PrivateKernelResetCircuitPrivateInputsNoir<
   NH_RR_PENDING,
@@ -2217,7 +2216,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.start_global_variables),
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.end_global_variables),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
-    mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, 32, mapFeeRecipientFromNoir),
+    mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, AZTEC_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
   );
@@ -2392,7 +2391,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
     mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
-    mapTupleFromNoir(rootRollupPublicInputs.fees, 32, mapFeeRecipientFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
   );

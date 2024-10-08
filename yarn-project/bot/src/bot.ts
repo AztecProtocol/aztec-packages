@@ -75,10 +75,10 @@ export class Bot {
     await batch.simulate();
 
     this.log.verbose(`Proving transaction`, logCtx);
-    await batch.prove(opts);
+    const provenTx = await batch.prove(opts);
 
     this.log.verbose(`Sending tx`, logCtx);
-    const tx = batch.send(opts);
+    const tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
 

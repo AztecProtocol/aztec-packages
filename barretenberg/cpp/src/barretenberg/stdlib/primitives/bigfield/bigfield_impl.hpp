@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
 #include <tuple>
@@ -8,6 +9,7 @@
 
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -138,6 +140,8 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             Limb(limb_3, can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
     }
     prime_basis_limb = low_bits_in + (high_bits_in * shift_2);
+    auto new_tag = OriginTag(low_bits_in.tag, high_bits_in.tag);
+    set_origin_tag(new_tag);
 }
 
 template <typename Builder, typename T>
@@ -292,6 +296,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
     const auto num_last_limb_bits = 256 - (NUM_LIMB_BITS * 3);
     res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits);
     *this = res;
+    set_origin_tag(bytes.get_origin_tag());
 }
 
 template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(const bigfield& other)
@@ -366,6 +371,7 @@ bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Build
 
     result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + other;
     result.prime_basis_limb = prime_basis_limb + other;
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.tag));
     return result;
 }
 
@@ -378,7 +384,9 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     Builder* ctx = context ? context : other.context;
 
     if (is_constant() && other.is_constant()) {
-        return bigfield(ctx, uint256_t((get_value() + other.get_value()) % modulus_u512));
+        auto result = bigfield(ctx, uint256_t((get_value() + other.get_value()) % modulus_u512));
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
     bigfield result(ctx);
     result.binary_basis_limbs[0].maximum_value =
@@ -441,6 +449,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
                 result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
                 result.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[3]);
                 result.prime_basis_limb = field_t<Builder>::from_witness_index(ctx, output_witnesses[4]);
+                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
                 return result;
             }
         }
@@ -488,7 +497,10 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
         uint512_t left = get_value() % modulus_u512;
         uint512_t right = other.get_value() % modulus_u512;
         uint512_t out = (left + modulus_u512 - right) % modulus_u512;
-        return bigfield(ctx, uint256_t(out.lo));
+
+        auto result = bigfield(ctx, uint256_t(out.lo));
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
 
     if (other.is_constant()) {
@@ -653,6 +665,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
                 result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
                 result.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[3]);
                 result.prime_basis_limb = field_t<Builder>::from_witness_index(ctx, output_witnesses[4]);
+
+                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
                 return result;
             }
         }
@@ -695,6 +709,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) cons
     // If operands are constant, define result as a constant value and return
     if (is_constant() && other.is_constant()) {
         remainder = bigfield(ctx, uint256_t(remainder_value.lo));
+        remainder.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return remainder;
     } else {
         // when writing a*b = q*p + r we wish to enforce r<2^s for smallest s such that p<2^s
@@ -718,6 +733,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) cons
 
     // Call `evaluate_multiply_add` to validate the correctness of our computed quotient and remainder
     unsafe_evaluate_multiply_add(*this, other, {}, quotient, { remainder });
+
+    remainder.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return remainder;
 }
 
@@ -781,11 +798,13 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
     Builder* ctx = denominator.context;
     uint512_t numerator_values(0);
     bool numerator_constant = true;
+    OriginTag tag = denominator.get_origin_tag();
     for (const auto& numerator_element : numerators) {
         ctx = (ctx == nullptr) ? numerator_element.get_context() : ctx;
         numerator_element.reduction_check();
         numerator_values += numerator_element.get_value();
         numerator_constant = numerator_constant && (numerator_element.is_constant());
+        tag = OriginTag(tag, numerator_element.get_origin_tag());
     }
 
     // a / b = c
@@ -805,6 +824,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
     bigfield quotient;
     if (numerator_constant && denominator.is_constant()) {
         inverse = bigfield(ctx, uint256_t(inverse_value));
+        inverse.set_origin_tag(tag);
         return inverse;
     } else {
         // We only add the check if the result is non-constant
@@ -832,6 +852,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
         inverse = create_from_u512_as_witness(ctx, inverse_value);
     }
 
+    inverse.set_origin_tag(tag);
     unsafe_evaluate_multiply_add(denominator, inverse, { unreduced_zero() }, quotient, numerators);
     return inverse;
 }
@@ -893,6 +914,7 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
     };
 
     unsafe_evaluate_square_add(*this, {}, quotient, remainder);
+    remainder.set_origin_tag(get_origin_tag());
     return remainder;
 }
 
@@ -960,6 +982,11 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
         quotient = create_from_u512_as_witness(ctx, quotient_value, false, num_quotient_bits);
         remainder = create_from_u512_as_witness(ctx, remainder_value);
     };
+    OriginTag new_tag = get_origin_tag();
+    for (auto& element : to_add) {
+        new_tag = OriginTag(new_tag, element.get_origin_tag());
+    }
+    remainder.set_origin_tag(new_tag);
     unsafe_evaluate_square_add(*this, to_add, quotient, remainder);
     return remainder;
 }
@@ -1001,7 +1028,9 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
             ctx->failure("field_t::pow exponent accumulator incorrect");
         }
         constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-        return native(get_value()).pow(exponent_value & MASK_32_BITS);
+        auto result = bigfield(ctx, native(get_value()).pow(exponent_value & MASK_32_BITS));
+        result.set_origin_tag(OriginTag(get_origin_tag(), exponent.get_origin_tag()));
+        return result;
     }
 
     bool exponent_constant = exponent.is_constant();
@@ -1034,6 +1063,7 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
         accumulator *= (mul_coefficient * bit + 1);
     }
     accumulator.self_reduce();
+    accumulator.set_origin_tag(OriginTag(get_origin_tag(), exponent.tag));
     return accumulator;
 }
 
@@ -1092,6 +1122,10 @@ bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const st
         remainder = create_from_u512_as_witness(ctx, remainder_value);
     };
     unsafe_evaluate_multiply_add(*this, to_mul, to_add, quotient, { remainder });
+    OriginTag new_tag = OriginTag(get_origin_tag(), to_mul.get_origin_tag());
+    for (auto& element : to_add) {
+        new_tag = OriginTag(new_tag, element.get_origin_tag());
+    }
     return remainder;
 }
 
@@ -1261,6 +1295,15 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     bool add_constant = true;
     std::vector<bigfield> new_to_add;
 
+    OriginTag new_tag{};
+    // Merge all tags. Do it in pairs (logically a submitted value can be masked by a challenge)
+    for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
+        new_tag = OriginTag(new_tag, OriginTag(left_element.get_origin_tag(), right_element.get_origin_tag()));
+    }
+    for (auto& element : to_add) {
+        new_tag = OriginTag(new_tag, element.get_origin_tag());
+    }
+
     for (const auto& add_element : to_add) {
         add_element.reduction_check();
         if (add_element.is_constant()) {
@@ -1313,7 +1356,9 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
             const auto [quotient_1024, remainder_1024] =
                 (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
             ASSERT(!fix_remainder_to_zero || remainder_1024 == 0);
-            return bigfield(ctx, uint256_t(remainder_1024.lo.lo));
+            auto result = bigfield(ctx, uint256_t(remainder_1024.lo.lo));
+            result.set_origin_tag(new_tag);
+            return result;
         } else {
             const auto [quotient_1024, remainder_1024] =
                 (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
@@ -1331,6 +1376,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
                 result.self_reduce();
                 result.assert_equal(zero());
             }
+            result.set_origin_tag(new_tag);
             return result;
         }
     }
@@ -1402,6 +1448,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
 
     unsafe_evaluate_multiple_multiply_add(new_input_left, new_input_right, new_to_add, quotient, { remainder });
 
+    remainder.set_origin_tag(new_tag);
     return remainder;
 }
 
@@ -1463,6 +1510,14 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     ASSERT(mul_left.size() == mul_right.size());
     ASSERT(divisor.get_value() != 0);
 
+    OriginTag new_tag = divisor.get_origin_tag();
+    for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
+        new_tag = OriginTag(new_tag, OriginTag(left_element.get_origin_tag(), right_element.get_origin_tag()));
+    }
+    for (auto& element : to_sub) {
+        new_tag = OriginTag(new_tag, element.get_origin_tag());
+    }
+
     // This check is optional, because it is heavy and often we don't need it at all
     if (enable_divisor_nz_check) {
         divisor.assert_is_not_equal(zero());
@@ -1493,7 +1548,8 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 
     // If everything is constant, then we just return the constant
     if (sub_constant && products_constant && divisor.is_constant()) {
-        return bigfield(ctx, uint256_t(result_value.lo.lo));
+        auto result = bigfield(ctx, uint256_t(result_value.lo.lo));
+        result.set_origin_tag(new_tag);
     }
 
     // Create the result witness
@@ -1509,6 +1565,8 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     }
 
     mult_madd(eval_left, eval_right, to_sub, true);
+
+    result.set_origin_tag(new_tag);
     return result;
 }
 
@@ -1518,11 +1576,13 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     Builder* ctx = context ? context : predicate.context;
 
     if (is_constant() && predicate.is_constant()) {
+        auto result = *this;
         if (predicate.get_value()) {
             uint512_t out_val = (modulus_u512 - get_value()) % modulus_u512;
-            return bigfield(ctx, out_val.lo);
+            result = bigfield(ctx, out_val.lo);
         }
-        return *this;
+        result.set_origin_tag(OriginTag(get_origin_tag(), predicate.get_origin_tag()));
+        return result;
     }
     reduction_check();
 
@@ -1591,6 +1651,8 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     result.prime_basis_limb =
         static_cast<field_t<Builder>>(predicate).madd(-(prime_basis_limb * two) + prime_basis_to_add, prime_basis_limb);
 
+    result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
+
     return result;
 }
 
@@ -1638,6 +1700,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
     result.binary_basis_limbs[3] =
         Limb(binary_limb_3, std::max(binary_basis_limbs[3].maximum_value, other.binary_basis_limbs[3].maximum_value));
     result.prime_basis_limb = prime_limb;
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag(), predicate.tag));
     return result;
 }
 
@@ -1694,7 +1757,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     product.binary_basis_limbs[1].element.assert_equal(0);
     product.binary_basis_limbs[2].element.assert_equal(0);
     product.binary_basis_limbs[3].element.assert_equal(0);
-
+    is_equal.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return is_equal;
 }
 
@@ -1719,11 +1782,23 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
                          // TODO THIS IS UGLY WHY CAN'T WE JUST DO (*THIS) = REDUCED?
         uint256_t reduced_value = (get_value() % modulus_u512).lo;
         bigfield reduced(context, uint256_t(reduced_value));
+        // Save tags
+        const auto origin_tags = std::vector({ binary_basis_limbs[0].element.get_origin_tag(),
+                                               binary_basis_limbs[1].element.get_origin_tag(),
+                                               binary_basis_limbs[2].element.get_origin_tag(),
+                                               binary_basis_limbs[3].element.get_origin_tag(),
+                                               prime_basis_limb.get_origin_tag() });
         binary_basis_limbs[0] = reduced.binary_basis_limbs[0];
         binary_basis_limbs[1] = reduced.binary_basis_limbs[1];
         binary_basis_limbs[2] = reduced.binary_basis_limbs[2];
         binary_basis_limbs[3] = reduced.binary_basis_limbs[3];
         prime_basis_limb = reduced.prime_basis_limb;
+        // Preserve origin tags (useful in simulator)
+        binary_basis_limbs[0].element.set_origin_tag(origin_tags[0]);
+        binary_basis_limbs[1].element.set_origin_tag(origin_tags[1]);
+        binary_basis_limbs[2].element.set_origin_tag(origin_tags[2]);
+        binary_basis_limbs[3].element.set_origin_tag(origin_tags[3]);
+        prime_basis_limb.set_origin_tag(origin_tags[4]);
         return;
     }
 
@@ -2015,6 +2090,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     if (is_constant()) {
         return;
     }
+    OriginTag new_tag = get_origin_tag();
     // TODO: handle situation where some limbs are constant and others are not constant
     const auto [quotient_value, remainder_value] = get_value().divmod(target_basis.modulus);
 
@@ -2055,6 +2131,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     binary_basis_limbs[2] = remainder.binary_basis_limbs[2];
     binary_basis_limbs[3] = remainder.binary_basis_limbs[3];
     prime_basis_limb = remainder.prime_basis_limb;
+    set_origin_tag(new_tag);
 } // namespace stdlib
 
 /**

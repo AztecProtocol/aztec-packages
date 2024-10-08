@@ -148,9 +148,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  */
 void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
 {
-    is_kernel = !is_kernel; // toggle on each call (every even circuit is a kernel)
-
-    if (auto_verify_mode && is_kernel) {
+    if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
         complete_kernel_circuit_logic(circuit);
     }
 

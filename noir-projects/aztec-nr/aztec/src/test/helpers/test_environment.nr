@@ -12,6 +12,7 @@ use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
+use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
 pub struct TestEnvironment {}
 
@@ -142,9 +143,11 @@ impl TestEnvironment {
         let original_contract_address = get_contract_address();
         let original_fn_selector = cheatcodes::get_function_selector();
         let target_address = call_interface.get_contract_address();
-        let fn_selector = call_interface.get_selector();
         let calldata = call_interface.get_args();
 
+        // Public functions are routed through the dispatch function.
+        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
+        let calldata = &[call_interface.get_selector().to_field()].append(calldata);
         cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
@@ -165,11 +168,10 @@ impl TestEnvironment {
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, (), T, Env> {
-        cheatcodes::assert_public_call_fails(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args()
-        );
+        // Public functions are routed through the dispatch function.
+        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
+        let calldata = &[call_interface.get_selector().to_field()].append(call_interface.get_args());
+        cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
     }
 
     unconstrained fn assert_private_call_fails<C, let M: u32, T, Env>(

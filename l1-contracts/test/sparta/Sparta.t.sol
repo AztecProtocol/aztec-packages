@@ -15,10 +15,12 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
-import {PortalERC20} from "../portals/PortalERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 
@@ -44,7 +46,7 @@ contract SpartaTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  PortalERC20 internal portalERC20;
+  TestERC20 internal testERC20;
 
   SignatureLib.Signature internal emptySignature;
   mapping(address validator => uint256 privateKey) internal privateKeys;
@@ -73,8 +75,8 @@ contract SpartaTest is DecoderBase {
       initialValidators[i - 1] = validator;
     }
 
-    portalERC20 = new PortalERC20();
-    rollup = new Rollup(IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators);
+    testERC20 = new TestERC20();
+    rollup = new Rollup(new MockFeeJuicePortal(), bytes32(0), address(this), initialValidators);
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 

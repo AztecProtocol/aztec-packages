@@ -1,4 +1,5 @@
 import {
+  NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type UnencryptedFunctionL2Logs,
@@ -86,8 +87,6 @@ export interface PublicExecutionResult {
    */
   allUnencryptedLogs: UnencryptedFunctionL2Logs;
 
-  // TODO(dbanks12): add contract instance read requests
-
   /** The requests to call public functions made by this call. */
   publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
@@ -98,6 +97,18 @@ export interface PublicExecutionResult {
 
   /** The name of the function that was executed. Only used for logging. */
   functionName: string;
+}
+
+/**
+ * Recursively accummulate the return values of a call result and its nested executions,
+ * so they can be retrieved in order.
+ * @param executionResult
+ * @returns
+ */
+export function accumulatePublicReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
+  const acc = new NestedProcessReturnValues(executionResult.returnValues);
+  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePublicReturnValues(nestedExecution));
+  return acc;
 }
 
 export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {

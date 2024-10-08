@@ -3,6 +3,7 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
+  type CheatCodes,
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
@@ -23,7 +24,8 @@ import {
   type UltraKeccakHonkProtocolArtifact,
 } from '@aztec/bb-prover';
 import { compileContract } from '@aztec/ethereum';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
@@ -32,7 +34,8 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 import solc from 'solc';
-import { getContract } from 'viem';
+import { type Hex, getContract } from 'viem';
+import { privateKeyToAddress } from 'viem/accounts';
 
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -76,6 +79,7 @@ export class FullProverTest {
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   pxe!: PXEService;
+  cheatCodes!: CheatCodes;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
@@ -91,7 +95,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      {},
+      { startProverNode: true },
       { assumeProvenThrough: undefined },
     );
   }
@@ -116,7 +120,7 @@ export class FullProverTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
+        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2), false);
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
@@ -151,15 +155,15 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+    this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,
       aztecNode: this.aztecNode,
-      proverNode: this.simulatedProverNode,
       deployL1ContractsValues: this.l1Contracts,
+      cheatCodes: this.cheatCodes,
     } = this.context);
 
     // Configure a full prover PXE
-
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
     let bbConfig: Awaited<ReturnType<typeof getBBConfig>> | undefined;
     if (this.realProofs) {
@@ -190,8 +194,13 @@ export class FullProverTest {
       });
     }
 
-    this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
+    this.logger.verbose(`Move to a clean epoch`);
+    await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
+    this.logger.verbose(`Marking current block as proven`);
+    await this.context.cheatCodes.rollup.markAsProven();
+
+    this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {
       const result = await setupPXEService(
         this.aztecNode,
@@ -235,7 +244,6 @@ export class FullProverTest {
       });
       this.provenAssets.push(asset);
     }
-
     this.logger.info(`Full prover PXE started`);
 
     // Shutdown the current, simulated prover node
@@ -243,7 +251,6 @@ export class FullProverTest {
     await this.simulatedProverNode.stop();
 
     // Creating temp store and archiver for fully proven prover node
-
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
@@ -253,8 +260,12 @@ export class FullProverTest {
 
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).to0xString());
 
-    this.logger.verbose('Starting fully proven prover node');
+    this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
+    await this.mintL1ERC20(proverNodeSenderAddress, 100_000_000n);
+
+    this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
       proverCoordinationNodeUrl: undefined,
@@ -264,16 +275,28 @@ export class FullProverTest {
       proverAgentConcurrency: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
+      proverNodePollingIntervalMs: 100,
+      quoteProviderBasisPointFee: 100,
+      quoteProviderBondAmount: 1000n,
+      proverMinimumStakeAmount: 3000n,
+      proverTargetStakeAmount: 6000n,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
       archiver: archiver as Archiver,
     });
-    this.proverNode.start();
+    await this.proverNode.start();
 
-    this.logger.info('Prover node started');
-
+    this.logger.warn(`Proofs are now enabled`);
     return this;
+  }
+
+  private async mintL1ERC20(recipient: Hex, amount: bigint) {
+    const erc20Address = this.context.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
+    const client = this.context.deployL1ContractsValues.walletClient;
+    const erc20 = getContract({ abi: TestERC20Abi, address: erc20Address.toString(), client });
+    const hash = await erc20.write.mint([recipient, amount]);
+    await this.context.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash });
   }
 
   snapshot = <T>(

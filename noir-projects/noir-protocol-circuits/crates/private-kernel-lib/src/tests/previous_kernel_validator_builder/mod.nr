@@ -15,7 +15,7 @@ impl PreviousKernelValidatorBuilder {
     }
 
     pub fn validate_for_private_tail(self) {
-        let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
+        let previous_kernel = self.previous_kernel.to_private_kernel_data();
         PreviousKernelValidator::new(previous_kernel).validate_for_private_tail();
     }
 }

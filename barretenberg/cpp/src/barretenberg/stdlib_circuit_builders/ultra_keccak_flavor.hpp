@@ -49,6 +49,9 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
+            if (proving_key.commitment_key == nullptr) {
+                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
