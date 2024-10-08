@@ -9,6 +9,7 @@ include "fixed/powers.pil";
 include "gadgets/conversion.pil";
 include "gadgets/sha256.pil";
 include "gadgets/poseidon2.pil";
+include "gadgets/poseidon2_full.pil";
 include "gadgets/keccakf1600.pil";
 include "gadgets/mem_slice.pil";
 
