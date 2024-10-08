@@ -685,6 +685,8 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  *
  * Communication:
  * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size.
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as
+ * their gate count differs
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
