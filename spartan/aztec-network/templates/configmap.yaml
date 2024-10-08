@@ -7,4 +7,4 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
   keys.json: |
-    {{ .Values.validatorKeys | toJson | nindent 4 }}
+    {{ .Values.validator.validatorKeys | toJson | nindent 4 }}
