@@ -20,6 +20,7 @@ COPY . .
 RUN yarn
 # Override RAYON_NUM_THREADS default
 ENV RAYON_NUM_THREADS=32
+ENV PARALLEL_VK=false
 WORKDIR /usr/src/noir-projects/noir-contracts
 RUN ./bootstrap.sh
 WORKDIR /usr/src/noir-projects/noir-protocol-circuits
