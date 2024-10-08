@@ -18,7 +18,7 @@ import {
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { areArraysEqual, times } from '@aztec/foundation/collection';
+import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -34,6 +34,7 @@ import {
   type BaseError,
   type Chain,
   type Client,
+  type ContractFunctionExecutionError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -81,13 +82,15 @@ export type MinimalTransactionReceipt = {
   /** True if the tx was successful, false if reverted. */
   status: boolean;
   /** Hash of the transaction. */
-  transactionHash: string;
+  transactionHash: `0x${string}`;
   /** Effective gas used by the tx. */
   gasUsed: bigint;
   /** Effective gas price paid by the tx. */
   gasPrice: bigint;
   /** Logs emitted in this tx. */
   logs: any[];
+  /** Block number in which this tx was mined. */
+  blockNumber: bigint;
 };
 
 /** Arguments to the process method of the rollup contract */
@@ -133,7 +136,8 @@ export class L1Publisher {
   private sleepTimeMs: number;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
-  private log = createDebugLogger('aztec:sequencer:publisher');
+
+  protected log = createDebugLogger('aztec:sequencer:publisher');
 
   private rollupContract: GetContractReturnType<
     typeof RollupAbi,
@@ -375,14 +379,16 @@ export class L1Publisher {
 
     this.log.verbose(`Submitting propose transaction`);
 
-    const txHash = proofQuote
+    const tx = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
 
-    if (!txHash) {
+    if (!tx) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
+
+    const { hash: txHash, args, functionName, gasLimit } = tx;
 
     const receipt = await this.getTransactionReceipt(txHash);
     if (!receipt) {
@@ -407,9 +413,43 @@ export class L1Publisher {
 
     this.metrics.recordFailedTx('process');
 
-    this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`, ctx);
+    const errorMsg = await this.tryGetErrorFromRevertedTx({
+      args,
+      functionName,
+      gasLimit,
+      abi: RollupAbi,
+      address: this.rollupContract.address,
+      blockNumber: receipt.blockNumber,
+    });
+    this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
+      ...ctx,
+      txHash: receipt.transactionHash,
+    });
     await this.sleepOrInterrupted();
     return false;
+  }
+
+  private async tryGetErrorFromRevertedTx(args: {
+    args: any[];
+    functionName: string;
+    gasLimit: bigint;
+    abi: any;
+    address: Hex;
+    blockNumber: bigint | undefined;
+  }) {
+    try {
+      await this.publicClient.simulateContract({ ...args, account: this.walletClient.account });
+      return undefined;
+    } catch (err: any) {
+      if (err.name === 'ContractFunctionExecutionError') {
+        const execErr = err as ContractFunctionExecutionError;
+        return compactArray([
+          execErr.shortMessage,
+          ...(execErr.metaMessages ?? []).slice(0, 2).map(s => s.trim()),
+        ]).join(' ');
+      }
+      this.log.error(`Error getting error from simulation`, err);
+    }
   }
 
   public async submitEpochProof(args: {
@@ -610,17 +650,24 @@ export class L1Publisher {
     ] as const;
   }
 
-  private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
+  private async sendProposeTx(
+    encodedData: L1ProcessArgs,
+  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
     if (this.interrupted) {
-      return;
+      return undefined;
     }
     try {
       const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
 
-      return await this.rollupContract.write.propose(args, {
-        account: this.account,
-        gas: gasGuesstimate,
-      });
+      return {
+        hash: await this.rollupContract.write.propose(args, {
+          account: this.account,
+          gas: gasGuesstimate,
+        }),
+        args,
+        functionName: 'propose',
+        gasLimit: gasGuesstimate,
+      };
     } catch (err) {
       prettyLogViemError(err, this.log);
       this.log.error(`Rollup publish failed`, err);
@@ -628,9 +675,12 @@ export class L1Publisher {
     }
   }
 
-  private async sendProposeAndClaimTx(encodedData: L1ProcessArgs, quote: EpochProofQuote): Promise<string | undefined> {
+  private async sendProposeAndClaimTx(
+    encodedData: L1ProcessArgs,
+    quote: EpochProofQuote,
+  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
     if (this.interrupted) {
-      return;
+      return undefined;
     }
     try {
       const { args, gasGuesstimate } = await this.prepareProposeTx(
@@ -640,10 +690,15 @@ export class L1Publisher {
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      return await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
-        account: this.account,
-        gas: gasGuesstimate,
-      });
+      return {
+        hash: await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
+          account: this.account,
+          gas: gasGuesstimate,
+        }),
+        functionName: 'proposeAndClaim',
+        args,
+        gasLimit: gasGuesstimate,
+      };
     } catch (err) {
       prettyLogViemError(err, this.log);
       this.log.error(`Rollup publish failed`, err);
@@ -674,6 +729,7 @@ export class L1Publisher {
             gasUsed: receipt.gasUsed,
             gasPrice: receipt.effectiveGasPrice,
             logs: receipt.logs,
+            blockNumber: receipt.blockNumber,
           };
         }
 
