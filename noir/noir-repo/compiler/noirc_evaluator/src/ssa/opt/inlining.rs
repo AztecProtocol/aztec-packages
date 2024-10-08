@@ -1128,7 +1128,7 @@ mod test {
 
     #[test]
     fn conditional_inlining() {
-        // In this example we call a larger abrillig function 3 times so the inliner refuses to inline the function.
+        // In this example we call a larger brillig function 3 times so the inliner refuses to inline the function.
         // brillig fn foo {
         //   b0():
         //     v0 = call bar()
