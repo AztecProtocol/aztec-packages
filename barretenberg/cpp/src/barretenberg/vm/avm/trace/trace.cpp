@@ -3529,14 +3529,12 @@ std::vector<Row> AvmTraceBuilder::finalize()
         main_trace[i].main_sel_execution_row = FF(1);
     }
 
-    // Toggle start of the execution row
-    if (main_trace_size > 0) {
-        main_trace[0].main_sel_start_exec = FF(1);
-    }
-
     // Append row with selector toggling execution end.
     const Row end_exec_row = Row{ .main_sel_execution_end = FF(1) };
     main_trace.emplace_back(end_exec_row);
+
+    // Set selector for toggling execution start (we have the guarantee that at least one row exists in main_trace)
+    main_trace[0].main_sel_start_exec = FF(1);
 
     // We only need to pad with zeroes to the size to the largest trace here,
     // pow_2 padding is handled in the subgroup_size check in BB.
@@ -3768,8 +3766,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
      * ONLY FIXED TABLES FROM HERE ON
      **********************************************************************************************/
 
-    const Row first_row = Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) };
-    main_trace.insert(main_trace.begin(), first_row);
+    main_trace.insert(main_trace.begin(), Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) });
 
     /**********************************************************************************************
      * BYTES TRACE INCLUSION

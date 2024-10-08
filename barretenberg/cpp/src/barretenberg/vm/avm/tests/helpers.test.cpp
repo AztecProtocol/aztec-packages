@@ -1,5 +1,4 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
-#include "barretenberg//vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/constants.hpp"

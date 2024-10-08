@@ -89,6 +89,8 @@ void inject_end_gas_values(VmPublicInputs<FF>& public_inputs, std::vector<Row>& 
 {
     auto execution_end_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });
+    ASSERT(execution_end_row != trace.end());
+
     trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
     trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
 

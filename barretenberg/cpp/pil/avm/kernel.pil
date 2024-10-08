@@ -195,6 +195,11 @@ namespace main(256);
     #[LOOKUP_INTO_KERNEL]
     sel_q_kernel_lookup { ia, kernel_in_offset } in sel_kernel_inputs { kernel_inputs, clk };
 
+    // Start/End Gas related permutations
+    // A lookup of the form "{CONST, gas_remaining} in {clk, kernel_in}" was considered but cannot
+    // be performed as long as we are not supporting constants or expressions in a tuple involved
+    // in a lookup/permutation.
+
     #[PERM_L2_START_GAS]
     sel_start_exec { l2_gas_remaining } is sel_l2_start_gas_kernel_input { kernel_inputs };
 
