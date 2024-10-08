@@ -3,8 +3,12 @@ use crate::components::{
     tail_output_validator::TailOutputValidator
 };
 use dep::types::{
-    abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX}
+    abis::{
+    private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+    kernel_circuit_public_inputs::KernelCircuitPublicInputs
+},
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    PrivateKernelCircuitPublicInputs
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
@@ -18,6 +22,13 @@ pub struct PrivateKernelTailCircuitPrivateInputs {
 }
 
 impl PrivateKernelTailCircuitPrivateInputs {
+    pub fn new(
+        previous_kernel: PrivateKernelDataWithoutPublicInputs,
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs
+    ) -> Self {
+        Self { previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs) }
+    }
+
     unconstrained fn generate_output(self) -> KernelCircuitPublicInputs {
         TailOutputComposer::new(self.previous_kernel.public_inputs).finish()
     }

@@ -9,7 +9,9 @@ use crate::{
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
-    private_kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData
+    private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+    private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX}
 };
@@ -26,6 +28,18 @@ pub struct PrivateKernelInnerCircuitPrivateInputs {
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
+    pub fn new(
+        previous_kernel: PrivateKernelDataWithoutPublicInputs,
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+        private_call: PrivateCallDataWithoutPublicInputs,
+        app_public_inputs: PrivateCircuitPublicInputs
+    ) -> Self {
+        Self {
+            previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
+            private_call: private_call.to_private_call_data(app_public_inputs)
+        }
+    }
+
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).pop_top_call_request().with_private_call(
             self.private_call.call_stack_item.public_inputs,
