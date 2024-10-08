@@ -15,6 +15,7 @@ import {
 import { type StatefulTestContract } from '@aztec/noir-contracts.js';
 
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import { PublicKeys } from '@aztec/circuits.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -61,18 +62,18 @@ export class DeployTest {
     contractArtifact: ContractArtifactClass<T>,
     opts: {
       salt?: Fr;
-      publicKeysHash?: Fr;
+      publicKeys?: PublicKeys;
       initArgs?: any[];
       constructorName?: string;
       deployer?: AztecAddress;
     } = {},
   ): Promise<T> {
-    const { salt, publicKeysHash, initArgs, constructorName, deployer } = opts;
+    const { salt, publicKeys, initArgs, constructorName, deployer } = opts;
     const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,
-      publicKeysHash,
+      publicKeys,
       deployer,
     });
     await wallet.registerContract({ artifact: contractArtifact.artifact, instance });

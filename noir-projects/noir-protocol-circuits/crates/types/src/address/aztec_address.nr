@@ -1,5 +1,5 @@
 use crate::{
-    address::{partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
+    address::{partial_address::PartialAddress, public_keys::PublicKeys, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
     hash::poseidon2_hash_with_separator, traits::{Empty, FromField, ToField, Serialize, Deserialize},
     utils
@@ -10,8 +10,11 @@ global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
-use std::ec::{sqrt, pow};
-use crate::debug_log::debug_log_format;
+use std::{
+    ec::{sqrt, pow},
+    embedded_curve_ops::{fixed_base_scalar_mul as derive_public_key, EmbeddedCurveScalar}
+};
+use crate::constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH;
 
 // Aztec address
 pub struct AztecAddress {
@@ -68,6 +71,32 @@ impl AztecAddress {
         )
     }
 
+    pub fn compute_from_public_keys(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
+        let public_keys_hash = public_keys.hash();
+
+        let pre_address = poseidon2_hash_with_separator(
+            [public_keys_hash.to_field(), partial_address.to_field()],
+            GENERATOR_INDEX__CONTRACT_ADDRESS_V1
+        );
+
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(public_keys.ivpk_m.to_point());
+        AztecAddress::from_field(address_point.x)
+    }
+
+    pub fn compute_new(
+        public_keys_hash: PublicKeysHash,
+        partial_address: PartialAddress,
+        ivpk_m: Point
+    ) -> AztecAddress {
+        let pre_address = poseidon2_hash_with_separator(
+            [public_keys_hash.to_field(), partial_address.to_field()],
+            GENERATOR_INDEX__CONTRACT_ADDRESS_V1
+        );
+
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(ivpk_m);
+        AztecAddress::from_field(address_point.x)
+    }
+
     pub fn is_zero(self) -> bool {
         self.inner == 0
     }
@@ -100,11 +129,7 @@ impl AztecAddress {
             y = (BN254_FR_MODULUS_DIV_2 + BN254_FR_MODULUS_DIV_2 + 1) - y;
         }
 
-        Point {
-            x: self.inner,
-            y,
-            is_infinite: false
-        }
+        Point { x: self.inner, y, is_infinite: false }
     }
 }
 

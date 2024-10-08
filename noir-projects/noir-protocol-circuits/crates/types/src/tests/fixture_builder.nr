@@ -30,7 +30,7 @@ use crate::{
     ScopedKeyValidationRequestAndGenerator
 }
 },
-    address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
+    address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash, PublicKeys},
     constants::{
     FUNCTION_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
     MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -134,7 +134,7 @@ pub struct FixtureBuilder {
 
     // Private call.
     salted_initialization_hash: SaltedInitializationHash,
-    public_keys_hash: PublicKeysHash,
+    public_keys: PublicKeys,
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
@@ -182,7 +182,7 @@ impl FixtureBuilder {
         builder.function_data = contract_function.data;
         builder.function_leaf_membership_witness = contract_function.membership_witness;
         builder.salted_initialization_hash = contract_data.salted_initialization_hash;
-        builder.public_keys_hash = contract_data.public_keys_hash;
+        builder.public_keys = contract_data.public_keys;
         builder.contract_class_artifact_hash = contract_data.artifact_hash;
         builder.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
         builder.acir_hash = contract_function.acir_hash;
@@ -319,7 +319,7 @@ impl FixtureBuilder {
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
-            public_keys_hash: self.public_keys_hash,
+            public_keys: self.public_keys,
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
             acir_hash: self.acir_hash
@@ -1220,7 +1220,7 @@ impl Empty for FixtureBuilder {
             returns_hash: 0,
             function_leaf_membership_witness: MembershipWitness::empty(),
             salted_initialization_hash: SaltedInitializationHash::from_field(0),
-            public_keys_hash: PublicKeysHash::from_field(0),
+            public_keys: PublicKeys::empty(),
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
             acir_hash: 0,

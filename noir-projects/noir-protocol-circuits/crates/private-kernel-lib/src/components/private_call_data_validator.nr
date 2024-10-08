@@ -195,12 +195,12 @@ impl PrivateCallDataValidator {
         );
         // println(f"computed_partial_address={computed_partial_address}");
 
-        let computed_address = AztecAddress::compute(self.data.public_keys_hash, computed_partial_address);
+        let computed_address = AztecAddress::compute_from_public_keys(self.data.public_keys, computed_partial_address);
         // println(f"computed_address={computed_address}");
 
-        // assert(
-        //     !computed_address.eq(contract_address), "computed contract address does not match expected one"
-        // );
+        assert(
+            computed_address.eq(contract_address), "computed contract address does not match expected one"
+        );
     }
 
     fn validate_call(self) {

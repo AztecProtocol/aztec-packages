@@ -16,6 +16,7 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PublicKeys,
   ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
@@ -26,7 +27,7 @@ import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 
@@ -146,7 +147,7 @@ describe('Kernel Prover', () => {
 
     oracle.getContractAddressPreimage.mockResolvedValue({
       contractClassId: Fr.random(),
-      publicKeysHash: Fr.random(),
+      publicKeys: PublicKeys.empty(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({

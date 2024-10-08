@@ -4,7 +4,7 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 
 import { randomInt } from 'crypto';
@@ -807,6 +807,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           contractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
           publicKeysHash: new Fr(0x161718),
+          ivpkM: new Point(new Fr(123), new Fr(456), false),
         };
         mockGetContractInstance(worldStateDB, contractInstance);
 

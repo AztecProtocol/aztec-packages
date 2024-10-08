@@ -1,7 +1,7 @@
 import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { type CompleteAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fq, type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
@@ -115,7 +115,7 @@ export class NoteProcessor {
     const deferredOutgoingNotes: DeferredNoteDao[] = [];
 
     const ivskM = await this.keyStore.getMasterSecretKey(this.ivpkM);
-    const addressIvskM = ivskM.add(this.account.getPreAddress().toFq());
+    const addressIvskM = ivskM.add(new Fq(this.account.getPreAddress().toBigInt()));
 
     const ovskM = await this.keyStore.getMasterSecretKey(this.ovpkM);
 

@@ -7,6 +7,7 @@ import {
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
+  PublicKeys,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
@@ -35,9 +36,20 @@ export class KernelOracle implements ProvingDataOracle {
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataOracle.getContractInstance(address);
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
+    const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);
+    const masterOutgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
+    const masterTaggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
+
     return {
       saltedInitializationHash: computeSaltedInitializationHash(instance),
       ...instance,
+      publicKeys: new PublicKeys(
+        masterNullifierPublicKey,
+        masterIncomingViewingPublicKey,
+        masterOutgoingViewingPublicKey,
+        masterTaggingPublicKey,
+      ),
     };
   }
 

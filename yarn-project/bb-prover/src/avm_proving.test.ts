@@ -1,5 +1,5 @@
 import { AvmCircuitInputs, AvmVerificationKeyData, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
@@ -65,6 +65,7 @@ const proveAndVerifyAvmTestContract = async (
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
+    ivpkM: new Point(new Fr(123), new Fr(456), false),
   }).withAddress(environment.address);
   worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
 

@@ -33,7 +33,6 @@ export class AccountManager {
   // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
   private completeAddress: CompleteAddress;
   private instance: ContractInstanceWithAddress;
-  private publicKeysHash?: Fr;
 
   constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
     this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
@@ -47,15 +46,10 @@ export class AccountManager {
     });
 
     this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
-
-    this.instance.address = this.completeAddress.address;
   }
 
   protected getPublicKeysHash() {
-    if (!this.publicKeysHash) {
-      this.publicKeysHash = deriveKeys(this.secretKey).publicKeys.hash();
-    }
-    return this.publicKeysHash;
+    return deriveKeys(this.secretKey).publicKeys.hash();
   }
 
   /**
@@ -74,10 +68,6 @@ export class AccountManager {
    * @returns The address, partial address, and encryption public key.
    */
   public getCompleteAddress(): CompleteAddress {
-    if (!this.completeAddress) {
-      const instance = this.getInstance();
-      this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, instance);
-    }
     return this.completeAddress;
   }
 

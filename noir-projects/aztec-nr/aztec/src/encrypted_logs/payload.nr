@@ -25,9 +25,7 @@ pub fn compute_encrypted_log<let P: u32, let M: u32>(
     let header = EncryptedLogHeader::new(contract_address);
 
     let address_point = recipient.to_point();
-    let address_ivpk = IvpkM {
-        inner: address_point,
-    };
+    let address_ivpk = IvpkM { inner: address_point };
 
     let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, address_ivpk);
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);

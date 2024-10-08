@@ -223,7 +223,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       this.instance = getContractInstanceFromDeployParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
-        publicKeysHash: this.publicKeysHash,
+        publicKeys: this.completeAddress?.publicKeys,
         constructorArtifact: this.constructorArtifact,
         deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
       });

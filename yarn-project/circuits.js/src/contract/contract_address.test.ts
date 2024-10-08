@@ -57,7 +57,9 @@ describe('ContractAddress', () => {
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const deployer = AztecAddress.fromField(new Fr(7));
-    const publicKeysHash = deriveKeys(secretKey).publicKeys.hash();
+    const { publicKeys } = deriveKeys(secretKey);
+
+    const publicKeysHash = publicKeys.hash();
 
     const address = computeContractAddressFromInstance({
       publicKeysHash,
@@ -66,6 +68,7 @@ describe('ContractAddress', () => {
       initializationHash,
       deployer,
       version: 1,
+      ivpkM: publicKeys.masterIncomingViewingPublicKey,
     }).toString();
 
     expect(address).toMatchSnapshot();

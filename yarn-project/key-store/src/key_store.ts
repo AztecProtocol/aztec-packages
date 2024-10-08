@@ -139,6 +139,16 @@ export class KeyStore {
     return Promise.resolve(new KeyValidationRequest(pkM, skApp));
   }
 
+    public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
+      const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+      if (!masterNullifierPublicKeyBuffer) {
+        throw new Error(
+          `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+        );
+      }
+      return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
+    }
+
   /**
    * Gets the master incoming viewing public key for a given account.
    * @throws If the account does not exist in the key store.

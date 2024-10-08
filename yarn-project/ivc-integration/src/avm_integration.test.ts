@@ -14,7 +14,7 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
@@ -159,6 +159,7 @@ const proveAvmTestContract = async (
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
+    ivpkM: new Point(new Fr(123), new Fr(456), false),
   }).withAddress(environment.address);
   worldStateDB.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
 

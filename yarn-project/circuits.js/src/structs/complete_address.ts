@@ -41,7 +41,7 @@ export class CompleteAddress {
     const { publicKeys, masterIncomingViewingSecretKey } = deriveKeys(secretKey);
     const oldAddress = computeAddress(publicKeys.hash(), partialAddress);
 
-    const combined = masterIncomingViewingSecretKey.add(oldAddress.toFq());
+    const combined = masterIncomingViewingSecretKey.add(new Fq(oldAddress.toBigInt()));
 
     const addressPoint = derivePublicKeyFromSecretKey(combined);
 

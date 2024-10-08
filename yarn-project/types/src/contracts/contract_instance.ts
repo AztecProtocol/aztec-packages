@@ -17,7 +17,7 @@ export interface ContractInstance {
   contractClassId: Fr;
   /** Hash of the selector and arguments to the constructor. */
   initializationHash: Fr;
-  /** Optional hash of the struct of public keys used for encryption and nullifying by this contract. */
+  // /** Optional hash of the struct of public keys used for encryption and nullifying by this contract. */
   publicKeysHash: Fr;
   ivpkM: Point;
 }
