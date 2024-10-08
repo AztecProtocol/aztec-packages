@@ -1,9 +1,10 @@
-import { EpochProofQuote, mockEpochProofQuote } from '@aztec/circuit-types';
-
-import { MemoryEpochProofQuotePool } from './memory_epoch_proof_quote_pool.js';
-import { PoolInstrumentation } from '../tx_pool/instrumentation.js';
-import { mock, MockProxy } from 'jest-mock-extended';
+import { type EpochProofQuote, mockEpochProofQuote } from '@aztec/circuit-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+
+import { type MockProxy, mock } from 'jest-mock-extended';
+
+import { type PoolInstrumentation } from '../tx_pool/instrumentation.js';
+import { MemoryEpochProofQuotePool } from './memory_epoch_proof_quote_pool.js';
 
 describe('MemoryEpochProofQuotePool', () => {
   let pool: MemoryEpochProofQuotePool;

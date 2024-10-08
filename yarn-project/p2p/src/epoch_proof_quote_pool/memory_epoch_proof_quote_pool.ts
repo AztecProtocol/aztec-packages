@@ -1,8 +1,8 @@
 import { type EpochProofQuote } from '@aztec/circuit-types';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { type EpochProofQuotePool } from './epoch_proof_quote_pool.js';
 import { PoolInstrumentation } from '../tx_pool/instrumentation.js';
-import { TelemetryClient } from '@aztec/telemetry-client';
+import { type EpochProofQuotePool } from './epoch_proof_quote_pool.js';
 
 export class MemoryEpochProofQuotePool implements EpochProofQuotePool {
   private quotes: Map<bigint, EpochProofQuote[]>;

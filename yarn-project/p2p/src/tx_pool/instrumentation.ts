@@ -1,4 +1,4 @@
-import { Gossipable } from '@aztec/circuit-types';
+import { type Gossipable } from '@aztec/circuit-types';
 import { Attributes, type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
 export type TxStatus = 'pending' | 'mined';

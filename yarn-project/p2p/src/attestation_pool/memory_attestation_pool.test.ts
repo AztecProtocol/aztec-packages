@@ -1,13 +1,13 @@
+import { type BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount } from 'viem';
 
+import { type PoolInstrumentation } from '../tx_pool/instrumentation.js';
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
 import { generateAccount, mockAttestation } from './mocks.js';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { BlockAttestation } from '@aztec/circuit-types';
-import { PoolInstrumentation } from '../tx_pool/instrumentation.js';
-import { mock, MockProxy } from 'jest-mock-extended';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
 
@@ -24,7 +24,6 @@ describe('MemoryAttestationPool', () => {
 
     ap = new InMemoryAttestationPool(telemetry);
     signers = Array.from({ length: NUMBER_OF_SIGNERS_PER_TEST }, generateAccount);
-
 
     metricsMock = mock<PoolInstrumentation<BlockAttestation>>();
     // Can i overwrite this like this??
