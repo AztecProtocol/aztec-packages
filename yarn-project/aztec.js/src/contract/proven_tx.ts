@@ -1,10 +1,7 @@
 import { type PXE, Tx } from '@aztec/circuit-types';
 
-
-
 import { type Wallet } from '../account/index.js';
 import { SentTx } from './sent_tx.js';
-
 
 /**
  * A proven transaction that can be sent to the network. Returned by the `prove` method of a contract interaction.

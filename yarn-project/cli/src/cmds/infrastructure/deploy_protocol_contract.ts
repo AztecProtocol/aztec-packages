@@ -2,10 +2,7 @@ import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@az
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type LogFn } from '@aztec/foundation/log';
 
-
-
 import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '../misc/deploy_contracts.js';
-
 
 export async function deployProtocolContracts(
   rpcUrl: string,

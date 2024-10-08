@@ -2,14 +2,9 @@ import { type PXE } from '@aztec/circuit-types';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';
 
-
-
 import axios, { type AxiosError, type AxiosResponse } from 'axios';
 
-
-
 import { createPXEClient } from '../pxe_client.js';
-
 
 /**
  * A fetch implementation using axios.

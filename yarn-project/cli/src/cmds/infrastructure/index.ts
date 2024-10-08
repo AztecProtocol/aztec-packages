@@ -1,13 +1,8 @@
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-
-
 import { type Command } from 'commander';
 
-
-
 import { ETHEREUM_HOST, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
-
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   program
