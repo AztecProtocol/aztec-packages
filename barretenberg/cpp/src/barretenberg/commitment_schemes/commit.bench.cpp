@@ -115,8 +115,7 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     }
 }
 
-// Commit to a polynomial with sparse nonzero entries equal to 1 using the commit_sparse method to preprocess the
-// input
+// Commit to a polynomial with sparse nonzero entries equal to 1 using the commit_sparse method to preprocess the input
 template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
@@ -207,7 +206,7 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     }
 }
 
-// Commit to a polynomial with sparse random nonzero entries using the commit_structured method to preprocess the
+// Commit to polynomial with block structured random nonzero entries using commit_structured method to preprocess the
 // input
 template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
 {
@@ -268,12 +267,8 @@ BENCHMARK(bench_commit_random<curve::BN254>)
 BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 

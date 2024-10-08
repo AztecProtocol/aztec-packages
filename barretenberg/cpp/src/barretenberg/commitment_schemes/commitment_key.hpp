@@ -182,12 +182,6 @@ template <class Curve> class CommitmentKey {
         uint32_t total_num_scalars = 0;
     };
 
-    struct ScalarsPoints {
-        std::vector<Fr> scalars;
-        std::vector<G1> points;
-        size_t num_scalars;
-    };
-
     RangeEndpoints compute_range_endpoints(const std::vector<uint32_t>& structured_sizes,
                                            const std::vector<uint32_t>& actual_sizes,
                                            bool complement = false)
@@ -226,33 +220,6 @@ template <class Curve> class CommitmentKey {
         return { scalar_endpoints, point_endpoints, total_num_scalars };
     }
 
-    ScalarsPoints construct_contiguous_inputs_from_range_endpoints(PolynomialSpan<const Fr> polynomial,
-                                                                   std::span<const G1> point_table,
-                                                                   RangeEndpoints endpoints)
-    {
-        size_t total_num_scalars = 0;
-        for (const auto& range : endpoints.scalar_endpoints) {
-            total_num_scalars += range.second - range.first;
-        }
-
-        std::vector<Fr> scalars;
-        std::vector<G1> points;
-        scalars.reserve(total_num_scalars);
-        points.reserve(total_num_scalars * 2);
-        for (const auto& range : endpoints.scalar_endpoints) {
-            auto start_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.first);
-            auto end_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.second);
-            scalars.insert(scalars.end(), start_it, end_it);
-        }
-        for (const auto& range : endpoints.point_endpoints) {
-            auto start_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.first);
-            auto end_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.second);
-            points.insert(points.end(), start_it, end_it);
-        }
-
-        return { std::move(scalars), std::move(points), total_num_scalars };
-    }
-
     /**
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
      * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
@@ -273,15 +240,28 @@ template <class Curve> class CommitmentKey {
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
-        RangeEndpoints active_range_endpoints = compute_range_endpoints(structured_sizes, actual_sizes);
+        auto [scalar_endpoints, point_endpoints, total_num_scalars] =
+            compute_range_endpoints(structured_sizes, actual_sizes);
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
-        auto [scalars, points, num_scalars] =
-            construct_contiguous_inputs_from_range_endpoints(polynomial, point_table, active_range_endpoints);
+        std::vector<Fr> scalars;
+        std::vector<G1> points;
+        scalars.reserve(total_num_scalars);
+        points.reserve(total_num_scalars * 2);
+        for (const auto& range : scalar_endpoints) {
+            auto start_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.first);
+            auto end_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.second);
+            scalars.insert(scalars.end(), start_it, end_it);
+        }
+        for (const auto& range : point_endpoints) {
+            auto start_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.first);
+            auto end_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.second);
+            points.insert(points.end(), start_it, end_it);
+        }
 
         // Call pippenger
         return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
