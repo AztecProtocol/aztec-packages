@@ -208,7 +208,7 @@ TYPED_TEST(CommitmentKeyTest, CommitStructured)
  * @brief WORKTODO
  *
  */
-TYPED_TEST(CommitmentKeyTest, CommitZPerm)
+TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
 {
     using Curve = TypeParam;
     using CK = CommitmentKey<Curve>;
@@ -216,42 +216,8 @@ TYPED_TEST(CommitmentKeyTest, CommitZPerm)
     using Fr = Curve::ScalarField;
     using Polynomial = bb::Polynomial<Fr>;
 
-    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
-
-    std::vector<uint32_t> structured_sizes = { 5, 6 };
-    std::vector<uint32_t> actual_sizes = { 3, 2 };
-    std::vector<Fr> poly_data = { 1, 3, 4, 5, 5, 2, 3, 4, 4, 4, 4 };
-
-    Polynomial poly(poly_data);
-
-    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
-    auto key = TestFixture::template create_commitment_key<CK>(num_points);
-
-    G1 expected_result = key->commit(poly);
-
-    G1 result = key->commit_structured_with_nonzero_constant_blocks(poly, structured_sizes, actual_sizes);
-
-    EXPECT_EQ(result, expected_result);
-}
-
-/**
- * @brief WORKTODO
- *
- */
-TYPED_TEST(CommitmentKeyTest, CommitZPermRealistic)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    std::vector<uint32_t> structured_sizes = {
-        1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
-    };
-    std::vector<uint32_t> actual_sizes = {
-        10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2,
-    };
+    std::vector<uint32_t> structured_sizes = { 1000, 4000, 201000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
+    std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
     bool non_zero_dead_regions = true;
 
     uint32_t full_size = 0;
@@ -290,7 +256,7 @@ TYPED_TEST(CommitmentKeyTest, CommitZPermRealistic)
 
     G1 expected_result = key->commit(polynomial);
 
-    G1 result = key->commit_structured_with_nonzero_constant_blocks(polynomial, structured_sizes, actual_sizes);
+    G1 result = key->commit_structured_with_nonzero_complement(polynomial, structured_sizes, actual_sizes);
 
     EXPECT_EQ(result, expected_result);
 }

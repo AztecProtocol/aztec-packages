@@ -224,6 +224,7 @@ template <class Curve> class CommitmentKey {
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
      * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
      * inputs in contiguous memory and commit to them using the normal pippenger algorithm.
+     * @note The wire polynomials have the described form when a structured execution trace is in use.
      * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. May not be efficient
      * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
      *
@@ -267,9 +268,22 @@ template <class Curve> class CommitmentKey {
         return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 
-    Commitment commit_structured_with_nonzero_constant_blocks(PolynomialSpan<const Fr> polynomial,
-                                                              const std::vector<uint32_t>& structured_sizes,
-                                                              const std::vector<uint32_t>& actual_sizes)
+    /**
+     * @brief Efficiently commit to a polynomial with discrete blocks of arbitrary elements and constant elements
+     * @details Similar to method commit_structured() except the complement blocks cantain non-zero constant values
+     * (which are assumed to differ between blocks). This is exactly the structure of the permutation grand product
+     * polynomial z_perm when a structured execution trace is in use.
+     * @warning Requires a copy of all {point, scalar} pairs (including endo points) corresponding to the primary blocks
+     * and a copy of all of the points (without endo points) corresponding to their complement.
+     *
+     * @param polynomial
+     * @param structured_sizes Structured size of the blocks from which the polynomial is comprised
+     * @param actual_sizes The size of the block of non-zero elements in the corresponding fixed size block
+     * @return Commitment
+     */
+    Commitment commit_structured_with_nonzero_complement(PolynomialSpan<const Fr> polynomial,
+                                                         const std::vector<uint32_t>& structured_sizes,
+                                                         const std::vector<uint32_t>& actual_sizes)
     {
         BB_OP_COUNT_TIME();
         using BatchedAddition = BatchedAffineAddition<Curve>;
@@ -288,6 +302,7 @@ template <class Curve> class CommitmentKey {
             compute_range_endpoints(structured_sizes, actual_sizes, /*complement=*/true);
 
         // Copy the raw SRS points corresponding to the constant regions into contiguous memory
+        // WORKTODO: add todo about doing this prior to construction of full point table for lower peak memory
         std::vector<G1> points;
         points.reserve(total_num_scalars);
         for (const auto& range : point_endpoints) {

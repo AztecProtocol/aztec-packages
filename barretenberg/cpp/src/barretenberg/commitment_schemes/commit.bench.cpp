@@ -242,7 +242,7 @@ template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::Sta
     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
 
     for (auto _ : state) {
-        key->commit_structured_with_nonzero_constant_blocks(polynomial, fixed_sizes, actual_sizes);
+        key->commit_structured_with_nonzero_complement(polynomial, fixed_sizes, actual_sizes);
     }
 }
 

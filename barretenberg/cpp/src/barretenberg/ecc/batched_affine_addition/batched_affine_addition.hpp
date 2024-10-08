@@ -24,15 +24,51 @@ template <typename Curve> class BatchedAffineAddition {
     };
 
   public:
+    /**
+     * @brief Given a set of points and sequence counts, peform addition to reduce each sequence to a single point
+     * @details Reduce each sequence to a single point via repeated rounds of pairwise addition. (If the length
+     * of the sequence is odd in a given round, the unpaired point is simply carried over to the next round). The
+     * inverses needed in the addition formula are batch computed in a single go for all additions to be performed
+     * across all sequences in a given round.
+     * @note: Multithreading is achieved by evenly distributing the points across the optimal number of available
+     * threads. This can result in the bisecting of some sequences which is acounted for in the final result by further
+     * summing the reduced points that resulted from a sequence split across two or more threads.
+     *
+     * @param points Set of points to be reduced in place to num-sequences many points
+     * @param sequence_counts lengths of the individual sequences to be summed (assumed continguous in points)
+     * @return std::vector<G1> the set of reduced points in contiguous memory
+     */
     static std::vector<G1> add_in_place(const std::span<G1>& points, const std::vector<size_t>& sequence_counts);
 
   private:
+    /**
+     * @brief Construct the set of AdditionSequences to be handled by each thread
+     *
+     * @param points
+     * @param sequence_counts
+     * @param scratch_space
+     * @return ThreadData
+     */
     static ThreadData construct_thread_data(const std::span<G1>& points,
                                             const std::vector<size_t>& sequence_counts,
                                             const std::span<Fq>& scratch_space);
 
+    /**
+     * @brief Batch compute inverses needed for a set of affine point addition sequences
+     * @details Addition of points P_1, P_2 requires computation of a term of the form 1/(P_2.x - P_1.x). For
+     * efficiency, these terms are computed all at once for a full set of addition sequences using batch inversion.
+     *
+     * @tparam Curve
+     * @param add_sequences
+     */
     static std::span<Fq> batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences);
 
+    /**
+     * @brief Internal method for in-place summation of a single set of addition sequences
+     *
+     * @tparam Curve
+     * @param addition_sequences Set of points and counts indicating number of points in each addition chain
+     */
     static void batched_affine_add_in_place(AdditionSequences add_sequences);
 
     /**
