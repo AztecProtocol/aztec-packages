@@ -12,7 +12,7 @@ if (!PXE_URL) {
 const debugLogger = createDebugLogger('aztec:spartan-test:smoke');
 // const userLog = createConsoleLogger();
 
-describe('sample test', () => {
+describe('smoke test', () => {
   let pxe: PXE;
   beforeAll(async () => {
     pxe = await createCompatibleClient(PXE_URL, debugLogger);

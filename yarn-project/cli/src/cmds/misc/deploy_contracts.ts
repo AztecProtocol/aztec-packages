@@ -6,6 +6,7 @@ import {
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
 } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/foundation/abi';
+import { type LogFn } from '@aztec/foundation/log';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
@@ -16,6 +17,7 @@ export async function deployCanonicalL2FeeJuice(
   deployer: Wallet,
   feeJuicePortalAddress: EthAddress,
   waitOpts = DefaultWaitOpts,
+  log: LogFn,
 ): Promise<AztecAddress> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
@@ -29,8 +31,10 @@ export async function deployCanonicalL2FeeJuice(
 
   const publicBytecode = canonicalFeeJuice.contractClass.packedBytecode;
   const encodedBytecode = bufferAsFields(publicBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  log('deployCanonicalL2FeeJuice: Adding capsule...');
   await deployer.addCapsule(encodedBytecode);
   const feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, deployer);
+  log('deployCanonicalL2FeeJuice: Calling deploy on fee juice contract...');
   await feeJuiceContract.methods
     .deploy(
       canonicalFeeJuice.contractClass.artifactHash,
