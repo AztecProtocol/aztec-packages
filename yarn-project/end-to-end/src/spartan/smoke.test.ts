@@ -1,5 +1,9 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
+
+import { createPublicClient, getAddress, getContract, http } from 'viem';
+import { foundry } from 'viem/chains';
 
 const { PXE_URL } = process.env;
 if (!PXE_URL) {
@@ -20,12 +24,12 @@ describe('sample test', () => {
     expect(info.enr).toMatch(/^enr:-/);
   });
 
-  /**
-   * Leaving this test commented out because it requires the ethereum node
-   * to be running and forwarded, e.g.
-   * kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // Leaving this test skipped commented out because it requires the ethereum node
+  // to be running and forwarded, e.g.
+  // kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // also because it assumes foundry.
 
-  it('should be able to get rollup info', async () => {
+  it.skip('should be able to get rollup info', async () => {
     const info = await pxe.getNodeInfo();
     const publicClient = createPublicClient({
       chain: foundry,
@@ -41,12 +45,11 @@ describe('sample test', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [pendingBlockNum, pendingArchive, provenBlockNum, provenArchive, myArchive, provenEpochNumber] =
       await rollupContract.read.status([60n]);
-    console.log('pendingBlockNum', pendingBlockNum.toString());
-    console.log('pendingArchive', pendingArchive.toString());
-    console.log('provenBlockNum', provenBlockNum.toString());
-    console.log('provenArchive', provenArchive.toString());
-    console.log('myArchive', myArchive.toString());
-    console.log('provenEpochNumber', provenEpochNumber.toString());
+    // console.log('pendingBlockNum', pendingBlockNum.toString());
+    // console.log('pendingArchive', pendingArchive.toString());
+    // console.log('provenBlockNum', provenBlockNum.toString());
+    // console.log('provenArchive', provenArchive.toString());
+    // console.log('myArchive', myArchive.toString());
+    // console.log('provenEpochNumber', provenEpochNumber.toString());
   });
-  */
 });

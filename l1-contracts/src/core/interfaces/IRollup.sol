@@ -55,7 +55,7 @@ interface IRollup {
   function submitEpochRootProof(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -110,7 +110,7 @@ interface IRollup {
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);

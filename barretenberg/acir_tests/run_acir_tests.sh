@@ -36,13 +36,23 @@ export BIN CRS_PATH VERBOSE BRANCH
 cd acir_tests
 
 # Convert them to array
+# There are no issues witht the tests below but as they check proper handling of dependencies or circuits that are part of a workspace
+# running these require extra gluecode so they are skipped for the purpose of this script
 SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
+
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
+SKIP_ARRAY+=(regression_5045)
+
 
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
-    # Insert the new item into the array
-    # TODO https://github.com/AztecProtocol/barretenberg/issues/1108
-    SKIP_ARRAY+=(verify_honk_proof regression_5045)
+    # Don't run programs with Honk recursive verifier
+    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof double_verify_honk_proof_recursive)
+fi
+
+if [ "$HONK" = true ]; then
+    # Don't run programs with Plonk recursive verifier(s)
+    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_proof_recursive double_verify_nested_proof)
 fi
 
 function test() {

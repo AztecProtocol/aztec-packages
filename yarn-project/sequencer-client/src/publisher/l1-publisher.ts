@@ -9,6 +9,7 @@ import {
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
+  AZTEC_EPOCH_DURATION,
   ETHEREUM_SLOT_DURATION,
   EthAddress,
   type FeeRecipient,
@@ -116,7 +117,7 @@ export type L1SubmitEpochProofArgs = {
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
-  fees: Tuple<FeeRecipient, 32>;
+  fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>;
   proof: Proof;
 };
 
@@ -601,7 +602,7 @@ export class L1Publisher {
         args.publicInputs.outHash.toString(),
         args.publicInputs.proverId.toString(),
       ],
-      makeTuple(64, i =>
+      makeTuple(AZTEC_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),
