@@ -172,7 +172,7 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
     const size_t MIN_POINTS_PER_THREAD = 1 << 14;
     const size_t total_num_points = points.size();
     const size_t optimal_threads = total_num_points / MIN_POINTS_PER_THREAD;
-    const size_t num_threads = std::min(get_num_cpus(), optimal_threads);
+    const size_t num_threads = std::max(1UL, std::min(get_num_cpus(), optimal_threads));
     // Distribute the work as evenly as possible across threads
     const size_t base_thread_size = total_num_points / num_threads;
     const size_t leftover_size = total_num_points % num_threads;
@@ -191,13 +191,6 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
         thread_scratch_space.push_back(scratch_space.subspan(point_index, size));
         point_index += size;
         thread_endpoints.emplace_back(point_index);
-    }
-
-    // for (const auto& end : thread_endpoints) {
-    //     info("end: ", end);
-    // }
-    for (const auto& points : thread_points) {
-        info("points.size(): ", points.size());
     }
 
     // Construct the union of the thread and sequence endpoints by combining, sorting, then removing duplicates
@@ -236,20 +229,7 @@ typename AdditionManager<Curve>::ThreadData AdditionManager<Curve>::construct_th
     for (size_t i = 0; i < num_threads; ++i) {
         addition_sequences.emplace_back(thread_sequence_counts[i], thread_points[i], thread_scratch_space[i]);
     }
-    // for (const auto& sequence : addition_sequences) {
-    //     info("Counts:");
-    //     for (auto count : sequence.sequence_counts) {
-    //         info("count = ", count);
-    //     }
-    //     info("Points size = ", sequence.points.size());
-    //     info("Scratch size = ", sequence.scratch_space.size());
-    // }
-    for (const auto& tags : thread_sequence_tags) {
-        info("Tags:");
-        for (auto tag : tags) {
-            info("tag = ", tag);
-        }
-    }
+
     return { addition_sequences, thread_sequence_tags };
 }
 
@@ -280,8 +260,6 @@ std::vector<typename AdditionManager<Curve>::G1> AdditionManager<Curve>::batched
             prev_tag = tags[i];
         }
     }
-
-    info("reduced_points.size() = ", reduced_points.size());
 
     return reduced_points;
 }

@@ -79,7 +79,7 @@ template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_dead_re
     return { polynomial, fixed_sizes, actual_sizes };
 }
 
-constexpr size_t MIN_LOG_NUM_POINTS = 20;
+constexpr size_t MIN_LOG_NUM_POINTS = 16;
 constexpr size_t MAX_LOG_NUM_POINTS = 20;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
 constexpr size_t SPARSE_NUM_NONZERO = 100;
@@ -274,12 +274,8 @@ BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)
 BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 

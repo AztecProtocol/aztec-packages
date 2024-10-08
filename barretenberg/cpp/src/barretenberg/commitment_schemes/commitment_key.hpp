@@ -179,6 +179,7 @@ template <class Curve> class CommitmentKey {
     struct RangeEndpoints {
         std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
         std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
+        uint32_t total_num_scalars = 0;
     };
 
     struct ScalarsPoints {
@@ -189,25 +190,28 @@ template <class Curve> class CommitmentKey {
 
     RangeEndpoints compute_range_endpoints(const std::vector<uint32_t>& structured_sizes,
                                            const std::vector<uint32_t>& actual_sizes,
-                                           bool dead_regions = false)
+                                           bool complement = false)
     {
         // Construct the endpoints of the ranges of active scalar regions
         const size_t num_blocks = structured_sizes.size();
         std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
         scalar_endpoints.reserve(num_blocks);
+        uint32_t total_num_scalars = 0;
         uint32_t start_idx = 0;
         uint32_t end_idx = 0;
-        if (dead_regions) {
+        if (complement) {
             for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
                 start_idx = end_idx + actual_size;
                 end_idx += block_size;
                 scalar_endpoints.emplace_back(start_idx, end_idx);
+                total_num_scalars += (end_idx - start_idx);
             }
         } else {
             for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
                 end_idx = start_idx + actual_size;
                 scalar_endpoints.emplace_back(start_idx, end_idx);
                 start_idx += block_size;
+                total_num_scalars += (end_idx - start_idx);
             }
         }
 
@@ -219,7 +223,7 @@ template <class Curve> class CommitmentKey {
             point_endpoints.emplace_back(2 * range.first, 2 * range.second);
         }
 
-        return { scalar_endpoints, point_endpoints };
+        return { scalar_endpoints, point_endpoints, total_num_scalars };
     }
 
     ScalarsPoints construct_contiguous_inputs_from_range_endpoints(PolynomialSpan<const Fr> polynomial,
@@ -300,40 +304,33 @@ template <class Curve> class CommitmentKey {
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
         // Construct the endpoints describing the ranges of constant nonzero elements in the input polynomial
-        RangeEndpoints dead_range_endpoints = compute_range_endpoints(structured_sizes, actual_sizes, true);
+        auto [scalar_endpoints, point_endpoints, total_num_scalars] =
+            compute_range_endpoints(structured_sizes, actual_sizes, /*complement=*/true);
 
-        // WORKTODO: probably just want a standalone algo here because we dont want to copy the 2x point table points
-        // THEN extract the raw points. Better to directly extract the raw points into new memory. Could hold off
-        // thought because eventually we should simply precompute the reduced points in the commitment key prior to
-        // constructing the point toable altogether.
-
-        // Copy the points from the relevant range into contiguous memory
-        auto [scalars, points, num_scalars] =
-            construct_contiguous_inputs_from_range_endpoints(polynomial, point_table, dead_range_endpoints);
-
-        // Extract raw SRS points from point point table points
-        std::vector<G1> raw_points;
-        raw_points.reserve(points.size() / 2);
-        for (size_t i = 0; i < points.size(); i += 2) {
-            raw_points.emplace_back(points[i]);
+        // Copy the raw SRS points corresponding to the constant regions into contiguous memory
+        std::vector<G1> points;
+        points.reserve(total_num_scalars);
+        for (const auto& range : point_endpoints) {
+            for (size_t i = range.first; i < range.second; i += 2) {
+                points.emplace_back(point_table[i]);
+            }
         }
 
-        // Populate AdditionSequences
+        // Compute the number of points in each sequence to be summed
         std::vector<size_t> sequence_counts;
-        for (const auto& range : dead_range_endpoints.scalar_endpoints) {
+        for (const auto& range : scalar_endpoints) {
             sequence_counts.emplace_back(range.second - range.first);
         }
 
-        // Reduce the points using the custom method
+        // Reduce each sequence to a single point
         AdditionManager add_manager;
-        auto reduced_points = add_manager.batched_affine_add_in_place_parallel(raw_points, sequence_counts);
+        auto reduced_points = add_manager.batched_affine_add_in_place_parallel(points, sequence_counts);
 
         // Populate the set of unique scalars with first coeff from each range (values assumed constant over each range)
         std::vector<Fr> unique_scalars;
         unique_scalars.reserve(structured_sizes.size());
-        for (auto range : dead_range_endpoints.scalar_endpoints) {
-            Fr scalar = polynomial[range.first];
-            unique_scalars.emplace_back(scalar);
+        for (auto range : scalar_endpoints) {
+            unique_scalars.emplace_back(polynomial[range.first]);
         }
 
         // Directly compute the full commitment given the reduced inputs
