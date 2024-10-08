@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stack>
-
+#include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
@@ -23,27 +22,6 @@
 namespace bb::avm_trace {
 
 using Row = bb::AvmFullRow<bb::fr>;
-enum class AddressingMode {
-    DIRECT,
-    INDIRECT,
-};
-struct AddressWithMode {
-    AddressingMode mode;
-    uint32_t offset;
-
-    AddressWithMode() = default;
-    AddressWithMode(uint32_t offset)
-        : mode(AddressingMode::DIRECT)
-        , offset(offset)
-    {}
-    AddressWithMode(AddressingMode mode, uint32_t offset)
-        : mode(mode)
-        , offset(offset)
-    {}
-
-    // Dont mutate
-    AddressWithMode operator+(uint val) const noexcept { return { mode, offset + val }; }
-};
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
