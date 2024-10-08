@@ -56,6 +56,6 @@ export class ConsensusPayload implements Signable {
    * @returns The size of the consensus payload.
    */
   getSize(): number {
-    return (this.header.getSize() + this.archive.size + this.txHashes.length * TxHash.SIZE);
+    return this.header.getSize() + this.archive.size + this.txHashes.length * TxHash.SIZE;
   }
 }

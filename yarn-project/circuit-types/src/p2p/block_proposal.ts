@@ -77,6 +77,6 @@ export class BlockProposal extends Gossipable {
   }
 
   getSize(): number {
-    return (this.payload.getSize() + this.signature.getSize());
+    return this.payload.getSize() + this.signature.getSize();
   }
 }

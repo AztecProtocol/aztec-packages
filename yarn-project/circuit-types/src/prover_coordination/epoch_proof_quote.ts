@@ -75,6 +75,6 @@ export class EpochProofQuote extends Gossipable {
    * @returns The size of the epoch proof quote in bytes.
    */
   getSize(): number {
-    return (this.payload.getSize() + this.signature.getSize());
+    return this.payload.getSize() + this.signature.getSize();
   }
 }
