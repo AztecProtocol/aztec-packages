@@ -1,4 +1,6 @@
+// docs:start:imports
 import { AztecAddress } from '@aztec/aztec.js';
+// docs:end:imports
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { readFileSync } from 'fs';

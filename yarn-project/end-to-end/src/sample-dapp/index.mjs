@@ -19,11 +19,9 @@ async function showAccounts(pxe) {
 
 // docs:start:showPrivateBalances
 async function showPrivateBalances(pxe) {
-
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
-  // docs:start:showPrivateBalances
   const accounts = await pxe.getRegisteredAccounts();
 
   for (const account of accounts) {
@@ -80,11 +78,9 @@ async function transferPrivateFunds(pxe) {
 
 // docs:start:showPublicBalances
 async function showPublicBalances(pxe) {
-
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
-  // docs:start:showPublicBalances
   const accounts = await pxe.getRegisteredAccounts();
 
   for (const account of accounts) {
