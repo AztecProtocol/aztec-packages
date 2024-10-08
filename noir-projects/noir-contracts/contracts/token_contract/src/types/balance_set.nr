@@ -1,9 +1,9 @@
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, NoteInterface, PrivateSet};
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
-    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, address::public_keys::NpkM},
     note::{note_interface::NullifiableNote, note_getter::view_notes, note_emission::OuterNoteEmission},
-    keys::{getters::get_public_keys, public_keys::NpkM}
+    keys::getters::get_public_keys
 };
 use crate::types::token_note::OwnedNote;
 

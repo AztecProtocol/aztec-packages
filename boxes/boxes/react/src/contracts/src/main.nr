@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use dep::aztec::{
-        keys::public_keys::{IvpkM, OvpkM},
+        protocol_types::address::public_keys::{IvpkM, OvpkM},
         prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader, Point},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         macros::{storage::storage, functions::{private, public, initializer}}
