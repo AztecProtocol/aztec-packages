@@ -23,6 +23,14 @@ To install the Barretenberg version compatible with the current installed Noir v
 bbup
 ```
 
+Check if the installation was successful:
+
+```bash
+bb --version
+```
+
+If installation was successful, the command would print the version of `bb` installed.
+
 ### Options
 
 You can install any specific version of `bb` with the `-v` flag. Example:
