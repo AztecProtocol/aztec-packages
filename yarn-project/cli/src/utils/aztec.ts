@@ -3,7 +3,7 @@ import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum'
 import { type PXE } from '@aztec/circuit-types';
 import { type DeployL1Contracts } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -114,7 +114,7 @@ export async function deployAztecContracts(
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt,
-    initialValidators
+    initialValidators,
   });
 }
 

@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
@@ -11,7 +12,6 @@ import {
   parseEthereumAddress,
   pxeOption,
 } from '../../utils/commands.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
@@ -37,7 +37,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
-      const initialValidators = options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
+      const initialValidators =
+        options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
       await deployL1Contracts(
         options.rpcUrl,
         options.l1ChainId,

@@ -1,7 +1,7 @@
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { deployAztecContracts } from '../../utils/aztec.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
 
 export async function deployL1Contracts(
   rpcUrl: string,
