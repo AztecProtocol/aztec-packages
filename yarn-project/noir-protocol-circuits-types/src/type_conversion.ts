@@ -1012,6 +1012,7 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
     public_keys_hash: mapWrappedFieldToNoir(privateCallData.publicKeysHash),
     salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
+    protocol_contract_sibling_path: mapTuple(privateCallData.protocolContractSiblingPath, mapFieldToNoir),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
   };
 }
@@ -1575,6 +1576,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
     mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
     mapFieldFromNoir(combinedConstantData.vk_tree_root),
+    mapFieldFromNoir(combinedConstantData.protocol_contract_tree_root),
     mapGlobalVariablesFromNoir(combinedConstantData.global_variables),
   );
 }
@@ -1589,6 +1591,7 @@ export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedCons
     historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
     vk_tree_root: mapFieldToNoir(combinedConstantData.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(combinedConstantData.protocolContractTreeRoot),
     global_variables: mapGlobalVariablesToNoir(combinedConstantData.globalVariables),
   };
 }
@@ -1941,6 +1944,7 @@ export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupDa
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constantRollupData.lastArchive),
     vk_tree_root: mapFieldToNoir(constantRollupData.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(constantRollupData.protocolContractTreeRoot),
     global_variables: mapGlobalVariablesToNoir(constantRollupData.globalVariables),
   };
 }
@@ -1991,6 +1995,7 @@ export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollup
   return new ConstantRollupData(
     mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.last_archive),
     mapFieldFromNoir(constantRollupData.vk_tree_root),
+    mapFieldFromNoir(constantRollupData.protocol_contract_tree_root),
     mapGlobalVariablesFromNoir(constantRollupData.global_variables),
   );
 }
@@ -2033,6 +2038,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     out_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.outHash),
     fees: mapTuple(blockRootOrBlockMergePublicInputs.fees, mapFeeRecipientToNoir),
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
   };
 }
@@ -2146,6 +2152,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
     mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, AZTEC_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
   );
 }
@@ -2262,6 +2269,7 @@ export function mapEmptyBlockRootRollupInputsToNoir(
     block_hash: mapFieldToNoir(rootRollupInputs.blockHash),
     global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
     vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(rootRollupInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }
@@ -2321,6 +2329,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
+    mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
   );
 }
@@ -2599,6 +2608,7 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
     chain_id: mapFieldToNoir(inputs.chainId),
     version: mapFieldToNoir(inputs.version),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(inputs.protocolContractTreeRoot),
   };
 }
 

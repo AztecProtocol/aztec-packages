@@ -2,7 +2,7 @@ import { type Tx, mockTx } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -15,7 +15,7 @@ describe('GasTxValidator', () => {
   let feeJuiceAddress: AztecAddress;
 
   beforeEach(() => {
-    feeJuiceAddress = FeeJuiceAddress;
+    feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     publicStateSource = mock<PublicStateSource>({
       storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
     });
@@ -69,10 +69,10 @@ describe('GasTxValidator', () => {
     mockBalance(TX_FEE - 1n);
     const selector = FunctionSelector.fromSignature('_increase_public_balance((Field),Field)');
     patchNonRevertibleFn(tx, 0, {
-      address: FeeJuiceAddress,
+      address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       args: [selector.toField(), payer, new Fr(1n)],
-      msgSender: FeeJuiceAddress,
+      msgSender: ProtocolContractAddress.FeeJuice,
     });
     await expectValidateSuccess(tx);
   });

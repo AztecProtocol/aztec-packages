@@ -383,7 +383,7 @@ export class LibP2PService implements P2PService {
    * @param attestation - The attestation to process.
    */
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
-    this.logger.verbose(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
+    this.logger.debug(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
     await this.mempools.attestationPool.addAttestations([attestation]);
   }
 

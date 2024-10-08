@@ -72,7 +72,14 @@ export class EcAdd extends Instruction {
     }
 
     const grumpkin = new Grumpkin();
-    let dest = grumpkin.add(p1, p2);
+    let dest;
+    if (p1IsInfinite) {
+      dest = p2;
+    } else if (p2IsInfinite) {
+      dest = p1;
+    } else {
+      dest = grumpkin.add(p1, p2);
+    }
     // Temporary,
     if (p1IsInfinite) {
       dest = p2;
