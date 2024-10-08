@@ -4,8 +4,11 @@
 #include "tracy/Tracy.hpp"
 #include "wasm_export.hpp"
 #include <cstdlib>
-#include <jemalloc/jemalloc.h>
 #include <memory>
+
+#ifdef ENABLE_JEMALLOC
+#include "jemalloc_helper.h"
+#endif
 
 // This can be altered to capture stack traces, though more expensive
 // so wrap TracyAlloc or TracyAllocS. We disable these if gates are being tracked
