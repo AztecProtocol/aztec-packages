@@ -19,7 +19,7 @@ namespace main(256);
     pol constant sel_first = [1] + [0]*; // Used mostly to toggle off the first row consisting
                                          // only in first element of shifted polynomials.
     pol constant zeroes = [0]*; // Helper for if we need to use a constant zero column
-    pol constant sel_start_exec; // Toggle row which starts main execution trace (clk == 1).
+
     //===== HELPER POLYNOMIALS ==================================================
     // This column signals active rows in the main trace table, which should
     // be every row except the first, and the padding rows at the end.
@@ -29,11 +29,6 @@ namespace main(256);
     sel_execution_row = OPCODE_SELECTORS;
     sel_execution_row * (1 - sel_execution_row) = 0;
     // TODO: constrain that the right rows are marked with sel_execution_row
-
-    pol commit sel_execution_end; // Toggle next row of last execution trace row.
-                                  // Used as a LHS selector of the lookup to enforce final gas values which correspond to
-                                  // l2_gas_remaining and da_gas_remaining values located at the row after last execution row.
-    sel_execution_end' = sel_execution_row * (1 - sel_execution_row') * (1 - sel_first);
 
     //===== PUBLIC COLUMNS=========================================================
     pol public calldata;
@@ -213,6 +208,10 @@ namespace main(256);
     pol commit sel_resolve_ind_addr_b;
     pol commit sel_resolve_ind_addr_c;
     pol commit sel_resolve_ind_addr_d;
+
+    // Track the last line of the execution trace. It does NOT correspond to the last row of the whole table
+    // of size N. As this depends on the supplied bytecode, this polynomial cannot be constant.
+    pol commit sel_last;
 
     // Relations on type constraints
     // TODO: Very likely, we can remove these constraints as the selectors should be derived during
