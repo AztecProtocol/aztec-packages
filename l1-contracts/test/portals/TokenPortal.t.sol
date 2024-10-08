@@ -21,6 +21,7 @@ import {TokenPortal} from "./TokenPortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -61,13 +62,7 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
-    rollup = new Rollup(
-      IFeeJuicePortal(address(0)),
-      IProofCommitmentEscrow(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    rollup = new Rollup(new MockFeeJuicePortal(), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 

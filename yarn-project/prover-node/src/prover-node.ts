@@ -6,7 +6,7 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeOperations,
+  type MerkleTreeWriteOperations,
   type ProverCoordination,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
@@ -167,7 +167,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     await this.prover.stop();
     await this.l2BlockSource.stop();
     this.publisher.interrupt();
-    this.jobs.forEach(job => job.stop());
+    await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     this.log.info('Stopped ProverNode');
   }
@@ -234,18 +234,17 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
 
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
-    const db = await this.worldState.syncImmediateAndFork(fromBlock - 1, true);
+    const db = await this.worldState.syncImmediateAndFork(fromBlock - 1);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(
-      db,
       this.contractDataSource,
       this.simulator,
       this.telemetryClient,
     );
 
     const cleanUp = async () => {
-      await db.delete();
+      await db.close();
       this.jobs.delete(job.getId());
     };
 
@@ -258,11 +257,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
-    db: MerkleTreeOperations,
+    db: MerkleTreeWriteOperations,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
+      db,
       epochNumber,
       blocks,
       this.prover.createEpochProver(db),

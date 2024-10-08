@@ -202,6 +202,9 @@ template <typename Builder> class safe_uint_t {
     }
 
     uint32_t get_witness_index() const { return value.get_witness_index(); }
+    void set_origin_tag(OriginTag tag) const { value.set_origin_tag(tag); }
+
+    OriginTag get_origin_tag() const { return value.get_origin_tag(); }
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, safe_uint_t<Builder> const& v)

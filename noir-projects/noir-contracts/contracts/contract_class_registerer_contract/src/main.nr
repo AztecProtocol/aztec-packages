@@ -17,7 +17,7 @@ contract ContractClassRegisterer {
     };
 
     use dep::aztec::{
-        context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private_internal,
+        context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private,
         macros::functions::private
     };
 
@@ -141,21 +141,24 @@ contract ContractClassRegisterer {
         emit_contract_class_unencrypted_log(&mut context, event.serialize());
     }
 
-    // This fn exists separately from emit_unencrypted_log because sha hashing the preimage
-    // is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it
-    // It is ONLY used with contract_class_registerer_contract since we already assert correctness:
-    // - Contract class -> we will commit to the packed bytecode (currently a TODO)
-    // - Private function -> we provide a membership proof
-    // - Unconstrained function -> we provide a membership proof
-    // Ordinary logs are not protected by the above so this fn shouldn't be called by anything else
     #[contract_library_method]
-    pub fn emit_contract_class_unencrypted_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
+    fn emit_contract_class_unencrypted_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
         let contract_address = context.this_address();
         let counter = context.next_counter();
-        let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, log, counter);
+
+        // The log preimage is too large for the hash to compile (16,200 fields, 518,400 bytes), so we do this via a
+        // specialized oracle.
+        // A malicious oracle cannot force us to use an incorrect bytecode:
+        // - Contract class -> we will commit to the packed bytecode (currently a TODO)
+        // - Private function -> we provide a membership proof
+        // - Unconstrained function -> we provide a membership proof
+        // However, the sequencer will be required to know a contract's preimage if it is called and the sequencer
+        // cannot prove non-registration. Therefore, it is possible that a malicious oracle might prevent sequencers
+        // from including transactions with calls to certain badly-broadcasted contracts.
+        // TODO(#8978): review correctness
+        let log_hash = emit_contract_class_unencrypted_log_private(contract_address, log, counter);
+
         // 40 = addr (32) + raw log len (4) + processed log len (4)
-        let len = 40 + N * 32;
-        let side_effect = LogHash { value: log_hash, counter, length: len as Field };
-        context.unencrypted_logs_hashes.push(side_effect);
+        context.unencrypted_logs_hashes.push(LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 });
     }
 }

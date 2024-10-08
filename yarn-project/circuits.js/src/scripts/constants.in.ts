@@ -55,21 +55,22 @@ const CPP_CONSTANTS = [
   'START_EMIT_NULLIFIER_WRITE_OFFSET',
   'START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET',
   'START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET',
-  'SENDER_SELECTOR',
-  'ADDRESS_SELECTOR',
-  'STORAGE_ADDRESS_SELECTOR',
-  'FUNCTION_SELECTOR_SELECTOR',
-  'START_GLOBAL_VARIABLES',
-  'CHAIN_ID_SELECTOR',
-  'VERSION_SELECTOR',
-  'BLOCK_NUMBER_SELECTOR',
-  'TIMESTAMP_SELECTOR',
-  'FEE_PER_DA_GAS_SELECTOR',
-  'FEE_PER_L2_GAS_SELECTOR',
-  'IS_STATIC_CALL_SELECTOR',
-  'END_GLOBAL_VARIABLES',
-  'START_SIDE_EFFECT_COUNTER',
-  'TRANSACTION_FEE_SELECTOR',
+  'SENDER_KERNEL_INPUTS_COL_OFFSET',
+  'ADDRESS_KERNEL_INPUTS_COL_OFFSET',
+  'STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET',
+  'FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET',
+  'CHAIN_ID_KERNEL_INPUTS_COL_OFFSET',
+  'VERSION_KERNEL_INPUTS_COL_OFFSET',
+  'BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET',
+  'TIMESTAMP_KERNEL_INPUTS_COL_OFFSET',
+  'FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET',
+  'DA_START_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'L2_START_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'DA_END_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'L2_END_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET',
   'MEM_TAG_U1',
   'MEM_TAG_U8',
   'MEM_TAG_U16',
@@ -77,7 +78,18 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
+
+  'NULLIFIER_TREE_HEIGHT',
+  'MAX_NULLIFIERS_PER_TX',
+  'NOTE_HASH_TREE_HEIGHT',
+  'PUBLIC_DATA_TREE_HEIGHT',
+  'MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
+  'L1_TO_L2_MSG_TREE_HEIGHT',
+  'ARCHIVE_HEIGHT',
+  'GENESIS_ARCHIVE_ROOT',
 ];
+
+const CPP_GENERATORS = ['BLOCK_HASH'];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -101,21 +113,22 @@ const PIL_CONSTANTS = [
   'START_EMIT_NULLIFIER_WRITE_OFFSET',
   'START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET',
   'START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET',
-  'SENDER_SELECTOR',
-  'ADDRESS_SELECTOR',
-  'STORAGE_ADDRESS_SELECTOR',
-  'FUNCTION_SELECTOR_SELECTOR',
-  'START_GLOBAL_VARIABLES',
-  'CHAIN_ID_SELECTOR',
-  'VERSION_SELECTOR',
-  'BLOCK_NUMBER_SELECTOR',
-  'TIMESTAMP_SELECTOR',
-  'FEE_PER_DA_GAS_SELECTOR',
-  'FEE_PER_L2_GAS_SELECTOR',
-  'IS_STATIC_CALL_SELECTOR',
-  'END_GLOBAL_VARIABLES',
-  'START_SIDE_EFFECT_COUNTER',
-  'TRANSACTION_FEE_SELECTOR',
+  'SENDER_KERNEL_INPUTS_COL_OFFSET',
+  'ADDRESS_KERNEL_INPUTS_COL_OFFSET',
+  'STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET',
+  'FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET',
+  'CHAIN_ID_KERNEL_INPUTS_COL_OFFSET',
+  'VERSION_KERNEL_INPUTS_COL_OFFSET',
+  'BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET',
+  'TIMESTAMP_KERNEL_INPUTS_COL_OFFSET',
+  'FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET',
+  'DA_START_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'L2_START_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'DA_END_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'L2_END_GAS_KERNEL_INPUTS_COL_OFFSET',
+  'TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET',
   'MEM_TAG_U1',
   'MEM_TAG_U8',
   'MEM_TAG_U16',
@@ -160,11 +173,20 @@ function processConstantsTS(constants: { [key: string]: string }): string {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsCpp(constants: { [key: string]: string }): string {
+function processConstantsCpp(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
-      code.push(`#define ${key} ${value}`);
+      // stringify large numbers
+      code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
+    }
+  });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    if (CPP_GENERATORS.includes(key)) {
+      code.push(`#define GENERATOR_INDEX__${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -240,11 +262,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 #pragma once
 
-${processConstantsCpp(constants)}
+${processConstantsCpp(constants, generatorIndexEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);
@@ -333,6 +355,8 @@ function parseNoirFile(fileContent: string): ParsedContent {
 function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
   const constants: { [key: string]: string } = {};
 
+  const knownBigInts = ['AZTEC_EPOCH_DURATION', 'FEE_RECIPIENT_LENGTH'];
+
   // Create JS expressions. It is not as easy as just evaluating the expression!
   // We basically need to convert everything to BigInts, otherwise things don't fit.
   // However, (1) the bigints need to be initialized from strings; (2) everything needs to
@@ -352,6 +376,8 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .split(' ')
         // ...and then we convert each term to a BigInt if it is a number.
         .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        // .. also, we convert the known bigints to BigInts.
+        .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.
         .join(' ');
       return `var ${name} = ${guardedRhs};`;

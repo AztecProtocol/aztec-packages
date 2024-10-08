@@ -59,7 +59,14 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.gas_dyn_l2_gas_fixed_table.set_if_valid_index(i, rows[i].gas_dyn_l2_gas_fixed_table);
                 polys.gas_sel_gas_cost.set_if_valid_index(i, rows[i].gas_sel_gas_cost);
                 polys.main_clk.set_if_valid_index(i, rows[i].main_clk);
+                polys.main_sel_da_end_gas_kernel_input.set_if_valid_index(i, rows[i].main_sel_da_end_gas_kernel_input);
+                polys.main_sel_da_start_gas_kernel_input.set_if_valid_index(i,
+                                                                            rows[i].main_sel_da_start_gas_kernel_input);
                 polys.main_sel_first.set_if_valid_index(i, rows[i].main_sel_first);
+                polys.main_sel_l2_end_gas_kernel_input.set_if_valid_index(i, rows[i].main_sel_l2_end_gas_kernel_input);
+                polys.main_sel_l2_start_gas_kernel_input.set_if_valid_index(i,
+                                                                            rows[i].main_sel_l2_start_gas_kernel_input);
+                polys.main_sel_start_exec.set_if_valid_index(i, rows[i].main_sel_start_exec);
                 polys.main_zeroes.set_if_valid_index(i, rows[i].main_zeroes);
                 polys.powers_power_of_2.set_if_valid_index(i, rows[i].powers_power_of_2);
                 polys.main_kernel_inputs.set_if_valid_index(i, rows[i].main_kernel_inputs);
@@ -222,10 +229,10 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_alu.set_if_valid_index(i, rows[i].main_sel_alu);
                 polys.main_sel_bin.set_if_valid_index(i, rows[i].main_sel_bin);
                 polys.main_sel_calldata.set_if_valid_index(i, rows[i].main_sel_calldata);
+                polys.main_sel_execution_end.set_if_valid_index(i, rows[i].main_sel_execution_end);
                 polys.main_sel_execution_row.set_if_valid_index(i, rows[i].main_sel_execution_row);
                 polys.main_sel_kernel_inputs.set_if_valid_index(i, rows[i].main_sel_kernel_inputs);
                 polys.main_sel_kernel_out.set_if_valid_index(i, rows[i].main_sel_kernel_out);
-                polys.main_sel_last.set_if_valid_index(i, rows[i].main_sel_last);
                 polys.main_sel_mem_op_a.set_if_valid_index(i, rows[i].main_sel_mem_op_a);
                 polys.main_sel_mem_op_b.set_if_valid_index(i, rows[i].main_sel_mem_op_b);
                 polys.main_sel_mem_op_c.set_if_valid_index(i, rows[i].main_sel_mem_op_c);
@@ -239,7 +246,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_calldata_copy.set_if_valid_index(i, rows[i].main_sel_op_calldata_copy);
                 polys.main_sel_op_cast.set_if_valid_index(i, rows[i].main_sel_op_cast);
                 polys.main_sel_op_chain_id.set_if_valid_index(i, rows[i].main_sel_op_chain_id);
-                polys.main_sel_op_cmov.set_if_valid_index(i, rows[i].main_sel_op_cmov);
                 polys.main_sel_op_dagasleft.set_if_valid_index(i, rows[i].main_sel_op_dagasleft);
                 polys.main_sel_op_div.set_if_valid_index(i, rows[i].main_sel_op_div);
                 polys.main_sel_op_ecadd.set_if_valid_index(i, rows[i].main_sel_op_ecadd);
@@ -323,7 +329,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.mem_sel_op_a.set_if_valid_index(i, rows[i].mem_sel_op_a);
                 polys.mem_sel_op_b.set_if_valid_index(i, rows[i].mem_sel_op_b);
                 polys.mem_sel_op_c.set_if_valid_index(i, rows[i].mem_sel_op_c);
-                polys.mem_sel_op_cmov.set_if_valid_index(i, rows[i].mem_sel_op_cmov);
                 polys.mem_sel_op_d.set_if_valid_index(i, rows[i].mem_sel_op_d);
                 polys.mem_sel_op_poseidon_read_a.set_if_valid_index(i, rows[i].mem_sel_op_poseidon_read_a);
                 polys.mem_sel_op_poseidon_read_b.set_if_valid_index(i, rows[i].mem_sel_op_poseidon_read_b);
