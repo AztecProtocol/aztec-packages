@@ -60,7 +60,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             self.tx_request,
             private_call.call_stack_item.public_inputs,
             array_lengths,
-            FixtureBuilder::vk_tree_root()
+            FixtureBuilder::vk_tree_root(),
+            self.private_call.protocol_contract_tree_root
         );
     }
 

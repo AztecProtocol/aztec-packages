@@ -11,7 +11,7 @@ import { makeRootParityInput } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -24,7 +24,7 @@ const logger = createDebugLogger('aztec:orchestrator-workflow');
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
-    let actualDb: MerkleTreeOperations;
+    let actualDb: MerkleTreeReadOperations;
     let globalVariables: GlobalVariables;
     let context: TestContext;
 
@@ -33,7 +33,7 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         mockProver = mock<ServerCircuitProver>();
-        context = await TestContext.new(logger, 'legacy', 4, () => Promise.resolve(mockProver));
+        context = await TestContext.new(logger, 'native', 4, () => Promise.resolve(mockProver));
         ({ actualDb, orchestrator, globalVariables } = context);
       });
 

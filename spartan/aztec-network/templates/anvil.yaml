@@ -23,13 +23,13 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - >-
-              anvil
-              --host 0.0.0.0
-              {{ include "helpers.flag" (list "block-time" .Values.ethereum.blockTime) }}
-              {{ include "helpers.flag" (list "chain-id" .Values.ethereum.chainId) }}
-              {{ include "helpers.flag" (list "gas-limit" .Values.ethereum.gasLimit) }}
-              {{ include "helpers.flag" (list "fork-url" .Values.ethereum.forkUrl) }}
-              {{ include "helpers.flag" (list "fork-block-number" .Values.ethereum.forkBlockNumber) }}
+              anvil {{ include "helpers.flag" (list "host" "0.0.0.0") }}
+              {{- include "helpers.flag" (list "block-time" .Values.ethereum.blockTime) }}
+              {{- include "helpers.flag" (list "chain-id" .Values.ethereum.chainId) }}
+              {{- include "helpers.flag" (list "gas-limit" .Values.ethereum.gasLimit) }}
+              {{- include "helpers.flag" (list "fork-url" .Values.ethereum.forkUrl) }}
+              {{- include "helpers.flag" (list "fork-block-number" .Values.ethereum.forkBlockNumber) }}
+              {{- include "helpers.flag" (list "accounts" .Values.validator.replicas) }}
               -p {{ .Values.ethereum.service.port }}
           ports:
             - containerPort: {{ .Values.ethereum.service.port }}

@@ -1,7 +1,7 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
@@ -20,7 +20,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
   override getFunctionCalls(): Promise<FunctionCall[]> {
     return Promise.resolve([
       {
-        to: FeeJuiceAddress,
+        to: ProtocolContractAddress.FeeJuice,
         name: 'claim',
         selector: FunctionSelector.fromSignature('claim((Field),Field,Field)'),
         isStatic: false,

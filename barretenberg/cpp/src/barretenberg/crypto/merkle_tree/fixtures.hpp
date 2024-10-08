@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <sstream>
@@ -46,5 +47,12 @@ inline void print_tree(const uint32_t depth, std::vector<fr> hashes, std::string
         }
         offset += layer_size;
     }
+}
+
+using ThreadPoolPtr = std::shared_ptr<ThreadPool>;
+
+inline ThreadPoolPtr make_thread_pool(uint64_t numThreads)
+{
+    return std::make_shared<ThreadPool>(numThreads);
 }
 } // namespace bb::crypto::merkle_tree

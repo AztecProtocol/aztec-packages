@@ -15,6 +15,7 @@ using namespace bb::messaging;
 enum WorldStateMessageType {
     GET_TREE_INFO = FIRST_APP_MSG_TYPE,
     GET_STATE_REFERENCE,
+    GET_INITIAL_STATE_REFERENCE,
 
     GET_LEAF_VALUE,
     GET_LEAF_PREIMAGE,
@@ -31,7 +32,12 @@ enum WorldStateMessageType {
     COMMIT,
     ROLLBACK,
 
-    SYNC_BLOCK
+    SYNC_BLOCK,
+
+    CREATE_FORK,
+    DELETE_FORK,
+
+    CLOSE = 999,
 };
 
 struct TreeIdOnlyRequest {
@@ -39,12 +45,24 @@ struct TreeIdOnlyRequest {
     MSGPACK_FIELDS(treeId);
 };
 
+struct CreateForkRequest {
+    uint64_t blockNumber;
+    MSGPACK_FIELDS(blockNumber);
+};
+
+struct CreateForkResponse {
+    uint64_t forkId;
+    MSGPACK_FIELDS(forkId);
+};
+
+struct DeleteForkRequest {
+    uint64_t forkId;
+    MSGPACK_FIELDS(forkId);
+};
+
 struct TreeIdAndRevisionRequest {
     MerkleTreeId treeId;
-    // -1 uncomitted state
-    // 0 latest committed state
-    // > 0 specific block number
-    int revision;
+    WorldStateRevision revision;
     MSGPACK_FIELDS(treeId, revision);
 };
 
@@ -55,7 +73,7 @@ struct EmptyResponse {
 
 struct GetTreeInfoRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     MSGPACK_FIELDS(treeId, revision);
 };
 
@@ -68,7 +86,7 @@ struct GetTreeInfoResponse {
 };
 
 struct GetStateReferenceRequest {
-    int revision;
+    WorldStateRevision revision;
     MSGPACK_FIELDS(revision);
 };
 
@@ -77,37 +95,42 @@ struct GetStateReferenceResponse {
     MSGPACK_FIELDS(state);
 };
 
+struct GetInitialStateReferenceResponse {
+    StateReference state;
+    MSGPACK_FIELDS(state);
+};
+
 struct GetLeafValueRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetLeafPreimageRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetSiblingPathRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
 template <typename T> struct FindLeafIndexRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     T leaf;
     MSGPACK_FIELDS(treeId, revision, leaf);
 };
 
 struct FindLowLeafRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     fr key;
     MSGPACK_FIELDS(treeId, revision, key);
 };
@@ -121,31 +144,36 @@ struct FindLowLeafResponse {
 template <typename T> struct AppendLeavesRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
-    MSGPACK_FIELDS(treeId, leaves);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, forkId);
 };
 
 template <typename T> struct BatchInsertRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
     uint32_t subtreeDepth;
-    MSGPACK_FIELDS(treeId, leaves, subtreeDepth);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, subtreeDepth, forkId);
 };
 
 struct UpdateArchiveRequest {
     StateReference blockStateRef;
-    bb::fr blockHash;
-    MSGPACK_FIELDS(blockStateRef, blockHash);
+    bb::fr blockHeaderHash;
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(blockStateRef, blockHeaderHash, forkId);
 };
 
 struct SyncBlockRequest {
+    uint64_t blockNumber;
     StateReference blockStateRef;
-    bb::fr blockHash;
+    bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
     std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>> batchesOfPaddedPublicDataWrites;
 
-    MSGPACK_FIELDS(blockStateRef,
-                   blockHash,
+    MSGPACK_FIELDS(blockNumber,
+                   blockStateRef,
+                   blockHeaderHash,
                    paddedNoteHashes,
                    paddedL1ToL2Messages,
                    paddedNullifiers,
