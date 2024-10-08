@@ -226,7 +226,7 @@ fn should_retain_recursive(
     ssa: &Ssa,
     func: FunctionId,
     times_called: &HashMap<FunctionId, usize>,
-    should_retain_function: &mut HashMap<FunctionId, (bool, usize)>,
+    should_retain_function: &mut HashMap<FunctionId, (bool, f64)>,
     mut explored_functions: im::HashSet<FunctionId>,
     inline_no_predicates_functions: bool,
     aggressiveness: f64,
@@ -237,7 +237,7 @@ fn should_retain_recursive(
     }
     // Recursive, this function won't be inlined
     if explored_functions.contains(&func) {
-        should_retain_function.insert(func, (true, 0));
+        should_retain_function.insert(func, (true, 0f64));
         return;
     }
     explored_functions.insert(func);
@@ -265,12 +265,12 @@ fn should_retain_recursive(
     // We compute the weight (roughly the number of instructions) of the function after inlining
     // And the interface cost of the function (the inherent cost at the callsite, roughly the number of args and returns)
     // We then can compute an approximation of the cost of inlining vs the cost of retaining the function
-    let inlined_function_weights: usize = called_functions
+    let inlined_function_weights: f64 = called_functions
         .iter()
         .map(|called_function| {
             let (should_retain, weight) = should_retain_function[called_function];
             if should_retain {
-                0
+                0.0
             } else {
                 weight
             }
@@ -278,15 +278,14 @@ fn should_retain_recursive(
         .sum();
 
     let this_function_weight =
-        inlined_function_weights + compute_function_own_weight(&ssa.functions[&func]);
+        inlined_function_weights + (compute_function_own_weight(&ssa.functions[&func]) as f64);
 
-    let this_function_weight_floating = this_function_weight as f64;
     let interface_cost = compute_function_interface_cost(&ssa.functions[&func]) as f64;
 
     let times_called = times_called[&func] as f64;
 
-    let inline_cost = times_called * this_function_weight_floating;
-    let retain_cost = times_called * interface_cost + this_function_weight_floating;
+    let inline_cost = times_called * this_function_weight;
+    let retain_cost = times_called * interface_cost + this_function_weight;
 
     let runtime = ssa.functions[&func].runtime();
     // We inline if the aggressiveness is higher than inline cost minus the retain cost
