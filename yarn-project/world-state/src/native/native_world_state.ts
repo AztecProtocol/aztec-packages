@@ -116,8 +116,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesFacade(this.instance, this.initialHeader!, worldStateRevision(false, 0, blockNumber));
   }
 
-  public async fork(): Promise<MerkleTreeWriteOperations> {
-    const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, { blockNumber: 0 });
+  public async fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
+    const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, { blockNumber: blockNumber ?? 0 });
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
 

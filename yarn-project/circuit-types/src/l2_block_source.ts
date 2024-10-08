@@ -100,6 +100,11 @@ export interface L2BlockSource {
   isEpochComplete(epochNumber: bigint): Promise<boolean>;
 
   /**
+   * Returns the tips of the L2 chain.
+   */
+  getL2Tips(): Promise<L2Tips>;
+
+  /**
    * Starts the L2 block source.
    * @param blockUntilSynced - If true, blocks until the data source has fully synced.
    * @returns A promise signalling completion of the start process.
@@ -112,3 +117,27 @@ export interface L2BlockSource {
    */
   stop(): Promise<void>;
 }
+
+/**
+ * Identifier for L2 block tags.
+ * - latest: Latest block pushed to L1.
+ * - proven: Proven block on L1.
+ * - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
+ */
+export type L2BlockTag = 'latest' | 'proven' | 'finalized';
+
+/** Tips of the L2 chain. */
+export type L2Tips = Record<L2BlockTag, L2BlockId>;
+
+/** Identifies a block by number and hash. */
+export type L2BlockId =
+  | {
+      number: 0;
+      hash: undefined;
+    }
+  | {
+      /** L2 block number. */
+      number: number;
+      /** L2 block hash. */
+      hash: string;
+    };

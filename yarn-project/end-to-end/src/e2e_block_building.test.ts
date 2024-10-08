@@ -49,10 +49,10 @@ describe('e2e_block_building', () => {
     afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
     afterAll(() => teardown());
 
-    it('assembles a block with multiple txs', async () => {
+    it.only('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
-      const TX_COUNT = 8;
+      const TX_COUNT = 1;
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
 

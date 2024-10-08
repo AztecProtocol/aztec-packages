@@ -15,9 +15,9 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { mockBlock } from '../test/utils.js';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { NativeWorldStateService } from './native_world_state.js';
-import { mockBlock } from './test_util.js';
 
 jest.setTimeout(60_000);
 

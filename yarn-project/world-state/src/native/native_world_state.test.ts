@@ -6,8 +6,8 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
 import { NativeWorldStateService } from './native_world_state.js';
-import { assertSameState, compareChains, mockBlock } from './test_util.js';
 
 describe('NativeWorldState', () => {
   let dataDir: string;

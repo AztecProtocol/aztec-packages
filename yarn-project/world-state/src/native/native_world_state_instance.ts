@@ -155,6 +155,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['blockNumber'] = body.blockNumber;
       }
 
+      if ('toBlockNumber' in body) {
+        data['toBlockNumber'] = body.toBlockNumber;
+      }
+
       if ('leafIndex' in body) {
         data['leafIndex'] = body.leafIndex;
       }
