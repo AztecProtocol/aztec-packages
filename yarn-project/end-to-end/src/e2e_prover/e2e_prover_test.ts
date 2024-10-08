@@ -278,8 +278,8 @@ export class FullProverTest {
       proverNodePollingIntervalMs: 100,
       quoteProviderBasisPointFee: 100,
       quoteProviderBondAmount: 1000n,
-      proverMinimumStakeAmount: 3000n,
-      proverTargetStakeAmount: 6000n,
+      proverMinimumEscrowAmount: 3000n,
+      proverTargetEscrowAmount: 6000n,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,

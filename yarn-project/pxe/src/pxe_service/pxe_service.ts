@@ -807,7 +807,10 @@ export class PXEService implements PXE {
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
+    // use the block the tx was simulated against
+    const block =
+      privateExecutionResult.callStackItem.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);

@@ -69,7 +69,7 @@ import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
@@ -699,8 +699,11 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getHeader(): Promise<Header> {
-    return (await this.getBlock(-1))?.header ?? (await this.#getWorldState('latest')).getInitialHeader();
+  public async getHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+    return (
+      (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
+      this.worldStateSynchronizer.getCommitted().getInitialHeader()
+    );
   }
 
   /**
@@ -721,49 +724,59 @@ export class AztecNodeService implements AztecNode {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-
     const publicProcessorFactory = new PublicProcessorFactory(
-      await this.worldStateSynchronizer.ephemeralFork(),
       this.contractDataSource,
       new WASMSimulator(),
       this.telemetry,
     );
-    const processor = publicProcessorFactory.create(prevHeader, newGlobalVariables);
 
-    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-    const [processedTxs, failedTxs, returns] = await processor.process([tx]);
-    // REFACTOR: Consider returning the error/revert rather than throwing
-    if (failedTxs.length) {
-      this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
-      throw failedTxs[0].error;
+    const fork = await this.worldStateSynchronizer.fork();
+
+    try {
+      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
+
+      // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
+      const [processedTxs, failedTxs, returns] = await processor.process([tx]);
+      // REFACTOR: Consider returning the error/revert rather than throwing
+      if (failedTxs.length) {
+        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
+        throw failedTxs[0].error;
+      }
+      const { reverted } = partitionReverts(processedTxs);
+      if (reverted.length) {
+        this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
+        throw reverted[0].revertReason;
+      }
+      this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
+      const [processedTx] = processedTxs;
+      return new PublicSimulationOutput(
+        processedTx.encryptedLogs,
+        processedTx.unencryptedLogs,
+        processedTx.revertReason,
+        processedTx.data.constants,
+        processedTx.data.end,
+        returns,
+        processedTx.gasUsed,
+      );
+    } finally {
+      await fork.close();
     }
-    const { reverted } = partitionReverts(processedTxs);
-    if (reverted.length) {
-      this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
-      throw reverted[0].revertReason;
-    }
-    this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
-    const [processedTx] = processedTxs;
-    return new PublicSimulationOutput(
-      processedTx.encryptedLogs,
-      processedTx.unencryptedLogs,
-      processedTx.revertReason,
-      processedTx.data.constants,
-      processedTx.data.end,
-      returns,
-      processedTx.gasUsed,
-    );
   }
 
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
+    const db = this.worldStateSynchronizer.getCommitted();
     // These validators are taken from the sequencer, and should match.
     // The reason why `phases` and `gas` tx validator is in the sequencer and not here is because
     // those tx validators are customizable by the sequencer.
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest(), this.contractDataSource)),
+      new DoubleSpendTxValidator({
+        getNullifierIndex(nullifier) {
+          return db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+        },
+      }),
     ];
 
     if (!isSimulation) {
@@ -833,10 +846,10 @@ export class AztecNodeService implements AztecNode {
     }
 
     // using a snapshot could be less efficient than using the committed db
-    if (blockNumber === 'latest' || blockNumber === blockSyncedTo) {
+    if (blockNumber === 'latest' /*|| blockNumber === blockSyncedTo*/) {
       this.log.debug(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
-    } else if (blockNumber < blockSyncedTo) {
+    } else if (blockNumber <= blockSyncedTo) {
       this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     } else {

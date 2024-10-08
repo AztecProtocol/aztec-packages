@@ -8,7 +8,8 @@ use crate::{
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData
+    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+    private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     transaction::tx_request::TxRequest
 };
@@ -21,6 +22,15 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
+    pub fn new(
+        tx_request: TxRequest,
+        vk_tree_root: Field,
+        private_call: PrivateCallDataWithoutPublicInputs,
+        app_public_inputs: PrivateCircuitPublicInputs
+    ) -> Self {
+        Self { tx_request, vk_tree_root, private_call: private_call.to_private_call_data(app_public_inputs) }
+    }
+
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs, self.vk_tree_root).with_private_call(

@@ -608,7 +608,7 @@ void prove_tube(const std::string& output_path)
     // set_public on each witness
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    num_public_inputs -= 2 * 8;                       // don't add the databus return data commitments (2x)
+    num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.folding_proof[i + offset]);
@@ -701,7 +701,8 @@ template <typename Builder = UltraCircuitBuilder> void gateCount(const std::stri
     for (auto constraint_system : constraint_systems) {
         auto builder = acir_format::create_circuit<Builder>(
             constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
-        auto circuit_size = builder.get_total_circuit_size();
+        builder.finalize_circuit();
+        size_t circuit_size = builder.num_gates;
 
         // Build individual circuit report
         std::string gates_per_opcode_str;

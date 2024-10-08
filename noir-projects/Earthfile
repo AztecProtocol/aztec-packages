@@ -39,7 +39,7 @@ build-protocol-circuits:
   RUN yarn
 
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
-  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo PARALLEL_VK=false ./bootstrap.sh
   SAVE ARTIFACT noir-protocol-circuits
 
 build-mock-protocol-circuits:

@@ -163,7 +163,6 @@ aztec:
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
     RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
     LET port=8080
     ENV PORT=$port
@@ -234,7 +233,6 @@ end-to-end:
 
     COPY +anvil/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
@@ -276,9 +274,6 @@ format-check:
 
 test:
     FROM +build
-
-    RUN mkdir -p /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     RUN yarn test
 
 run-e2e:

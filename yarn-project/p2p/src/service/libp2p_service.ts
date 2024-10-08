@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   type ClientProtocolCircuitVerifier,
+  EpochProofQuote,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
@@ -33,6 +34,7 @@ import { createLibp2p } from 'libp2p';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
+import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../tx_pool/index.js';
 import {
   DataTxValidator,
@@ -98,6 +100,7 @@ export class LibP2PService implements P2PService {
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
+    private epochProofQuotePool: EpochProofQuotePool,
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
@@ -202,6 +205,7 @@ export class LibP2PService implements P2PService {
     peerId: PeerId,
     txPool: TxPool,
     attestationPool: AttestationPool,
+    epochProofQuotePool: EpochProofQuotePool,
     l2BlockSource: L2BlockSource,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
@@ -291,6 +295,7 @@ export class LibP2PService implements P2PService {
       peerDiscoveryService,
       txPool,
       attestationPool,
+      epochProofQuotePool,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
@@ -372,6 +377,10 @@ export class LibP2PService implements P2PService {
       const block = BlockProposal.fromBuffer(Buffer.from(message.data));
       await this.processBlockFromPeer(block);
     }
+    if (message.topic == EpochProofQuote.p2pTopic) {
+      const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(message.data));
+      this.processEpochProofQuoteFromPeer(epochProofQuote);
+    }
 
     return;
   }
@@ -402,6 +411,11 @@ export class LibP2PService implements P2PService {
     if (attestation != undefined) {
       this.propagate(attestation);
     }
+  }
+
+  private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
+    this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);
+    this.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
@@ -481,7 +495,7 @@ export class LibP2PService implements P2PService {
     // double spend validation
     const doubleSpendValidator = new DoubleSpendTxValidator({
       getNullifierIndex: async (nullifier: Fr) => {
-        const merkleTree = this.worldStateSynchronizer.getLatest();
+        const merkleTree = this.worldStateSynchronizer.getCommitted();
         const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
         return index;
       },
