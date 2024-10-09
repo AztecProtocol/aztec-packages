@@ -327,7 +327,6 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
-  enableGas = false,
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
