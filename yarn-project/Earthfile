@@ -283,8 +283,11 @@ prover-client-test:
 # Running this inside the main builder as the point is not to run this through dockerization.
 network-test-fake-proofs:
     FROM +build
+    WORKDIR /usr/src/
     # Bare minimum git setup to run 'git rev-parse --show-toplevel'
-    RUN (cd .. && git init)
+    RUN git init -b master
+    COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
+    WORKDIR /usr/src/yarn-project
     # All script arguments are in the end-to-end/scripts/native-network folder
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
         ./test-transfer.sh \

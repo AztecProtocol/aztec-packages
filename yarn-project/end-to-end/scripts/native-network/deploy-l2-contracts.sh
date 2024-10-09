@@ -31,4 +31,7 @@ echo "Deployed L2 contracts"
 echo "" > l2-contracts.env
 echo "Wrote to l2-contracts.env to signal completion"
 sleep 5
-tmux kill-pane -t $(tmux display -p '#{pane_id}')
+function close_tmux_pane() {
+  tmux kill-pane -t $(tmux display -p '#{pane_id}')
+}
+close_tmux_pane 2>/dev/null || true
