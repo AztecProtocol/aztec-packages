@@ -33,6 +33,7 @@ function getBytecode(bytecodePath: string) {
   return decompressed;
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
 async function getGatesUltra(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
   const { total } = await computeCircuitSize(bytecodePath, honkRecursion, api);
   return total;
@@ -47,8 +48,8 @@ function getWitness(witnessPath: string) {
 async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
   debug(`computing circuit size...`);
   const bytecode = getBytecode(bytecodePath);
-  const [exact, total, subgroup] = await api.acirGetCircuitSizes(bytecode, honkRecursion);
-  return { exact, total, subgroup };
+  const [total, subgroup] = await api.acirGetCircuitSizes(bytecode, honkRecursion);
+  return { total, subgroup };
 }
 
 async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {

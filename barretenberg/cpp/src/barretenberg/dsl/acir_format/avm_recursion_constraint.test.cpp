@@ -132,7 +132,7 @@ TEST_F(AcirAvmRecursionConstraint, TestBasicSingleAvmRecursionConstraint)
     layer_1_circuits.push_back(create_inner_circuit(public_inputs_vec));
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits, public_inputs_vec);
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
     OuterProver prover(proving_key);

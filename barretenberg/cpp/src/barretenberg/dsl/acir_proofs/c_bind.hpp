@@ -8,7 +8,6 @@ using namespace bb;
 
 WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* constraint_system_buf,
                                         bool const* honk_recursion,
-                                        uint32_t* exact,
                                         uint32_t* total,
                                         uint32_t* subgroup);
 

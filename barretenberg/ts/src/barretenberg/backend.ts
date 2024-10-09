@@ -20,10 +20,7 @@ export class UltraPlonkBackend {
 
       const honkRecursion = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(
-        this.acirUncompressedBytecode,
-        honkRecursion,
-      );
+      const [_total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode, honkRecursion);
 
       await api.initSRSForCircuitSize(subgroupSize);
       this.acirComposer = await api.acirNewAcirComposer(subgroupSize);

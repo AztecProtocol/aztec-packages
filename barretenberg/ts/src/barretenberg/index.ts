@@ -62,7 +62,7 @@ export class Barretenberg extends BarretenbergApi {
 
   async acirInitSRS(bytecode: Uint8Array, honkRecursion: boolean): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_exact, _total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, honkRecursion);
+    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, honkRecursion);
     return this.initSRSForCircuitSize(subgroupSize);
   }
 

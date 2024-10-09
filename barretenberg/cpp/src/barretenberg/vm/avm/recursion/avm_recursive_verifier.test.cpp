@@ -55,7 +55,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
-        vinfo("inner builder - num gates: ", builder.get_num_gates());
+        vinfo("inner builder - num gates: ", builder.get_estimated_num_finalized_gates());
 
         return builder;
     }
