@@ -189,18 +189,6 @@ void LMDBTreeStore::delete_leaf_indices(const fr& leafValue, LMDBTreeStore::Writ
     tx.delete_value(key, *_leafValueToIndexDatabase);
 }
 
-bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)
-{
-    NodePayload nodePayload;
-    bool success = get_node_data(nodeHash, nodePayload, tx);
-    if (!success) {
-        throw std::runtime_error("Failed to find node when attempting to increases reference count");
-    }
-    ++nodePayload.ref;
-    // std::cout << "Incrementing siblng at " << nodeHash << ", to " << nodePayload.ref << std::endl;
-    write_node(nodeHash, nodePayload, tx);
-}
-
 void LMDBTreeStore::set_or_increment_node_reference_count(const fr& nodeHash,
                                                           NodePayload& nodeData,
                                                           WriteTransaction& tx)
@@ -235,8 +223,6 @@ void LMDBTreeStore::delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx
     tx.delete_value(key, *_leafHashToPreImageDatabase);
 }
 
-=======
->>>>>>> origin/master
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
                                 Indices& indices,
                                 std::optional<index_t> sizeLimit,
