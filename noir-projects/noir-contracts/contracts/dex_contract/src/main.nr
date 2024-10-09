@@ -46,15 +46,9 @@ contract DEX {
         storage.state.initialize(state);
     }
 
-    // Privately adds liquidity for `liquidity_provider` to the pool (identity of liquidity provider not revealed).
-    // `amount0_desired` and `amount1_desired` are the amounts of tokens we ideally want to add. `amount0_min`
-    // and `amount1_min` are the minimum amounts we are willing to add. `transfer_preparer_storage_slot_commitment`
-    // is a storage slot commitment used for all 3 partial notes finalized in this tx (token0 refund note, token1
-    // refund note, liquidity token partial note).
-    // (Note: It's fine to use 1 commitment for all 3 partial notes as it's used for transient storage in different
-    // contracts). It's necessary to prepare the 3 partial notes in a `BatchCall` before calling this function.
-    // Note: We needed to make the identity of liquidity provider private because we don't have a transfer_from flow
-    // where the token amount is not known in advance and we don't need to know the amounts for partial notes.
+    // Privately adds liquidity to the pool (identity of liquidity provider not revealed). `amount0_desired`
+    // and `amount1_desired` are the amounts of tokens we ideally want to add. `amount0_min` and `amount1_min`
+    // are the minimum amounts we are willing to add.
     #[private]
     fn add_liquidity(
         amount0_desired: u64,
@@ -93,7 +87,7 @@ contract DEX {
     #[public]
     #[internal]
     fn _add_liquidity(
-        // We pass the state as an argument in order to not have to read it from storage again.
+        // We pass the state as an argument in order to not have to read it from public storage again.
         state: State,
         refund_token0_slot_commitment: Field,
         refund_token1_slot_commitment: Field,
