@@ -105,7 +105,8 @@ bot:
   txIntervalSeconds: 5
   privateTransfersPerTx: 1
   publicTransfersPerTx: 0
-  noWaitForTransfers: true
+  # Do not wait for transactions
+  followChain: "NONE"
   botNoStart: false
   pxeProverEnabled: false
   proverRealProofs: false
