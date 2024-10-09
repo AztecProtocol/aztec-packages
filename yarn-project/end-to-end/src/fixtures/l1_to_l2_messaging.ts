@@ -47,6 +47,7 @@ export async function sendL1ToL2Message(
     topics: txLog.topics,
   });
   const receivedMsgHash = topics.args.hash;
+  const receivedGlobalLeafIndex = topics.args.index;
 
   // We check that the leaf inserted into the subtree matches the expected message hash
   if ('hash' in message) {
@@ -54,5 +55,5 @@ export async function sendL1ToL2Message(
     expect(receivedMsgHash).toBe(msgHash.toString());
   }
 
-  return Fr.fromString(receivedMsgHash);
+  return [Fr.fromString(receivedMsgHash), new Fr(receivedGlobalLeafIndex)];
 }

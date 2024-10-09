@@ -89,7 +89,10 @@ contract Inbox is IInbox {
     });
 
     bytes32 leaf = message.sha256ToField();
-    uint256 index = currentTree.insertLeaf(leaf);
+    // this is the global leaf index and not index in the l2Block subtree
+    // such that users can simply use it and don't need access to a node if they are to consume it in public.
+    // trees are constant size so global index = tree number * size + subtree index
+    uint256 index = (inProgress - 1) * SIZE + currentTree.insertLeaf(leaf);
     totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 
