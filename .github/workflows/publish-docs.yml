@@ -38,7 +38,7 @@ jobs:
 
   pdf:
     needs: setup
-    runs-on: master-x86
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
