@@ -375,6 +375,23 @@ template <typename Builder, typename T> class bigfield {
 
     Builder* get_context() const { return context; }
 
+    void set_origin_tag(const bb::OriginTag& tag) const
+    {
+        for (size_t i = 0; i < 4; i++) {
+            binary_basis_limbs[i].element.set_origin_tag(tag);
+        }
+        prime_basis_limb.set_origin_tag(tag);
+    }
+
+    bb::OriginTag get_origin_tag() const
+    {
+        return bb::OriginTag(binary_basis_limbs[0].element.tag,
+                             binary_basis_limbs[1].element.tag,
+                             binary_basis_limbs[2].element.tag,
+                             binary_basis_limbs[3].element.tag,
+                             prime_basis_limb.tag);
+    }
+
     static constexpr uint512_t get_maximum_unreduced_value(const size_t num_products = 1)
     {
         // return (uint512_t(1) << 256);

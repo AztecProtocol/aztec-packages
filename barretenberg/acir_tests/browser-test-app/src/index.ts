@@ -2,7 +2,7 @@ import createDebug from "debug";
 import { inflate } from "pako";
 
 createDebug.enable("*");
-const debug = createDebug("simple_test");
+const debug = createDebug("browser-test-app");
 
 async function runTest(
   bytecode: Uint8Array,

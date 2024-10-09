@@ -15,6 +15,17 @@ pub struct PrivateCallStackItem {
     public_inputs: PrivateCircuitPublicInputs,
 }
 
+pub struct PrivateCallStackItemWithoutPublicInputs {
+    contract_address: AztecAddress,
+    function_data: FunctionData,
+}
+
+impl PrivateCallStackItemWithoutPublicInputs {
+    fn to_private_call_stack_item(self, public_inputs: PrivateCircuitPublicInputs) -> PrivateCallStackItem {
+        PrivateCallStackItem { contract_address: self.contract_address, function_data: self.function_data, public_inputs }
+    }
+}
+
 impl Eq for PrivateCallStackItem {
     fn eq(self, other: Self) -> bool {
         self.contract_address.eq(other.contract_address)

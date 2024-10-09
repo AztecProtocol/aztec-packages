@@ -87,18 +87,33 @@ pub comptime fn pack_from_fields<N>(
     (result, consumed)
 }
 
+/// Flattens `typ` into a list of fields prefixed with `name` while omitting fields in `omit`. Also returns a list of
+/// auxiliary variables that are needed for serialization (e.g. "let string_value_as_bytes = string_value.as_bytes()").
 pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([Quoted], [Quoted]) {
     let mut fields = &[];
     let mut aux_vars = &[];
 
     if omit.all(| to_omit | to_omit != name) {
         if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+            // For field, integer and bool we just cast to Field and add the value to fields
             fields = fields.push_back(quote { $name as Field });
         } else if typ.as_struct().is_some() {
+            // For struct we pref
             let nested_struct = typ.as_struct().unwrap();
             let params = nested_struct.0.fields();
             let struct_flattened = params.map(
-                | (param_name, param_type): (Quoted, Type) | flatten_to_fields(quote {$name.$param_name}, param_type, omit)
+                | (param_name, param_type): (Quoted, Type) | {
+                    let maybe_prefixed_name = if name == quote {} {
+                        // Triggered when the param name is of a value available in the current scope (e.g. a function
+                        // argument) --> then we don't prefix the name with anything.
+                        quote { $param_name }
+                    } else {
+                        // Triggered when we want to prefix the param name with the `name` from function input. This
+                        // can typically be `self` when implementing a method on a struct.
+                        quote { $name.$param_name }
+                    };
+                    flatten_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
+                }
             );
             let struct_flattened_fields = struct_flattened.fold(
                 &[],
@@ -111,6 +126,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
             fields = fields.append(struct_flattened_fields);
             aux_vars = aux_vars.append(struct_flattened_aux_vars);
         } else if typ.as_array().is_some() {
+            // For array we recursively call flatten_to_fields for each element
             let (element_type, array_len) = typ.as_array().unwrap();
             let array_len = array_len.as_constant().unwrap();
             for i in 0..array_len {
@@ -119,6 +135,8 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
                 aux_vars = aux_vars.append(element_aux_vars);
             }
         } else if typ.as_str().is_some() {
+            // For string we convert the value to bytes, we store the `as_bytes` in an auxiliary variables and
+            // then we add each byte to fields as a Field
             let length_type = typ.as_str().unwrap();
             let str_len = length_type.as_constant().unwrap();
             let as_member = name.as_expr().unwrap().as_member_access();

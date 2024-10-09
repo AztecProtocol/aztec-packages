@@ -46,7 +46,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         auto out = pedersen_commitment::commit({ left, right });
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);

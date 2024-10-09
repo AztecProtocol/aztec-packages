@@ -60,6 +60,7 @@ impl RootRollupInputs {
             out_hash,
             fees,
             vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: self.prover_id
         }
     }

@@ -2,6 +2,7 @@
 
 #include <condition_variable>
 #include <lmdb.h>
+#include <memory>
 #include <mutex>
 #include <string>
 namespace bb::crypto::merkle_tree {
@@ -13,6 +14,8 @@ namespace bb::crypto::merkle_tree {
  */
 class LMDBEnvironment {
   public:
+    using Ptr = std::unique_ptr<LMDBEnvironment>;
+    using SharedPtr = std::shared_ptr<LMDBEnvironment>;
     /**
      * @brief Opens/creates the LMDB environment
      * @param directory The directory in which the environment is to be created

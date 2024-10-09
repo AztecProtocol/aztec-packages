@@ -4,7 +4,7 @@ import { type EscrowContract } from './escrow-contract.js';
 import { type TokenContract } from './token-contract.js';
 
 export class BondManager {
-  private logger = createDebugLogger('aztec:prover-node:bond-manager');
+  private readonly logger = createDebugLogger('aztec:prover-node:bond-manager');
 
   constructor(
     private readonly tokenContract: TokenContract,
@@ -25,7 +25,7 @@ export class BondManager {
 
     try {
       const current = await this.escrowContract.getProverDeposit();
-      if (current > minimum) {
+      if (current >= minimum) {
         this.logger.debug(`Current prover bond ${current} is above minimum ${minimum}`);
         return;
       }

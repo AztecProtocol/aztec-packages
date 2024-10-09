@@ -25,7 +25,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
-import {MockProofCommitmentEscrow} from "@aztec/mock/MockProofCommitmentEscrow.sol";
+import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
@@ -76,6 +76,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   mapping(uint256 blockNumber => BlockLog log) public blocks;
 
   bytes32 public vkTreeRoot;
+  bytes32 public protocolContractTreeRoot;
 
   // @note  Assume that all blocks up to this value (inclusive) are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
@@ -83,17 +84,18 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
-    IProofCommitmentEscrow _proofCommitmentEscrow, // We should create a new instance instead of accepting one, once we remove the Mock version
     bytes32 _vkTreeRoot,
+    bytes32 _protocolContractTreeRoot,
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    PROOF_COMMITMENT_ESCROW = _proofCommitmentEscrow;
+    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(_fpcJuicePortal.underlying(), address(this));
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
+    protocolContractTreeRoot = _protocolContractTreeRoot;
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -183,6 +185,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   /**
+   * @notice  Set the protocolContractTreeRoot
+   *
+   * @dev     This is only needed for testing, and should be removed
+   *
+   * @param _protocolContractTreeRoot - The new protocolContractTreeRoot to be used by proofs
+   */
+  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot)
+    external
+    override(ITestRollup)
+    onlyOwner
+  {
+    protocolContractTreeRoot = _protocolContractTreeRoot;
+  }
+
+  /**
    * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
    *
@@ -228,7 +245,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function submitEpochRootProof(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
@@ -242,7 +259,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     tips.provenBlockNumber = endBlockNumber;
 
-    for (uint256 i = 0; i < 32; i++) {
+    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
       address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
       uint256 fees = uint256(publicInputs[10 + i * 2]);
 
@@ -471,7 +488,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) public view override(IRollup) returns (bytes32[] memory) {
     uint256 previousBlockNumber = tips.provenBlockNumber;
@@ -529,8 +546,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
-    //   fees: [FeeRecipient; 32],
+    //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
     //   vk_tree_root: Field,
+    //   protocol_contract_tree_root: Field,
     //   prover_id: Field
     // }
 
@@ -563,16 +581,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // out_hash: root of this epoch's l2 to l1 message tree
     publicInputs[8] = _args[5];
 
-    // fees[9-72]: array of recipient-value pairs
-    for (uint256 i = 0; i < 64; i++) {
+    uint256 feesLength = Constants.AZTEC_EPOCH_DURATION * 2;
+    // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
+    for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[9 + i] = _fees[i];
     }
+    uint256 feesEnd = 9 + feesLength;
 
     // vk_tree_root
-    publicInputs[73] = vkTreeRoot;
+    publicInputs[feesEnd] = vkTreeRoot;
+
+    // protocol_contract_tree_root
+    publicInputs[feesEnd + 1] = protocolContractTreeRoot;
 
     // prover_id: id of current epoch's prover
-    publicInputs[74] = _args[6];
+    publicInputs[feesEnd + 2] = _args[6];
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
@@ -583,7 +606,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 75] = part;
+      publicInputs[i + feesEnd + 3] = part;
     }
 
     return publicInputs;

@@ -1,9 +1,8 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
+import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import { AztecAddress, Fr, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -12,7 +11,7 @@ import { WorldStateDB } from './public_db_sources.js';
 const DB_VALUES_SIZE = 10;
 
 describe('world_state_public_db', () => {
-  let db: MockProxy<MerkleTreeOperations>;
+  let db: MockProxy<MerkleTreeWriteOperations>;
   const contractDataSource: MockProxy<ContractDataSource> = mock<ContractDataSource>();
   let dbStorage: Map<number, Map<bigint, Buffer>>;
   let addresses: AztecAddress[];
@@ -37,7 +36,7 @@ describe('world_state_public_db', () => {
         new Map(publicDataEntries.map((preimage, idx) => [BigInt(idx), preimage.toBuffer()])),
       ],
     ]);
-    db = mock<MerkleTreeOperations>();
+    db = mock<MerkleTreeWriteOperations>();
     db.getPreviousValueIndex.mockImplementation(
       (
         treeId: MerkleTreeId,

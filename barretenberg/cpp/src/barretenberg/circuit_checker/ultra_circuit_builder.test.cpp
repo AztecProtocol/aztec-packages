@@ -39,7 +39,8 @@ TEST(UltraCircuitConstructor, CopyConstructor)
 
     UltraCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
 
-    EXPECT_EQ(duplicate_circuit_constructor.get_num_gates(), circuit_constructor.get_num_gates());
+    EXPECT_EQ(duplicate_circuit_constructor.get_estimated_num_finalized_gates(),
+              circuit_constructor.get_estimated_num_finalized_gates());
     EXPECT_TRUE(CircuitChecker::check(duplicate_circuit_constructor));
 }
 
@@ -860,7 +861,8 @@ TEST(UltraCircuitConstructor, Ram)
     // Test the builder copy constructor for a circuit with RAM gates
     UltraCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
 
-    EXPECT_EQ(duplicate_circuit_constructor.get_num_gates(), circuit_constructor.get_num_gates());
+    EXPECT_EQ(duplicate_circuit_constructor.get_estimated_num_finalized_gates(),
+              circuit_constructor.get_estimated_num_finalized_gates());
     EXPECT_TRUE(CircuitChecker::check(duplicate_circuit_constructor));
 }
 

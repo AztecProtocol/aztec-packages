@@ -79,6 +79,8 @@ const CPP_CONSTANTS = [
   'MEM_TAG_FF',
 ];
 
+const CPP_GENERATORS: string[] = [];
+
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
   'MAX_NULLIFIER_READ_REQUESTS_PER_CALL',
@@ -160,11 +162,20 @@ function processConstantsTS(constants: { [key: string]: string }): string {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsCpp(constants: { [key: string]: string }): string {
+function processConstantsCpp(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
-      code.push(`#define ${key} ${value}`);
+      // stringify large numbers
+      code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
+    }
+  });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    if (CPP_GENERATORS.includes(key)) {
+      code.push(`#define GENERATOR_INDEX__${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -240,11 +251,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 #pragma once
 
-${processConstantsCpp(constants)}
+${processConstantsCpp(constants, generatorIndexEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);
@@ -333,6 +344,8 @@ function parseNoirFile(fileContent: string): ParsedContent {
 function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
   const constants: { [key: string]: string } = {};
 
+  const knownBigInts = ['AZTEC_EPOCH_DURATION', 'FEE_RECIPIENT_LENGTH'];
+
   // Create JS expressions. It is not as easy as just evaluating the expression!
   // We basically need to convert everything to BigInts, otherwise things don't fit.
   // However, (1) the bigints need to be initialized from strings; (2) everything needs to
@@ -344,7 +357,7 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
         // Remove the 'AztecAddress::from_field(...)' pattern
-        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+)\)/g, '$1')
+        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')
@@ -352,6 +365,8 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .split(' ')
         // ...and then we convert each term to a BigInt if it is a number.
         .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        // .. also, we convert the known bigints to BigInts.
+        .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.
         .join(' ');
       return `var ${name} = ${guardedRhs};`;

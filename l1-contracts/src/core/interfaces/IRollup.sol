@@ -14,6 +14,7 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
+  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
 
@@ -55,7 +56,7 @@ interface IRollup {
   function submitEpochRootProof(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -110,7 +111,7 @@ interface IRollup {
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);

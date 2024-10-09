@@ -17,7 +17,7 @@ namespace bb {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
-    const size_t num_rows = get_num_gates();
+    const size_t num_rows = get_estimated_num_finalized_gates();
     const size_t circuit_subgroup_size = get_circuit_subgroup_size();
     ASSERT(num_rows <= circuit_subgroup_size);
     ProverPolynomials polys;
@@ -193,6 +193,8 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_ind_addr_d.set_if_valid_index(i, rows[i].main_ind_addr_d);
                 polys.main_internal_return_ptr.set_if_valid_index(i, rows[i].main_internal_return_ptr);
                 polys.main_inv.set_if_valid_index(i, rows[i].main_inv);
+                polys.main_is_fake_row.set_if_valid_index(i, rows[i].main_is_fake_row);
+                polys.main_is_gas_accounted.set_if_valid_index(i, rows[i].main_is_gas_accounted);
                 polys.main_kernel_in_offset.set_if_valid_index(i, rows[i].main_kernel_in_offset);
                 polys.main_kernel_out_offset.set_if_valid_index(i, rows[i].main_kernel_out_offset);
                 polys.main_l1_to_l2_msg_exists_write_offset.set_if_valid_index(
@@ -237,7 +239,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_calldata_copy.set_if_valid_index(i, rows[i].main_sel_op_calldata_copy);
                 polys.main_sel_op_cast.set_if_valid_index(i, rows[i].main_sel_op_cast);
                 polys.main_sel_op_chain_id.set_if_valid_index(i, rows[i].main_sel_op_chain_id);
-                polys.main_sel_op_cmov.set_if_valid_index(i, rows[i].main_sel_op_cmov);
                 polys.main_sel_op_dagasleft.set_if_valid_index(i, rows[i].main_sel_op_dagasleft);
                 polys.main_sel_op_div.set_if_valid_index(i, rows[i].main_sel_op_div);
                 polys.main_sel_op_ecadd.set_if_valid_index(i, rows[i].main_sel_op_ecadd);
@@ -321,7 +322,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.mem_sel_op_a.set_if_valid_index(i, rows[i].mem_sel_op_a);
                 polys.mem_sel_op_b.set_if_valid_index(i, rows[i].mem_sel_op_b);
                 polys.mem_sel_op_c.set_if_valid_index(i, rows[i].mem_sel_op_c);
-                polys.mem_sel_op_cmov.set_if_valid_index(i, rows[i].mem_sel_op_cmov);
                 polys.mem_sel_op_d.set_if_valid_index(i, rows[i].mem_sel_op_d);
                 polys.mem_sel_op_poseidon_read_a.set_if_valid_index(i, rows[i].mem_sel_op_poseidon_read_a);
                 polys.mem_sel_op_poseidon_read_b.set_if_valid_index(i, rows[i].mem_sel_op_poseidon_read_b);
@@ -730,7 +730,7 @@ bool AvmCircuitBuilder::check_circuit() const
 
     auto polys = compute_polynomials();
     // We'll only check up to the generated trace which might be << than the circuit subgroup size.
-    const size_t num_rows = get_num_gates();
+    const size_t num_rows = get_estimated_num_finalized_gates();
 
     // Checks that we will run.
     using SignalErrorFn = const std::function<void(const std::string&)>&;
