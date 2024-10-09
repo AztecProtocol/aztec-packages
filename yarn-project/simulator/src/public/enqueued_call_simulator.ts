@@ -23,7 +23,6 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -121,12 +120,6 @@ export class EnqueuedCallSimulator {
     transactionFee: Fr,
     phase: PublicKernelPhase,
   ): Promise<EnqueuedCallResult> {
-    // Gas allocated to an enqueued call can be different from the available gas
-    // if there is more gas available than the max allocation per enqueued call.
-    const allocatedGas = new Gas(
-      /*daGas=*/ availableGas.daGas,
-      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
-    );
     const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
     const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
 
@@ -147,7 +140,7 @@ export class EnqueuedCallSimulator {
     const result = await this.publicExecutor.simulate(
       executionRequest,
       constants,
-      allocatedGas,
+      availableGas,
       tx.data.constants.txContext,
       pendingNullifiers,
       transactionFee,
@@ -174,7 +167,7 @@ export class EnqueuedCallSimulator {
       accumulatedData,
       startSideEffectCounter,
       startSideEffectCounter,
-      allocatedGas,
+      availableGas,
       result.transactionFee,
       result.reverted,
     );

@@ -22,6 +22,8 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
+import { type Gas as AvmGas } from '../avm/avm_gas.js';
+
 /**
  * The public function execution result.
  */
@@ -34,9 +36,9 @@ export interface PublicExecutionResult {
   /** The side effect counter after executing this function call */
   endSideEffectCounter: Fr;
   /** How much gas was available for this public execution. */
-  startGasLeft: Gas;
+  startGasLeft: AvmGas;
   /** How much gas was left after this public execution. */
-  endGasLeft: Gas;
+  endGasLeft: AvmGas;
   /** Transaction fee set for this tx. */
   transactionFee: Fr;
 
