@@ -222,7 +222,6 @@ export enum TypeTag {
 // Lazy interface definition for tagged memory
 export type TaggedMemoryInterface = FunctionsOf<TaggedMemory>;
 
-// TODO: Consider automatic conversion when getting undefined values.
 export class TaggedMemory implements TaggedMemoryInterface {
   static readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:memory');
 
@@ -255,6 +254,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     TaggedMemory.log.debug(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
+      return new Field(0) as T;
     }
     return word as T;
   }
@@ -264,7 +264,11 @@ export class TaggedMemory implements TaggedMemoryInterface {
     assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
     const value = this._mem.slice(offset, offset + size);
     TaggedMemory.log.debug(`getSlice(${offset}, ${size}) = ${value}`);
-    assert(!value.some(e => e === undefined), 'Memory slice contains undefined values.');
+    for (let i = 0; i < value.length; i++) {
+      if (value[i] === undefined) {
+        value[i] = new Field(0);
+      }
+    }
     assert(value.length === size, `Expected slice of size ${size}, got ${value.length}.`);
     return value;
   }
@@ -347,7 +351,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     let tag = TypeTag.INVALID;
 
     if (v === undefined) {
-      tag = TypeTag.UNINITIALIZED;
+      tag = TypeTag.FIELD; // uninitialized memory is Field(0)
     } else if (v instanceof Uint1) {
       tag = TypeTag.UINT1;
     } else if (v instanceof Uint8) {

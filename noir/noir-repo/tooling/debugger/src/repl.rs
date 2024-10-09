@@ -372,7 +372,6 @@ impl<'a, B: BlackBoxFunctionSolver<FieldElement>> ReplDebugger<'a, B> {
         for (index, value) in memory
             .iter()
             .enumerate()
-            .filter(|(_, value)| !matches!(value, MemoryValue::Integer(_, IntegerBitSize::U0)))
         {
             println!("{index} = {}", value);
         }

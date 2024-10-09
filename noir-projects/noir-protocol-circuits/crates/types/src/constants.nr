@@ -399,13 +399,13 @@ global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
 
 // AVM memory tags
-global MEM_TAG_U1 = 1;
-global MEM_TAG_U8 = 2;
-global MEM_TAG_U16 = 3;
-global MEM_TAG_U32 = 4;
-global MEM_TAG_U64 = 5;
-global MEM_TAG_U128 = 6;
-global MEM_TAG_FF = 7;
+global MEM_TAG_U1 = 0;
+global MEM_TAG_U8 = 1;
+global MEM_TAG_U16 = 2;
+global MEM_TAG_U32 = 3;
+global MEM_TAG_U64 = 4;
+global MEM_TAG_U128 = 5;
+global MEM_TAG_FF = 6;
 
 global SENDER_SELECTOR: u32 = 0;
 // "address" actually does not exist in PublicCircuitPublicInputs,
