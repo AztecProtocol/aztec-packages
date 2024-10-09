@@ -34,11 +34,11 @@ contract DEX {
     }
 
     global MINIMUM_LIQUIDITY: u64 = 1000;
-    global LOCK_STORAGE_SLOT = 980908; // Arbitrarily chosen lock storage slot.
 
     // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
     // a liquidity tracking contract. This contract would be an admin of the liquidity contract.
-    // TODO: Either deploy the liquidity contract in the constructor or somehow verify it.
+    // TODO: Either deploy the liquidity contract in the constructor or verify it that it corresponds to what this DEX
+    // expects.
     #[public]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress) {
@@ -48,7 +48,8 @@ contract DEX {
 
     // Privately adds liquidity to the pool (identity of liquidity provider not revealed). `amount0_desired`
     // and `amount1_desired` are the amounts of tokens we ideally want to add. `amount0_min` and `amount1_min`
-    // are the minimum amounts we are willing to add.
+    // are the minimum amounts we are willing to add. `nonce` can be arbitrary non-zero value and it's here to
+    // isolate authwits to this specific call.
     #[private]
     fn add_liquidity(
         amount0_desired: u64,
@@ -160,37 +161,55 @@ contract DEX {
         liquidity_token.finalize_mint_to_private(liquidity_slot_commitment, liquidity).call(&mut context);
     }
 
-    // Removes liquidity from the pool and transfers the tokens to the partial notes prepared on token0 and token1.
-    // It is necessary that the liquidity provider transfers the liquidity tokens to the contract in a `BatchCall`
-    // before calling this function.
-    // Note: Do we consider this to be too dangerous? E.g. users accidentally transferring liquidity tokens to the pool
-    // in a separate tx and then getting rugged by bots? Just transferring is the most efficient because we already
-    // know the liquidity amount so we don't need partial notes and it's the most flexible: users can either call
-    // `Token::transfer_in_public` or `Token::transfer_to_public` and this contract does not care.
-    // `transfer_preparer_storage_slot_commitment` is a storage slot commitment used for both partial notes finalized
-    // in this tx (token0 and token1 notes).
+    // Removes `liquidity` from the pool and transfers the tokens back to the user. `amount0_min` and `amount1_min` are
+    // the minimum amounts of `token0` and `token1` the user is willing to accept. `nonce` can be arbitrary non-zero
+    // value and its purpose is to isolate authwits to this specific call.
+    #[private]
+    fn remove_liquidity(liquidity: u64, amount0_min: u64, amount1_min: u64, nonce: Field) {
+        // TODO: Do we need reentrancy guards in the private funcs? And if yes how to do it?
+        let state = storage.state.read_private();
+
+        let liquidity_token = Token::at(state.liquidity_token);
+        let token0 = Token::at(state.token0);
+        let token1 = Token::at(state.token1);
+
+        liquidity_token.transfer_to_public(msg.sender, context.this_address(), liquidity, nonce).call(&mut context);
+        let token0_slot_commitment = token0.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
+        let token1_slot_commitment = token1.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
+
+        DEX::at(context.this_address())._remove_liquidity(
+            state,
+            token0_slot_commitment,
+            token1_slot_commitment,
+            liquidity,
+            amount0_min,
+            amount1_min
+        ).enqueue(&mut context);
+    }
+
     #[public]
-    fn remove_liquidity(
+    #[internal]
+    fn _remove_liquidity(
+        // We pass the state as an argument in order to not have to read it from public storage again.
+        state: State,
+        token0_slot_commitment: Field,
+        token1_slot_commitment: Field,
+        liquidity: u64,
         amount0_min: u64,
-        amount1_min: u64,
-        transfer_preparer_storage_slot_commitment: Field
+        amount1_min: u64
     ) {
-        _lock(&mut context);
-
-        // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
-        // the partial notes.
-
-        let state = storage.state.read();
+        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
+        // `remove_liquidity` which is private and since public functions cannot call private ones it's impossible to
+        // reenter this function.
 
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
 
-        // Calculate the amounts to be added to the pool
+        // Calculate the amounts to be removed from the pool
         let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
         let mut balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
-        let liquidity = liquidity_token.balance_of_public(context.this_address()).view(&mut context);
         let total_supply = liquidity_token.total_supply().view(&mut context);
 
         let amount0 = liquidity * balance0 / total_supply;
@@ -199,31 +218,10 @@ contract DEX {
         assert(amount0 as u64 >= amount0_min, "INSUFFICIENT_0_AMOUNT");
         assert(amount1 as u64 >= amount1_min, "INSUFFICIENT_1_AMOUNT");
 
+        // At last we burn the liquidity tokens and transfer the token0 and token1 to the user.
         liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
-        // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
-        // if the expectation is that users will mostly want to have private balances.
-        // TODO: Implement `prepare_transfer_to_private` and `finalize_transfer_to_private` in the Token contract
-        // (it's just on the NFT now).
-        token0.finalize_transfer_to_private(amount0, transfer_preparer_storage_slot_commitment).call(&mut context);
-        token1.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
-
-        // We load the balances again directly from the tokens because Uni v2 does it like this. But why do they do
-        // this? It's not to protect against reentrancy attacks as there are locks. Is it to protect against some weird
-        // token accounting which could be affected by the transfer calls above?
-        balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
-        balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
-
-        // Update the reserves
-        let updated_state = State {
-            token0: state.token0,
-            token1: state.token1,
-            liquidity_token: state.liquidity_token,
-            reserve0: reserve0 + amount0,
-            reserve1: reserve1 + amount1
-        };
-        storage.state.write(updated_state);
-
-        _unlock(&mut context);
+        token0.finalize_transfer_to_private(token0_slot_commitment, amount0).call(&mut context);
+        token1.finalize_transfer_to_private(token1_slot_commitment, amount1).call(&mut context);
     }
 
     // Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
@@ -243,14 +241,14 @@ contract DEX {
         let token_out = Token::at(token_address_out);
 
         token_in.transfer_to_public(msg.sender, context.this_address(), amount_in, nonce).call(&mut context);
-        let note_hiding_point_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
+        let token_out_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
 
         DEX::at(context.this_address())._swap_exact_tokens_for_tokens(
             amount_in,
             amount_out_min,
             token_address_in,
             token_address_out,
-            note_hiding_point_slot_commitment
+            token_out_slot_commitment
         ).enqueue(&mut context);
     }
 
@@ -261,7 +259,7 @@ contract DEX {
         amount_out_min: u64,
         token_address_in: AztecAddress,
         token_address_out: AztecAddress,
-        note_hiding_point_slot_commitment: Field
+        token_out_slot_commitment: Field
     ) {
         // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
         // `swap_exact_tokens_for_tokens` which is private and since public functions cannot call private ones
@@ -277,26 +275,6 @@ contract DEX {
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        token_out.finalize_transfer_to_private(note_hiding_point_slot_commitment, amount_out).call(&mut context);
-    }
-
-    // Note: swap_tokens_for_exact_tokens is not important for our purposes so I am not doing it.
-
-    // After locking and unlocking there will be 1 public data write because we always commit the last change and
-    // "val1 --> val2 --> val1" does not result in 0 public data writes. TODO: Either optimize this or introduce
-    // transient storage.
-    // TODO: It would be quite nice to have a reentrancy-guard macro as using locks will be quite common.
-    #[contract_library_method]
-    fn _lock(context: &mut PublicContext) {
-        let already_locked: bool = context.storage_read(LOCK_STORAGE_SLOT);
-        assert(!already_locked, "Already locked");
-        context.storage_write(LOCK_STORAGE_SLOT, true);
-    }
-
-    #[contract_library_method]
-    fn _unlock(context: &mut PublicContext) {
-        let already_locked: bool = context.storage_read(LOCK_STORAGE_SLOT);
-        assert(already_locked, "Not locked");
-        context.storage_write(LOCK_STORAGE_SLOT, false);
+        token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
     }
 }
