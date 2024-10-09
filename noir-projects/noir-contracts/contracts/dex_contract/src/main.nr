@@ -8,7 +8,7 @@ contract DEX {
     use crate::lib::{get_quote, get_amount_out};
     use dep::aztec::{
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}},
-        prelude::{AztecAddress, PublicImmutable, PublicContext}, protocol_types::traits::Serialize
+        prelude::{AztecAddress, SharedImmutable, PublicContext}, protocol_types::traits::Serialize
     };
     use std::meta::derive;
     use dep::token::Token;
@@ -23,13 +23,11 @@ contract DEX {
         token0: AztecAddress,
         token1: AztecAddress,
         liquidity_token: AztecAddress,
-        reserve0: u64,
-        reserve1: u64,
     }
 
     #[storage]
     struct Storage<Context> {
-        state: PublicImmutable<State, Context>,
+        state: SharedImmutable<State, Context>,
     }
 
     global MINIMUM_LIQUIDITY: u64 = 1000;
@@ -223,53 +221,55 @@ contract DEX {
     // Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
     // whether we are swapping `token0` for `token1` or vice versa. Similartly to `remove_liquidity` function it is
     // expected that the user transfers the `token_in` to the pool in a `BatchCall` before calling this function.
-    //
-    // TODO: Do we want to support flash swaps?
+    #[private]
+    fn swap_exact_tokens_for_tokens(amount_in: u64, amount_out_min: u64, from_0_to_1: bool, nonce: Field) {
+        let state = storage.state.read_private();
+
+        let (token_address_in, token_address_out) = if from_0_to_1 {
+            (state.token0, state.token1)
+        } else {
+            (state.token1, state.token0)
+        };
+
+        let token_in = Token::at(token_address_in);
+        let token_out = Token::at(token_address_out);
+
+        token_in.transfer_to_public(msg.sender, context.this_address(), amount_in, nonce).call(&mut context);
+        let note_hiding_point_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
+
+        DEX::at(context.this_address())._swap_exact_tokens_for_tokens(
+            amount_in,
+            amount_out_min,
+            token_address_in,
+            token_address_out,
+            note_hiding_point_slot_commitment
+        ).enqueue(&mut context);
+    }
+
     #[public]
-    fn swap_exact_tokens_for_tokens(
+    #[internal]
+    fn _swap_exact_tokens_for_tokens(
         amount_in: u64,
         amount_out_min: u64,
-        from_0_to_1: bool,
-        transfer_preparer_storage_slot_commitment: Field
+        token_address_in: AztecAddress,
+        token_address_out: AztecAddress,
+        note_hiding_point_slot_commitment: Field
     ) {
-        _lock(&mut context);
+        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
+        // `swap_exact_tokens_for_tokens` which is private and since public functions cannot call private ones
+        // it's impossible to reenter this function.
 
-        let state = storage.state.read();
-
-        let (token_address_in, token_address_out, reserve_in, reserve_out) = if from_0_to_1 {
-            (state.token0, state.token1, state.reserve0, state.reserve1)
-        } else {
-            (state.token1, state.token0, state.reserve1, state.reserve0)
-        };
         let token_in = Token::at(token_address_in);
+        let token_out = Token::at(token_address_out);
 
         let reserve_in_with_amount_in = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
-        // TODO: If we want to support flashswaps we should move this check to the end of the function and accept
-        // calldata as an arg and perform the call defined by the calldata. Not doing this now as it's not essential
-        // for a minimal implementation.
-        assert(reserve_in_with_amount_in >= reserve_in + amount_in, "TOKEN_IN_NOT_TRANSFERRED_TO_POOL");
+        let reserve_in = reserve_in_with_amount_in - amount_in;
+        let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
 
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        // Below is a snippet from UniswapV2Pair._swap(amounts, path, to) here. The code above is from router.
-        let token_out = Token::at(token_address_out);
-        token_out.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
-
-        // Do we want to bother wieht the 'UniswapV2: K' check here or is this fine for PoC?
-        // https://github.com/Uniswap/v2-core/blob/ee547b17853e71ed4e0101ccfd52e70d5acded58/contracts/UniswapV2Pair.sol#L182
-
-        // Update the reserves
-        let updated_state = State {
-            token0: state.token0,
-            token1: state.token1,
-            liquidity_token: state.liquidity_token,
-            reserve0: token0.balance_of_public(context.this_address()).view(&mut context) as u64,
-            reserve1: token1.balance_of_public(context.this_address()).view(&mut context) as u64
-        };
-        storage.state.write(updated_state);
-
-        _unlock(&mut context);
+        token_out.finalize_transfer_to_private(amount_out, note_hiding_point_slot_commitment).call(&mut context);
     }
 
     // Note: swap_tokens_for_exact_tokens is not important for our purposes so I am not doing it.
