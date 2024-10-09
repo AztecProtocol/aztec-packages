@@ -552,7 +552,7 @@ fn simplify_black_box_func(
             acvm::blackbox_solver::ecdsa_secp256r1_verify,
         ),
 
-        BlackBoxFunc::PedersenCommitment | BlackBoxFunc::MultiScalarMul => SimplifyResult::None,
+        BlackBoxFunc::MultiScalarMul => SimplifyResult::None,
         BlackBoxFunc::EmbeddedCurveAdd => blackbox::simplify_ec_add(dfg, solver, arguments),
         BlackBoxFunc::SchnorrVerify => blackbox::simplify_schnorr_verify(dfg, solver, arguments),
 

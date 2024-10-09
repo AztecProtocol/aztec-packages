@@ -330,16 +330,6 @@ struct BlackBoxOp {
         static SchnorrVerify bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct PedersenCommitment {
-        Program::HeapVector inputs;
-        Program::MemoryAddress domain_separator;
-        Program::HeapArray output;
-
-        friend bool operator==(const PedersenCommitment&, const PedersenCommitment&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static PedersenCommitment bincodeDeserialize(std::vector<uint8_t>);
-    };
-
     struct MultiScalarMul {
         Program::HeapVector points;
         Program::HeapVector scalars;
@@ -461,7 +451,6 @@ struct BlackBoxOp {
                  EcdsaSecp256k1,
                  EcdsaSecp256r1,
                  SchnorrVerify,
-                 PedersenCommitment,
                  MultiScalarMul,
                  EmbeddedCurveAdd,
                  BigIntAdd,
@@ -879,16 +868,6 @@ struct BlackBoxFuncCall {
         static SchnorrVerify bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct PedersenCommitment {
-        std::vector<Program::FunctionInput> inputs;
-        uint32_t domain_separator;
-        std::array<Program::Witness, 2> outputs;
-
-        friend bool operator==(const PedersenCommitment&, const PedersenCommitment&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static PedersenCommitment bincodeDeserialize(std::vector<uint8_t>);
-    };
-
     struct EcdsaSecp256k1 {
         std::array<Program::FunctionInput, 32> public_key_x;
         std::array<Program::FunctionInput, 32> public_key_y;
@@ -1040,7 +1019,6 @@ struct BlackBoxFuncCall {
                  Blake2s,
                  Blake3,
                  SchnorrVerify,
-                 PedersenCommitment,
                  EcdsaSecp256k1,
                  EcdsaSecp256r1,
                  MultiScalarMul,
@@ -3041,64 +3019,6 @@ Program::BlackBoxFuncCall::SchnorrVerify serde::Deserializable<Program::BlackBox
 
 namespace Program {
 
-inline bool operator==(const BlackBoxFuncCall::PedersenCommitment& lhs, const BlackBoxFuncCall::PedersenCommitment& rhs)
-{
-    if (!(lhs.inputs == rhs.inputs)) {
-        return false;
-    }
-    if (!(lhs.domain_separator == rhs.domain_separator)) {
-        return false;
-    }
-    if (!(lhs.outputs == rhs.outputs)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> BlackBoxFuncCall::PedersenCommitment::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BlackBoxFuncCall::PedersenCommitment>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BlackBoxFuncCall::PedersenCommitment BlackBoxFuncCall::PedersenCommitment::bincodeDeserialize(
-    std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BlackBoxFuncCall::PedersenCommitment>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::BlackBoxFuncCall::PedersenCommitment>::serialize(
-    const Program::BlackBoxFuncCall::PedersenCommitment& obj, Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
-    serde::Serializable<decltype(obj.domain_separator)>::serialize(obj.domain_separator, serializer);
-    serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::BlackBoxFuncCall::PedersenCommitment serde::Deserializable<
-    Program::BlackBoxFuncCall::PedersenCommitment>::deserialize(Deserializer& deserializer)
-{
-    Program::BlackBoxFuncCall::PedersenCommitment obj;
-    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
-    obj.domain_separator = serde::Deserializable<decltype(obj.domain_separator)>::deserialize(deserializer);
-    obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
 inline bool operator==(const BlackBoxFuncCall::EcdsaSecp256k1& lhs, const BlackBoxFuncCall::EcdsaSecp256k1& rhs)
 {
     if (!(lhs.public_key_x == rhs.public_key_x)) {
@@ -4387,63 +4307,6 @@ Program::BlackBoxOp::SchnorrVerify serde::Deserializable<Program::BlackBoxOp::Sc
     obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
     obj.signature = serde::Deserializable<decltype(obj.signature)>::deserialize(deserializer);
     obj.result = serde::Deserializable<decltype(obj.result)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const BlackBoxOp::PedersenCommitment& lhs, const BlackBoxOp::PedersenCommitment& rhs)
-{
-    if (!(lhs.inputs == rhs.inputs)) {
-        return false;
-    }
-    if (!(lhs.domain_separator == rhs.domain_separator)) {
-        return false;
-    }
-    if (!(lhs.output == rhs.output)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> BlackBoxOp::PedersenCommitment::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BlackBoxOp::PedersenCommitment>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BlackBoxOp::PedersenCommitment BlackBoxOp::PedersenCommitment::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BlackBoxOp::PedersenCommitment>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::BlackBoxOp::PedersenCommitment>::serialize(
-    const Program::BlackBoxOp::PedersenCommitment& obj, Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
-    serde::Serializable<decltype(obj.domain_separator)>::serialize(obj.domain_separator, serializer);
-    serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::BlackBoxOp::PedersenCommitment serde::Deserializable<Program::BlackBoxOp::PedersenCommitment>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::BlackBoxOp::PedersenCommitment obj;
-    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
-    obj.domain_separator = serde::Deserializable<decltype(obj.domain_separator)>::deserialize(deserializer);
-    obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
     return obj;
 }
 

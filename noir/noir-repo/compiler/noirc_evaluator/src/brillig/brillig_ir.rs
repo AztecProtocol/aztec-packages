@@ -173,13 +173,6 @@ pub(crate) mod tests {
         ) -> Result<bool, BlackBoxResolutionError> {
             Ok(true)
         }
-        fn pedersen_commitment(
-            &self,
-            _inputs: &[FieldElement],
-            _domain_separator: u32,
-        ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-            Ok((2_u128.into(), 3_u128.into()))
-        }
         fn multi_scalar_mul(
             &self,
             _points: &[FieldElement],
