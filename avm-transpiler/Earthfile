@@ -8,11 +8,16 @@ source:
     WORKDIR /usr/src/avm-transpiler
 
     COPY --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .rustfmt.toml .
+    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns"
 
 build:
     FROM +source
     # build avm transpiler, and make sure the big build and deps folders don't hit cache
-    RUN ./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}
+    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
+        --prefix="avm-transpiler" \
+        --rebuild_patterns=".rebuild_patterns" \
+        --command="./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}" \
+        --build_artifacts="target"
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
     SAVE ARTIFACT scripts/compile_then_transpile.sh
 

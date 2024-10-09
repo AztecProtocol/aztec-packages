@@ -5,6 +5,5 @@ cd "$(dirname "$0")"
 source ../build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
 
 echo -e "\033[1mRetrieving contracts from remote cache...\033[0m"
-extract_repo_if_working_copy_clean l1-contracts /usr/src/l1-contracts/out .
-
-remove_old_images l1-contracts
+HASH=$(AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns compute-content-hash.sh)
+cache-download.sh l1-contracts-$HASH.tar.gz > /dev/null
