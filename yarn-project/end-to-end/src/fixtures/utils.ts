@@ -695,7 +695,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
 
   try {
     await feeJuice.methods
-      .initialize(feeJuicePortalAddress)
+      .set_portal(feeJuicePortalAddress)
       .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);

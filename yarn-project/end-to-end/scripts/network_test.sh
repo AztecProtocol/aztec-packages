@@ -35,7 +35,6 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
 fi
 
 # Load the Docker images into kind
-kind load docker-image aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG
 kind load docker-image aztecprotocol/aztec:$AZTEC_DOCKER_TAG
 
 # If FRESH_INSTALL is true, delete the namespace

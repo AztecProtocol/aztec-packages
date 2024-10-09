@@ -19,7 +19,7 @@ export async function setupCanonicalL2FeeJuice(
   const feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, deployer);
   log('setupCanonicalL2FeeJuice: Calling initialize on fee juice contract...');
   await feeJuiceContract.methods
-    .initialize(feeJuicePortalAddress)
+    .set_portal(feeJuicePortalAddress)
     .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
     .wait(waitOpts);
 }
