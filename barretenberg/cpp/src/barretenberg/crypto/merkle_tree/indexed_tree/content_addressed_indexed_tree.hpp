@@ -335,14 +335,12 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (!leaf_hash.has_value()) {
-                    std::cout << "Here " << std::endl;
                     response.success = false;
                     return;
                 }
                 std::optional<IndexedLeafValueType> leaf =
                     store_->get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
                 if (!leaf.has_value()) {
-                    std::cout << "Or Here " << std::endl;
                     response.success = false;
                     return;
                 }

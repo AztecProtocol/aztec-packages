@@ -2156,8 +2156,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_duplicate_block)
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), zero_leaf);
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), one_leaf);
 
-    print_store_data(db, std::cout);
-
     /**
      * Add new slot:value 30:5:
      *
@@ -2187,8 +2185,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_duplicate_block)
 
     check_indices_data(db, 30, 2, true, true);
 
-    print_store_data(db, std::cout);
-
     /**
      * Update slot:value 30:8:
      *
@@ -2217,8 +2213,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_duplicate_block)
 
     check_indices_data(db, 30, 2, true, true);
 
-    print_store_data(db, std::cout);
-
     /**
      * Revert slot:value 30:5:
      *
@@ -2245,13 +2239,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_duplicate_block)
 
     check_indices_data(db, 30, 2, true, true);
 
-    print_store_data(db, std::cout);
-
     // Unwind block 3 and the state should be reverted back to block 2
     unwind_block(tree, 3);
-
-    std::cout << "AFTER UNWIND" << std::endl;
-    print_store_data(db, std::cout);
 
     check_root(tree, rootAfterBlock2);
     check_sibling_path(tree, 0, pathAfterBlock2, false);
@@ -2271,9 +2260,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_duplicate_block)
 
     // Unwind block 2 and the state should be reverted back to block 1
     unwind_block(tree, 2);
-
-    std::cout << "AFTER UNWIND" << std::endl;
-    print_store_data(db, std::cout);
 
     check_root(tree, rootAfterBlock1);
     check_sibling_path(tree, 0, pathAfterBlock1, false);
@@ -2349,7 +2335,6 @@ void test_nullifier_tree_unwind(std::string directory,
         index_t expected_size = (i + 2) * batchSize;
         add_values(tree, to_add);
         commit_tree(tree);
-        std::cout << "Root " << memdb.root() << std::endl;
 
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
         historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
@@ -2367,7 +2352,6 @@ void test_nullifier_tree_unwind(std::string directory,
         const index_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
-        std::cout << "Unwinding " << blockNumber << std::endl;
         unwind_block(tree, blockNumber);
         if (emptyBlocks) {
             // with empty blocks, we should not find the block data but we do find the root

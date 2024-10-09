@@ -42,8 +42,6 @@ template <typename LeafValueType> struct BatchInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
-const uint64_t CANONICAL_FORK_ID = 0;
-
 /**
  * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
  *
@@ -216,11 +214,11 @@ class WorldState {
     uint64_t create_fork(index_t blockNumber);
     void delete_fork(uint64_t forkId);
 
-    WorldStateStatus set_proven_blocks(const index_t& toBlockNumber);
+    WorldStateStatus set_finalised_blocks(const index_t& toBlockNumber);
     WorldStateStatus unwind_blocks(const index_t& toBlockNumber);
     WorldStateStatus remove_historical_blocks(const index_t& toBlockNumber);
 
-    void get_status(WorldStateStatus& status);
+    void get_status(WorldStateStatus& status) const;
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -236,12 +234,13 @@ class WorldState {
 
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
     Fork::SharedPtr create_new_fork(index_t blockNumber);
+    void remove_forks_for_block(index_t blockNumber);
 
     bool is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const;
 
-    bool set_proven_block(const index_t& toBlockNumber);
-    bool unwind_block(const index_t& toBlockNumber);
-    bool remove_historical_block(const index_t& toBlockNumber);
+    bool set_finalised_block(const index_t& blockNumber);
+    bool unwind_block(const index_t& blockNumber);
+    bool remove_historical_block(const index_t& blockNumber);
 
     static bb::fr compute_initial_archive(StateReference initial_state_ref);
 

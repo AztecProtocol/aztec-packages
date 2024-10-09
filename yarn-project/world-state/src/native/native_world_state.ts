@@ -1,4 +1,5 @@
 import {
+  type IndexedTreeId,
   type L2Block,
   MerkleTreeId,
   type MerkleTreeReadOperations,
@@ -14,6 +15,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeaf,
+  type NullifierLeafPreimage,
   PartialStateReference,
   PublicDataTreeLeaf,
   StateReference,
@@ -26,13 +28,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import {
-  type HandleL2BlockAndMessagesResult,
-  type MerkleTreeAdminDatabase as MerkleTreeDatabase,
-} from '../world-state-db/merkle_tree_db.js';
+import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
+  WorldStateStatus,
   blockStateReference,
   treeStateReferenceToSnapshot,
   worldStateRevision,
@@ -125,10 +125,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(
-    l2Block: L2Block,
-    l1ToL2Messages: Fr[],
-  ): Promise<HandleL2BlockAndMessagesResult> {
+  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus> {
     // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
     // by circuits.
     const paddedTxEffects = padArrayEnd(
@@ -159,7 +156,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPaddedPublicDataWrites.push(batch);
     }
 
-    return await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
+    const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
       blockNumber: l2Block.number,
       blockHeaderHash: l2Block.header.hash(),
       paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
@@ -168,6 +165,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPaddedPublicDataWrites: batchesOfPaddedPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
+    return response.status;
   }
 
   public async close(): Promise<void> {
@@ -180,22 +178,41 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return Header.empty({ state });
   }
 
-  async setProven(toBlockNumber: bigint) {
-    await this.call(WorldStateMessageType.PROVE_BLOCKS, {
+  /**
+   * Advances the finalised block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * @returns The new WorldStateStatus
+   */
+  public async setFinalised(toBlockNumber: bigint) {
+    return await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
       toBlockNumber,
     });
   }
 
-  async removeHistoricalBlocks(toBlockNumber: bigint) {
-    await this.call(WorldStateMessageType.PROVE_BLOCKS, {
+  /**
+   * Removes all historical snapshots up to but not including the given block number
+   * @param toBlockNumber The block number of the new oldest historical block
+   * @returns The new WorldStateStatus
+   */
+  public async removeHistoricalBlocks(toBlockNumber: bigint) {
+    return await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
       toBlockNumber,
     });
   }
 
-  async unwindBlocks(toBlockNumber: bigint) {
-    await this.call(WorldStateMessageType.PROVE_BLOCKS, {
+  /**
+   * Removes all pending blocks down to but not including the given block number
+   * @param toBlockNumber The block number of the new tip of the pending chain,
+   * @returns The new WorldStateStatus
+   */
+  public async unwindBlocks(toBlockNumber: bigint) {
+    return await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
       toBlockNumber,
     });
+  }
+
+  public async getStatus() {
+    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
   }
 
   updateLeaf<ID extends IndexedTreeId>(

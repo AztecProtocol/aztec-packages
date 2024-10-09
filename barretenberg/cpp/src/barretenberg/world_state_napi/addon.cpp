@@ -152,8 +152,8 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
 
     _dispatcher.registerTarget(
-        WorldStateMessageType::PROVE_BLOCKS,
-        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_proven(obj, buffer); });
+        WorldStateMessageType::FINALISE_BLOCKS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalised(obj, buffer); });
 
     _dispatcher.registerTarget(WorldStateMessageType::UNWIND_BLOCKS,
                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
@@ -161,6 +161,10 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     _dispatcher.registerTarget(
         WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return remove_historical(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::GET_STATUS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_status(obj, buffer); });
 
     _dispatcher.registerTarget(WorldStateMessageType::CLOSE,
                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
@@ -520,7 +524,7 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
                                               request.value.batchesOfPaddedPublicDataWrites);
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<SyncBlockResponse> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, status);
+    messaging::TypedMessage<SyncBlockResponse> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;
@@ -570,43 +574,56 @@ bool WorldStateAddon::close(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::set_proven(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateAddon::set_finalised(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
-    BlockShiftRequest request;
+    TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
-
-    _ws.set_proven_blocks(request.toBlockNumber);
-
+    WorldStateStatus status = _ws->set_finalised_blocks(request.value.toBlockNumber);
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::PROVE_BLOCKS, header, {});
+    messaging::TypedMessage<WorldStateStatus> resp_msg(WorldStateMessageType::FINALISE_BLOCKS, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;
 }
 
-bool WorldStateAddon::unwind(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateAddon::unwind(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
-    BlockShiftRequest request;
+    TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
 
-    _ws.unwind_blocks(request.toBlockNumber);
+    WorldStateStatus status = _ws->unwind_blocks(request.value.toBlockNumber);
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::UNWIND_BLOCKS, header, {});
+    messaging::TypedMessage<WorldStateStatus> resp_msg(WorldStateMessageType::UNWIND_BLOCKS, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;
 }
 
-bool WorldStateAddon::remove_historical(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateAddon::remove_historical(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
-    BlockShiftRequest request;
+    TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
-
-    _ws.remove_historical_blocks(request.toBlockNumber);
+    WorldStateStatus status = _ws->remove_historical_blocks(request.value.toBlockNumber);
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS, header, {});
+    messaging::TypedMessage<WorldStateStatus> resp_msg(
+        WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS, header, { status });
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::get_status(msgpack::object& obj, msgpack::sbuffer& buf) const
+{
+    HeaderOnlyMessage request;
+    obj.convert(request);
+
+    WorldStateStatus status;
+    _ws->get_status(status);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatus> resp_msg(WorldStateMessageType::GET_STATUS, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;

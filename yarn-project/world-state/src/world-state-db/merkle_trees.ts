@@ -50,8 +50,8 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type Hasher } from '@aztec/types/interfaces';
 
+import { WorldStateStatus } from '../native/message.js';
 import {
-  type HandleL2BlockAndMessagesResult,
   INITIAL_NULLIFIER_TREE_SIZE,
   INITIAL_PUBLIC_DATA_TREE_SIZE,
   type MerkleTreeAdminDatabase,
@@ -447,7 +447,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
+  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus> {
     return await this.synchronize(() => this.#handleL2BlockAndMessages(block, l1ToL2Messages));
   }
 
@@ -597,7 +597,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param l2Block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
+  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus> {
     const timer = new Timer();
 
     const treeRootWithIdPairs = [
@@ -689,8 +689,8 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     await this.#snapshot(l2Block.number);
 
     this.metrics.recordDbSize(this.store.estimateSize().bytes);
-    this.metrics.recordSyncDuration(ourBlock ? 'commit' : 'rollback_and_update', timer);
-    return { isBlockOurs: ourBlock };
+    this.metrics.recordSyncDuration('commit', timer);
+    return { unfinalisedBlockNumber: 0n, finalisedBlockNumber: 0n, oldestHistoricalBlock: 0n } as WorldStateStatus;
   }
 
   #isDbPopulated(): boolean {

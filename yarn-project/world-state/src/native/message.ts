@@ -71,15 +71,23 @@ export enum WorldStateMessageType {
   CREATE_FORK,
   DELETE_FORK,
 
-  PROVE_BLOCKS,
+  FINALISE_BLOCKS,
   UNWIND_BLOCKS,
   REMOVE_HISTORICAL_BLOCKS,
+
+  GET_STATUS,
 
   CLOSE = 999,
 }
 
 interface WithTreeId {
   treeId: MerkleTreeId;
+}
+
+export interface WorldStateStatus {
+  unfinalisedBlockNumber: bigint;
+  finalisedBlockNumber: bigint;
+  oldestHistoricalBlock: bigint;
 }
 
 interface WithForkId {
@@ -183,7 +191,7 @@ interface SyncBlockRequest {
 }
 
 interface SyncBlockResponse {
-  isBlockOurs: boolean;
+  status: WorldStateStatus;
 }
 
 interface CreateForkRequest {
@@ -225,7 +233,9 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: BlockShiftRequest;
   [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
-  [WorldStateMessageType.PROVE_BLOCKS]: BlockShiftRequest;
+  [WorldStateMessageType.FINALISE_BLOCKS]: BlockShiftRequest;
+
+  [WorldStateMessageType.GET_STATUS]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };
@@ -255,9 +265,11 @@ export type WorldStateResponse = {
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
 
-  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: void;
-  [WorldStateMessageType.UNWIND_BLOCKS]: void;
-  [WorldStateMessageType.PROVE_BLOCKS]: void;
+  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatus;
+  [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatus;
+  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatus;
+
+  [WorldStateMessageType.GET_STATUS]: WorldStateStatus;
 
   [WorldStateMessageType.CLOSE]: void;
 };

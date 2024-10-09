@@ -421,7 +421,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
-                std::cout << "Current root: " << requestContext.root << std::endl;
+                // std::cout << "Current root: " << requestContext.root << std::endl;
                 OptionalSiblingPath optional_path =
                     get_subtree_sibling_path_internal(leaf_index, subtree_depth, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);

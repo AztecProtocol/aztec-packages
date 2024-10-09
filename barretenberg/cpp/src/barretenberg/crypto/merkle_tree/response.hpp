@@ -86,7 +86,7 @@ void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>&
     } catch (std::exception& e) {
         response.success = false;
         response.message = e.what();
-        std::cout << "Response " << e.what() << std::endl;
+        // std::cout << "Response " << e.what() << std::endl;
     }
     try {
         on_completion(response);
@@ -103,7 +103,7 @@ inline void execute_and_report(const std::function<void()>& f,
     } catch (std::exception& e) {
         response.success = false;
         response.message = e.what();
-        std::cout << "Response " << e.what() << std::endl;
+        // std::cout << "Response " << e.what() << std::endl;
     }
     try {
         on_completion(response);

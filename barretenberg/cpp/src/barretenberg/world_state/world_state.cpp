@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ostream>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -123,11 +124,37 @@ Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
 }
 uint64_t WorldState::create_fork(index_t blockNumber)
 {
+    index_t blockNumberForFork = blockNumber;
+    if (blockNumberForFork == 0) {
+        // we are forking at latest
+        WorldStateStatus currentStatus;
+        get_status(currentStatus);
+        blockNumberForFork = currentStatus.unfinalisedBlockNumber;
+    }
+    Fork::SharedPtr fork = create_new_fork(blockNumberForFork);
     std::unique_lock lock(mtx);
-    Fork::SharedPtr fork = create_new_fork(blockNumber);
-    fork->_forkId = _forkId++;
-    _forks[fork->_forkId] = fork;
-    return fork->_forkId;
+    uint64_t forkId = _forkId++;
+    fork->_forkId = forkId;
+    _forks[forkId] = fork;
+    return forkId;
+}
+
+void WorldState::remove_forks_for_block(index_t blockNumber)
+{
+    // capture the shared pointer outside of the lock scope so we are not under the lock when the objects are destroyed
+    std::vector<Fork::SharedPtr> forks;
+    {
+        std::unique_lock lock(mtx);
+        for (auto it = _forks.begin(); it != _forks.end();) {
+            if (it->second->_blockNumber == blockNumber) {
+                forks.push_back(it->second);
+                it = _forks.erase(it);
+
+            } else {
+                it++;
+            }
+        }
+    }
 }
 
 void WorldState::delete_fork(uint64_t forkId)
@@ -147,6 +174,7 @@ void WorldState::delete_fork(uint64_t forkId)
 Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
+    fork->_blockNumber = blockNumber;
     {
         auto store = std::make_unique<NullifierStore>(getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE),
                                                       NULLIFIER_TREE_HEIGHT,
@@ -332,11 +360,9 @@ bool WorldState::commit()
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal](auto&& wrapper) {
+            [&signal, &success](auto&& wrapper) {
                 wrapper.tree->commit([&](const Response& response) {
-                    if (!response.success) {
-                        success = false;
-                    }
+                    success = response.success && success;
                     signal.signal_decrement();
                 });
             },
@@ -493,59 +519,65 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     return low_leaf_info;
 }
 
-WorldStateStatus WorldState::set_proven_blocks(const index_t& toBlockNumber)
+WorldStateStatus WorldState::set_finalised_blocks(const index_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
         throw std::runtime_error("Unable to finalise bllock, already finalised");
     }
-    for (index_t blockNumber = archive_state.meta.finalisedBlockHeight + 1; blockNumber < toBlockNumber;
+    for (index_t blockNumber = archive_state.meta.finalisedBlockHeight + 1; blockNumber <= toBlockNumber;
          blockNumber++) {
-        if (!set_proven_block(blockNumber)) {
+        if (!set_finalised_block(blockNumber)) {
             throw std::runtime_error("Failed to set finalised block");
         }
     }
-    return get_status();
+    WorldStateStatus status;
+    get_status(status);
+    return status;
 }
 WorldStateStatus WorldState::unwind_blocks(const index_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber >= archive_state.meta.unfinalisedBlockHeight) {
-        throw std::runtime_error("Unable to unwind bllock, block number ");
+        throw std::runtime_error("Unable to unwind block, block not found");
     }
     for (index_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber; blockNumber--) {
         if (!unwind_block(blockNumber)) {
             throw std::runtime_error("Failed to unwind block");
         }
     }
-    return get_status();
+    WorldStateStatus status;
+    get_status(status);
+    return status;
 }
 WorldStateStatus WorldState::remove_historical_blocks(const index_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
-        throw std::runtime_error("Unable to remove historical block");
+        throw std::runtime_error("Unable to remove historical block, block not found");
     }
     for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
-        if (!unwind_block(blockNumber)) {
+        if (!remove_historical_block(blockNumber)) {
             throw std::runtime_error("Failed to remove historical block");
         }
     }
-    return get_status();
+    WorldStateStatus status;
+    get_status(status);
+    return status;
 }
 
-bool WorldState::set_proven_block(const index_t& toBlockNumber)
+bool WorldState::set_finalised_block(const index_t& blockNumber)
 {
     std::atomic_bool success = true;
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal](auto&& wrapper) {
-                wrapper.tree->finalise_block(toBlockNumber, [&signal](const Response& resp) {
+            [&signal, &success, blockNumber](auto&& wrapper) {
+                wrapper.tree->finalise_block(blockNumber, [&signal, &success](const Response& resp) {
                     success = success && resp.success;
                     signal.signal_decrement();
                 });
@@ -555,15 +587,15 @@ bool WorldState::set_proven_block(const index_t& toBlockNumber)
     signal.wait_for_level();
     return success;
 }
-bool WorldState::unwind_block(const index_t& toBlockNumber)
+bool WorldState::unwind_block(const index_t& blockNumber)
 {
     std::atomic_bool success = true;
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal](auto&& wrapper) {
-                wrapper.tree->unwind_block(toBlockNumber, [&signal](const Response& resp) {
+            [&signal, &success, blockNumber](auto&& wrapper) {
+                wrapper.tree->unwind_block(blockNumber, [&signal, &success](const Response& resp) {
                     success = success && resp.success;
                     signal.signal_decrement();
                 });
@@ -571,16 +603,18 @@ bool WorldState::unwind_block(const index_t& toBlockNumber)
             tree);
     }
     signal.wait_for_level();
+    remove_forks_for_block(blockNumber);
     return success;
 }
-bool WorldState::remove_historical_block(const index_t& toBlockNumber)
+bool WorldState::remove_historical_block(const index_t& blockNumber)
 {
     std::atomic_bool success = true;
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal](auto&& wrapper) {
-                wrapper.tree->remove_historic_block(toBlockNumber, [&signal](const Response& resp) {
+            [&signal, &success, blockNumber](auto&& wrapper) {
+                wrapper.tree->remove_historic_block(blockNumber, [&signal, &success](const Response& resp) {
                     success = success && resp.success;
                     signal.signal_decrement();
                 });
@@ -588,6 +622,7 @@ bool WorldState::remove_historical_block(const index_t& toBlockNumber)
             tree);
     }
     signal.wait_for_level();
+    remove_forks_for_block(blockNumber);
     return success;
 }
 
@@ -652,11 +687,13 @@ bool WorldState::is_archive_tip(WorldStateRevision revision, bb::fr block_header
     return archive_state.meta.size == leaf_index.value() + 1;
 }
 
-void WorldState::get_status(WorldStateStatus& status)
+void WorldState::get_status(WorldStateStatus& status) const
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     status.unfinalisedBlockNumber = archive_state.meta.unfinalisedBlockHeight;
+    status.finalisedBlockNumber = archive_state.meta.finalisedBlockHeight;
+    status.oldestHistoricalBlock = archive_state.meta.oldestHistoricBlock;
 }
 
 } // namespace bb::world_state

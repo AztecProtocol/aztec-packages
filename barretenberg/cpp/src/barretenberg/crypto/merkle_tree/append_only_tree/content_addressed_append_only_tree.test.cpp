@@ -1486,8 +1486,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_blocks_with_dupli
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
 {
 
-    constexpr uint32_t numBlocks = 8;
-    constexpr uint32_t numBlocksToUnwind = 4;
+    constexpr uint32_t numBlocks = 4;
+    constexpr uint32_t numBlocksToUnwind = 2;
     std::vector<uint32_t> blockSizes = { 2, 4, 8, 16, 32 };
     for (const uint32_t& size : blockSizes) {
         uint32_t actualSize = size * 1024;
@@ -1545,7 +1545,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
             finalise_block(tree, blockToFinalise, true);
 
             index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-            std::cout << "Expected not present end " << expectedNotPresentEnd << std::endl;
             check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
         }
     }

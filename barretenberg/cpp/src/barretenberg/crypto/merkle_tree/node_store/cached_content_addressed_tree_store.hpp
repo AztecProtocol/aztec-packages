@@ -658,7 +658,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         WriteTransactionPtr tx = create_write_transaction();
         try {
             if (dataPresent) {
-                std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
+                // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
                 persist_leaf_keys(uncommittedMeta.committedSize, *tx);
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
@@ -667,7 +667,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
                     if (uncommittedMeta.oldestHistoricBlock == 0) {
                         uncommittedMeta.oldestHistoricBlock = 1;
                     }
-                    std::cout << "New root " << uncommittedMeta.root << std::endl;
+                    // std::cout << "New root " << uncommittedMeta.root << std::endl;
                     BlockPayload block{ .size = uncommittedMeta.size,
                                         .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
                                         .root = uncommittedMeta.root };
@@ -772,9 +772,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::hydrate_indices_from_persis
         if (success) {
             idx.second.indices.insert(
                 idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
-            if (idx.second.indices.size() > 1) {
-                std::cout << "INDICES LENGTH " << idx.second.indices.size() << " key " << key << std::endl;
-            }
         }
     }
 }
@@ -877,6 +874,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         if (blockNumber == 1) {
             previousBlockData.root = uncommittedMeta.initialRoot;
             previousBlockData.size = uncommittedMeta.initialSize;
+            previousBlockData.blockNumber = 0;
         } else if (!dataStore_->read_block_data(blockNumber - 1, previousBlockData, *tx)) {
             throw std::runtime_error("Failed to retrieve previous block data");
         }
@@ -888,7 +886,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
     }
     WriteTransactionPtr writeTx = create_write_transaction();
     try {
-        std::cout << "Removing block " << blockNumber << std::endl;
+        // std::cout << "Removing block " << blockNumber << std::endl;
 
         // Remove the block's node and leaf data given the max index of the previous block
         std::optional<index_t> maxIndex = std::optional<index_t>(previousBlockData.size);
@@ -900,8 +898,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         uncommittedMeta.size = previousBlockData.size;
         uncommittedMeta.committedSize = previousBlockData.size;
         uncommittedMeta.root = previousBlockData.root;
-        std::cout << "New block root " << previousBlockData.root << std::endl;
-        // commit this new meta data
+        // std::cout << "New block root " << previousBlockData.root << std::endl;
+        //  commit this new meta data
         persist_meta(uncommittedMeta, *writeTx);
         writeTx->commit();
     } catch (std::exception& e) {
@@ -941,7 +939,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
     }
     WriteTransactionPtr writeTx = create_write_transaction();
     try {
-        std::cout << "Removing historical block " << blockNumber << std::endl;
         std::optional<index_t> maxIndex = std::nullopt;
         // remove the historical block's node data
         remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);

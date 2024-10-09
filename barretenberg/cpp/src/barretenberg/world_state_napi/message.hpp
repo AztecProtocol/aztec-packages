@@ -4,7 +4,6 @@
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
 #include <cstdint>
 #include <string>
 
@@ -37,9 +36,11 @@ enum WorldStateMessageType {
     CREATE_FORK,
     DELETE_FORK,
 
-    PROVE_BLOCKS,
+    FINALISE_BLOCKS,
     UNWIND_BLOCKS,
     REMOVE_HISTORICAL_BLOCKS,
+
+    GET_STATUS,
 
     CLOSE = 999,
 };
@@ -62,11 +63,6 @@ struct CreateForkResponse {
 struct DeleteForkRequest {
     uint64_t forkId;
     MSGPACK_FIELDS(forkId);
-};
-
-struct WorldStateStatus {
-    index_t unfinalisedBlockNumber;
-    MSGPACK_FIELDS(unfinalisedBlockNumber);
 };
 
 struct TreeIdAndRevisionRequest {
