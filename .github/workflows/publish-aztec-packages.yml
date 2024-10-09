@@ -33,7 +33,7 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-
+  SHOULD_PUBLISH_DOCKER_IMAGES: ${{ github.event.inputs.publish == 'true' || github.ref_name == 'master' || contains(github.ref_name, '/release-master') }}
 jobs:
   check-version:
     runs-on: ubuntu-latest
@@ -191,7 +191,7 @@ jobs:
         with:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish aztec manifests
-        if: ${{ github.event.inputs.publish == 'true' }}
+        if: ${{ env.SHOULD_PUBLISH_DOCKER_IMAGES == 'true' }}
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             TAG=${{ env.DEPLOY_TAG }}
