@@ -67,8 +67,10 @@ contract DEX {
 
         // The following 2 functions burn user's notes worth `amount0_desired` and `amount1_desired`, they prepare
         // the partial notes for refunds and enqueue 2 public calls that transfer the amounts to the DEX.
-        let refund_token0_slot_commitment = token0.prepare_transfer_to_public_with_refund(msg.sender, context.this_address(), amount0_desired, nonce).call(&mut context);
-        let refund_token1_slot_commitment = token1.prepare_transfer_to_public_with_refund(msg.sender, context.this_address(), amount1_desired, nonce).call(&mut context);
+        token0.transfer_to_public(msg.sender, context.this_address(), amount0_desired, nonce).call(&mut context);
+        token1.transfer_to_public(msg.sender, context.this_address(), amount1_desired, nonce).call(&mut context);
+        let refund_token0_slot_commitment = token0.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
+        let refund_token1_slot_commitment = token1.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
         let liquidity_slot_commitment = liquidity_token.prepare_transfer_to_private(msg.sender).call(&mut context);
 
         DEX::at(context.this_address())._add_liquidity(
@@ -138,10 +140,10 @@ contract DEX {
         // out from transient storage at the end of the tx (which is fine) or it will stay in public storage (which is
         // also fine).
         if (refund_amount_token0 > 0) {
-            token0.finalize_transfer_to_public_with_refund(refund_token0_slot_commitment, refund_amount_token0).call(&mut context);
+            token0.finalize_transfer_to_private(refund_token0_slot_commitment, refund_amount_token0).call(&mut context);
         }
         if (refund_amount_token1 > 0) {
-            token1.finalize_transfer_to_public_with_refund(refund_token1_slot_commitment, refund_amount_token1).call(&mut context);
+            token1.finalize_transfer_to_private(refund_token1_slot_commitment, refund_amount_token1).call(&mut context);
         }
 
         // Calculate the amount of liquidity tokens to mint
@@ -275,4 +277,54 @@ contract DEX {
 
         token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
     }
+
+    #[private]
+    fn swap_tokens_for_exact_tokens(amount_out: u64, amount_in_max: u64, from_0_to_1: bool, nonce: Field) {
+        let state = storage.state.read_private();
+
+        let (token_address_in, token_address_out) = if from_0_to_1 {
+            (state.token0, state.token1)
+        } else {
+            (state.token1, state.token0)
+        };
+
+        let token_in = Token::at(token_address_in);
+        let token_out = Token::at(token_address_out);
+
+        token_in.transfer_to_public(msg.sender, context.this_address(), amount_in_max, nonce).call(&mut context);
+        let refund_token_in_slot_commitment = token_in.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
+        let token_out_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
+
+        DEX::at(context.this_address())._swap_tokens_for_exact_tokens(
+            refund_token_in_slot_commitment,
+            token_out_slot_commitment,
+            amount_out,
+            amount_in_max,
+            token_address_in,
+            token_address_out
+        ).enqueue(&mut context);
+    }
+    // #[public]
+    // #[internal]
+    // fn _swap_tokens_for_exact_tokens(
+    //     refund_token_in_slot_commitment: Field,
+    //     token_out_slot_commitment: Field,
+    //     amount_out: u64,
+    //     amount_in_max: u64,
+    //     token_address_in: AztecAddress,
+    //     token_address_out: AztecAddress,
+    // ) {
+    //     // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
+    //     // `swap_tokens_for_exact_tokens` which is private and since public functions cannot call private ones
+    //     // it's impossible to reenter this function.
+    //     let token_in = Token::at(token_address_in);
+    //     let token_out = Token::at(token_address_out);
+    //     let reserve_in_with_amount_in_max = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
+    //     let reserve_in = reserve_in_with_amount_in_max - amount_in_max;
+    //     let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
+    //     let amount_in = get_amount_in(amount_out, reserve_in, reserve_out);
+    //     assert(amount_in <= amount_in_max, "EXCESSIVE_INPUT_AMOUNT");
+    //     token_in.finalize_transfer_to_public_with_refund(refund_token_in_slot_commitment, amount_in).call(&mut context);
+    //     token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
+    // }
 }
