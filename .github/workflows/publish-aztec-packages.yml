@@ -23,12 +23,16 @@ permissions:
 
 env:
   # Add any global environment variables here
-  DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-  GIT_COMMIT: ${{ github.sha }}
-  DEPLOY_TAG: ${{ github.event.inputs.tag }}
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
   USERNAME: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   check-version:
