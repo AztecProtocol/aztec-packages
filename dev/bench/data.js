@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728433139283,
+  "lastUpdate": 1728468371144,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "014bacc0b2f1d56f416a3ab939b8aa5ad90656dd",
-          "message": "chore: remove creation of extra toml file in recursion inputs flow (#8700)\n\nWe used to need to create a duplicate of the verify_honk_proof noir\r\nprogram artifacts due to a quirk of gate count functionality. This issue\r\nhas been resolved on the noir side so I'm removing the related logic in\r\nmain.cpp.",
-          "timestamp": "2024-09-23T13:05:04-07:00",
-          "tree_id": "ccdd3b4d5d8d4d4bdafaa6de64164e7a31b42115",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/014bacc0b2f1d56f416a3ab939b8aa5ad90656dd"
-        },
-        "date": 1727122957661,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35600.48311399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 33518.295507 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5087.867708999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4720.166942000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100130.70440700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100130704000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14626.821702999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14626821000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8508666413,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8508666413 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151917639,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151917639 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6929389264,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6929389264 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127027879,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127027879 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 126589291,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126589291 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1150c9b28581985686b13ba97eb7f0066736652",
+          "message": "refactor: configure trees instead of duplicating constants (#9088)\n\nThis PR undoes the changes to `aztec_constants.hpp` instead opting to\r\ntake those values via parameters to the constructor",
+          "timestamp": "2024-10-09T10:37:05+01:00",
+          "tree_id": "a75759a7cf987be3f63cdab20d532b7b84d4f3dd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c1150c9b28581985686b13ba97eb7f0066736652"
+        },
+        "date": 1728468363869,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31366.89035099998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28873.886896000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5528.521012000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5157.667679 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93713.801295,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93713803000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15680.559068,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15680559000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8376498651,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8376498651 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153025379,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153025379 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6751547501,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6751547501 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125810476,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125810476 ns\nthreads: 1"
           }
         ]
       }
