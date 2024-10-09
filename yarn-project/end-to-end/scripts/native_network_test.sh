@@ -17,7 +17,6 @@ set -eu
 
 # Ensure dependencies are installed
 command -v anvil >/dev/null || (echo "We need 'anvil' installed to be able to simulate ethereum" && exit 1)
-command -v tmux >/dev/null || (echo "We need 'tmux' installed to be able to manage terminal sessions" && exit 1)
 
 REPO=$(git rev-parse --show-toplevel)
 
@@ -37,6 +36,7 @@ rm -f l1-contracts.env l2-contracts.env logs/*.log
 
 function run_parallel() {
   if [ "${INTERLEAVED:-false}" = "false" ] ; then
+    command -v tmux >/dev/null || (echo "We need 'tmux' installed to be able to manage terminal sessions" && exit 1)
     # Run in tmux for local debugging
     "$REPO"/scripts/tmux_split_args.sh native_network_test_session "$@"
   else
