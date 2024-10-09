@@ -267,9 +267,6 @@ impl DebugShow {
                     outputs
                 );
             }
-            BlackBoxOp::Keccak256 { message, output } => {
-                debug_println!(self.enable_debug_trace, "  KECCAK256 {} -> {}", message, output);
-            }
             BlackBoxOp::Keccakf1600 { message, output } => {
                 debug_println!(self.enable_debug_trace, "  KECCAKF1600 {} -> {}", message, output);
             }
