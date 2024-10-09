@@ -9,8 +9,6 @@ import { TxHash } from '../tx/tx_hash.js';
 import { type Signable } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
-  // Cached values
-  private asBuffer: Buffer | undefined;
   private size: number | undefined;
 
   constructor(
@@ -35,12 +33,9 @@ export class ConsensusPayload implements Signable {
   }
 
   toBuffer(): Buffer {
-    if (this.asBuffer) {
-      return this.asBuffer;
-    }
-    this.asBuffer = serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes]);
-    this.size = this.asBuffer.length;
-    return this.asBuffer;
+    const buffer = serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes]);
+    this.size = buffer.length;
+    return buffer;
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
@@ -69,7 +64,7 @@ export class ConsensusPayload implements Signable {
     if (this.size) {
       return this.size;
     }
-    this.toBuffer();
-    return this.size!;
+    this.size = this.toBuffer().length;
+    return this.size;
   }
 }

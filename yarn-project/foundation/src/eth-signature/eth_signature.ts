@@ -20,7 +20,6 @@ export type ViemSignature = {
  */
 export class Signature {
   // Cached values
-  private asBuffer: Buffer | undefined;
   private size: number | undefined;
 
   constructor(
@@ -77,13 +76,9 @@ export class Signature {
   }
 
   toBuffer(): Buffer {
-    // We cache the buffer to avoid recalculating it
-    if (this.asBuffer) {
-      return this.asBuffer;
-    }
-    this.asBuffer = serializeToBuffer([this.r, this.s, this.v]);
-    this.size = this.asBuffer.length;
-    return this.asBuffer;
+    const buffer = serializeToBuffer([this.r, this.s, this.v]);
+    this.size = buffer.length;
+    return buffer;
   }
 
   getSize(): number {
@@ -92,9 +87,8 @@ export class Signature {
       return this.size;
     }
 
-    // Size is cached when calling toBuffer
-    this.toBuffer();
-    return this.size!;
+    this.size = this.toBuffer().length;
+    return this.size;
   }
 
   to0xString(): `0x${string}` {
