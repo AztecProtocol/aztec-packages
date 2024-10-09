@@ -372,18 +372,6 @@ jobs:
           command: build cli-wallet
           aztec_manifest_key: cli-wallet
 
-  end-to-end:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build end-to-end
-          aztec_manifest_key: end-to-end
-
   # For old e2e tests see yarn-project/end-to-end/Earthfile
   # Semantics are similar to Dockerfile
 
@@ -583,7 +571,6 @@ workflows:
             - l1-contracts
             - noir-projects
           <<: *defaults
-      - end-to-end: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
       - yarn-project-ecr-manifest:
@@ -599,7 +586,6 @@ workflows:
       # End to end tests.
       - e2e-join:
           requires:
-            - end-to-end
             - aztec-package
           <<: *defaults
 
