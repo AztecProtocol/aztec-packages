@@ -87,7 +87,10 @@ export class Bot {
       return;
     }
 
-    this.log.verbose(`Awaiting tx ${txHash} to be on the ${followChain} (timeout ${txMinedWaitSeconds}s)`, logCtx);
+    this.log.verbose(
+      `Awaiting tx ${txHash} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
+      logCtx,
+    );
     const receipt = await tx.wait({
       timeout: txMinedWaitSeconds,
       provenTimeout: txMinedWaitSeconds,
