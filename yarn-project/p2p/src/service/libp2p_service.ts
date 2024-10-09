@@ -18,6 +18,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
+import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -59,7 +60,6 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { Attributes, TelemetryClient, trackSpan, WithTracer } from '@aztec/telemetry-client';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -444,7 +444,6 @@ export class LibP2PService extends WithTracer implements P2PService {
   private broadcastAttestation(attestation: BlockAttestation): void {
     this.propagate(attestation);
   }
-
 
   private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
     this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);

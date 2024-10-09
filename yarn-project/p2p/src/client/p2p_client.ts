@@ -11,6 +11,7 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 
@@ -20,7 +21,6 @@ import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { Attributes, TelemetryClient, trackSpan, WithTracer } from '@aztec/telemetry-client';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -212,7 +212,6 @@ export class P2PClient extends WithTracer implements P2P {
     private log = createDebugLogger('aztec:p2p'),
   ) {
     super(telemetryClient, 'P2PClient');
-
 
     const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };

@@ -5,7 +5,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
-import { Attributes, TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
