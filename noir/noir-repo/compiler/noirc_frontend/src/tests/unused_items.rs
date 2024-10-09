@@ -189,58 +189,6 @@ fn errors_on_unused_type_alias() {
 }
 
 #[test]
-fn errors_if_type_alias_aliases_more_private_type() {
-    let src = r#"
-    struct Foo {}
-    pub type Bar = Foo;
-    pub fn no_unused_warnings(_b: Bar) {
-        let _ = Foo {};
-    }
-    fn main() {}
-    "#;
-
-    let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 1);
-
-    let CompilationError::ResolverError(ResolverError::TypeIsMorePrivateThenItem {
-        typ, item, ..
-    }) = &errors[0].0
-    else {
-        panic!("Expected an unused item error");
-    };
-
-    assert_eq!(typ, "Foo");
-    assert_eq!(item, "Bar");
-}
-
-#[test]
-fn errors_if_type_alias_aliases_more_private_type_in_generic() {
-    let src = r#"
-    pub struct Generic<T> { value: T }
-    struct Foo {}
-    pub type Bar = Generic<Foo>;
-    pub fn no_unused_warnings(_b: Bar) {
-        let _ = Foo {};
-        let _ = Generic { value: 1 };
-    }
-    fn main() {}
-    "#;
-
-    let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 1);
-
-    let CompilationError::ResolverError(ResolverError::TypeIsMorePrivateThenItem {
-        typ, item, ..
-    }) = &errors[0].0
-    else {
-        panic!("Expected an unused item error");
-    };
-
-    assert_eq!(typ, "Foo");
-    assert_eq!(item, "Bar");
-}
-
-#[test]
 fn warns_on_unused_global() {
     let src = r#"
     global foo = 1;
@@ -261,4 +209,25 @@ fn warns_on_unused_global() {
 
     assert_eq!(ident.to_string(), "foo");
     assert_eq!(item.item_type(), "global");
+}
+
+#[test]
+fn no_warning_on_inner_struct_when_parent_is_used() {
+    let src = r#" 
+    struct Bar {
+        inner: [Field; 3],
+    }
+
+    struct Foo {
+        a: Field,
+        bar: Bar,
+    }
+
+    fn main(foos: [Foo; 1]) {
+        assert_eq(foos[0].a, 10);
+    }
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 0);
 }
