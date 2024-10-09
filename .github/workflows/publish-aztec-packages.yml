@@ -297,7 +297,6 @@ jobs:
       - build-cli-wallet-arm
       - publish-npm
       - publish-manifests
-      # - protocol-circuits-gates-report # non-blocking
     if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
