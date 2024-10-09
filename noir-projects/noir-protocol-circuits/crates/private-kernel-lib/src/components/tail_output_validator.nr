@@ -9,7 +9,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
     log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty, transaction::RevertCode,
     utils::arrays::assert_exposed_sorted_transformed_value_array
 };
 
@@ -39,7 +39,7 @@ impl TailOutputValidator {
 
     fn validate_empty_values(self) {
         assert(is_empty(self.output.start_state), "start_state must be empty");
-        assert_eq(self.output.revert_code, 0, "revert_code must be empty");
+        assert_eq(self.output.revert_code, RevertCode.OK, "revert_code must be empty");
     }
 
     fn validate_propagated_values(self) {

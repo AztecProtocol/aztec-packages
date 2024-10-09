@@ -5,7 +5,8 @@ use dep::types::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, VMCircuitPublicInputs},
     validation_requests::public_validation_requests::PublicValidationRequestArrayLengths
 },
-    traits::is_empty, utils::arrays::{array_length, assert_array_appended, assert_array_prepended}
+    traits::is_empty, transaction::RevertCode,
+    utils::arrays::{array_length, assert_array_appended, assert_array_prepended}
 };
 
 pub struct PublicKernelOutputValidator {
@@ -165,8 +166,8 @@ impl PublicKernelOutputValidator {
 
     fn validate_accumulated_data(self) {
         // TODO: Should keep the data even when reverts.
-        let revert_in_phase = (self.output.revert_code != 0)
-            & ((self.phase != PublicKernelPhase.TEARDOWN) | (self.output.revert_code != 1)); // Revert in APP_LOGIC
+        let revert_in_phase = (self.output.revert_code != RevertCode.OK) & ((self.phase != PublicKernelPhase.TEARDOWN)
+                | (self.output.revert_code != RevertCode.APP_LOGIC_REVERTED));
 
         self.validate_accumulated_data_from_private(revert_in_phase);
         self.validate_combined_accumulated_data(revert_in_phase);
@@ -363,27 +364,30 @@ impl PublicKernelOutputValidator {
     }
 
     fn validate_revert_code(self) {
-        if self.phase == PublicKernelPhase.SETUP {
-            // enqueued_call.reverted should be false. If not, EnqueuedCallDataValidator > validate_revert_flag will fail.
-            assert_eq(self.output.revert_code, 0, "expected revert code to be 0");
-        }
-
         let prev = self.previous_kernel.revert_code;
         let out = self.output.revert_code;
+        if self.phase == PublicKernelPhase.SETUP {
+            // enqueued_call.reverted should be false. If not, EnqueuedCallDataValidator > validate_revert_flag will fail.
+            let expected = RevertCode.OK; // Assign to a new variable because f"{RevertCode.OK}"" does not print the actual value.
+            assert_eq(out, expected, f"expected revert code to be {expected}");
+        }
         if !self.enqueued_call.reverted {
             assert_eq(out, prev, "mismatch revert code");
         } else {
             if self.phase == PublicKernelPhase.APP_LOGIC {
-                assert_eq(out, 1, "expected revert code to be 1");
+                let expected = RevertCode.APP_LOGIC_REVERTED;
+                assert_eq(out, expected, f"expected revert code to be {expected}");
             }
             if self.phase == PublicKernelPhase.TEARDOWN {
                 // See https://docs.aztec.network/protocol-specs/gas-and-fees/kernel-tracking#handling-reverts
-                if prev == 0 {
+                if prev == RevertCode.OK {
                     // Case where there is a new error in teardown
-                    assert_eq(out, 2, "expected revert code to be 2");
+                    let expected = RevertCode.TEARDOWN_REVERTED;
+                    assert_eq(out, expected, f"expected revert code to be {expected}");
                 } else {
                     // Case where there is an error in both app logic and teardown
-                    assert_eq(out, 3, "expected revert code to be 3");
+                    let expected = RevertCode.BOTH_REVERTED;
+                    assert_eq(out, expected, f"expected revert code to be {expected}");
                 };
             }
         }

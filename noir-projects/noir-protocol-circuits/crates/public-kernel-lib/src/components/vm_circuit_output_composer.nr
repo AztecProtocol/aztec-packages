@@ -22,7 +22,7 @@ use dep::types::{
     VM_CIRCUIT_PUBLIC_INPUTS_LENGTH
 },
     hash::compute_siloed_nullifier, messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
-    utils::arrays::array_to_bounded_vec
+    transaction::RevertCode, utils::arrays::array_to_bounded_vec
 };
 
 // TODO(#7124): To be deprecated.
@@ -119,7 +119,7 @@ impl VMCircuitOutputComposer {
 
     fn propagate_revert_flag(&mut self, public_call: PublicCircuitPublicInputs) {
         if !self.reverted {
-            self.reverted = public_call.revert_code != 0;
+            self.reverted = public_call.revert_code != RevertCode.OK;
         }
     }
 

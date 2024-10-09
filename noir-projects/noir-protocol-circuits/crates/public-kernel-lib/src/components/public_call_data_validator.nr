@@ -1,10 +1,10 @@
-use crate::public_kernel_phase::PublicKernelPhase;
+use crate::{public_kernel_phase::PublicKernelPhase};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_call_data::PublicCallData,
     public_call_request::PublicCallRequest
 },
-    constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, utils::arrays::array_length
+    constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, transaction::RevertCode, utils::arrays::array_length
 };
 
 pub struct PublicCallDataValidator {
@@ -46,7 +46,9 @@ impl PublicCallDataValidator {
 
     fn validate_revert_code(self) {
         if self.phase == PublicKernelPhase.SETUP {
-            assert_eq(self.data.call_stack_item.public_inputs.revert_code, 0, "Public call cannot be reverted");
+            assert_eq(
+                self.data.call_stack_item.public_inputs.revert_code, RevertCode.OK, "Public call cannot be reverted"
+            );
         }
     }
 

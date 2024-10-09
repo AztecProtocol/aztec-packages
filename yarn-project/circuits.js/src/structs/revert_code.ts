@@ -3,6 +3,7 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
+// Must match the RevertCode defined in noir-project/noir-protocol-circuits/crates/types/src/transaction/revert_code.nr
 enum RevertCodeEnum {
   OK = 0,
   APP_LOGIC_REVERTED = 1,

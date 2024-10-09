@@ -91,7 +91,7 @@ mod tests {
         max_block_number::MaxBlockNumber
     },
         constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, transaction::RevertCode
     };
 
     struct PublicKernelMergeCircuitPrivateInputsBuilder {
@@ -220,13 +220,13 @@ mod tests {
     unconstrained fn handle_revert_in_app_logic() {
         let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
         builder.phase = PublicKernelPhase.APP_LOGIC;
-        builder.enqueued_call.revert_code = 1;
+        builder.enqueued_call.revert_code = RevertCode.APP_LOGIC_REVERTED;
 
         builder.populate_gas_used();
 
         let output = builder.execute();
 
-        assert_eq(output.revert_code, 1);
+        assert_eq(output.revert_code, RevertCode.APP_LOGIC_REVERTED);
 
         // gas_used is propagated even when reverts.
         assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));

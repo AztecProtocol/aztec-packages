@@ -10,7 +10,7 @@ use dep::types::{
     log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
     nullifier::{Nullifier, ScopedNullifier}, public_call_request::PublicCallRequest
 },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty_array,
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty_array, transaction::RevertCode,
     utils::arrays::{
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
     assert_split_transformed_value_arrays
@@ -43,7 +43,7 @@ impl TailToPublicOutputValidator {
     }
 
     fn validate_empty_values(self) {
-        assert_eq(self.output.revert_code, 0, "revert_code must be empty");
+        assert_eq(self.output.revert_code, RevertCode.OK, "revert_code must be empty");
 
         assert(
             is_empty_array(self.output.end_non_revertible.public_data_update_requests), "non-revertible public_data_update_requests must be empty"

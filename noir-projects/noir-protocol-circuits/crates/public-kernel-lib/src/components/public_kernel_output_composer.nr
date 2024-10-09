@@ -10,7 +10,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder, VMCircuitPublicInputs},
     public_call_request::PublicCallRequest
 },
-    traits::is_empty
+    traits::is_empty, transaction::RevertCode
 };
 
 pub struct PublicKernelOutputComposer {
@@ -57,16 +57,16 @@ impl PublicKernelOutputComposer {
                 // enqueued_call.reverted should be false. If not, EnqueuedCallDataValidator > validate_revert_flag will fail.
             }
             if phase == PublicKernelPhase.APP_LOGIC {
-                self.output_builder.revert_code = 1;
+                self.output_builder.revert_code = RevertCode.APP_LOGIC_REVERTED;
             }
             if phase == PublicKernelPhase.TEARDOWN {
                 // See https://docs.aztec.network/protocol-specs/gas-and-fees/kernel-tracking#handling-reverts
-                self.output_builder.revert_code = if prev_revert_code == 0 {
-                    // Case where there is a new error in teardown
-                    2
+                self.output_builder.revert_code = if prev_revert_code == RevertCode.OK {
+                    // Case where the first error is in teardown.
+                    RevertCode.TEARDOWN_REVERTED
                 } else {
-                    // Case where there is an error in both app logic and teardown
-                    3
+                    // Case where there is an error in both app logic and teardown.
+                    RevertCode.BOTH_REVERTED
                 };
             }
         }
@@ -127,8 +127,8 @@ impl PublicKernelOutputComposer {
         // TODO: Should keep the data even when reverts.
         // The data is required for verifying validation requests in the tail circuit, which will then discard the
         // revertible data.
-        let revert_in_phase = (self.output_builder.revert_code != 0)
-            & ((phase != PublicKernelPhase.TEARDOWN) | (self.output_builder.revert_code != 1)); // Revert in APP_LOGIC
+        let revert_in_phase = (self.output_builder.revert_code != RevertCode.OK) & ((phase != PublicKernelPhase.TEARDOWN)
+                | (self.output_builder.revert_code != RevertCode.APP_LOGIC_REVERTED));
         if revert_in_phase {
             let gas_used = self.output_builder.end.gas_used;
             self.output_builder.end = PublicAccumulatedDataBuilder::empty();
