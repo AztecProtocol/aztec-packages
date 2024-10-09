@@ -25,10 +25,10 @@ import {
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ReadRequest,
+  SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { randomBytes, randomInt } from 'crypto';
 

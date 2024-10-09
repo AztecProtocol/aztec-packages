@@ -1,6 +1,6 @@
 import { type L1ContractAddresses } from '@aztec/ethereum';
 
-import { type ProtocolContractAddresses } from '../contracts/protocol_contract_addresses.js';
+import { type ProtocolContractAddresses } from './protocol_contract_addresses.js';
 
 /**
  * Provides basic information about the running node.
