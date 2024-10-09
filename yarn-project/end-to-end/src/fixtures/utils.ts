@@ -207,7 +207,6 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
-  enableGas: boolean,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -238,11 +237,9 @@ async function setupWithRemoteEnvironment(
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
-  if (enableGas) {
-    await setupCanonicalFeeJuice(
-      new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
-    );
-  }
+  await setupCanonicalFeeJuice(
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+  );
 
   logger.verbose('Constructing available wallets from already registered accounts...');
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
@@ -389,7 +386,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
 
   const deployL1ContractsValues =
@@ -441,7 +438,7 @@ export async function setup(
 
   const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-  if (!config.skipProtocolContracts && enableGas) {
+  if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
     await setupCanonicalFeeJuice(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
@@ -695,7 +692,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
 
   try {
     await feeJuice.methods
-      .set_portal(feeJuicePortalAddress)
+      .initialize(feeJuicePortalAddress)
       .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
