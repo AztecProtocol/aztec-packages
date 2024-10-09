@@ -40,6 +40,10 @@ export class BlockAttestation extends Gossipable {
     return new BlockAttestationHash(keccak256(this.signature.toBuffer()));
   }
 
+  public proposalP2PMessageIdentifier(): Buffer32 {
+    return Buffer32.fromField(this.payload.archive);
+  }
+
   /**Get sender
    *
    * Lazily evaluate and cache the sender of the attestation
