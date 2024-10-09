@@ -2,22 +2,20 @@ mod lib;
 
 use dep::aztec::macros::aztec;
 
-// A Noir implementation of simplified Uniswap v2 pool.
+// A Noir implementation of a simplified Uniswap v2 pool.
 #[aztec]
 contract DEX {
     use crate::lib::{get_quote, get_amount_out};
     use dep::aztec::{
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}},
-        prelude::{AztecAddress, SharedImmutable, PublicContext}, protocol_types::traits::Serialize
+        prelude::{AztecAddress, SharedImmutable}, protocol_types::traits::Serialize
     };
     use std::meta::derive;
     use dep::token::Token;
 
-    // We store the tokens of the pool and reserves in a struct such that to load it from PublicImmutable asserts only
-    // a single merkle proof.
+    // We store the tokens of the pool in a struct such that to load it from SharedImmutable asserts only a single
+    // merkle proof.
     // (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
-    // Note: We store the reserves instead of just doing `token{0,1}.balance_of_public(dex_address)` so that we can
-    // make the user send the `token_in` into the pool before the swap.
     #[derive(Serialize)]
     struct State {
         token0: AztecAddress,
