@@ -2,10 +2,7 @@
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
-<<<<<<< HEAD
-=======
 #include "barretenberg/crypto/merkle_tree/types.hpp"
-    >>>>>>> origin / master
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/world_state/fork.hpp"
@@ -27,7 +24,7 @@
 #include <sys/types.h>
 #include <unordered_map>
 
-                using namespace bb::world_state;
+using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 using namespace bb::messaging;
 
