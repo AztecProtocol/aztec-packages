@@ -1,6 +1,6 @@
 import { type EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -37,7 +37,7 @@ export class BlockAttestation extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockAttestationHash.fromField(this.payload.archive);
+    return new BlockAttestationHash(keccak256(this.signature.toBuffer()));
   }
 
   /**Get sender

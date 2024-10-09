@@ -397,6 +397,11 @@ export class LibP2PService extends WithTracer implements P2PService {
    *
    * @param attestation - The attestation to process.
    */
+  @trackSpan('Libp2pService.processAttestationFromPeer', attestation => ({
+    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
+  }))
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
     this.logger.verbose(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
     await this.attestationPool.addAttestations([attestation]);
@@ -412,6 +417,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   @trackSpan('Libp2pService.processBlockFromPeer', block => ({
     [Attributes.BLOCK_NUMBER]: block.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: block.payload.archive.toString(),
     [Attributes.P2P_ID]: block.p2pMessageIdentifier().toString(),
   }))
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
@@ -421,9 +427,24 @@ export class LibP2PService extends WithTracer implements P2PService {
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
     if (attestation != undefined) {
-      this.propagate(attestation);
+      this.broadcastAttestation(attestation);
     }
   }
+
+  /**
+   * Broadcast an attestation to all peers.
+   * @param attestation - The attestation to broadcast.
+   */
+  @trackSpan('Libp2pService.broadcastAttestation', attestation => ({
+    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: attestation.payload.archive.toString(),
+    [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
+  }))
+  private broadcastAttestation(attestation: BlockAttestation): void {
+    this.propagate(attestation);
+  }
+
 
   private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
     this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);

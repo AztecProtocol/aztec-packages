@@ -133,11 +133,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     return this.validationService.createBlockProposal(header, archive, txs);
   }
 
-  @trackSpan('ValidatorClient.broadcastBlockProposal', proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
-    [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
-  }))
   broadcastBlockProposal(proposal: BlockProposal): void {
     this.p2pClient.broadcastProposal(proposal);
   }
