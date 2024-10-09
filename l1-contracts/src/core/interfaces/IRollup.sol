@@ -14,6 +14,7 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
+  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
 

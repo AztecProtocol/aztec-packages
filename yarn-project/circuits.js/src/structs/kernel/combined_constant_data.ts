@@ -26,26 +26,46 @@ export class CombinedConstantData {
      * Root of the vk tree for the protocol circuits.
      */
     public vkTreeRoot: Fr,
-
+    /**
+     * Root of the tree for the protocol contracts.
+     */
+    public protocolContractTreeRoot: Fr,
     /** Present when output by a public kernel, empty otherwise. */
     public globalVariables: GlobalVariables,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.historicalHeader, this.txContext, this.vkTreeRoot, this.globalVariables);
+    return serializeToBuffer(
+      this.historicalHeader,
+      this.txContext,
+      this.vkTreeRoot,
+      this.protocolContractTreeRoot,
+      this.globalVariables,
+    );
+  }
+
+  clone(): CombinedConstantData {
+    return CombinedConstantData.fromBuffer(this.toBuffer());
   }
 
   getSize() {
-    return this.historicalHeader.getSize() + this.txContext.getSize() + this.globalVariables.getSize();
+    return (
+      this.historicalHeader.getSize() +
+      this.txContext.getSize() +
+      this.vkTreeRoot.size +
+      this.protocolContractTreeRoot.size +
+      this.globalVariables.getSize()
+    );
   }
 
   static from({
     historicalHeader,
     txContext,
     vkTreeRoot,
+    protocolContractTreeRoot,
     globalVariables,
   }: FieldsOf<CombinedConstantData>): CombinedConstantData {
-    return new CombinedConstantData(historicalHeader, txContext, vkTreeRoot, globalVariables);
+    return new CombinedConstantData(historicalHeader, txContext, vkTreeRoot, protocolContractTreeRoot, globalVariables);
   }
 
   /**
@@ -59,6 +79,7 @@ export class CombinedConstantData {
       reader.readObject(Header),
       reader.readObject(TxContext),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
     );
   }
@@ -69,11 +90,12 @@ export class CombinedConstantData {
       reader.readObject(Header),
       reader.readObject(TxContext),
       reader.readField(),
+      reader.readField(),
       reader.readObject(GlobalVariables),
     );
   }
 
   static empty() {
-    return new CombinedConstantData(Header.empty(), TxContext.empty(), Fr.ZERO, GlobalVariables.empty());
+    return new CombinedConstantData(Header.empty(), TxContext.empty(), Fr.ZERO, Fr.ZERO, GlobalVariables.empty());
   }
 }

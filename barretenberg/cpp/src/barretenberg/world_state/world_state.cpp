@@ -188,7 +188,7 @@ Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
     return fork;
 }
 
-TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTreeId tree_id) const
+TreeMetaResponse WorldState::get_tree_info(const WorldStateRevision& revision, MerkleTreeId tree_id) const
 {
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
     return std::visit(
@@ -213,7 +213,7 @@ TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTr
         fork->_trees.at(tree_id));
 }
 
-StateReference WorldState::get_state_reference(WorldStateRevision revision) const
+StateReference WorldState::get_state_reference(const WorldStateRevision& revision) const
 {
     return get_state_reference(revision, retrieve_fork(revision.forkId));
 }
@@ -225,7 +225,9 @@ StateReference WorldState::get_initial_state_reference() const
                                true);
 }
 
-StateReference WorldState::get_state_reference(WorldStateRevision revision, Fork::SharedPtr fork, bool initial_state)
+StateReference WorldState::get_state_reference(const WorldStateRevision& revision,
+                                               Fork::SharedPtr fork,
+                                               bool initial_state)
 {
     if (fork->_forkId != revision.forkId) {
         throw std::runtime_error("Fork does not match revision");
@@ -271,7 +273,7 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision, Fork
     return state_reference;
 }
 
-fr_sibling_path WorldState::get_sibling_path(WorldStateRevision revision,
+fr_sibling_path WorldState::get_sibling_path(const WorldStateRevision& revision,
                                              MerkleTreeId tree_id,
                                              index_t leaf_index) const
 {
@@ -314,7 +316,9 @@ void WorldState::update_public_data(const PublicDataLeafValue& new_value, Fork::
     }
 }
 
-void WorldState::update_archive(const StateReference& block_state_ref, fr block_header_hash, Fork::Id fork_id)
+void WorldState::update_archive(const StateReference& block_state_ref,
+                                const bb::fr& block_header_hash,
+                                Fork::Id fork_id)
 {
     auto world_state_ref = get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
     if (block_state_matches_world_state(block_state_ref, world_state_ref)) {
@@ -354,7 +358,7 @@ void WorldState::rollback()
 }
 
 bool WorldState::sync_block(const StateReference& block_state_ref,
-                            fr block_header_hash,
+                            const bb::fr& block_header_hash,
                             const std::vector<bb::fr>& notes,
                             const std::vector<bb::fr>& l1_to_l2_messages,
                             const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
@@ -445,9 +449,9 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
     throw std::runtime_error("Can't synch block: block state does not match world state");
 }
 
-GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision revision,
+GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision& revision,
                                                           MerkleTreeId tree_id,
-                                                          fr leaf_key) const
+                                                          const bb::fr& leaf_key) const
 {
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
     Signal signal;
@@ -479,7 +483,7 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     return low_leaf_info;
 }
 
-bb::fr WorldState::compute_initial_archive(StateReference initial_state_ref)
+bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref)
 {
     // NOTE: this hash operations needs to match the one in yarn-project/circuits.js/src/structs/header.ts
     return HashPolicy::hash({ GENERATOR_INDEX__BLOCK_HASH, // separator
@@ -492,14 +496,14 @@ bb::fr WorldState::compute_initial_archive(StateReference initial_state_ref)
                               0,
                               0,
                               // state reference - the initial state for all the trees (accept the archive tree)
-                              initial_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE].first,
-                              initial_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE].second,
-                              initial_state_ref[MerkleTreeId::NOTE_HASH_TREE].first,
-                              initial_state_ref[MerkleTreeId::NOTE_HASH_TREE].second,
-                              initial_state_ref[MerkleTreeId::NULLIFIER_TREE].first,
-                              initial_state_ref[MerkleTreeId::NULLIFIER_TREE].second,
-                              initial_state_ref[MerkleTreeId::PUBLIC_DATA_TREE].first,
-                              initial_state_ref[MerkleTreeId::PUBLIC_DATA_TREE].second,
+                              initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
+                              initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
+                              initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).first,
+                              initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).second,
+                              initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).first,
+                              initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).second,
+                              initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
+                              initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
                               // global variables
                               0,
                               0,
@@ -528,7 +532,7 @@ bool WorldState::block_state_matches_world_state(const StateReference& block_sta
         tree_ids.begin(), tree_ids.end(), [=](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
 }
 
-bool WorldState::is_archive_tip(WorldStateRevision revision, bb::fr block_header_hash) const
+bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const
 {
     std::optional<index_t> leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
 

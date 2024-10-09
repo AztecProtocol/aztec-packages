@@ -159,16 +159,15 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system, witness);
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
 
     Timer pk_timer;
     acir_composer.init_proving_key();
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
 
-    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
-    write_benchmark("subgroup_size", acir_composer.get_dyadic_circuit_size(), "acir_test", current_dir);
+    write_benchmark("gate_count", acir_composer.get_finalized_total_circuit_size(), "acir_test", current_dir);
+    write_benchmark("subgroup_size", acir_composer.get_finalized_dyadic_circuit_size(), "acir_test", current_dir);
 
     Timer proof_timer;
     auto proof = acir_composer.create_proof();
@@ -199,12 +198,9 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     // Construct a bberg circuit from the acir representation
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
     // Construct Honk proof
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
@@ -670,8 +666,8 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system, witness);
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 
@@ -689,6 +685,8 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  *
  * Communication:
  * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size.
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as
+ * their gate count differs
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
@@ -701,8 +699,9 @@ template <typename Builder = UltraCircuitBuilder> void gateCount(const std::stri
     for (auto constraint_system : constraint_systems) {
         auto builder = acir_format::create_circuit<Builder>(
             constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
-        builder.finalize_circuit();
+        builder.finalize_circuit(/*ensure_nonzero=*/true);
         size_t circuit_size = builder.num_gates;
+        vinfo("Calculated circuit size in gateCount: ", circuit_size);
 
         // Build individual circuit report
         std::string gates_per_opcode_str;
@@ -778,8 +777,9 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system);
+    acir_composer.finalize_circuit();
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
@@ -796,8 +796,9 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system);
+    acir_composer.finalize_circuit();
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
     auto serialized_pk = to_buffer(*pk);
 
@@ -1089,12 +1090,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     }
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    return Prover{ builder };
+    auto prover = Prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    return std::move(prover);
 }
 
 /**
@@ -1219,12 +1217,9 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     auto witness = get_witness(witnessPath);
     auto builder = acir_format::create_circuit<Builder>(constraints, 0, witness, honk_recursion);
 
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
     // Construct Honk proof and verification key
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     std::vector<FF> proof = prover.construct_proof();
     VerificationKey verification_key(prover.proving_key->proving_key);
 
@@ -1306,8 +1301,9 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system, witness);
+    acir_composer.finalize_circuit();
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 
@@ -1371,12 +1367,9 @@ void prove_honk_output_all(const std::string& bytecodePath,
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
     // Construct Honk proof
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
 
     // We have been given a directory, we will write the proof and verification key
