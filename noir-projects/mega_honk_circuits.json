@@ -1,4 +1,3 @@
 [
-  "private_kernel.*",
-  "empty_nested"
+  "private_kernel.*"
 ]

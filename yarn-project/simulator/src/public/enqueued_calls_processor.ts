@@ -15,6 +15,7 @@ import {
   Fr,
   Gas,
   type GlobalVariables,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type Header,
   type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -23,6 +24,7 @@ import {
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
   type VMCircuitPublicInputs,
+  VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -378,7 +380,7 @@ export class EnqueuedCallsProcessor {
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
     const vk = isFromPrivate
-      ? ProtocolCircuitVks.PrivateKernelTailToPublicArtifact
+      ? VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS) // TODO(Alvaro) tube VK here
       : ProtocolCircuitVks.PublicKernelMergeArtifact;
     const vkIndex = getVKIndex(vk);
     const siblingPath = getVKSiblingPath(vkIndex);

@@ -2,6 +2,7 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import {
   BaseParityInputs,
   Fr,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   ParityPublicInputs,
@@ -97,7 +98,7 @@ describe('prover/bb_prover/parity', () => {
 
     const defectiveVerificationKey = new RootParityInput(
       validProof,
-      VerificationKeyAsFields.makeFake(),
+      VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       baseParityVkPath,
       validPublicInputs,
     );

@@ -226,7 +226,8 @@ library Constants {
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 463;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 463;
   uint256 internal constant TUBE_PROOF_LENGTH = 463;
-  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 145;
   uint256 internal constant MEM_TAG_U1 = 1;
   uint256 internal constant MEM_TAG_U8 = 2;
   uint256 internal constant MEM_TAG_U16 = 3;

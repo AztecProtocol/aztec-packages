@@ -14,6 +14,7 @@ import {
   BlockRootRollupInputs,
   Fr,
   type GlobalVariables,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   type MembershipWitness,
@@ -74,7 +75,7 @@ describe('LightBlockBuilder', () => {
     simulator = new TestCircuitProver(new NoopTelemetryClient());
     vkRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    emptyVk = VerificationKeyData.makeFake();
+    emptyVk = VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS);
     emptyVkWitness = makeEmptyMembershipWitness(VK_TREE_HEIGHT);
     db = await NativeWorldStateService.tmp();
   });

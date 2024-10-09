@@ -13,6 +13,7 @@ import {
 import {
   Fr,
   type GlobalVariables,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   VerificationKeyData,
@@ -57,7 +58,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       this.globalVariables!,
       this.db,
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     );
   }
 

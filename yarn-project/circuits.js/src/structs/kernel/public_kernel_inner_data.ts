@@ -1,6 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NESTED_RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
+import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, NESTED_RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyData } from '../verification_key.js';
 import { VMCircuitPublicInputs } from './vm_circuit_public_inputs.js';
@@ -37,7 +37,7 @@ export class PublicKernelInnerData {
     return new this(
       VMCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     );
   }
 

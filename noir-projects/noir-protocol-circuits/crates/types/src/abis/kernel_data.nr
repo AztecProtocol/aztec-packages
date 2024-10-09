@@ -1,14 +1,14 @@
 use crate::{
-    abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs, constants::VK_TREE_HEIGHT,
+    abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs, constants::{VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    recursion::{proof::NestedRecursiveProof, verification_key::HonkVerificationKey, traits::Verifiable},
     utils::arrays::find_index_hint
 };
 
 pub struct KernelData {
     public_inputs: KernelCircuitPublicInputs,
     proof: NestedRecursiveProof,
-    vk: VerificationKey,
+    vk: HonkVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
 }

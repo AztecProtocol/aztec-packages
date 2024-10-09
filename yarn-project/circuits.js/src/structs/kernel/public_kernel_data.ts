@@ -2,7 +2,11 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
+import {
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
+} from '../../constants.gen.js';
 import { ClientIvcProof } from '../client_ivc_proof.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
@@ -57,7 +61,7 @@ export class PublicKernelData {
     return new this(
       PublicKernelCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
       ClientIvcProof.empty(),

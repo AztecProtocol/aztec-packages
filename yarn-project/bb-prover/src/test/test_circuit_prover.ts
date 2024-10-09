@@ -15,6 +15,7 @@ import {
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
   EmptyNestedData,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -155,7 +156,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     );
   }
 
@@ -276,7 +277,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
     await this.delay();
     return {
-      tubeVK: VerificationKeyData.makeFake(),
+      tubeVK: VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
     };
   }

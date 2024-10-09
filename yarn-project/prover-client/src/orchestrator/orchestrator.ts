@@ -28,6 +28,7 @@ import {
   EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -708,7 +709,7 @@ export class ProvingOrchestrator implements EpochProver {
         makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
         provingState.globalVariables,
         this.db,
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       ),
     );
 
@@ -1225,7 +1226,10 @@ export class ProvingOrchestrator implements EpochProver {
               logger.warn(
                 `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
               );
-              return { proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() };
+              return {
+                proof: makeEmptyProof(),
+                verificationKey: VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+              };
             }
           }
         },

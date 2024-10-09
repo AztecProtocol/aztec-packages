@@ -5,7 +5,7 @@ import { type CompiledCircuit } from '@noir-lang/types';
 import { pascalCase } from 'change-case';
 import fs from 'fs/promises';
 
-const log = createConsoleLogger('aztec:noir-contracts');
+const log = createConsoleLogger('aztec:autogenerate');
 
 const circuits = [
   'parity_base',
