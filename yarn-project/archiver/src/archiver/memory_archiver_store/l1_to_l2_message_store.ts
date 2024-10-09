@@ -1,9 +1,5 @@
-import { type InboxLeaf } from '@aztec/circuit-types';
-import {
-  INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js/constants';
+import { InboxLeaf } from '@aztec/circuit-types';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { type Fr } from '@aztec/foundation/fields';
 
 /**
@@ -24,10 +20,11 @@ export class L1ToL2MessageStore {
   }
 
   addMessage(message: InboxLeaf) {
-    if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
-      throw new Error(`Message index ${message.index} out of subtree range`);
+    const indexInSubtree = message.convertToIndexInSubtree();
+    if (indexInSubtree >= this.#l1ToL2MessagesSubtreeSize) {
+      throw new Error(`Message index ${indexInSubtree} out of subtree range`);
     }
-    const key = `${message.blockNumber}-${message.index}`;
+    const key = `${message.blockNumber}-${indexInSubtree}`;
     this.store.set(key, message.leaf);
   }
 
@@ -63,8 +60,7 @@ export class L1ToL2MessageStore {
       if (message.equals(l1ToL2Message)) {
         const keyParts = key.split('-');
         const [blockNumber, messageIndex] = [BigInt(keyParts[0]), BigInt(keyParts[1])];
-        const indexInTheWholeTree =
-          (blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + messageIndex;
+        const indexInTheWholeTree = InboxLeaf.convertToIndexInWholeTree(messageIndex, blockNumber);
         if (indexInTheWholeTree < startIndex) {
           continue;
         }

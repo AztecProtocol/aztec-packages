@@ -1,10 +1,5 @@
 import { type InboxLeaf } from '@aztec/circuit-types';
-import {
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
+import { Fr, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 
@@ -64,11 +59,9 @@ export class MessageStore {
         // inbox event emits index the whole tree. We need index in the L1 to L2 message subtree.
         // reverse of what is done in inbox.sol
         const indexInTheWholeTree = message.index;
-        const indexInSubtree =
-          indexInTheWholeTree -
-          (message.blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        const indexInSubtree = message.convertToIndexInSubtree();
         if (indexInSubtree >= this.#l1ToL2MessagesSubtreeSize) {
-          throw new Error(`Message index ${message.index} out of subtree range`);
+          throw new Error(`Message index ${indexInSubtree} out of subtree range`);
         }
         const key = `${message.blockNumber}-${indexInSubtree}`;
         void this.#l1ToL2Messages.setIfNotExists(key, message.leaf.toBuffer());
