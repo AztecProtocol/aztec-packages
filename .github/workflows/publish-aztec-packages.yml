@@ -1,6 +1,9 @@
 name: Publish Aztec Packages
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
       tag:
@@ -29,6 +32,7 @@ jobs:
     steps:
       - name: Check if tag is valid
         id: check_tag
+        if: github.event_name == 'workflow_dispatch'
         run: |
           TAG=${{ github.event.inputs.tag }}
           if [[ "$TAG" == aztec-packages-v* ]]; then
@@ -183,8 +187,14 @@ jobs:
       - name: Publish aztec manifests
         if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${DEPLOY_TAG#aztec-packages-v}
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+            DIST_TAG=latest
+          else
+            VERSION=""
+            DIST_TAG=${{ github.ref_name }}
+          fi
 
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
@@ -193,34 +203,41 @@ jobs:
           docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
 
-          docker manifest create aztecprotocol/aztec:$VERSION \
+          # Create and push versioned manifest if a version is provided
+          if [ -n "$VERSION" ]; then
+            docker manifest create aztecprotocol/aztec:$VERSION \
+              aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/aztec:$VERSION
+
+            docker manifest create aztecprotocol/aztec-nargo:$VERSION \
+              aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/aztec-nargo:$VERSION
+
+            docker manifest create aztecprotocol/cli-wallet:$VERSION \
+              aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/cli-wallet:$VERSION
+          fi
+
+          docker manifest create aztecprotocol/aztec:$DIST_TAG \
             aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
             aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
-          docker manifest create aztecprotocol/aztec:latest \
-            aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
-            aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
-          docker manifest push aztecprotocol/aztec:$VERSION
-          docker manifest push aztecprotocol/aztec:latest
+          docker manifest push aztecprotocol/aztec:$DIST_TAG
 
-          docker manifest create aztecprotocol/aztec-nargo:$VERSION \
+          docker manifest create aztecprotocol/aztec-nargo:$DIST_TAG \
             aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
             aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
-          docker manifest create aztecprotocol/aztec-nargo:latest \
-            aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
-            aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
-          docker manifest push aztecprotocol/aztec-nargo:$VERSION
-          docker manifest push aztecprotocol/aztec-nargo:latest
+          docker manifest push aztecprotocol/aztec-nargo:$DIST_TAG
 
-          docker manifest create aztecprotocol/cli-wallet:$VERSION \
+          docker manifest create aztecprotocol/cli-wallet:$DIST_TAG \
             aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
             aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
-          docker manifest create aztecprotocol/cli-wallet:latest \
-            aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
-            aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
-          docker manifest push aztecprotocol/cli-wallet:$VERSION
-          docker manifest push aztecprotocol/cli-wallet:latest
+          docker manifest push aztecprotocol/cli-wallet:$DIST_TAG
 
   publish-npm:
+    if: github.event_name == 'workflow_dispatch'
     needs: publish-manifests
     runs-on: ${{ github.actor }}-x86
     env:
