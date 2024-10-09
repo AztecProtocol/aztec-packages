@@ -162,14 +162,7 @@ describe('Note Processor', () => {
     keyStore.getMasterIncomingViewingPublicKey.mockResolvedValue(account.publicKeys.masterIncomingViewingPublicKey);
     keyStore.getMasterOutgoingViewingPublicKey.mockResolvedValue(account.publicKeys.masterOutgoingViewingPublicKey);
 
-    noteProcessor = await NoteProcessor.create(
-      account.address,
-      keyStore,
-      database,
-      aztecNode,
-      INITIAL_L2_BLOCK_NUM,
-      simulator,
-    );
+    noteProcessor = await NoteProcessor.create(account, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
 
     simulator.computeNoteHashAndOptionallyANullifier.mockImplementation((...args) =>
       Promise.resolve({
@@ -342,7 +335,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blocks);
 
     const newNoteProcessor = await NoteProcessor.create(
-      account.address,
+      account,
       keyStore,
       database,
       aztecNode,
