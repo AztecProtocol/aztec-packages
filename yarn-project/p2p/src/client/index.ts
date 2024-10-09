@@ -71,6 +71,7 @@ export const createP2PClient = async (
     epochProofQuotePool,
     p2pService,
     config.keepProvenTxsInPoolFor,
+    telemetry,
   );
 };
 
