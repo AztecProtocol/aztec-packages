@@ -5,7 +5,7 @@ struct PublicKernelPhaseEnum {
     TAIL: u8,
 }
 
-global PublicKernelPhase = PublicKernelPhaseEnum {
+pub global PublicKernelPhase = PublicKernelPhaseEnum {
     SETUP: 0,
     APP_LOGIC: 1,
     TEARDOWN: 2,

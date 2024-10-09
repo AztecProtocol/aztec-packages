@@ -14,9 +14,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
-  NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS,
 } from '../../constants.gen.js';
-import { countAccumulatedItems } from '../../utils/index.js';
 import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
@@ -211,111 +209,5 @@ export class PublicAccumulatedData {
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
       Gas.empty(),
     );
-  }
-}
-
-export class PublicAccumulatedDataArrayLengths {
-  constructor(
-    public readonly noteHashes: number,
-    public readonly nullifiers: number,
-    public readonly l2ToL1Msgs: number,
-    public readonly noteEncryptedLogsHashes: number,
-    public readonly encryptedLogsHashes: number,
-    public readonly unencryptedLogsHashes: number,
-    public readonly publicDataUpdateRequests: number,
-    public readonly publicCallStack: number,
-  ) {}
-
-  static new(data: PublicAccumulatedData) {
-    return new PublicAccumulatedDataArrayLengths(
-      countAccumulatedItems(data.noteHashes),
-      countAccumulatedItems(data.nullifiers),
-      countAccumulatedItems(data.l2ToL1Msgs),
-      countAccumulatedItems(data.noteEncryptedLogsHashes),
-      countAccumulatedItems(data.encryptedLogsHashes),
-      countAccumulatedItems(data.unencryptedLogsHashes),
-      countAccumulatedItems(data.publicDataUpdateRequests),
-      countAccumulatedItems(data.publicCallStack),
-    );
-  }
-
-  getSize() {
-    return NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS;
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.noteHashes,
-      this.nullifiers,
-      this.l2ToL1Msgs,
-      this.noteEncryptedLogsHashes,
-      this.encryptedLogsHashes,
-      this.unencryptedLogsHashes,
-      this.publicDataUpdateRequests,
-      this.publicCallStack,
-    );
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  isEmpty(): boolean {
-    return (
-      this.noteHashes == 0 &&
-      this.nullifiers == 0 &&
-      this.l2ToL1Msgs == 0 &&
-      this.noteEncryptedLogsHashes == 0 &&
-      this.encryptedLogsHashes == 0 &&
-      this.unencryptedLogsHashes == 0 &&
-      this.publicDataUpdateRequests == 0 &&
-      this.publicCallStack == 0
-    );
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer or reader to read from.
-   * @returns Deserialized object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-    );
-  }
-
-  static fromFields(fields: Fr[] | FieldReader) {
-    const reader = FieldReader.asReader(fields);
-    return new this(
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-    );
-  }
-
-  /**
-   * Deserializes from a string, corresponding to a write in cpp.
-   * @param str - String to read from.
-   * @returns Deserialized object.
-   */
-  static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static empty() {
-    return new this(0, 0, 0, 0, 0, 0, 0, 0);
   }
 }

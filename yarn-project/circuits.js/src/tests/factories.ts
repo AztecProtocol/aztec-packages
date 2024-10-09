@@ -148,13 +148,12 @@ import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
   EnqueuedCallData,
-  PublicAccumulatedDataArrayLengths,
   PublicDataLeafHint,
   PublicInnerCallRequest,
+  PublicKernelAccumulatedArrayLengths,
   PublicKernelCircuitPrivateInputs,
   PublicKernelInnerCircuitPrivateInputs,
   PublicKernelInnerData,
-  PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
@@ -330,10 +329,6 @@ function makePublicValidationRequests(seed = 1) {
   );
 }
 
-function makePublicValidationRequestArrayLengths(seed = 1) {
-  return new PublicValidationRequestArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
-}
-
 export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
@@ -403,19 +398,6 @@ function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedDat
     ),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest, seed + 0x500, PublicCallRequest.empty),
     makeGas(seed + 0x600),
-  );
-}
-
-function makePublicAccumulatedDataArrayLengths(seed = 1) {
-  return new PublicAccumulatedDataArrayLengths(
-    seed,
-    seed + 1,
-    seed + 2,
-    seed + 3,
-    seed + 4,
-    seed + 5,
-    seed + 6,
-    seed + 7,
   );
 }
 
@@ -565,18 +547,41 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
   );
 }
 
+function makePublicKernelAccumulatedArrayLengths(seed = 1) {
+  return new PublicKernelAccumulatedArrayLengths(
+    seed,
+    seed + 1,
+    seed + 2,
+    seed + 3,
+    seed + 4,
+    seed + 5,
+    seed + 6,
+    seed + 7,
+    seed + 8,
+    seed + 9,
+  );
+}
+
 export function makeVMCircuitPublicInputs(seed = 1) {
   return new VMCircuitPublicInputs(
-    makeCombinedConstantData(seed),
+    makeGlobalVariables(seed),
     makePublicCallRequest(seed + 0x100),
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicInnerCallRequest, seed + 0x200),
-    makePublicValidationRequestArrayLengths(seed + 0x300),
-    makePublicValidationRequests(seed + 0x310),
-    makePublicAccumulatedDataArrayLengths(seed + 0x400),
-    makePublicAccumulatedData(seed + 0x410),
+    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeTreeLeafReadRequest, seed + 0x300),
+    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x310),
+    makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x320),
+    makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, makeTreeLeafReadRequest, seed + 0x330),
+    makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0x340),
+    makeTuple(MAX_NOTE_HASHES_PER_TX, makeScopedNoteHash, seed + 0x350),
+    makeTuple(MAX_NULLIFIERS_PER_TX, makeNullifier, seed + 0x360),
+    makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x370),
+    makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x380),
+    makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0x390),
+    makePublicKernelAccumulatedArrayLengths(seed + 400),
     seed + 0x500,
     seed + 0x501,
     makeGas(seed + 0x600),
+    makeGas(seed + 0x610),
     fr(seed + 0x700),
     false,
   );

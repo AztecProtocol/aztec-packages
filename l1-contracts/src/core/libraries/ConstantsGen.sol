@@ -206,7 +206,8 @@ library Constants {
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1119;
   uint256 internal constant NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS = 8;
   uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3127;
-  uint256 internal constant VM_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2472;
+  uint256 internal constant NUM_PUBLIC_KERNEL_ACCUMULATED_ARRAYS = 10;
+  uint256 internal constant VM_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1952;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 664;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 30;

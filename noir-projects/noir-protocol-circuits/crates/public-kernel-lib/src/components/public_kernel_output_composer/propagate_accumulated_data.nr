@@ -1,8 +1,13 @@
-use dep::types::{abis::{accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataBuilder}}};
+use dep::types::{
+    abis::{
+    accumulated_data::PublicAccumulatedDataBuilder,
+    kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs
+}
+};
 
 pub fn propagate_accumulated_data(
     data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData
+    from_data: VMCircuitPublicInputs
 ) -> PublicAccumulatedDataBuilder {
     propagate_note_hashes(data, from_data);
     propagate_nullifiers(data, from_data);
@@ -12,7 +17,7 @@ pub fn propagate_accumulated_data(
     *data
 }
 
-fn propagate_note_hashes(data: &mut PublicAccumulatedDataBuilder, from_data: PublicAccumulatedData) {
+fn propagate_note_hashes(data: &mut PublicAccumulatedDataBuilder, from_data: VMCircuitPublicInputs) {
     let note_hashes = from_data.note_hashes;
     for i in 0..note_hashes.len() {
         let note_hash = note_hashes[i];
@@ -22,7 +27,7 @@ fn propagate_note_hashes(data: &mut PublicAccumulatedDataBuilder, from_data: Pub
     }
 }
 
-fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, from_data: PublicAccumulatedData) {
+fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, from_data: VMCircuitPublicInputs) {
     let nullifiers = from_data.nullifiers;
     for i in 0..nullifiers.len() {
         let nullifier = nullifiers[i];
@@ -32,10 +37,7 @@ fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, from_data: Publ
     }
 }
 
-fn propagate_l2_to_l1_messages(
-    data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData
-) {
+fn propagate_l2_to_l1_messages(data: &mut PublicAccumulatedDataBuilder, from_data: VMCircuitPublicInputs) {
     let msgs = from_data.l2_to_l1_msgs;
     for i in 0..msgs.len() {
         let msg = msgs[i];
@@ -45,10 +47,7 @@ fn propagate_l2_to_l1_messages(
     }
 }
 
-fn propagate_unencrypted_logs(
-    data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData
-) {
+fn propagate_unencrypted_logs(data: &mut PublicAccumulatedDataBuilder, from_data: VMCircuitPublicInputs) {
     let logs = from_data.unencrypted_logs_hashes;
     for i in 0..logs.len() {
         let log = logs[i];
@@ -58,10 +57,7 @@ fn propagate_unencrypted_logs(
     }
 }
 
-fn propagate_public_data_writes(
-    data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData
-) {
+fn propagate_public_data_writes(data: &mut PublicAccumulatedDataBuilder, from_data: VMCircuitPublicInputs) {
     let writes = from_data.public_data_update_requests;
     for i in 0..writes.len() {
         let write = writes[i];

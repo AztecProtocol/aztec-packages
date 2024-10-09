@@ -54,7 +54,7 @@ impl EnqueuedCallDataValidator {
     fn validate_global_variables(self, previous_kernel: PublicKernelCircuitPublicInputs) {
         let prev_global_variables = previous_kernel.constants.global_variables;
         if !prev_global_variables.is_empty() { // It's empty when the previous kernel is from private_kernel_tail_to_pubic.
-            let enqueued_call_globals = self.enqueued_call.data.constants.global_variables;
+            let enqueued_call_globals = self.enqueued_call.data.global_variables;
             assert_eq(
                 enqueued_call_globals, prev_global_variables, "Global variables injected into the public call do not match constants"
             );
@@ -71,12 +71,12 @@ impl EnqueuedCallDataValidator {
         } else if self.phase == PublicKernelPhase.TEARDOWN {
             previous_kernel.public_teardown_call_request
         } else {
-            assert(false, "Unknown phase");
+            panic(f"Unknown phase");
             PublicCallRequest::empty()
         };
 
-        assert(
-            self.enqueued_call.data.call_request == call_request, "enqueued call does not match item at the top of the call stack"
+        assert_eq(
+            self.enqueued_call.data.call_request, call_request, "enqueued call does not match item at the top of the call stack"
         );
     }
 
@@ -111,31 +111,54 @@ impl EnqueuedCallDataValidator {
         } else {
             // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
             let total_gas_used = previous_kernel.end.gas_used + previous_kernel.end_non_revertible.gas_used;
-            let block_gas_fees = self.enqueued_call.data.constants.global_variables.gas_fees;
+            let block_gas_fees = self.enqueued_call.data.global_variables.gas_fees;
             let inclusion_fee = previous_kernel.constants.tx_context.gas_settings.inclusion_fee;
             let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
-            assert(
-                transaction_fee == computed_transaction_fee, "Transaction fee on teardown phase does not match expected value"
+            assert_eq(
+                transaction_fee, computed_transaction_fee, "Transaction fee on teardown phase does not match expected value"
             );
         }
     }
 
     fn validate_array_lengths(
         self,
-        previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
-        previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+        previous_requests: PublicValidationRequestArrayLengths,
+        previous_non_revertible: PublicAccumulatedDataArrayLengths,
+        previous_revertible: PublicAccumulatedDataArrayLengths
     ) {
+        let enqueued = self.enqueued_call.data.previous_array_lengths;
+
         assert_eq(
-            self.enqueued_call.data.previous_validation_request_array_lengths, previous_validation_request_array_lengths, "mismatch previous_validation_request_array_lengths"
+            enqueued.note_hash_read_requests, previous_requests.note_hash_read_requests, "incorrect previous note_hash_read_requests length"
         );
-        let prev_lengths = if self.phase == PublicKernelPhase.SETUP {
-            previous_non_revertible_data_array_lengths
-        } else {
-            previous_revertible_data_array_lengths
-        };
         assert_eq(
-            self.enqueued_call.data.previous_accumulated_data_array_lengths, prev_lengths, "mismatch previoius_accumulated_data_array_lengths"
+            enqueued.nullifier_read_requests, previous_requests.nullifier_read_requests, "incorrect previous nullifier_read_requests length"
+        );
+        assert_eq(
+            enqueued.nullifier_non_existent_read_requests, previous_requests.nullifier_non_existent_read_requests, "incorrect previous nullifier_non_existent_read_requests length"
+        );
+        assert_eq(
+            enqueued.l1_to_l2_msg_read_requests, previous_requests.l1_to_l2_msg_read_requests, "incorrect previous l1_to_l2_msg_read_requests length"
+        );
+        assert_eq(
+            enqueued.public_data_reads, previous_requests.public_data_reads, "incorrect previous public_data_reads length"
+        );
+        assert_eq(
+            enqueued.note_hashes, previous_non_revertible.note_hashes + previous_revertible.note_hashes, "incorrect previous note_hashes length"
+        );
+        assert_eq(
+            enqueued.nullifiers, previous_non_revertible.nullifiers + previous_revertible.nullifiers, "incorrect previous nullifiers length"
+        );
+        assert_eq(
+            enqueued.l2_to_l1_msgs, previous_non_revertible.l2_to_l1_msgs + previous_revertible.l2_to_l1_msgs, "incorrect previous l2_to_l1_msgs length"
+        );
+        assert_eq(
+            enqueued.unencrypted_logs_hashes, previous_non_revertible.unencrypted_logs_hashes
+            + previous_revertible.unencrypted_logs_hashes, "incorrect previous unencrypted_logs_hashes length"
+        );
+        assert_eq(
+            enqueued.public_data_update_requests, previous_non_revertible.public_data_update_requests
+            + previous_revertible.public_data_update_requests, "incorrect previous public_data_update_requests length"
         );
     }
 }

@@ -19,10 +19,9 @@ import {
   NoteHash,
   Nullifier,
   PublicAccumulatedData,
-  PublicAccumulatedDataArrayLengths,
   PublicDataRead,
   PublicDataUpdateRequest,
-  PublicValidationRequestArrayLengths,
+  PublicKernelAccumulatedArrayLengths,
   PublicValidationRequests,
   ReadRequest,
   TreeLeafReadRequest,
@@ -98,7 +97,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new PublicDataRead(slot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.validationRequests.publicDataReads).toEqual(expectedArray);
+    expect(circuitPublicInputs.publicDataReads).toEqual(expectedArray);
     expect(trace.getAvmCircuitHints().storageValues.items).toEqual([{ key: startCounterFr, value: value }]);
   });
 
@@ -110,7 +109,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new PublicDataUpdateRequest(slot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.accumulatedData.publicDataUpdateRequests).toEqual(expectedArray);
+    expect(circuitPublicInputs.publicDataUpdateRequests).toEqual(expectedArray);
   });
 
   it('Should trace note hash checks', () => {
@@ -121,7 +120,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new TreeLeafReadRequest(utxo, leafIndex);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.validationRequests.noteHashReadRequests).toEqual(expectedArray);
+    expect(circuitPublicInputs.noteHashReadRequests).toEqual(expectedArray);
 
     expect(trace.getAvmCircuitHints().noteHashExists.items).toEqual([{ key: leafIndex, value: new Fr(exists) }]);
   });
@@ -134,7 +133,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new NoteHash(utxo, startCounter).scope(address);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.accumulatedData.noteHashes).toEqual(expectedArray);
+    expect(circuitPublicInputs.noteHashes).toEqual(expectedArray);
   });
 
   it('Should trace nullifier checks', () => {
@@ -147,8 +146,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new ReadRequest(utxo, startCounter).scope(address);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.validationRequests.nullifierReadRequests).toEqual(expectedArray);
-    expect(circuitPublicInputs.validationRequests.nullifierNonExistentReadRequests).toEqual(
+    expect(circuitPublicInputs.nullifierReadRequests).toEqual(expectedArray);
+    expect(circuitPublicInputs.nullifierNonExistentReadRequests).toEqual(
       emptyValidationRequests.nullifierNonExistentReadRequests,
     );
 
@@ -165,10 +164,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new ReadRequest(utxo, startCounter).scope(address);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.validationRequests.nullifierReadRequests).toEqual(
-      emptyValidationRequests.nullifierReadRequests,
-    );
-    expect(circuitPublicInputs.validationRequests.nullifierNonExistentReadRequests).toEqual(expectedArray);
+    expect(circuitPublicInputs.nullifierReadRequests).toEqual(emptyValidationRequests.nullifierReadRequests);
+    expect(circuitPublicInputs.nullifierNonExistentReadRequests).toEqual(expectedArray);
 
     expect(trace.getAvmCircuitHints().nullifierExists.items).toEqual([{ key: startCounterFr, value: new Fr(exists) }]);
   });
@@ -181,7 +178,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new Nullifier(utxo, startCounter, Fr.ZERO);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.accumulatedData.nullifiers).toEqual(expectedArray);
+    expect(circuitPublicInputs.nullifiers).toEqual(expectedArray);
   });
 
   it('Should trace L1ToL2 Message checks', () => {
@@ -192,7 +189,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new TreeLeafReadRequest(utxo, leafIndex);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.validationRequests.l1ToL2MsgReadRequests).toEqual(expectedArray);
+    expect(circuitPublicInputs.l1ToL2MsgReadRequests).toEqual(expectedArray);
 
     expect(trace.getAvmCircuitHints().l1ToL2MessageExists.items).toEqual([
       {
@@ -210,7 +207,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expectedArray[0] = new L2ToL1Message(EthAddress.fromField(recipient), content, startCounter).scope(address);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    expect(circuitPublicInputs.accumulatedData.l2ToL1Msgs).toEqual(expectedArray);
+    expect(circuitPublicInputs.l2ToL1Msgs).toEqual(expectedArray);
   });
 
   it('Should trace new unencrypted logs', () => {
@@ -230,7 +227,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(trace.getUnencryptedLogs()).toEqual([expectedLog]);
-    expect(circuitPublicInputs.accumulatedData.unencryptedLogsHashes).toEqual(expectedArray);
+    expect(circuitPublicInputs.unencryptedLogsHashes).toEqual(expectedArray);
   });
 
   it('Should trace get contract instance', () => {
@@ -373,22 +370,17 @@ describe('Enqueued-call Side Effect Trace', () => {
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', () => {
       trace = new PublicEnqueuedCallSideEffectTrace(
         0,
-        new PublicValidationRequestArrayLengths(
+        new PublicKernelAccumulatedArrayLengths(
           MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
           MAX_NULLIFIER_READ_REQUESTS_PER_TX,
           MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
           MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
           MAX_PUBLIC_DATA_READS_PER_TX,
-        ),
-        new PublicAccumulatedDataArrayLengths(
           MAX_NOTE_HASHES_PER_TX,
           MAX_NULLIFIERS_PER_TX,
           MAX_L2_TO_L1_MSGS_PER_TX,
-          0,
-          0,
           MAX_UNENCRYPTED_LOGS_PER_TX,
           MAX_PUBLIC_DATA_READS_PER_TX,
-          0,
         ),
       );
       expect(() => trace.tracePublicStorageRead(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(

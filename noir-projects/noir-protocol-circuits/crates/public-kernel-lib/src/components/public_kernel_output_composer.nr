@@ -37,7 +37,7 @@ impl PublicKernelOutputComposer {
     }
 
     pub fn propagate_from_enqueued_call(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) -> Self {
-        self.output_builder.constants.global_variables = enqueued_call.constants.global_variables;
+        self.output_builder.constants.global_variables = enqueued_call.global_variables;
         self.propagate_revert_code(enqueued_call, phase);
         self.propagate_validation_requests(enqueued_call);
         self.propagate_accumulated_data(enqueued_call, phase);
@@ -73,10 +73,9 @@ impl PublicKernelOutputComposer {
     }
 
     fn propagate_validation_requests(&mut self, enqueued_call: VMCircuitPublicInputs) {
-        let data = enqueued_call.validation_requests;
         // Note that the public kernel cannot modify the max block number value - it simply forwards it to the rollup
 
-        let note_hash_read_requests = data.note_hash_read_requests;
+        let note_hash_read_requests = enqueued_call.note_hash_read_requests;
         for i in 0..note_hash_read_requests.len() {
             let request = note_hash_read_requests[i];
             if !is_empty(request) {
@@ -84,7 +83,7 @@ impl PublicKernelOutputComposer {
             }
         }
 
-        let nullifier_read_requests = data.nullifier_read_requests;
+        let nullifier_read_requests = enqueued_call.nullifier_read_requests;
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
@@ -92,7 +91,7 @@ impl PublicKernelOutputComposer {
             }
         }
 
-        let nullifier_non_existent_read_requests = data.nullifier_non_existent_read_requests;
+        let nullifier_non_existent_read_requests = enqueued_call.nullifier_non_existent_read_requests;
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
@@ -100,7 +99,7 @@ impl PublicKernelOutputComposer {
             }
         }
 
-        let l1_to_l2_msg_read_requests = data.l1_to_l2_msg_read_requests;
+        let l1_to_l2_msg_read_requests = enqueued_call.l1_to_l2_msg_read_requests;
         for i in 0..l1_to_l2_msg_read_requests.len() {
             let request = l1_to_l2_msg_read_requests[i];
             if !is_empty(request) {
@@ -108,7 +107,7 @@ impl PublicKernelOutputComposer {
             }
         }
 
-        let read_requests = data.public_data_reads;
+        let read_requests = enqueued_call.public_data_reads;
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
@@ -119,10 +118,10 @@ impl PublicKernelOutputComposer {
 
     fn propagate_accumulated_data(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) {
         if phase == PublicKernelPhase.SETUP {
-            self.output_builder.end_non_revertible = propagate_accumulated_data(&mut self.output_builder.end_non_revertible, enqueued_call.accumulated_data);
+            self.output_builder.end_non_revertible = propagate_accumulated_data(&mut self.output_builder.end_non_revertible, enqueued_call);
         }
         if (phase == PublicKernelPhase.APP_LOGIC) | (phase == PublicKernelPhase.TEARDOWN) {
-            self.output_builder.end = propagate_accumulated_data(&mut self.output_builder.end, enqueued_call.accumulated_data);
+            self.output_builder.end = propagate_accumulated_data(&mut self.output_builder.end, enqueued_call);
         }
 
         // TODO: Should keep the data even when reverts.
@@ -142,7 +141,7 @@ impl PublicKernelOutputComposer {
     }
 
     fn update_gas_used(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) {
-        let call_gas_used = enqueued_call.accumulated_data.gas_used;
+        let call_gas_used = enqueued_call.start_gas_left.sub(enqueued_call.end_gas_left);
         if phase == PublicKernelPhase.SETUP {
             self.output_builder.end_non_revertible.gas_used += call_gas_used;
         }

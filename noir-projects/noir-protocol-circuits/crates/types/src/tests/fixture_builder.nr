@@ -3,13 +3,13 @@ use crate::{
     gas::Gas, gas_settings::GasSettings, call_context::CallContext,
     accumulated_data::{
     CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-    PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder
+    PublicAccumulatedData, PublicAccumulatedDataBuilder
 },
     function_data::FunctionData, global_variables::GlobalVariables,
     combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
     kernel_circuit_public_inputs::{
-    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    VMCircuitPublicInputs
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelAccumulatedArrayLengths,
+    PublicKernelCircuitPublicInputs, VMCircuitPublicInputs
 },
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
@@ -26,8 +26,7 @@ use crate::{
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
     validation_requests::{
     KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-    PublicValidationRequests, PublicValidationRequestArrayLengths, RollupValidationRequests,
-    ScopedKeyValidationRequestAndGenerator
+    PublicValidationRequests, RollupValidationRequests, ScopedKeyValidationRequestAndGenerator
 }
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
@@ -539,16 +538,24 @@ impl FixtureBuilder {
 
     pub fn to_vm_circuit_public_inputs(self) -> VMCircuitPublicInputs {
         VMCircuitPublicInputs {
-            constants: self.to_constant_data(),
+            global_variables: self.global_variables,
             call_request: self.to_public_call_request(),
             public_call_stack: subarray(self.public_inner_call_requests.storage),
-            previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
-            validation_requests: self.to_public_validation_requests(),
-            previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
-            accumulated_data: self.to_public_accumulated_data(),
+            note_hash_read_requests: self.note_hash_tree_leaf_read_requests.storage,
+            nullifier_read_requests: self.nullifier_read_requests.storage,
+            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
+            public_data_reads: self.public_data_reads.storage,
+            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage,
+            note_hashes: self.note_hashes.storage,
+            nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            public_data_update_requests: self.public_data_update_requests.storage,
+            previous_array_lengths: PublicKernelAccumulatedArrayLengths::empty(),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             start_gas_left: self.start_gas_left,
+            end_gas_left: self.end_gas_left,
             transaction_fee: self.transaction_fee,
             reverted: self.revert_code != 0
         }

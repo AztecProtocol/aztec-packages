@@ -61,9 +61,7 @@ impl PublicKernelOutputValidator {
         assert_eq(
             out.protocol_contract_tree_root, prev.protocol_contract_tree_root, "mismatch protocol_contract_tree_root"
         );
-        assert_eq(
-            out.global_variables, self.enqueued_call.constants.global_variables, "mismatch global_variables"
-        );
+        assert_eq(out.global_variables, self.enqueued_call.global_variables, "mismatch global_variables");
     }
 
     fn validate_public_teardown_call_request(self) {
@@ -126,44 +124,41 @@ impl PublicKernelOutputValidator {
 
     fn validate_validation_requests_from_enqueued_call(self) {
         let out = self.output.validation_requests;
-        let curr = self.enqueued_call.validation_requests;
-        let curr_lengths = PublicValidationRequestArrayLengths::new(curr);
+        let curr = self.enqueued_call;
         let prev_lengths = self.previous_validation_request_array_lengths;
-
-        // Note that the enqueued call cannot modify the max block number value - it simply forwards it to the rollup.
 
         assert_array_appended(
             out.note_hash_read_requests,
             curr.note_hash_read_requests,
-            curr_lengths.note_hash_read_requests,
+            array_length(curr.note_hash_read_requests),
             prev_lengths.note_hash_read_requests
         );
 
         assert_array_appended(
             out.nullifier_read_requests,
             curr.nullifier_read_requests,
-            curr_lengths.nullifier_read_requests,
+            array_length(curr.nullifier_read_requests),
             prev_lengths.nullifier_read_requests
         );
 
         assert_array_appended(
             out.nullifier_non_existent_read_requests,
             curr.nullifier_non_existent_read_requests,
-            curr_lengths.nullifier_non_existent_read_requests,
+            array_length(curr.nullifier_non_existent_read_requests),
             prev_lengths.nullifier_non_existent_read_requests
         );
 
         assert_array_appended(
             out.l1_to_l2_msg_read_requests,
             curr.l1_to_l2_msg_read_requests,
-            curr_lengths.l1_to_l2_msg_read_requests,
+            array_length(curr.l1_to_l2_msg_read_requests),
             prev_lengths.l1_to_l2_msg_read_requests
         );
 
         assert_array_appended(
             out.public_data_reads,
             curr.public_data_reads,
-            curr_lengths.public_data_reads,
+            array_length(curr.public_data_reads),
             prev_lengths.public_data_reads
         );
     }
@@ -236,29 +231,17 @@ impl PublicKernelOutputValidator {
         self.validate_prepended_accumulated_data(out_revertible, prev_revertible, prepended_revertible_lengths);
 
         // Appended from enqueued call.
-        let curr_data = self.enqueued_call.accumulated_data;
-        let curr_lengths = PublicAccumulatedDataArrayLengths::new(curr_data);
-        let appended_non_revertible_lengths = if self.revertible {
-            empty_lengths
-        } else {
-            curr_lengths
-        };
-        let appended_revertible_lengths = if self.revertible & !revert_in_phase {
-            curr_lengths
-        } else {
-            empty_lengths
-        };
         self.validate_appended_accumulated_data(
             out_non_revertible,
-            curr_data,
+            self.enqueued_call,
             prev_non_revertible_lengths,
-            appended_non_revertible_lengths
+            !self.revertible /* should_append */
         );
         self.validate_appended_accumulated_data(
             out_revertible,
-            curr_data,
+            self.enqueued_call,
             prev_revertible_lengths,
-            appended_revertible_lengths
+            self.revertible & !revert_in_phase /* should_append */
         );
     }
 
@@ -291,38 +274,67 @@ impl PublicKernelOutputValidator {
     fn validate_appended_accumulated_data(
         _self: Self,
         out: PublicAccumulatedData,
-        curr: PublicAccumulatedData,
+        curr: VMCircuitPublicInputs,
         prev_lengths: PublicAccumulatedDataArrayLengths,
-        curr_lengths: PublicAccumulatedDataArrayLengths
+        should_append: bool
     ) {
+        let num_appended = if should_append {
+            array_length(curr.note_hashes)
+        } else {
+            0
+        };
         assert_array_appended(
             out.note_hashes,
             curr.note_hashes,
-            curr_lengths.note_hashes,
+            num_appended,
             prev_lengths.note_hashes
         );
+
+        let num_appended = if should_append {
+            array_length(curr.nullifiers)
+        } else {
+            0
+        };
         assert_array_appended(
             out.nullifiers,
             curr.nullifiers,
-            curr_lengths.nullifiers,
+            num_appended,
             prev_lengths.nullifiers
         );
+
+        let num_appended = if should_append {
+            array_length(curr.l2_to_l1_msgs)
+        } else {
+            0
+        };
         assert_array_appended(
             out.l2_to_l1_msgs,
             curr.l2_to_l1_msgs,
-            curr_lengths.l2_to_l1_msgs,
+            num_appended,
             prev_lengths.l2_to_l1_msgs
         );
+
+        let num_appended = if should_append {
+            array_length(curr.unencrypted_logs_hashes)
+        } else {
+            0
+        };
         assert_array_appended(
             out.unencrypted_logs_hashes,
             curr.unencrypted_logs_hashes,
-            curr_lengths.unencrypted_logs_hashes,
+            num_appended,
             prev_lengths.unencrypted_logs_hashes
         );
+
+        let num_appended = if should_append {
+            array_length(curr.public_data_update_requests)
+        } else {
+            0
+        };
         assert_array_appended(
             out.public_data_update_requests,
             curr.public_data_update_requests,
-            curr_lengths.public_data_update_requests,
+            num_appended,
             prev_lengths.public_data_update_requests
         );
     }
@@ -330,7 +342,7 @@ impl PublicKernelOutputValidator {
     fn validate_gas_used(self) {
         let out_non_revertible_gas_used = self.output.end_non_revertible.gas_used;
         let out_revertible_gas_used = self.output.end.gas_used;
-        let curr_gas_used = self.enqueued_call.accumulated_data.gas_used;
+        let curr_gas_used = self.enqueued_call.start_gas_left.sub(self.enqueued_call.end_gas_left);
         let mut expected_non_revertible_gas_used = self.previous_kernel.end_non_revertible.gas_used;
         let mut expected_revertible_gas_used = self.previous_kernel.end.gas_used;
         if self.phase == PublicKernelPhase.SETUP {

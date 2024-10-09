@@ -5,7 +5,6 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
-  PublicKernelPhase,
   type PublicProvingRequest,
   type SimulationError,
   type Tx,
@@ -37,18 +36,15 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   Nullifier,
-  PublicAccumulatedData,
-  PublicAccumulatedDataArrayLengths,
   PublicCallData,
   type PublicCallRequest,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
+  PublicKernelAccumulatedArrayLengths,
   type PublicKernelCircuitPublicInputs,
   PublicKernelInnerCircuitPrivateInputs,
   PublicKernelInnerData,
-  PublicValidationRequestArrayLengths,
-  PublicValidationRequests,
   ReadRequest,
   RevertCode,
   TreeLeafReadRequest,
@@ -118,19 +114,10 @@ export class EnqueuedCallSimulator {
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     availableGas: Gas,
     transactionFee: Fr,
-    phase: PublicKernelPhase,
   ): Promise<EnqueuedCallResult> {
     const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
     const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
-
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
-    const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
-      previousPublicKernelOutput.validationRequests,
-    );
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
+    const prevArrayLengths = PublicKernelAccumulatedArrayLengths.new(previousPublicKernelOutput);
 
     // If this is the first enqueued call in public, constants will be empty
     // because private kernel does not expose them.
@@ -145,8 +132,7 @@ export class EnqueuedCallSimulator {
       pendingNullifiers,
       transactionFee,
       startSideEffectCounter,
-      previousValidationRequestArrayLengths,
-      previousAccumulatedDataArrayLengths,
+      prevArrayLengths,
     );
 
     const callStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
@@ -154,23 +140,17 @@ export class EnqueuedCallSimulator {
     callStack[0].item.callContext = callRequest.callContext;
     callStack[0].item.argsHash = callRequest.argsHash;
 
-    const accumulatedData = PublicAccumulatedData.empty();
-    accumulatedData.publicCallStack[0] = callRequest;
-
-    const startVMCircuitOutput = new VMCircuitPublicInputs(
-      previousPublicKernelOutput.constants,
-      callRequest,
-      callStack,
-      previousValidationRequestArrayLengths,
-      PublicValidationRequests.empty(),
-      previousAccumulatedDataArrayLengths,
-      accumulatedData,
-      startSideEffectCounter,
-      startSideEffectCounter,
-      availableGas,
-      result.transactionFee,
-      result.reverted,
-    );
+    const startVMCircuitOutput = VMCircuitPublicInputs.empty();
+    startVMCircuitOutput.globalVariables = this.globalVariables;
+    startVMCircuitOutput.callRequest = callRequest;
+    startVMCircuitOutput.publicCallStack = callStack;
+    startVMCircuitOutput.prevArrayLengths = prevArrayLengths;
+    startVMCircuitOutput.startSideEffectCounter = startSideEffectCounter;
+    startVMCircuitOutput.endSideEffectCounter = startSideEffectCounter;
+    startVMCircuitOutput.startGasLeft = availableGas;
+    startVMCircuitOutput.endGasLeft = availableGas;
+    startVMCircuitOutput.transactionFee = result.transactionFee;
+    startVMCircuitOutput.reverted = result.reverted;
 
     return await this.combineNestedExecutionResults(result, startVMCircuitOutput);
   }

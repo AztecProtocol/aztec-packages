@@ -86,9 +86,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        accumulated_data::PublicAccumulatedDataArrayLengths, gas::Gas,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        validation_requests::PublicValidationRequestArrayLengths
+        gas::Gas,
+        kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelAccumulatedArrayLengths},
+        max_block_number::MaxBlockNumber
     },
         constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
@@ -128,12 +128,7 @@ mod tests {
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
             let mut enqueued_call = self.enqueued_call.to_enqueued_call_data();
-            enqueued_call.data.previous_validation_request_array_lengths = PublicValidationRequestArrayLengths::new(previous_kernel.public_inputs.validation_requests);
-            enqueued_call.data.previous_accumulated_data_array_lengths = if self.phase == PublicKernelPhase.SETUP {
-                PublicAccumulatedDataArrayLengths::new(previous_kernel.public_inputs.end_non_revertible)
-            } else {
-                PublicAccumulatedDataArrayLengths::new(previous_kernel.public_inputs.end)
-            };
+            enqueued_call.data.previous_array_lengths = PublicKernelAccumulatedArrayLengths::new(previous_kernel.public_inputs);
 
             previous_kernel.public_inputs.end_side_effect_counter = enqueued_call.data.start_side_effect_counter - 1;
 

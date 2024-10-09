@@ -33,6 +33,7 @@ export * from './kernel/private_kernel_tail_circuit_public_inputs.js';
 export * from './kernel/public_accumulated_data.js';
 export * from './kernel/public_accumulated_data_builder.js';
 export * from './kernel/public_call_data.js';
+export * from './kernel/public_kernel_accumulated_array_lengths.js';
 export * from './kernel/public_kernel_circuit_private_inputs.js';
 export * from './kernel/public_kernel_circuit_public_inputs.js';
 export * from './kernel/public_kernel_data.js';

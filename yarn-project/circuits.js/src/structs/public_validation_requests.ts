@@ -11,9 +11,7 @@ import {
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS,
 } from '../constants.gen.js';
-import { countAccumulatedItems } from '../utils/index.js';
 import { PublicDataRead } from './public_data_read.js';
 import { ScopedReadRequest } from './read_request.js';
 import { RollupValidationRequests } from './rollup_validation_requests.js';
@@ -146,94 +144,6 @@ export class PublicValidationRequests {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}]
-}`;
-  }
-}
-
-export class PublicValidationRequestArrayLengths {
-  constructor(
-    public noteHashReadRequests: number,
-    public nullifierReadRequests: number,
-    public nullifierNonExistentReadRequests: number,
-    public l1ToL2MsgReadRequests: number,
-    public publicDataReads: number,
-  ) {}
-
-  static new(requests: PublicValidationRequests) {
-    return new PublicValidationRequestArrayLengths(
-      countAccumulatedItems(requests.noteHashReadRequests),
-      countAccumulatedItems(requests.nullifierReadRequests),
-      countAccumulatedItems(requests.nullifierNonExistentReadRequests),
-      countAccumulatedItems(requests.l1ToL2MsgReadRequests),
-      countAccumulatedItems(requests.publicDataReads),
-    );
-  }
-
-  getSize() {
-    return NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS;
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.noteHashReadRequests,
-      this.nullifierReadRequests,
-      this.nullifierNonExistentReadRequests,
-      this.l1ToL2MsgReadRequests,
-      this.publicDataReads,
-    );
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  static fromFields(fields: Fr[] | FieldReader) {
-    const reader = FieldReader.asReader(fields);
-    return new PublicValidationRequestArrayLengths(
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-      reader.readU32(),
-    );
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer or reader to read from.
-   * @returns Deserialized object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new PublicValidationRequestArrayLengths(
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-    );
-  }
-
-  /**
-   * Deserializes from a string, corresponding to a write in cpp.
-   * @param str - String to read from.
-   * @returns Deserialized object.
-   */
-  static fromString(str: string) {
-    return PublicValidationRequestArrayLengths.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static empty() {
-    return new PublicValidationRequestArrayLengths(0, 0, 0, 0, 0);
-  }
-
-  [inspect.custom]() {
-    return `PublicValidationRequestArrayLengths {
-  noteHashReadRequests: ${this.noteHashReadRequests},
-  nullifierReadRequests: ${this.nullifierReadRequests},
-  nullifierNonExistentReadRequests: ${this.nullifierNonExistentReadRequests},
-  l1ToL2MsgReadRequests: ${this.l1ToL2MsgReadRequests},
-  publicDataReads: ${this.publicDataReads}
 }`;
   }
 }

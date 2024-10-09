@@ -13,10 +13,8 @@ import {
   Gas,
   L2ToL1Message,
   LogHash,
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -28,16 +26,12 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
   Nullifier,
-  PublicAccumulatedData,
-  PublicAccumulatedDataArrayLengths,
   PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicInnerCallRequest,
-  PublicValidationRequestArrayLengths,
-  PublicValidationRequests,
+  PublicKernelAccumulatedArrayLengths,
   ReadRequest,
-  RollupValidationRequests,
   ScopedL2ToL1Message,
   ScopedLogHash,
   ScopedNoteHash,
@@ -118,8 +112,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** Track parent's (or previous kernel's) lengths so the AVM can properly enforce TX-wide limits,
      *  otherwise the public kernel can fail to prove because TX limits are breached.
      */
-    private readonly previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths = PublicValidationRequestArrayLengths.empty(),
-    private readonly previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.empty(),
+    private readonly prevArrayLengths: PublicKernelAccumulatedArrayLengths = PublicKernelAccumulatedArrayLengths.empty(),
   ) {
     this.sideEffectCounter = startSideEffectCounter;
     this.avmCircuitHints = AvmExecutionHints.empty();
@@ -128,23 +121,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public fork() {
     return new PublicEnqueuedCallSideEffectTrace(
       this.sideEffectCounter,
-      new PublicValidationRequestArrayLengths(
-        this.previousValidationRequestArrayLengths.noteHashReadRequests + this.noteHashReadRequests.length,
-        this.previousValidationRequestArrayLengths.nullifierReadRequests + this.nullifierReadRequests.length,
-        this.previousValidationRequestArrayLengths.nullifierNonExistentReadRequests +
-          this.nullifierNonExistentReadRequests.length,
-        this.previousValidationRequestArrayLengths.l1ToL2MsgReadRequests + this.l1ToL2MsgReadRequests.length,
-        this.previousValidationRequestArrayLengths.publicDataReads + this.contractStorageReads.length,
-      ),
-      new PublicAccumulatedDataArrayLengths(
-        this.previousAccumulatedDataArrayLengths.noteHashes + this.noteHashes.length,
-        this.previousAccumulatedDataArrayLengths.nullifiers + this.nullifiers.length,
-        this.previousAccumulatedDataArrayLengths.l2ToL1Msgs + this.l2ToL1Msgs.length,
-        this.previousAccumulatedDataArrayLengths.noteEncryptedLogsHashes,
-        this.previousAccumulatedDataArrayLengths.encryptedLogsHashes,
-        this.previousAccumulatedDataArrayLengths.unencryptedLogsHashes + this.unencryptedLogsHashes.length,
-        this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests + this.contractStorageUpdateRequests.length,
-        this.previousAccumulatedDataArrayLengths.publicCallStack,
+      new PublicKernelAccumulatedArrayLengths(
+        this.prevArrayLengths.noteHashReadRequests + this.noteHashReadRequests.length,
+        this.prevArrayLengths.nullifierReadRequests + this.nullifierReadRequests.length,
+        this.prevArrayLengths.nullifierNonExistentReadRequests + this.nullifierNonExistentReadRequests.length,
+        this.prevArrayLengths.l1ToL2MsgReadRequests + this.l1ToL2MsgReadRequests.length,
+        this.prevArrayLengths.publicDataReads + this.contractStorageReads.length,
+        this.prevArrayLengths.noteHashes + this.noteHashes.length,
+        this.prevArrayLengths.nullifiers + this.nullifiers.length,
+        this.prevArrayLengths.l2ToL1Msgs + this.l2ToL1Msgs.length,
+        this.prevArrayLengths.unencryptedLogsHashes + this.unencryptedLogsHashes.length,
+        this.prevArrayLengths.publicDataUpdateRequests + this.contractStorageUpdateRequests.length,
       ),
     );
   }
@@ -159,10 +146,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
-    if (
-      this.contractStorageReads.length + this.previousValidationRequestArrayLengths.publicDataReads >=
-      MAX_PUBLIC_DATA_READS_PER_TX
-    ) {
+    if (this.contractStorageReads.length + this.prevArrayLengths.publicDataReads >= MAX_PUBLIC_DATA_READS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
 
@@ -178,7 +162,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr) {
     if (
-      this.contractStorageUpdateRequests.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
+      this.contractStorageUpdateRequests.length + this.prevArrayLengths.publicDataUpdateRequests >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     ) {
       throw new SideEffectLimitReachedError('contract storage write', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
@@ -195,7 +179,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
     // NOTE: storageAddress is unused because noteHash is an already-siloed leaf
     if (
-      this.noteHashReadRequests.length + this.previousValidationRequestArrayLengths.noteHashReadRequests >=
+      this.noteHashReadRequests.length + this.prevArrayLengths.noteHashReadRequests >=
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX
     ) {
       throw new SideEffectLimitReachedError('note hash read request', MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
@@ -209,7 +193,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNewNoteHash(storageAddress: Fr, noteHash: Fr) {
-    if (this.noteHashes.length + this.previousAccumulatedDataArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
+    if (this.noteHashes.length + this.prevArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
@@ -238,7 +222,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNewNullifier(storageAddress: Fr, nullifier: Fr) {
-    if (this.nullifiers.length + this.previousAccumulatedDataArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
+    if (this.nullifiers.length + this.prevArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
@@ -255,7 +239,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
     // NOTE: contractAddress is unused because msgHash is an already-siloed leaf
     if (
-      this.l1ToL2MsgReadRequests.length + this.previousValidationRequestArrayLengths.l1ToL2MsgReadRequests >=
+      this.l1ToL2MsgReadRequests.length + this.prevArrayLengths.l1ToL2MsgReadRequests >=
       MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX
     ) {
       throw new SideEffectLimitReachedError('l1 to l2 message read request', MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX);
@@ -268,7 +252,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
-    if (this.l2ToL1Msgs.length + this.previousAccumulatedDataArrayLengths.l2ToL1Msgs >= MAX_L2_TO_L1_MSGS_PER_TX) {
+    if (this.l2ToL1Msgs.length + this.prevArrayLengths.l2ToL1Msgs >= MAX_L2_TO_L1_MSGS_PER_TX) {
       throw new SideEffectLimitReachedError('l2 to l1 message', MAX_L2_TO_L1_MSGS_PER_TX);
     }
 
@@ -283,10 +267,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceUnencryptedLog(contractAddress: Fr, log: Fr[]) {
-    if (
-      this.unencryptedLogs.length + this.previousAccumulatedDataArrayLengths.unencryptedLogsHashes >=
-      MAX_UNENCRYPTED_LOGS_PER_TX
-    ) {
+    if (this.unencryptedLogs.length + this.prevArrayLengths.unencryptedLogsHashes >= MAX_UNENCRYPTED_LOGS_PER_TX) {
       throw new SideEffectLimitReachedError('unencrypted log', MAX_UNENCRYPTED_LOGS_PER_TX);
     }
 
@@ -435,33 +416,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     avmCallResults: AvmContractCallResult,
   ): VMCircuitPublicInputs {
     return new VMCircuitPublicInputs(
-      /*constants=*/ constants,
+      /*globalVariables=*/ constants.globalVariables,
       /*callRequest=*/ createPublicCallRequest(avmEnvironment),
       /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty),
-      /*previousValidationRequestArrayLengths=*/ this.previousValidationRequestArrayLengths,
-      /*validationRequests=*/ this.getValidationRequests(),
-      /*previousAccumulatedDataArrayLengths=*/ this.previousAccumulatedDataArrayLengths,
-      /*accumulatedData=*/ this.getAccumulatedData(startGasLeft.sub(endGasLeft)),
-      /*startSideEffectCounter=*/ this.startSideEffectCounter,
-      /*endSideEffectCounter=*/ this.sideEffectCounter,
-      /*startGasLeft=*/ startGasLeft,
-      // TODO(dbanks12): should have endGasLeft
-      /*transactionFee=*/ avmEnvironment.transactionFee,
-      /*reverted=*/ avmCallResults.reverted,
-    );
-  }
-
-  public getUnencryptedLogs() {
-    return this.unencryptedLogs;
-  }
-
-  public getAvmCircuitHints() {
-    return this.avmCircuitHints;
-  }
-
-  private getValidationRequests() {
-    return new PublicValidationRequests(
-      RollupValidationRequests.empty(), // TODO(dbanks12): what should this be?
       padArrayEnd(this.noteHashReadRequests, TreeLeafReadRequest.empty(), MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
       padArrayEnd(this.nullifierReadRequests, ScopedReadRequest.empty(), MAX_NULLIFIER_READ_REQUESTS_PER_TX),
       padArrayEnd(
@@ -476,11 +433,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         PublicDataRead.empty(),
         MAX_PUBLIC_DATA_READS_PER_TX,
       ),
-    );
-  }
-
-  private getAccumulatedData(gasUsed: Gas) {
-    return new PublicAccumulatedData(
       padArrayEnd(this.noteHashes, ScopedNoteHash.empty(), MAX_NOTE_HASHES_PER_TX),
       // TODO(dbanks12): should be able to use ScopedNullifier here
       padArrayEnd(
@@ -489,8 +441,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         MAX_NULLIFIERS_PER_TX,
       ),
       padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-      /*noteEncryptedLogsHashes=*/ makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
-      /*encryptedLogsHashes=*/ makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
       // TODO(dbanks12): this is only necessary until VMCircuitPublicInputs uses unsiloed storage slots and pairs storage accesses with contract address
       padArrayEnd(
@@ -498,9 +448,22 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         PublicDataUpdateRequest.empty(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
-      /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
-      /*gasUsed=*/ gasUsed,
+      this.prevArrayLengths,
+      /*startSideEffectCounter=*/ this.startSideEffectCounter,
+      /*endSideEffectCounter=*/ this.sideEffectCounter,
+      /*startGasLeft=*/ startGasLeft,
+      endGasLeft,
+      /*transactionFee=*/ avmEnvironment.transactionFee,
+      /*reverted=*/ avmCallResults.reverted,
     );
+  }
+
+  public getUnencryptedLogs() {
+    return this.unencryptedLogs;
+  }
+
+  public getAvmCircuitHints() {
+    return this.avmCircuitHints;
   }
 
   private enforceLimitOnNullifierChecks(errorMsgOrigin: string = '') {
@@ -511,7 +474,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // going to skip the read request and just revert instead" when the nullifier actually doesn't exist
     // (or vice versa). So, if either maximum has been reached, any nullifier-reading operation must error.
     if (
-      this.nullifierReadRequests.length + this.previousValidationRequestArrayLengths.nullifierReadRequests >=
+      this.nullifierReadRequests.length + this.prevArrayLengths.nullifierReadRequests >=
       MAX_NULLIFIER_READ_REQUESTS_PER_TX
     ) {
       throw new SideEffectLimitReachedError(
@@ -520,8 +483,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       );
     }
     if (
-      this.nullifierNonExistentReadRequests.length +
-        this.previousValidationRequestArrayLengths.nullifierNonExistentReadRequests >=
+      this.nullifierNonExistentReadRequests.length + this.prevArrayLengths.nullifierNonExistentReadRequests >=
       MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX
     ) {
       throw new SideEffectLimitReachedError(

@@ -3,80 +3,115 @@ mod propagate_accumulated_data;
 use crate::{components::vm_circuit_output_composer::propagate_accumulated_data::propagate_accumulated_data};
 use dep::types::{
     abis::{
-    accumulated_data::{PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder},
-    combined_constant_data::CombinedConstantData, gas::Gas,
-    kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
-    public_call_request::PublicCallRequest, public_circuit_public_inputs::PublicCircuitPublicInputs,
-    public_data_read::PublicDataRead, public_inner_call_request::PublicInnerCallRequest,
-    validation_requests::{
-    PublicValidationRequestArrayLengths,
-    public_validation_requests_builder::PublicValidationRequestsBuilder
-}
+    gas::Gas, global_variables::GlobalVariables,
+    kernel_circuit_public_inputs::{
+    public_kernel_accumulated_array_lengths::PublicKernelAccumulatedArrayLengths,
+    vm_circuit_public_inputs::VMCircuitPublicInputs
 },
-    constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::is_empty,
+    log_hash::ScopedLogHash, note_hash::ScopedNoteHash, nullifier::Nullifier,
+    public_call_request::PublicCallRequest, public_circuit_public_inputs::PublicCircuitPublicInputs,
+    public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+    public_inner_call_request::PublicInnerCallRequest, read_request::ScopedReadRequest,
+    tree_leaf_read_request::TreeLeafReadRequest
+},
+    constants::{
+    MAX_L2_TO_L1_MSGS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    VM_CIRCUIT_PUBLIC_INPUTS_LENGTH
+},
+    hash::compute_siloed_nullifier, messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
     utils::arrays::array_to_bounded_vec
 };
 
 // TODO(#7124): To be deprecated.
 pub struct VMCircuitOutputComposer {
-    constants: CombinedConstantData,
+    global_variables: GlobalVariables,
     call_request: PublicCallRequest,
     public_call_stack: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-    previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
-    validation_requests: PublicValidationRequestsBuilder,
-    previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths,
-    accumulated_data: PublicAccumulatedDataBuilder,
+
+    note_hash_read_requests: BoundedVec<TreeLeafReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
+    public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
+    l1_to_l2_msg_read_requests: BoundedVec<TreeLeafReadRequest, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
+
+    note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
+    l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+
+    previous_array_lengths: PublicKernelAccumulatedArrayLengths,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
     start_gas_left: Gas,
+    end_gas_left: Gas,
     transaction_fee: Field,
     reverted: bool,
 }
 
 impl VMCircuitOutputComposer {
-    pub fn new_from_previous_kernel(previous_kernel: VMCircuitPublicInputs) -> Self {
-        let mut public_call_stack = array_to_bounded_vec(previous_kernel.public_call_stack);
+    pub fn new_from_previous_kernel(prev: VMCircuitPublicInputs) -> Self {
+        let mut public_call_stack = array_to_bounded_vec(prev.public_call_stack);
         let _ = public_call_stack.pop();
-        let validation_requests = PublicValidationRequestsBuilder::new(previous_kernel.validation_requests);
-        let accumulated_data = PublicAccumulatedDataBuilder::new(previous_kernel.accumulated_data);
         VMCircuitOutputComposer {
-            constants: previous_kernel.constants,
-            call_request: previous_kernel.call_request,
+            global_variables: prev.global_variables,
+            call_request: prev.call_request,
             public_call_stack,
-            previous_validation_request_array_lengths: previous_kernel.previous_validation_request_array_lengths,
-            validation_requests,
-            previous_accumulated_data_array_lengths: previous_kernel.previous_accumulated_data_array_lengths,
-            accumulated_data,
-            start_side_effect_counter: previous_kernel.start_side_effect_counter,
-            end_side_effect_counter: previous_kernel.end_side_effect_counter,
-            start_gas_left: previous_kernel.start_gas_left,
-            transaction_fee: previous_kernel.transaction_fee,
-            reverted: previous_kernel.reverted
+            note_hash_read_requests: array_to_bounded_vec(prev.note_hash_read_requests),
+            nullifier_read_requests: array_to_bounded_vec(prev.nullifier_read_requests),
+            nullifier_non_existent_read_requests: array_to_bounded_vec(prev.nullifier_non_existent_read_requests),
+            public_data_reads: array_to_bounded_vec(prev.public_data_reads),
+            l1_to_l2_msg_read_requests: array_to_bounded_vec(prev.l1_to_l2_msg_read_requests),
+            note_hashes: array_to_bounded_vec(prev.note_hashes),
+            nullifiers: array_to_bounded_vec(prev.nullifiers),
+            l2_to_l1_msgs: array_to_bounded_vec(prev.l2_to_l1_msgs),
+            unencrypted_logs_hashes: array_to_bounded_vec(prev.unencrypted_logs_hashes),
+            public_data_update_requests: array_to_bounded_vec(prev.public_data_update_requests),
+            previous_array_lengths: PublicKernelAccumulatedArrayLengths::new_from_vm_circuit(prev),
+            start_side_effect_counter: prev.start_side_effect_counter,
+            end_side_effect_counter: prev.end_side_effect_counter,
+            start_gas_left: prev.start_gas_left,
+            end_gas_left: prev.end_gas_left,
+            transaction_fee: prev.transaction_fee,
+            reverted: prev.reverted
         }
     }
 
     pub fn propagate_from_public_call(&mut self, public_call: PublicCircuitPublicInputs) -> Self {
-        self.constants.global_variables = public_call.global_variables;
+        self.global_variables = public_call.global_variables;
         self.propagate_revert_flag(public_call);
         self.propagate_validation_requests(public_call);
         self.propagate_accumulated_data(public_call);
+        self.propagate_call_requests(public_call);
         self.propagate_end_side_effect_counter(public_call);
-        // Other values should be the same through out the entire enqueued call.
+        self.propagate_end_gas_left(public_call);
+        // Other values should be the same throughout the entire enqueued call.
         *self
     }
 
     pub fn finish(self) -> VMCircuitPublicInputs {
         VMCircuitPublicInputs {
-            constants: self.constants,
+            global_variables: self.global_variables,
             call_request: self.call_request,
             public_call_stack: self.public_call_stack.storage,
-            previous_validation_request_array_lengths: self.previous_validation_request_array_lengths,
-            validation_requests: self.validation_requests.finish(),
-            previous_accumulated_data_array_lengths: self.previous_accumulated_data_array_lengths,
-            accumulated_data: self.accumulated_data.finish(),
+            note_hashes: self.note_hashes.storage,
+            nullifiers: self.nullifiers.storage,
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            public_data_update_requests: self.public_data_update_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage,
+            nullifier_read_requests: self.nullifier_read_requests.storage,
+            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
+            public_data_reads: self.public_data_reads.storage,
+            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage,
+            previous_array_lengths: self.previous_array_lengths,
             start_side_effect_counter: self.start_side_effect_counter,
             end_side_effect_counter: self.end_side_effect_counter,
             start_gas_left: self.start_gas_left,
+            end_gas_left: self.end_gas_left,
             transaction_fee: self.transaction_fee,
             reverted: self.reverted
         }
@@ -89,15 +124,13 @@ impl VMCircuitOutputComposer {
     }
 
     fn propagate_validation_requests(&mut self, public_call: PublicCircuitPublicInputs) {
-        // Note that the public kernel cannot modify the max block number value - it simply forwards it to the rollup
-
         let storage_contract_address = public_call.call_context.storage_contract_address;
 
         let note_hash_read_requests = public_call.note_hash_read_requests;
         for i in 0..note_hash_read_requests.len() {
             let request = note_hash_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.note_hash_read_requests.push(request);
+                self.note_hash_read_requests.push(request);
             }
         }
 
@@ -105,7 +138,7 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_read_requests.push(request.scope(storage_contract_address));
+                self.nullifier_read_requests.push(request.scope(storage_contract_address));
             }
         }
 
@@ -113,7 +146,7 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_non_existent_read_requests.push(request.scope(storage_contract_address));
+                self.nullifier_non_existent_read_requests.push(request.scope(storage_contract_address));
             }
         }
 
@@ -121,7 +154,7 @@ impl VMCircuitOutputComposer {
         for i in 0..l1_to_l2_msg_read_requests.len() {
             let request = l1_to_l2_msg_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.l1_to_l2_msg_read_requests.push(request);
+                self.l1_to_l2_msg_read_requests.push(request);
             }
         }
 
@@ -129,23 +162,58 @@ impl VMCircuitOutputComposer {
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
-                self.validation_requests.public_data_reads.push(PublicDataRead::from_contract_storage_read(storage_contract_address, read_request));
+                self.public_data_reads.push(PublicDataRead::from_contract_storage_read(storage_contract_address, read_request));
             }
         }
     }
 
     fn propagate_accumulated_data(&mut self, public_call: PublicCircuitPublicInputs) {
-        // TODO: Should keep the data even when reverts.
-        // The data is required for verifying validation requests in the tail circuit, which will then discard the
-        // revertible data.
-        if self.reverted {
-            self.accumulated_data = PublicAccumulatedDataBuilder::empty();
-        } else {
-            self.accumulated_data = propagate_accumulated_data(&mut self.accumulated_data, public_call);
-            self.propagate_call_requests(public_call);
+        let storage_contract_address = public_call.call_context.storage_contract_address;
+
+        let note_hashes = public_call.note_hashes;
+        for i in 0..note_hashes.len() {
+            let note_hash = note_hashes[i];
+            if note_hash.counter != 0 {
+                self.note_hashes.push(note_hash.scope(storage_contract_address));
+            }
         }
 
-        self.accumulated_data.gas_used += public_call.start_gas_left.sub(public_call.end_gas_left);
+        let nullifiers = public_call.nullifiers;
+        for i in 0..nullifiers.len() {
+            let nullifier = nullifiers[i];
+            if nullifier.counter != 0 {
+                let siloed_value = compute_siloed_nullifier(storage_contract_address, nullifier.value);
+                self.nullifiers.push(
+                    Nullifier { value: siloed_value, counter: nullifier.counter, note_hash: nullifier.note_hash }
+                );
+            }
+        }
+
+        let msgs = public_call.l2_to_l1_msgs;
+        for i in 0..msgs.len() {
+            let msg = msgs[i];
+            if msg.counter != 0 {
+                self.l2_to_l1_msgs.push(msg.scope(storage_contract_address));
+            }
+        }
+
+        let logs = public_call.unencrypted_logs_hashes;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            if log.counter != 0 {
+                self.unencrypted_logs_hashes.push(log.scope(storage_contract_address));
+            }
+        }
+
+        let writes = public_call.contract_storage_update_requests;
+        for i in 0..writes.len() {
+            let write = writes[i];
+            if write.counter != 0 {
+                self.public_data_update_requests.push(
+                    PublicDataUpdateRequest::from_contract_storage_update_request(storage_contract_address, write)
+                );
+            }
+        }
     }
 
     fn propagate_call_requests(&mut self, public_call: PublicCircuitPublicInputs) {
@@ -157,5 +225,9 @@ impl VMCircuitOutputComposer {
         if public_call.end_side_effect_counter > self.end_side_effect_counter {
             self.end_side_effect_counter = public_call.end_side_effect_counter;
         }
+    }
+
+    fn propagate_end_gas_left(&mut self, public_call: PublicCircuitPublicInputs) {
+        self.end_gas_left = self.end_gas_left.add(public_call.end_gas_left).sub(public_call.start_gas_left);
     }
 }
