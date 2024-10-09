@@ -197,8 +197,8 @@ template <typename Curve> class GeminiVerifier_ {
             info("Verifer side ", MINICIRCUIT_N);
             std::vector<Fr> r_shifts_pos;
             std::vector<Fr> r_shifts_neg;
-            auto current_r_shift_pos = r;
-            auto current_r_shift_neg = r_inv;
+            auto current_r_shift_pos = Fr(1);
+            auto current_r_shift_neg = Fr(1);
             auto r_to_minicircuit_n_pos = r.pow(MINICIRCUIT_N);
             auto r_to_minicircuit_n_neg = r_inv.pow(MINICIRCUIT_N);
             for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {

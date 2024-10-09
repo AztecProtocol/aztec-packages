@@ -271,8 +271,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
         size_t MINICIRCUIT_N = N / batched_groups_to_be_concatenated.size();
         info("Prover side ", MINICIRCUIT_N);
 
-        auto current_r_shift_pos = r_challenge;
-        auto current_r_shift_neg = r_inv;
+        auto current_r_shift_pos = Fr(1);
+        auto current_r_shift_neg = Fr(1);
         auto r_to_minicircuit_n_pos = r_challenge.pow(MINICIRCUIT_N);
         auto r_to_minicircuit_n_neg = r_inv.pow(MINICIRCUIT_N);
         for (size_t i = 0; i < batched_groups_to_be_concatenated.size(); i++) {

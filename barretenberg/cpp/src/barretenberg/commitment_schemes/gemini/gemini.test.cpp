@@ -60,9 +60,12 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
                                                                    concatenated_evaluations);
 
         // Check equality of the opening pairs computed by prover and verifier
+        size_t i = 0;
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
-            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
+            info(i);
             this->verify_opening_claim(verifier_claim, prover_claim.polynomial);
+            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
+            i++;
         }
     }
 };
