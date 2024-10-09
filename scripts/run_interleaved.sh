@@ -1,7 +1,9 @@
 #!/bin/bash
 set -eu
+# propagate errors inside while loop pipe
+set -o pipefail
 
-# Usage: run_bg_args.sh <main command> <background commands>...
+# Usage: run_interleaved.sh <main command> <background commands>...
 # Runs the main command with output logging and background commands without logging.
 # Finishes when the main command exits.
 
@@ -32,9 +34,9 @@ shift
 function run_command() {
     local cmd="$1"
     local color="$2"
-    while IFS= read -r line; do
+    $cmd 2>&1 | while IFS= read -r line; do
         echo -e "${color}[$cmd]\e[0m $line"
-    done < <($cmd 2>&1)
+    done
 }
 
 # Run the main command, piping output through the run_command function with green color
@@ -43,6 +45,14 @@ main_pid=$!
 
 # Run background commands without logging output
 declare -a bg_pids
+function cleanup() {
+# Kill any remaining background jobs
+for pid in "${bg_pids[@]}"; do
+    kill "$pid" 2>/dev/null || true
+done
+}
+trap EXIT cleanup
+
 i=0
 for cmd in "$@"; do
     run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" &
@@ -53,11 +63,6 @@ done
 # Wait for the main command to finish and capture its exit code
 wait $main_pid
 main_exit_code=$?
-
-# Kill any remaining background jobs
-for pid in "${bg_pids[@]}"; do
-    kill "$pid" 2>/dev/null || true
-done
 
 # Exit with the same code as the main command
 exit $main_exit_code
