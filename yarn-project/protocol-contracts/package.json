@@ -19,8 +19,8 @@
   },
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
-    "generate": "yarn generate:noir-contracts",
-    "generate:noir-contracts": "./scripts/copy-contracts.sh",
+    "generate": "yarn generate:data",
+    "generate:data": "node --no-warnings --loader ts-node/esm src/scripts/generate_data.ts && run -T prettier -w src/protocol_contract_data.ts",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",

@@ -54,7 +54,7 @@ TEST(stdlib_aes128, encrypt_64_bytes)
         EXPECT_EQ(result[i].get_value(), expected[i]);
     }
 
-    std::cout << "num gates = " << builder.get_num_gates() << std::endl;
+    std::cout << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);

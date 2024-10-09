@@ -31,20 +31,29 @@ namespace bb::world_state {
 
 using namespace bb::crypto::merkle_tree;
 
-const uint64_t INITIAL_NULLIFIER_TREE_SIZE = 2UL * MAX_NULLIFIERS_PER_TX;
-const uint64_t INITIAL_PUBLIC_DATA_TREE_SIZE = 2UL * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
-
-WorldState::WorldState(const std::string& data_dir,
+WorldState::WorldState(uint64_t thread_pool_size,
+                       const std::string& data_dir,
                        const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
-                       uint64_t thread_pool_size)
+                       const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+                       const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       uint32_t initial_header_generator_point)
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
+    , _tree_heights(tree_heights)
+    , _initial_tree_size(tree_prefill)
+    , _initial_header_generator_point(initial_header_generator_point)
     , _forkId(CANONICAL_FORK_ID)
 {
     create_canonical_fork(data_dir, map_size, thread_pool_size);
 }
 
-WorldState::WorldState(const std::string& data_dir, uint64_t map_size, uint64_t thread_pool_size)
-    : WorldState(data_dir,
+WorldState::WorldState(uint64_t thread_pool_size,
+                       const std::string& data_dir,
+                       uint64_t map_size,
+                       const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+                       const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       uint32_t initial_header_generator_point)
+    : WorldState(thread_pool_size,
+                 data_dir,
                  {
                      { MerkleTreeId::NULLIFIER_TREE, map_size },
                      { MerkleTreeId::PUBLIC_DATA_TREE, map_size },
@@ -52,7 +61,9 @@ WorldState::WorldState(const std::string& data_dir, uint64_t map_size, uint64_t 
                      { MerkleTreeId::NOTE_HASH_TREE, map_size },
                      { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, map_size },
                  },
-                 thread_pool_size)
+                 tree_heights,
+                 tree_prefill,
+                 initial_header_generator_point)
 {}
 
 void WorldState::create_canonical_fork(const std::string& dataDir,
@@ -76,37 +87,42 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     Fork::SharedPtr fork = std::make_shared<Fork>();
     fork->_forkId = _forkId++;
     {
+        uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
+        index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);
         auto store = std::make_unique<NullifierStore>(
-            getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), NULLIFIER_TREE_HEIGHT, _persistentStores->nullifierStore);
-        auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, INITIAL_NULLIFIER_TREE_SIZE);
+            getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), levels, _persistentStores->nullifierStore);
+        auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, initial_size);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree)) });
     }
     {
+        uint32_t levels = _tree_heights.at(MerkleTreeId::NOTE_HASH_TREE);
         auto store = std::make_unique<FrStore>(
-            getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE), NOTE_HASH_TREE_HEIGHT, _persistentStores->noteHashStore);
+            getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE), levels, _persistentStores->noteHashStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree)) });
     }
     {
-        auto store = std::make_unique<PublicDataStore>(getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE),
-                                                       PUBLIC_DATA_TREE_HEIGHT,
-                                                       _persistentStores->publicDataStore);
-        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, INITIAL_PUBLIC_DATA_TREE_SIZE);
+        uint32_t levels = _tree_heights.at(MerkleTreeId::PUBLIC_DATA_TREE);
+        index_t initial_size = _initial_tree_size.at(MerkleTreeId::PUBLIC_DATA_TREE);
+        auto store = std::make_unique<PublicDataStore>(
+            getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE), levels, _persistentStores->publicDataStore);
+        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree)) });
     }
     {
-        auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::L1_TO_L2_MESSAGE_TREE),
-                                               L1_TO_L2_MSG_TREE_HEIGHT,
-                                               _persistentStores->messageStore);
+        uint32_t levels = _tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
+        auto store = std::make_unique<FrStore>(
+            getMerkleTreeName(MerkleTreeId::L1_TO_L2_MESSAGE_TREE), levels, _persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree)) });
     }
     {
-        std::vector<bb::fr> initial_leaves{ compute_initial_archive(
-            get_state_reference(WorldStateRevision::committed(), fork, true)) };
+        uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
+        std::vector<bb::fr> initial_values{ compute_initial_archive(
+            get_state_reference(WorldStateRevision::committed(), fork, true), _initial_header_generator_point) };
         auto store = std::make_unique<FrStore>(
-            getMerkleTreeName(MerkleTreeId::ARCHIVE), ARCHIVE_HEIGHT, _persistentStores->archiveStore);
-        auto tree = std::make_unique<FrTree>(std::move(store), _workers, initial_leaves);
+            getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, _persistentStores->archiveStore);
+        auto tree = std::make_unique<FrTree>(std::move(store), _workers, initial_values);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree)) });
     }
     _forks[fork->_forkId] = fork;
@@ -148,40 +164,39 @@ Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
     {
-        auto store = std::make_unique<NullifierStore>(getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE),
-                                                      NULLIFIER_TREE_HEIGHT,
-                                                      blockNumber,
-                                                      _persistentStores->nullifierStore);
-        auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, INITIAL_NULLIFIER_TREE_SIZE);
+        uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
+        index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);
+        auto store = std::make_unique<NullifierStore>(
+            getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), levels, blockNumber, _persistentStores->nullifierStore);
+        auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, initial_size);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree)) });
     }
     {
-        auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE),
-                                               NOTE_HASH_TREE_HEIGHT,
-                                               blockNumber,
-                                               _persistentStores->noteHashStore);
+        uint32_t levels = _tree_heights.at(MerkleTreeId::NOTE_HASH_TREE);
+        auto store = std::make_unique<FrStore>(
+            getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE), levels, blockNumber, _persistentStores->noteHashStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree)) });
     }
     {
-        auto store = std::make_unique<PublicDataStore>(getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE),
-                                                       PUBLIC_DATA_TREE_HEIGHT,
-                                                       blockNumber,
-                                                       _persistentStores->publicDataStore);
-        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, INITIAL_PUBLIC_DATA_TREE_SIZE);
+        uint32_t levels = _tree_heights.at(MerkleTreeId::PUBLIC_DATA_TREE);
+        index_t initial_size = _initial_tree_size.at(MerkleTreeId::PUBLIC_DATA_TREE);
+        auto store = std::make_unique<PublicDataStore>(
+            getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE), levels, blockNumber, _persistentStores->publicDataStore);
+        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree)) });
     }
     {
-        auto store = std::make_unique<FrStore>(getMerkleTreeName(L1_TO_L2_MESSAGE_TREE),
-                                               L1_TO_L2_MSG_TREE_HEIGHT,
-                                               blockNumber,
-                                               _persistentStores->messageStore);
+        uint32_t levels = _tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
+        auto store = std::make_unique<FrStore>(
+            getMerkleTreeName(L1_TO_L2_MESSAGE_TREE), levels, blockNumber, _persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree)) });
     }
     {
+        uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
         auto store = std::make_unique<FrStore>(
-            getMerkleTreeName(MerkleTreeId::ARCHIVE), ARCHIVE_HEIGHT, blockNumber, _persistentStores->archiveStore);
+            getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, blockNumber, _persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree)) });
     }
@@ -320,11 +335,10 @@ void WorldState::update_archive(const StateReference& block_state_ref,
                                 const bb::fr& block_header_hash,
                                 Fork::Id fork_id)
 {
-    auto world_state_ref = get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
-    if (block_state_matches_world_state(block_state_ref, world_state_ref)) {
+    if (is_same_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, block_state_ref)) {
         append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_header_hash }, fork_id);
     } else {
-        throw std::runtime_error("Block state does not match world state");
+        throw std::runtime_error("Can't update archive tree: Block state does not match world state");
     }
 }
 
@@ -364,9 +378,7 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
                             const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                             const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
 {
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
-    auto current_state = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, current_state) &&
+    if (is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref) &&
         is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
         commit();
         return true;
@@ -374,6 +386,7 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
 
     rollback();
 
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     std::atomic_bool success = true;
     std::string err_message;
@@ -437,16 +450,16 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
         throw std::runtime_error("Failed to sync block: " + err_message);
     }
 
-    auto state_after_inserts = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, state_after_inserts) &&
-        is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        commit();
-        return false;
+    if (!is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
+        throw std::runtime_error("Can't synch block: block header hash is not the tip of the archive tree");
     }
 
-    // TODO (alexg) should we rollback here?
-    // Potentiall not since all the changes exist only in-memory and this error will cause the process to die
-    throw std::runtime_error("Can't synch block: block state does not match world state");
+    if (!is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref)) {
+        throw std::runtime_error("Can't synch block: block state does not match world state");
+    }
+
+    commit();
+    return false;
 }
 
 GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision& revision,
@@ -483,11 +496,11 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     return low_leaf_info;
 }
 
-bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref)
+bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point)
 {
     // NOTE: this hash operations needs to match the one in yarn-project/circuits.js/src/structs/header.ts
-    return HashPolicy::hash({ GENERATOR_INDEX__BLOCK_HASH, // separator
-                                                           // last archive - which, at genesis, is all 0s
+    return HashPolicy::hash({ generator_point,
+                              // last archive - which, at genesis, is all 0s
                               0,
                               0,
                               // content commitment - all 0s
@@ -518,20 +531,6 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
                               0 });
 }
 
-bool WorldState::block_state_matches_world_state(const StateReference& block_state_ref,
-                                                 const StateReference& tree_state_ref)
-{
-    std::vector tree_ids{
-        MerkleTreeId::NULLIFIER_TREE,
-        MerkleTreeId::NOTE_HASH_TREE,
-        MerkleTreeId::PUBLIC_DATA_TREE,
-        MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-    };
-
-    return std::all_of(
-        tree_ids.begin(), tree_ids.end(), [=](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
-}
-
 bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const
 {
     std::optional<index_t> leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
@@ -542,6 +541,11 @@ bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr
 
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     return archive_state.meta.size == leaf_index.value() + 1;
+}
+
+bool WorldState::is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const
+{
+    return state_ref == get_state_reference(revision);
 }
 
 } // namespace bb::world_state

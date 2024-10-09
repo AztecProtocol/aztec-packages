@@ -109,7 +109,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return null_op_idx;
     }
 
-    void finalize_circuit(const bool ensure_nonzero = false);
+    void finalize_circuit(const bool ensure_nonzero);
     void add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
     void add_mega_gates_to_ensure_all_polys_are_non_zero();
 
@@ -125,9 +125,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      *
      * @return size_t
      */
-    size_t get_num_gates() const override
+    size_t get_estimated_num_finalized_gates() const override
     {
-        auto num_ultra_gates = UltraCircuitBuilder_<MegaArith<FF>>::get_num_gates();
+        auto num_ultra_gates = UltraCircuitBuilder_<MegaArith<FF>>::get_estimated_num_finalized_gates();
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
         return num_ultra_gates + num_goblin_ecc_op_gates;
     }
@@ -141,9 +141,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     {
         MegaCircuitBuilder_<FF> builder; // instantiate new builder
 
-        size_t num_gates_prior = builder.get_num_gates();
+        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
         builder.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
+        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
 
         return num_gates_post - num_gates_prior;
     }
@@ -152,14 +152,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_gates() const override
+    virtual void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<MegaArith<FF>>::get_num_gates_split_into_components(
+        UltraCircuitBuilder_<MegaArith<FF>>::get_num_estimated_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
 

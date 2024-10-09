@@ -25,7 +25,7 @@ export class ContractInstanceDeployedEvent {
   static fromLogs(logs: { contractAddress: AztecAddress; data: Buffer }[]) {
     return logs
       .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log.data))
-      .filter(log => log.contractAddress.equals(AztecAddress.fromBigInt(DEPLOYER_CONTRACT_ADDRESS)))
+      .filter(log => log.contractAddress.equals(AztecAddress.fromBigInt(BigInt(DEPLOYER_CONTRACT_ADDRESS))))
       .map(log => ContractInstanceDeployedEvent.fromLogData(log.data));
   }
 

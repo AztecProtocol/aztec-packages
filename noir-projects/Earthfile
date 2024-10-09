@@ -16,7 +16,14 @@ source:
 
 build-contracts:
   ARG RAYON_NUM_THREADS
+  LOCALLY
+  LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
   FROM +source
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
+      bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
+
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
   # Install transpiler
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
@@ -56,11 +63,10 @@ build-mock-protocol-circuits:
 
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
   RUN echo "building with num threads $RAYON_NUM_THREADS"
-  RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+  RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo PARALLEL_VK=false ./bootstrap.sh
   SAVE ARTIFACT mock-protocol-circuits
 
 build:
-  ARG RAYON_NUM_THREADS
   FROM +source
   BUILD +build-contracts
   BUILD +build-protocol-circuits

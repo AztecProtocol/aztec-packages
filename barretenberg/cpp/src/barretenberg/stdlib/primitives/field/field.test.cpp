@@ -192,10 +192,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_add_mul_with_constants()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         uint64_t expected = fidget(builder);
         if constexpr (!IsSimulator<Builder>) {
-            auto gates_after = builder.get_num_gates();
+            auto gates_after = builder.get_estimated_num_finalized_gates();
             auto& block = builder.blocks.arithmetic;
             EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
             info("Number of gates added", gates_after - gates_before);
@@ -311,12 +311,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_equality()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 4));
         bool_ct r = a == b;
 
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(r.get_value(), true);
 
         fr x = r.get_value();
@@ -338,14 +338,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
         bool_ct r = a == b;
 
         EXPECT_EQ(r.get_value(), false);
 
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
 
         fr x = r.get_value();
         EXPECT_EQ(x, fr(0));
@@ -366,7 +366,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b = 3;
         field_ct c = 7;
@@ -374,7 +374,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(r.get_value(), true);
 
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
 
         fr x = r.get_value();
         EXPECT_EQ(x, fr(1));
@@ -424,10 +424,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct d(&builder, fr::zero());
         field_ct e(&builder, fr::one());
 
-        const size_t old_n = builder.get_num_gates();
+        const size_t old_n = builder.get_estimated_num_finalized_gates();
         bool_ct d_zero = d.is_zero();
         bool_ct e_zero = e.is_zero();
-        const size_t new_n = builder.get_num_gates();
+        const size_t new_n = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(old_n, new_n);
 
         bool_ct a_zero = a.is_zero();
@@ -704,7 +704,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         std::vector<field_ct> set = { a, b, c, d, e };
 
         a.assert_is_in_set(set);
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -724,7 +724,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct f(witness_ct(&builder, fr(6)));
         f.assert_is_in_set(set);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
@@ -743,7 +743,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
@@ -761,7 +761,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(result.get_value(), bb::fr(1));
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
@@ -778,7 +778,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct result = base.pow(exponent);
 
         EXPECT_EQ(result.get_value(), base_val);
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
@@ -818,7 +818,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
@@ -836,7 +836,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         fr expected = base_val.pow(exponent_val);
 
         EXPECT_EQ(result.get_value(), expected);
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
@@ -877,7 +877,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         if (!IsSimulator<Builder>) {
             EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
             EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
-            info("num gates = ", builder.get_num_gates());
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
         }
 
         bool result = CircuitChecker::check(builder);
