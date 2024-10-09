@@ -34,6 +34,7 @@ env:
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   SHOULD_PUBLISH_DOCKER_IMAGES: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
+  DEPLOY_TAG: ${{ github.event.inputs.tag }}
 jobs:
   check-version:
     runs-on: ubuntu-latest
@@ -199,7 +200,7 @@ jobs:
             DIST_TAG=latest
           else
             VERSION=""
-            DIST_TAG=${{ github.ref_name }}
+            DIST_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
           fi
 
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
