@@ -97,6 +97,7 @@ export class RootRollupPublicInputs {
     public outHash: Fr,
     public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
     public vkTreeRoot: Fr,
+    public protocolContractTreeRoot: Fr,
     public proverId: Fr,
   ) {}
 
@@ -111,6 +112,7 @@ export class RootRollupPublicInputs {
       fields.outHash,
       fields.fees,
       fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
       fields.proverId,
     ] as const;
   }
@@ -143,6 +145,7 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );

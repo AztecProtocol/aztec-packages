@@ -421,7 +421,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 #endif // NDEBUG
     }
 
-    void finalize_circuit(const bool ensure_nonzero = false);
+    void finalize_circuit(const bool ensure_nonzero);
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
@@ -504,7 +504,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @param ramcount return argument, extra gates due to ram read/writes
      * @param nnfcount return argument, extra gates due to queued non native field gates
      */
-    void get_num_gates_split_into_components(
+    void get_num_estimated_gates_split_into_components(
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
         count = this->num_gates;
@@ -582,6 +582,16 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
+     * @brief Get the number of gates in a finalized circuit.
+     * @return size_t
+     */
+    size_t get_num_finalized_gates() const override
+    {
+        ASSERT(circuit_finalized);
+        return this->num_gates;
+    }
+
+    /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
      * 2) Number of public inputs, as we'll need to add a gate for each of them
@@ -596,7 +606,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * the circuit is finalized due to a failure to account for "de-duplication" when computing how many
      * non-native-field gates will be present.
      */
-    size_t get_num_gates() const override
+    size_t get_estimated_num_finalized_gates() const override
     {
         // if circuit finalized already added extra gates
         if (circuit_finalized) {
@@ -607,7 +617,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
     }
 
@@ -620,9 +630,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     {
         UltraCircuitBuilder_<Arithmetization> builder; // instantiate new builder
 
-        size_t num_gates_prior = builder.get_num_gates();
+        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
         builder.add_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
+        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
 
         return num_gates_post - num_gates_prior;
     }
@@ -654,7 +664,26 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
-     * @brief Get the size of the circuit if it was finalized now
+     * @brief Get the actual finalized size of a Plonk circuit. Assumes the circuit is finalized already.
+     *
+     * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
+     * account the possibility that the tables will dominate the size and checks both the plookup argument
+     * size and the general circuit size
+     *
+     * @return size_t
+     */
+    size_t get_finalized_total_circuit_size() const
+    {
+        ASSERT(circuit_finalized);
+        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
+        info("minimum_circuit_size: ", minimum_circuit_size);
+        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        info("num_filled_gates: ", num_filled_gates);
+        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+    }
+
+    /**
+     * @brief Get the estimated size of the circuit if it was finalized now
      *
      * @details This method estimates the size of the circuit without rounding up to the next power of 2. It takes into
      * account the possibility that the tables will dominate the size and checks both the estimated plookup argument
@@ -662,10 +691,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      *
      * @return size_t
      */
-    size_t get_total_circuit_size() const
+    size_t get_estimated_total_circuit_size() const
     {
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
-        auto num_filled_gates = get_num_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 
@@ -673,14 +702,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_gates() const override
+    void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
 
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount

@@ -56,10 +56,11 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import {
+  ProtocolContractAddress,
+  getCanonicalProtocolContract,
+  protocolContractNames,
+} from '@aztec/protocol-contracts';
 import { type AcirSimulator, resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -115,6 +116,7 @@ export class PXEService implements PXE {
     const { l2BlockPollingIntervalMS } = this.config;
     await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
+    await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
   }
@@ -660,12 +662,22 @@ export class PXEService implements PXE {
     return Promise.resolve({
       pxeVersion: this.packageVersion,
       protocolContractAddresses: {
-        classRegisterer: ClassRegistererAddress,
-        feeJuice: getCanonicalFeeJuice().address,
-        instanceDeployer: getCanonicalInstanceDeployer().address,
-        multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
+        classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+        feeJuice: ProtocolContractAddress.FeeJuice,
+        instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+        multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
       },
     });
+  }
+
+  async #registerProtocolContracts() {
+    for (const name of protocolContractNames) {
+      const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      await this.db.addContractArtifact(contractClass.id, artifact);
+      await this.db.addContractInstance(instance);
+      await this.synchronizer.reprocessDeferredNotesForContract(address);
+      this.log.info(`Added protocol contract ${name} at ${address.toString()}`);
+    }
   }
 
   /**

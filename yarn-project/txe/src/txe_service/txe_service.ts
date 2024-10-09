@@ -15,6 +15,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -43,6 +44,12 @@ export class TXEService {
     const noteCache = new ExecutionNoteCache(txHash);
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
+    // Register protocol contracts.
+    for (const name of protocolContractNames) {
+      const { contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      await txeDatabase.addContractArtifact(contractClass.id, artifact);
+      await txeDatabase.addContractInstance(instance);
+    }
     logger.debug(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);

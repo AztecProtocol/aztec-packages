@@ -7,6 +7,7 @@ metadata:
 spec:
   serviceName: {{ include "aztec-network.fullname" . }}-validator
   replicas: {{ .Values.validator.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
@@ -79,9 +80,9 @@ spec:
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-              value: "{{ .Values.bootNode.sequencer.maxSecondsBetweenBlocks }}"
+              value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
-              value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
+              value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pPort }}"
             - name: P2P_UDP_ANNOUNCE_ADDR
