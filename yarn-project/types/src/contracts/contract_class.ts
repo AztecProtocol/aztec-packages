@@ -15,9 +15,10 @@ export interface ContractClass {
   artifactHash: Fr;
   /** List of individual private functions, constructors included. */
   privateFunctions: PrivateFunction[];
-  /** List of individual public functions. Should be removed once we switch to the AVM where all public bytecode is bundled together. */
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Remove public functions.
+  /** Contains the public_dispatch function (and only that) if there's any public code in the contract. */
   publicFunctions: PublicFunction[];
-  /** Packed bytecode representation of the AVM bytecode for all public functions in this contract. Unused for now, see `publicFunctions`. */
+  /** Bytecode for the public_dispatch function, or empty. */
   packedBytecode: Buffer;
 }
 

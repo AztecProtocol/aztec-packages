@@ -18,7 +18,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     Timestamp executableAt;
   }
 
-  address public ROLLUP;
+  address public immutable ROLLUP;
   uint256 public constant WITHDRAW_DELAY =
     Constants.ETHEREUM_SLOT_DURATION * Constants.AZTEC_EPOCH_DURATION * 3;
   mapping(address => uint256) public deposits;
@@ -30,13 +30,9 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     _;
   }
 
-  constructor(IERC20 _token) {
-    token = _token;
-  }
-
-  function initialize(address _rollup) external {
-    require(ROLLUP == address(0));
+  constructor(IERC20 _token, address _rollup) {
     ROLLUP = _rollup;
+    token = _token;
   }
 
   /**

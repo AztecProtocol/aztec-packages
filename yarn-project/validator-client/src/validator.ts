@@ -89,7 +89,7 @@ export class ValidatorClient implements Validator {
       }
       return undefined;
     }
-    this.log.debug(
+    this.log.verbose(
       `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
     );
 

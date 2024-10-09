@@ -23,29 +23,9 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
   IERC20 public underlying;
   bytes32 public l2TokenAddress;
 
-  constructor(address owner) Ownable(owner) {}
-
-  /**
-   * @notice  Initialize the FeeJuicePortal
-   *
-   * @dev     This function is only callable by the owner of the contract and only once
-   *
-   * @dev     Must be funded with FEE_JUICE_INITIAL_MINT tokens before initialization to
-   *          ensure that the L2 contract is funded and able to pay for its deployment.
-   *
-   * @param _registry - The address of the registry contract
-   * @param _underlying - The address of the underlying token
-   * @param _l2TokenAddress - The address of the L2 token
-   */
-  function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress)
-    external
-    override(IFeeJuicePortal)
-    onlyOwner
+  constructor(address _owner, address _registry, address _underlying, bytes32 _l2TokenAddress)
+    Ownable(_owner)
   {
-    require(
-      address(registry) == address(0) && address(underlying) == address(0) && l2TokenAddress == 0,
-      Errors.FeeJuicePortal__AlreadyInitialized()
-    );
     require(
       _registry != address(0) && _underlying != address(0) && _l2TokenAddress != 0,
       Errors.FeeJuicePortal__InvalidInitialization()
@@ -54,6 +34,19 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
     registry = IRegistry(_registry);
     underlying = IERC20(_underlying);
     l2TokenAddress = _l2TokenAddress;
+  }
+
+  /**
+   * @notice  Initialize the FeeJuicePortal
+   *
+   * @dev     This function is only callable by the owner of the contract and only once
+   *
+   * @dev     Must be funded with FEE_JUICE_INITIAL_MINT tokens before initialization to
+   *          ensure that the L2 contract is funded and able to pay for its deployment.
+   */
+  function initialize() external override(IFeeJuicePortal) onlyOwner {
+    require(owner() != address(0), Errors.FeeJuicePortal__AlreadyInitialized());
+
     uint256 balance = underlying.balanceOf(address(this));
     if (balance < Constants.FEE_JUICE_INITIAL_MINT) {
       underlying.safeTransferFrom(

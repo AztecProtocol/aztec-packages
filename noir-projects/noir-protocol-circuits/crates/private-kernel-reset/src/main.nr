@@ -1,4 +1,4 @@
-use dep::private_kernel_lib::PrivateKernelResetCircuitPrivateInputs;
+use dep::private_kernel_lib::private_kernel_reset::{PrivateKernelResetHints, PrivateKernelResetCircuitPrivateInputs};
 use dep::types::{
     PrivateKernelCircuitPublicInputs,
     constants::{
@@ -6,6 +6,7 @@ use dep::types::{
     MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX
 }
 };
+use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 
 global NOTE_HASH_PENDING_AMOUNT = MAX_NOTE_HASH_READ_REQUESTS_PER_TX; // 64
 global NOTE_HASH_SETTLED_AMOUNT = MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
@@ -17,11 +18,16 @@ global NOTE_HASH_SILOING_AMOUNT = MAX_NOTE_HASHES_PER_TX; // 64
 global NULLIFIER_SILOING_AMOUNT = MAX_NULLIFIERS_PER_TX; // 64
 global ENCRYPTED_LOG_SILOING_AMOUNT = MAX_ENCRYPTED_LOGS_PER_TX; // 8
 
-#[recursive]
-fn main(input: PrivateKernelResetCircuitPrivateInputs<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS, TRANSIENT_DATA_AMOUNT>) -> pub PrivateKernelCircuitPublicInputs {
-    input.execute(
+fn main(
+    previous_kernel: PrivateKernelDataWithoutPublicInputs,
+    previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,
+    hints: PrivateKernelResetHints<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS, TRANSIENT_DATA_AMOUNT>
+) -> return_data PrivateKernelCircuitPublicInputs {
+    let private_inputs = PrivateKernelResetCircuitPrivateInputs::new(previous_kernel, previous_kernel_public_inputs, hints);
+    private_inputs.execute(
         NOTE_HASH_SILOING_AMOUNT,
         NULLIFIER_SILOING_AMOUNT,
         ENCRYPTED_LOG_SILOING_AMOUNT
     )
 }
+

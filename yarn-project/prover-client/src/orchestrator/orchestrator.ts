@@ -16,7 +16,7 @@ import {
   mapProvingRequestTypeToCircuitName,
   toTxEffect,
 } from '@aztec/circuit-types';
-import { type EpochProver } from '@aztec/circuit-types/interfaces';
+import { type EpochProver, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AvmCircuitInputs,
@@ -58,8 +58,8 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
@@ -112,7 +112,7 @@ export class ProvingOrchestrator implements EpochProver {
   private metrics: ProvingOrchestratorMetrics;
 
   constructor(
-    private db: MerkleTreeOperations,
+    private db: MerkleTreeWriteOperations,
     private prover: ServerCircuitProver,
     telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,
@@ -305,6 +305,10 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
+    if (!provingState.verifyState()) {
+      throw new Error(`Block proving failed: ${provingState.error}`);
+    }
+
     // We may need to pad the rollup with empty transactions
     const paddingTxCount = provingState.totalNumTxs - provingState.transactionsReceived;
     if (paddingTxCount > 0 && provingState.totalNumTxs > 2) {
@@ -325,6 +329,7 @@ export class ProvingOrchestrator implements EpochProver {
         provingState.globalVariables.chainId,
         provingState.globalVariables.version,
         getVKTreeRoot(),
+        protocolContractTreeRoot,
       );
       const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
       for (let i = 0; i < paddingTxCount; i++) {
@@ -367,16 +372,16 @@ export class ProvingOrchestrator implements EpochProver {
       [Attributes.EPOCH_SIZE]: this.provingState.totalNumBlocks,
     };
   })
-  private padEpoch() {
+  private padEpoch(): Promise<void> {
     const provingState = this.provingState!;
     const lastBlock = provingState.currentBlock?.block;
     if (!lastBlock) {
-      throw new Error(`Epoch needs at least one completed block in order to be padded`);
+      return Promise.reject(new Error(`Epoch needs at least one completed block in order to be padded`));
     }
 
     const paddingBlockCount = Math.max(2, provingState.totalNumBlocks) - provingState.blocks.length;
     if (paddingBlockCount === 0) {
-      return;
+      return Promise.resolve();
     }
 
     logger.debug(`Padding epoch proof with ${paddingBlockCount} empty block proofs`);
@@ -386,6 +391,7 @@ export class ProvingOrchestrator implements EpochProver {
       blockHash: lastBlock.header.hash(),
       globalVariables: lastBlock.header.globalVariables,
       vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
       proverId: this.proverId,
     });
 
@@ -415,6 +421,7 @@ export class ProvingOrchestrator implements EpochProver {
         }
       },
     );
+    return Promise.resolve();
   }
 
   private async buildBlock(provingState: BlockProvingState) {
@@ -486,6 +493,7 @@ export class ProvingOrchestrator implements EpochProver {
               unprovenPaddingTx.data.constants.txContext.chainId,
               unprovenPaddingTx.data.constants.txContext.version,
               getVKTreeRoot(),
+              protocolContractTreeRoot,
             ),
             signal,
             provingState.epochNumber,
@@ -566,7 +574,7 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
     }
 
-    this.padEpoch();
+    await this.padEpoch();
 
     const result = await this.provingPromise!;
     if (result.status === 'failure') {
