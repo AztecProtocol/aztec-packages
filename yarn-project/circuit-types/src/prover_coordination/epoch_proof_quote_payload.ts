@@ -5,6 +5,10 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 
 export class EpochProofQuotePayload {
+  // Cached values
+  private asBuffer: Buffer | undefined;
+  private size: number | undefined;
+
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
@@ -24,7 +28,13 @@ export class EpochProofQuotePayload {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    // We cache the buffer to avoid recalculating it
+    if (this.asBuffer) {
+      return this.asBuffer;
+    }
+    this.asBuffer = serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    this.size = this.asBuffer.length;
+    return this.asBuffer;
   }
 
   static fromBuffer(buf: Buffer | BufferReader): EpochProofQuotePayload {
@@ -85,8 +95,13 @@ export class EpochProofQuotePayload {
   }
 
   getSize(): number {
-    // 32 bytes for epochToProve, 32 bytes for validUntilSlot, 32 bytes for bondAmount, 20 bytes for prover, 4 bytes for basisPointFee
-    return 32 + 32 + 32 + EthAddress.SIZE_IN_BYTES + 4;
+    // We cache size to avoid recalculating it
+    if (this.size) {
+      return this.size;
+    }
+    // Size is cached when calling toBuffer
+    this.toBuffer();
+    return this.size!;
   }
 
   [inspect.custom](): string {

@@ -19,6 +19,10 @@ export type ViemSignature = {
  * Contains a signature split into it's primary components (r,s,v)
  */
 export class Signature {
+  // Cached values
+  private asBuffer: Buffer | undefined;
+  private size: number | undefined;
+
   constructor(
     /** The r value of the signature */
     public readonly r: Buffer32,
@@ -73,12 +77,24 @@ export class Signature {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.r, this.s, this.v]);
+    // We cache the buffer to avoid recalculating it
+    if (this.asBuffer) {
+      return this.asBuffer;
+    }
+    this.asBuffer = serializeToBuffer([this.r, this.s, this.v]);
+    this.size = this.asBuffer.length;
+    return this.asBuffer;
   }
 
   getSize(): number {
-    // 32 bytes for r, 32 bytes for s, 4 bytes for v
-    return Buffer32.SIZE + Buffer32.SIZE + 4;
+    // We cache size to avoid recalculating it
+    if (this.size) {
+      return this.size;
+    }
+
+    // Size is cached when calling toBuffer
+    this.toBuffer();
+    return this.size!;
   }
 
   to0xString(): `0x${string}` {
