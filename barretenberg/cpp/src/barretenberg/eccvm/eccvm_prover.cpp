@@ -120,12 +120,12 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
-    auto multivariate_to_univariate_opening_claim = Shplemini::prove(key->circuit_size,
-                                                                     key->polynomials.get_unshifted(),
-                                                                     key->polynomials.get_to_be_shifted(),
-                                                                     sumcheck_output.challenge,
-                                                                     key->commitment_key,
-                                                                     transcript);
+    const OpeningClaim multivariate_to_univariate_opening_claim = Shplemini::prove(key->circuit_size,
+                                                                                   key->polynomials.get_unshifted(),
+                                                                                   key->polynomials.get_to_be_shifted(),
+                                                                                   sumcheck_output.challenge,
+                                                                                   key->commitment_key,
+                                                                                   transcript);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
@@ -162,7 +162,7 @@ void ECCVMProver::execute_pcs_rounds()
     // Construct the batched polynomial and batched evaluation to produce the batched opening claim
     Polynomial batched_univariate{ key->circuit_size };
     FF batched_evaluation{ 0 };
-    auto batching_scalar = FF(1);
+    FF batching_scalar = FF(1);
     for (auto [polynomial, eval] : zip_view(univariate_polynomials, univariate_evaluations)) {
         batched_univariate.add_scaled(polynomial, batching_scalar);
         batched_evaluation += eval * batching_scalar;

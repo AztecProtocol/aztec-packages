@@ -21,6 +21,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
+    using OpeningClaim = OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
 
@@ -74,16 +75,17 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    auto batch_opening_claims = Shplemini::compute_batch_opening_claim(circuit_size,
-                                                                       commitments.get_unshifted(),
-                                                                       commitments.get_to_be_shifted(),
-                                                                       claimed_evaluations.get_unshifted(),
-                                                                       claimed_evaluations.get_shifted(),
-                                                                       multivariate_challenge,
-                                                                       key->pcs_verification_key->get_g1_identity(),
-                                                                       transcript);
+    const BatchOpeningClaim<Curve> batch_opening_claims =
+        Shplemini::compute_batch_opening_claim(circuit_size,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               claimed_evaluations.get_unshifted(),
+                                               claimed_evaluations.get_shifted(),
+                                               multivariate_challenge,
+                                               key->pcs_verification_key->get_g1_identity(),
+                                               transcript);
     // Reduce the accumulator to a single opening claim
-    auto multivariate_to_univariate_opening_claim = PCS::reduce_batch_opening_claim(batch_opening_claims);
+    const OpeningClaim multivariate_to_univariate_opening_claim = PCS::reduce_batch_opening_claim(batch_opening_claims);
 
     const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -116,16 +118,16 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const Commitment batched_commitment = Commitment::batch_mul(transcript_commitments, batching_challenges);
 
     // Construct and verify the combined opening claim
-    OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                     batched_commitment };
+    const OpeningClaim batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
+                                                    batched_commitment };
 
-    std::array<OpeningClaim<Curve>, 2> opening_claims = { multivariate_to_univariate_opening_claim,
-                                                          batched_univariate_claim };
+    std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim, batched_univariate_claim };
 
-    auto batched_opening_claim =
+    const OpeningClaim batched_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    auto batched_opening_verified = PCS::reduce_verify(key->pcs_verification_key, batched_opening_claim, transcript);
+    const auto batched_opening_verified =
+        PCS::reduce_verify(key->pcs_verification_key, batched_opening_claim, transcript);
 
     ASSERT(sumcheck_verified && batched_opening_verified);
 }
