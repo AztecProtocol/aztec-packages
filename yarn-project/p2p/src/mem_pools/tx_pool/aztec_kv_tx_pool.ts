@@ -4,7 +4,7 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSet } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation } from './instrumentation.js';
+import { PoolInstrumentation } from '../instrumentation.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -51,8 +51,8 @@ export class AztecKVTxPool implements TxPool {
           void this.#pendingTxs.delete(key);
         }
       }
-      this.#metrics.recordRemovedObjectsWithStatus('pending', deleted);
-      this.#metrics.recordAddedObjectsWithStatus('mined', txHashes.length);
+      this.#metrics.recordRemovedObjects(deleted, 'pending');
+      this.#metrics.recordAddedObjects(txHashes.length, 'mined');
     });
   }
 
@@ -111,7 +111,7 @@ export class AztecKVTxPool implements TxPool {
         }
       }
 
-      this.#metrics.recordAddedObjectsWithStatus('pending', pendingCount);
+      this.#metrics.recordAddedObjects(pendingCount, 'pending');
     });
   }
 
@@ -138,8 +138,8 @@ export class AztecKVTxPool implements TxPool {
         }
       }
 
-      this.#metrics.recordRemovedObjectsWithStatus('pending', pendingDeleted);
-      this.#metrics.recordRemovedObjectsWithStatus('mined', minedDeleted);
+      this.#metrics.recordRemovedObjects(pendingDeleted, 'pending');
+      this.#metrics.recordRemovedObjects(minedDeleted, 'mined');
     });
   }
 

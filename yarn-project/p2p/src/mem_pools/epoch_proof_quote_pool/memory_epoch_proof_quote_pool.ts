@@ -1,7 +1,7 @@
 import { type EpochProofQuote } from '@aztec/circuit-types';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation } from '../tx_pool/instrumentation.js';
+import { PoolInstrumentation } from '../instrumentation.js';
 import { type EpochProofQuotePool } from './epoch_proof_quote_pool.js';
 
 export class MemoryEpochProofQuotePool implements EpochProofQuotePool {

@@ -1,8 +1,6 @@
 import { type Gossipable } from '@aztec/circuit-types';
 import { Attributes, type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
-export type TxStatus = 'pending' | 'mined';
-
 /**
  * Instrumentation class for the Pools (TxPool, AttestationPool, etc).
  */
@@ -43,51 +41,31 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
    * Updates the metrics with the new objects.
    * @param txs - The objects to record
    */
-  public recordAddedObjectsWithStatus(status: string, count = 1) {
+  public recordAddedObjects(count = 1, status?: string) {
     if (count < 0) {
       throw new Error('Count must be positive');
     }
     if (count === 0) {
       return;
     }
-    this.objectsInMempool.add(count, {
-      [Attributes.STATUS]: status,
-    });
-  }
+    const attributes = status ? { [Attributes.STATUS]: status } : {};
 
-  public recordAddedObjects(count = 1) {
-    if (count < 0) {
-      throw new Error('Count must be positive');
-    }
-    if (count === 0) {
-      return;
-    }
-    this.objectsInMempool.add(count);
+    this.objectsInMempool.add(count, attributes);
   }
 
   /**
    * Updates the metrics by removing objects from the mempool.
    * @param count - The number of objects to remove from the mempool
    */
-  public recordRemovedObjectsWithStatus(status: string, count = 1) {
+  public recordRemovedObjects(count = 1, status?: string) {
     if (count < 0) {
       throw new Error('Count must be positive');
     }
     if (count === 0) {
       return;
     }
-    this.objectsInMempool.add(-1 * count, {
-      [Attributes.STATUS]: status,
-    });
-  }
 
-  public recordRemovedObjects(count = 1) {
-    if (count < 0) {
-      throw new Error('Count must be positive');
-    }
-    if (count === 0) {
-      return;
-    }
-    this.objectsInMempool.add(-1 * count);
+    const attributes = status ? { [Attributes.STATUS]: status } : {};
+    this.objectsInMempool.add(-1 * count, attributes);
   }
 }

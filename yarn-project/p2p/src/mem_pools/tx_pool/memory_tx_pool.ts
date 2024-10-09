@@ -3,7 +3,7 @@ import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation } from './instrumentation.js';
+import { PoolInstrumentation } from '../instrumentation.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -36,8 +36,8 @@ export class InMemoryTxPool implements TxPool {
       this.minedTxs.add(key);
       this.pendingTxs.delete(key);
     }
-    this.metrics.recordRemovedObjectsWithStatus('pending', txHashes.length);
-    this.metrics.recordAddedObjectsWithStatus('mined', txHashes.length);
+    this.metrics.recordRemovedObjects(txHashes.length, 'pending');
+    this.metrics.recordAddedObjects(txHashes.length, 'mined');
     return Promise.resolve();
   }
 
@@ -93,7 +93,7 @@ export class InMemoryTxPool implements TxPool {
       }
     }
 
-    this.metrics.recordAddedObjectsWithStatus('pending', pending);
+    this.metrics.recordAddedObjects(pending, 'pending');
     return Promise.resolve();
   }
 
@@ -113,8 +113,8 @@ export class InMemoryTxPool implements TxPool {
       deletedMined += this.minedTxs.delete(key) ? 1 : 0;
     }
 
-    this.metrics.recordRemovedObjectsWithStatus('pending', deletedPending);
-    this.metrics.recordRemovedObjectsWithStatus('mined', deletedMined);
+    this.metrics.recordRemovedObjects(deletedPending, 'pending');
+    this.metrics.recordRemovedObjects(deletedMined, 'mined');
 
     return Promise.resolve();
   }

@@ -5,7 +5,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount } from 'viem';
 
-import { type PoolInstrumentation } from '../tx_pool/instrumentation.js';
+import { type PoolInstrumentation } from '../instrumentation.js';
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
 import { generateAccount, mockAttestation } from './mocks.js';
 

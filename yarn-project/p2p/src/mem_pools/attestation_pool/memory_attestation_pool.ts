@@ -2,7 +2,7 @@ import { type BlockAttestation } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation } from '../tx_pool/instrumentation.js';
+import { PoolInstrumentation } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
