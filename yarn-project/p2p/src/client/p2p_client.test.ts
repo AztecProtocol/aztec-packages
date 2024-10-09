@@ -146,14 +146,7 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     await client.stop();
 
-    const client2 = new P2PClient(
-      kvStore,
-      blockSource,
-      mempools,
-      p2pService,
-      0,
-      telemetryClient,
-    );
+    const client2 = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
     expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
   });
 
