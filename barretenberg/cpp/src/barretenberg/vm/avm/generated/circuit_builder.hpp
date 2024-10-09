@@ -35,7 +35,7 @@ class AvmCircuitBuilder {
 
     bool check_circuit() const;
 
-    size_t get_num_gates() const { return num_rows; }
+    size_t get_estimated_num_finalized_gates() const { return num_rows; }
 
     size_t get_circuit_subgroup_size() const { return CIRCUIT_SUBGROUP_SIZE; }
 

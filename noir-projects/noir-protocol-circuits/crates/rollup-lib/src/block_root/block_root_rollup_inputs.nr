@@ -9,7 +9,7 @@ use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
 use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
     constants::{
-    NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+    AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
     L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX
 },
     header::Header, content_commitment::ContentCommitment,
@@ -133,7 +133,7 @@ impl BlockRootRollupInputs {
             0
         );
 
-        let mut fee_arr = [FeeRecipient::empty(); 32];
+        let mut fee_arr = [FeeRecipient::empty(); AZTEC_EPOCH_DURATION];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
         BlockRootOrBlockMergePublicInputs {
@@ -146,6 +146,7 @@ impl BlockRootRollupInputs {
             out_hash: content_commitment.out_hash,
             fees: fee_arr,
             vk_tree_root: left.constants.vk_tree_root,
+            protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: self.prover_id
         }
     }

@@ -7,7 +7,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -58,6 +58,7 @@ export async function deployAztecContracts(
   privateKey: string | undefined,
   mnemonic: string,
   salt: number | undefined,
+  initialValidators: EthAddress[],
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
   const {
@@ -110,9 +111,11 @@ export async function deployAztecContracts(
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
 
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
-    l2FeeJuiceAddress: FeeJuiceAddress,
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     salt,
+    initialValidators,
   });
 }
 

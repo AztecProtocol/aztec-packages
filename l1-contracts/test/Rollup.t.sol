@@ -71,7 +71,7 @@ contract RollupTest is DecoderBase {
       address(this), address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
     testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
     proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
@@ -865,7 +865,8 @@ contract RollupTest is DecoderBase {
       _proverId
     ];
 
-    bytes32[64] memory fees;
+    bytes32[] memory fees = new bytes32[](Constants.AZTEC_EPOCH_DURATION * 2);
+
     fees[0] = bytes32(uint256(uint160(_feeRecipient)));
     fees[1] = bytes32(_feeAmount);
 

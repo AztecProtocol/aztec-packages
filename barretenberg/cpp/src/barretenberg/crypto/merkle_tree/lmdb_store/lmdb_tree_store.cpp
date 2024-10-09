@@ -191,20 +191,6 @@ void LMDBTreeStore::delete_leaf_indices(const fr& leafValue, LMDBTreeStore::Writ
 
 bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)
 {
-    return get_node_data(nodeHash, nodeData, tx);
-}
-
-void LMDBTreeStore::write_node(const fr& nodeHash, const NodePayload& nodeData, WriteTransaction& tx)
-{
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, nodeData);
-    std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
-    FrKeyType key(nodeHash);
-    tx.put_value<FrKeyType>(key, encoded, *_nodeDatabase);
-}
-
-void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTransaction& tx)
-{
     NodePayload nodePayload;
     bool success = get_node_data(nodeHash, nodePayload, tx);
     if (!success) {
@@ -249,6 +235,8 @@ void LMDBTreeStore::delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx
     tx.delete_value(key, *_leafHashToPreImageDatabase);
 }
 
+=======
+>>>>>>> origin/master
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
                                 Indices& indices,
                                 std::optional<index_t> sizeLimit,

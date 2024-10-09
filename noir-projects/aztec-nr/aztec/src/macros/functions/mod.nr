@@ -215,10 +215,10 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let modified_body = modify_fn_body(body, to_prepend, to_append);
     f.set_body(modified_body);
     f.add_attribute("recursive");
-    f.set_return_public(true);
     f.set_return_type(
         quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
     );
+    f.set_return_data();
 
     fn_abi
 }

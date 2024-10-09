@@ -505,10 +505,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
             [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
                 if (blockNumber == 0) {
                     throw std::runtime_error("Invalid block number");
-                }
-                typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
-                BlockPayload blockData;
-                if (!store_->get_block_data(blockNumber, blockData, *tx)) {
+                    typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;

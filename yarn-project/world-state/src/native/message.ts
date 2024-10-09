@@ -206,6 +206,18 @@ interface DeleteForkRequest {
   forkId: number;
 }
 
+interface CreateForkRequest {
+  blockNumber: number;
+}
+
+interface CreateForkResponse {
+  forkId: number;
+}
+
+interface DeleteForkRequest {
+  forkId: number;
+}
+
 export type WorldStateRequest = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoRequest;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceRequest;

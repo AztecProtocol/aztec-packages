@@ -12,8 +12,8 @@ import {
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
+  CombinedConstantData,
   Gas,
-  GlobalVariables,
   Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -22,7 +22,6 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
-  PrivateCircuitPublicInputs,
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -58,6 +57,7 @@ import {
   acvm,
   createSimulationError,
   extractCallStack,
+  extractPrivateCircuitPublicInputs,
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
@@ -598,8 +598,7 @@ export class TXE implements TypedOracle {
         throw createSimulationError(execError);
       });
       const duration = timer.ms();
-      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
-      const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+      const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
       const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
       this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
@@ -694,7 +693,7 @@ export class TXE implements TypedOracle {
 
     const executionResult = executor.simulate(
       execution,
-      GlobalVariables.empty(),
+      CombinedConstantData.empty(),
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],

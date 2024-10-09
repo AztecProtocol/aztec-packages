@@ -61,6 +61,7 @@ impl BlockMergeRollupInputs {
             out_hash,
             fees,
             vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: left.prover_id // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
         }
     }

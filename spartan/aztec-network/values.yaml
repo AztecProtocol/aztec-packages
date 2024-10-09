@@ -37,7 +37,7 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  replicas: 0
+  replicas: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -105,7 +105,8 @@ bot:
   txIntervalSeconds: 5
   privateTransfersPerTx: 1
   publicTransfersPerTx: 0
-  noWaitForTransfers: true
+  # Do not wait for transactions
+  followChain: "NONE"
   botNoStart: false
   pxeProverEnabled: false
   proverRealProofs: false
@@ -154,3 +155,4 @@ ethereum:
     limits:
       memory: "4Gi"
       cpu: "1"
+  storage: "8Gi"

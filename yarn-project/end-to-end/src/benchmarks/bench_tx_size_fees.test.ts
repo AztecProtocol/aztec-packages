@@ -9,7 +9,7 @@ import {
 } from '@aztec/aztec.js';
 import { GasSettings } from '@aztec/circuits.js';
 import { FPCContract, FeeJuiceContract, TokenContract } from '@aztec/noir-contracts.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
 
@@ -45,7 +45,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // deploy the contracts
   beforeAll(async () => {
-    feeJuice = await FeeJuiceContract.at(FeeJuiceAddress, aliceWallet);
+    feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
     fpc = await FPCContract.deploy(aliceWallet, token.address).send().deployed();
   });

@@ -52,6 +52,7 @@ import { type Hasher } from '@aztec/types/interfaces';
 
 import { WorldStateStatus } from '../native/message.js';
 import {
+  type HandleL2BlockAndMessagesResult,
   INITIAL_NULLIFIER_TREE_SIZE,
   INITIAL_PUBLIC_DATA_TREE_SIZE,
   type MerkleTreeAdminDatabase,

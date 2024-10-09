@@ -14,7 +14,6 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "gtest/gtest.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>

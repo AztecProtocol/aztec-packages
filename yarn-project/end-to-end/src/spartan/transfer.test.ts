@@ -116,7 +116,7 @@ describe('token transfer test', () => {
 
     // For each round, make both private and public transfers
     for (let i = 1n; i <= ROUNDS; i++) {
-      const txs = await Promise.all([
+      const interactions = await Promise.all([
         ...wallets.map(async w =>
           (
             await TokenContract.at(tokenAddress, w)
@@ -124,7 +124,7 @@ describe('token transfer test', () => {
         ),
       ]);
 
-      txs.forEach(async t => await t.prove());
+      const txs = await Promise.all(interactions.map(async i => await i.prove()));
 
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
     }

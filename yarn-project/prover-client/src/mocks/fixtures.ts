@@ -23,6 +23,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 import * as fs from 'fs/promises';
@@ -33,6 +34,7 @@ const {
   TEMP_DIR = '/tmp',
   BB_BINARY_PATH = '',
   BB_WORKING_DIRECTORY = '',
+  BB_SKIP_CLEANUP = '',
   NOIR_RELEASE_DIR = 'noir-repo/target/release',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
@@ -57,12 +59,17 @@ export const getEnvironmentConfig = async (logger: DebugLogger) => {
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
     logger.verbose(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+
+    const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
+    bbSkipCleanup && logger.verbose(`Not going to clean up BB working directory ${bbWorkingDirectory} after run`);
+
     return {
       acvmWorkingDirectory,
       bbWorkingDirectory,
       expectedAcvmPath,
       expectedBBPath,
       directoryToCleanup: ACVM_WORKING_DIRECTORY && BB_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+      bbSkipCleanup,
     };
   } catch (err) {
     logger.verbose(`Native BB not available, error: ${err}`);
@@ -91,11 +98,17 @@ export async function getSimulationProvider(
 }
 
 export const makeBloatedProcessedTx = (builderDb: MerkleTreeReadOperations, seed = 0x1) =>
-  makeBloatedProcessedTxWithVKRoot(builderDb, getVKTreeRoot(), seed);
+  makeBloatedProcessedTxWithVKRoot(builderDb, getVKTreeRoot(), protocolContractTreeRoot, seed);
 
 export const makeEmptyProcessedTx = (builderDb: MerkleTreeReadOperations, chainId: Fr, version: Fr) => {
   const header = builderDb.getInitialHeader();
-  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
+  return makeEmptyProcessedTxFromHistoricalTreeRoots(
+    header,
+    chainId,
+    version,
+    getVKTreeRoot(),
+    protocolContractTreeRoot,
+  );
 };
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs

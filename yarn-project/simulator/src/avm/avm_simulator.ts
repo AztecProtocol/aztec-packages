@@ -2,6 +2,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
+import { SideEffectLimitReachedError } from '../public/side_effect_errors.js';
 import type { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { isAvmBytecode } from './bytecode_utils.js';
@@ -98,7 +99,7 @@ export class AvmSimulator {
       return results;
     } catch (err: any) {
       this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
-      if (!(err instanceof AvmExecutionError)) {
+      if (!(err instanceof AvmExecutionError || err instanceof SideEffectLimitReachedError)) {
         this.log.verbose(`Unknown error thrown by AVM: ${err}`);
         throw err;
       }

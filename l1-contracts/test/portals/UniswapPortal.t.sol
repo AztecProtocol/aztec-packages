@@ -55,7 +55,8 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup = new Rollup(new MockFeeJuicePortal(), bytes32(0), address(this), new address[](0));
+    rollup =
+      new Rollup(new MockFeeJuicePortal(), bytes32(0), bytes32(0), address(this), new address[](0));
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();
