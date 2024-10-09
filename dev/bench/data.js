@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728493115056,
+  "lastUpdate": 1728509902429,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02cff0b525d9d6b1c854219f06713a8b94a8e9f5",
-          "message": "feat(avm)!: GETENVVAR + ISSTATICCALL (#8692)\n\nThe reason I'm keeping all the oracles on the Noir side, is because I\nneed to pass the enum index as an immediate and Noir doesn't allow that\nin any other way. That is, if you had an oracle `get_env_var(var_idx:\nu8)`, when you call it like `get_env_var(12)` you would get a memory\naddress with the 12 in it; and not the `12` constant.",
-          "timestamp": "2024-09-23T22:22:48+01:00",
-          "tree_id": "85849c2669a46e1bd2e5360dd2c0da4494958ac6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/02cff0b525d9d6b1c854219f06713a8b94a8e9f5"
-        },
-        "date": 1727127753822,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35921.812904000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 32961.710527999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5168.4432219999935,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4780.557187000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100701.421666,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100701422000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14730.694588,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14730695000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8555063148,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8555063148 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151466359,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151466359 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 7012223068,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 7012223068 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128665911,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128665911 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 127240379,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127240379 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ef0895ed9788c533b0caf2d2c30839552dabbcc",
+          "message": "feat: new per-enqueued-call gas limit (#9033)\n\nIt is not trivial to implement \"startup conditions\" in the AVM circuit\r\nthat are not standard part of any execution. So, for now we think it'd\r\nbe much easier to enforce our \"max gas\" in the kernel. The simulator and\r\nwitgen will check the startup gas and error if its too much, but the AVM\r\ncircuit will not include constraints for this.\r\n\r\nNote that this is an important constraint (whether in the kernel or AVM)\r\nbecause for now this gas limit also serves to ensure that the AVM\r\ncircuit's trace never fills up.",
+          "timestamp": "2024-10-09T21:23:48Z",
+          "tree_id": "08978444664ee37e923bb9e3c6e2d3341fb36681",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6ef0895ed9788c533b0caf2d2c30839552dabbcc"
+        },
+        "date": 1728509894156,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31321.665307999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28882.341134 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5537.085727000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5243.292273999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94970.49075699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94970493000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15652.720294000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15652720000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8406353168,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8406353168 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 150599368,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 150599368 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6777457456,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6777457456 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125549974,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125549974 ns\nthreads: 1"
           }
         ]
       }
