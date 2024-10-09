@@ -58,6 +58,7 @@ export const createP2PClient = async (
       proofVerifier,
       worldStateSynchronizer,
       store,
+      telemetry,
     );
   } else {
     p2pService = new DummyP2PService();

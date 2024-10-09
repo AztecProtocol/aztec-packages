@@ -5,7 +5,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
-import { Attributes, TelemetryClient, Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -16,7 +16,6 @@ import {
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
-import { ValidatorMetrics } from './metrics.js';
 
 export interface Validator {
   start(): Promise<void>;
@@ -32,9 +31,8 @@ export interface Validator {
 
 /** Validator Client
  */
-export class ValidatorClient implements Validator {
+export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
-  private metrics: ValidatorMetrics;
 
   constructor(
     keyStore: ValidatorKeyStore,
@@ -44,9 +42,10 @@ export class ValidatorClient implements Validator {
     telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:validator'),
   ) {
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
+    // Instatntiate tracer
+    super(telemetry, 'Validator');
 
-    this.metrics = new ValidatorMetrics(telemetry);
+    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
@@ -68,10 +67,6 @@ export class ValidatorClient implements Validator {
     );
     validator.registerBlockProposalHandler();
     return validator;
-  }
-
-  get tracer(): Tracer {
-    return this.metrics.tracer;
   }
 
   public start() {
