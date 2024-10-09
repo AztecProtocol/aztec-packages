@@ -156,14 +156,6 @@ void build_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.keccak_permutations[i]);
     }
 
-    // Add pedersen constraints
-    for (size_t i = 0; i < constraint_system.pedersen_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.pedersen_constraints.at(i);
-        create_pedersen_constraint(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.pedersen_constraints.at(i));
-    }
-
     for (size_t i = 0; i < constraint_system.poseidon2_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poseidon2_constraints.at(i);
         create_poseidon2_permutations(builder, constraint);

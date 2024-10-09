@@ -335,15 +335,6 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  PEDERSEN {} {} -> {}",
-                    inputs,
-                    domain_separator,
-                    output
-                );
-            }
             BlackBoxOp::SchnorrVerify {
                 public_key_x,
                 public_key_y,
