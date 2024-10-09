@@ -50,7 +50,7 @@ library DataStructures {
   }
 
   struct Proposal {
-    DataStructures.Configuration config;
+    Configuration config;
     ProposalState state;
     IPayload payload;
     address creator;

@@ -16,8 +16,7 @@ library Errors {
   error Apella__CallerNotGerousia(address caller, address gerousia);
   error Apella__CallerNotSelf(address caller, address self);
   error Apella__NoCheckpointsFound();
-  error Apella__InsufficientPower(uint256 have, uint256 required);
-  error Apella__NotInPast();
+  error Apella__InsufficientPower(address voter, uint256 have, uint256 required);
   error Apella__InvalidConfiguration();
   error Apella__WithdrawalAlreadyclaimed();
   error Apella__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
@@ -26,10 +25,18 @@ library Errors {
   error Apella__CannotCallAsset();
   error Apella__CallFailed(address target);
   error Apella__ProposalDoesNotExists(uint256 proposalId);
+  error Apella__ProposalAlreadyDropped();
+  error Apella__ProposalCannotBeDropped();
+
+  error Apella__UserLib__NotInPast();
 
   error Apella__ConfigurationLib__InvalidMinimumVotes();
-  error Apella__ConfigurationLib__ConfigInvalidQuorum();
-  error Apella__ConfigurationLib__ConfigInvalidDifferential();
+  error Apella__ConfigurationLib__QuorumTooSmall();
+  error Apella__ConfigurationLib__QuorumTooBig();
+  error Apella__ConfigurationLib__DifferentialTooSmall();
+  error Apella__ConfigurationLib__DifferentialTooBig();
+  error Apella__ConfigurationLib__TimeTooSmall(string name);
+  error Apella__ConfigurationLib__TimeTooBig(string name);
 
   error Apella__ProposalLib__ZeroMinimum();
   error Apella__ProposalLib__ZeroVotesNeeded();

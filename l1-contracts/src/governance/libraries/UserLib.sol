@@ -34,7 +34,9 @@ library UserLib {
     }
     require(self.numCheckPoints > 0, Errors.Apella__NoCheckpointsFound());
     DataStructures.CheckPoint storage last = self.checkpoints[self.numCheckPoints - 1];
-    require(last.power >= _amount, Errors.Apella__InsufficientPower(last.power, _amount));
+    require(
+      last.power >= _amount, Errors.Apella__InsufficientPower(msg.sender, last.power, _amount)
+    );
     if (last.time == Timestamp.wrap(block.timestamp)) {
       last.power -= _amount;
     } else {
@@ -61,7 +63,7 @@ library UserLib {
   {
     // If not in the past, the values are not stable.
     // We disallow using it to avoid potential misuse.
-    require(_time < Timestamp.wrap(block.timestamp), Errors.Apella__NotInPast());
+    require(_time < Timestamp.wrap(block.timestamp), Errors.Apella__UserLib__NotInPast());
 
     uint256 numCheckPoints = self.numCheckPoints;
     if (numCheckPoints == 0) {

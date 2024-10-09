@@ -29,14 +29,14 @@ contract TestBase is Test {
   function assertGt(Timestamp a, Timestamp b, string memory err) internal {
     if (a <= b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      assertGt(a, b);
     }
   }
 
   function assertGt(Timestamp a, uint256 b, string memory err) internal {
     if (a <= Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      assertGt(a, b);
     }
   }
 
@@ -61,14 +61,14 @@ contract TestBase is Test {
   function assertLe(Timestamp a, Timestamp b, string memory err) internal {
     if (a > b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      assertLe(a, b);
     }
   }
 
   function assertLe(Timestamp a, uint256 b, string memory err) internal {
     if (a > Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      assertLe(a, b);
     }
   }
 
@@ -93,14 +93,14 @@ contract TestBase is Test {
   function assertLt(Timestamp a, Timestamp b, string memory err) internal {
     if (a >= b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      assertLt(a, b);
     }
   }
 
   function assertLt(Timestamp a, uint256 b, string memory err) internal {
     if (a >= Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      assertLt(a, b);
     }
   }
 

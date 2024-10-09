@@ -7,7 +7,7 @@ import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -25,16 +25,15 @@ contract Apella is IApella {
 
   address public gerousia;
 
-  DataStructures.Configuration internal configuration;
-
-  uint256 public proposalCount;
   mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
   mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
   mapping(address => DataStructures.User) internal users;
-  DataStructures.User internal total;
-
-  uint256 public withdrawalCount;
   mapping(uint256 withdrawalId => DataStructures.Withdrawal) internal withdrawals;
+
+  DataStructures.Configuration internal configuration;
+  DataStructures.User internal total;
+  uint256 public proposalCount;
+  uint256 public withdrawalCount;
 
   constructor(IERC20 _asset, address _gerousia) {
     ASSET = _asset;
@@ -52,16 +51,10 @@ contract Apella is IApella {
     configuration.assertValid();
   }
 
-  function getConfiguration() external view returns (DataStructures.Configuration memory) {
-    return configuration;
-  }
-
-  function getWithdrawal(uint256 _withdrawalId)
-    external
-    view
-    returns (DataStructures.Withdrawal memory)
-  {
-    return withdrawals[_withdrawalId];
+  function updateGerousia(address _gerousia) external override(IApella) {
+    require(msg.sender == address(this), Errors.Apella__CallerNotSelf(msg.sender, address(this)));
+    gerousia = _gerousia;
+    emit GerousiaUpdated(_gerousia);
   }
 
   function updateConfiguration(DataStructures.Configuration memory _configuration)
@@ -69,8 +62,13 @@ contract Apella is IApella {
     override(IApella)
   {
     require(msg.sender == address(this), Errors.Apella__CallerNotSelf(msg.sender, address(this)));
-    require(_configuration.assertValid(), Errors.Apella__InvalidConfiguration());
+
+    // This following MUST revert if the configuration is invalid
+    _configuration.assertValid();
+
     configuration = _configuration;
+
+    emit ConfigurationUpdated(Timestamp.wrap(block.timestamp));
   }
 
   function deposit(address _onBehalfOf, uint256 _amount) external override(IApella) {
@@ -81,7 +79,11 @@ contract Apella is IApella {
     emit Deposit(msg.sender, _onBehalfOf, _amount);
   }
 
-  function initiateWithdraw(address _to, uint256 _amount) external override(IApella) {
+  function initiateWithdraw(address _to, uint256 _amount)
+    external
+    override(IApella)
+    returns (uint256)
+  {
     users[msg.sender].sub(_amount);
     total.sub(_amount);
 
@@ -95,6 +97,8 @@ contract Apella is IApella {
     });
 
     emit WithdrawInitiated(withdrawalId, _to, _amount);
+
+    return withdrawalId;
   }
 
   function finaliseWithdraw(uint256 _withdrawalId) external override(IApella) {
@@ -139,12 +143,15 @@ contract Apella is IApella {
     require(state == DataStructures.ProposalState.Active, Errors.Apella__ProposalNotActive());
 
     // Compute the power at the time where we became active
-    uint256 userPower = users[msg.sender].powerAt(proposals[_proposalId].pendingUntil());
+    uint256 userPower = users[msg.sender].powerAt(proposals[_proposalId].pendingThrough());
 
     DataStructures.Ballot storage userBallot = ballots[_proposalId][msg.sender];
 
     uint256 availablePower = userPower - (userBallot.nea + userBallot.yea);
-    require(_amount <= availablePower, Errors.Apella__InsufficientPower(availablePower, _amount));
+    require(
+      _amount <= availablePower,
+      Errors.Apella__InsufficientPower(msg.sender, availablePower, _amount)
+    );
 
     DataStructures.Ballot storage summedBallot = proposals[_proposalId].summedBallot;
     if (_support) {
@@ -178,6 +185,8 @@ contract Apella is IApella {
       require(success, Errors.Apella__CallFailed(actions[i].target));
     }
 
+    emit ProposalExecuted(_proposalId);
+
     return true;
   }
 
@@ -193,6 +202,36 @@ contract Apella is IApella {
       return total.powerNow();
     }
     return total.powerAt(_ts);
+  }
+
+  function getConfiguration() external view returns (DataStructures.Configuration memory) {
+    return configuration;
+  }
+
+  function getProposal(uint256 _proposalId) external view returns (DataStructures.Proposal memory) {
+    return proposals[_proposalId];
+  }
+
+  function getWithdrawal(uint256 _withdrawalId)
+    external
+    view
+    returns (DataStructures.Withdrawal memory)
+  {
+    return withdrawals[_withdrawalId];
+  }
+
+  function dropProposal(uint256 _proposalId) external returns (bool) {
+    DataStructures.Proposal storage self = proposals[_proposalId];
+    require(
+      self.state != DataStructures.ProposalState.Dropped, Errors.Apella__ProposalAlreadyDropped()
+    );
+    require(
+      getProposalState(_proposalId) == DataStructures.ProposalState.Dropped,
+      Errors.Apella__ProposalCannotBeDropped()
+    );
+
+    self.state = DataStructures.ProposalState.Dropped;
+    return true;
   }
 
   /**
@@ -215,30 +254,32 @@ contract Apella is IApella {
       return self.state;
     }
 
-    // If the gerousia have changed drop the old proposals no matter what
+    // If the gerousia have changed we mark is as dropped
     if (gerousia != self.creator) {
       return DataStructures.ProposalState.Dropped;
     }
 
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
 
-    if (currentTime < self.pendingUntil()) {
+    if (currentTime <= self.pendingThrough()) {
       return DataStructures.ProposalState.Pending;
     }
 
-    if (currentTime < self.activeUntil()) {
+    if (currentTime <= self.activeThrough()) {
       return DataStructures.ProposalState.Active;
     }
 
-    if (self.isRejected(total.powerAt(self.pendingUntil()))) {
+    uint256 totalPower = total.powerAt(self.pendingThrough());
+    (VoteTabulationReturn vtr,) = self.voteTabulation(totalPower);
+    if (vtr != VoteTabulationReturn.Accepted) {
       return DataStructures.ProposalState.Rejected;
     }
 
-    if (currentTime < self.queuedUntil()) {
+    if (currentTime <= self.queuedThrough()) {
       return DataStructures.ProposalState.Queued;
     }
 
-    if (currentTime < self.executableUntil()) {
+    if (currentTime <= self.executableThrough()) {
       return DataStructures.ProposalState.Executable;
     }
 
