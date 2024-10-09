@@ -297,7 +297,7 @@ network-smoke:
   LOCALLY
   RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
-kind-network-transfer:
+network-transfer:
   ARG values_file
   LOCALLY
   RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
