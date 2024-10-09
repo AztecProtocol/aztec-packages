@@ -1,5 +1,15 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import {
+  ARCHIVE_HEIGHT,
+  Fr,
+  GeneratorIndex,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { createDebugLogger, fmtLogData } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -7,6 +17,7 @@ import { Timer } from '@aztec/foundation/timer';
 import assert from 'assert';
 import bindings from 'bindings';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
+import { cpus } from 'os';
 import { isAnyArrayBuffer } from 'util/types';
 
 import {
@@ -71,7 +82,23 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /** Creates a new native WorldState instance */
   constructor(dataDir: string, private log = createDebugLogger('aztec:world-state:database')) {
-    this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](dataDir);
+    this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
+      dataDir,
+      {
+        [MerkleTreeId.NULLIFIER_TREE]: NULLIFIER_TREE_HEIGHT,
+        [MerkleTreeId.NOTE_HASH_TREE]: NOTE_HASH_TREE_HEIGHT,
+        [MerkleTreeId.PUBLIC_DATA_TREE]: PUBLIC_DATA_TREE_HEIGHT,
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: L1_TO_L2_MSG_TREE_HEIGHT,
+        [MerkleTreeId.ARCHIVE]: ARCHIVE_HEIGHT,
+      },
+      {
+        [MerkleTreeId.NULLIFIER_TREE]: 2 * MAX_NULLIFIERS_PER_TX,
+        [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      },
+      GeneratorIndex.BLOCK_HASH,
+      10 * 1024 * 1024, // 10 GB per tree (in KB)
+      cpus().length,
+    );
     this.queue.start();
   }
 
