@@ -54,10 +54,11 @@ Create a new file `src/deploy.mjs`. We import the contract artifacts we have gen
 
 ```js
 // src/deploy.mjs
-import { writeFileSync } from 'fs';
-import { Contract, loadContractArtifact, createPXEClient, waitForPXE } from '@aztec/aztec.js';
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+#include_code deploy-imports yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
 import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
+import { writeFileSync } from 'fs';
+
+const TokenContractArtifact = loadContractArtifact(TokenContractJson);
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
 
@@ -67,12 +68,12 @@ main().catch((err) => {
 });
 ```
 
-Here, we are using the `ContractDeployer` class with the compiled artifact to send a new deployment transaction. The `deployed` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address.
+Here, we are using the `Contract` class with the compiled artifact to send a new deployment transaction. The `deployed` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address.
 
 Note that the token's `constructor()` method expects an `owner` address to set as the contract `admin`. We are using the first account from the Sandbox for this.
 
 :::info
-If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. SEe the [How to deploy a contract](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md) page for more info.
+If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. See the [How to deploy a contract](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md) page for more info.
 :::
 
 Run the snippet above as `node src/deploy.mjs`, and you should see the following output, along with a new `addresses.json` file in your project root:

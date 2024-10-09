@@ -23,7 +23,7 @@ yarn init -yp
 3. Add the `aztec.js` and `accounts` libraries as a dependency:
 
 ```sh
-yarn add @aztec/aztec.js @aztec/accounts
+yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js
 ```
 
 ## Next steps
