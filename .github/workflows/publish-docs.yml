@@ -54,6 +54,7 @@ jobs:
       - name: Serve docs
         run: |
           cd aztec-packages/docs
+          yarn install
           yarn build
           yarn serve &
       - name: Checkout PDF repo
