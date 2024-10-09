@@ -105,9 +105,12 @@ template <typename Curve> class GeminiProver_ {
                                                             Polynomial&& batched_unshifted,
                                                             Polynomial&& batched_to_be_shifted);
 
-    static std::vector<Claim> compute_fold_polynomial_evaluations(const size_t log_N,
-                                                                  std::vector<Polynomial>&& fold_polynomials,
-                                                                  const Fr& r_challenge);
+    static std::vector<Claim> compute_fold_polynomial_evaluations(
+        const size_t log_N,
+        std::vector<Polynomial>&& fold_polynomials,
+        Polynomial&& batched_unshifted,
+        const Fr& r_challenge,
+        std::vector<Polynomial>&& batched_groups_to_be_concatenated = {});
 
     template <typename Transcript>
     static std::vector<Claim> prove(const Fr circuit_size,
@@ -191,6 +194,7 @@ template <typename Curve> class GeminiVerifier_ {
         if (!concatenation_group_commitments.empty()) {
             size_t CONCATENATION_GROUP_SIZE = concatenation_group_commitments[0].size();
             size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
+            info("Verifer side ", MINICIRCUIT_N);
             std::vector<Fr> r_shifts_pos;
             std::vector<Fr> r_shifts_neg;
             auto current_r_shift_pos = r;

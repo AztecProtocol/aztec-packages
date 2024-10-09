@@ -173,8 +173,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         prover_commitments.emplace_back(commitment);
     }
 
-    const auto opening_claims =
-        GeminiProver::compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), gemini_eval_challenge);
+    const auto opening_claims = GeminiProver::compute_fold_polynomial_evaluations(
+        log_n, std::move(fold_polynomials), std::move(batched_unshifted), gemini_eval_challenge);
 
     std::vector<Fr> prover_evaluations;
     for (size_t l = 0; l < log_n; ++l) {
