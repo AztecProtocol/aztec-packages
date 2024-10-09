@@ -31,12 +31,11 @@ deps:
     RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 build:
-    ARG RAYON_NUM_THREADS
     # Prefetch targets to not wait for +deps.
     BUILD ../barretenberg/cpp/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+nargo
-    BUILD ../noir-projects/+build --RAYON_NUM_THREADS=$RAYON_NUM_THREADS
+    BUILD --pass-args ../noir-projects/+build
     BUILD ../l1-contracts/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+packages
