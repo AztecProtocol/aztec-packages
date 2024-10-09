@@ -52,8 +52,8 @@ spec:
               value: "{{ .Values.bot.privateTransfersPerTx }}"
             - name: BOT_PUBLIC_TRANSFERS_PER_TX
               value: "{{ .Values.bot.publicTransfersPerTx }}"
-            - name: BOT_NO_WAIT_FOR_TRANSFERS
-              value: "{{ .Values.bot.noWaitForTransfers }}"
+            - name: BOT_FOLLOW_CHAIN
+              value: "{{ .Values.bot.followChain }}"
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
             - name: PXE_PROVER_ENABLED
