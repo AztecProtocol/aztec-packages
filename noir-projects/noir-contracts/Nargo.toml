@@ -17,6 +17,7 @@ members = [
     "contracts/crowdfunding_contract",
     "contracts/delegator_contract",
     "contracts/delegated_on_contract",
+    "contracts/degen_score_contract",
     "contracts/docs_example_contract",
     "contracts/easy_private_token_contract",
     "contracts/easy_private_voting_contract",
