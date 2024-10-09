@@ -63,7 +63,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    const BatchOpeningClaim<Curve> batch_opening_claims =
+    const BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
@@ -74,7 +74,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                transcript);
 
     // Reduce the accumulator to a single opening claim
-    const OpeningClaim multivariate_to_univariate_opening_claim = PCS::reduce_batch_opening_claim(batch_opening_claims);
+    const OpeningClaim multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
     const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -106,9 +107,11 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         batching_scalar *= ipa_batching_challenge;
     }
 
-    std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
-                                                   { { evaluation_challenge_x, batched_transcript_eval },
-                                                     batched_commitment } };
+    const OpeningClaim translation_opening_claim = { { evaluation_challenge_x, batched_transcript_eval },
+                                                     batched_commitment };
+
+    const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
+                                                         translation_opening_claim };
 
     // Construct and verify the combined opening claim
     const OpeningClaim batch_opening_claim =

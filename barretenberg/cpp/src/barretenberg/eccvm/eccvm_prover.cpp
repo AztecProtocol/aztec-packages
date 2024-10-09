@@ -169,15 +169,16 @@ void ECCVMProver::execute_pcs_rounds()
         batching_scalar *= ipa_batching_challenge;
     }
 
-    std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
-                                                   { .polynomial = batched_univariate,
-                                                     .opening_pair = { evaluation_challenge_x, batched_evaluation } } };
+    const OpeningClaim translation_opening_claim = { .polynomial = batched_univariate,
+                                                     .opening_pair = { evaluation_challenge_x, batched_evaluation } };
+    const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
+                                                         translation_opening_claim };
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    const OpeningClaim batched_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
+    const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(key->commitment_key, batched_opening_claim, transcript);
+    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, transcript);
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
