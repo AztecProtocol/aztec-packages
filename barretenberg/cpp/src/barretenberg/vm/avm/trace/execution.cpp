@@ -293,7 +293,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     // should be done in the kernel - this is stubbed and underconstrained
     VmPublicInputs<FF> public_inputs = convert_public_inputs(public_inputs_vec);
     uint32_t start_side_effect_counter =
-        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
+        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
                                    : 0;
 
     AvmTraceBuilder trace_builder =
