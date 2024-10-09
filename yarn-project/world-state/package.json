@@ -14,7 +14,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && mkdir -p build && (([ -f ../../barretenberg/cpp/build-pic/lib/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build) || ([ -f ../../barretenberg/cpp/build/bin/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build/bin/world_state_napi.node build) || true) && tsc -b",
+    "build": "yarn clean && mkdir -p build && (([ -f ../../barretenberg/cpp/build/bin/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build/bin/world_state_napi.node build) || ([ -f ../../barretenberg/cpp/build-pic/lib/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build) || true) && tsc -b",
     "build:cpp": "./scripts/build.sh cpp",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest ./build .tsbuildinfo",
