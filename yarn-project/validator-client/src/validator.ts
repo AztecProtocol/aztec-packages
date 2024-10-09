@@ -5,6 +5,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
+import { Attributes, TelemetryClient, Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -15,6 +16,7 @@ import {
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
+import { ValidatorMetrics } from './metrics.js';
 
 export interface Validator {
   start(): Promise<void>;
@@ -32,21 +34,24 @@ export interface Validator {
  */
 export class ValidatorClient implements Validator {
   private validationService: ValidationService;
+  private metrics: ValidatorMetrics;
 
   constructor(
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
+    telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:validator'),
   ) {
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
+    this.metrics = new ValidatorMetrics(telemetry);
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P) {
+  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -59,9 +64,14 @@ export class ValidatorClient implements Validator {
       p2pClient,
       config.attestationPoolingIntervalMs,
       config.attestationWaitTimeoutMs,
+      telemetry,
     );
     validator.registerBlockProposalHandler();
     return validator;
+  }
+
+  get tracer(): Tracer {
+    return this.metrics.tracer;
   }
 
   public start() {
@@ -128,6 +138,11 @@ export class ValidatorClient implements Validator {
     return this.validationService.createBlockProposal(header, archive, txs);
   }
 
+  @trackSpan('ValidatorClient.broadcastBlockProposal', proposal => ({
+    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
+  }))
   broadcastBlockProposal(proposal: BlockProposal): void {
     this.p2pClient.broadcastProposal(proposal);
   }

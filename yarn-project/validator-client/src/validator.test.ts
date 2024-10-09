@@ -6,6 +6,7 @@ import { makeHeader } from '@aztec/circuits.js/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -39,12 +40,14 @@ describe('ValidationService', () => {
       attestationWaitTimeoutMs: 1000,
       disableValidator: false,
     };
-    validatorClient = ValidatorClient.new(config, p2pClient);
+    validatorClient = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, p2pClient)).toThrow(InvalidValidatorPrivateKeyError);
+    expect(() => ValidatorClient.new(config, p2pClient, new NoopTelemetryClient())).toThrow(
+      InvalidValidatorPrivateKeyError,
+    );
   });
 
   it('Should create a valid block proposal', async () => {

@@ -317,6 +317,7 @@ export class Archiver implements ArchiveSource {
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.
