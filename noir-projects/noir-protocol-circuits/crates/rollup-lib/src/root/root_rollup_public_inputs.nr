@@ -13,5 +13,6 @@ pub struct RootRollupPublicInputs {
     out_hash: Field,
     fees: [FeeRecipient; AZTEC_EPOCH_DURATION],
     vk_tree_root: Field,
+    protocol_contract_tree_root: Field,
     prover_id: Field,
 }

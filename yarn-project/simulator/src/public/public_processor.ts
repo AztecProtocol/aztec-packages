@@ -10,9 +10,7 @@ import {
   validateProcessedTx,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
   ContractClassRegisteredEvent,
-  FEE_JUICE_ADDRESS,
   type GlobalVariables,
   type Header,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -22,7 +20,7 @@ import {
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
@@ -219,7 +217,7 @@ export class PublicProcessor {
       return finalPublicDataUpdateRequests;
     }
 
-    const feeJuiceAddress = AztecAddress.fromBigInt(FEE_JUICE_ADDRESS);
+    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
     const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
@@ -272,7 +270,10 @@ export class PublicProcessor {
     });
 
     this.metrics.recordClassRegistration(
-      ...ContractClassRegisteredEvent.fromLogs(tx.unencryptedLogs.unrollLogs(), ClassRegistererAddress),
+      ...ContractClassRegisteredEvent.fromLogs(
+        tx.unencryptedLogs.unrollLogs(),
+        ProtocolContractAddress.ContractClassRegisterer,
+      ),
     );
 
     const phaseCount = processedPhases.length;

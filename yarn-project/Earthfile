@@ -31,12 +31,11 @@ deps:
     RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 build:
-    ARG RAYON_NUM_THREADS
     # Prefetch targets to not wait for +deps.
     BUILD ../barretenberg/cpp/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+nargo
-    BUILD ../noir-projects/+build
+    BUILD --pass-args ../noir-projects/+build
     BUILD ../l1-contracts/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+packages
@@ -58,7 +57,6 @@ build-dev:
     SAVE ARTIFACT /usr/src /usr/src
 
 cli-base:
-    ARG RAYON_NUM_THREADS
     FROM +build
     # Remove a bunch of stuff that we don't need that takes up space.
     RUN rm -rf \
@@ -147,14 +145,12 @@ export-cli-wallet:
     SAVE IMAGE --push aztecprotocol/cli-wallet:${DIST_TAG}${ARCH:+-$ARCH}
 
 aztec-prod:
-    ARG RAYON_NUM_THREADS
     FROM +cli-base
     RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     SAVE ARTIFACT /usr/src /usr/src
 
 aztec:
-    ARG RAYON_NUM_THREADS
     FROM ubuntu:noble
     RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
     COPY +aztec-prod/usr/src /usr/src
@@ -194,7 +190,6 @@ export-aztec-faucet:
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
-    ARG RAYON_NUM_THREADS
     FROM +cli-base
     RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
@@ -228,7 +223,6 @@ end-to-end-base:
     RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
 
 end-to-end:
-    ARG RAYON_NUM_THREADS
     FROM +end-to-end-base
 
     COPY +anvil/anvil /opt/foundry/bin/anvil
@@ -242,12 +236,10 @@ scripts-prod:
     SAVE ARTIFACT /usr/src /usr/src
 
 all:
-    ARG RAYON_NUM_THREADS
     BUILD +aztec
     BUILD +end-to-end
 
 export-aztec:
-    ARG RAYON_NUM_THREADS
     ARG EARTHLY_GIT_HASH
     FROM +aztec
     SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
@@ -264,7 +256,6 @@ export-end-to-end:
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
 
 export-e2e-test-images:
-    ARG RAYON_NUM_THREADS
     BUILD +export-aztec
     BUILD +export-end-to-end
 

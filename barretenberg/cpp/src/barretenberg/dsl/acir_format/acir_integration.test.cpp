@@ -63,8 +63,8 @@ class AcirIntegrationTest : public ::testing::Test {
         Prover prover{ builder };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
-        info("num gates          = ", builder.get_num_gates());
-        info("total circuit size = ", builder.get_total_circuit_size());
+        info("num gates          = ", builder.get_estimated_num_finalized_gates());
+        info("total circuit size = ", builder.get_estimated_total_circuit_size());
         info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
         info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
 #endif
@@ -83,8 +83,8 @@ class AcirIntegrationTest : public ::testing::Test {
         auto prover = composer.create_prover(builder);
 #ifdef LOG_SIZES
         // builder.blocks.summarize();
-        // info("num gates          = ", builder.get_num_gates());
-        // info("total circuit size = ", builder.get_total_circuit_size());
+        // info("num gates          = ", builder.get_estimated_num_finalized_gates());
+        // info("total circuit size = ", builder.get_estimated_total_circuit_size());
 #endif
         auto proof = prover.construct_proof();
 #ifdef LOG_SIZES

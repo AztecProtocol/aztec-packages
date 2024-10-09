@@ -77,18 +77,9 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
-
-  'NULLIFIER_TREE_HEIGHT',
-  'MAX_NULLIFIERS_PER_TX',
-  'NOTE_HASH_TREE_HEIGHT',
-  'PUBLIC_DATA_TREE_HEIGHT',
-  'MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
-  'L1_TO_L2_MSG_TREE_HEIGHT',
-  'ARCHIVE_HEIGHT',
-  'GENESIS_ARCHIVE_ROOT',
 ];
 
-const CPP_GENERATORS = ['BLOCK_HASH'];
+const CPP_GENERATORS: string[] = [];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -366,7 +357,7 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
         // Remove the 'AztecAddress::from_field(...)' pattern
-        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+)\)/g, '$1')
+        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')

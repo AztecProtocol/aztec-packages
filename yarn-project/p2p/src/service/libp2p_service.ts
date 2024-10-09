@@ -33,10 +33,8 @@ import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
-import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
-import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { type MemPools } from '../mem_pools/interface.js';
 import {
   DataTxValidator,
   DoubleSpendTxValidator,
@@ -99,9 +97,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private config: P2PConfig,
     private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
-    private txPool: TxPool,
-    private attestationPool: AttestationPool,
-    private epochProofQuotePool: EpochProofQuotePool,
+    private mempools: MemPools,
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
@@ -208,9 +204,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     config: P2PConfig,
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
-    txPool: TxPool,
-    attestationPool: AttestationPool,
-    epochProofQuotePool: EpochProofQuotePool,
+    mempools: MemPools,
     l2BlockSource: L2BlockSource,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
@@ -284,7 +278,7 @@ export class LibP2PService extends WithTracer implements P2PService {
      */
     const txHandler = (msg: Buffer): Promise<Uint8Array> => {
       const txHash = TxHash.fromBuffer(msg);
-      const foundTx = txPool.getTxByHash(txHash);
+      const foundTx = mempools.txPool.getTxByHash(txHash);
       const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
       return Promise.resolve(asUint8Array);
     };
@@ -299,9 +293,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       config,
       node,
       peerDiscoveryService,
-      txPool,
-      attestationPool,
-      epochProofQuotePool,
+      mempools,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
@@ -403,8 +395,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
   }))
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
-    this.logger.verbose(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
-    await this.attestationPool.addAttestations([attestation]);
+    this.logger.debug(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
+    await this.mempools.attestationPool.addAttestations([attestation]);
   }
 
   /**Process block from peer
@@ -447,7 +439,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
     this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);
-    this.epochProofQuotePool.addQuote(epochProofQuote);
+    this.mempools.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
@@ -466,7 +458,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const isValidTx = await this.validatePropagatedTx(tx, peerId);
 
     if (isValidTx) {
-      await this.txPool.addTxs([tx]);
+      await this.mempools.txPool.addTxs([tx]);
     }
   }
 

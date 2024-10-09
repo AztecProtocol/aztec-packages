@@ -8,9 +8,10 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { expect, jest } from '@jest/globals';
 
-import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool, type P2PService } from '../index.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import { type MemPools } from '../mem_pools/interface.js';
+import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { P2PClient } from './p2p_client.js';
 
 /**
@@ -24,6 +25,7 @@ describe('In-Memory P2P Client', () => {
   let txPool: Mockify<TxPool>;
   let attestationPool: Mockify<AttestationPool>;
   let epochProofQuotePool: Mockify<EpochProofQuotePool>;
+  let mempools: MemPools;
   let blockSource: MockBlockSource;
   let p2pService: Mockify<P2PService>;
   let kvStore: AztecKVStore;
@@ -67,17 +69,14 @@ describe('In-Memory P2P Client', () => {
 
     blockSource = new MockBlockSource();
 
-    kvStore = openTmpStore();
-    client = new P2PClient(
-      kvStore,
-      blockSource,
+    mempools = {
       txPool,
       attestationPool,
       epochProofQuotePool,
-      p2pService,
-      0,
-      telemetryClient,
-    );
+    };
+
+    kvStore = openTmpStore();
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
@@ -150,9 +149,7 @@ describe('In-Memory P2P Client', () => {
     const client2 = new P2PClient(
       kvStore,
       blockSource,
-      txPool,
-      attestationPool,
-      epochProofQuotePool,
+      mempools,
       p2pService,
       0,
       telemetryClient,
@@ -171,16 +168,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('deletes txs after waiting the set number of blocks', async () => {
-    client = new P2PClient(
-      kvStore,
-      blockSource,
-      txPool,
-      attestationPool,
-      epochProofQuotePool,
-      p2pService,
-      10,
-      telemetryClient,
-    );
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10, telemetryClient);
     blockSource.setProvenBlockNumber(0);
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
@@ -197,16 +185,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('stores and returns epoch proof quotes', async () => {
-    client = new P2PClient(
-      kvStore,
-      blockSource,
-      txPool,
-      attestationPool,
-      epochProofQuotePool,
-      p2pService,
-      0,
-      telemetryClient,
-    );
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
 
     blockSource.setProvenEpochNumber(2);
     await client.start();
@@ -237,16 +216,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('deletes expired proof quotes', async () => {
-    client = new P2PClient(
-      kvStore,
-      blockSource,
-      txPool,
-      attestationPool,
-      epochProofQuotePool,
-      p2pService,
-      0,
-      telemetryClient,
-    );
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
 
     blockSource.setProvenEpochNumber(1);
     blockSource.setProvenBlockNumber(1);

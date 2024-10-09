@@ -14,7 +14,7 @@ import {
   MetadataTxValidator,
   type NullifierSource,
 } from '@aztec/p2p';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { readPublicState } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
@@ -46,7 +46,7 @@ export class TxValidatorFactory {
       new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
       new DoubleSpendTxValidator(this.nullifierSource),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(this.publicStateSource, FeeJuiceAddress, this.enforceFees),
+      new GasTxValidator(this.publicStateSource, ProtocolContractAddress.FeeJuice, this.enforceFees),
     );
   }
 

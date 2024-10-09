@@ -20,6 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBaseRollupInput, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -70,6 +71,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
           this.globalVariables!.chainId,
           this.globalVariables!.version,
           getVKTreeRoot(),
+          protocolContractTreeRoot,
         ),
       );
     }

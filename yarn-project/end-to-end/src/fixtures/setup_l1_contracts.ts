@@ -15,7 +15,7 @@ import {
   TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { type HDAccount, type PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
@@ -56,8 +56,9 @@ export const setupL1Contracts = async (
   };
 
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
-    l2FeeJuiceAddress: FeeJuiceAddress,
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     salt: undefined,
     ...args,
   });

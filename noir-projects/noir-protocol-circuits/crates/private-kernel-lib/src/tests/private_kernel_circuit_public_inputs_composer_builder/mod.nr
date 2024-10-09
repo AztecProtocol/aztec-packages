@@ -31,7 +31,12 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
     pub fn new_from_tx_request(self) -> PrivateKernelCircuitPublicInputsComposer {
         let private_call = self.private_call.to_private_circuit_public_inputs();
-        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call, FixtureBuilder::vk_tree_root())
+        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
+            self.tx_request,
+            private_call,
+            FixtureBuilder::vk_tree_root(),
+            self.private_call.protocol_contract_tree_root
+        )
     }
 
     pub fn new_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputsComposer {

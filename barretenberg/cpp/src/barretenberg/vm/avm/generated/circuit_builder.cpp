@@ -17,7 +17,7 @@ namespace bb {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
-    const size_t num_rows = get_num_gates();
+    const size_t num_rows = get_estimated_num_finalized_gates();
     const size_t circuit_subgroup_size = get_circuit_subgroup_size();
     ASSERT(num_rows <= circuit_subgroup_size);
     ProverPolynomials polys;
@@ -730,7 +730,7 @@ bool AvmCircuitBuilder::check_circuit() const
 
     auto polys = compute_polynomials();
     // We'll only check up to the generated trace which might be << than the circuit subgroup size.
-    const size_t num_rows = get_num_gates();
+    const size_t num_rows = get_estimated_num_finalized_gates();
 
     // Checks that we will run.
     using SignalErrorFn = const std::function<void(const std::string&)>&;
