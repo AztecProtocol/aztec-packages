@@ -9,10 +9,10 @@ async function runTest(
   witness: Uint8Array,
   threads?: number
 ) {
-  const { UltraPlonkBackend, BarretenbergVerifier } = await import("@aztec/bb.js");
+  const { UltraHonkBackend, BarretenbergVerifier } = await import("@aztec/bb.js");
 
   debug("starting test...");
-  const backend = new UltraPlonkBackend(bytecode, { threads });
+  const backend = new UltraHonkBackend(bytecode, { threads });
   const proof = await backend.generateProof(witness);
 
   const verificationKey = await backend.getVerificationKey();
@@ -20,7 +20,7 @@ async function runTest(
 
   debug(`verifying...`);
   const verifier = new BarretenbergVerifier({ threads });
-  const verified = await verifier.verifyUltraplonkProof(proof, verificationKey);
+  const verified = await verifier.verifyUltrahonkProof(proof, verificationKey);
   debug(`verified: ${verified}`);
 
   await verifier.destroy();
