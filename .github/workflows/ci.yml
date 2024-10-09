@@ -118,8 +118,7 @@ jobs:
 
   build:
     needs: [build-images, changes]
-    # NOTE: we don't skip this job here instead using if's below so that dependencies are not broken
-    # we still want build to be at the bottom of the dependency chain
+    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -133,7 +132,6 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
-        if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
           earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
@@ -414,7 +412,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   noir-format:
-    needs: [build, changes]
+    needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
     steps:

@@ -279,6 +279,22 @@ prover-client-test:
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
 
+# NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
+# Running this inside the main builder as the point is not to run this through dockerization.
+network-test-fake-proofs:
+    FROM +build
+    # All script arguments are in the end-to-end/scripts/native-network folder
+    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+        ./test-transfer.sh \
+        ./deploy-l1-contracts.sh \
+        ./deploy-l2-contracts.sh \
+        ./boot-node.sh \
+        ./ethereum.sh \
+        "./prover-node.sh false" \
+        ./pxe.sh \
+        ./transaction-bot.sh \
+        "./validator.sh 8081"
+
 publish-npm:
     FROM +build
     ARG DIST_TAG="latest"
