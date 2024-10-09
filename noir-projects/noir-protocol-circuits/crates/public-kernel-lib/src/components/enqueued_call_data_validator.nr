@@ -5,7 +5,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, enqueued_call_data::EnqueuedCallData,
     public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestArrayLengths
 },
-    constants::MAX_L2_GAS_PER_ENQUEUED_CALL, utils::arrays::array_length
+    utils::arrays::array_length
 };
 
 pub struct EnqueuedCallDataValidator {
@@ -89,23 +89,17 @@ impl EnqueuedCallDataValidator {
     // Validates that the start gas injected into the vm circuit matches the remaining gas.
     fn validate_start_gas(self, previous_kernel: PublicKernelCircuitPublicInputs) {
         let enqueued_call_start_gas = self.enqueued_call.data.start_gas_left;
-        // NOTE: the AVM circuit will fail to generate a proof if its "start gas" is > MAX_L2_GAS_PER_ENQUEUED_CALL,
-        // so the kernel never allocates more than that maximum to one enqueued call.
         if self.phase != PublicKernelPhase.TEARDOWN {
             // An enqueued call's start gas is the remaining gas left in the transaction after the previous kernel.
             let tx_gas_limits = previous_kernel.constants.tx_context.gas_settings.gas_limits;
-            let mut computed_start_gas = tx_gas_limits.sub(previous_kernel.end.gas_used).sub(previous_kernel.end_non_revertible.gas_used);
-            // Keep L2 gas below max
-            computed_start_gas.l2_gas = std::cmp::min(computed_start_gas.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
+            let computed_start_gas = tx_gas_limits.sub(previous_kernel.end.gas_used).sub(previous_kernel.end_non_revertible.gas_used);
             assert_eq(
-                enqueued_call_start_gas, computed_start_gas, "Start gas for enqueued call does not match transaction gas left (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)"
+                enqueued_call_start_gas, computed_start_gas, "Start gas for enqueued call does not match transaction gas left"
             );
         } else {
-            let mut teardown_gas_limit = previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
-            // Keep L2 gas below max
-            teardown_gas_limit.l2_gas = std::cmp::min(teardown_gas_limit.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
+            let teardown_gas_limit = previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
             assert_eq(
-                enqueued_call_start_gas, teardown_gas_limit, "Start gas for enqueued call does not match teardown gas allocation (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)"
+                enqueued_call_start_gas, teardown_gas_limit, "Start gas for enqueued call does not match teardown gas allocation"
             );
         }
     }
