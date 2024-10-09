@@ -1,8 +1,8 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractClass } from '@aztec/types/contracts';
 
 import { GeneratorIndex } from '../constants.gen.js';
+import { type ContractClass } from './contracts/index.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
 
 /**

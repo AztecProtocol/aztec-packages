@@ -22,6 +22,7 @@ import {
 import {
   AZTEC_EPOCH_DURATION,
   AztecAddress,
+  type ContractDataSource,
   EthAddress,
   Fr,
   GasFees,
@@ -36,7 +37,6 @@ import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';

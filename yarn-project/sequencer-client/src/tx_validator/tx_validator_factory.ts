@@ -1,9 +1,8 @@
 import { type AllowedElement, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
-import { type GlobalVariables } from '@aztec/circuits.js';
+import { type ContractDataSource, type GlobalVariables } from '@aztec/circuits.js';
 import { AggregateTxValidator, DataTxValidator, DoubleSpendTxValidator, MetadataTxValidator } from '@aztec/p2p';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 import { WorldStateDB } from '@aztec/simulator';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { GasTxValidator } from './gas_validator.js';

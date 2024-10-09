@@ -1,11 +1,6 @@
 import { type ContractArtifact, type FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import {
-  type ContractClassPublic,
-  type UnconstrainedFunctionMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
 
 import { computeRootFromSiblingPath } from '../merkle/index.js';
 import {
@@ -16,6 +11,11 @@ import {
   computeFunctionMetadataHash,
   getArtifactMerkleTreeHasher,
 } from './artifact_hash.js';
+import {
+  type ContractClassPublic,
+  type UnconstrainedFunctionMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
+} from './contracts/index.js';
 
 /**
  * Creates a membership proof for an unconstrained function in a contract class, to be verified via `isValidUnconstrainedFunctionMembershipProof`.

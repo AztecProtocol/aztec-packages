@@ -1,10 +1,10 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractClass, type ContractClassWithId, type PublicFunction } from '@aztec/types/contracts';
 
 import { PUBLIC_DISPATCH_SELECTOR } from '../constants.gen.js';
 import { computeArtifactHash } from './artifact_hash.js';
 import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
+import { type ContractClass, type ContractClassWithId, type PublicFunction } from './contracts/index.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
