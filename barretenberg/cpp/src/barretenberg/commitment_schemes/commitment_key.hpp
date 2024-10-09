@@ -190,7 +190,7 @@ template <class Curve> class CommitmentKey {
         const size_t num_blocks = structured_sizes.size();
         std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
         scalar_endpoints.reserve(num_blocks);
-        uint32_t total_num_scalars = 0;
+
         uint32_t start_idx = 0;
         uint32_t end_idx = 0;
         if (complement) {
@@ -198,14 +198,12 @@ template <class Curve> class CommitmentKey {
                 start_idx = end_idx + actual_size;
                 end_idx += block_size;
                 scalar_endpoints.emplace_back(start_idx, end_idx);
-                total_num_scalars += (end_idx - start_idx);
             }
         } else {
             for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
                 end_idx = start_idx + actual_size;
                 scalar_endpoints.emplace_back(start_idx, end_idx);
                 start_idx += block_size;
-                total_num_scalars += (end_idx - start_idx);
             }
         }
 
@@ -215,6 +213,11 @@ template <class Curve> class CommitmentKey {
         point_endpoints.reserve(num_blocks);
         for (const auto& range : scalar_endpoints) {
             point_endpoints.emplace_back(2 * range.first, 2 * range.second);
+        }
+
+        uint32_t total_num_scalars = 0;
+        for (const auto& range : scalar_endpoints) {
+            total_num_scalars += range.second - range.first;
         }
 
         return { scalar_endpoints, point_endpoints, total_num_scalars };
