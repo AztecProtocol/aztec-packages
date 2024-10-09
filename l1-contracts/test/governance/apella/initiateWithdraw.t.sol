@@ -40,7 +40,7 @@ contract InitiateWithdrawTest is ApellaBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Apella__InsufficientPower.selector, depositAmount, withdrawalAmount
+        Errors.Apella__InsufficientPower.selector, address(this), depositAmount, withdrawalAmount
       )
     );
     apella.initiateWithdraw(address(this), withdrawalAmount);

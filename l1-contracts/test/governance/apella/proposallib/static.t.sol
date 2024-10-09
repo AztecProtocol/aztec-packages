@@ -24,44 +24,44 @@ contract Static is TestBase {
     _;
   }
 
-  function test_PendingUntil(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_pendingThrough(DataStructures.Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
-    assertEq(proposal.pendingUntil(), proposal.creation + proposal.config.votingDelay);
+    assertEq(proposal.pendingThrough(), proposal.creation + proposal.config.votingDelay);
   }
 
-  function test_ActiveUntil(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_activeThrough(DataStructures.Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
     assertEq(
-      proposal.activeUntil(),
+      proposal.activeThrough(),
       proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration
     );
   }
 
-  function test_QueuedUntil(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_queuedThrough(DataStructures.Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
     assertEq(
-      proposal.queuedUntil(),
+      proposal.queuedThrough(),
       proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration
         + proposal.config.executionDelay
     );
   }
 
-  function test_ExecutableUntil(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_executableThrough(DataStructures.Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
     assertEq(
-      proposal.executableUntil(),
+      proposal.executableThrough(),
       proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration
         + proposal.config.executionDelay + proposal.config.gracePeriod
     );

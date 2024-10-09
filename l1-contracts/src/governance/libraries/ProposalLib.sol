@@ -4,7 +4,26 @@ pragma solidity >=0.8.27;
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-import {Errors} from "@aztec/governance/libraries/Errors.sol";
+
+enum VoteTabulationReturn {
+  Accepted,
+  Rejected,
+  Invalid
+}
+
+enum VoteTabulationInfo {
+  MinimumEqZero,
+  TotalPowerLtMinimum,
+  VotesNeededEqZero,
+  VotesNeededGtTotalPower,
+  VotesCastLtVotesNeeded,
+  YeaLimitEqZero,
+  YeaLimitGtVotesCast,
+  YeaLimitEqVotesCast,
+  YeaVotesEqVotesCast,
+  YeaVotesLeYeaLimit,
+  YeaVotesGtYeaLimit
+}
 
 /**
  * @notice  Library for dealing with proposal math
@@ -23,78 +42,87 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
  *          for example ending at 0, having a case where no votes are needed
  */
 library ProposalLib {
-  /**
-   * @notice  Compute if we reject the proposal or not
-   *          Can
-   *
-   *          Should only ever revert, if "bad" values are setup for the config.
-   */
-  function isRejected(DataStructures.Proposal storage self, uint256 _totalPower)
+  function voteTabulation(DataStructures.Proposal storage self, uint256 _totalPower)
     internal
     view
-    returns (bool)
+    returns (VoteTabulationReturn, VoteTabulationInfo)
   {
-    require(self.config.minimumVotes > 0, Errors.Apella__ProposalLib__ZeroMinimum());
+    if (self.config.minimumVotes == 0) {
+      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.MinimumEqZero);
+    }
     if (_totalPower < self.config.minimumVotes) {
-      return true;
+      return (VoteTabulationReturn.Rejected, VoteTabulationInfo.TotalPowerLtMinimum);
     }
 
     uint256 votesNeeded = Math.mulDiv(_totalPower, self.config.quorum, 1e18, Math.Rounding.Ceil);
-    require(votesNeeded > 0, Errors.Apella__ProposalLib__ZeroVotesNeeded());
-    require(votesNeeded <= _totalPower, Errors.Apella__ProposalLib__MoreVoteThanExistNeeded());
+    if (votesNeeded == 0) {
+      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.VotesNeededEqZero);
+    }
+    if (votesNeeded > _totalPower) {
+      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.VotesNeededGtTotalPower);
+    }
 
     uint256 votesCast = self.summedBallot.nea + self.summedBallot.yea;
     if (votesCast < votesNeeded) {
-      // Insufficient votes cast, better luck next time
-      return true;
+      return (VoteTabulationReturn.Rejected, VoteTabulationInfo.VotesCastLtVotesNeeded);
     }
 
     // Edge case where all the votes are yea, no need to compute differential
     // Assumes a "sane" value for differential, e.g., you cannot require more votes
     // to be yes than total votes.
     if (self.summedBallot.yea == votesCast) {
-      return false;
+      return (VoteTabulationReturn.Accepted, VoteTabulationInfo.YeaVotesEqVotesCast);
     }
 
-    uint256 yeaNeededFraction = Math.ceilDiv(1e18 + self.config.voteDifferential, 2);
-    uint256 yeaNeeded = Math.mulDiv(votesCast, yeaNeededFraction, 1e18, Math.Rounding.Ceil);
-    require(yeaNeeded > 0, Errors.Apella__ProposalLib__ZeroYeaVotesNeeded());
-    require(yeaNeeded <= votesCast, Errors.Apella__ProposalLib__MoreYeaVoteThanExistNeeded());
+    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + self.config.voteDifferential, 2);
+    uint256 yeaLimit = Math.mulDiv(votesCast, yeaLimitFraction, 1e18, Math.Rounding.Ceil);
 
-    // If we need as many yea as there are votes, we know it is impossible already.
-    // due to the check earlier.
-    if (yeaNeeded == votesCast) {
-      return true;
+    /*if (yeaLimit == 0) {
+      // It should be impossible to hit this case as `yeaLimitFraction` cannot be 0,
+      // and due to rounding, only way to hit this would be if `votesCast = 0`,
+      // which is already handled as `votesCast >= votesNeeded` and `votesNeeded > 0`.
+      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.YeaLimitEqZero);
+    }*/
+    if (yeaLimit > votesCast) {
+      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.YeaLimitGtVotesCast);
     }
 
-    // In all other cases, we want to see that there are MORE votes on yea than needed
+    // We want to see that there are MORE votes on yea than needed
     // We explictly need MORE to ensure we don't "tie".
-    return self.summedBallot.yea <= yeaNeeded;
+    // If we need as many yea as there are votes, we know it is impossible already.
+    // due to the check earlier, that summedBallot.yea == votesCast.
+    if (self.summedBallot.yea <= yeaLimit) {
+      return (VoteTabulationReturn.Rejected, VoteTabulationInfo.YeaVotesLeYeaLimit);
+    }
+
+    return (VoteTabulationReturn.Accepted, VoteTabulationInfo.YeaVotesGtYeaLimit);
   }
 
   /**
    * @notice	A stable state is one which cannoted be moved away from
    */
   function isStable(DataStructures.Proposal storage self) internal view returns (bool) {
-    return self.state == DataStructures.ProposalState.Executed
-      || self.state == DataStructures.ProposalState.Dropped
-      || self.state == DataStructures.ProposalState.Expired
-      || self.state == DataStructures.ProposalState.Rejected;
+    DataStructures.ProposalState s = self.state; // cache
+    return s == DataStructures.ProposalState.Executed || s == DataStructures.ProposalState.Dropped;
   }
 
-  function pendingUntil(DataStructures.Proposal storage self) internal view returns (Timestamp) {
+  function pendingThrough(DataStructures.Proposal storage self) internal view returns (Timestamp) {
     return self.creation + self.config.votingDelay;
   }
 
-  function activeUntil(DataStructures.Proposal storage self) internal view returns (Timestamp) {
-    return ProposalLib.pendingUntil(self) + self.config.votingDuration;
+  function activeThrough(DataStructures.Proposal storage self) internal view returns (Timestamp) {
+    return ProposalLib.pendingThrough(self) + self.config.votingDuration;
   }
 
-  function queuedUntil(DataStructures.Proposal storage self) internal view returns (Timestamp) {
-    return ProposalLib.activeUntil(self) + self.config.executionDelay;
+  function queuedThrough(DataStructures.Proposal storage self) internal view returns (Timestamp) {
+    return ProposalLib.activeThrough(self) + self.config.executionDelay;
   }
 
-  function executableUntil(DataStructures.Proposal storage self) internal view returns (Timestamp) {
-    return ProposalLib.queuedUntil(self) + self.config.gracePeriod;
+  function executableThrough(DataStructures.Proposal storage self)
+    internal
+    view
+    returns (Timestamp)
+  {
+    return ProposalLib.queuedThrough(self) + self.config.gracePeriod;
   }
 }

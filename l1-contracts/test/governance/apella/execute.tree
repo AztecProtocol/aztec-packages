@@ -1,6 +1,19 @@
 ExecuteTest
 ├── given state is not executable
-│   └── it revert
+│   ├── given state is pending
+│   │   └── it revert
+│   ├── given state is active
+│   │   └── it revert
+│   ├── given state is queued
+│   │   └── it revert
+│   ├── given state is rejected
+│   │   └── it revert
+│   ├── given state is dropped
+│   │   └── it revert
+│   ├── given state is executed
+│   │   └── it revert
+│   └── given state is expired
+│       └── it revert
 └── given state is executable
     ├── given payload call asset
     │   └── it revert

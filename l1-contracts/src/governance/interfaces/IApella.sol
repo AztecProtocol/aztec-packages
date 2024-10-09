@@ -8,13 +8,18 @@ import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 interface IApella {
   event Proposed(uint256 indexed proposalId, address indexed proposal);
   event VoteCast(uint256 indexed proposalId, address indexed voter, bool support, uint256 amount);
+  event ProposalExecuted(uint256 indexed proposalId);
+  event GerousiaUpdated(address indexed gerousia);
+  event ConfigurationUpdated(Timestamp indexed time);
+
   event Deposit(address indexed depositor, address indexed onBehalfOf, uint256 amount);
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
   event WithdrawFinalised(uint256 indexed withdrawalId);
 
+  function updateGerousia(address _gerousia) external;
   function updateConfiguration(DataStructures.Configuration memory _configuration) external;
   function deposit(address _onBehalfOf, uint256 _amount) external;
-  function initiateWithdraw(address _to, uint256 _amount) external;
+  function initiateWithdraw(address _to, uint256 _amount) external returns (uint256);
   function finaliseWithdraw(uint256 _withdrawalId) external;
   function propose(IPayload _proposal) external returns (bool);
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);

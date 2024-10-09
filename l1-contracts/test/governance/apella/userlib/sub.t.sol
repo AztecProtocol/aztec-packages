@@ -41,7 +41,9 @@ contract SubTest is UserLibBase {
     amount = bound(amount, sumBefore + 1, type(uint256).max);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Apella__InsufficientPower.selector, sumBefore, amount)
+      abi.encodeWithSelector(
+        Errors.Apella__InsufficientPower.selector, msg.sender, sumBefore, amount
+      )
     );
     user.sub(amount);
   }

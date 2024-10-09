@@ -14,7 +14,7 @@ contract PowerAtTest is UserLibBase {
 
   function test_WhenTimeNotInPast() external {
     // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.Apella__NotInPast.selector));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Apella__UserLib__NotInPast.selector));
     user.powerAt(Timestamp.wrap(block.timestamp));
   }
 

@@ -1,139 +1,233 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-contract GetProposalStateTest {
-    function test_WhenProposalIsOutOfBounds() external {
-        // it revert
-    }
+import {ApellaBase} from "./base.t.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 
-    modifier whenValidProposalId() {
-        _;
-    }
+contract GetProposalStateTest is ApellaBase {
+  using ProposalLib for DataStructures.Proposal;
 
-    function test_GivenStateIsExecuted() external whenValidProposalId {
-        // it return Executed
-    }
+  function test_WhenProposalIsOutOfBounds(uint256 _index) external {
+    // it revert
+    uint256 index = bound(_index, apella.proposalCount(), type(uint256).max);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Apella__ProposalDoesNotExists.selector, index));
+    apella.getProposalState(index);
+  }
 
-    function test_GivenStateIsDropped() external whenValidProposalId {
-        // it return Dropped
-    }
+  modifier whenValidProposalId() {
+    _;
+  }
 
-    function test_GivenStateIsExpired() external whenValidProposalId {
-        // it return Expired
-    }
+  modifier givenStateIsStable() {
+    _;
+  }
 
-    function test_GivenStateIsRejected() external whenValidProposalId {
-        // it return Rejected
-    }
+  function test_GivenStateIsExecuted(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  ) external whenValidProposalId givenStateIsStable {
+    // it return Executed
+    _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
+    apella.execute(proposalId);
 
-    modifier givenStateIsUnstable() {
-        _;
-    }
+    assertEq(proposal.state, DataStructures.ProposalState.Pending);
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Executed);
+  }
 
-    modifier givenGerousiaHaveChanged() {
-        _;
-    }
+  function test_GivenStateIsDropped(address _gerousia)
+    external
+    whenValidProposalId
+    givenStateIsStable
+  {
+    // it return Dropped
+    _stateDropped("empty", _gerousia);
 
-    function test_GivenGerousiaHaveChanged()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-    {
-        // it return Dropped
-    }
+    assertEq(proposal.state, DataStructures.ProposalState.Pending);
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
 
-    modifier givenGerousiaIsUnchanged() {
-        _;
-    }
+    apella.dropProposal(proposalId);
 
-    function test_WhenVotingDelayHaveNotPassed()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-        givenGerousiaIsUnchanged
-    {
-        // it return Pending
-    }
+    DataStructures.Proposal memory fresh = apella.getProposal(proposalId);
+    assertEq(fresh.state, DataStructures.ProposalState.Dropped);
+  }
 
-    modifier whenVotingDelayHavePassed() {
-        _;
-    }
+  modifier givenStateIsUnstable() {
+    _;
 
-    function test_WhenVotingDurationHaveNotPassed()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-        givenGerousiaIsUnchanged
-        whenVotingDelayHavePassed
-    {
-        // it return Active
-    }
+    DataStructures.Proposal memory fresh = apella.getProposal(proposalId);
+    assertEq(fresh.state, DataStructures.ProposalState.Pending);
+  }
 
-    modifier whenVotingDurationHavePassed() {
-        _;
-    }
+  function test_GivenGerousiaHaveChanged(address _gerousia)
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+  {
+    // it return Dropped
+    _stateDropped("empty", _gerousia);
 
-    function test_GivenLackOfQourumOrLackOfDifferential()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-        givenGerousiaIsUnchanged
-        whenVotingDelayHavePassed
-        whenVotingDurationHavePassed
-    {
-        // it return Rejected
-    }
+    assertEq(proposal.state, DataStructures.ProposalState.Pending);
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+  }
 
-    modifier givenQuorumAndDifferential() {
-        _;
-    }
+  modifier givenGerousiaIsUnchanged() {
+    _;
+  }
 
-    function test_GivenExecutionDelayHaveNotPassed()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-        givenGerousiaIsUnchanged
-        whenVotingDelayHavePassed
-        whenVotingDurationHavePassed
-        givenQuorumAndDifferential
-    {
-        // it return Queued
-    }
+  function test_WhenVotingDelayHaveNotPassed()
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+  {
+    // it return Pending
+    _statePending("empty");
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Pending);
+  }
 
-    modifier givenExecutionDelayHavePassed() {
-        _;
-    }
+  modifier whenVotingDelayHavePassed() {
+    _;
+  }
 
-    function test_GivenGracePeriodHaveNotPassed()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-        givenGerousiaIsUnchanged
-        whenVotingDelayHavePassed
-        whenVotingDurationHavePassed
-        givenQuorumAndDifferential
-        givenExecutionDelayHavePassed
-    {
-        // it return Executable
-    }
+  function test_WhenVotingDurationHaveNotPassed()
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+    whenVotingDelayHavePassed
+  {
+    // it return Active
+    _stateActive("empty");
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Active);
+  }
 
-    function test_GivenGracePeriodHavePassed()
-        external
-        whenValidProposalId
-        givenStateIsUnstable
-        givenGerousiaHaveChanged
-        givenGerousiaIsUnchanged
-        whenVotingDelayHavePassed
-        whenVotingDurationHavePassed
-        givenQuorumAndDifferential
-        givenExecutionDelayHavePassed
-    {
-        // it return Expired
-    }
+  modifier whenVotingDurationHavePassed() {
+    _;
+  }
+
+  function test_GivenVoteTabulationIsRejected()
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+    whenVotingDelayHavePassed
+    whenVotingDurationHavePassed
+  {
+    // it return Rejected
+    _stateRejected("empty");
+
+    uint256 totalPower = apella.totalPowerAt(Timestamp.wrap(block.timestamp));
+    (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
+    assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
+  }
+
+  function test_GivenVoteTabulationIsInvalid(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  )
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+    whenVotingDelayHavePassed
+    whenVotingDurationHavePassed
+  {
+    // it return Rejected
+
+    _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
+
+    // We can overwrite the quorum to be 0 to hit an invalid case
+    assertGt(apella.getProposal(proposalId).config.quorum, 0);
+    bytes32 slot =
+      bytes32(uint256(keccak256(abi.encodePacked(uint256(proposalId), uint256(1)))) + 4);
+    vm.store(address(apella), slot, 0);
+    assertEq(apella.getProposal(proposalId).config.quorum, 0);
+
+    uint256 totalPower = apella.totalPowerAt(Timestamp.wrap(block.timestamp));
+
+    proposal = apella.getProposal(proposalId);
+    (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
+    assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
+  }
+
+  modifier givenVoteTabulationIsAccepted(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  ) {
+    _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
+    _;
+  }
+
+  function test_GivenExecutionDelayHaveNotPassed(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  )
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+    whenVotingDelayHavePassed
+    whenVotingDurationHavePassed
+    givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
+  {
+    // it return Queued
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Queued);
+  }
+
+  modifier givenExecutionDelayHavePassed() {
+    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    _;
+  }
+
+  function test_GivenGracePeriodHaveNotPassed(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  )
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+    whenVotingDelayHavePassed
+    whenVotingDurationHavePassed
+    givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
+    givenExecutionDelayHavePassed
+  {
+    // it return Executable
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Executable);
+  }
+
+  function test_GivenGracePeriodHavePassed(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  )
+    external
+    whenValidProposalId
+    givenStateIsUnstable
+    givenGerousiaIsUnchanged
+    whenVotingDelayHavePassed
+    whenVotingDurationHavePassed
+    givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
+    givenExecutionDelayHavePassed
+  {
+    // it return Expired
+    vm.warp(Timestamp.unwrap(proposal.executableThrough()) + 1);
+    assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Expired);
+  }
 }
