@@ -201,7 +201,7 @@ template <typename Curve>
 void compute_wnaf_states(uint64_t* point_schedule,
                          bool* input_skew_table,
                          uint64_t* round_counts,
-                         const std::span<const typename Curve::ScalarField> scalars,
+                         PolynomialSpan<const typename Curve::ScalarField> scalars,
                          const size_t num_initial_points)
 {
     using Fr = typename Curve::ScalarField;
@@ -876,7 +876,7 @@ typename Curve::Element evaluate_pippenger_rounds(pippenger_runtime_state<Curve>
 
 template <typename Curve>
 typename Curve::Element pippenger_internal(std::span<const typename Curve::AffineElement> points,
-                                           std::span<const typename Curve::ScalarField> scalars,
+                                           PolynomialSpan<const typename Curve::ScalarField> scalars,
                                            const size_t num_initial_points,
                                            pippenger_runtime_state<Curve>& state,
                                            bool handle_edge_cases)
@@ -890,7 +890,7 @@ typename Curve::Element pippenger_internal(std::span<const typename Curve::Affin
 }
 
 template <typename Curve>
-typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> scalars,
+typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases)
@@ -943,7 +943,7 @@ Pippenger above can behavely poorly with numbers with many bits set.*/
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
-    std::span<const typename Curve::ScalarField> scalars,
+    PolynomialSpan<const typename Curve::ScalarField> scalars,
     std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state)
 {
@@ -977,7 +977,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
  *
  **/
 template <typename Curve>
-typename Curve::Element pippenger_unsafe(std::span<const typename Curve::ScalarField> scalars,
+typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points,
                                          pippenger_runtime_state<Curve>& state)
 {
@@ -1017,7 +1017,7 @@ template void evaluate_addition_chains<curve::BN254>(affine_product_runtime_stat
                                                      const size_t max_bucket_bits,
                                                      bool handle_edge_cases);
 template curve::BN254::Element pippenger_internal<curve::BN254>(std::span<const curve::BN254::AffineElement> points,
-                                                                std::span<const curve::BN254::ScalarField> scalars,
+                                                                PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                                 const size_t num_initial_points,
                                                                 pippenger_runtime_state<curve::BN254>& state,
                                                                 bool handle_edge_cases);
@@ -1032,12 +1032,12 @@ template curve::BN254::AffineElement* reduce_buckets<curve::BN254>(affine_produc
                                                                    bool first_round = true,
                                                                    bool handle_edge_cases = false);
 
-template curve::BN254::Element pippenger<curve::BN254>(std::span<const curve::BN254::ScalarField> scalars,
+template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                        std::span<const curve::BN254::AffineElement> points,
                                                        pippenger_runtime_state<curve::BN254>& state,
                                                        bool handle_edge_cases = true);
 
-template curve::BN254::Element pippenger_unsafe<curve::BN254>(std::span<const curve::BN254::ScalarField> scalars,
+template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                               std::span<const curve::BN254::AffineElement> points,
                                                               pippenger_runtime_state<curve::BN254>& state);
 

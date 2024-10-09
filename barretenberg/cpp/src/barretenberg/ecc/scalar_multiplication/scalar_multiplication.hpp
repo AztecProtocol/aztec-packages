@@ -3,6 +3,7 @@
 #include "./runtime_states.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include <cstddef>
 #include <cstdint>
 
@@ -135,7 +136,7 @@ void evaluate_addition_chains(affine_product_runtime_state<Curve>& state,
                               bool handle_edge_cases);
 template <typename Curve>
 typename Curve::Element pippenger_internal(typename Curve::AffineElement* points,
-                                           std::span<const typename Curve::ScalarField> scalars,
+                                           PolynomialSpan<const typename Curve::ScalarField> scalars,
                                            size_t num_initial_points,
                                            pippenger_runtime_state<Curve>& state,
                                            bool handle_edge_cases);
@@ -151,12 +152,12 @@ typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve
                                               bool first_round = true,
                                               bool handle_edge_cases = false);
 template <typename Curve>
-typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> scalars,
+typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases = true);
 template <typename Curve>
-typename Curve::Element pippenger_unsafe(std::span<const typename Curve::ScalarField> scalars,
+typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points,
                                          pippenger_runtime_state<Curve>& state);
 
