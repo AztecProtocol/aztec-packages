@@ -6,9 +6,11 @@
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <sys/types.h>
+#include <unordered_map>
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
@@ -26,6 +28,16 @@ class WorldStateTest : public testing::Test {
     static std::string data_dir;
     uint64_t map_size = 10240;
     uint64_t thread_pool_size = 1;
+    std::unordered_map<MerkleTreeId, uint32_t> tree_heights{
+        { MerkleTreeId::NULLIFIER_TREE, 20 },   { MerkleTreeId::NOTE_HASH_TREE, 32 },
+        { MerkleTreeId::PUBLIC_DATA_TREE, 40 }, { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 16 },
+        { MerkleTreeId::ARCHIVE, 16 },
+    };
+    std::unordered_map<MerkleTreeId, index_t> tree_prefill{
+        { MerkleTreeId::NULLIFIER_TREE, 128 },
+        { MerkleTreeId::PUBLIC_DATA_TREE, 128 },
+    };
+    uint32_t initial_header_generator_point = 28;
 };
 
 std::string WorldStateTest::data_dir;
@@ -121,47 +133,48 @@ void assert_fork_state_unchanged(const WorldState& ws,
 
 TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
         EXPECT_EQ(info.meta.size, 128);
-        EXPECT_EQ(info.meta.depth, NULLIFIER_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
         EXPECT_EQ(info.meta.root, bb::fr("0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
         EXPECT_EQ(info.meta.size, 0);
-        EXPECT_EQ(info.meta.depth, NOTE_HASH_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NOTE_HASH_TREE));
         EXPECT_EQ(info.meta.root, bb::fr("0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
         EXPECT_EQ(info.meta.size, 128);
-        EXPECT_EQ(info.meta.depth, PUBLIC_DATA_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::PUBLIC_DATA_TREE));
         EXPECT_EQ(info.meta.root, bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
         EXPECT_EQ(info.meta.size, 0);
-        EXPECT_EQ(info.meta.depth, L1_TO_L2_MSG_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
         EXPECT_EQ(info.meta.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
         EXPECT_EQ(info.meta.size, 1);
-        EXPECT_EQ(info.meta.depth, ARCHIVE_HEIGHT);
-        EXPECT_EQ(info.meta.root, bb::fr(GENESIS_ARCHIVE_ROOT));
+        EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::ARCHIVE));
+        // this is the expected archive tree root at genesis
+        EXPECT_EQ(info.meta.root, bb::fr("0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e"));
     }
 }
 
 TEST_F(WorldStateTest, GetStateReference)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     {
         auto state_ref = ws.get_state_reference(WorldStateRevision::committed());
@@ -230,7 +243,7 @@ TEST_F(WorldStateTest, GetStateReference)
 
 TEST_F(WorldStateTest, GetInitialStateReference)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     auto before_commit = ws.get_initial_state_reference();
     ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
@@ -243,7 +256,7 @@ TEST_F(WorldStateTest, GetInitialStateReference)
 
 TEST_F(WorldStateTest, AppendOnlyTrees)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     // the trees that start out empty
     std::vector tree_ids{ MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::L1_TO_L2_MESSAGE_TREE };
@@ -301,7 +314,7 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
 
 TEST_F(WorldStateTest, AppendOnlyAllowDuplicates)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     // the trees that start out empty
     std::vector tree_ids{
@@ -327,7 +340,7 @@ TEST_F(WorldStateTest, AppendOnlyAllowDuplicates)
 
 TEST_F(WorldStateTest, NullifierTree)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     auto tree_id = MerkleTreeId::NULLIFIER_TREE;
     NullifierLeafValue test_nullifier(142);
 
@@ -363,7 +376,7 @@ TEST_F(WorldStateTest, NullifierTree)
 
 TEST_F(WorldStateTest, NullifierTreeDuplicates)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     auto tree_id = MerkleTreeId::NULLIFIER_TREE;
     NullifierLeafValue test_nullifier(142);
 
@@ -377,7 +390,7 @@ TEST_F(WorldStateTest, NullifierTreeDuplicates)
 
 TEST_F(WorldStateTest, NullifierBatchInsert)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     auto response = ws.batch_insert_indexed_leaves<NullifierLeafValue>(
         MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(150), NullifierLeafValue(142), NullifierLeafValue(180) }, 2);
 
@@ -417,7 +430,7 @@ TEST_F(WorldStateTest, NullifierBatchInsert)
 
 TEST_F(WorldStateTest, PublicDataTree)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     ws.append_leaves(MerkleTreeId::PUBLIC_DATA_TREE, std::vector{ PublicDataLeafValue(142, 0) });
     assert_tree_size(ws, WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, 129);
@@ -437,7 +450,7 @@ TEST_F(WorldStateTest, PublicDataTree)
 
 TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { fr(42) });
     ws.append_leaves<fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { fr(42) });
@@ -473,7 +486,7 @@ TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)
 
 TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
@@ -504,7 +517,7 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
 
 TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
@@ -545,7 +558,7 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 
 TEST_F(WorldStateTest, SyncCurrentBlock)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     bb::fr block_hash(1);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
@@ -583,7 +596,7 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
 
 TEST_F(WorldStateTest, RejectSyncBlockWithBadPublicWriteBatches)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
@@ -610,7 +623,7 @@ TEST_F(WorldStateTest, RejectSyncBlockWithBadPublicWriteBatches)
 
 TEST_F(WorldStateTest, RejectSyncBlockWithInvalidStateRef)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
@@ -638,7 +651,7 @@ TEST_F(WorldStateTest, RejectSyncBlockWithInvalidStateRef)
 
 TEST_F(WorldStateTest, SyncEmptyBlock)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = ws.get_state_reference(WorldStateRevision::committed());
     ws.sync_block(block_state_ref, fr(1), {}, {}, {}, {});
     StateReference after_sync = ws.get_state_reference(WorldStateRevision::committed());
@@ -648,7 +661,7 @@ TEST_F(WorldStateTest, SyncEmptyBlock)
 
 TEST_F(WorldStateTest, ForkingAtBlock0SameState)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     auto fork_id = ws.create_fork(0);
 
     assert_fork_state_unchanged(ws, fork_id, false);
@@ -657,7 +670,7 @@ TEST_F(WorldStateTest, ForkingAtBlock0SameState)
 
 TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingFork)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     auto fork_id = ws.create_fork(0);
 
     auto canonical_archive_state_before = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
@@ -685,7 +698,7 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingFork)
 
 TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
 {
-    WorldState ws(data_dir, map_size, thread_pool_size);
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     auto fork_id = ws.create_fork(0);
 
     auto canonical_archive_state_before = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
@@ -737,4 +750,27 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
     // fork should still have value 2 as the first leaf (uncommitted)
     assert_leaf_value<bb::fr>(
         ws, WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, MerkleTreeId::ARCHIVE, 1, 2);
+}
+
+TEST_F(WorldStateTest, BuildsABlockInAFork)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    auto fork_id = ws.create_fork(0);
+
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork_id);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork_id);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork_id);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork_id);
+
+    auto fork_state_ref = ws.get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
+
+    ws.update_archive(fork_state_ref, { 1 }, fork_id);
+    auto fork_archive =
+        ws.get_tree_info(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, MerkleTreeId::ARCHIVE);
+
+    ws.delete_fork(fork_id);
+
+    ws.sync_block(fork_state_ref, { 1 }, { 42 }, { 43 }, { { 129 } }, { { { 129, 1 } } });
+
+    EXPECT_EQ(fork_state_ref, ws.get_state_reference(WorldStateRevision::committed()));
 }
