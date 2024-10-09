@@ -27,103 +27,132 @@ contract DEX {
 
     #[storage]
     struct Storage<Context> {
+        // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
+        // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
+        // have to bother with sharing the note between pixies of users.
         state: SharedImmutable<State, Context>,
     }
 
     global MINIMUM_LIQUIDITY: u64 = 1000;
     global LOCK_STORAGE_SLOT = 980908; // Arbitrarily chosen lock storage slot.
 
+    // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
+    // a liquidity tracking contract. This contract would be an admin of the liquidity contract.
+    // TODO: Either deploy the liquidity contract in the constructor or somehow verify it.
     #[public]
     #[initializer]
-    fn constructor(token0: AztecAddress, token1: AztecAddress) {
-        // Since we don't have inheritance it seems the easiest to deploy the standard token and use it as a liquidity
-        // tracking contract. This contract would be an admin of the liquidity contract.
-
-        // TODO: either deploy here the liquidity contract or pass its address as an arg on input and verify that
-        // it was deployed correctly.
-        let liquidity_token = AztecAddress::zero();
-
-        let state = State { token0, token1, liquidity_token, reserve0: 0, reserve1: 0 };
+    fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress) {
+        let state = State { token0, token1, liquidity_token };
         storage.state.initialize(state);
     }
 
     // Privately adds liquidity for `liquidity_provider` to the pool (identity of liquidity provider not revealed).
-    // `amount0Desired` and `amount1Desired` are the amounts of tokens we ideally want to add. `amount0Min`
-    // and `amount1Min` are the minimum amounts we are willing to add. `transfer_preparer_storage_slot_commitment`
+    // `amount0_desired` and `amount1_desired` are the amounts of tokens we ideally want to add. `amount0_min`
+    // and `amount1_min` are the minimum amounts we are willing to add. `transfer_preparer_storage_slot_commitment`
     // is a storage slot commitment used for all 3 partial notes finalized in this tx (token0 refund note, token1
     // refund note, liquidity token partial note).
     // (Note: It's fine to use 1 commitment for all 3 partial notes as it's used for transient storage in different
     // contracts). It's necessary to prepare the 3 partial notes in a `BatchCall` before calling this function.
     // Note: We needed to make the identity of liquidity provider private because we don't have a transfer_from flow
     // where the token amount is not known in advance and we don't need to know the amounts for partial notes.
-    #[public]
+    #[private]
     fn add_liquidity(
-        amount0Desired: u64,
-        amount1Desired: u64,
-        amount0Min: u64,
-        amount1Min: u64,
-        transfer_preparer_storage_slot_commitment: Field
+        amount0_desired: u64,
+        amount1_desired: u64,
+        amount0_min: u64,
+        amount1_min: u64,
+        nonce: Field
     ) {
-        _lock(&mut context);
+        // TODO: Do we need reentrancy guards in the private funcs? And if yes how to do it?
+        assert(amount0_desired > 0 & amount1_desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
-        // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
-        // the partial notes.
-
-        assert(amount0Desired > 0 & amount1Desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
-
-        let state = storage.state.read();
+        let state = storage.state.read_private();
 
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
-        let reserve0 = state.reserve0;
-        let reserve1 = state.reserve1;
-
         let liquidity_token = Token::at(state.liquidity_token);
 
+        // The following 2 functions burn user's notes worth `amount0_desired` and `amount1_desired`, they prepare
+        // the partial notes for refunds and enqueue 2 public calls that transfer the amounts to the DEX.
+        let refund_token0_slot_commitment = token0.prepare_transfer_to_public_with_refund(msg.sender, context.this_address(), amount0_desired, nonce).call(&mut context);
+        let refund_token1_slot_commitment = token1.prepare_transfer_to_public_with_refund(msg.sender, context.this_address(), amount1_desired, nonce).call(&mut context);
+        let liquidity_slot_commitment = liquidity_token.prepare_transfer_to_private(msg.sender).call(&mut context);
+
+        DEX::at(context.this_address())._add_liquidity(
+            state,
+            refund_token0_slot_commitment,
+            refund_token1_slot_commitment,
+            liquidity_slot_commitment,
+            amount0_desired,
+            amount1_desired,
+            amount0_min,
+            amount1_min
+        ).enqueue(&mut context);
+    }
+
+    #[public]
+    #[internal]
+    fn _add_liquidity(
+        // We pass the state as an argument in order to not have to read it from storage again.
+        state: State,
+        refund_token0_slot_commitment: Field,
+        refund_token1_slot_commitment: Field,
+        liquidity_slot_commitment: Field,
+        amount0_desired: u64,
+        amount1_desired: u64,
+        amount0_min: u64,
+        amount1_min: u64
+    ) {
+        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
+        // `add_liquidity` which is private and since public functions cannot call private ones it's impossible to
+        // reenter this function.
+        let token0 = Token::at(state.token0);
+        let token1 = Token::at(state.token1);
+        let liquidity_token = Token::at(state.liquidity_token);
+
+        let reserve0_with_amount0_desired = token0.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Avoid the need for these casts.
+        let reserve1_with_amount1_desired = token1.balance_of_public(context.this_address()).view(&mut context) as u64;
+
+        let reserve0 = reserve0_with_amount0_desired - amount0_desired;
+        let reserve1 = reserve1_with_amount1_desired - amount1_desired;
+
         // Calculate the amounts to be added to the pool
-        let mut amount0 = amount0Desired;
-        let mut amount1 = amount1Desired;
+        let mut amount0 = amount0_desired;
+        let mut amount1 = amount1_desired;
         if ((reserve0 != 0) | (reserve1 != 0)) {
             // First calculate the optimal amount of token1 based on the desired amount of token0.
-            let amount1Optimal = get_quote(amount0Desired, reserve0, reserve1);
-            if (amount1Optimal <= amount1Desired) {
+            let amount1_optimal = get_quote(amount0_desired, reserve0, reserve1);
+            if (amount1_optimal <= amount1_desired) {
                 // Revert if the optimal amount of token1 is less than the desired amount of token1.
-                assert(amount1Optimal >= amount1Min, "INSUFFICIENT_1_AMOUNT");
-                amount0 = amount0Desired;
-                amount1 = amount1Optimal;
+                assert(amount1_optimal >= amount1_min, "INSUFFICIENT_1_AMOUNT");
+                amount0 = amount0_desired;
+                amount1 = amount1_optimal;
             } else {
                 // We got more amount of token1 than desired so we try repeating the process but this time by quoting
                 // based on token1.
-                let amount0Optimal = get_quote(amount1Desired, reserve1, reserve0);
-                assert(amount0Optimal <= amount0Desired);
-                assert(amount0Optimal >= amount0Min, "INSUFFICIENT_0_AMOUNT");
-                amount0 = amount0Optimal;
-                amount1 = amount1Desired;
+                let amount0_optimal = get_quote(amount1_desired, reserve1, reserve0);
+                assert(amount0_optimal <= amount0_desired);
+                assert(amount0_optimal >= amount0_min, "INSUFFICIENT_0_AMOUNT");
+                amount0 = amount0_optimal;
+                amount1 = amount1_desired;
             }
         }
 
-        // Now we transfer the tokens to this contract. This is how we'll do this:
-        // 1. A user knows the maximum amount0, amount1 (the desired amounts are max) they want to deposit,
-        // 2. user calls private `token{0, 1}.prepare_transfer_to_public_with_refund(from, to, amount{0,1}, transient_storage_slot_randomness)` functions,
-        //    --> these functions will burn the amounts, prepare the partial notes and stores both the burned amounts and the partial notes in the transient storage!
-        // 3. user calls DEX.add_liquidity(..., transient_storage_slot_randomness) with the amounts they want to deposit,
-        // 4. the `add_liquidity` func computes the amounts to deposit and calls token{0, 1}.finalize_transfer_to_public_with_refund(actual_amount{0,1}, transfer_preparer_storage_slot_commitment),
-        //   --> this function will:
-        //          4.1 load both the partial note and the burned amount from transient storage
-        //          4.2 check that actual_amount < burned_amount,
-        //          4.3 publicly mint the actual_amount to msg_sender (the DEX in our case),
-        //          4.4 finalize the partial note amount with `burned_amount - actual_amount` and emit the note.
-        //
-        // Note 1: This is essentially a 1 person alternative to the fee refund flow where we have a user and an FPC.
-        // Cost of this flow:
-        //      num calls: 2 private calls to setup the partial notes, 1 public call to add_liquidity, 2 public calls to finalize_transfer_to_public_with_refund
-        //      DA: up to 2 change notes when burning amount{0,1}, nullifiers to burn users notes, up to 2 refund notes, 1 public data write to mint pub balance to pool
-        // TODO: Implement `prepare_transfer_to_public_with_refund` and `finalize_transfer_to_public_with_refund` in the Token contract.
-        token0.finalize_transfer_to_public_with_refund(transfer_preparer_storage_slot_commitment, amount0).call(&mut context);
-        token1.finalize_transfer_to_public_with_refund(transfer_preparer_storage_slot_commitment, amount1).call(&mut context);
+        let refund_amount_token0 = amount0_desired - amount0;
+        let refund_amount_token1 = amount1_desired - amount1;
+
+        // The refund does not need to be finalized if the refund amount is 0 --> the partial note will either be wiped
+        // out from transient storage at the end of the tx (which is fine) or it will stay in public storage (which is
+        // also fine).
+        if (refund_amount_token0 > 0) {
+            token0.finalize_transfer_to_public_with_refund(refund_token0_slot_commitment, refund_amount_token0).call(&mut context);
+        }
+        if (refund_amount_token1 > 0) {
+            token1.finalize_transfer_to_public_with_refund(refund_token1_slot_commitment, refund_amount_token1).call(&mut context);
+        }
 
         // Calculate the amount of liquidity tokens to mint
-        let total_supply = liquidity_token.total_supply().view(&mut context) as u64; // TODO: Nuke the cast here.
+        let total_supply = liquidity_token.total_supply().view(&mut context) as u64;
         let mut liquidity: u64 = 0;
         if (total_supply == 0) {
             // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
@@ -134,22 +163,7 @@ contract DEX {
             liquidity = std::cmp::min(amount0 * total_supply / reserve0, amount1 * total_supply / reserve1);
         }
         assert(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
-        // TODO: Implement `prepare_mint_to_private` and `finalize_mint_to_private` in the Token contract.
-        liquidity_token.finalize_mint_to_private(transfer_preparer_storage_slot_commitment, liquidity).call(&mut context);
-
-        // Update the reserves
-        // (Note that we should not pay for token0, token1 and liquidity_token writes because kernel should squash them
-        // (once the optimization is done)).
-        let updated_state = State {
-            token0: state.token0,
-            token1: state.token1,
-            liquidity_token: state.liquidity_token,
-            reserve0: reserve0 + amount0,
-            reserve1: reserve1 + amount1
-        };
-        storage.state.write(updated_state);
-
-        _unlock(&mut context);
+        liquidity_token.finalize_mint_to_private(liquidity_slot_commitment, liquidity).call(&mut context);
     }
 
     // Removes liquidity from the pool and transfers the tokens to the partial notes prepared on token0 and token1.
@@ -163,8 +177,8 @@ contract DEX {
     // in this tx (token0 and token1 notes).
     #[public]
     fn remove_liquidity(
-        amount0Min: u64,
-        amount1Min: u64,
+        amount0_min: u64,
+        amount1_min: u64,
         transfer_preparer_storage_slot_commitment: Field
     ) {
         _lock(&mut context);
@@ -188,8 +202,8 @@ contract DEX {
         let amount0 = liquidity * balance0 / total_supply;
         let amount1 = liquidity * balance1 / total_supply;
         // TODO: Nuke these castings. Ideally make Token return integer and not Field.
-        assert(amount0 as u64 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
-        assert(amount1 as u64 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
+        assert(amount0 as u64 >= amount0_min, "INSUFFICIENT_0_AMOUNT");
+        assert(amount1 as u64 >= amount1_min, "INSUFFICIENT_1_AMOUNT");
 
         liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
         // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
@@ -269,7 +283,7 @@ contract DEX {
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        token_out.finalize_transfer_to_private(amount_out, note_hiding_point_slot_commitment).call(&mut context);
+        token_out.finalize_transfer_to_private(note_hiding_point_slot_commitment, amount_out).call(&mut context);
     }
 
     // Note: swap_tokens_for_exact_tokens is not important for our purposes so I am not doing it.
