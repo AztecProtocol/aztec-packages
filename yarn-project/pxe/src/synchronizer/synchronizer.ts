@@ -1,6 +1,6 @@
 import { type AztecNode, type L2Block, MerkleTreeId, type TxHash } from '@aztec/circuit-types';
 import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { type AztecAddress, type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
+import { type AztecAddress, CompleteAddress, type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -243,7 +243,7 @@ export class Synchronizer {
    * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public async addAccount(account: AztecAddress, keyStore: KeyStore, startingBlock: number) {
+  public async addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
     const predicate = (x: NoteProcessor) => x.account.equals(account);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
     if (processor) {
@@ -261,12 +261,8 @@ export class Synchronizer {
    *          retrieved information from contracts might be old/stale (e.g. old token balance).
    * @throws If checking a sync status of account which is not registered.
    */
-  public async isAccountStateSynchronized(account: AztecAddress) {
-    const completeAddress = await this.db.getCompleteAddress(account);
-    if (!completeAddress) {
-      throw new Error(`Checking if account is synched is not possible for ${account} because it is not registered.`);
-    }
-    const findByAccountAddress = (x: NoteProcessor) => x.account.equals(completeAddress.address);
+  public async isAccountStateSynchronized(account: CompleteAddress) {
+    const findByAccountAddress = (x: NoteProcessor) => x.account.equals(account);
     const processor =
       this.noteProcessors.find(findByAccountAddress) ?? this.noteProcessorsToCatchUp.find(findByAccountAddress);
     if (!processor) {
@@ -341,7 +337,7 @@ export class Synchronizer {
         const { incomingNotes: inNotes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
         incomingNotes.push(...inNotes);
 
-        await this.db.addNotes(inNotes, outNotes, processor.account);
+        await this.db.addNotes(inNotes, outNotes, processor.account.address);
 
         inNotes.forEach(noteDao => {
           this.log.debug(
