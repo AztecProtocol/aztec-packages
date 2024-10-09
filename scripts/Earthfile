@@ -1,0 +1,6 @@
+VERSION 0.8
+
+scripts:
+  FROM scratch
+  COPY *.sh .
+  SAVE ARTIFACT *.sh
