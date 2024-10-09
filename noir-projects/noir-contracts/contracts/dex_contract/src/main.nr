@@ -223,8 +223,8 @@ contract DEX {
     }
 
     // Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
-    // whether we are swapping `token0` for `token1` or vice versa. Similartly to `remove_liquidity` function it is
-    // expected that the user transfers the `token_in` to the pool in a `BatchCall` before calling this function.
+    // whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
+    // purpose is to isolate authwits to this specific call.
     #[private]
     fn swap_exact_tokens_for_tokens(amount_in: u64, amount_out_min: u64, from_0_to_1: bool, nonce: Field) {
         let state = storage.state.read_private();
