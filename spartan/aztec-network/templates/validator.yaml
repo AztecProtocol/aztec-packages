@@ -7,6 +7,7 @@ metadata:
 spec:
   serviceName: {{ include "aztec-network.fullname" . }}-validator
   replicas: {{ .Values.validator.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
@@ -17,6 +18,8 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
+      # We expect the validators to have already been added to the smart contract by this point - but this container still needs
+      # to be run in order to get the values
       initContainers:
         - name: configure-validator-env
           image: "{{ .Values.images.aztec.image }}"
@@ -30,11 +33,18 @@ spec:
               mountPath: /shared
             - name: scripts
               mountPath: /scripts
+            - name: validator-keys
+              mountPath: /app/config
+              readOnly: true
           env:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
       containers:
-        - name: aztec
+        - name: validator
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
@@ -94,6 +104,9 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-configure-validator-env
+        - name: validator-keys
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-validator-keys
   volumeClaimTemplates:
   - metadata:
       name: shared-volume

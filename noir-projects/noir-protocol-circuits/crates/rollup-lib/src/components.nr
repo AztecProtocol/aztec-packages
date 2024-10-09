@@ -10,7 +10,7 @@ use dep::types::{
 },
     merkle_tree::VariableMerkleTree,
     constants::{
-    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+    AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
     utils::{arrays::{array_length, array_merge}},
@@ -81,6 +81,9 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
 ) {
     assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
     assert(
+        left.protocol_contract_tree_root == right.protocol_contract_tree_root, "input blocks have different protocol contract tree roots"
+    );
+    assert(
         left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
     );
     assert(
@@ -117,10 +120,12 @@ pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRo
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs
-) -> [FeeRecipient; 32] {
+) -> [FeeRecipient; AZTEC_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
-    assert(left_len + right_len <= 32, "too many fee payment structs accumulated in rollup");
+    assert(
+        left_len + right_len <= AZTEC_EPOCH_DURATION, "too many fee payment structs accumulated in rollup"
+    );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).

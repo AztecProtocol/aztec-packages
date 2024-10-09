@@ -25,8 +25,8 @@ Builder generate_trace(size_t target_num_gates)
     Fr x = Fr::random_element();
     Fr y = Fr::random_element();
 
-    // Each loop adds 163 gates. Note: builder.get_num_gates() is very expensive here (bug?) and it's actually painful
-    // to use a `while` loop
+    // Each loop adds 163 gates. Note: builder.get_estimated_num_finalized_gates() is very expensive here (bug?) and
+    // it's actually painful to use a `while` loop
     size_t num_iterations = target_num_gates / 163;
     for (size_t _ = 0; _ < num_iterations; _++) {
         op_queue->add_accumulate(a);

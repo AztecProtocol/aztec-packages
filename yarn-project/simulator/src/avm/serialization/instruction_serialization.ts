@@ -55,7 +55,6 @@ export enum Opcode {
   SET_FF,
   MOV_8,
   MOV_16,
-  CMOV,
   // World state
   SLOAD,
   SSTORE,

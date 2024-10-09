@@ -8,7 +8,7 @@ contract ContractInstanceDeployer {
         traits::Serialize
     };
     use dep::aztec::{
-        hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private_internal,
+        hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private,
         macros::{events::event, functions::private}, utils::to_bytes::arr_to_be_bytes_arr
     };
     use std::meta::derive;
@@ -73,8 +73,11 @@ contract ContractInstanceDeployer {
         // 40 = addr (32) + raw log len (4) + processed log len (4)
         let len = 40 + serialized_log.len().to_field();
         let side_effect = LogHash { value: log_hash, counter, length: len };
-        context.unencrypted_logs_hashes.push(side_effect);
 
-        emit_unencrypted_log_private_internal(contract_address, payload, counter);
+        // We manually push the unencrypted log to the context and inform the execution environment about this because
+        // PrivateContext does not expose an `emit_unencrypted_log` method - this mechanism is considered error-prone
+        // and only some canonical contracts use it.
+        context.unencrypted_logs_hashes.push(side_effect);
+        emit_unencrypted_log_private(contract_address, payload, counter);
     }
 }

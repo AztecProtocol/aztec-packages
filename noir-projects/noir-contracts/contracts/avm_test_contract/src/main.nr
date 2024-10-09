@@ -146,6 +146,11 @@ contract AvmTest {
     }
 
     #[public]
+    fn elliptic_curve_add(lhs: Point, rhs: Point) -> Point {
+        lhs + rhs
+    }
+
+    #[public]
     fn elliptic_curve_add_and_double() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
@@ -478,6 +483,11 @@ contract AvmTest {
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
+    }
+
+    #[public]
+    fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
+        AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
     }
 
     /**

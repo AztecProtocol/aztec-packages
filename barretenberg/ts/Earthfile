@@ -71,7 +71,7 @@ build:
     RUN yarn pack && tar zxf package.tgz && rm package.tgz
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
-deploy-npm:
+publish-npm:
     FROM +build
     ARG VERSION
     ARG DIST_TAG

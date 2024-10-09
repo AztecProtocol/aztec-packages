@@ -10,8 +10,7 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
   type PublisherConfig,
@@ -117,9 +116,9 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
   ...sequencerConfigMappings,
+  ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
-  ...l1ReaderConfigMappings,
   ...chainConfigMappings,
 };
 
@@ -184,21 +183,24 @@ function getDefaultAllowedSetupFunctions(): AllowedElement[] {
   return [
     // needed for authwit support
     {
-      address: AuthRegistryAddress,
+      address: ProtocolContractAddress.AuthRegistry,
     },
     // needed for claiming on the same tx as a spend
     {
-      address: FeeJuiceAddress,
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+      address: ProtocolContractAddress.FeeJuice,
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
     // needed for private transfers via FPC
     {
       classId: getContractClassFromArtifact(TokenContractArtifact).id,
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
     },
   ];
 }

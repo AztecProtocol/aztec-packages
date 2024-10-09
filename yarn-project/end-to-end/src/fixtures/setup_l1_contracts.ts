@@ -5,12 +5,8 @@ import {
   FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
-  MockProofCommitmentEscrowAbi,
-  MockProofCommitmentEscrowBytecode,
   OutboxAbi,
   OutboxBytecode,
-  ProofCommitmentEscrowAbi,
-  ProofCommitmentEscrowBytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
@@ -19,7 +15,7 @@ import {
   TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { type HDAccount, type PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
@@ -30,7 +26,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators' | 'useRealProofCommitmentEscrow'>,
+  args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators'>,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -57,17 +53,12 @@ export const setupL1Contracts = async (
       contractAbi: FeeJuicePortalAbi,
       contractBytecode: FeeJuicePortalBytecode,
     },
-    proofCommitmentEscrow: {
-      contractAbi: args.useRealProofCommitmentEscrow ? ProofCommitmentEscrowAbi : MockProofCommitmentEscrowAbi,
-      contractBytecode: args.useRealProofCommitmentEscrow
-        ? ProofCommitmentEscrowBytecode
-        : MockProofCommitmentEscrowBytecode,
-    },
   };
 
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
-    l2FeeJuiceAddress: FeeJuiceAddress,
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     salt: undefined,
     ...args,
   });
