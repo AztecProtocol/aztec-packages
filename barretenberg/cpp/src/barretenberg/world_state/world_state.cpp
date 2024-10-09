@@ -41,8 +41,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
     , _initial_tree_size(tree_prefill)
-    , _initial_header_generator_point(initial_header_generator_point)
     , _forkId(CANONICAL_FORK_ID)
+    , _initial_header_generator_point(initial_header_generator_point)
 {
     create_canonical_fork(data_dir, map_size, thread_pool_size);
 }
@@ -369,10 +369,11 @@ void WorldState::update_archive(const StateReference& block_state_ref,
     }
 }
 
-void WorldState::commit()
+bool WorldState::commit()
 {
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    std::atomic_bool success = true;
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
@@ -404,17 +405,22 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-bool WorldState::sync_block(const StateReference& block_state_ref,
-                            const bb::fr& block_header_hash,
-                            const std::vector<bb::fr>& notes,
-                            const std::vector<bb::fr>& l1_to_l2_messages,
-                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                            const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
+WorldStateStatus WorldState::sync_block(
+    const StateReference& block_state_ref,
+    const bb::fr& block_header_hash,
+    const std::vector<bb::fr>& notes,
+    const std::vector<bb::fr>& l1_to_l2_messages,
+    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
 {
+    WorldStateStatus status;
     if (is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref) &&
         is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        commit();
-        return true;
+        if (!commit()) {
+            throw std::runtime_error("Commit failed");
+        }
+        get_status(status);
+        return status;
     }
     rollback();
 
@@ -490,8 +496,11 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
         throw std::runtime_error("Can't synch block: block state does not match world state");
     }
 
-    commit();
-    return false;
+    if (!commit()) {
+        throw std::runtime_error("Commit failed");
+    }
+    get_status(status);
+    return status;
 }
 
 GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision& revision,
@@ -635,11 +644,11 @@ bool WorldState::remove_historical_block(const index_t& blockNumber)
     return success;
 }
 
-bb::fr WorldState::compute_initial_archive(StateReference initial_state_ref)
+bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point)
 {
     // NOTE: this hash operations needs to match the one in yarn-project/circuits.js/src/structs/header.ts
-    return HashPolicy::hash({ GENERATOR_INDEX__BLOCK_HASH, // separator
-                                                           // last archive - which, at genesis, is all 0s
+    return HashPolicy::hash({ generator_point,
+                              // last archive - which, at genesis, is all 0s
                               0,
                               0,
                               // content commitment - all 0s
@@ -674,8 +683,12 @@ bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr
 {
     std::optional<index_t> leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
 
-    return std::all_of(
-        tree_ids.begin(), tree_ids.end(), [=](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
+    if (!leaf_index.has_value()) {
+        return false;
+    }
+
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    return archive_state.meta.size == leaf_index.value() + 1;
 }
 
 void WorldState::get_status(WorldStateStatus& status) const

@@ -189,6 +189,18 @@ void LMDBTreeStore::delete_leaf_indices(const fr& leafValue, LMDBTreeStore::Writ
     tx.delete_value(key, *_leafValueToIndexDatabase);
 }
 
+void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTransaction& tx)
+{
+    NodePayload nodePayload;
+    bool success = get_node_data(nodeHash, nodePayload, tx);
+    if (!success) {
+        throw std::runtime_error("Failed to find node when attempting to increases reference count");
+    }
+    ++nodePayload.ref;
+    // std::cout << "Incrementing siblng at " << nodeHash << ", to " << nodePayload.ref << std::endl;
+    write_node(nodeHash, nodePayload, tx);
+}
+
 void LMDBTreeStore::set_or_increment_node_reference_count(const fr& nodeHash,
                                                           NodePayload& nodeData,
                                                           WriteTransaction& tx)
@@ -262,6 +274,26 @@ void LMDBTreeStore::delete_all_leaf_keys_before_or_equal_index(const index_t& in
 {
     LeafIndexKeyType key(index);
     tx.delete_all_values_lesser_or_equal_key(key, *_leafIndexToKeyDatabase);
+}
+
+bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)
+{
+    FrKeyType key(nodeHash);
+    std::vector<uint8_t> data;
+    bool success = tx.get_value<FrKeyType>(key, data, *_nodeDatabase);
+    if (success) {
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(nodeData);
+    }
+    return success;
+}
+
+void LMDBTreeStore::write_node(const fr& nodeHash, const NodePayload& nodeData, WriteTransaction& tx)
+{
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, nodeData);
+    std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
+    FrKeyType key(nodeHash);
+    tx.put_value<FrKeyType>(key, encoded, *_nodeDatabase);
 }
 
 } // namespace bb::crypto::merkle_tree

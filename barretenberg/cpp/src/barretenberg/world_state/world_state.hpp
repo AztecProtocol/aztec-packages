@@ -89,13 +89,6 @@ class WorldState {
     StateReference get_initial_state_reference() const;
 
     /**
-     * @brief Gets the initial state reference for all the trees in the world state
-     *
-     * @return StateReference
-     */
-    StateReference get_initial_state_reference() const;
-
-    /**
      * @brief Get the sibling path object for a leaf in a tree
      *
      * @param revision The revision to query
@@ -201,7 +194,7 @@ class WorldState {
      * @param fork_id The fork ID to update.
      */
     void update_archive(const StateReference& block_state_ref,
-                        fr block_header_hash,
+                        const bb::fr& block_header_hash,
                         Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
@@ -222,15 +215,13 @@ class WorldState {
     WorldStateStatus remove_historical_blocks(const index_t& toBlockNumber);
 
     void get_status(WorldStateStatus& status) const;
-    bool sync_block(const StateReference& block_state_ref,
-                    const bb::fr& block_header_hash,
-                    const std::vector<bb::fr>& notes,
-                    const std::vector<bb::fr>& l1_to_l2_messages,
-                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
-
-    uint64_t create_fork(index_t blockNumber);
-    void delete_fork(Fork::Id forkId);
+    WorldStateStatus sync_block(
+        const StateReference& block_state_ref,
+        const bb::fr& block_header_hash,
+        const std::vector<bb::fr>& notes,
+        const std::vector<bb::fr>& l1_to_l2_messages,
+        const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+        const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -241,6 +232,8 @@ class WorldState {
     mutable std::mutex mtx;
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
     uint64_t _forkId = 0;
+    uint32_t _initial_header_generator_point;
+
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
     void create_canonical_fork(const std::string& dataDir,
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
@@ -252,6 +245,7 @@ class WorldState {
 
     bool unwind_block(const index_t& blockNumber);
     bool remove_historical_block(const index_t& blockNumber);
+    bool set_finalised_block(const index_t& blockNumber);
 
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);
