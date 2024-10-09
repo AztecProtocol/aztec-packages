@@ -97,7 +97,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       },
       GeneratorIndex.BLOCK_HASH,
       10 * 1024 * 1024, // 10 GB per tree (in KB)
-      cpus().length,
+      16,
     );
     this.queue.start();
   }
