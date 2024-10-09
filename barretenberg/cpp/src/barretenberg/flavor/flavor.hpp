@@ -321,6 +321,7 @@ namespace bb {
 class UltraFlavor;
 class UltraFlavorWithZK;
 class ECCVMFlavor;
+class ECCVMFlavorWithZK;
 class UltraKeccakFlavor;
 class MegaFlavor;
 class TranslatorFlavor;
