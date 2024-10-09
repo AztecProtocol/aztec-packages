@@ -61,15 +61,17 @@ export class MessageStore {
       void this.#lastSynchedL1Block.set(messages.lastProcessedL1BlockNumber);
 
       for (const message of messages.retrievedData) {
-        if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
+        // inbox event emits index the whole tree. We need index in the L1 to L2 message subtree.
+        // reverse of what is done in inbox.sol
+        const indexInTheWholeTree = message.index;
+        const indexInSubtree =
+          indexInTheWholeTree -
+          (message.blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        if (indexInSubtree >= this.#l1ToL2MessagesSubtreeSize) {
           throw new Error(`Message index ${message.index} out of subtree range`);
         }
-        const key = `${message.blockNumber}-${message.index}`;
+        const key = `${message.blockNumber}-${indexInSubtree}`;
         void this.#l1ToL2Messages.setIfNotExists(key, message.leaf.toBuffer());
-
-        const indexInTheWholeTree =
-          (message.blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) +
-          message.index;
 
         const indices = this.#l1ToL2MessageIndices.get(message.leaf.toString()) ?? [];
         indices.push(indexInTheWholeTree);

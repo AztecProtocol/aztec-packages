@@ -6,7 +6,7 @@ export class InboxLeaf {
   constructor(
     /** L2 block number in which the message will be included. */
     public readonly blockNumber: bigint,
-    /** Index of the leaf in L2 block message subtree. */
+    /** Index of the leaf in the whole tree. */
     public readonly index: bigint,
     /** Leaf in the subtree/message hash. */
     public readonly leaf: Fr,
