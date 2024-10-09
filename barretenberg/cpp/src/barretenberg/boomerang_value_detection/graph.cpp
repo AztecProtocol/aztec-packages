@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <stack>
 
+using namespace bb::plookup;
+using namespace bb;
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
@@ -36,8 +38,6 @@ inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component
             }
             if (q_4 != 0) {
                 gate_variables.emplace_back(fourth_idx);
-            }
-            if (arithmetic_block.q_arith()[index] == 1 && q_m == 0) {
             }
             if (arithmetic_block.q_arith()[index] == 2) {
                 // We have to use w_4_shift from the next gate
@@ -453,6 +453,94 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
 }
 
 template <typename FF>
+inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
+                                                                 UltraCircuitBuilder& ultra_circuit_builder,
+                                                                 BasicTableId& table_id,
+                                                                 size_t gate_index)
+{
+
+    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
+    auto find_position = [&](uint32_t variable_index) {
+        return variables_in_one_gate.contains(to_real(variable_index));
+    };
+    std::unordered_set<BasicTableId> aes_plookup_tables{ BasicTableId::AES_SBOX_MAP,
+                                                         BasicTableId::AES_SPARSE_MAP,
+                                                         BasicTableId::AES_SPARSE_NORMALIZE };
+    auto& lookup_block = ultra_circuit_builder.blocks.lookup;
+    if (aes_plookup_tables.contains(table_id)) {
+        uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+        uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+        if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+            bool find_out = find_position(real_out_idx);
+            bool find_right = find_position(real_right_idx);
+            auto q_m = lookup_block.q_m()[gate_index];
+            auto q_c = lookup_block.q_c()[gate_index];
+            if (q_c == 0) {
+                if (find_out) {
+                    variables_in_one_gate.erase(real_out_idx);
+                }
+            }
+            if (q_m == 0) {
+                if (find_right) {
+                    variables_in_one_gate.erase(real_right_idx);
+                }
+            }
+        }
+    }
+}
+
+template <typename FF>
+inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
+                                                                    UltraCircuitBuilder& ultra_circuit_builder,
+                                                                    BasicTableId& table_id,
+                                                                    size_t gate_index)
+{
+
+    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
+    auto find_position = [&](uint32_t variable_index) {
+        return variables_in_one_gate.contains(to_real(variable_index));
+    };
+    auto& lookup_block = ultra_circuit_builder.blocks.lookup;
+    std::unordered_set<BasicTableId> sha256_plookup_tables{ BasicTableId::SHA256_WITNESS_SLICE_3,
+                                                            BasicTableId::SHA256_WITNESS_SLICE_7_ROTATE_4,
+                                                            BasicTableId::SHA256_WITNESS_SLICE_8_ROTATE_7,
+                                                            BasicTableId::SHA256_WITNESS_SLICE_14_ROTATE_1,
+                                                            BasicTableId::SHA256_BASE16,
+                                                            BasicTableId::SHA256_BASE16_ROTATE2,
+                                                            BasicTableId::SHA256_BASE16_ROTATE6,
+                                                            BasicTableId::SHA256_BASE16_ROTATE7,
+                                                            BasicTableId::SHA256_BASE16_ROTATE8,
+                                                            BasicTableId::SHA256_BASE28,
+                                                            BasicTableId::SHA256_BASE28_ROTATE3,
+                                                            BasicTableId::SHA256_BASE28_ROTATE6 };
+    if (sha256_plookup_tables.contains(table_id)) {
+        uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+        uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+        if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+            auto q_m = lookup_block.q_m()[gate_index];
+            auto q_c = lookup_block.q_c()[gate_index];
+            bool find_out = find_position(real_out_idx);
+            bool find_right = find_position(real_right_idx);
+            if (q_c == 0) {
+                if (find_out) {
+                    variables_in_one_gate.erase(real_out_idx);
+                }
+            }
+            if (q_m == 0) {
+                if (find_right) {
+                    variables_in_one_gate.erase(real_right_idx);
+                }
+            }
+            if (table_id == SHA256_BASE16_ROTATE2 || table_id == SHA256_BASE28_ROTATE6) {
+                // we want to remove false cases for special tables even though their selectors != 0
+                // because it's from_1_to_2_table cases, and they aren't dangerous
+                variables_in_one_gate.erase(real_out_idx);
+            }
+        }
+    }
+}
+
+template <typename FF>
 inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                      std::unordered_set<uint32_t>& variables_in_one_gate,
                                                      size_t gate_index)
@@ -469,65 +557,15 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
             std::set<bb::fr> column_1(table.column_1.begin(), table.column_1.end());
             std::set<bb::fr> column_2(table.column_2.begin(), table.column_2.end());
             std::set<bb::fr> column_3(table.column_3.begin(), table.column_3.end());
-            bb::plookup::BasicTableId id = table.id;
-            // in some table we don't use variables from third column. So, these variables are false-case for a
-            // analyzer, and we have to remove them false cases for AES
-            if (id == bb::plookup::AES_SBOX_MAP || id == bb::plookup::AES_SPARSE_MAP) {
-                uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
-                uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
-                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
-                    bool find_out = find_position(real_out_idx);
-                    bool find_right = find_position(real_right_idx);
-                    auto q_m = lookup_block.q_m()[gate_index];
-                    auto q_c = lookup_block.q_c()[gate_index];
-                    if (q_c == 0) {
-                        if (find_out) {
-                            variables_in_one_gate.erase(real_out_idx);
-                        }
-                    }
-                    if (q_m == 0) {
-                        if (find_right) {
-                            variables_in_one_gate.erase(real_right_idx);
-                        }
-                    }
-                }
-            }
+            bb::plookup::BasicTableId table_id = table.id;
+            // in some tables we don't use variables from third column. So, these variables are false-case for a
+            // analyzer, and we have to remove them
+            // false cases for AES
+            remove_unnecessary_aes_plookup_variables(
+                variables_in_one_gate, ultra_circuit_builder, table_id, gate_index);
             // false cases for sha256
-            if (id == bb::plookup::SHA256_WITNESS_SLICE_3 || id == bb::plookup::SHA256_WITNESS_SLICE_7_ROTATE_4 ||
-                id == bb::plookup::SHA256_WITNESS_SLICE_8_ROTATE_7 ||
-                id == bb::plookup::SHA256_WITNESS_SLICE_14_ROTATE_1 || id == bb::plookup::SHA256_BASE16_ROTATE2 ||
-                id == bb::plookup::SHA256_BASE16 || id == bb::plookup::SHA256_BASE16_ROTATE6 ||
-                id == bb::plookup::SHA256_BASE16_ROTATE7 || id == bb::plookup::SHA256_BASE16_ROTATE8 ||
-                id == bb::plookup::SHA256_BASE28_ROTATE6 || id == bb::plookup::SHA256_BASE28_ROTATE3 ||
-                id == bb::plookup::SHA256_BASE28) {
-                uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
-                uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
-                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
-                    auto q_m = lookup_block.q_m()[gate_index];
-                    auto q_c = lookup_block.q_c()[gate_index];
-                    bool find_out = find_position(real_out_idx);
-                    bool find_right = find_position(real_right_idx);
-                    if (real_out_idx == 1504) {
-                        info("it's selector == ", q_m);
-                    }
-                    if (q_c == 0) {
-                        if (find_out) {
-                            variables_in_one_gate.erase(real_out_idx);
-                        }
-                    }
-                    if (q_m == 0) {
-                        if (find_right) {
-                            variables_in_one_gate.erase(real_right_idx);
-                        }
-                    }
-                } else {
-                    info("gates_count: ",
-                         variables_gate_counts[real_out_idx],
-                         " ",
-                         variables_gate_counts[real_right_idx]);
-                    info("variable indices: ", real_right_idx, " ", real_out_idx);
-                }
-            }
+            remove_unnecessary_sha256_plookup_variables(
+                variables_in_one_gate, ultra_circuit_builder, table_id, gate_index);
             if (column_1.size() == 1) {
                 uint32_t left_idx = lookup_block.w_l()[gate_index];
                 uint32_t real_left_idx = to_real(left_idx);

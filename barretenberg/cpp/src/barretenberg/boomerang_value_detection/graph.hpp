@@ -73,6 +73,15 @@ template <typename FF> class Graph_ {
                                               std::unordered_set<uint32_t>& variables_in_on_gate);
     std::unordered_set<uint32_t> show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder);
 
+    void remove_unnecessary_aes_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
+                                                  bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                  bb::plookup::BasicTableId& table_id,
+                                                  size_t gate_index);
+    void remove_unnecessary_sha256_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
+                                                     bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                     bb::plookup::BasicTableId& table_id,
+                                                     size_t gate_index);
+
     void print_graph();
     void print_connected_components();
     void print_variables_gate_counts();

@@ -29,8 +29,6 @@ TEST(stdlib_blake3s, test_single_block_plookup)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    info("builder gates = ", builder.get_num_gates());
-
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
@@ -48,8 +46,6 @@ TEST(stdlib_blake3s, test_double_block_plookup)
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
     EXPECT_EQ(output.get_value(), expected);
-
-    info("builder gates = ", builder.get_num_gates());
 
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();

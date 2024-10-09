@@ -104,13 +104,6 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector
         bool result2 = check_in_byte_array(elem, output_bits);
         bool result3 = check_in_range_lists(elem, 3, builder);
         bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
-        if (check == false) {
-            info("elem == ", elem);
-            info(result1);
-            info(result2);
-            info(result3);
-            info();
-        }
         EXPECT_EQ(check, true);
     }
 }
@@ -176,13 +169,6 @@ HEAVY_TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_
         bool result2 = check_in_byte_array(elem, output_bits);
         bool result3 = check_in_range_lists(elem, 3, builder);
         bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
-        if (check == false) {
-            info("elem == ", elem);
-            info(result1);
-            info(result2);
-            info(result3);
-            info();
-        }
         EXPECT_EQ(check, true);
     }
 }

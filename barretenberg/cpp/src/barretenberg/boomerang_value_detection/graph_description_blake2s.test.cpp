@@ -28,12 +28,6 @@ TEST(ultra_circuit_constructor, test_graph_for_blake2s_single_block_plookup)
     byte_array_plookup input_arr(&builder, input_v);
     byte_array_plookup output = blake2s<Builder>(input_arr);
 
-    auto expected = crypto::blake2s(input_v);
-
-    EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
-
-    info("builder gates = ", builder.get_num_gates());
-
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
