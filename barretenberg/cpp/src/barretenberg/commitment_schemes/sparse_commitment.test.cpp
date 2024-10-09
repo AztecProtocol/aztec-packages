@@ -216,9 +216,11 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     using Fr = Curve::ScalarField;
     using Polynomial = bb::Polynomial<Fr>;
 
-    std::vector<uint32_t> structured_sizes = { 1000, 4000, 201000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
+    std::vector<uint32_t> structured_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
-    bool non_zero_dead_regions = true;
+    // std::vector<uint32_t> structured_sizes = { 4, 6 };
+    // std::vector<uint32_t> actual_sizes = { 2, 2 };
+    bool non_zero_complement = true;
 
     uint32_t full_size = 0;
     for (auto size : structured_sizes) {
@@ -243,11 +245,18 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
         }
         start_idx += block_size;
         // If indicated, populate the 'dead' regions of the blocks with a random constant (mimicking z_perm)
-        if (non_zero_dead_regions) {
+        if (non_zero_complement) {
             Fr const_random_coeff = Fr::random_element();
             for (size_t i = end_idx; i < start_idx; ++i) {
                 polynomial.at(i) = const_random_coeff;
             }
+        }
+    }
+    // In practice z_perm will be constant from the end of the last fixed block to the dyadic poly size
+    if (non_zero_complement) {
+        Fr const_random_coeff = polynomial[start_idx - 1];
+        for (size_t i = start_idx; i < full_size; ++i) {
+            polynomial.at(i) = const_random_coeff;
         }
     }
 

@@ -100,18 +100,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
-        size_t size_utilized = 0;
-        for (auto size : proving_key->proving_key.actual_block_sizes) {
-            size_utilized += size;
-        }
-        bool use_structured_commit = size_utilized * 2 < proving_key->proving_key.circuit_size;
-        if (use_structured_commit) {
-            info("Wires: Using STRUCTURED_COMMIT!");
-        } else {
-            info("Wires: NOT using STRUCTURED_COMMIT!");
-        }
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        if (proving_key->is_structured && use_structured_commit) {
+        if (proving_key->is_structured) {
             std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
             std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
@@ -185,17 +175,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     }
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        size_t size_utilized = 0;
-        for (auto size : proving_key->proving_key.actual_block_sizes) {
-            size_utilized += size;
-        }
-        bool use_structured_commit = size_utilized * 2 < proving_key->proving_key.circuit_size;
-        if (use_structured_commit) {
-            info("Wire4: Using STRUCTURED_COMMIT!");
-        } else {
-            info("Wire4: NOT using STRUCTURED_COMMIT!");
-        }
-        if (proving_key->is_structured && use_structured_commit) {
+        if (proving_key->is_structured) {
             std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
             std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
@@ -260,7 +240,15 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::z_perm");
-        witness_commitments.z_perm = proving_key->proving_key.commitment_key->commit(polynomials().z_perm);
+        if (proving_key->is_structured) {
+            std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
+            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
+            witness_commitments.z_perm =
+                proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
+                    polynomials().z_perm, fixed_sizes, actual_sizes);
+        } else {
+            witness_commitments.z_perm = proving_key->proving_key.commitment_key->commit(polynomials().z_perm);
+        }
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
 }

@@ -182,7 +182,8 @@ template <class Curve> class CommitmentKey {
         uint32_t total_num_scalars = 0;
     };
 
-    RangeEndpoints compute_range_endpoints(const std::vector<uint32_t>& structured_sizes,
+    RangeEndpoints compute_range_endpoints(const size_t polynomial_size,
+                                           const std::vector<uint32_t>& structured_sizes,
                                            const std::vector<uint32_t>& actual_sizes,
                                            bool complement = false)
     {
@@ -205,6 +206,12 @@ template <class Curve> class CommitmentKey {
                 scalar_endpoints.emplace_back(start_idx, end_idx);
                 start_idx += block_size;
             }
+        }
+
+        // Complement of the active portion of the final block should extend to the end of the dyadic polynomial size
+        if (complement) {
+            // WORKTODO: make endpoints use size_t?
+            scalar_endpoints.back().second = static_cast<uint32_t>(polynomial_size);
         }
 
         // Accounting for endomorphism points, the corresponding ranges for the active region points are obtained by
@@ -245,7 +252,16 @@ template <class Curve> class CommitmentKey {
 
         // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
         auto [scalar_endpoints, point_endpoints, total_num_scalars] =
-            compute_range_endpoints(structured_sizes, actual_sizes);
+            compute_range_endpoints(polynomial.end_index(), structured_sizes, actual_sizes);
+
+        size_t usage_percentage = total_num_scalars * 100 / polynomial.size();
+        info("usage_percentage = ", usage_percentage);
+        info("total_num_scalars = ", total_num_scalars);
+        info("polynomial.size() = ", polynomial.size());
+        if (usage_percentage > 75) {
+            info("SKIPPING STRUCTURED COMMIT!");
+            return commit(polynomial);
+        }
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
@@ -293,8 +309,6 @@ template <class Curve> class CommitmentKey {
 
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
-        Commitment active_region_contribution = commit_structured(polynomial, structured_sizes, actual_sizes);
-
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
@@ -302,7 +316,18 @@ template <class Curve> class CommitmentKey {
 
         // Construct the endpoints describing the ranges of constant nonzero elements in the input polynomial
         auto [scalar_endpoints, point_endpoints, total_num_scalars] =
-            compute_range_endpoints(structured_sizes, actual_sizes, /*complement=*/true);
+            compute_range_endpoints(polynomial.end_index(), structured_sizes, actual_sizes, /*complement=*/true);
+
+        size_t complement_percentage = total_num_scalars * 100 / polynomial.size();
+        info("complement_percentage = ", complement_percentage);
+        info("total_num_scalars = ", total_num_scalars);
+        info("polynomial.size() = ", polynomial.size());
+        if (complement_percentage < 50) {
+            info("SKIPPING STRUCTURED COMMIT ZPERM!");
+            return commit(polynomial);
+        }
+
+        Commitment active_region_contribution = commit_structured(polynomial, structured_sizes, actual_sizes);
 
         // Copy the raw SRS points corresponding to the constant regions into contiguous memory
         // WORKTODO: add todo about doing this prior to construction of full point table for lower peak memory
