@@ -38,8 +38,8 @@ export const createP2PClient = async (
 
   const mempools: MemPools = {
     txPool: deps.txPool ?? new AztecKVTxPool(store, telemetry),
-    attestationPool: deps.attestationPool ?? new InMemoryAttestationPool(),
-    epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(),
+    attestationPool: deps.attestationPool ?? new InMemoryAttestationPool(telemetry),
+    epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(telemetry),
   };
 
   let p2pService;
@@ -60,11 +60,12 @@ export const createP2PClient = async (
       proofVerifier,
       worldStateSynchronizer,
       store,
+      telemetry,
     );
   } else {
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(store, l2BlockSource, mempools, p2pService, config.keepProvenTxsInPoolFor);
+  return new P2PClient(store, l2BlockSource, mempools, p2pService, config.keepProvenTxsInPoolFor, telemetry);
 };
 
 async function configureP2PClientAddresses(_config: P2PConfig & DataStoreConfig): Promise<P2PConfig & DataStoreConfig> {
