@@ -4,7 +4,6 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
-import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 
@@ -15,6 +14,7 @@ import {
   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
 } from '../../constants.gen.js';
+import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '../contracts/index.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class UnconstrainedFunctionBroadcastedEvent {

@@ -11,6 +11,7 @@ import {
 import {
   AztecAddress,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   FEE_JUICE_ADDRESS,
   type GlobalVariables,
   type Header,
@@ -23,7 +24,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type SimulationProvider } from '../providers/index.js';

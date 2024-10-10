@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractClass } from '@aztec/types/contracts';
 
 import { FunctionSelector, computeContractClassId } from '../index.js';
+import { type ContractClass } from './contracts/contract_class.js';
 
 describe('ContractClass', () => {
   describe('getContractClassId', () => {

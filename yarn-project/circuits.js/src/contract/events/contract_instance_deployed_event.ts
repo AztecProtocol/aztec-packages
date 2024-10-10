@@ -2,9 +2,9 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { DEPLOYER_CONTRACT_ADDRESS, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE } from '../../constants.gen.js';
+import { type ContractInstanceWithAddress } from '../contracts/index.js';
 
 /** Event emitted from the ContractInstanceDeployer. */
 export class ContractInstanceDeployedEvent {

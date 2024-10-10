@@ -1,6 +1,7 @@
 import { MerkleTreeId, type MerkleTreeOperations } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type ContractDataSource,
   Fr,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
@@ -8,7 +9,6 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { WorldStateDB } from '@aztec/simulator';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 export class TXEWorldStateDB extends WorldStateDB {
   constructor(private merkleDb: MerkleTreeOperations, dataSource: ContractDataSource) {

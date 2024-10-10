@@ -9,11 +9,10 @@ import {
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
-import { EthAddress, Fr, MaxBlockNumber } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress, Fr, MaxBlockNumber } from '@aztec/circuits.js';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

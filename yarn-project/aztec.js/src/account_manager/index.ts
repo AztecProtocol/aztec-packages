@@ -1,7 +1,6 @@
 import { CompleteAddress, type PXE } from '@aztec/circuit-types';
-import { deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type AccountContract } from '../account/contract.js';
 import { type Salt } from '../account/index.js';

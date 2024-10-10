@@ -1,4 +1,11 @@
-import { AvmCircuitInputs, AvmVerificationKeyData, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
+import {
+  AvmCircuitInputs,
+  AvmVerificationKeyData,
+  FunctionSelector,
+  Gas,
+  GlobalVariables,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
@@ -9,7 +16,6 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';

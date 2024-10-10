@@ -1,6 +1,6 @@
 import { randomContractInstanceWithAddress } from '@aztec/circuit-types';
+import { SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { mock } from 'jest-mock-extended';
 

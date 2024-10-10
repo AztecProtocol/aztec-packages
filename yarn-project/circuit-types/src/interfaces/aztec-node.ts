@@ -1,20 +1,18 @@
 import type {
   ARCHIVE_HEIGHT,
+  ContractClassPublic,
+  ContractInstanceWithAddress,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  ProtocolContractAddresses,
 } from '@aztec/circuits.js';
 import type { L1ContractAddresses } from '@aztec/ethereum';
 import type { ContractArtifact } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
-import type {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ProtocolContractAddresses,
-} from '@aztec/types/contracts';
 
 import type { L2Block } from '../l2_block.js';
 import type { FromLogType, GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';

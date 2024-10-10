@@ -1,9 +1,13 @@
 import { type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header, type PublicKey } from '@aztec/circuits.js';
+import {
+  type CompleteAddress,
+  type ContractInstanceWithAddress,
+  type Header,
+  type PublicKey,
+} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';

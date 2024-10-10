@@ -1,5 +1,7 @@
 import {
   AztecAddress,
+  type ContractClass,
+  type ContractInstance,
   FunctionSelector,
   computeContractAddressFromInstance,
   computeContractClassId,
@@ -11,7 +13,6 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
-import { type ContractClass, type ContractInstance } from '@aztec/types/contracts';
 
 describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);

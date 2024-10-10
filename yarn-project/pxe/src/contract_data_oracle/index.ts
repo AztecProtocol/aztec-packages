@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress, type ContractClass, type ContractInstance } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionArtifact,
@@ -8,7 +8,6 @@ import {
 } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
-import { type ContractClass, type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';

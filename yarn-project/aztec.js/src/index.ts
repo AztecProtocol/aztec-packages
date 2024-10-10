@@ -79,6 +79,9 @@ export {
   Point,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  NodeInfo,
 } from '@aztec/circuits.js';
 
 export { computeSecretHash } from '@aztec/circuits.js/hash';
@@ -137,9 +140,6 @@ export {
   EpochProofQuote,
   EpochProofQuotePayload,
 } from '@aztec/circuit-types';
-export type { NodeInfo } from '@aztec/types/interfaces';
-
-export type { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.

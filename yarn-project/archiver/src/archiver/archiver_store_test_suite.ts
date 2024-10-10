@@ -1,6 +1,14 @@
 import { InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  Fr,
+  INITIAL_L2_BLOCK_NUM,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
@@ -8,11 +16,6 @@ import {
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  SerializableContractInstance,
-} from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type L1Published } from './structs/published.js';

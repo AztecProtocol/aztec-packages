@@ -1,5 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
 
 import { type jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
