@@ -1,5 +1,4 @@
-^noir-projects/noir-contracts/.*\.(nr|toml)$
-^noir-projects/noir-contracts/bootstrap.sh$
+^noir-projects/noir-contracts/.*\.(nr|toml|sh|json|js)$
 ^noir-projects/aztec-nr/.*\.(nr|toml)$
 ^noir-projects/noir-protocol-circuits/crates/types/.*\.(nr|toml)$
 ^noir-projects/scripts/generate_vk_json.js$

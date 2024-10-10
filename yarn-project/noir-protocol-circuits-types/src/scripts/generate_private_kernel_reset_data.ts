@@ -153,10 +153,7 @@ const main = async () => {
   checkDimensionNames(config);
 
   const dimensionsList = JSON.parse(
-    await fs.readFile(
-      '../../noir-projects/noir-protocol-circuits/target/dimensions/private_kernel_reset_dimensions.json',
-      'utf8',
-    ),
+    await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as number[][];
 
   checkMaxDimensions(dimensionsList);

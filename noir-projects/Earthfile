@@ -33,49 +33,50 @@ build-contracts:
   ENV TRANSPILER=avm-transpiler
 
   WORKDIR /usr/src/noir-projects/noir-contracts
-
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-projects-noir-contracts" \
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../avm-transpiler/.rebuild_patterns ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
     --command="./bootstrap.sh" \
     --build_artifacts="target"
 
-  SAVE ARTIFACT target
+  WORKDIR /usr/src/noir-projects
+  SAVE ARTIFACT noir-contracts
 
 build-protocol-circuits:
   ARG RAYON_NUM_THREADS
   LOCALLY
   FROM +source
-  WORKDIR /usr/src/noir-projects/noir-protocol-circuits
 
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
   ENV PARALLEL_VK=false
 
+  WORKDIR /usr/src/noir-projects/noir-protocol-circuits
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-projects-noir-protocol-circuits" \
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
     --command="yarn && ./bootstrap.sh" \
     --build_artifacts="target"
 
-  SAVE ARTIFACT target
+  WORKDIR /usr/src/noir-projects
+  SAVE ARTIFACT noir-protocol-circuits
 
 build-mock-protocol-circuits:
   ARG RAYON_NUM_THREADS
   LOCALLY
   FROM +source
 
-  WORKDIR /usr/src/noir-projects/mock-protocol-circuits
-
   ENV RAYON_NUM_THREADS=$RAYON_NUM_THREADS
   ENV PARALLEL_VK=false
 
+  WORKDIR /usr/src/noir-projects/mock-protocol-circuits
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-projects-mock-protocol-circuits" \
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
     --command="./bootstrap.sh" \
     --build_artifacts="target"
 
-  SAVE ARTIFACT target
+  WORKDIR /usr/src/noir-projects
+  SAVE ARTIFACT mock-protocol-circuits
 
 build:
   FROM +source
@@ -83,9 +84,9 @@ build:
   BUILD +build-protocol-circuits
   BUILD +build-mock-protocol-circuits
 
-  COPY --dir +build-contracts/target ./noir-contracts
-  COPY --dir +build-protocol-circuits/target ./noir-protocol-circuits
-  COPY --dir +build-mock-protocol-circuits/target ./mock-protocol-circuits
+  COPY +build-contracts/noir-contracts ./noir-contracts
+  COPY +build-protocol-circuits/noir-protocol-circuits ./noir-protocol-circuits
+  COPY +build-mock-protocol-circuits/mock-protocol-circuits ./mock-protocol-circuits
 
   SAVE ARTIFACT aztec-nr
   SAVE ARTIFACT noir-contracts
