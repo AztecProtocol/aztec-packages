@@ -14,12 +14,13 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-wasm-$HASH.tar.gz $TMP/build-wasm > /dev/null
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-wasm-threads-$HASH.tar.gz $TMP/build-wasm-threads > /dev/null
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-release-$HASH.tar.gz $TMP/build-release > /dev/null
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-release-world-state-$HASH.tar.gz $TMP/build-world-state > /dev/null
+$SCRIPTS_PATH/cache-download.sh barretenberg-preset-wasm-$HASH.tar.gz $TMP/build-wasm
+$SCRIPTS_PATH/cache-download.sh barretenberg-preset-wasm-threads-$HASH.tar.gz $TMP/build-wasm-threads
+$SCRIPTS_PATH/cache-download.sh barretenberg-preset-release-$HASH.tar.gz $TMP/build-release
+$SCRIPTS_PATH/cache-download.sh barretenberg-preset-release-world-state-$HASH.tar.gz $TMP/build-world-state
 
-mv -n $TMP/build-wasm/build build-wasm/
-mv -n $TMP/build-wasm-threads/build build-wasm-threads/
-mv -n $TMP/build-release/build build/
-mv -n $TMP/build-world-state/build/bin/* build/bin/
+# clobber the existing build with the cached build
+mv -f $TMP/build-wasm/build build-wasm/
+mv -f $TMP/build-wasm-threads/build build-wasm-threads/
+mv -f $TMP/build-release/build build/
+mv -f $TMP/build-world-state/build/bin/* build/bin/
