@@ -54,7 +54,7 @@ function show_status_until_pxe_ready() {
   done
 }
 
-show_status_until_pxe_ready &
+# show_status_until_pxe_ready &
 
 # Install the Helm chart
 helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
