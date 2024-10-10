@@ -43,19 +43,22 @@ export type DebugLogger = Logger;
  */
 
 
-export function createDebugLogger(name: string, taggedLogData?: LogData ): DebugLogger {
+export function createDebugLogger(name: string, fixedLogData?: LogData ): DebugLogger {
   const debugLogger = debug(name);
   if (currentLevel === 'debug') debugLogger.enabled = true;
+
+  const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
+
 
   const logger = {
     silent: () => {},
     error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, {...data,...taggedLogData}),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, {...data,...taggedLogData}      ),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, {...data,...taggedLogData}),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, {...data,...taggedLogData}),
+    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
+    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
+    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
+    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
   };
-  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, {...data,...taggedLogData}), logger)
+  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)), logger)
 }
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
