@@ -19,7 +19,6 @@ import { MerkleTreeCalculator } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 
@@ -37,10 +36,10 @@ export class ServerWorldStateSynchronizer
 {
   private readonly merkleTreeCommitted: MerkleTreeReadOperations;
 
-  private latestBlockNumberAtStart = 0;
+  private syncPromise: Promise<void> | undefined;
+
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
 
-  private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
 
   constructor(
@@ -72,28 +71,24 @@ export class ServerWorldStateSynchronizer
       return this.syncPromise;
     }
 
-    // Get the current latest block number
-    this.latestBlockNumberAtStart = await (this.config.worldStateProvenBlocksOnly
-      ? this.l2BlockSource.getProvenBlockNumber()
-      : this.l2BlockSource.getBlockNumber());
+    this.blockStream = this.createBlockStream();
+    const { isSynced, localLatestBlockNumber } = await this.blockStream.isSynced();
 
-    const blockToDownloadFrom = (await this.getLatestBlockNumber()) + 1;
-
-    if (blockToDownloadFrom <= this.latestBlockNumberAtStart) {
-      // If there are blocks to be retrieved, go to a synching state
+    if (!isSynced) {
       this.setCurrentState(WorldStateRunningState.SYNCHING);
-      this.log.verbose(`Starting sync from ${blockToDownloadFrom} to latest block ${this.latestBlockNumberAtStart}`);
+      this.log.verbose(`Starting sync from ${localLatestBlockNumber}`);
+      this.syncPromise = this.blockStream.sync();
     } else {
-      // If no blocks to be retrieved, go straight to running
       this.setCurrentState(WorldStateRunningState.RUNNING);
-      this.syncPromise.resolve();
-      this.log.debug(`Next block ${blockToDownloadFrom} already beyond latest block ${this.latestBlockNumberAtStart}`);
+      this.log.debug(`Already synced to latest block ${localLatestBlockNumber}`);
+      this.syncPromise = Promise.resolve();
     }
 
-    this.blockStream = this.createBlockStream();
-    this.blockStream.start();
-    this.log.info(`Started world state synchronizer from block ${blockToDownloadFrom}`);
-    return this.syncPromise.promise;
+    this.syncPromise = this.syncPromise
+      .then(() => this.blockStream!.start())
+      .then(() => this.log.info(`Started world state synchronizer`));
+
+    return this.syncPromise;
   }
 
   protected createBlockStream() {
@@ -229,14 +224,7 @@ export class ServerWorldStateSynchronizer
     this.verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
 
     // If the above check succeeds, we can proceed to handle the block.
-    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
-
-    if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
-      this.setCurrentState(WorldStateRunningState.RUNNING);
-      this.syncPromise.resolve();
-    }
-
-    return result;
+    return await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
   }
 
   private async handleChainFinalized(blockNumber: number) {

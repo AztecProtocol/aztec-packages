@@ -20,14 +20,27 @@ export interface TxPool {
   /**
    * Marks the set of txs as mined, as opposed to pending.
    * @param txHashes - Hashes of the txs to flag as mined.
+   * @param blockNumber - The block number the txs were mined in.
    */
-  markAsMined(txHashes: TxHash[]): Promise<void>;
+  markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void>;
 
   /**
-   * Deletes transactions from the pool. Tx hashes that are not present are ignored.
-   * @param txHashes - An array of tx hashes to be removed from the tx pool.
+   * Marks the txs on the given block number as pending, as opposed to mined.
+   * @param blockNumber - The block number the txs were originally mined in.
    */
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
+  markAsPending(blockNumber: number): Promise<void>;
+
+  /**
+   * Deletes mined transactions from the pool given a block number.
+   * @param blockNumber - The block number to delete transactions from.
+   */
+  deleteMinedTxs(blockNumber: number): Promise<void>;
+
+  /**
+   * Deletes pending transactions from the pool.
+   * @param txHashes - The tx hashes to delete.
+   */
+  deletePendingTxs(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Gets all transactions currently in the tx pool.

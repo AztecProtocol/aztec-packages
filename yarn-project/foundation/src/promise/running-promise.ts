@@ -18,6 +18,10 @@ export class RunningPromise {
    * Starts the running promise.
    */
   public start() {
+    if (this.running) {
+      return;
+    }
+
     this.running = true;
 
     const poll = async () => {

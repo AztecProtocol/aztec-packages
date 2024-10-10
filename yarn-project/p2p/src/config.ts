@@ -29,11 +29,6 @@ export interface P2PConfig extends P2PReqRespConfig {
   peerCheckIntervalMS: number;
 
   /**
-   * Size of queue of L2 blocks to store.
-   */
-  l2QueueSize: number;
-
-  /**
    * The announce address for TCP.
    */
   tcpAnnounceAddress?: string;
@@ -166,11 +161,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerCheckIntervalMS: {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new peers.',
-    ...numberConfigHelper(1_000),
-  },
-  l2QueueSize: {
-    env: 'P2P_L2_QUEUE_SIZE',
-    description: 'Size of queue of L2 blocks to store.',
     ...numberConfigHelper(1_000),
   },
   tcpListenAddress: {

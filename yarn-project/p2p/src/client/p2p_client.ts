@@ -5,6 +5,10 @@ import {
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
+  L2BlockStream,
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2TipsStore,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
@@ -112,9 +116,8 @@ export interface P2P {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Deletes 'txs' from the pool, given hashes.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes to check.
+   * Deletes pending txs from the pool, given their ids.
+   * @param txHashes - Pending tx hashes to delete.
    **/
   deleteTxs(txHashes: TxHash[]): Promise<void>;
 
@@ -170,27 +173,21 @@ export interface P2P {
 /**
  * The P2P client implementation.
  */
-export class P2PClient extends WithTracer implements P2P {
-  /** L2 block download to stay in sync with latest blocks. */
-  private latestBlockDownloader: L2BlockDownloader;
+export class P2PClient extends WithTracer implements P2P, L2BlockStreamEventHandler {
+  /** Stores the view of the chain for this p2p client. */
+  private tipsStore: L2TipsStore;
 
-  /** L2 block download to stay in sync with proven blocks. */
-  private provenBlockDownloader: L2BlockDownloader;
+  /** L2 block stream from the archiver. */
+  private blockStream: L2BlockStream;
 
-  /** Property that indicates whether the client is running. */
+  /** Whether the client is running. */
   private stopping = false;
 
-  /** The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped. */
-  private runningPromise!: Promise<void>;
-
+  /** Current state of the client */
   private currentState = P2PClientState.IDLE;
-  private syncPromise = Promise.resolve();
-  private syncResolve?: () => void = undefined;
-  private latestBlockNumberAtStart = -1;
-  private provenBlockNumberAtStart = -1;
 
-  private synchedLatestBlockNumber: AztecSingleton<number>;
-  private synchedProvenBlockNumber: AztecSingleton<number>;
+  /** Resolves after the initial sync. */
+  private syncPromise = Promise.resolve();
 
   private txPool: TxPool;
   private attestationPool: AttestationPool;
@@ -202,7 +199,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param l2BlockSource - P2P client's source for fetching existing blocks.
    * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
    * @param p2pService - The concrete instance of p2p networking to use.
-   * @param keepProvenTxsFor - How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven).
+   * @param keepFinalizedTxsFor - How many blocks have to pass after a block is finalized before its txs are deleted (zero to delete immediately once finalized).
    * @param log - A logger.
    */
   constructor(
@@ -210,22 +207,15 @@ export class P2PClient extends WithTracer implements P2P {
     private l2BlockSource: L2BlockSource,
     mempools: MemPools,
     private p2pService: P2PService,
-    private keepProvenTxsFor: number,
+    private keepFinalizedTxsFor: number,
     telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:p2p'),
   ) {
     super(telemetryClient, 'P2PClient');
+    const { blockCheckIntervalMS: pollIntervalMS } = getP2PConfigEnvVars();
 
-    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
-    const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
-    // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
-    // if the archiver is remote. We should refactor this so the downloader keeps a single queue and handles
-    // latest/proven metadata, as well as block reorgs.
-    this.latestBlockDownloader = new L2BlockDownloader(l2BlockSource, l2DownloaderOpts);
-    this.provenBlockDownloader = new L2BlockDownloader(l2BlockSource, { ...l2DownloaderOpts, proven: true });
-
-    this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
-    this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+    this.tipsStore = new L2TipsStore(store);
+    this.blockStream = new L2BlockStream(l2BlockSource, this.tipsStore, this, { pollIntervalMS });
 
     this.txPool = mempools.txPool;
     this.attestationPool = mempools.attestationPool;
@@ -256,51 +246,33 @@ export class P2PClient extends WithTracer implements P2P {
     if (this.currentState === P2PClientState.STOPPED) {
       throw new Error('P2P client already stopped');
     }
+
     if (this.currentState !== P2PClientState.IDLE) {
       return this.syncPromise;
     }
 
-    // get the current latest block numbers
-    this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
-    this.provenBlockNumberAtStart = await this.l2BlockSource.getProvenBlockNumber();
+    const { isSynced, localLatestBlockNumber } = await this.blockStream.isSynced();
 
-    const syncedLatestBlock = this.getSyncedLatestBlockNum() + 1;
-    const syncedProvenBlock = this.getSyncedProvenBlockNum() + 1;
-
-    // if there are blocks to be retrieved, go to a synching state
-    if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
+    if (!isSynced) {
+      // if there are blocks to be retrieved, go to a synching state
       this.setCurrentState(P2PClientState.SYNCHING);
-      this.syncPromise = new Promise(resolve => {
-        this.syncResolve = resolve;
-      });
-      this.log.verbose(`Starting sync from ${syncedLatestBlock} (last proven ${syncedProvenBlock})`);
+      this.log.verbose(`Starting sync from ${localLatestBlockNumber}`);
+      this.syncPromise = this.blockStream.sync();
     } else {
       // if no blocks to be retrieved, go straight to running
       this.setCurrentState(P2PClientState.RUNNING);
+      this.log.verbose(`Already synced to block ${localLatestBlockNumber}`);
       this.syncPromise = Promise.resolve();
-      await this.p2pService.start();
-      this.log.verbose(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
     }
+
+    // start p2p service after initial sync
+    this.syncPromise = this.syncPromise.then(() => this.p2pService.start());
 
     // publish any txs in TxPool after its doing initial sync
     this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
 
-    // start looking for further blocks
-    const processLatest = async () => {
-      while (!this.stopping) {
-        await this.latestBlockDownloader.getBlocks(1).then(this.handleLatestL2Blocks.bind(this));
-      }
-    };
-    const processProven = async () => {
-      while (!this.stopping) {
-        await this.provenBlockDownloader.getBlocks(1).then(this.handleProvenL2Blocks.bind(this));
-      }
-    };
-
-    this.runningPromise = Promise.all([processLatest(), processProven()]).then(() => {});
-    this.latestBlockDownloader.start(syncedLatestBlock);
-    this.provenBlockDownloader.start(syncedLatestBlock);
-    this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
+    // and announce to the world we've started
+    this.syncPromise = this.syncPromise.then(() => this.log.info(`Started p2p client`));
 
     return this.syncPromise;
   }
@@ -314,12 +286,34 @@ export class P2PClient extends WithTracer implements P2P {
     this.stopping = true;
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
-    await this.latestBlockDownloader.stop();
-    await this.provenBlockDownloader.stop();
-    this.log.debug('Stopped block downloader');
-    await this.runningPromise;
+    await this.blockStream.stop();
+    this.log.debug('Stopped block stream');
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped.');
+  }
+
+  /** Handles an event from the L2 block stream. */
+  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    switch (event.type) {
+      case 'blocks-added':
+        await this.markTxsAsMinedFromBlocks(event.blocks);
+        this.log.verbose(`Marked txs as mined up to block ${event.blocks.at(-1)?.number}`);
+        break;
+      case 'chain-finalized':
+        // delete all mined txs from blocks that are finalized
+        await this.handleProvenL2Blocks(event.blocks);
+        break;
+      case 'chain-proven':
+        // do nothing
+        await this.handleProvenL2Blocks(event.blocks);
+        break;
+      case 'chain-pruned':
+        // move all mined txs to pending
+        break;
+    }
+
+    // Forward the event to the tips store to keep it up to date
+    await this.tipsStore.handleBlockStreamEvent(event);
   }
 
   @trackSpan('p2pClient.broadcastProposal', proposal => ({
@@ -453,30 +447,14 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   /**
-   * Public function to check the latest block number that the P2P client is synced to.
-   * @returns Block number of latest L2 Block we've synced with.
-   */
-  public getSyncedLatestBlockNum() {
-    return this.synchedLatestBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
-  }
-
-  /**
-   * Public function to check the latest proven block number that the P2P client is synced to.
-   * @returns Block number of latest proven L2 Block we've synced with.
-   */
-  public getSyncedProvenBlockNum() {
-    return this.synchedProvenBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
-  }
-
-  /**
    * Method to check the status the p2p client.
    * @returns Information about p2p client status: state & syncedToBlockNum.
    */
-  public getStatus(): Promise<P2PSyncState> {
-    return Promise.resolve({
+  public async getStatus(): Promise<P2PSyncState> {
+    return {
       state: this.currentState,
-      syncedToL2Block: this.getSyncedLatestBlockNum(),
-    } as P2PSyncState);
+      syncedToL2Block: (await this.tipsStore.getL2Tips()).latest,
+    };
   }
 
   /**
@@ -505,22 +483,6 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   /**
-   * Handles new mined blocks by marking the txs in them as mined.
-   * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
-   * @returns Empty promise.
-   */
-  private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
-    if (!blocks.length) {
-      return Promise.resolve();
-    }
-    await this.markTxsAsMinedFromBlocks(blocks);
-    const lastBlockNum = blocks[blocks.length - 1].number;
-    await this.synchedLatestBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to latest block ${lastBlockNum}`);
-    await this.startServiceIfSynched();
-  }
-
-  /**
    * Handles new proven blocks by deleting the txs in them, or by deleting the txs in blocks `keepProvenTxsFor` ago.
    * @param blocks - A list of proven L2 blocks.
    * @returns Empty promise.
@@ -533,17 +495,17 @@ export class P2PClient extends WithTracer implements P2P {
     const firstBlockNum = blocks[0].number;
     const lastBlockNum = blocks[blocks.length - 1].number;
 
-    if (this.keepProvenTxsFor === 0) {
+    if (this.keepFinalizedTxsFor === 0) {
       await this.deleteTxsFromBlocks(blocks);
-    } else if (lastBlockNum - this.keepProvenTxsFor >= INITIAL_L2_BLOCK_NUM) {
-      const fromBlock = Math.max(INITIAL_L2_BLOCK_NUM, firstBlockNum - this.keepProvenTxsFor);
-      const toBlock = lastBlockNum - this.keepProvenTxsFor;
+    } else if (lastBlockNum - this.keepFinalizedTxsFor >= INITIAL_L2_BLOCK_NUM) {
+      const fromBlock = Math.max(INITIAL_L2_BLOCK_NUM, firstBlockNum - this.keepFinalizedTxsFor);
+      const toBlock = lastBlockNum - this.keepFinalizedTxsFor;
       const limit = toBlock - fromBlock + 1;
       const blocksToDeleteTxsFrom = await this.l2BlockSource.getBlocks(fromBlock, limit, true);
       await this.deleteTxsFromBlocks(blocksToDeleteTxsFrom);
     }
 
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
+    await this.synchedFinalizedBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
@@ -552,23 +514,8 @@ export class P2PClient extends WithTracer implements P2P {
     await this.startServiceIfSynched();
   }
 
-  private async startServiceIfSynched() {
-    if (
-      this.currentState === P2PClientState.SYNCHING &&
-      this.getSyncedLatestBlockNum() >= this.latestBlockNumberAtStart &&
-      this.getSyncedProvenBlockNum() >= this.provenBlockNumberAtStart
-    ) {
-      this.log.debug(`Synched to blocks at start`);
-      this.setCurrentState(P2PClientState.RUNNING);
-      if (this.syncResolve !== undefined) {
-        this.syncResolve();
-        await this.p2pService.start();
-      }
-    }
-  }
-
   /**
-   * Method to set the value of the current state.
+   * Sets the value of the current state.
    * @param newState - New state value.
    */
   private setCurrentState(newState: P2PClientState) {

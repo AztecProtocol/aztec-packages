@@ -10,11 +10,11 @@ import { type TxPool } from './tx_pool.js';
  * In-memory implementation of the Transaction Pool.
  */
 export class InMemoryTxPool implements TxPool {
-  /**
-   * Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction.
-   */
+  /** Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction. */
   private txs: Map<bigint, Tx>;
-  private minedTxs: Set<bigint>;
+  /** Map from block number to tx hashes mined in that block. */
+  private minedTxs: Map<number, Set<bigint>>;
+  /** Set of pending tx hashes. */
   private pendingTxs: Set<bigint>;
 
   private metrics: PoolInstrumentation<Tx>;
@@ -25,19 +25,28 @@ export class InMemoryTxPool implements TxPool {
    */
   constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:tx_pool')) {
     this.txs = new Map<bigint, Tx>();
-    this.minedTxs = new Set();
+    this.minedTxs = new Map<number, Set<bigint>>();
     this.pendingTxs = new Set();
     this.metrics = new PoolInstrumentation(telemetry, 'InMemoryTxPool');
   }
 
-  public markAsMined(txHashes: TxHash[]): Promise<void> {
+  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
-    for (const key of keys) {
-      this.minedTxs.add(key);
-      this.pendingTxs.delete(key);
-    }
+
+    const mined = this.minedTxs.get(blockNumber) ?? new Set();
+    this.minedTxs.set(blockNumber, mined);
+
+    keys.forEach(key => mined.add(key));
+    keys.forEach(key => this.pendingTxs.delete(key));
+
     this.metrics.recordRemovedObjects(txHashes.length, 'pending');
     this.metrics.recordAddedObjects(txHashes.length, 'mined');
+    return Promise.resolve();
+  }
+
+  public markAsPending(blockNumber: number): Promise<void> {
+    const mined = this.minedTxs.get(blockNumber) ?? [];
+    mined.forEach(key => this.pendingTxs.add(key));
     return Promise.resolve();
   }
 
@@ -46,7 +55,9 @@ export class InMemoryTxPool implements TxPool {
   }
 
   public getMinedTxHashes(): TxHash[] {
-    return Array.from(this.minedTxs).map(x => TxHash.fromBigInt(x));
+    return Array.from(this.minedTxs.values())
+      .flatMap(set => Array.from(set))
+      .map(key => TxHash.fromBigInt(key));
   }
 
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
@@ -54,7 +65,7 @@ export class InMemoryTxPool implements TxPool {
     if (this.pendingTxs.has(key)) {
       return 'pending';
     }
-    if (this.minedTxs.has(key)) {
+    if (Array.from(this.minedTxs.values()).find(set => set.has(key))) {
       return 'mined';
     }
     return undefined;
@@ -86,7 +97,7 @@ export class InMemoryTxPool implements TxPool {
 
       const key = txHash.toBigInt();
       this.txs.set(key, tx);
-      if (!this.minedTxs.has(key)) {
+      if (this.getTxStatus(txHash) === undefined) {
         pending++;
         this.metrics.recordSize(tx);
         this.pendingTxs.add(key);
@@ -97,25 +108,17 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve();
   }
 
-  /**
-   * Deletes transactions from the pool. Tx hashes that are not present are ignored.
-   * @param txHashes - An array of tx hashes to be removed from the tx pool.
-   * @returns The number of transactions that was deleted from the pool.
-   */
-  public deleteTxs(txHashes: TxHash[]): Promise<void> {
-    let deletedMined = 0;
-    let deletedPending = 0;
+  public deleteMinedTxs(blockNumber: number): Promise<void> {
+    const txHashes = this.minedTxs.get(blockNumber) ?? new Set();
+    txHashes.forEach(key => this.txs.delete(key));
+    this.minedTxs.delete(blockNumber);
+    this.metrics.recordRemovedObjects(txHashes.size, 'mined');
+    return Promise.resolve();
+  }
 
-    for (const txHash of txHashes) {
-      const key = txHash.toBigInt();
-      this.txs.delete(key);
-      deletedPending += this.pendingTxs.delete(key) ? 1 : 0;
-      deletedMined += this.minedTxs.delete(key) ? 1 : 0;
-    }
-
-    this.metrics.recordRemovedObjects(deletedPending, 'pending');
-    this.metrics.recordRemovedObjects(deletedMined, 'mined');
-
+  public deletePendingTxs(txHashes: TxHash[]): Promise<void> {
+    txHashes.forEach(key => this.txs.delete(key.toBigInt()));
+    this.metrics.recordRemovedObjects(txHashes.length, 'pending');
     return Promise.resolve();
   }
 

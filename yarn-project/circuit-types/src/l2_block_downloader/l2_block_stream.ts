@@ -5,11 +5,14 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type L2Block } from '../l2_block.js';
 import { type L2BlockId, type L2BlockSource, type L2BlockTag } from '../l2_block_source.js';
 
-/** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver. */
+/**
+ * Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver.
+ * REFACTOR: This class has no business living in circuit-types.
+ */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
-  private readonly log = createDebugLogger('aztec:l2_block_stream');
+  private readonly log = createDebugLogger('aztec:circuit-types:l2_block_stream');
 
   constructor(
     private l2BlockSource: L2BlockSource,
@@ -41,6 +44,42 @@ export class L2BlockStream {
     return this.runningPromise.trigger();
   }
 
+  public async isSynced() {
+    const sourceTips = await this.l2BlockSource.getL2Tips();
+    const localTips = await this.localData.getL2Tips();
+
+    const isFinalizedSynced = localTips.finalized !== undefined && sourceTips.finalized.number !== localTips.finalized;
+    const isProvenSynced = localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven;
+    const isLatestFinalized = this.opts.proven ? isProvenSynced : sourceTips.latest.number === localTips.latest;
+
+    const localLatestBlockNumber = this.opts.proven ? localTips.proven : localTips.latest;
+    const sourceLatest = this.opts.proven ? sourceTips.proven : sourceTips.latest;
+    const doLatestBlockHashesMatch =
+      !localLatestBlockNumber || (await this.areBlockHashesEqual(localLatestBlockNumber, sourceLatest));
+
+    this.log.debug(`Testing if L2 block stream is synced`, {
+      isLatestFinalized,
+      isFinalizedSynced,
+      isProvenSynced,
+      doLatestBlockHashesMatch,
+    });
+
+    return {
+      isSynced: isLatestFinalized && isFinalizedSynced && isProvenSynced && doLatestBlockHashesMatch,
+      localLatestBlockNumber,
+    };
+  }
+
+  public async getLocalLatest() {
+    const localTips = await this.localData.getL2Tips();
+    return this.opts.proven ? localTips.proven : localTips.latest;
+  }
+
+  public async getSyncTarget() {
+    const sourceTips = await this.l2BlockSource.getL2Tips();
+    return this.opts.proven ? sourceTips.proven.number : sourceTips.latest.number;
+  }
+
   protected async work() {
     try {
       const sourceTips = await this.l2BlockSource.getL2Tips();
@@ -55,6 +94,7 @@ export class L2BlockStream {
         sourceLatestHash: sourceTips.latest.hash,
         sourceProvenHash: sourceTips.proven.hash,
         sourceFinalizedHash: sourceTips.finalized.hash,
+        onlyProven: this.opts.proven,
       });
 
       // Check if there was a reorg and emit a chain-pruned event if so.
