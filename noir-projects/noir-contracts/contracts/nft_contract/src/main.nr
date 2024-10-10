@@ -21,7 +21,7 @@ contract NFT {
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}}
     };
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
-    use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
+    use std::meta::derive;
     use crate::types::nft_note::NFTNote;
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
