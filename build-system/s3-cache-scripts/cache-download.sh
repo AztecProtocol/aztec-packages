@@ -24,4 +24,4 @@ aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "s3://aztec-ci-artifacts/build-cache/$T
 mkdir -p "$OUT_DIR"
 tar -xzf "$TAR_FILE" -C "$OUT_DIR"
 
-echo "Cache download and extraction complete."
+echo "Cache download and extraction of $TAR_FILE complete."
