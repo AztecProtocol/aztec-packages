@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728512789852,
+  "lastUpdate": 1728555867778,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aabd2d85d4f3f35d67d53421b47214aa8904c505",
-          "message": "chore!: change ec_add to unsafe implementation (but much better perf) (#8374)\n\nUse `unconditional_add` for ec_add ACIR opcode.\r\nThis improves a lot the performance of the opcode, but also makes it\r\nunsafe.\r\n~~I keep the PR as draft until aztec packages are sync with Noir PR\r\nhttps://github.com/noir-lang/noir/pull/5858 which adds the checks in the\r\nstdlib function.~~\r\nThe unsafe version can then be used when we know the inputs are valid\r\n(for instance if they come from a previous add).\r\nn.b.: the real performance boost will happen when we will be able to use\r\nthe unsafe version.\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2024-09-24T12:13:40+01:00",
-          "tree_id": "dc62adfd4a2d1e35bf56eec16f05d9572fdaefc9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aabd2d85d4f3f35d67d53421b47214aa8904c505"
-        },
-        "date": 1727177606332,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35610.394039,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 33019.866771 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5094.009241000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4638.731148999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100171.561547,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100171562000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14652.519745000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14652520000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8508471892,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8508471892 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152141245,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152141245 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6909657651,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6909657651 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128889651,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128889651 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 130695234,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 130695234 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jose@aztecprotocol.com",
+            "name": "José Pedro Sousa",
+            "username": "signorecello"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "662b61e4c20a2d4217980922d4578f4dfeacae6b",
+          "message": "chore(docs): rewriting bbup script, refactoring bb readme for clarity (#9073)\n\n## Description\r\n\r\nCloses #8530\r\n\r\nCloses https://github.com/AztecProtocol/aztec-packages/issues/7511\r\nhttps://github.com/AztecProtocol/aztec-packages/issues/7525 as no longer\r\nuseful / relevant\r\n\r\nThis PR updates the Barretenberg README with more information about the\r\nproject, its installation, usage, and development.\r\n\r\nIt also refactors `bbup` with `commander` to match the rest of the\r\nrepository's CLI tooling.\r\n\r\n## Changes\r\n\r\n### bb readme\r\n- Added a project banner and reorganized the README structure\r\n- Expanded usage instructions for UltraHonk and MegaHonk\r\n\r\n### bbup\r\n- Refactored bbup installation script and related files\r\n- Included detailed installation instructions in its README\r\n\r\n## Testing\r\n\r\n`bbup` won't change much so it is deployed manually on `npm`. You can\r\ntry it immediately with:\r\n\r\n```bash\r\ncurl -L bbup.dev | bash\r\nbbup\r\n```\r\n\r\n---------\r\n\r\nCo-authored-by: Savio <72797635+Savio-Sou@users.noreply.github.com>",
+          "timestamp": "2024-10-10T11:55:56+02:00",
+          "tree_id": "a8da02af2a6c3c0feea6ea807397918d15e92f16",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/662b61e4c20a2d4217980922d4578f4dfeacae6b"
+        },
+        "date": 1728555860437,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31416.497950000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28975.102133 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5599.053466000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5265.072284 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93321.99006000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93321992000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15678.334770000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15678335000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8386492104,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8386492104 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152888702,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152888702 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6806037491,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6806037491 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125119260,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125119260 ns\nthreads: 1"
           }
         ]
       }
