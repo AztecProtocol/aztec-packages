@@ -1,6 +1,7 @@
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "../fixtures.hpp"
 #include "../memory_tree.hpp"
+#include "../test_fixtures.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"

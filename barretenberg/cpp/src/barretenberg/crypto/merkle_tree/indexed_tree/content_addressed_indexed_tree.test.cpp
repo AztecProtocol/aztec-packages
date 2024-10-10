@@ -3,6 +3,7 @@
 #include "../hash.hpp"
 #include "../node_store/array_store.hpp"
 #include "../nullifier_tree/nullifier_memory_tree.hpp"
+#include "../test_fixtures.hpp"
 #include "./fixtures.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
