@@ -9,6 +9,12 @@ services:
       - ./log:/usr/src/yarn-project/aztec/log:rw
       - ${HOME}:${HOME}
     command: start --txe --port 8081
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/status"]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+
 
   aztec-nargo:
     image: "aztecprotocol/aztec-nargo"
@@ -20,4 +26,5 @@ services:
     volumes:
       - ${HOME}:${HOME}
     depends_on:
-      - txe
+      txe:
+        condition: service_healthy

@@ -229,7 +229,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<void> {
+  ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
@@ -240,7 +240,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<void> {
+  ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }
 

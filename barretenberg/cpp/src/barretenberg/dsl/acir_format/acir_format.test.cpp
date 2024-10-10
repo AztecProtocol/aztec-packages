@@ -68,6 +68,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .assert_equalities = {},
         .poly_triple_constraints = { constraint },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -191,6 +192,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .assert_equalities = {},
         .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -282,6 +284,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
             .q_c = fr::neg_one(),
         } },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -390,6 +393,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
             .q_c = fr::neg_one(),
         } },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -502,6 +506,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .assert_equalities = {},
         .poly_triple_constraints = { dummy },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -583,6 +588,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -659,6 +665,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .assert_equalities = {},
         .poly_triple_constraints = { first_gate, second_gate },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -668,4 +675,139 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         create_circuit(constraint_system, /*size_hint*/ 0, witness, false, std::make_shared<bb::ECCOpQueue>(), true);
 
     EXPECT_EQ(constraint_system.gates_per_opcode, std::vector<size_t>({ 2, 1 }));
+}
+
+TEST_F(AcirFormatTests, TestBigAdd)
+{
+
+    WitnessVector witness_values;
+    witness_values.emplace_back(fr(0));
+
+    witness_values = {
+        fr(0), fr(1), fr(2), fr(3), fr(4), fr(5), fr(6), fr(7), fr(8), fr(9), fr(10), fr(11), fr(12), fr(13), fr(-91),
+    };
+
+    bb::mul_quad_<fr> quad1 = {
+        .a = 0,
+        .b = 1,
+        .c = 2,
+        .d = 3,
+        .mul_scaling = 0,
+        .a_scaling = fr::one(),
+        .b_scaling = fr::one(),
+        .c_scaling = fr::one(),
+        .d_scaling = fr::one(),
+        .const_scaling = fr(0),
+    };
+
+    bb::mul_quad_<fr> quad2 = {
+        .a = 4,
+        .b = 5,
+        .c = 6,
+        .d = 0,
+        .mul_scaling = 0,
+        .a_scaling = fr::one(),
+        .b_scaling = fr::one(),
+        .c_scaling = fr::one(),
+        .d_scaling = fr(0),
+        .const_scaling = fr(0),
+    };
+
+    bb::mul_quad_<fr> quad3 = {
+        .a = 7,
+        .b = 8,
+        .c = 9,
+        .d = 0,
+        .mul_scaling = 0,
+        .a_scaling = fr::one(),
+        .b_scaling = fr::one(),
+        .c_scaling = fr::one(),
+        .d_scaling = fr(0),
+        .const_scaling = fr(0),
+    };
+    bb::mul_quad_<fr> quad4 = {
+        .a = 10,
+        .b = 11,
+        .c = 12,
+        .d = 0,
+        .mul_scaling = 0,
+        .a_scaling = fr::one(),
+        .b_scaling = fr::one(),
+        .c_scaling = fr::one(),
+        .d_scaling = fr(0),
+        .const_scaling = fr(0),
+    };
+    bb::mul_quad_<fr> quad5 = {
+        .a = 13,
+        .b = 14,
+        .c = 0,
+        .d = 18,
+        .mul_scaling = 0,
+        .a_scaling = fr::one(),
+        .b_scaling = fr::one(),
+        .c_scaling = fr(0),
+        .d_scaling = fr(-1),
+        .const_scaling = fr(0),
+    };
+
+    auto res_x = fr(91);
+    auto assert_equal = poly_triple{
+        .a = 14,
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
+        .q_l = fr::one(),
+        .q_r = 0,
+        .q_o = 0,
+        .q_c = res_x,
+    };
+    auto quad_constraint = { quad1, quad2, quad3, quad4, quad5 };
+    size_t num_variables = witness_values.size();
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(num_variables + 1),
+        .recursive = false,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .aes128_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .assert_equalities = {},
+        .poly_triple_constraints = { assert_equal },
+        .quad_constraints = {},
+        .big_quad_constraints = { quad_constraint },
+        .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+
+    auto composer = Composer();
+    auto prover = composer.create_prover(builder);
+
+    auto proof = prover.construct_proof();
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    auto verifier = composer.create_verifier(builder);
+    EXPECT_EQ(verifier.verify_proof(proof), true);
 }

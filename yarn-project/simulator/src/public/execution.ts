@@ -1,4 +1,5 @@
 import {
+  NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type UnencryptedFunctionL2Logs,
@@ -21,8 +22,6 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
-import { type Gas as AvmGas } from '../avm/avm_gas.js';
-
 /**
  * The public function execution result.
  */
@@ -35,9 +34,9 @@ export interface PublicExecutionResult {
   /** The side effect counter after executing this function call */
   endSideEffectCounter: Fr;
   /** How much gas was available for this public execution. */
-  startGasLeft: AvmGas;
+  startGasLeft: Gas;
   /** How much gas was left after this public execution. */
-  endGasLeft: AvmGas;
+  endGasLeft: Gas;
   /** Transaction fee set for this tx. */
   transactionFee: Fr;
 
@@ -96,6 +95,18 @@ export interface PublicExecutionResult {
 
   /** The name of the function that was executed. Only used for logging. */
   functionName: string;
+}
+
+/**
+ * Recursively accummulate the return values of a call result and its nested executions,
+ * so they can be retrieved in order.
+ * @param executionResult
+ * @returns
+ */
+export function accumulatePublicReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
+  const acc = new NestedProcessReturnValues(executionResult.returnValues);
+  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePublicReturnValues(nestedExecution));
+  return acc;
 }
 
 export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {

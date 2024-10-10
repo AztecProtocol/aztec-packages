@@ -12,8 +12,8 @@ import {
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
+  CombinedConstantData,
   Gas,
-  GlobalVariables,
   Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -21,7 +21,7 @@ import {
   type NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
-  PrivateCircuitPublicInputs,
+  PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -57,6 +57,7 @@ import {
   acvm,
   createSimulationError,
   extractCallStack,
+  extractPrivateCircuitPublicInputs,
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
@@ -104,7 +105,7 @@ export class TXE implements TypedOracle {
   async #getTreesAt(blockNumber: number) {
     const db =
       blockNumber === (await this.getBlockNumber())
-        ? this.trees.asLatest()
+        ? await this.trees.getLatest()
         : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
     return db;
   }
@@ -209,20 +210,20 @@ export class TXE implements TypedOracle {
 
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = siloNullifier(targetAddress, innerNullifier!);
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     return index !== undefined;
   }
 
   async avmOpcodeEmitNullifier(nullifier: Fr) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
     return Promise.resolve();
   }
 
   async avmOpcodeEmitNoteHash(noteHash: Fr) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNoteHash = siloNoteHash(this.contractAddress, noteHash);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
     return Promise.resolve();
@@ -242,14 +243,14 @@ export class TXE implements TypedOracle {
   }
 
   async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier).toBuffer());
 
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, siloedNullifiers, NULLIFIER_SUBTREE_HEIGHT);
   }
 
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
@@ -453,7 +454,7 @@ export class TXE implements TypedOracle {
 
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     return index !== undefined;
   }
@@ -467,7 +468,7 @@ export class TXE implements TypedOracle {
   }
 
   async avmOpcodeStorageRead(slot: Fr) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
 
     const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
@@ -513,7 +514,7 @@ export class TXE implements TypedOracle {
   }
 
   async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
 
     const publicDataWrites = values.map((value, i) => {
       const storageSlot = startStorageSlot.add(new Fr(i));
@@ -556,10 +557,10 @@ export class TXE implements TypedOracle {
     isDelegateCall: boolean,
   ) {
     this.logger.verbose(
-      `Executing external function ${targetContractAddress}:${functionSelector}(${await this.getDebugFunctionName(
+      `Executing external function ${await this.getDebugFunctionName(
         targetContractAddress,
         functionSelector,
-      )}) isStaticCall=${isStaticCall} isDelegateCall=${isDelegateCall}`,
+      )}@${targetContractAddress} isStaticCall=${isStaticCall} isDelegateCall=${isDelegateCall}`,
     );
 
     // Store and modify env
@@ -597,8 +598,7 @@ export class TXE implements TypedOracle {
         throw createSimulationError(execError);
       });
       const duration = timer.ms();
-      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
-      const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+      const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
       const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
       this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
@@ -685,26 +685,22 @@ export class TXE implements TypedOracle {
     callContext: CallContext,
     counter: number,
   ) {
-    const header = Header.empty();
-    header.state = await this.trees.getStateReference(true);
-    header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
-
     const executor = new PublicExecutor(
-      new TXEWorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
-      header,
+      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
     );
     const execution = new PublicExecutionRequest(targetContractAddress, callContext, args);
 
-    return executor.simulate(
+    const executionResult = executor.simulate(
       execution,
-      GlobalVariables.empty(),
+      CombinedConstantData.empty(),
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],
       /* transactionFee */ Fr.ONE,
       counter,
     );
+    return Promise.resolve(executionResult);
   }
 
   async avmOpcodeCall(
@@ -755,7 +751,7 @@ export class TXE implements TypedOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
     const currentMessageSender = AztecAddress.fromField(this.msgSender);
@@ -766,12 +762,13 @@ export class TXE implements TypedOracle {
 
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;
-    callContext.functionSelector = this.functionSelector;
+    callContext.functionSelector = FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR));
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
     callContext.isDelegateCall = isDelegateCall;
 
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
+    const newArgsHash = this.packedValuesCache.pack(args);
 
     const executionResult = await this.executePublicFunction(
       targetContractAddress,
@@ -789,6 +786,8 @@ export class TXE implements TypedOracle {
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
     this.setFunctionSelector(currentFunctionSelector);
+
+    return newArgsHash;
   }
 
   async setPublicTeardownFunctionCall(
@@ -798,10 +797,10 @@ export class TXE implements TypedOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
     // Definitely not right, in that the teardown should always be last.
     // But useful for executing flows.
-    await this.enqueuePublicFunctionCall(
+    return await this.enqueuePublicFunctionCall(
       targetContractAddress,
       functionSelector,
       argsHash,

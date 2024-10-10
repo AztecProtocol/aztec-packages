@@ -1,4 +1,4 @@
-import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { FunctionSelector, type GlobalVariables } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -14,7 +14,6 @@ export class AvmExecutionEnvironment {
     public readonly functionSelector: FunctionSelector, // may be temporary (#7224)
     public readonly contractCallDepth: Fr,
     public readonly transactionFee: Fr,
-    public readonly header: Header,
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
     public readonly isDelegateCall: boolean,
@@ -35,7 +34,6 @@ export class AvmExecutionEnvironment {
       functionSelector,
       this.contractCallDepth.add(Fr.ONE),
       this.transactionFee,
-      this.header,
       this.globals,
       isStaticCall,
       isDelegateCall,

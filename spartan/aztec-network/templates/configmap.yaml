@@ -1,0 +1,10 @@
+# Config map that stores the validator keys for this cluster
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-keys
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  keys.json: |
+    {{ .Values.validator.validatorKeys | toJson | nindent 4 }}

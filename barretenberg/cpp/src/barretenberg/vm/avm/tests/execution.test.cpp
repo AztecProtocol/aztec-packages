@@ -12,6 +12,7 @@
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
 #include "barretenberg/vm/aztec_constants.hpp"
@@ -628,62 +629,6 @@ TEST_F(AvmExecutionTests, movOpcode)
     validate_trace(std::move(trace), public_inputs);
 }
 
-// Positive test with CMOV.
-TEST_F(AvmExecutionTests, cmovOpcode)
-{
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "03"                      // val 3
-                               "10"                      // a_offset 16
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U16) +
-                               "04"                      // val 4
-                               "11"                      // b_offset 17
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "05"                       // val 5
-                               "20"                       // cond_offset 32
-                               + to_hex(OpCode::CMOV) +   // opcode CMOV
-                               "00"                       // Indirect flag
-                               "00000010"                 // a_offset 16
-                               "00000011"                 // b_offset 17
-                               "00000020"                 // cond_offset 32
-                               "00000012"                 // dst_offset 18
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "00000000"                 // ret offset 0
-                               "00000000";                // ret size 0
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    ASSERT_THAT(instructions, SizeIs(5));
-
-    // CMOV
-    EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::CMOV),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint32_t>(16),
-                                        VariantWith<uint32_t>(17),
-                                        VariantWith<uint32_t>(32),
-                                        VariantWith<uint32_t>(18)))));
-
-    auto trace = gen_trace_from_instr(instructions);
-
-    // Find the first row enabling the CMOV selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cmov == 1; });
-    EXPECT_EQ(row->main_ia, 3);
-    EXPECT_EQ(row->main_ib, 4);
-    EXPECT_EQ(row->main_ic, 3);
-    EXPECT_EQ(row->main_id, 5);
-
-    validate_trace(std::move(trace), public_inputs);
-}
-
 // Positive test with indirect MOV.
 TEST_F(AvmExecutionTests, indMovOpcode)
 {
@@ -947,9 +892,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                "00"                                  // Indirect flag
                                "00000100"                            // output offset
                                "00000001"                            // state offset
-                               "0000000F"                            // state size
                                "00000009"                            // input offset
-                               "00000008"                            // input size
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000100"                            // ret offset 256
@@ -1267,7 +1210,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "07"                       // value
                                "06"                       // dst_offset
                                + to_hex(OpCode::ECADD) +  // opcode ECADD
-                               "40"                       // Indirect flag (sixth operand indirect)
+                               "0040"                     // Indirect flag (sixth operand indirect)
                                "00000000"                 // hash_index offset (direct)
                                "00000001"                 // dest offset (direct)
                                "00000002"                 // input offset (indirect)
@@ -1457,53 +1400,53 @@ TEST_F(AvmExecutionTests, pedersenCommitmentOpcode)
 TEST_F(AvmExecutionTests, kernelInputOpcodes)
 {
     std::string bytecode_hex =
-        to_hex(OpCode::GETENVVAR_16) +                                          // opcode ADDRESS
+        to_hex(OpCode::GETENVVAR_16) +                                          // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::ADDRESS)) +          // envvar ADDRESS
         "0001"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode STORAGEADDRESS
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::STORAGEADDRESS)) +   // envvar STORAGEADDRESS
         "0002"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode SENDER
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) +           // envvar SENDER
         "0003"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FUNCTIONSELECTOR
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)) + // envvar FUNCTIONSELECTOR
         "0004"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode TRANSACTIONFEE
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)) +   // envvar TRANSACTIONFEE
         "0005"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode CHAINID
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::CHAINID)) +          // envvar CHAINID
         "0006"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode VERSION
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::VERSION)) +          // envvar VERSION
         "0007"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode BLOCKNUMBER
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)) +      // envvar BLOCKNUMBER
         "0008"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode TIMESTAMP
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)) +        // envvar TIMESTAMP
         "0009"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FEEPERL2GAS
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)) +      // envvar FEEPERL2GAS
         "000A"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FEEPERDAGAS
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)) +      // envvar FEEPERDAGAS
         "000B"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FEEPERDAGAS
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)) +     // envvar FEEPERDAGAS
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)) +     // envvar ISSTATICCALL
         "000C"                                                                  // dst_offset
         + to_hex(OpCode::RETURN) +                                              // opcode RETURN
         "00"                                                                    // Indirect flag
@@ -1641,21 +1584,21 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     // TODO: maybe have a javascript like object construction so that this is readable
     // Reduce the amount of times we have similar code to this
     //
-    public_inputs_vec[ADDRESS_SELECTOR] = address;
-    public_inputs_vec[STORAGE_ADDRESS_SELECTOR] = storage_address;
-    public_inputs_vec[SENDER_SELECTOR] = sender;
-    public_inputs_vec[FUNCTION_SELECTOR_SELECTOR] = function_selector;
-    public_inputs_vec[TRANSACTION_FEE_OFFSET] = transaction_fee;
-    public_inputs_vec[IS_STATIC_CALL_SELECTOR] = is_static_call;
+    public_inputs_vec[STORAGE_ADDRESS_PCPI_OFFSET] = address;
+    public_inputs_vec[STORAGE_ADDRESS_PCPI_OFFSET] = storage_address;
+    public_inputs_vec[SENDER_PCPI_OFFSET] = sender;
+    public_inputs_vec[FUNCTION_SELECTOR_PCPI_OFFSET] = function_selector;
+    public_inputs_vec[TRANSACTION_FEE_PCPI_OFFSET] = transaction_fee;
+    public_inputs_vec[IS_STATIC_CALL_PCPI_OFFSET] = is_static_call;
 
     // Global variables
-    public_inputs_vec[CHAIN_ID_OFFSET] = chainid;
-    public_inputs_vec[VERSION_OFFSET] = version;
-    public_inputs_vec[BLOCK_NUMBER_OFFSET] = blocknumber;
-    public_inputs_vec[TIMESTAMP_OFFSET] = timestamp;
+    public_inputs_vec[CHAIN_ID_PCPI_OFFSET] = chainid;
+    public_inputs_vec[VERSION_PCPI_OFFSET] = version;
+    public_inputs_vec[BLOCK_NUMBER_PCPI_OFFSET] = blocknumber;
+    public_inputs_vec[TIMESTAMP_PCPI_OFFSET] = timestamp;
     // Global variables - Gas
-    public_inputs_vec[FEE_PER_DA_GAS_OFFSET] = feeperdagas;
-    public_inputs_vec[FEE_PER_L2_GAS_OFFSET] = feeperl2gas;
+    public_inputs_vec[FEE_PER_DA_GAS_PCPI_OFFSET] = feeperdagas;
+    public_inputs_vec[FEE_PER_L2_GAS_PCPI_OFFSET] = feeperl2gas;
 
     std::vector<FF> returndata;
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
@@ -1780,7 +1723,7 @@ TEST_F(AvmExecutionTests, daGasLeft)
                                "0007"                           // addr a 7
                                "0009"                           // addr b 9
                                "0001"                           // addr c 1
-                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
+                               + to_hex(OpCode::GETENVVAR_16) + // opcode DAGASLEFT
                                "00"                             // Indirect flag
                                + to_hex(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)) +
                                "0027"                     // dst_offset (indirect addr: 17)
@@ -1817,11 +1760,30 @@ TEST_F(AvmExecutionTests, daGasLeft)
     validate_trace(std::move(trace), public_inputs);
 }
 
+TEST_F(AvmExecutionTests, ExecutorThrowsWithTooMuchGasAllocated)
+{
+    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
+                               "00"                           // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, 0);
+    public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET] = MAX_L2_GAS_PER_ENQUEUED_CALL + 1;
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
+        "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
+}
+
 // Should throw whenever the wrong number of public inputs are provided
 TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 {
-    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) +                                        // opcode SENDER
-                               "00"                                                                  // Indirect flag
+    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
+                               "00"                           // Indirect flag
                                + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
 
     std::vector<FF> calldata = {};
@@ -1831,7 +1793,7 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(instructions, calldata, returndata, public_inputs_vec),
+    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
                               "Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
 }
 
@@ -2283,7 +2245,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                "00000000"                     // dst_offset
                                + bytecode_preamble            // Load up memory offsets
                                + to_hex(OpCode::CALL) +       // opcode CALL
-                               "3f"                           // Indirect flag
+                               "003f"                         // Indirect flag
                                "00000011"                     // gas offset
                                "00000012"                     // addr offset
                                "00000013"                     // args offset

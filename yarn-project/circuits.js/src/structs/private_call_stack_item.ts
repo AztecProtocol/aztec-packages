@@ -79,6 +79,22 @@ export class PrivateCallStackItem {
     );
   }
 
+  public toJSON() {
+    return {
+      contractAddress: this.contractAddress.toString(),
+      functionData: this.functionData.toJSON(),
+      publicInputs: this.publicInputs.toBuffer().toString('hex'),
+    };
+  }
+
+  public static fromJSON(value: any) {
+    return new PrivateCallStackItem(
+      AztecAddress.fromString(value.contractAddress),
+      FunctionData.fromJSON(value.functionData),
+      PrivateCircuitPublicInputs.fromBuffer(Buffer.from(value.publicInputs, 'hex')),
+    );
+  }
+
   isEmpty() {
     return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
   }

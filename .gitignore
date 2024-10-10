@@ -27,3 +27,7 @@ terraform.tfstate*
 
 # Terraform
 *.tfvars
+
+# tmux
+tmux-client-*.log
+.supermavenignore

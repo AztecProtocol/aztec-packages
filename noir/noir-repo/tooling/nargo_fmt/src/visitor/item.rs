@@ -6,10 +6,19 @@ use crate::{
     },
     visitor::expr::{format_seq, NewlineMode},
 };
+<<<<<<< HEAD
 use noirc_frontend::{
     ast::{ItemVisibility, NoirFunction, TraitImplItemKind, UnresolvedTypeData, Visibility},
     lexer::Lexer,
     token::{SecondaryAttribute, TokenKind},
+||||||| 670af8a158
+use noirc_frontend::{
+    ast::{ItemVisibility, NoirFunction, TraitImplItemKind, Visibility},
+    macros_api::UnresolvedTypeData,
+=======
+use noirc_frontend::ast::{
+    ItemVisibility, NoirFunction, TraitImplItemKind, UnresolvedTypeData, Visibility,
+>>>>>>> master
 };
 use noirc_frontend::{
     hir::resolution::errors::Span,

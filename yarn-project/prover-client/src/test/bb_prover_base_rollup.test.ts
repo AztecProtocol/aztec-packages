@@ -7,6 +7,7 @@ import {
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -23,7 +24,7 @@ describe('prover/bb_prover/base-rollup', () => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
-    context = await TestContext.new(logger, 'legacy', 1, buildProver);
+    context = await TestContext.new(logger, 'native', 1, buildProver);
   });
 
   afterAll(async () => {
@@ -36,7 +37,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const version = context.globalVariables.version;
     const vkTreeRoot = getVKTreeRoot();
 
-    const inputs = new PrivateKernelEmptyInputData(header, chainId, version, vkTreeRoot);
+    const inputs = new PrivateKernelEmptyInputData(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
     const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
     const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 

@@ -28,10 +28,13 @@ impl DebugToString for MemoryAddress {
     fn debug_to_string(&self) -> String {
         if *self == ReservedRegisters::free_memory_pointer() {
             "FreeMem".into()
-        } else if *self == ReservedRegisters::previous_stack_pointer() {
-            "PrevStack".into()
+        } else if *self == ReservedRegisters::stack_pointer() {
+            "StackPointer".into()
         } else {
-            format!("R{}", self.to_usize())
+            match self {
+                MemoryAddress::Direct(address) => format!("M{}", address),
+                MemoryAddress::Relative(offset) => format!("S{}", offset),
+            }
         }
     }
 }
@@ -121,24 +124,6 @@ impl DebugShow {
     /// Emits a `mov` instruction.
     pub(crate) fn mov_instruction(&self, destination: MemoryAddress, source: MemoryAddress) {
         debug_println!(self.enable_debug_trace, "  MOV {}, {}", destination, source);
-    }
-
-    /// Emits a conditional `mov` instruction.
-    pub(crate) fn conditional_mov_instruction(
-        &self,
-        destination: MemoryAddress,
-        condition: MemoryAddress,
-        source_a: MemoryAddress,
-        source_b: MemoryAddress,
-    ) {
-        debug_println!(
-            self.enable_debug_trace,
-            "  CMOV {} = {}? {} : {}",
-            destination,
-            condition,
-            source_a,
-            source_b
-        );
     }
 
     /// Emits a `cast` instruction.

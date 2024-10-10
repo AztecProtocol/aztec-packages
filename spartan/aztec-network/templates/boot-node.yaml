@@ -31,11 +31,13 @@ spec:
                 sleep 5
               done
               echo "Ethereum node is ready!"
+              {{- if .Values.telemetry.enabled }}
               until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."
                 sleep 5
               done
               echo "OpenTelemetry collector is ready!"
+              {{- end }}
         - name: deploy-contracts
           image: {{ .Values.images.aztec.image }}
           command:
@@ -53,13 +55,14 @@ spec:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
       containers:
-        - name: aztec
+        - name: boot-node
           image: {{ .Values.images.aztec.image }}
           command:
+          # sleep to allow dns name to be resolvable
             [
               "/bin/bash",
               "-c",
-              "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
+              "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
           livenessProbe:
             exec:

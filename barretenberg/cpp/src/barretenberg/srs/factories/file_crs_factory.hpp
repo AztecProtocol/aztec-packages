@@ -54,6 +54,13 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
         scalar_multiplication::generate_pippenger_point_table<Curve>(monomials_.get(), monomials_.get(), num_points);
     };
 
+    ~FileProverCrs()
+    {
+#ifdef TRACY_MEMORY
+        ZoneScopedN("FileProverCrs destructor");
+#endif
+    }
+
     std::span<typename Curve::AffineElement> get_monomial_points() { return { monomials_.get(), num_points * 2 }; }
 
     [[nodiscard]] size_t get_monomial_size() const { return num_points; }

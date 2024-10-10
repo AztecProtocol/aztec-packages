@@ -14,7 +14,7 @@ export class EcAdd extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // reserved
-    OperandType.UINT8, // indirect
+    OperandType.UINT16, // indirect
     OperandType.UINT32, // p1X
     OperandType.UINT32, // p1Y
     OperandType.UINT32, // p1IsInfinite
@@ -72,7 +72,14 @@ export class EcAdd extends Instruction {
     }
 
     const grumpkin = new Grumpkin();
-    let dest = grumpkin.add(p1, p2);
+    let dest;
+    if (p1IsInfinite) {
+      dest = p2;
+    } else if (p2IsInfinite) {
+      dest = p1;
+    } else {
+      dest = grumpkin.add(p1, p2);
+    }
     // Temporary,
     if (p1IsInfinite) {
       dest = p2;

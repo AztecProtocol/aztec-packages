@@ -16,6 +16,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Main positional parameter
 TEST="$1"
 
+REPO=$(git rev-parse --show-toplevel)
+if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
+  "$REPO"/spartan/scripts/setup_local_k8s.sh
+else
+  echo "Not on x64 Linux, not installing k8s and helm."
+fi
+
 # Default values for environment variables
 VALUES_FILE="${VALUES_FILE:-default.yaml}"
 CHAOS_VALUES="${CHAOS_VALUES:-}"
@@ -35,7 +42,6 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
 fi
 
 # Load the Docker images into kind
-kind load docker-image aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG
 kind load docker-image aztecprotocol/aztec:$AZTEC_DOCKER_TAG
 
 # If FRESH_INSTALL is true, delete the namespace
@@ -47,7 +53,7 @@ function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100} ; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "transfer" --timeout=20s >/dev/null 2>/dev/null ; then
+    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null ; then
       break # we are up, stop showing status
     fi
     # show startup status
@@ -56,12 +62,13 @@ function show_status_until_pxe_ready() {
 }
 
 show_status_until_pxe_ready &
+SHOW_STATUS_PID=$!
 
 # Install the Helm chart
-helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
+helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
-      --values "$(git rev-parse --show-toplevel)/spartan/aztec-network/values/$VALUES_FILE" \
+      --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
       --set ingress.enabled=true \
       --wait \
@@ -70,16 +77,19 @@ helm upgrade --install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-n
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-function forward_pxe_k8s_port() {
-  # NOTE we fail silently, and work in the background
-  kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true
-}
 # tunnel in to get access directly to our PXE service in k8s
-(kubectl port-forward --namespace transfer svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+PORT_FORWARD_PID=$!
 
-# run our test in the host network namespace (so we can access the above with localhost)
+cleanup() {
+  echo "Cleaning up..."
+  kill $PORT_FORWARD_PID || true
+  kill $SHOW_STATUS_PID || true
+}
+
+trap cleanup EXIT SIGINT SIGTERM
+
 docker run --rm --network=host \
-  -e SCENARIO=default \
   -e PXE_URL=http://localhost:9082 \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \

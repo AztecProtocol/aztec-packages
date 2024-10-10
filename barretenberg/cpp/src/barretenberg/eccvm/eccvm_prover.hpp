@@ -62,7 +62,6 @@ class ECCVMProver {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-    std::shared_ptr<CommitmentKey> commitment_key;
 
   private:
     HonkProof proof;

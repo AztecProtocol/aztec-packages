@@ -146,7 +146,7 @@ void show_trace_info(const auto& trace)
 } // namespace
 
 // Needed for dependency injection in tests.
-Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs<FF> public_inputs,
+Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs public_inputs,
                                                                              ExecutionHints execution_hints,
                                                                              uint32_t side_effect_counter,
                                                                              std::vector<FF> calldata) {
@@ -252,7 +252,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     std::copy(returndata_offset, raw_proof_offset, std::back_inserter(returndata));
     std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
-    VmPublicInputs<FF> public_inputs = convert_public_inputs(public_inputs_vec);
+    VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     std::vector<std::vector<FF>> public_inputs_columns =
         copy_public_inputs_columns(public_inputs, calldata, returndata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
@@ -291,9 +291,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
-    VmPublicInputs<FF> public_inputs = convert_public_inputs(public_inputs_vec);
+    VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     uint32_t start_side_effect_counter =
-        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[PCPI_START_SIDE_EFFECT_COUNTER_OFFSET])
+        !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
                                    : 0;
 
     AvmTraceBuilder trace_builder =
@@ -604,13 +604,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)));
             break;
-        case OpCode::CMOV:
-            trace_builder.op_cmov(std::get<uint8_t>(inst.operands.at(0)),
-                                  std::get<uint32_t>(inst.operands.at(1)),
-                                  std::get<uint32_t>(inst.operands.at(2)),
-                                  std::get<uint32_t>(inst.operands.at(3)),
-                                  std::get<uint32_t>(inst.operands.at(4)));
-            break;
 
             // World State
         case OpCode::SLOAD:
@@ -638,8 +631,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::NULLIFIEREXISTS:
             trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
                                               std::get<uint32_t>(inst.operands.at(1)),
-                                              // std::get<uint32_t>(inst.operands.at(2))
-                                              /**TODO: Address offset for siloing */
+                                              std::get<uint32_t>(inst.operands.at(2)),
                                               std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNULLIFIER:
@@ -673,7 +665,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
             // Control Flow - Contract Calls
         case OpCode::CALL:
-            trace_builder.op_call(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_call(std::get<uint16_t>(inst.operands.at(0)),
                                   std::get<uint32_t>(inst.operands.at(1)),
                                   std::get<uint32_t>(inst.operands.at(2)),
                                   std::get<uint32_t>(inst.operands.at(3)),
@@ -684,7 +676,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(8)));
             break;
         case OpCode::STATICCALL:
-            trace_builder.op_static_call(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_static_call(std::get<uint16_t>(inst.operands.at(0)),
                                          std::get<uint32_t>(inst.operands.at(1)),
                                          std::get<uint32_t>(inst.operands.at(2)),
                                          std::get<uint32_t>(inst.operands.at(3)),
@@ -748,7 +740,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(4)));
             break;
         case OpCode::ECADD:
-            trace_builder.op_ec_add(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_ec_add(std::get<uint16_t>(inst.operands.at(0)),
                                     std::get<uint32_t>(inst.operands.at(1)),
                                     std::get<uint32_t>(inst.operands.at(2)),
                                     std::get<uint32_t>(inst.operands.at(3)),
@@ -779,9 +771,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                 std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)),
-                                                std::get<uint32_t>(inst.operands.at(4)),
-                                                std::get<uint32_t>(inst.operands.at(5)));
+                                                std::get<uint32_t>(inst.operands.at(3)));
             break;
 
         case OpCode::KECCAKF1600:
