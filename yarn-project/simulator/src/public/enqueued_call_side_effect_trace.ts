@@ -319,7 +319,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys,
       ),
     );
     this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);

@@ -3,9 +3,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract ContractInstanceDeployer {
     use dep::aztec::protocol_types::{
-        address::{AztecAddress, PublicKeysHash, PartialAddress}, contract_class_id::ContractClassId,
-        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, abis::log_hash::LogHash,
-        traits::Serialize
+        address::{AztecAddress, PublicKeysHash, PublicKeys, PartialAddress},
+        contract_class_id::ContractClassId, constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+        abis::log_hash::LogHash, traits::Serialize
     };
     use dep::aztec::{
         hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private,
@@ -22,7 +22,7 @@ contract ContractInstanceDeployer {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
-        public_keys_hash: PublicKeysHash,
+        public_keys: PublicKeys,
         deployer: AztecAddress,
     }
 
@@ -32,7 +32,7 @@ contract ContractInstanceDeployer {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
-        public_keys_hash: PublicKeysHash,
+        public_keys: PublicKeys,
         universal_deploy: bool
     ) {
         // TODO(@spalladino): assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
@@ -45,7 +45,7 @@ contract ContractInstanceDeployer {
 
         let partial_address = PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
-        let address = AztecAddress::compute(public_keys_hash, partial_address);
+        let address = AztecAddress::compute(public_keys.hash(), partial_address);
 
         // Emit the address as a nullifier to be able to prove that this instance has been (not) deployed
         context.push_nullifier(address.to_field());
@@ -55,7 +55,7 @@ contract ContractInstanceDeployer {
             DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
             contract_class_id,
             address,
-            public_keys_hash,
+            public_keys,
             initialization_hash,
             salt,
             deployer,
