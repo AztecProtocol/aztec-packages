@@ -435,7 +435,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
     build_constraints(
         builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
 
-    info("created circuit");
+    vinfo("created circuit");
 
     return builder;
 };

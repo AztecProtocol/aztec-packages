@@ -3,7 +3,7 @@
 
 
 "@aztec/bb.js@../../ts":
-  version "0.56.0"
+  version "0.57.0"
   dependencies:
     comlink "^4.4.1"
     commander "^10.0.1"
