@@ -1,3 +1,13 @@
+##########
+# BEWARE #
+##########
+# You need to deploy the metrics helm chart before using this values file.
+# head to spartan/metrics and run `./install.sh`
+# (then `./forward.sh` if you want to see it)
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
+
 bootNode:
   sequencer:
     minTxsPerBlock: 4
@@ -49,6 +59,8 @@ validator:
 
 bot:
   txIntervalSeconds: 2
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 2
 
 bootNode:
   validator:

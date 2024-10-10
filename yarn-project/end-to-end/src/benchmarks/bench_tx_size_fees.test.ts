@@ -30,7 +30,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // setup the environment
   beforeAll(async () => {
-    ctx = await setup(3, {}, {}, true);
+    ctx = await setup(3, {}, {});
 
     aliceWallet = ctx.wallets[0];
     bobAddress = ctx.wallets[1].getAddress();

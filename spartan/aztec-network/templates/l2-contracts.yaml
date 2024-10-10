@@ -27,7 +27,7 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait
               echo "L2 contracts initialized"
           env:
             - name: PXE_URL
@@ -46,7 +46,7 @@ metadata:
 data:
   deploy-contracts.sh: |
     #!/bin/sh
-    set -e
+    set -ex
 
     # Run the deploy-l1-contracts command and capture the output
     output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators {{ join "," .Values.validator.validatorAddresses | quote }})
