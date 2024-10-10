@@ -54,7 +54,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     }
 
     // Determine the optimal number of threads for parallelization
-    const size_t MIN_POINTS_PER_THREAD = 1 << 14;
+    const size_t MIN_POINTS_PER_THREAD = 1 << 14; // heuristic; anecdotally optimal for practical cases
     const size_t total_num_points = points.size();
     const size_t optimal_threads = total_num_points / MIN_POINTS_PER_THREAD;
     const size_t num_threads = std::max(1UL, std::min(get_num_cpus(), optimal_threads));

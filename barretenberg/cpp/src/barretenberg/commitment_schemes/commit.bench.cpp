@@ -33,8 +33,9 @@ template <typename FF> struct PolyData {
     std::vector<std::pair<size_t, size_t>> active_range_endpoints;
 };
 
-// Generate a polynomial with random coefficients organized in isolated blocks
-template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_dead_regions = false)
+// Generate a polynomial with random coefficients organized in isolated blocks. (Mimics the wire polynomials
+// in the structured trace setting, or z_perm if non_zero_complement is set to true).
+template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_complement = false)
 {
     // An arbitrary but realistic test case taken from the actual structure of a wire in the client_ivc bench
     std::vector<uint32_t> fixed_sizes = {
@@ -56,8 +57,8 @@ template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_dead_re
     }
     full_size = 1 << log2_n;
 
+    // Construct a polynomial with the prescribed structure; track the "active" regions
     auto polynomial = Polynomial<FF>(full_size);
-
     uint32_t start_idx = 0;
     uint32_t end_idx = 0;
     std::vector<std::pair<size_t, size_t>> active_range_endpoints;
@@ -68,8 +69,8 @@ template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_dead_re
         }
         active_range_endpoints.emplace_back(start_idx, end_idx);
         start_idx += block_size;
-        // If indicated, populate the 'dead' regions of the blocks with a random constant (mimicking z_perm)
-        if (non_zero_dead_regions) {
+        // If indicated, populate the active region complement with a random constant (mimicking z_perm)
+        if (non_zero_complement) {
             FF const_random_coeff = FF::random_element();
             for (size_t i = end_idx; i < start_idx; ++i) {
                 polynomial.at(i) = const_random_coeff;
@@ -194,7 +195,7 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     }
 }
 
-// Commit to a polynomial with structured random entries using the basic commit method
+// Commit to a polynomial with block structured random entries using the basic commit method
 template <typename Curve> void bench_commit_structured_random_poly(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
@@ -207,8 +208,7 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     }
 }
 
-// Commit to polynomial with block structured random nonzero entries using commit_structured method to preprocess the
-// input
+// Commit to a polynomial with block structured random entries using commit_structured
 template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
@@ -221,26 +221,26 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
     }
 }
 
-// Commit to a polynomial with dense random nonzero entries
+// Commit to a polynomial with block structured random entries and constant valued complement
 template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
+    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
 
     for (auto _ : state) {
         key->commit(polynomial);
     }
 }
 
-// Commit to a polynomial with dense random nonzero entries
+// Commit to a polynomial with block structured random entries and constant valued complement using tailored method
 template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
+    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
 
     for (auto _ : state) {
         key->commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);

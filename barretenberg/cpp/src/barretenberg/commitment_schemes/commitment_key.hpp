@@ -178,8 +178,10 @@ template <class Curve> class CommitmentKey {
 
     /**
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
-     * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
-     * inputs in contiguous memory and commit to them using the normal pippenger algorithm.
+     * @details Given a set of ranges where the polynomial takes non-zero values, copy the non-zero inputs (scalars,
+     * points) into contiguous memory and commit to them using the normal pippenger algorithm. Defaults to the
+     * conventional commit method if the number of non-zero entries is beyond a threshold relative to the full
+     * polynomial size.
      * @note The wire polynomials have the described form when a structured execution trace is in use.
      * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. May not be efficient
      * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
@@ -194,6 +196,9 @@ template <class Curve> class CommitmentKey {
         BB_OP_COUNT_TIME();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
+        // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
+        const size_t DENSITY_THRESHOLD = 75;
+
         size_t total_num_scalars = 0;
         for (const auto& range : active_ranges) {
             total_num_scalars += range.second - range.first;
@@ -201,7 +206,7 @@ template <class Curve> class CommitmentKey {
 
         // Compute "active" percentage of polynomial; resort to standard commit if appropriate
         size_t usage_percentage = total_num_scalars * 100 / polynomial.size();
-        if (usage_percentage > 75) {
+        if (usage_percentage > DENSITY_THRESHOLD) {
             return commit(polynomial);
         }
 
@@ -244,9 +249,12 @@ template <class Curve> class CommitmentKey {
                                                          const std::vector<std::pair<size_t, size_t>>& active_ranges)
     {
         BB_OP_COUNT_TIME();
+        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+
         using BatchedAddition = BatchedAffineAddition<Curve>;
 
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        // Percentage of constant coefficients beyond which we resort to the conventional commit method
+        const size_t DENSITY_THRESHOLD = 50;
 
         // Compute the active range complement over which the polynomial is assumed to be constant within each range
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
@@ -268,14 +276,15 @@ template <class Curve> class CommitmentKey {
 
         // Compute complement percentage of polynomial; resort to standard commit if appropriate
         size_t complement_percentage = total_num_complement_scalars * 100 / polynomial.size();
-        if (complement_percentage < 50) {
+        if (complement_percentage < DENSITY_THRESHOLD) {
             return commit(polynomial);
         }
 
         Commitment active_region_contribution = commit_structured(polynomial, active_ranges);
 
         // Copy the raw SRS points corresponding to the constant regions into contiguous memory
-        // WORKTODO: add todo about doing this prior to construction of full point table for lower peak memory
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1131): Peak memory usage could be improved by
+        // performing this copy and the subsequent summation as a precomputation prior to constructing the point table.
         std::vector<G1> points;
         points.reserve(2 * total_num_complement_scalars);
         for (const auto& range : active_ranges_complement) {
