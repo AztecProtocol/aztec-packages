@@ -42,15 +42,15 @@ template <typename FF_> class UltraArith {
     struct SmallTestStructuredBlockSizes : public UltraTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
         {
-            const uint32_t FIXED_SIZE = 1 << 10;
-            this->pub_inputs = FIXED_SIZE;
-            this->arithmetic = FIXED_SIZE;
-            this->delta_range = FIXED_SIZE;
-            this->elliptic = FIXED_SIZE;
-            this->aux = FIXED_SIZE;
-            this->lookup = FIXED_SIZE;
-            this->poseidon2_external = FIXED_SIZE;
-            this->poseidon2_internal = FIXED_SIZE;
+            // const uint32_t FIXED_SIZE = 1 << 10;
+            this->pub_inputs = 5;
+            this->arithmetic = 7;
+            this->delta_range = 2;
+            this->elliptic = 2;
+            this->aux = 2;
+            this->lookup = 2;
+            this->poseidon2_external = 2;
+            this->poseidon2_internal = 2;
         }
     };
 

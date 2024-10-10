@@ -211,7 +211,7 @@ template <class Curve> class CommitmentKey {
         // Complement of the active portion of the final block should extend to the end of the dyadic polynomial size
         if (complement) {
             // WORKTODO: make endpoints use size_t?
-            scalar_endpoints.back().second = static_cast<uint32_t>(polynomial_size);
+            scalar_endpoints.back().second = static_cast<uint32_t>(polynomial_size - 1); // WORKTODO: yeesh.
         }
 
         // Accounting for endomorphism points, the corresponding ranges for the active region points are obtained by
@@ -352,7 +352,10 @@ template <class Curve> class CommitmentKey {
         std::vector<Fr> unique_scalars;
         unique_scalars.reserve(structured_sizes.size());
         for (auto range : scalar_endpoints) {
-            unique_scalars.emplace_back(polynomial[range.first]);
+            if (range.second - range.first > 0) {
+                info("unique scalar = ", polynomial.span[range.first]);
+                unique_scalars.emplace_back(polynomial.span[range.first]);
+            }
         }
 
         // Directly compute the full commitment given the reduced inputs
