@@ -1,6 +1,5 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -14,6 +13,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include "barretenberg/world_state_napi/message.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ostream>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -40,8 +41,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
     , _initial_tree_size(tree_prefill)
-    , _initial_header_generator_point(initial_header_generator_point)
     , _forkId(CANONICAL_FORK_ID)
+    , _initial_header_generator_point(initial_header_generator_point)
 {
     create_canonical_fork(data_dir, map_size, thread_pool_size);
 }
@@ -128,7 +129,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     _forks[fork->_forkId] = fork;
 }
 
-Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
+Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
 {
     std::unique_lock lock(mtx);
     auto it = _forks.find(forkId);
@@ -137,16 +138,44 @@ Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
     }
     return it->second;
 }
-uint64_t WorldState::create_fork(index_t blockNumber)
+uint64_t WorldState::create_fork(const std::optional<index_t>& blockNumber)
 {
+    index_t blockNumberForFork = 0;
+    if (!blockNumber.has_value()) {
+        // we are forking at latest
+        WorldStateStatus currentStatus;
+        get_status(currentStatus);
+        blockNumberForFork = currentStatus.unfinalisedBlockNumber;
+    } else {
+        blockNumberForFork = blockNumber.value();
+    }
+    Fork::SharedPtr fork = create_new_fork(blockNumberForFork);
     std::unique_lock lock(mtx);
-    Fork::SharedPtr fork = create_new_fork(blockNumber);
-    fork->_forkId = _forkId++;
-    _forks[fork->_forkId] = fork;
-    return fork->_forkId;
+    uint64_t forkId = _forkId++;
+    fork->_forkId = forkId;
+    _forks[forkId] = fork;
+    return forkId;
 }
 
-void WorldState::delete_fork(uint64_t forkId)
+void WorldState::remove_forks_for_block(const index_t& blockNumber)
+{
+    // capture the shared pointers outside of the lock scope so we are not under the lock when the objects are destroyed
+    std::vector<Fork::SharedPtr> forks;
+    {
+        std::unique_lock lock(mtx);
+        for (auto it = _forks.begin(); it != _forks.end();) {
+            if (it->second->_blockNumber == blockNumber) {
+                forks.push_back(it->second);
+                it = _forks.erase(it);
+
+            } else {
+                it++;
+            }
+        }
+    }
+}
+
+void WorldState::delete_fork(const uint64_t& forkId)
 {
     if (forkId == 0) {
         throw std::runtime_error("Unable to delete canonical fork");
@@ -160,9 +189,10 @@ void WorldState::delete_fork(uint64_t forkId)
     }
 }
 
-Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
+Fork::SharedPtr WorldState::create_new_fork(const index_t& blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
+    fork->_blockNumber = blockNumber;
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);
@@ -342,18 +372,25 @@ void WorldState::update_archive(const StateReference& block_state_ref,
     }
 }
 
-void WorldState::commit()
+bool WorldState::commit()
 {
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    std::atomic_bool success = true;
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal](auto&& wrapper) { wrapper.tree->commit([&](const Response&) { signal.signal_decrement(); }); },
+            [&signal, &success](auto&& wrapper) {
+                wrapper.tree->commit([&](const Response& response) {
+                    success = response.success && success;
+                    signal.signal_decrement();
+                });
+            },
             tree);
     }
 
     signal.wait_for_level(0);
+    return success;
 }
 
 void WorldState::rollback()
@@ -371,19 +408,23 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-bool WorldState::sync_block(const StateReference& block_state_ref,
-                            const bb::fr& block_header_hash,
-                            const std::vector<bb::fr>& notes,
-                            const std::vector<bb::fr>& l1_to_l2_messages,
-                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                            const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
+WorldStateStatus WorldState::sync_block(
+    const StateReference& block_state_ref,
+    const bb::fr& block_header_hash,
+    const std::vector<bb::fr>& notes,
+    const std::vector<bb::fr>& l1_to_l2_messages,
+    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
 {
+    WorldStateStatus status;
     if (is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref) &&
         is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        commit();
-        return true;
+        if (!commit()) {
+            throw std::runtime_error("Commit failed");
+        }
+        get_status(status);
+        return status;
     }
-
     rollback();
 
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
@@ -458,8 +499,11 @@ bool WorldState::sync_block(const StateReference& block_state_ref,
         throw std::runtime_error("Can't synch block: block state does not match world state");
     }
 
-    commit();
-    return false;
+    if (!commit()) {
+        throw std::runtime_error("Commit failed");
+    }
+    get_status(status);
+    return status;
 }
 
 GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision& revision,
@@ -494,6 +538,110 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
     signal.wait_for_level();
     return low_leaf_info;
+}
+
+WorldStateStatus WorldState::set_finalised_blocks(const index_t& toBlockNumber)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
+        throw std::runtime_error("Unable to finalise block, already finalised");
+    }
+    if (!set_finalised_block(toBlockNumber)) {
+        throw std::runtime_error("Failed to set finalised block");
+    }
+    WorldStateStatus status;
+    get_status(status);
+    return status;
+}
+WorldStateStatus WorldState::unwind_blocks(const index_t& toBlockNumber)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    if (toBlockNumber >= archive_state.meta.unfinalisedBlockHeight) {
+        throw std::runtime_error("Unable to unwind block, block not found");
+    }
+    for (index_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber; blockNumber--) {
+        if (!unwind_block(blockNumber)) {
+            throw std::runtime_error("Failed to unwind block");
+        }
+    }
+    WorldStateStatus status;
+    get_status(status);
+    return status;
+}
+WorldStateStatus WorldState::remove_historical_blocks(const index_t& toBlockNumber)
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
+        throw std::runtime_error("Unable to remove historical block, block not found");
+    }
+    for (index_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
+        if (!remove_historical_block(blockNumber)) {
+            throw std::runtime_error("Failed to remove historical block");
+        }
+    }
+    WorldStateStatus status;
+    get_status(status);
+    return status;
+}
+
+bool WorldState::set_finalised_block(const index_t& blockNumber)
+{
+    std::atomic_bool success = true;
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &success, blockNumber](auto&& wrapper) {
+                wrapper.tree->finalise_block(blockNumber, [&signal, &success](const Response& resp) {
+                    success = success && resp.success;
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    return success;
+}
+bool WorldState::unwind_block(const index_t& blockNumber)
+{
+    std::atomic_bool success = true;
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &success, blockNumber](auto&& wrapper) {
+                wrapper.tree->unwind_block(blockNumber, [&signal, &success](const Response& resp) {
+                    success = success && resp.success;
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    remove_forks_for_block(blockNumber);
+    return success;
+}
+bool WorldState::remove_historical_block(const index_t& blockNumber)
+{
+    std::atomic_bool success = true;
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &success, blockNumber](auto&& wrapper) {
+                wrapper.tree->remove_historic_block(blockNumber, [&signal, &success](const Response& resp) {
+                    success = success && resp.success;
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    remove_forks_for_block(blockNumber);
+    return success;
 }
 
 bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point)
@@ -541,6 +689,15 @@ bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr
 
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     return archive_state.meta.size == leaf_index.value() + 1;
+}
+
+void WorldState::get_status(WorldStateStatus& status) const
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
+    status.unfinalisedBlockNumber = archive_state.meta.unfinalisedBlockHeight;
+    status.finalisedBlockNumber = archive_state.meta.finalisedBlockHeight;
+    status.oldestHistoricalBlock = archive_state.meta.oldestHistoricBlock;
 }
 
 bool WorldState::is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const

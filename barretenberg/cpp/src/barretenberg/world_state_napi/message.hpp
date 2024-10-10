@@ -4,8 +4,8 @@
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace bb::world_state {
@@ -37,6 +37,12 @@ enum WorldStateMessageType {
     CREATE_FORK,
     DELETE_FORK,
 
+    FINALISE_BLOCKS,
+    UNWIND_BLOCKS,
+    REMOVE_HISTORICAL_BLOCKS,
+
+    GET_STATUS,
+
     CLOSE = 999,
 };
 
@@ -46,8 +52,9 @@ struct TreeIdOnlyRequest {
 };
 
 struct CreateForkRequest {
-    uint64_t blockNumber;
-    MSGPACK_FIELDS(blockNumber);
+    bool latest;
+    index_t blockNumber;
+    MSGPACK_FIELDS(latest, blockNumber);
 };
 
 struct CreateForkResponse {
@@ -141,6 +148,11 @@ struct FindLowLeafResponse {
     MSGPACK_FIELDS(alreadyPresent, index);
 };
 
+struct BlockShiftRequest {
+    index_t toBlockNumber;
+    MSGPACK_FIELDS(toBlockNumber);
+};
+
 template <typename T> struct AppendLeavesRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
@@ -181,8 +193,8 @@ struct SyncBlockRequest {
 };
 
 struct SyncBlockResponse {
-    bool isBlockOurs;
-    MSGPACK_FIELDS(isBlockOurs);
+    WorldStateStatus status;
+    MSGPACK_FIELDS(status);
 };
 
 } // namespace bb::world_state

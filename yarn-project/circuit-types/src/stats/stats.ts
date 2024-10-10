@@ -197,8 +197,12 @@ export type L2BlockHandledStats = {
   eventName: 'l2-block-handled';
   /** Total duration in ms. */
   duration: number;
-  /** Whether the block was produced by this node. */
-  isBlockOurs: boolean;
+  /** Pending block number. */
+  unfinalisedBlockNumber: bigint;
+  /** Proven block number. */
+  finalisedBlockNumber: bigint;
+  /** Oldest historic block number. */
+  oldestHistoricBlock: bigint;
 } & L2BlockStats;
 
 /** Stats for a note processor that has caught up with the chain. */

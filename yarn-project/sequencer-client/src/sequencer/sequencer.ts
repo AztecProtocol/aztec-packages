@@ -8,10 +8,13 @@ import {
   Tx,
   type TxHash,
   type TxValidator,
-  type WorldStateStatus,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type AllowedElement, BlockProofError } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedElement,
+  BlockProofError,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -182,7 +185,9 @@ export class Sequencer {
 
   protected async initialSync() {
     // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
-    this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
+    this.lastPublishedBlock = await this.worldState
+      .status()
+      .then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block);
   }
 
   /**
@@ -652,7 +657,7 @@ export class Sequencer {
    */
   protected async isBlockSynced() {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
       this.p2pClient.getStatus().then(s => s.syncedToL2Block),
       this.l2BlockSource.getBlockNumber(),
       this.l1ToL2MessageSource.getBlockNumber(),

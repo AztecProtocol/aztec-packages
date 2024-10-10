@@ -89,3 +89,17 @@ export async function assertSameState(forkA: MerkleTreeReadOperations, forkB: Me
   expect(nativeStateRef).toEqual(legacyStateRef);
   expect(nativeArchive).toEqual(legacyArchive);
 }
+
+export async function compareChains(left: MerkleTreeReadOperations, right: MerkleTreeReadOperations) {
+  for (const treeId of [
+    MerkleTreeId.ARCHIVE,
+    MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    MerkleTreeId.NOTE_HASH_TREE,
+    MerkleTreeId.NULLIFIER_TREE,
+    MerkleTreeId.PUBLIC_DATA_TREE,
+  ]) {
+    expect(await left.getTreeInfo(treeId)).toEqual(await right.getTreeInfo(treeId));
+
+    expect(await left.getSiblingPath(treeId, 0n)).toEqual(await right.getSiblingPath(treeId, 0n));
+  }
+}

@@ -9,6 +9,8 @@
 
 namespace bb::world_state {
 
+using namespace bb::crypto::merkle_tree;
+
 enum MerkleTreeId {
     NULLIFIER_TREE = 0,
     NOTE_HASH_TREE = 1,
@@ -17,24 +19,43 @@ enum MerkleTreeId {
     ARCHIVE = 4,
 };
 
+const uint64_t CANONICAL_FORK_ID = 0;
+
 std::string getMerkleTreeName(MerkleTreeId id);
 
 using TreeStateReference = std::pair<bb::fr, bb::crypto::merkle_tree::index_t>;
 using StateReference = std::unordered_map<MerkleTreeId, TreeStateReference>;
 
 struct WorldStateRevision {
-    uint64_t forkId{ 0 };
-    uint64_t blockNumber{ 0 };
+    index_t forkId{ 0 };
+    index_t blockNumber{ 0 };
     bool includeUncommitted{ false };
 
     MSGPACK_FIELDS(forkId, blockNumber, includeUncommitted)
 
-    // using Revision = std::variant<WorldStateRevision::FinalisedBlock, WorldStateRevision::CurrentState,
-    // WorldStateRevision::ForkId>; Revision inner;
-
     static WorldStateRevision committed() { return WorldStateRevision{ .includeUncommitted = false }; }
     static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
-    // static WorldStateRevision finalised_block(uint32_t block_number) { return { WorldStateRevision{ .blockNumber =
-    // block_number } }; }
+};
+
+struct WorldStateStatus {
+    index_t unfinalisedBlockNumber;
+    index_t finalisedBlockNumber;
+    index_t oldestHistoricalBlock;
+    MSGPACK_FIELDS(unfinalisedBlockNumber, finalisedBlockNumber, oldestHistoricalBlock);
+
+    bool operator==(const WorldStateStatus& other) const
+    {
+        return unfinalisedBlockNumber == other.unfinalisedBlockNumber &&
+               finalisedBlockNumber == other.finalisedBlockNumber &&
+               oldestHistoricalBlock == other.oldestHistoricalBlock;
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const WorldStateStatus& status)
+    {
+        os << "unfinalisedBlockNumber: " << status.unfinalisedBlockNumber
+           << ", finalisedBlockNumber: " << status.finalisedBlockNumber
+           << ", oldestHistoricalBlock: " << status.oldestHistoricalBlock;
+        return os;
+    }
 };
 } // namespace bb::world_state

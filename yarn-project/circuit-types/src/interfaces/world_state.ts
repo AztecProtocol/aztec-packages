@@ -13,7 +13,7 @@ export enum WorldStateRunningState {
 /**
  * Defines the status of the world state synchronizer.
  */
-export interface WorldStateStatus {
+export interface WorldStateSynchronizerStatus {
   /**
    * The current state of the world state synchronizer.
    */
@@ -38,7 +38,7 @@ export interface WorldStateSynchronizer {
    * Returns the current status of the synchronizer.
    * @returns The current status of the synchronizer.
    */
-  status(): Promise<WorldStateStatus>;
+  status(): Promise<WorldStateSynchronizerStatus>;
 
   /**
    * Stops the synchronizer.

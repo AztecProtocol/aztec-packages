@@ -106,9 +106,6 @@ function processRollupBlockSynced(entry: L2BlockHandledStats, results: Benchmark
   if (!BENCHMARK_BLOCK_SIZES.includes(bucket)) {
     return;
   }
-  if (entry.isBlockOurs) {
-    return;
-  }
   append(results, 'l2_block_processing_time_in_ms', bucket, entry.duration);
 }
 

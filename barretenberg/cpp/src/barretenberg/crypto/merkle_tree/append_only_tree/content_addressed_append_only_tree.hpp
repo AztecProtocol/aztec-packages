@@ -46,6 +46,9 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using GetLeafCallback = std::function<void(const TypedResponse<GetLeafResponse>&)>;
     using CommitCallback = std::function<void(const Response&)>;
     using RollbackCallback = std::function<void(const Response&)>;
+    using RemoveHistoricBlockCallback = std::function<void(const Response&)>;
+    using UnwindBlockCallback = std::function<void(const Response&)>;
+    using FinaliseBlockCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -167,7 +170,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
      */
     void find_leaf_index_from(const fr& leaf,
-                              index_t start_index,
+                              const index_t& start_index,
                               bool includeUncommitted,
                               const FindLeafCallback& on_completion) const;
 
@@ -175,7 +178,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
      */
     void find_leaf_index_from(const fr& leaf,
-                              index_t start_index,
+                              const index_t& start_index,
                               const index_t& blockNumber,
                               bool includeUncommitted,
                               const FindLeafCallback& on_completion) const;
@@ -194,6 +197,12 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @brief Synchronous method to retrieve the depth of the tree
      */
     uint32_t depth() const { return depth_; }
+
+    void remove_historic_block(const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion);
+
+    void unwind_block(const index_t& blockNumber, const UnwindBlockCallback& on_completion);
+
+    void finalise_block(const index_t& blockNumber, const FinaliseBlockCallback& on_completion);
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -355,6 +364,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -409,6 +421,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
+                // std::cout << "Current root: " << requestContext.root << std::endl;
                 OptionalSiblingPath optional_path =
                     get_subtree_sibling_path_internal(leaf_index, subtree_depth, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
@@ -467,7 +480,7 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
             // std::cout << "No child" << std::endl;
             return std::nullopt;
         }
-        // std::cout << "Found child" << std::endl;
+        // std::cout << "Found child " << child.value() << std::endl;
 
         hash = child.value();
 
@@ -572,6 +585,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
     auto job = [=, this]() {
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -616,12 +632,12 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
-    const fr& leaf, index_t start_index, bool includeUncommitted, const FindLeafCallback& on_completion) const
+    const fr& leaf, const index_t& start_index, bool includeUncommitted, const FindLeafCallback& on_completion) const
 {
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
+                ReadTransactionPtr tx = store_->create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
@@ -640,7 +656,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
     const fr& leaf,
-    index_t start_index,
+    const index_t& start_index,
     const index_t& blockNumber,
     bool includeUncommitted,
     const FindLeafCallback& on_completion) const
@@ -648,7 +664,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
+                ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
                     throw std::runtime_error("Data for block unavailable");
@@ -713,6 +732,57 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block(
+    const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
+{
+    auto job = [=, this]() {
+        execute_and_report(
+            [=, this]() {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
+                store_->remove_historical_block(blockNumber);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
+    const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
+{
+    auto job = [=, this]() {
+        execute_and_report(
+            [=, this]() {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
+                store_->unwind_block(blockNumber);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalise_block(const index_t& blockNumber,
+                                                                          const FinaliseBlockCallback& on_completion)
+{
+    auto job = [=, this]() {
+        execute_and_report(
+            [=, this]() {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
+                store_->advance_finalised_block(blockNumber);
+            },
+            on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
 index_t ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_batch_insertion_size(index_t treeSize,
                                                                                        index_t remainingAppendSize)
 {
@@ -738,7 +808,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
                                                                                index_t& new_size,
                                                                                bool update_index)
 {
-    typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
+    ReadTransactionPtr tx = store_->create_read_transaction();
     TreeMeta meta;
     store_->get_meta(meta, *tx, true);
     index_t sizeToAppend = values->size();

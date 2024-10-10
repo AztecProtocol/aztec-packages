@@ -1,5 +1,6 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "lmdb.h"
 #include <stdexcept>
 #include <sys/stat.h>
 
@@ -56,4 +57,5 @@ MDB_env* LMDBEnvironment::underlying() const
 {
     return _mdbEnv;
 }
+
 } // namespace bb::crypto::merkle_tree

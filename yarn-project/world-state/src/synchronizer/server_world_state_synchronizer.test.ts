@@ -39,7 +39,9 @@ describe('server_world_state_synchronizer', () => {
   });
 
   const merkleTreeDb = mock<MerkleTreeAdminDatabase>({
-    handleL2BlockAndMessages: jest.fn(() => Promise.resolve({ isBlockOurs: false })),
+    handleL2BlockAndMessages: jest.fn(() =>
+      Promise.resolve({ unfinalisedBlockNumber: 0n, finalisedBlockNumber: 0n, oldestHistoricalBlock: 0n }),
+    ),
   });
 
   const performInitialSync = async (server: ServerWorldStateSynchronizer) => {

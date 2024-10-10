@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <sys/types.h>
@@ -187,6 +188,21 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     _dispatcher.registerTarget(
         WorldStateMessageType::DELETE_FORK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::FINALISE_BLOCKS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalised(obj, buffer); });
+
+    _dispatcher.registerTarget(WorldStateMessageType::UNWIND_BLOCKS,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return remove_historical(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::GET_STATUS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_status(obj, buffer); });
 
     _dispatcher.registerTarget(WorldStateMessageType::CLOSE,
                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
@@ -538,15 +554,15 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<SyncBlockRequest> request;
     obj.convert(request);
 
-    bool is_block_ours = _ws->sync_block(request.value.blockStateRef,
-                                         request.value.blockHeaderHash,
-                                         request.value.paddedNoteHashes,
-                                         request.value.paddedL1ToL2Messages,
-                                         request.value.paddedNullifiers,
-                                         request.value.batchesOfPaddedPublicDataWrites);
+    WorldStateStatus status = _ws->sync_block(request.value.blockStateRef,
+                                              request.value.blockHeaderHash,
+                                              request.value.paddedNoteHashes,
+                                              request.value.paddedL1ToL2Messages,
+                                              request.value.paddedNullifiers,
+                                              request.value.batchesOfPaddedPublicDataWrites);
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<SyncBlockResponse> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { is_block_ours });
+    messaging::TypedMessage<SyncBlockResponse> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;
@@ -557,7 +573,10 @@ bool WorldStateAddon::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<CreateForkRequest> request;
     obj.convert(request);
 
-    uint64_t forkId = _ws->create_fork(request.value.blockNumber);
+    std::optional<index_t> blockNumber =
+        request.value.latest ? std::nullopt : std::optional<index_t>(request.value.blockNumber);
+
+    uint64_t forkId = _ws->create_fork(blockNumber);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<CreateForkResponse> resp_msg(WorldStateMessageType::CREATE_FORK, header, { forkId });
@@ -591,6 +610,61 @@ bool WorldStateAddon::close(msgpack::object& obj, msgpack::sbuffer& buf)
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::CLOSE, header, {});
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::set_finalised(msgpack::object& obj, msgpack::sbuffer& buf) const
+{
+    TypedMessage<BlockShiftRequest> request;
+    obj.convert(request);
+    WorldStateStatus status = _ws->set_finalised_blocks(request.value.toBlockNumber);
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatus> resp_msg(WorldStateMessageType::FINALISE_BLOCKS, header, { status });
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::unwind(msgpack::object& obj, msgpack::sbuffer& buf) const
+{
+    TypedMessage<BlockShiftRequest> request;
+    obj.convert(request);
+
+    WorldStateStatus status = _ws->unwind_blocks(request.value.toBlockNumber);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatus> resp_msg(WorldStateMessageType::UNWIND_BLOCKS, header, { status });
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::remove_historical(msgpack::object& obj, msgpack::sbuffer& buf) const
+{
+    TypedMessage<BlockShiftRequest> request;
+    obj.convert(request);
+    WorldStateStatus status = _ws->remove_historical_blocks(request.value.toBlockNumber);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatus> resp_msg(
+        WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS, header, { status });
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::get_status(msgpack::object& obj, msgpack::sbuffer& buf) const
+{
+    HeaderOnlyMessage request;
+    obj.convert(request);
+
+    WorldStateStatus status;
+    _ws->get_status(status);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatus> resp_msg(WorldStateMessageType::GET_STATUS, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;
