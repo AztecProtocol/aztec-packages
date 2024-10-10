@@ -146,7 +146,7 @@ void show_trace_info(const auto& trace)
 } // namespace
 
 // Needed for dependency injection in tests.
-Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs<FF> public_inputs,
+Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs public_inputs,
                                                                              ExecutionHints execution_hints,
                                                                              uint32_t side_effect_counter,
                                                                              std::vector<FF> calldata) {
@@ -252,7 +252,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     std::copy(returndata_offset, raw_proof_offset, std::back_inserter(returndata));
     std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
-    VmPublicInputs<FF> public_inputs = convert_public_inputs(public_inputs_vec);
+    VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     std::vector<std::vector<FF>> public_inputs_columns =
         copy_public_inputs_columns(public_inputs, calldata, returndata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
@@ -291,7 +291,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
-    VmPublicInputs<FF> public_inputs = convert_public_inputs(public_inputs_vec);
+    VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     uint32_t start_side_effect_counter =
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
                                    : 0;

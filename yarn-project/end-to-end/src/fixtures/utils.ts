@@ -325,7 +325,9 @@ export type EndToEndContext = {
  */
 export async function setup(
   numberOfAccounts = 1,
-  opts: SetupOptions = {},
+  opts: SetupOptions = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+  },
   pxeOpts: Partial<PXEServiceConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
