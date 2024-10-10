@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 ///
 /// Note: This is only a demonstration and we (Aztec team) do not think this is the best way to build a DEX.
 #[aztec]
-contract DEX {
+contract AMM {
     use crate::lib::{get_quote, get_amount_out, get_amount_in};
     use dep::aztec::{
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}},
@@ -40,8 +40,8 @@ contract DEX {
 
     // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
     // a liquidity tracking contract. This contract would be an admin of the liquidity contract.
-    // TODO: Either deploy the liquidity contract in the constructor or verify it that it corresponds to what this DEX
-    // expects.
+    // TODO: Either deploy the liquidity contract in the constructor or verify it that it corresponds to what
+    // this contract expects.
     #[public]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress) {
@@ -69,7 +69,7 @@ contract DEX {
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
 
-        // We transfer the desired amounts of tokens to the DEX.
+        // We transfer the desired amounts of tokens to this contract.
         token0.transfer_to_public(msg.sender, context.this_address(), amount0_desired, nonce).call(&mut context);
         token1.transfer_to_public(msg.sender, context.this_address(), amount1_desired, nonce).call(&mut context);
 
@@ -79,7 +79,7 @@ contract DEX {
         // We prepare a partial note for the liquidity tokens.
         let liquidity_slot_commitment = liquidity_token.prepare_transfer_to_private(msg.sender).call(&mut context);
 
-        DEX::at(context.this_address())._add_liquidity(
+        AMM::at(context.this_address())._add_liquidity(
             state,
             refund_token0_slot_commitment,
             refund_token1_slot_commitment,
@@ -179,12 +179,12 @@ contract DEX {
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
 
-        // We transfer the liquidity tokens to the DEX and prepare partial notes for the output tokens.
+        // We transfer the liquidity tokens to this contract and prepare partial notes for the output tokens.
         liquidity_token.transfer_to_public(msg.sender, context.this_address(), liquidity, nonce).call(&mut context);
         let token0_slot_commitment = token0.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
         let token1_slot_commitment = token1.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
 
-        DEX::at(context.this_address())._remove_liquidity(
+        AMM::at(context.this_address())._remove_liquidity(
             state,
             token0_slot_commitment,
             token1_slot_commitment,
@@ -254,11 +254,11 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
-        // We transfer the `amount_in` to the DEX and we prepare partial note for the output token.
+        // We transfer the `amount_in` to this contract and we prepare partial note for the output token.
         token_in.transfer_to_public(msg.sender, context.this_address(), amount_in, nonce).call(&mut context);
         let token_out_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
 
-        DEX::at(context.this_address())._swap_exact_tokens_for_tokens(
+        AMM::at(context.this_address())._swap_exact_tokens_for_tokens(
             amount_in,
             amount_out_min,
             token_address_in,
@@ -283,7 +283,7 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
-        // We get the reserves. The `amount_in` was already transferred to the DEX so we need to subtract it.
+        // We get the reserves. The `amount_in` was already transferred to this contract so we need to subtract it.
         let reserve_in_with_amount_in = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
         let reserve_in = reserve_in_with_amount_in - amount_in;
         let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
@@ -317,12 +317,13 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
-        // We transfer the `amount_in_max` to the DEX and we prepare partial notes for refund and for the output token.
+        // We transfer the `amount_in_max` to this contract and we prepare partial notes for refund and for the output
+        // token.
         token_in.transfer_to_public(msg.sender, context.this_address(), amount_in_max, nonce).call(&mut context);
         let refund_token_in_slot_commitment = token_in.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
         let token_out_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
 
-        DEX::at(context.this_address())._swap_tokens_for_exact_tokens(
+        AMM::at(context.this_address())._swap_tokens_for_exact_tokens(
             refund_token_in_slot_commitment,
             token_out_slot_commitment,
             amount_out,
@@ -349,7 +350,7 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
-        // We get the reserves. The `amount_in_max` was already transferred to the DEX so we need to subtract it.
+        // We get the reserves. The `amount_in_max` was already transferred to this contract so we need to subtract it.
         let reserve_in_with_amount_in_max = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
         let reserve_in = reserve_in_with_amount_in_max - amount_in_max;
         let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
