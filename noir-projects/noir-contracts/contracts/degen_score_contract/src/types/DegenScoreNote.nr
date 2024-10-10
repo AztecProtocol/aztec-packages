@@ -5,7 +5,7 @@ use dep::aztec::{
 },
     macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote, utils::compute_note_hash_for_nullify},
-    oracle::rand::rand, keys::getters::get_nsk_app, context::PrivateContext
+    oracle::random::random, keys::getters::get_nsk_app, context::PrivateContext
 };
 
 #[note]
