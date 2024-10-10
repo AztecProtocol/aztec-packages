@@ -1,7 +1,11 @@
+import { type BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount } from 'viem';
 
+import { type PoolInstrumentation } from '../instrumentation.js';
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
 import { generateAccount, mockAttestation } from './mocks.js';
 
@@ -10,10 +14,20 @@ const NUMBER_OF_SIGNERS_PER_TEST = 4;
 describe('MemoryAttestationPool', () => {
   let ap: InMemoryAttestationPool;
   let signers: PrivateKeyAccount[];
+  const telemetry = new NoopTelemetryClient();
+
+  // Check that metrics are recorded correctly
+  let metricsMock: MockProxy<PoolInstrumentation<BlockAttestation>>;
 
   beforeEach(() => {
-    ap = new InMemoryAttestationPool();
+    // Use noop telemetry client while testing.
+
+    ap = new InMemoryAttestationPool(telemetry);
     signers = Array.from({ length: NUMBER_OF_SIGNERS_PER_TEST }, generateAccount);
+
+    metricsMock = mock<PoolInstrumentation<BlockAttestation>>();
+    // Can i overwrite this like this??
+    (ap as any).metrics = metricsMock;
   });
 
   it('should add attestations to pool', async () => {
@@ -25,6 +39,9 @@ describe('MemoryAttestationPool', () => {
 
     await ap.addAttestations(attestations);
 
+    // Check metrics have been updated.
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
+
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
 
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
@@ -32,6 +49,8 @@ describe('MemoryAttestationPool', () => {
 
     // Delete by slot
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
@@ -82,11 +101,15 @@ describe('MemoryAttestationPool', () => {
 
     await ap.addAttestations(attestations);
 
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
+
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     expect(retreivedAttestations).toEqual(attestations);
 
     await ap.deleteAttestations(attestations);
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const gottenAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(gottenAfterDelete.length).toBe(0);
@@ -118,11 +141,15 @@ describe('MemoryAttestationPool', () => {
 
     await ap.addAttestations(attestations);
 
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
+
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     expect(retreivedAttestations).toEqual(attestations);
 
     await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);

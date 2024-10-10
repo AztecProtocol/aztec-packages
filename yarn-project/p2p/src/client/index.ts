@@ -38,8 +38,8 @@ export const createP2PClient = async (
 
   const mempools: MemPools = {
     txPool: deps.txPool ?? new AztecKVTxPool(store, telemetry),
-    attestationPool: deps.attestationPool ?? new InMemoryAttestationPool(),
-    epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(),
+    attestationPool: deps.attestationPool ?? new InMemoryAttestationPool(telemetry),
+    epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(telemetry),
   };
 
   let p2pService;
