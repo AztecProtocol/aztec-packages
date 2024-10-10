@@ -14,7 +14,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
 
-    struct PolyData {
+    struct StructuredPolyData {
         Polynomial polynomial;
         std::vector<std::pair<size_t, size_t>> active_range_endpoints;
     };
@@ -24,9 +24,9 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
 
     // Construct a random poly with the prescribed block structure; complement is zero/constant if non_zero_complement =
     // false/true (to mimic wire/z_perm)
-    PolyData create_structured_test_polynomial(std::vector<uint32_t> fixed_sizes,
-                                               std::vector<uint32_t> actual_sizes,
-                                               bool non_zero_complement = false)
+    StructuredPolyData create_structured_test_polynomial(std::vector<uint32_t> fixed_sizes,
+                                                         std::vector<uint32_t> actual_sizes,
+                                                         bool non_zero_complement = false)
     {
         // Add zero row offset to mimic actual structure of wire/z_perm
         const size_t ZERO_ROW_OFFSET = 1;
@@ -90,8 +90,6 @@ std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpki
     srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
 }
-
-// WORKTODO: method for mock structured poly? maybe in shared space somewhere?
 
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 

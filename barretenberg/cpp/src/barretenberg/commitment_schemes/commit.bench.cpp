@@ -222,7 +222,7 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
 }
 
 // Commit to a polynomial with block structured random entries and constant valued complement
-template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
+template <typename Curve> void bench_commit_mock_z_perm(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
@@ -235,7 +235,7 @@ template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
 }
 
 // Commit to a polynomial with block structured random entries and constant valued complement using tailored method
-template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::State& state)
+template <typename Curve> void bench_commit_mock_z_perm_preprocessed(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
@@ -270,8 +270,8 @@ BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_mock_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_mock_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 

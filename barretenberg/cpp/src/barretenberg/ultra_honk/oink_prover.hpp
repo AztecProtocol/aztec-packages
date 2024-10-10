@@ -56,8 +56,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
         , domain_separator(std::move(domain_separator))
     {}
 
-    auto& polynomials() const { return proving_key->proving_key.polynomials; }
-
     void prove();
     void execute_preamble_round();
     void execute_wire_commitments_round();

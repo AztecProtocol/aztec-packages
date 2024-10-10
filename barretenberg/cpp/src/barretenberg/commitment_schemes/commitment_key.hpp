@@ -197,7 +197,7 @@ template <class Curve> class CommitmentKey {
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
-        const size_t DENSITY_THRESHOLD = 75;
+        const size_t NONZERO_THRESHOLD = 75;
 
         size_t total_num_scalars = 0;
         for (const auto& range : active_ranges) {
@@ -205,8 +205,8 @@ template <class Curve> class CommitmentKey {
         }
 
         // Compute "active" percentage of polynomial; resort to standard commit if appropriate
-        size_t usage_percentage = total_num_scalars * 100 / polynomial.size();
-        if (usage_percentage > DENSITY_THRESHOLD) {
+        size_t percentage_nonzero = total_num_scalars * 100 / polynomial.size();
+        if (percentage_nonzero > NONZERO_THRESHOLD) {
             return commit(polynomial);
         }
 
@@ -235,9 +235,9 @@ template <class Curve> class CommitmentKey {
 
     /**
      * @brief Efficiently commit to a polynomial with discrete blocks of arbitrary elements and constant elements
-     * @details Similar to method commit_structured() except the complement blocks cantain non-zero constant values
-     * (which are assumed to differ between blocks). This is exactly the structure of the permutation grand product
-     * polynomial z_perm when a structured execution trace is in use.
+     * @details Similar to method commit_structured() except the complement to the "active" region cantains non-zero
+     * constant values (which are assumed to differ between blocks). This is exactly the structure of the permutation
+     * grand product polynomial z_perm when a structured execution trace is in use.
      * @warning Requires a copy of all {point, scalar} pairs (including endo points) corresponding to the primary blocks
      * and a copy of all of the points (without endo points) corresponding to their complement.
      *
@@ -253,8 +253,8 @@ template <class Curve> class CommitmentKey {
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
 
-        // Percentage of constant coefficients beyond which we resort to the conventional commit method
-        const size_t DENSITY_THRESHOLD = 50;
+        // Percentage of constant coefficients below which we resort to the conventional commit method
+        const size_t CONSTANT_THRESHOLD = 50;
 
         // Compute the active range complement over which the polynomial is assumed to be constant within each range
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
@@ -265,24 +265,23 @@ template <class Curve> class CommitmentKey {
         }
         active_ranges_complement.back().second = polynomial.end_index(); // Extend final range to end of polynomial
 
+        // Compute the total number of scalars in the constant regions
         size_t total_num_complement_scalars = 0;
         for (const auto& range : active_ranges_complement) {
             total_num_complement_scalars += range.second - range.first;
+        }
+
+        // Compute percentage of polynomial comprised of constant blocks; resort to standard commit if appropriate
+        size_t percentage_constant = total_num_complement_scalars * 100 / polynomial.size();
+        if (percentage_constant < CONSTANT_THRESHOLD) {
+            return commit(polynomial);
         }
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices).
         std::span<G1> point_table = srs->get_monomial_points();
 
-        // Compute complement percentage of polynomial; resort to standard commit if appropriate
-        size_t complement_percentage = total_num_complement_scalars * 100 / polynomial.size();
-        if (complement_percentage < DENSITY_THRESHOLD) {
-            return commit(polynomial);
-        }
-
-        Commitment active_region_contribution = commit_structured(polynomial, active_ranges);
-
-        // Copy the raw SRS points corresponding to the constant regions into contiguous memory
+        // Copy the raw SRS points (no endo points) corresponding to the constant regions into contiguous memory
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1131): Peak memory usage could be improved by
         // performing this copy and the subsequent summation as a precomputation prior to constructing the point table.
         std::vector<G1> points;
@@ -295,13 +294,12 @@ template <class Curve> class CommitmentKey {
             }
         }
 
-        // Populate the set of unique scalars with first coeff from each range (values assumed constant over each range)
-        // Compute the number of points in each sequence to be summed
+        // Populate the set of unique scalars with first coeff from each range (values assumed constant over each
+        // range). Also store the number of points in each sequence to be summed
         std::vector<Fr> unique_scalars;
         std::vector<size_t> sequence_counts;
         for (const auto& range : active_ranges_complement) {
-            if (range.second - range.first > 0) {
-                // info("unique scalar = ", polynomial.span[range.first]);
+            if (range.second - range.first > 0) { // only ranges with nonzero length
                 unique_scalars.emplace_back(polynomial.span[range.first]);
                 sequence_counts.emplace_back(range.second - range.first);
             }
@@ -310,8 +308,8 @@ template <class Curve> class CommitmentKey {
         // Reduce each sequence to a single point
         auto reduced_points = BatchedAddition::add_in_place(points, sequence_counts);
 
-        // Directly compute the full commitment given the reduced inputs
-        Commitment result = active_region_contribution;
+        // Compute the full commitment as the sum of the "active" region commitment and the constant region contribution
+        Commitment result = commit_structured(polynomial, active_ranges);
         for (auto [scalar, point] : zip_view(unique_scalars, reduced_points)) {
             result = result + point * scalar;
         }
