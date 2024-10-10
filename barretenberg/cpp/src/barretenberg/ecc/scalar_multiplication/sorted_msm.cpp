@@ -113,10 +113,9 @@ void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSeque
     }
 
     // Define scratch space for batched inverse computations and eventual storage of denominators
-    ASSERT(denominators.size() >= total_num_pairs);
     std::span<Fq> scratch_space(denominators.data(), total_num_pairs);
     std::vector<Fq> differences;
-    differences.reserve(total_num_pairs);
+    differences.resize(total_num_pairs);
 
     // Compute and store successive products of differences (x_2 - x_1)
     Fq accumulator = 1;
@@ -125,7 +124,6 @@ void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSeque
     for (auto& count : sequence_counts) {
         const auto num_pairs = count >> 1;
         for (size_t j = 0; j < num_pairs; ++j) {
-            ASSERT(pair_idx < total_num_pairs);
             const auto& x1 = points[point_idx++].x;
             const auto& x2 = points[point_idx++].x;
 
@@ -133,7 +131,7 @@ void MsmSorter<Curve>::batch_compute_point_addition_slope_inverses(AdditionSeque
             ASSERT(x1 != x2);
 
             auto diff = x2 - x1;
-            differences.emplace_back(diff);
+            differences[pair_idx] = diff;
 
             // Store and update the running product of differences at each stage
             scratch_space[pair_idx++] = accumulator;

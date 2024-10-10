@@ -176,12 +176,6 @@ template <class Curve> class CommitmentKey {
         return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 
-    struct RangeEndpoints {
-        std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
-        std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
-        uint32_t total_num_scalars = 0;
-    };
-
     /**
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
      * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero

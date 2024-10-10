@@ -107,9 +107,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
         // Save ranges over which the blocks are "active" for use in structured commitments
         if constexpr (IsHonkFlavor<Flavor>) {
-            size_t start = offset;
-            size_t end = start + block.size();
-            proving_key.active_block_ranges.emplace_back(start, end);
+            proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
         }
 
         // Update wire polynomials and copy cycles
