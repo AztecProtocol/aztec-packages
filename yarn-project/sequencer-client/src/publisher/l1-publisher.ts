@@ -489,7 +489,6 @@ export class L1Publisher {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
           eventName: 'proof-published-to-l1',
-          sender: this.account.address,
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
         this.metrics.recordSubmitProof(timer.ms(), stats);
