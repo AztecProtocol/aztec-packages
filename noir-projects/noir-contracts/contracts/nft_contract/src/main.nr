@@ -145,7 +145,7 @@ contract NFT {
         nft.transfer_in_public(from, context.this_address(), token_id, 0).enqueue(&mut context);
 
         // At last we finalize the transfer.
-        nft.finalize_transfer_to_private(slot_commitment, token_id).enqueue(&mut context);
+        nft.finalize_transfer_to_private(token_id, slot_commitment).enqueue(&mut context);
     }
 
     /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
@@ -202,7 +202,7 @@ contract NFT {
     /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
     /// `slot_commitment` must be passed as an argument to this function.
     #[public]
-    fn finalize_transfer_to_private(slot_commitment: Field, token_id: Field) {
+    fn finalize_transfer_to_private(token_id: Field, slot_commitment: Field) {
         // We don't need to support authwit here because `prepare_transfer_to_private` allows us to set arbitrary
         // `from` and hence the call is authenticated by the loaded hiding point being non-zero.
         let from = context.msg_sender();
