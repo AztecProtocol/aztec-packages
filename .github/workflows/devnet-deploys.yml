@@ -557,11 +557,11 @@ jobs:
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
 
-      - name: Disable transactions bot
-        working-directory: ./yarn-project/aztec/terraform/bot
-        run: |
-          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"
-          terraform apply -input=false -auto-approve
+      # - name: Disable transactions bot
+      #   working-directory: ./yarn-project/aztec/terraform/bot
+      #   run: |
+      #     terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"
+      #     terraform apply -input=false -auto-approve
 
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
