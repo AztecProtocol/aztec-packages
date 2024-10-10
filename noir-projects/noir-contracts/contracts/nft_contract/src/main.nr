@@ -185,9 +185,8 @@ contract NFT {
     #[internal]
     fn _store_point_in_transient_storage(point: Point) {
         let slot = point.x;
-        // We don't perform check for the overwritten value to be non-zero because the slot is implictly siloed to `to`
-        // (`to_note_slot` is part of the hiding point preimage) and hence `to` can interfere only with his own
-        // execution.
+        // We don't perform a check for the overwritten value to be zero because the slot is the x-coordinate
+        // of the hiding point and hence we could only overwrite the value in the slot with the same value.
         context.storage_write(slot, point);
     }
 
