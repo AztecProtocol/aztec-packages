@@ -37,7 +37,7 @@ const G_SLOT = new Point(
 );
 
 /**
- * Computes a note hiding point as is done by the default implementation injected by macros.
+ * Computes a note hash as is done by the default implementation injected by macros.
  * @param storageSlot - The slot to which the note was inserted.
  * @param noteContent - The note content (e.g. note.items).
  * @returns A note hash.

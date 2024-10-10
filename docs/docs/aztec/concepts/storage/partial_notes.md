@@ -69,11 +69,11 @@ Now let's do the same for partial notes.
 ## Partial notes life cycle
 
 1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `TokenNote`),
-2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`, where each `G_` is a generator point for a specific field in the note,
+2. compute a partial commitment of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`, where each `G_` is a generator point for a specific field in the note,
 3. emit partial note log,
-4. pass the note hiding point to a public function,
-5. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the note hiding point (e.g. `NOTE_HIDING_POINT + G_amt * amount`),
-6. get the note hash by finalizing the note hiding point (the note hash is the x coordinate of the point),
+4. pass the partial commitment to a public function,
+5. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the partial commitment (e.g. `PARTIAL_COMMITMENT + G_amt * amount`),
+6. get the note hash by taking the x-coordinate of the resulting point,
 7. emit the note hash,
 8. emit the value added to the note in public as an unencrypted log (PXE then matches it with encrypted partial note log emitted from private),
 9. from this point on the flow of partial notes is the same as for normal notes.
@@ -88,10 +88,10 @@ The trouble is that the FPC doesn't know if Alice is going to run public functio
 
 And we can't use the normal flow to create a transaction fee refund note for Alice, since that demands we have Alice's address in public.
 
-So we define a new type of note with its `compute_note_hiding_point` defined as:
+So we define a new type of note with its `compute_note_hash` defined as:
 
 $$
-\text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness} + \text{slot}*G_{slot}
+(\text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness} + \text{slot}*G_{slot}).x
 $$
 
 Suppose Alice is willing to pay up to a set amount in stablecoins for her transaction. (Note, this amount gets passed into public so that when `transaction_fee` is known the FPC can verify that it isn't losing money. Wallets are expected to choose common values here, e.g. powers of 10).
@@ -132,7 +132,7 @@ Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
 
 ### Private Fee Payment Implementation
 
-[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
+[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hash`, which takes a note and computes the point "hides" it.
 
 This is implemented by applying the `partial_note` attribute:
 

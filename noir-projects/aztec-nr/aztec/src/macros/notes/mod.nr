@@ -318,18 +318,18 @@ comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> 
     (generators_list, scalars_list, args_list, aux_vars)
 }
 
-/// Generates setup payload for a given note struct `s`. The setup payload contains log plaintext and hiding point.
+/// Generates setup payload for a given note struct `s`. The setup payload contains log plaintext and partial commitment.
 ///
 /// Example:
 /// ```
 /// struct TokenNoteSetupPayload {
 ///     log_plaintext: [u8; 160],
-///     hiding_point: aztec::protocol_types::point::Point
+///     partial_commitment: aztec::protocol_types::point::Point
 /// }
 ///
 /// impl TokenNoteSetupPayload {
 ///     fn new(mut self, npk_m_hash: Field, randomness: Field, storage_slot: Field) -> TokenNoteSetupPayload {
-///         let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
+///         let partial_commitment = std::embedded_curve_ops::multi_scalar_mul(
 ///             [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::G_slot],
 ///             [
 ///                 std::hash::from_field_unsafe(npk_m_hash),
@@ -357,14 +357,14 @@ comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> 
 ///
 ///         TokenNoteSetupPayload {
 ///             log_plaintext,
-///             hiding_point
+///             partial_commitment
 ///         }
 ///     }
 /// }
 ///
 /// impl aztec::protocol_types::traits::Empty for TokenNoteSetupPayload {
 ///     fn empty() -> Self {
-///         Self { log_plaintext: [0; 160], hiding_point: aztec::protocol_types::point::Point::empty() }
+///         Self { log_plaintext: [0; 160], partial_commitment: aztec::protocol_types::point::Point::empty() }
 ///     }
 /// }
 /// ```
@@ -389,13 +389,13 @@ comptime fn generate_setup_payload(
     (quote {
         struct $setup_payload_name {
             log_plaintext: [u8; $log_plaintext_length],
-            hiding_point: aztec::protocol_types::point::Point
+            partial_commitment: aztec::protocol_types::point::Point
         }
 
         impl $setup_payload_name {
             fn new($new_args) -> $setup_payload_name {
                 $new_aux_vars
-                let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
+                let partial_commitment = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],
                     [$new_scalars]
                 );
@@ -403,14 +403,14 @@ comptime fn generate_setup_payload(
 
                 $setup_payload_name {
                     log_plaintext,
-                    hiding_point
+                    partial_commitment
                 }
             }
         }
 
         impl aztec::protocol_types::traits::Empty for $setup_payload_name {
             fn empty() -> Self {
-                Self { log_plaintext: [0; $log_plaintext_length], hiding_point: aztec::protocol_types::point::Point::empty() }
+                Self { log_plaintext: [0; $log_plaintext_length], partial_commitment: aztec::protocol_types::point::Point::empty() }
             }
         }
     }, setup_payload_name)
@@ -474,18 +474,18 @@ comptime fn get_setup_log_plaintext_body(
 /// }
 ///
 /// impl TokenNoteFinalizationPayload {
-///     fn new(mut self, hiding_point: aztec::protocol_types::point::Point, amount: U128) -> TokenNoteFinalizationPayload {
+///     fn new(mut self, partial_commitment: aztec::protocol_types::point::Point, amount: U128) -> TokenNoteFinalizationPayload {
 ///         self.log = [amount.lo as Field, amount.hi as Field];
 ///
-///         let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
+///         let final_commitment = std::embedded_curve_ops::multi_scalar_mul(
 ///             [aztec::generators::Ga3, aztec::generators::Ga4],
 ///             [
 ///                 std::hash::from_field_unsafe(amount.lo),
 ///                 std::hash::from_field_unsafe(amount.hi)
 ///             ]
-///         ) + hiding_point;
+///         ) + partial_commitment;
 ///
-///         self.note_hash = finalization_hiding_point.x;
+///         self.note_hash = final_commitment.x;
 ///         self
 ///     }
 /// }
@@ -536,17 +536,17 @@ comptime fn generate_finalization_payload(
         }
 
         impl $finalization_payload_name {
-            fn new(mut self, hiding_point: aztec::protocol_types::point::Point, $args) -> $finalization_payload_name {
+            fn new(mut self, partial_commitment: aztec::protocol_types::point::Point, $args) -> $finalization_payload_name {
                 $aux_vars_for_serialization
                 self.log = [$fields];
 
                 $msm_aux_vars
-                let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
+                let final_commitment = std::embedded_curve_ops::multi_scalar_mul(
                     [$generators],
                     [$scalars]
-                ) + hiding_point;
+                ) + partial_commitment;
 
-                self.note_hash = finalization_hiding_point.x;
+                self.note_hash = final_commitment.x;
                 self
             }
         }
