@@ -42,9 +42,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
   ) {
-    // Instatntiate tracer
+    // Instantiate tracer
     super(telemetry, 'Validator');
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
