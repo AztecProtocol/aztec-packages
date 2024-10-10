@@ -6,6 +6,7 @@ import {
   Header,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
+  PublicKeys,
   computePartialAddress,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
@@ -93,6 +94,7 @@ export class TXEService {
     initializer: ForeignCallArray,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
+    // TODO: Fix this
     publicKeysHash: ForeignCallSingle,
   ) {
     const initializerStr = fromArray(initializer)
@@ -108,7 +110,7 @@ export class TXEService {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: publicKeysHashFr,
+      publicKeys: PublicKeys.empty(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -122,7 +124,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys.hash(),
       ]),
     ]);
   }
@@ -166,13 +168,12 @@ export class TXEService {
   async addAccount(secret: ForeignCallSingle) {
     const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-    const hash = keys.publicKeys.hash();
     const artifact = SchnorrAccountContractArtifact;
     const instance = getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: hash,
+      publicKeys: keys.publicKeys,
       constructorArtifact: 'constructor',
       deployer: AztecAddress.ZERO,
     });
@@ -501,7 +502,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys.hash(),
       ]),
     ]);
   }
@@ -516,7 +517,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys.hash(),
       ]),
     ]);
   }

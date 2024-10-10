@@ -63,7 +63,7 @@ contract FeeJuice {
             instance.salt,
             instance.contract_class_id,
             instance.initialization_hash,
-            instance.public_keys_hash,
+            instance.public_keys,
             true
         ).call(&mut context);
 

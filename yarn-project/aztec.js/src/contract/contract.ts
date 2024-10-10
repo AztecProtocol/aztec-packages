@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Wallet } from '../account/index.js';
 import { ContractBase } from './contract_base.js';
 import { DeployMethod } from './deploy_method.js';
+import { PublicKeys } from '@aztec/circuits.js';
 
 /**
  * The Contract class represents a contract and provides utility methods for interacting with it.
@@ -38,25 +39,25 @@ export class Contract extends ContractBase {
    */
   public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) {
     const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
-    return new DeployMethod(Fr.ZERO, wallet, artifact, postDeployCtor, args, constructorName);
+    return new DeployMethod(PublicKeys.empty(), wallet, artifact, postDeployCtor, args, constructorName);
   }
 
   /**
    * Creates a tx to deploy a new instance of a contract using the specified public keys hash to derive the address.
-   * @param publicKeysHash - Hash of public keys to use for deriving the address.
+   * @param publicKeys - Hash of public keys to use for deriving the address.
    * @param wallet - The wallet for executing the deployment.
    * @param artifact - Build artifact of the contract.
    * @param args - Arguments for the constructor.
    * @param constructorName - The name of the constructor function to call.
    */
-  public static deployWithPublicKeysHash(
-    publicKeysHash: Fr,
+  public static deployWithPublicKeys(
+    publicKeys: PublicKeys,
     wallet: Wallet,
     artifact: ContractArtifact,
     args: any[],
     constructorName?: string,
   ) {
     const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
-    return new DeployMethod(publicKeysHash, wallet, artifact, postDeployCtor, args, constructorName);
+    return new DeployMethod(publicKeys, wallet, artifact, postDeployCtor, args, constructorName);
   }
 }

@@ -116,6 +116,7 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
+  PublicKeys,
   RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   RevertCode,
@@ -1436,7 +1437,12 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x3),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
-    new Fr(seed + 0x6),
+    new PublicKeys(
+      new Point(new Fr(seed + 0x6), new Fr(seed + 0x7), false),
+      new Point(new Fr(seed + 0x8), new Fr(seed + 0x9), false),
+      new Point(new Fr(seed + 0x10), new Fr(seed + 0x11), false),
+      new Point(new Fr(seed + 0x12), new Fr(seed + 0x13), false),
+    )
   );
 }
 

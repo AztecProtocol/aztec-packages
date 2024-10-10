@@ -20,13 +20,27 @@ pub fn deploy_contract(context: &mut PrivateContext, target: AztecAddress) {
     serialized_args[0] = instance.salt;
     serialized_args[1] = instance.contract_class_id.to_field();
     serialized_args[2] = instance.initialization_hash;
-    serialized_args[3] = instance.public_keys_hash.to_field();
-    serialized_args[4] = universal_deploy as Field;
+
+    let serialized_public_keys = instance.public_keys.serialize();
+    serialized_args[3] = serialized_public_keys[0];
+    serialized_args[4] = serialized_public_keys[1];
+    serialized_args[5] = serialized_public_keys[2];
+    serialized_args[6] = serialized_public_keys[3];
+    serialized_args[7] = serialized_public_keys[4];
+    serialized_args[8] = serialized_public_keys[5];
+    serialized_args[9] = serialized_public_keys[6];
+    serialized_args[10] = serialized_public_keys[7];
+    serialized_args[11] = serialized_public_keys[8];
+    serialized_args[12] = serialized_public_keys[9];
+    serialized_args[13] = serialized_public_keys[10];
+    serialized_args[14] = serialized_public_keys[11];
+
+    serialized_args[15] = universal_deploy as Field;
 
     let _call_result = context.call_private_function(
         DEPLOYER_CONTRACT_ADDRESS,
         comptime {
-        FunctionSelector::from_signature("deploy(Field,(Field),Field,(Field),bool)")
+        FunctionSelector::from_signature("deploy(Field,(Field),Field,(Field,Field,Field,Field,Field,Field,Field,Field,Field,Field,Field,Field),bool)")
     },
         serialized_args
     );

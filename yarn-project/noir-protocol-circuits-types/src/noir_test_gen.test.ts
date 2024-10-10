@@ -3,6 +3,7 @@ import {
   type ContractClass,
   type ContractInstance,
   FunctionSelector,
+  PublicKeys,
   computeContractAddressFromInstance,
   computeContractClassId,
   computeContractClassIdPreimage,
@@ -18,13 +19,13 @@ describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);
 
   type FixtureContractData = Omit<ContractClass, 'version' | 'publicFunctions'> &
-    Pick<ContractInstance, 'publicKeysHash' | 'salt'> &
+    Pick<ContractInstance, 'publicKeys' | 'salt'> &
     Pick<ContractClass, 'privateFunctions'> & { toString: () => string };
 
   const defaultContract: FixtureContractData = {
     artifactHash: new Fr(12345),
     packedBytecode: Buffer.from([3, 4, 5, 6, 7]),
-    publicKeysHash: new Fr(45678),
+    publicKeys: PublicKeys.empty(),
     salt: new Fr(56789),
     privateFunctions: [
       { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(0) },
@@ -36,7 +37,7 @@ describe('Data generation for noir tests', () => {
   const parentContract: FixtureContractData = {
     artifactHash: new Fr(1212),
     packedBytecode: Buffer.from([3, 4, 3, 4]),
-    publicKeysHash: new Fr(4545),
+    publicKeys: PublicKeys.empty(),
     salt: new Fr(5656),
     privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(0) }],
     toString: () => 'parentContract',
@@ -70,7 +71,7 @@ describe('Data generation for noir tests', () => {
         address: `AztecAddress { inner: ${address.toString()} }`,
         partial_address: `PartialAddress { inner: ${partialAddress.toString()} }`,
         contract_class_id: `ContractClassId { inner: ${contractClassId.toString()} }`,
-        public_keys_hash: `PublicKeysHash { inner: ${contract.publicKeysHash.toString()} }`,
+        public_keys_hash: `PublicKeys { inner: ${contract.publicKeys.toString()} }`,
         salted_initialization_hash: `SaltedInitializationHash { inner: ${saltedInitializationHash.toString()} }`,
         deployer: `AztecAddress { inner: ${deployer.toString()} }`,
       }),

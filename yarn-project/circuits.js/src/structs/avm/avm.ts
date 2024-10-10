@@ -5,6 +5,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { Gas } from '../gas.js';
 import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
+import { PublicKeys } from '../../types/public_keys.js';
 
 // TODO: Consider just using Tuple.
 export class AvmKeyValueHint {
@@ -176,7 +177,7 @@ export class AvmContractInstanceHint {
     public readonly deployer: Fr,
     public readonly contractClassId: Fr,
     public readonly initializationHash: Fr,
-    public readonly publicKeysHash: Fr,
+    public readonly publicKeys: PublicKeys,
   ) {}
   /**
    * Serializes the inputs to a buffer.
@@ -206,7 +207,7 @@ export class AvmContractInstanceHint {
       this.deployer.isZero() &&
       this.contractClassId.isZero() &&
       this.initializationHash.isZero() &&
-      this.publicKeysHash.isZero()
+      this.publicKeys.isEmpty()
     );
   }
 
@@ -216,7 +217,17 @@ export class AvmContractInstanceHint {
    * @returns A new AvmHint instance.
    */
   static from(fields: FieldsOf<AvmContractInstanceHint>): AvmContractInstanceHint {
-    return new AvmContractInstanceHint(...AvmContractInstanceHint.getFields(fields));
+    const contractInstanceHintFields = AvmContractInstanceHint.getFields(fields);
+
+    return new AvmContractInstanceHint(
+      contractInstanceHintFields[0],
+      contractInstanceHintFields[1],
+      contractInstanceHintFields[2],
+      contractInstanceHintFields[3],
+      contractInstanceHintFields[4],
+      contractInstanceHintFields[5],
+      PublicKeys.fromFields(contractInstanceHintFields.slice(6, 18)),
+    );
   }
 
   /**
@@ -232,8 +243,8 @@ export class AvmContractInstanceHint {
       fields.deployer,
       fields.contractClassId,
       fields.initializationHash,
-      fields.publicKeysHash,
-    ] as const;
+      ...fields.publicKeys.toFields(),
+    ] as [Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr];
   }
 
   /**
@@ -250,7 +261,7 @@ export class AvmContractInstanceHint {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      PublicKeys.fromBuffer(reader),
     );
   }
 

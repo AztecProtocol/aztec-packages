@@ -45,6 +45,10 @@ export class PublicKeys {
     return new PublicKeys(Point.ZERO, Point.ZERO, Point.ZERO, Point.ZERO);
   }
 
+  static random(): PublicKeys {
+    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
+  }
+
   /**
    * Determines if this PublicKeys instance is equal to the given PublicKeys instance.
    * Equality is based on the content of their respective buffers.
