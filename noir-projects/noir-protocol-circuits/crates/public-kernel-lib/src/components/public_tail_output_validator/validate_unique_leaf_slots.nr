@@ -107,7 +107,7 @@ mod tests {
         builder.execute()
     }
 
-    #[test(should_fail_with="sorted value does not link to leaf")]
+    #[test(should_fail_with = "sorted value does not link to leaf")]
     fn validate_unique_leaf_slots_duplicates_remove_hint_fails() {
         let mut builder = TestBuilder::new();
 
@@ -119,7 +119,7 @@ mod tests {
         builder.execute()
     }
 
-    #[test(should_fail_with="hinted slots are not sorted")]
+    #[test(should_fail_with = "hinted slots are not sorted")]
     fn validate_unique_leaf_slots_duplicates_extra_hint_fails() {
         let mut builder = TestBuilder::new();
 
@@ -131,7 +131,7 @@ mod tests {
         builder.execute()
     }
 
-    #[test(should_fail_with="hinted slots are not sorted")]
+    #[test(should_fail_with = "hinted slots are not sorted")]
     fn validate_unique_leaf_slots_duplicates_extra_hint_in_padded_first_zero_fails() {
         let mut builder = TestBuilder::new();
 
@@ -143,7 +143,7 @@ mod tests {
         builder.execute()
     }
 
-    #[test(should_fail_with="mismatch hinted slot")]
+    #[test(should_fail_with = "mismatch hinted slot")]
     fn validate_unique_leaf_slots_duplicates_extra_hint_in_padded_first_non_zero_fails() {
         let mut builder = TestBuilder::new();
 

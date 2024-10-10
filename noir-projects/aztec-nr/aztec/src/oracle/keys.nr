@@ -4,7 +4,7 @@ use dep::protocol_types::{address::{AztecAddress, PartialAddress}, point::Point}
 #[oracle(getPublicKeysAndPartialAddress)]
 unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> [Field; 13] {}
 
-unconstrained pub fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
+pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
     let result = get_public_keys_and_partial_address_oracle(address);
 
     let keys = PublicKeys {

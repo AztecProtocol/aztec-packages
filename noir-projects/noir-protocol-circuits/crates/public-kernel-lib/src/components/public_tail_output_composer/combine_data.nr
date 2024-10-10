@@ -7,7 +7,7 @@ use dep::types::{
     utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc}
 };
 
-unconstrained pub fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
+pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
     non_revertible: PublicAccumulatedData,
     revertible: PublicAccumulatedData,
     output_hints: OutputHints<NUM_PUBLIC_DATA_LEAVES>

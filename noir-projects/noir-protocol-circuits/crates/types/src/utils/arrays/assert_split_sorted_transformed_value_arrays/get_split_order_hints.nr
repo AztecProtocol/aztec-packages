@@ -67,14 +67,14 @@ unconstrained fn get_split_order_hints<T, let N: u32>(
     SplitOrderHints { sorted_counters_lt, sorted_counters_gte, sorted_indexes }
 }
 
-unconstrained pub fn get_split_order_hints_asc<T, let N: u32>(
+pub unconstrained fn get_split_order_hints_asc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
 ) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
     get_split_order_hints(array, split_counter, true)
 }
 
-unconstrained pub fn get_split_order_hints_desc<T, let N: u32>(
+pub unconstrained fn get_split_order_hints_desc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
 ) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {

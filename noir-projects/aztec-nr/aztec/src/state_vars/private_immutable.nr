@@ -64,7 +64,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
 impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:is_initialized
-    unconstrained pub fn is_initialized(self) -> bool {
+    pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
@@ -72,7 +72,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    unconstrained pub fn view_note<let N: u32>(self) -> Note  where Note: NoteInterface<N> + NullifiableNote {
+    pub unconstrained fn view_note<let N: u32>(self) -> Note  where Note: NoteInterface<N> + NullifiableNote {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

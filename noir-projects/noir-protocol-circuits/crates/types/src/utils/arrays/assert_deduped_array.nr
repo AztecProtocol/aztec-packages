@@ -22,7 +22,7 @@ pub fn assert_deduped_array<S, T, let N: u32>(
     }
 }
 
-unconstrained pub fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
+pub unconstrained fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
     let mut deduped = BoundedVec::new();
     for i in 0..original_array.len() {
         let original = original_array[i];
@@ -137,7 +137,7 @@ mod tests {
         builder.check_and_execute();
     }
 
-    #[test(should_fail_with="mismatch deduped item")]
+    #[test(should_fail_with = "mismatch deduped item")]
     fn assert_deduped_array_extra_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -146,7 +146,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="empty items must be padded to the deduped array")]
+    #[test(should_fail_with = "empty items must be padded to the deduped array")]
     fn assert_deduped_array_extra_item_at_end_fails() {
         let mut builder = TestBuilder::new();
 

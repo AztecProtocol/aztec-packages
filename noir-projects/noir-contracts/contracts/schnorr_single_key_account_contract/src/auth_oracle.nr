@@ -24,7 +24,7 @@ impl AuthWitness {
     }
 }
 
-unconstrained pub fn get_auth_witness(message_hash: Field) -> AuthWitness {
+pub unconstrained fn get_auth_witness(message_hash: Field) -> AuthWitness {
     let witness: [Field; 77] = auth_witness::get_auth_witness(message_hash);
     AuthWitness::deserialize(witness)
 }

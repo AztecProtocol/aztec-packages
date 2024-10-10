@@ -1364,7 +1364,7 @@ mod tests {
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 
-    #[test(should_fail_with="Not enough balance for fee payer to pay for transaction")]
+    #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
     unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
         let fee_payer = AztecAddress::from_field(0x1234);
         let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
@@ -1395,7 +1395,7 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with="Wrong leaf slot for Fee Juice balance read hint")]
+    #[test(should_fail_with = "Wrong leaf slot for Fee Juice balance read hint")]
     unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
         let fee_payer = AztecAddress::from_field(0x1234);
         let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
