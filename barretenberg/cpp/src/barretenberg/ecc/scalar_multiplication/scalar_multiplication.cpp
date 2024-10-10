@@ -1062,11 +1062,11 @@ template void generate_pippenger_point_table<curve::Grumpkin>(const curve::Grump
                                                               curve::Grumpkin::AffineElement* table,
                                                               size_t num_points);
 
-template void compute_wnaf_states<curve::BN254>(uint64_t* point_schedule,
-                                                bool* input_skew_table,
-                                                uint64_t* round_counts,
-                                                PolynomialSpan<const curve::BN254::ScalarField> scalars_,
-                                                const size_t num_initial_points);
+template void compute_wnaf_states<curve::Grumpkin>(uint64_t* point_schedule,
+                                                   bool* input_skew_table,
+                                                   uint64_t* round_counts,
+                                                   PolynomialSpan<const curve::Grumpkin::ScalarField> scalars_,
+                                                   const size_t num_initial_points);
 
 template uint32_t construct_addition_chains<curve::Grumpkin>(affine_product_runtime_state<curve::Grumpkin>& state,
                                                              bool empty_bucket_counts = true);
