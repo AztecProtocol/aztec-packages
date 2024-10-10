@@ -7,7 +7,7 @@ import { type Fr } from '@aztec/foundation/fields';
  */
 export class L1ToL2MessageStore {
   /**
-   * A map pointing from a key in a "blockNum-messageIndex" format to the corresponding L1 to L2 message hash.
+   * A map pointing from a key in a "messageIndex" format to the corresponding L1 to L2 message hash.
    */
   protected store: Map<string, Fr> = new Map();
 
@@ -20,21 +20,17 @@ export class L1ToL2MessageStore {
   }
 
   addMessage(message: InboxLeaf) {
-    const indexInSubtree = message.convertToIndexInSubtree();
-    if (indexInSubtree >= this.#l1ToL2MessagesSubtreeSize) {
-      throw new Error(`Message index ${indexInSubtree} out of subtree range`);
-    }
-    const key = `${message.blockNumber}-${indexInSubtree}`;
-    this.store.set(key, message.leaf);
+    this.store.set(`${message.index}`, message.leaf);
   }
 
   getMessages(blockNumber: bigint): Fr[] {
     const messages: Fr[] = [];
     let undefinedMessageFound = false;
-    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+    const startIndex = Number(InboxLeaf.smallestIndexFromL2Block(blockNumber));
+
+    for (let i = startIndex; i < startIndex + this.#l1ToL2MessagesSubtreeSize; i++) {
       // This is inefficient but probably fine for now.
-      const key = `${blockNumber}-${messageIndex}`;
-      const message = this.store.get(key);
+      const message = this.store.get(`${i}`);
       if (message) {
         if (undefinedMessageFound) {
           throw new Error(`L1 to L2 message gap found in block ${blockNumber}`);
@@ -58,9 +54,7 @@ export class L1ToL2MessageStore {
   getMessageIndex(l1ToL2Message: Fr, startIndex: bigint): bigint | undefined {
     for (const [key, message] of this.store.entries()) {
       if (message.equals(l1ToL2Message)) {
-        const keyParts = key.split('-');
-        const [blockNumber, messageIndex] = [BigInt(keyParts[0]), BigInt(keyParts[1])];
-        const indexInTheWholeTree = InboxLeaf.convertToIndexInWholeTree(messageIndex, blockNumber);
+        const indexInTheWholeTree = BigInt(key);
         if (indexInTheWholeTree < startIndex) {
           continue;
         }

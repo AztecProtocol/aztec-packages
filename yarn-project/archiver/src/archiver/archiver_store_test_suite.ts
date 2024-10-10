@@ -115,11 +115,10 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         } satisfies ArchiverL1SynchPoint);
       });
 
-      it.skip('returns the L1 block number that most recently added messages from inbox', async () => {
-        // unsure what to do if blockNum is 0 lol - unsure what this test actually does
+      it('returns the L1 block number that most recently added messages from inbox', async () => {
         await store.addL1ToL2Messages({
           lastProcessedL1BlockNumber: 1n,
-          retrievedData: [new InboxLeaf(0n, 0n, Fr.ZERO)],
+          retrievedData: [new InboxLeaf(1n, Fr.ZERO)],
         });
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
@@ -227,8 +226,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
       const generateBlockMessages = (blockNumber: bigint, numMessages: number) =>
-        Array.from({ length: numMessages }, (_, i) =>
-          InboxLeaf.createInboxLeafUsingIndexInSubtree(blockNumber, BigInt(i), Fr.random()),
+        Array.from(
+          { length: numMessages },
+          (_, i) => new InboxLeaf(InboxLeaf.smallestIndexFromL2Block(blockNumber) + BigInt(i), Fr.random()),
         );
 
       it('returns messages in correct order', async () => {
@@ -244,8 +244,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('throws if it is impossible to sequence messages correctly', async () => {
         const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize - 1);
         // We replace a message with index 4 with a message with index at the end of the tree
-        // --> with that there will be a gap and it will be impossible to sequence the messages
-        msgs[4] = new InboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), Fr.random());
+        // --> with that there will be a gap and it will be impossible to sequence the
+        // end of tree = start of next tree/block - 1
+        msgs[4] = new InboxLeaf(InboxLeaf.smallestIndexFromL2Block(l2BlockNumber + 1n) - 1n, Fr.random());
 
         await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
         await expect(async () => {
@@ -253,17 +254,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         }).rejects.toThrow(`L1 to L2 message gap found in block ${l2BlockNumber}`);
       });
 
-      it('throws if adding more messages than fits into a block', async () => {
-        const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize + 1);
-
-        await expect(async () => {
-          await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
-        }).rejects.toThrow(`Message index ${l1ToL2MessageSubtreeSize} out of subtree range`);
-      });
-
       it('correctly handles duplicate messages', async () => {
         const messageHash = Fr.random();
-        const msgs = [new InboxLeaf(1n, 0n, messageHash), new InboxLeaf(2n, 16n, messageHash)];
+        const msgs = [new InboxLeaf(0n, messageHash), new InboxLeaf(16n, messageHash)];
 
         await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
 

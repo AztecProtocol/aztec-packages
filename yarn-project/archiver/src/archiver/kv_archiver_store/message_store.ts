@@ -1,4 +1,4 @@
-import { type InboxLeaf } from '@aztec/circuit-types';
+import { InboxLeaf } from '@aztec/circuit-types';
 import { Fr, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
@@ -56,18 +56,11 @@ export class MessageStore {
       void this.#lastSynchedL1Block.set(messages.lastProcessedL1BlockNumber);
 
       for (const message of messages.retrievedData) {
-        // inbox event emits index the whole tree. We need index in the L1 to L2 message subtree.
-        // reverse of what is done in inbox.sol
-        const indexInTheWholeTree = message.index;
-        const indexInSubtree = message.convertToIndexInSubtree();
-        if (indexInSubtree >= this.#l1ToL2MessagesSubtreeSize) {
-          throw new Error(`Message index ${indexInSubtree} out of subtree range`);
-        }
-        const key = `${message.blockNumber}-${indexInSubtree}`;
+        const key = `${message.index}`;
         void this.#l1ToL2Messages.setIfNotExists(key, message.leaf.toBuffer());
 
         const indices = this.#l1ToL2MessageIndices.get(message.leaf.toString()) ?? [];
-        indices.push(indexInTheWholeTree);
+        indices.push(message.index);
         void this.#l1ToL2MessageIndices.set(message.leaf.toString(), indices);
       }
 
@@ -93,9 +86,10 @@ export class MessageStore {
   getL1ToL2Messages(blockNumber: bigint): Fr[] {
     const messages: Fr[] = [];
     let undefinedMessageFound = false;
-    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+    const startIndex = Number(InboxLeaf.smallestIndexFromL2Block(blockNumber));
+    for (let i = startIndex; i < startIndex + this.#l1ToL2MessagesSubtreeSize; i++) {
       // This is inefficient but probably fine for now.
-      const key = `${blockNumber}-${messageIndex}`;
+      const key = `${i}`;
       const message = this.#l1ToL2Messages.get(key);
       if (message) {
         if (undefinedMessageFound) {

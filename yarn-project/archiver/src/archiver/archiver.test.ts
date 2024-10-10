@@ -117,18 +117,18 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [
-        makeMessageSentEventWithIndexInSubtree(98n, 1n, 0n),
-        makeMessageSentEventWithIndexInSubtree(99n, 1n, 1n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(98n, 1n, 0n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(99n, 1n, 1n),
       ],
       L2BlockProposed: [makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString())],
     });
 
     mockGetLogs({
       messageSent: [
-        makeMessageSentEventWithIndexInSubtree(2504n, 2n, 0n),
-        makeMessageSentEventWithIndexInSubtree(2505n, 2n, 1n),
-        makeMessageSentEventWithIndexInSubtree(2505n, 2n, 2n),
-        makeMessageSentEventWithIndexInSubtree(2506n, 3n, 1n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(2504n, 2n, 0n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(2505n, 2n, 1n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(2505n, 2n, 2n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(2506n, 3n, 1n),
       ],
       L2BlockProposed: [
         makeL2BlockProposedEvent(2510n, 2n, blocks[1].archive.root.toString()),
@@ -227,8 +227,8 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [
-        makeMessageSentEventWithIndexInSubtree(66n, 1n, 0n),
-        makeMessageSentEventWithIndexInSubtree(68n, 1n, 1n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(66n, 1n, 0n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(68n, 1n, 1n),
       ],
       L2BlockProposed: [
         makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
@@ -270,8 +270,8 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [
-        makeMessageSentEventWithIndexInSubtree(66n, 1n, 0n),
-        makeMessageSentEventWithIndexInSubtree(68n, 1n, 1n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(66n, 1n, 0n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(68n, 1n, 1n),
       ],
       L2BlockProposed: [
         makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
@@ -330,8 +330,8 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [
-        makeMessageSentEventWithIndexInSubtree(66n, 1n, 0n),
-        makeMessageSentEventWithIndexInSubtree(68n, 1n, 1n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(66n, 1n, 0n),
+        makeMessageSentEventWithIndexInL2BlockSubtree(68n, 1n, 1n),
       ],
       L2BlockProposed: [
         makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
@@ -380,7 +380,7 @@ describe('Archiver', () => {
 
   // logs should be created in order of how archiver syncs.
   const mockGetLogs = (logs: {
-    messageSent?: ReturnType<typeof makeMessageSentEventWithIndexInSubtree>[];
+    messageSent?: ReturnType<typeof makeMessageSentEventWithIndexInL2BlockSubtree>[];
     L2BlockProposed?: ReturnType<typeof makeL2BlockProposedEvent>[];
   }) => {
     if (logs.messageSent) {
@@ -412,8 +412,12 @@ function makeL2BlockProposedEvent(l1BlockNum: bigint, l2BlockNum: bigint, archiv
  * @param l2BlockNumber - The L2 block number of in which the message was included.
  * @returns MessageSent event logs.
  */
-function makeMessageSentEventWithIndexInSubtree(l1BlockNum: bigint, l2BlockNumber: bigint, indexInSubtree: bigint) {
-  const index = InboxLeaf.convertToIndexInWholeTree(indexInSubtree, l2BlockNumber);
+function makeMessageSentEventWithIndexInL2BlockSubtree(
+  l1BlockNum: bigint,
+  l2BlockNumber: bigint,
+  indexInSubtree: bigint,
+) {
+  const index = indexInSubtree + InboxLeaf.smallestIndexFromL2Block(l2BlockNumber);
   return {
     blockNumber: l1BlockNum,
     args: {
