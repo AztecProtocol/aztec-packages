@@ -152,7 +152,7 @@ template <typename Flavor> class SumcheckProver {
     using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
     // Define the length of Libra Univariates. For non-ZK Flavors: set to 0.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
-    using LibraUnivariates = std::vector<Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
+    using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
@@ -404,7 +404,8 @@ polynomials that are sent in clear.
         EvalMaskingScalars eval_masking_scalars;
 
         for (size_t k = 0; k < NUM_ALL_WITNESS_ENTITIES; ++k) {
-            eval_masking_scalars[k] = FF::random_element();
+            // TODO: Once Shplemini supports ZK, these constants must be random
+            eval_masking_scalars[k] = FF(0);
         };
         // Generate random scalars \f$ \rho_1,\ldots, \rho_{N_w}\f$ to mask the evaluations of witness polynomials and
         // populate the table masking_terms_evaluations with the terms \f$ \rho_j \cdot (1-k) \cdot k \f$

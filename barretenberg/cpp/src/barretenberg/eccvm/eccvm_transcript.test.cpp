@@ -145,9 +145,12 @@ class ECCVMTranscriptTests : public ::testing::Test {
             std::string label = "Sumcheck:u_" + idx;
             manifest_expected.add_challenge(round, label);
         }
+        round++;
+        manifest_expected.add_entry(round, "Libra:evaluations", log_n * frs_per_Fr);
 
         round++;
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
+
         manifest_expected.add_challenge(round, "rho");
 
         round++;

@@ -6,6 +6,8 @@ namespace bb {
 template <typename FF_> class TranslatorPermutationRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 13;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7;
 

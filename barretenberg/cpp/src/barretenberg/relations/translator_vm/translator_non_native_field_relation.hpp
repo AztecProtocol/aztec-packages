@@ -7,6 +7,7 @@ namespace bb {
 template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
 
     // 1 + polynomial degree of this relation
     static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{

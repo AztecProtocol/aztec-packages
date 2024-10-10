@@ -42,7 +42,7 @@ Builder generate_trace(size_t target_num_gates)
     return builder;
 }
 
-void eccvm_generate_prover(State& state) noexcept
+void zk_eccvm_generate_prover(State& state) noexcept
 {
     bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
@@ -53,7 +53,7 @@ void eccvm_generate_prover(State& state) noexcept
     };
 }
 
-void eccvm_prove(State& state) noexcept
+void zk_eccvm_prove(State& state) noexcept
 {
     bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
@@ -65,8 +65,8 @@ void eccvm_prove(State& state) noexcept
     };
 }
 
-BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(10, 20);
-BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(10, 20);
+BENCHMARK(zk_eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(10, 20);
+BENCHMARK(zk_eccvm_prove)->Unit(kMillisecond)->DenseRange(10, 20);
 } // namespace
 
 BENCHMARK_MAIN();

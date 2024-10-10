@@ -6,6 +6,7 @@ namespace bb {
 template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 11;
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree((lagrange_last-1) * D(D - 1)(D - 2)(D - 3)) = 5

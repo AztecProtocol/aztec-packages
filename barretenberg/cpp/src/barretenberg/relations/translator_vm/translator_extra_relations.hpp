@@ -6,6 +6,7 @@ namespace bb {
 template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 13;
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7; // degree(op(op - 1)(op - 2)(op - 3)(op - 4)(op - 8)) = 6
@@ -47,6 +48,7 @@ polynomials,
 template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree((SOME_LAGRANGE)(A-B)) = 2

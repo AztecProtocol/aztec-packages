@@ -29,7 +29,7 @@ namespace bb {
 template <typename FF_> class ECCVMTranscriptRelationImpl {
   public:
     using FF = FF_;
-
+    static constexpr size_t ZK_RELATION_LENGTH = 15;
     static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS{
         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };

@@ -11,6 +11,8 @@ namespace bb {
 template <typename FF_> class ECCVMLookupRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 17;
+
     static constexpr size_t READ_TERMS = 4;
     static constexpr size_t WRITE_TERMS = 2;
     // 1 + polynomial degree of this relation

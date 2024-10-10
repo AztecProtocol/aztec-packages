@@ -16,7 +16,7 @@ namespace bb {
 template <typename FF_> class ECCVMBoolsRelationImpl {
   public:
     using FF = FF_;
-
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
     static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };

@@ -7,7 +7,7 @@ namespace bb {
 template <typename FF_> class TranslatorDecompositionRelationImpl {
   public:
     using FF = FF_;
-
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH =
         3; // degree(lagrange_odd_in_minicircuit_in_minicircuit(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )) = 2
