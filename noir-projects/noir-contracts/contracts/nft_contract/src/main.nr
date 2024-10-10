@@ -21,8 +21,6 @@ contract NFT {
     use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
     use crate::types::nft_note::NFTNote;
 
-    global TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX = 3;
-
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
     #[event]
@@ -138,20 +136,18 @@ contract NFT {
     fn transfer_to_private(from: AztecAddress, to: AztecAddress, token_id: Field) {
         let nft = NFT::at(context.this_address());
 
-        let slot_commitment = nft.prepare_transfer_to_private(from, to).call(&mut context);
+        let hiding_point_slot = nft.prepare_transfer_to_private(from, to).call(&mut context);
 
         // We now transfer the token to this contract so that the `msg_sender` in `finalize_transfer_to_private` call
         // below is the token owner.
         nft.transfer_in_public(from, context.this_address(), token_id, 0).enqueue(&mut context);
 
         // At last we finalize the transfer.
-        nft.finalize_transfer_to_private(token_id, slot_commitment).enqueue(&mut context);
+        nft.finalize_transfer_to_private(token_id, hiding_point_slot).enqueue(&mut context);
     }
 
     /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
-    /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
-    /// as an argument so that we can derive `slot_commitment` off-chain and then pass it
-    /// as an argument to the followup call to `finalize_transfer_to_private`.
+    /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
     #[private]
     fn prepare_transfer_to_private(from: AztecAddress, to: AztecAddress) -> Field {
         let to_keys = get_public_keys(to);
@@ -169,52 +165,39 @@ contract NFT {
         // We encrypt and emit the partial note log
         encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
 
-        // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
-        // non-sender's slots
-        let transient_storage_slot_randomness = unsafe {
-            random()
-        };
-        let slot_commitment: Field = pedersen_hash(
-            [context.msg_sender().to_field(), transient_storage_slot_randomness],
-            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
-        );
-        // Then we hash the transfer preparer storage slot commitment with `from` and use that as the final slot
-        // --> by hashing it with a `from` we ensure that `from` cannot interfere with slots not assigned to him.
-        let slot: Field = pedersen_hash(
-            [from.to_field(), slot_commitment],
-            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
-        );
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point).enqueue(&mut context);
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point, slot).enqueue(&mut context);
+        // Using the x-coordinate as a hiding point slot is safe because we have a guarantee that the public functions
+        // of the transaction are executed right after the private ones and for this reason the protocol guarantees
+        // that nobody can front-run us in consuming the hiding point. This guarantee would break
+        // if `finalize_transfer_to_private` was not called in the same transaction. This however is not the flow we
+        // are currently concerned with. To support the multi-transaction flow we could hash the x-coordinate with
+        // `from` and then repeat the hashing in `finalize_transfer_to_private`.
+        let hiding_point_slot = note_setup_payload.hiding_point.x;
 
-        slot_commitment
+        hiding_point_slot
     }
 
     #[public]
     #[internal]
-    fn _store_point_in_transient_storage(point: Point, slot: Field) {
-        // We don't perform check for the overwritten value to be non-zero because the slots are siloed to `to`
-        // and hence `to` can interfere only with his own execution.
+    fn _store_point_in_transient_storage(point: Point) {
+        let slot = point.x;
+        // We don't perform check for the overwritten value to be non-zero because the slot is implictly siloed to `to`
+        // (`to_note_slot` is part of the hiding point preimage) and hence `to` can interfere only with his own
+        // execution.
         context.storage_write(slot, point);
     }
 
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
-    /// `slot_commitment` must be passed as an argument to this function.
+    /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
-    fn finalize_transfer_to_private(token_id: Field, slot_commitment: Field) {
+    fn finalize_transfer_to_private(token_id: Field, hiding_point_slot: Field) {
         // We don't need to support authwit here because `prepare_transfer_to_private` allows us to set arbitrary
         // `from` and hence the call is authenticated by the loaded hiding point being non-zero.
         let from = context.msg_sender();
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from), "invalid NFT owner");
-
-        // Derive the slot from the transfer preparer storage slot commitment and the `from` address (declared
-        // as `from` in this function)
-        let hiding_point_slot = pedersen_hash(
-            [from.to_field(), slot_commitment],
-            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
-        );
 
         // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
         let hiding_point: Point = context.storage_read(hiding_point_slot);
