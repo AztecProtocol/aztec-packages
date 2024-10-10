@@ -101,7 +101,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        // WORKTODO: can we just always use structured and let it decide if its a good idea?
         if (proving_key->is_structured) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
                 polynomials().w_l, proving_key->proving_key.active_block_ranges);
