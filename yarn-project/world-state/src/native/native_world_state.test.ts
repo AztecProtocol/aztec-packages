@@ -202,6 +202,25 @@ describe('NativeWorldState', () => {
       }
     }, 30_000);
 
+    it('Can finalise multiple blocks', async () => {
+      const fork = await ws.fork();
+
+      for (let i = 0; i < 16; i++) {
+        const blockNumber = i + 1;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        expect(status.unfinalisedBlockNumber).toBe(blockNumber);
+        expect(status.oldestHistoricalBlock).toBe(1);
+        expect(status.finalisedBlockNumber).toBe(0);
+      }
+
+      const status = await ws.setFinalised(8n);
+      expect(status.unfinalisedBlockNumber).toBe(16);
+      expect(status.oldestHistoricalBlock).toBe(1);
+      expect(status.finalisedBlockNumber).toBe(8);
+    }, 30_000);
+
     it('Can prune historic blocks', async () => {
       const fork = await ws.fork();
       const forks = [];

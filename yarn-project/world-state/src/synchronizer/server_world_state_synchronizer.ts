@@ -7,7 +7,7 @@ import {
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-  WorldStateSynchronizerStatus,
+  type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { MerkleTreeCalculator } from '@aztec/circuits.js';
@@ -20,7 +20,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 
-import { WorldStateStatus } from '../native/message.js';
+import { type WorldStateStatus } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateConfig } from './config.js';
 

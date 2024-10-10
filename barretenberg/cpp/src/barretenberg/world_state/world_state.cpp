@@ -157,7 +157,7 @@ uint64_t WorldState::create_fork(index_t blockNumber)
 
 void WorldState::remove_forks_for_block(index_t blockNumber)
 {
-    // capture the shared pointer outside of the lock scope so we are not under the lock when the objects are destroyed
+    // capture the shared pointers outside of the lock scope so we are not under the lock when the objects are destroyed
     std::vector<Fork::SharedPtr> forks;
     {
         std::unique_lock lock(mtx);
@@ -190,6 +190,7 @@ void WorldState::delete_fork(uint64_t forkId)
 Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
+    fork->_blockNumber = blockNumber;
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);

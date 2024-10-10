@@ -32,7 +32,7 @@ import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-sta
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
-  WorldStateStatus,
+  type WorldStateStatus,
   blockStateReference,
   treeStateReferenceToSnapshot,
   worldStateRevision,
