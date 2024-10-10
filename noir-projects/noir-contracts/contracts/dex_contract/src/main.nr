@@ -31,6 +31,8 @@ contract DEX {
         state: SharedImmutable<State, Context>,
     }
 
+    // Amount of liquidity which gets locked in the pool when liquidity is provided for the first time. It's purpose
+    // is to prevent the pool from ever emptying which could lead to undefined behavior.
     global MINIMUM_LIQUIDITY: u64 = 1000;
 
     // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
@@ -40,8 +42,7 @@ contract DEX {
     #[public]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress) {
-        let state = State { token0, token1, liquidity_token };
-        storage.state.initialize(state);
+        storage.state.initialize(State { token0, token1, liquidity_token });
     }
 
     // Privately adds liquidity to the pool (identity of liquidity provider not revealed). `amount0_desired`
@@ -65,12 +66,14 @@ contract DEX {
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
 
-        // The following 2 functions burn user's notes worth `amount0_desired` and `amount1_desired`, they prepare
-        // the partial notes for refunds and enqueue 2 public calls that transfer the amounts to the DEX.
+        // We transfer the desired amounts of tokens to the DEX.
         token0.transfer_to_public(msg.sender, context.this_address(), amount0_desired, nonce).call(&mut context);
         token1.transfer_to_public(msg.sender, context.this_address(), amount1_desired, nonce).call(&mut context);
+
+        // Since not all the desired amounts of tokens might be accepted we prepare partial notes for the refunds.
         let refund_token0_slot_commitment = token0.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
         let refund_token1_slot_commitment = token1.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
+        // We prepare a partial note for the liquidity tokens.
         let liquidity_slot_commitment = liquidity_token.prepare_transfer_to_private(msg.sender).call(&mut context);
 
         DEX::at(context.this_address())._add_liquidity(
