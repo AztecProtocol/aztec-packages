@@ -574,192 +574,227 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , poseidon2_b_2(il[566])
     , poseidon2_b_3(il[567])
     , poseidon2_clk(il[568])
-    , poseidon2_input_addr(il[569])
-    , poseidon2_mem_addr_read_a(il[570])
-    , poseidon2_mem_addr_read_b(il[571])
-    , poseidon2_mem_addr_read_c(il[572])
-    , poseidon2_mem_addr_read_d(il[573])
-    , poseidon2_mem_addr_write_a(il[574])
-    , poseidon2_mem_addr_write_b(il[575])
-    , poseidon2_mem_addr_write_c(il[576])
-    , poseidon2_mem_addr_write_d(il[577])
-    , poseidon2_output_addr(il[578])
-    , poseidon2_sel_poseidon_perm(il[579])
-    , range_check_alu_rng_chk(il[580])
-    , range_check_clk(il[581])
-    , range_check_cmp_hi_bits_rng_chk(il[582])
-    , range_check_cmp_lo_bits_rng_chk(il[583])
-    , range_check_dyn_diff(il[584])
-    , range_check_dyn_rng_chk_bits(il[585])
-    , range_check_dyn_rng_chk_pow_2(il[586])
-    , range_check_gas_da_rng_chk(il[587])
-    , range_check_gas_l2_rng_chk(il[588])
-    , range_check_is_lte_u112(il[589])
-    , range_check_is_lte_u128(il[590])
-    , range_check_is_lte_u16(il[591])
-    , range_check_is_lte_u32(il[592])
-    , range_check_is_lte_u48(il[593])
-    , range_check_is_lte_u64(il[594])
-    , range_check_is_lte_u80(il[595])
-    , range_check_is_lte_u96(il[596])
-    , range_check_mem_rng_chk(il[597])
-    , range_check_rng_chk_bits(il[598])
-    , range_check_sel_lookup_0(il[599])
-    , range_check_sel_lookup_1(il[600])
-    , range_check_sel_lookup_2(il[601])
-    , range_check_sel_lookup_3(il[602])
-    , range_check_sel_lookup_4(il[603])
-    , range_check_sel_lookup_5(il[604])
-    , range_check_sel_lookup_6(il[605])
-    , range_check_sel_rng_chk(il[606])
-    , range_check_u16_r0(il[607])
-    , range_check_u16_r1(il[608])
-    , range_check_u16_r2(il[609])
-    , range_check_u16_r3(il[610])
-    , range_check_u16_r4(il[611])
-    , range_check_u16_r5(il[612])
-    , range_check_u16_r6(il[613])
-    , range_check_u16_r7(il[614])
-    , range_check_value(il[615])
-    , sha256_clk(il[616])
-    , sha256_input(il[617])
-    , sha256_output(il[618])
-    , sha256_sel_sha256_compression(il[619])
-    , sha256_state(il[620])
-    , slice_addr(il[621])
-    , slice_clk(il[622])
-    , slice_cnt(il[623])
-    , slice_col_offset(il[624])
-    , slice_one_min_inv(il[625])
-    , slice_sel_cd_cpy(il[626])
-    , slice_sel_mem_active(il[627])
-    , slice_sel_return(il[628])
-    , slice_sel_start(il[629])
-    , slice_space_id(il[630])
-    , slice_val(il[631])
-    , lookup_rng_chk_pow_2_counts(il[632])
-    , lookup_rng_chk_diff_counts(il[633])
-    , lookup_rng_chk_0_counts(il[634])
-    , lookup_rng_chk_1_counts(il[635])
-    , lookup_rng_chk_2_counts(il[636])
-    , lookup_rng_chk_3_counts(il[637])
-    , lookup_rng_chk_4_counts(il[638])
-    , lookup_rng_chk_5_counts(il[639])
-    , lookup_rng_chk_6_counts(il[640])
-    , lookup_rng_chk_7_counts(il[641])
-    , lookup_pow_2_0_counts(il[642])
-    , lookup_pow_2_1_counts(il[643])
-    , lookup_byte_lengths_counts(il[644])
-    , lookup_byte_operations_counts(il[645])
-    , lookup_opcode_gas_counts(il[646])
-    , kernel_output_lookup_counts(il[647])
-    , lookup_into_kernel_counts(il[648])
-    , lookup_cd_value_counts(il[649])
-    , lookup_ret_value_counts(il[650])
-    , incl_main_tag_err_counts(il[651])
-    , incl_mem_tag_err_counts(il[652])
-    , perm_rng_mem_inv(il[653])
-    , perm_rng_cmp_lo_inv(il[654])
-    , perm_rng_cmp_hi_inv(il[655])
-    , perm_rng_alu_inv(il[656])
-    , perm_cmp_alu_inv(il[657])
-    , perm_rng_gas_l2_inv(il[658])
-    , perm_rng_gas_da_inv(il[659])
-    , perm_l2_start_gas_inv(il[660])
-    , perm_da_start_gas_inv(il[661])
-    , perm_l2_end_gas_inv(il[662])
-    , perm_da_end_gas_inv(il[663])
-    , perm_pos_mem_read_a_inv(il[664])
-    , perm_pos_mem_read_b_inv(il[665])
-    , perm_pos_mem_read_c_inv(il[666])
-    , perm_pos_mem_read_d_inv(il[667])
-    , perm_pos_mem_write_a_inv(il[668])
-    , perm_pos_mem_write_b_inv(il[669])
-    , perm_pos_mem_write_c_inv(il[670])
-    , perm_pos_mem_write_d_inv(il[671])
-    , perm_slice_mem_inv(il[672])
-    , perm_main_alu_inv(il[673])
-    , perm_main_bin_inv(il[674])
-    , perm_main_conv_inv(il[675])
-    , perm_main_pos2_perm_inv(il[676])
-    , perm_main_pedersen_inv(il[677])
-    , perm_main_slice_inv(il[678])
-    , perm_main_mem_a_inv(il[679])
-    , perm_main_mem_b_inv(il[680])
-    , perm_main_mem_c_inv(il[681])
-    , perm_main_mem_d_inv(il[682])
-    , perm_main_mem_ind_addr_a_inv(il[683])
-    , perm_main_mem_ind_addr_b_inv(il[684])
-    , perm_main_mem_ind_addr_c_inv(il[685])
-    , perm_main_mem_ind_addr_d_inv(il[686])
-    , lookup_rng_chk_pow_2_inv(il[687])
-    , lookup_rng_chk_diff_inv(il[688])
-    , lookup_rng_chk_0_inv(il[689])
-    , lookup_rng_chk_1_inv(il[690])
-    , lookup_rng_chk_2_inv(il[691])
-    , lookup_rng_chk_3_inv(il[692])
-    , lookup_rng_chk_4_inv(il[693])
-    , lookup_rng_chk_5_inv(il[694])
-    , lookup_rng_chk_6_inv(il[695])
-    , lookup_rng_chk_7_inv(il[696])
-    , lookup_pow_2_0_inv(il[697])
-    , lookup_pow_2_1_inv(il[698])
-    , lookup_byte_lengths_inv(il[699])
-    , lookup_byte_operations_inv(il[700])
-    , lookup_opcode_gas_inv(il[701])
-    , kernel_output_lookup_inv(il[702])
-    , lookup_into_kernel_inv(il[703])
-    , lookup_cd_value_inv(il[704])
-    , lookup_ret_value_inv(il[705])
-    , incl_main_tag_err_inv(il[706])
-    , incl_mem_tag_err_inv(il[707])
-    , binary_acc_ia_shift(il[708])
-    , binary_acc_ib_shift(il[709])
-    , binary_acc_ic_shift(il[710])
-    , binary_mem_tag_ctr_shift(il[711])
-    , binary_op_id_shift(il[712])
-    , cmp_a_hi_shift(il[713])
-    , cmp_a_lo_shift(il[714])
-    , cmp_b_hi_shift(il[715])
-    , cmp_b_lo_shift(il[716])
-    , cmp_cmp_rng_ctr_shift(il[717])
-    , cmp_op_gt_shift(il[718])
-    , cmp_p_sub_a_hi_shift(il[719])
-    , cmp_p_sub_a_lo_shift(il[720])
-    , cmp_p_sub_b_hi_shift(il[721])
-    , cmp_p_sub_b_lo_shift(il[722])
-    , cmp_sel_rng_chk_shift(il[723])
-    , main_da_gas_remaining_shift(il[724])
-    , main_emit_l2_to_l1_msg_write_offset_shift(il[725])
-    , main_emit_note_hash_write_offset_shift(il[726])
-    , main_emit_nullifier_write_offset_shift(il[727])
-    , main_emit_unencrypted_log_write_offset_shift(il[728])
-    , main_internal_return_ptr_shift(il[729])
-    , main_l1_to_l2_msg_exists_write_offset_shift(il[730])
-    , main_l2_gas_remaining_shift(il[731])
-    , main_note_hash_exist_write_offset_shift(il[732])
-    , main_nullifier_exists_write_offset_shift(il[733])
-    , main_nullifier_non_exists_write_offset_shift(il[734])
-    , main_pc_shift(il[735])
-    , main_sel_execution_end_shift(il[736])
-    , main_sel_execution_row_shift(il[737])
-    , main_sload_write_offset_shift(il[738])
-    , main_sstore_write_offset_shift(il[739])
-    , mem_glob_addr_shift(il[740])
-    , mem_rw_shift(il[741])
-    , mem_sel_mem_shift(il[742])
-    , mem_tag_shift(il[743])
-    , mem_tsp_shift(il[744])
-    , mem_val_shift(il[745])
-    , slice_addr_shift(il[746])
-    , slice_clk_shift(il[747])
-    , slice_cnt_shift(il[748])
-    , slice_col_offset_shift(il[749])
-    , slice_sel_cd_cpy_shift(il[750])
-    , slice_sel_mem_active_shift(il[751])
-    , slice_sel_return_shift(il[752])
-    , slice_sel_start_shift(il[753])
-    , slice_space_id_shift(il[754])
+    , poseidon2_full_a_0(il[569])
+    , poseidon2_full_a_1(il[570])
+    , poseidon2_full_a_2(il[571])
+    , poseidon2_full_a_3(il[572])
+    , poseidon2_full_b_0(il[573])
+    , poseidon2_full_b_1(il[574])
+    , poseidon2_full_b_2(il[575])
+    , poseidon2_full_b_3(il[576])
+    , poseidon2_full_clk(il[577])
+    , poseidon2_full_end_poseidon(il[578])
+    , poseidon2_full_execute_poseidon_perm(il[579])
+    , poseidon2_full_input_0(il[580])
+    , poseidon2_full_input_1(il[581])
+    , poseidon2_full_input_2(il[582])
+    , poseidon2_full_input_len(il[583])
+    , poseidon2_full_num_perm_rounds_rem(il[584])
+    , poseidon2_full_num_perm_rounds_rem_inv(il[585])
+    , poseidon2_full_output(il[586])
+    , poseidon2_full_padding(il[587])
+    , poseidon2_full_sel_poseidon(il[588])
+    , poseidon2_full_start_poseidon(il[589])
+    , poseidon2_input_addr(il[590])
+    , poseidon2_mem_addr_read_a(il[591])
+    , poseidon2_mem_addr_read_b(il[592])
+    , poseidon2_mem_addr_read_c(il[593])
+    , poseidon2_mem_addr_read_d(il[594])
+    , poseidon2_mem_addr_write_a(il[595])
+    , poseidon2_mem_addr_write_b(il[596])
+    , poseidon2_mem_addr_write_c(il[597])
+    , poseidon2_mem_addr_write_d(il[598])
+    , poseidon2_output_addr(il[599])
+    , poseidon2_sel_poseidon_perm(il[600])
+    , poseidon2_sel_poseidon_perm_immediate(il[601])
+    , poseidon2_sel_poseidon_perm_mem_op(il[602])
+    , range_check_alu_rng_chk(il[603])
+    , range_check_clk(il[604])
+    , range_check_cmp_hi_bits_rng_chk(il[605])
+    , range_check_cmp_lo_bits_rng_chk(il[606])
+    , range_check_dyn_diff(il[607])
+    , range_check_dyn_rng_chk_bits(il[608])
+    , range_check_dyn_rng_chk_pow_2(il[609])
+    , range_check_gas_da_rng_chk(il[610])
+    , range_check_gas_l2_rng_chk(il[611])
+    , range_check_is_lte_u112(il[612])
+    , range_check_is_lte_u128(il[613])
+    , range_check_is_lte_u16(il[614])
+    , range_check_is_lte_u32(il[615])
+    , range_check_is_lte_u48(il[616])
+    , range_check_is_lte_u64(il[617])
+    , range_check_is_lte_u80(il[618])
+    , range_check_is_lte_u96(il[619])
+    , range_check_mem_rng_chk(il[620])
+    , range_check_rng_chk_bits(il[621])
+    , range_check_sel_lookup_0(il[622])
+    , range_check_sel_lookup_1(il[623])
+    , range_check_sel_lookup_2(il[624])
+    , range_check_sel_lookup_3(il[625])
+    , range_check_sel_lookup_4(il[626])
+    , range_check_sel_lookup_5(il[627])
+    , range_check_sel_lookup_6(il[628])
+    , range_check_sel_rng_chk(il[629])
+    , range_check_u16_r0(il[630])
+    , range_check_u16_r1(il[631])
+    , range_check_u16_r2(il[632])
+    , range_check_u16_r3(il[633])
+    , range_check_u16_r4(il[634])
+    , range_check_u16_r5(il[635])
+    , range_check_u16_r6(il[636])
+    , range_check_u16_r7(il[637])
+    , range_check_value(il[638])
+    , sha256_clk(il[639])
+    , sha256_input(il[640])
+    , sha256_output(il[641])
+    , sha256_sel_sha256_compression(il[642])
+    , sha256_state(il[643])
+    , slice_addr(il[644])
+    , slice_clk(il[645])
+    , slice_cnt(il[646])
+    , slice_col_offset(il[647])
+    , slice_one_min_inv(il[648])
+    , slice_sel_cd_cpy(il[649])
+    , slice_sel_mem_active(il[650])
+    , slice_sel_return(il[651])
+    , slice_sel_start(il[652])
+    , slice_space_id(il[653])
+    , slice_val(il[654])
+    , lookup_rng_chk_pow_2_counts(il[655])
+    , lookup_rng_chk_diff_counts(il[656])
+    , lookup_rng_chk_0_counts(il[657])
+    , lookup_rng_chk_1_counts(il[658])
+    , lookup_rng_chk_2_counts(il[659])
+    , lookup_rng_chk_3_counts(il[660])
+    , lookup_rng_chk_4_counts(il[661])
+    , lookup_rng_chk_5_counts(il[662])
+    , lookup_rng_chk_6_counts(il[663])
+    , lookup_rng_chk_7_counts(il[664])
+    , lookup_pow_2_0_counts(il[665])
+    , lookup_pow_2_1_counts(il[666])
+    , lookup_byte_lengths_counts(il[667])
+    , lookup_byte_operations_counts(il[668])
+    , lookup_opcode_gas_counts(il[669])
+    , kernel_output_lookup_counts(il[670])
+    , lookup_into_kernel_counts(il[671])
+    , lookup_cd_value_counts(il[672])
+    , lookup_ret_value_counts(il[673])
+    , incl_main_tag_err_counts(il[674])
+    , incl_mem_tag_err_counts(il[675])
+    , perm_rng_mem_inv(il[676])
+    , perm_rng_cmp_lo_inv(il[677])
+    , perm_rng_cmp_hi_inv(il[678])
+    , perm_rng_alu_inv(il[679])
+    , perm_cmp_alu_inv(il[680])
+    , perm_rng_gas_l2_inv(il[681])
+    , perm_rng_gas_da_inv(il[682])
+    , perm_l2_start_gas_inv(il[683])
+    , perm_da_start_gas_inv(il[684])
+    , perm_l2_end_gas_inv(il[685])
+    , perm_da_end_gas_inv(il[686])
+    , perm_pos_mem_read_a_inv(il[687])
+    , perm_pos_mem_read_b_inv(il[688])
+    , perm_pos_mem_read_c_inv(il[689])
+    , perm_pos_mem_read_d_inv(il[690])
+    , perm_pos_mem_write_a_inv(il[691])
+    , perm_pos_mem_write_b_inv(il[692])
+    , perm_pos_mem_write_c_inv(il[693])
+    , perm_pos_mem_write_d_inv(il[694])
+    , perm_pos2_fixed_pos2_perm_inv(il[695])
+    , perm_slice_mem_inv(il[696])
+    , perm_main_alu_inv(il[697])
+    , perm_main_bin_inv(il[698])
+    , perm_main_conv_inv(il[699])
+    , perm_main_pos2_perm_inv(il[700])
+    , perm_main_pedersen_inv(il[701])
+    , perm_main_slice_inv(il[702])
+    , perm_main_mem_a_inv(il[703])
+    , perm_main_mem_b_inv(il[704])
+    , perm_main_mem_c_inv(il[705])
+    , perm_main_mem_d_inv(il[706])
+    , perm_main_mem_ind_addr_a_inv(il[707])
+    , perm_main_mem_ind_addr_b_inv(il[708])
+    , perm_main_mem_ind_addr_c_inv(il[709])
+    , perm_main_mem_ind_addr_d_inv(il[710])
+    , lookup_rng_chk_pow_2_inv(il[711])
+    , lookup_rng_chk_diff_inv(il[712])
+    , lookup_rng_chk_0_inv(il[713])
+    , lookup_rng_chk_1_inv(il[714])
+    , lookup_rng_chk_2_inv(il[715])
+    , lookup_rng_chk_3_inv(il[716])
+    , lookup_rng_chk_4_inv(il[717])
+    , lookup_rng_chk_5_inv(il[718])
+    , lookup_rng_chk_6_inv(il[719])
+    , lookup_rng_chk_7_inv(il[720])
+    , lookup_pow_2_0_inv(il[721])
+    , lookup_pow_2_1_inv(il[722])
+    , lookup_byte_lengths_inv(il[723])
+    , lookup_byte_operations_inv(il[724])
+    , lookup_opcode_gas_inv(il[725])
+    , kernel_output_lookup_inv(il[726])
+    , lookup_into_kernel_inv(il[727])
+    , lookup_cd_value_inv(il[728])
+    , lookup_ret_value_inv(il[729])
+    , incl_main_tag_err_inv(il[730])
+    , incl_mem_tag_err_inv(il[731])
+    , binary_acc_ia_shift(il[732])
+    , binary_acc_ib_shift(il[733])
+    , binary_acc_ic_shift(il[734])
+    , binary_mem_tag_ctr_shift(il[735])
+    , binary_op_id_shift(il[736])
+    , cmp_a_hi_shift(il[737])
+    , cmp_a_lo_shift(il[738])
+    , cmp_b_hi_shift(il[739])
+    , cmp_b_lo_shift(il[740])
+    , cmp_cmp_rng_ctr_shift(il[741])
+    , cmp_op_gt_shift(il[742])
+    , cmp_p_sub_a_hi_shift(il[743])
+    , cmp_p_sub_a_lo_shift(il[744])
+    , cmp_p_sub_b_hi_shift(il[745])
+    , cmp_p_sub_b_lo_shift(il[746])
+    , cmp_sel_rng_chk_shift(il[747])
+    , main_da_gas_remaining_shift(il[748])
+    , main_emit_l2_to_l1_msg_write_offset_shift(il[749])
+    , main_emit_note_hash_write_offset_shift(il[750])
+    , main_emit_nullifier_write_offset_shift(il[751])
+    , main_emit_unencrypted_log_write_offset_shift(il[752])
+    , main_internal_return_ptr_shift(il[753])
+    , main_l1_to_l2_msg_exists_write_offset_shift(il[754])
+    , main_l2_gas_remaining_shift(il[755])
+    , main_note_hash_exist_write_offset_shift(il[756])
+    , main_nullifier_exists_write_offset_shift(il[757])
+    , main_nullifier_non_exists_write_offset_shift(il[758])
+    , main_pc_shift(il[759])
+    , main_sel_execution_end_shift(il[760])
+    , main_sel_execution_row_shift(il[761])
+    , main_sload_write_offset_shift(il[762])
+    , main_sstore_write_offset_shift(il[763])
+    , mem_glob_addr_shift(il[764])
+    , mem_rw_shift(il[765])
+    , mem_sel_mem_shift(il[766])
+    , mem_tag_shift(il[767])
+    , mem_tsp_shift(il[768])
+    , mem_val_shift(il[769])
+    , poseidon2_full_a_0_shift(il[770])
+    , poseidon2_full_a_1_shift(il[771])
+    , poseidon2_full_a_2_shift(il[772])
+    , poseidon2_full_a_3_shift(il[773])
+    , poseidon2_full_execute_poseidon_perm_shift(il[774])
+    , poseidon2_full_input_0_shift(il[775])
+    , poseidon2_full_input_1_shift(il[776])
+    , poseidon2_full_input_2_shift(il[777])
+    , poseidon2_full_num_perm_rounds_rem_shift(il[778])
+    , poseidon2_full_sel_poseidon_shift(il[779])
+    , poseidon2_full_start_poseidon_shift(il[780])
+    , slice_addr_shift(il[781])
+    , slice_clk_shift(il[782])
+    , slice_cnt_shift(il[783])
+    , slice_col_offset_shift(il[784])
+    , slice_sel_cd_cpy_shift(il[785])
+    , slice_sel_mem_active_shift(il[786])
+    , slice_sel_return_shift(il[787])
+    , slice_sel_start_shift(il[788])
+    , slice_space_id_shift(il[789])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -1345,6 +1380,27 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      poseidon2_b_2[row_idx],
                      poseidon2_b_3[row_idx],
                      poseidon2_clk[row_idx],
+                     poseidon2_full_a_0[row_idx],
+                     poseidon2_full_a_1[row_idx],
+                     poseidon2_full_a_2[row_idx],
+                     poseidon2_full_a_3[row_idx],
+                     poseidon2_full_b_0[row_idx],
+                     poseidon2_full_b_1[row_idx],
+                     poseidon2_full_b_2[row_idx],
+                     poseidon2_full_b_3[row_idx],
+                     poseidon2_full_clk[row_idx],
+                     poseidon2_full_end_poseidon[row_idx],
+                     poseidon2_full_execute_poseidon_perm[row_idx],
+                     poseidon2_full_input_0[row_idx],
+                     poseidon2_full_input_1[row_idx],
+                     poseidon2_full_input_2[row_idx],
+                     poseidon2_full_input_len[row_idx],
+                     poseidon2_full_num_perm_rounds_rem[row_idx],
+                     poseidon2_full_num_perm_rounds_rem_inv[row_idx],
+                     poseidon2_full_output[row_idx],
+                     poseidon2_full_padding[row_idx],
+                     poseidon2_full_sel_poseidon[row_idx],
+                     poseidon2_full_start_poseidon[row_idx],
                      poseidon2_input_addr[row_idx],
                      poseidon2_mem_addr_read_a[row_idx],
                      poseidon2_mem_addr_read_b[row_idx],
@@ -1356,6 +1412,8 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      poseidon2_mem_addr_write_d[row_idx],
                      poseidon2_output_addr[row_idx],
                      poseidon2_sel_poseidon_perm[row_idx],
+                     poseidon2_sel_poseidon_perm_immediate[row_idx],
+                     poseidon2_sel_poseidon_perm_mem_op[row_idx],
                      range_check_alu_rng_chk[row_idx],
                      range_check_clk[row_idx],
                      range_check_cmp_hi_bits_rng_chk[row_idx],
@@ -1448,6 +1506,7 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      perm_pos_mem_write_b_inv[row_idx],
                      perm_pos_mem_write_c_inv[row_idx],
                      perm_pos_mem_write_d_inv[row_idx],
+                     perm_pos2_fixed_pos2_perm_inv[row_idx],
                      perm_slice_mem_inv[row_idx],
                      perm_main_alu_inv[row_idx],
                      perm_main_bin_inv[row_idx],
@@ -1522,6 +1581,17 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      mem_tag_shift[row_idx],
                      mem_tsp_shift[row_idx],
                      mem_val_shift[row_idx],
+                     poseidon2_full_a_0_shift[row_idx],
+                     poseidon2_full_a_1_shift[row_idx],
+                     poseidon2_full_a_2_shift[row_idx],
+                     poseidon2_full_a_3_shift[row_idx],
+                     poseidon2_full_execute_poseidon_perm_shift[row_idx],
+                     poseidon2_full_input_0_shift[row_idx],
+                     poseidon2_full_input_1_shift[row_idx],
+                     poseidon2_full_input_2_shift[row_idx],
+                     poseidon2_full_num_perm_rounds_rem_shift[row_idx],
+                     poseidon2_full_sel_poseidon_shift[row_idx],
+                     poseidon2_full_start_poseidon_shift[row_idx],
                      slice_addr_shift[row_idx],
                      slice_clk_shift[row_idx],
                      slice_cnt_shift[row_idx],
@@ -2104,6 +2174,27 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::poseidon2_b_2 = "POSEIDON2_B_2";
     Base::poseidon2_b_3 = "POSEIDON2_B_3";
     Base::poseidon2_clk = "POSEIDON2_CLK";
+    Base::poseidon2_full_a_0 = "POSEIDON2_FULL_A_0";
+    Base::poseidon2_full_a_1 = "POSEIDON2_FULL_A_1";
+    Base::poseidon2_full_a_2 = "POSEIDON2_FULL_A_2";
+    Base::poseidon2_full_a_3 = "POSEIDON2_FULL_A_3";
+    Base::poseidon2_full_b_0 = "POSEIDON2_FULL_B_0";
+    Base::poseidon2_full_b_1 = "POSEIDON2_FULL_B_1";
+    Base::poseidon2_full_b_2 = "POSEIDON2_FULL_B_2";
+    Base::poseidon2_full_b_3 = "POSEIDON2_FULL_B_3";
+    Base::poseidon2_full_clk = "POSEIDON2_FULL_CLK";
+    Base::poseidon2_full_end_poseidon = "POSEIDON2_FULL_END_POSEIDON";
+    Base::poseidon2_full_execute_poseidon_perm = "POSEIDON2_FULL_EXECUTE_POSEIDON_PERM";
+    Base::poseidon2_full_input_0 = "POSEIDON2_FULL_INPUT_0";
+    Base::poseidon2_full_input_1 = "POSEIDON2_FULL_INPUT_1";
+    Base::poseidon2_full_input_2 = "POSEIDON2_FULL_INPUT_2";
+    Base::poseidon2_full_input_len = "POSEIDON2_FULL_INPUT_LEN";
+    Base::poseidon2_full_num_perm_rounds_rem = "POSEIDON2_FULL_NUM_PERM_ROUNDS_REM";
+    Base::poseidon2_full_num_perm_rounds_rem_inv = "POSEIDON2_FULL_NUM_PERM_ROUNDS_REM_INV";
+    Base::poseidon2_full_output = "POSEIDON2_FULL_OUTPUT";
+    Base::poseidon2_full_padding = "POSEIDON2_FULL_PADDING";
+    Base::poseidon2_full_sel_poseidon = "POSEIDON2_FULL_SEL_POSEIDON";
+    Base::poseidon2_full_start_poseidon = "POSEIDON2_FULL_START_POSEIDON";
     Base::poseidon2_input_addr = "POSEIDON2_INPUT_ADDR";
     Base::poseidon2_mem_addr_read_a = "POSEIDON2_MEM_ADDR_READ_A";
     Base::poseidon2_mem_addr_read_b = "POSEIDON2_MEM_ADDR_READ_B";
@@ -2115,6 +2206,8 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::poseidon2_mem_addr_write_d = "POSEIDON2_MEM_ADDR_WRITE_D";
     Base::poseidon2_output_addr = "POSEIDON2_OUTPUT_ADDR";
     Base::poseidon2_sel_poseidon_perm = "POSEIDON2_SEL_POSEIDON_PERM";
+    Base::poseidon2_sel_poseidon_perm_immediate = "POSEIDON2_SEL_POSEIDON_PERM_IMMEDIATE";
+    Base::poseidon2_sel_poseidon_perm_mem_op = "POSEIDON2_SEL_POSEIDON_PERM_MEM_OP";
     Base::range_check_alu_rng_chk = "RANGE_CHECK_ALU_RNG_CHK";
     Base::range_check_clk = "RANGE_CHECK_CLK";
     Base::range_check_cmp_hi_bits_rng_chk = "RANGE_CHECK_CMP_HI_BITS_RNG_CHK";
@@ -2186,6 +2279,7 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::perm_pos_mem_write_b_inv = "PERM_POS_MEM_WRITE_B_INV";
     Base::perm_pos_mem_write_c_inv = "PERM_POS_MEM_WRITE_C_INV";
     Base::perm_pos_mem_write_d_inv = "PERM_POS_MEM_WRITE_D_INV";
+    Base::perm_pos2_fixed_pos2_perm_inv = "PERM_POS2_FIXED_POS2_PERM_INV";
     Base::perm_slice_mem_inv = "PERM_SLICE_MEM_INV";
     Base::perm_main_alu_inv = "PERM_MAIN_ALU_INV";
     Base::perm_main_bin_inv = "PERM_MAIN_BIN_INV";
