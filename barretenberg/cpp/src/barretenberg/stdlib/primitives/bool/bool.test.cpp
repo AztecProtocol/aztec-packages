@@ -13,6 +13,8 @@
 
 using namespace bb;
 
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
+
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }

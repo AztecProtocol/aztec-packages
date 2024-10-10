@@ -935,14 +935,15 @@ class ECCVMFlavor {
         Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
+        std::vector<Commitment> gemini_fold_comms;
+        std::vector<FF> gemini_fold_evals;
+        Commitment shplonk_q_comm;
         FF translation_eval_op;
         FF translation_eval_px;
         FF translation_eval_py;
         FF translation_eval_z1;
         FF translation_eval_z2;
-        Commitment shplonk_q_comm;
+        Commitment shplonk_q2_comm;
         uint32_t ipa_poly_degree;
         std::vector<Commitment> ipa_l_comms;
         std::vector<Commitment> ipa_r_comms;
@@ -1143,11 +1144,13 @@ class ECCVMFlavor {
             }
             sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
                 NativeTranscript::proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                zm_cq_comms.push_back(
-                    NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            zm_cq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+            }
+            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
             translation_eval_op =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
@@ -1160,7 +1163,7 @@ class ECCVMFlavor {
             translation_eval_z2 =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
-            shplonk_q_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            shplonk_q2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
             ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
                                                                                            num_frs_read);
@@ -1286,10 +1289,13 @@ class ECCVMFlavor {
                 NativeTranscript::template serialize_to_buffer(sumcheck_univariates[i], NativeTranscript::proof_data);
             }
             NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(zm_cq_comms[i], NativeTranscript::proof_data);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+                NativeTranscript::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
-            NativeTranscript::template serialize_to_buffer(zm_cq_comm, NativeTranscript::proof_data);
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+                NativeTranscript::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
+            }
+            NativeTranscript::template serialize_to_buffer(shplonk_q_comm, proof_data);
 
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
@@ -1297,7 +1303,7 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(translation_eval_z1, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(shplonk_q_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(shplonk_q2_comm, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
             auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));

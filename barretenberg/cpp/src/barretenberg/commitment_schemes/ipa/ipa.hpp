@@ -601,7 +601,7 @@ template <typename Curve_> class IPA {
         GroupElement shplonk_output_commitment;
         if constexpr (Curve::is_stdlib_type) {
             shplonk_output_commitment =
-                GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+                GroupElement::batch_mul(commitments, scalars);
         } else {
             shplonk_output_commitment = batch_mul_native(commitments, scalars);
         }
