@@ -13,32 +13,32 @@
 #include <ostream>
 
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
-    const size_t parent_id = 0;                                                                                        \
-    const auto clear_tag = OriginTag();                                                                                \
-    const auto submitted_value_origin_tag = OriginTag(                                                                 \
+    [[maybe_unused]] const size_t parent_id = 0;                                                                       \
+    [[maybe_unused]] const auto clear_tag = OriginTag();                                                               \
+    [[maybe_unused]] const auto submitted_value_origin_tag = OriginTag(                                                \
         parent_id, /*round_id=*/0, /*is_submitted=*/true); /*A tag describing a value submitted in the 0th round*/     \
-    const auto next_submitted_value_origin_tag = OriginTag(                                                            \
+    [[maybe_unused]] const auto next_submitted_value_origin_tag = OriginTag(                                           \
         parent_id, /*round_id=*/1, /*is_submitted=*/true); /*A tag describing a value submitted in the 1st round*/     \
-    const auto challenge_origin_tag = OriginTag(                                                                       \
+    [[maybe_unused]] const auto challenge_origin_tag = OriginTag(                                                      \
         parent_id, /*round_id=*/0, /*is_submitted=*/false); /*A tag describing a challenge derived in the 0th round*/  \
-    const auto next_challenge_tag = OriginTag(                                                                         \
+    [[maybe_unused]] const auto next_challenge_tag = OriginTag(                                                        \
         parent_id, /*round_id=*/1, /*is_submitted=*/false); /*A tag describing a challenge derived in the 1st round*/  \
-    const auto first_two_merged_tag =                                                                                  \
+    [[maybe_unused]] const auto first_two_merged_tag =                                                                 \
         OriginTag(submitted_value_origin_tag,                                                                          \
                   challenge_origin_tag); /*A tag describing a value constructed from values submitted by the prover in \
                                             the 0th round and challenges from the same round */                        \
-    const auto first_and_third_merged_tag =                                                                            \
+    [[maybe_unused]] const auto first_and_third_merged_tag =                                                           \
         OriginTag(submitted_value_origin_tag,                                                                          \
                   next_challenge_tag); /* A tag describing a value constructed from values submitted in the 0th round  \
                                           and challenges computed in the 1st round*/                                   \
-    const auto first_second_third_merged_tag = OriginTag(                                                              \
+    [[maybe_unused]] const auto first_second_third_merged_tag = OriginTag(                                             \
         first_two_merged_tag, next_challenge_tag); /* A tag describing a value computed from values submitted in the   \
                                                       0th round and challenges generated in the 0th and 1st round*/    \
-    const auto first_to_fourth_merged_tag =                                                                            \
+    [[maybe_unused]] const auto first_to_fourth_merged_tag =                                                           \
         OriginTag(first_second_third_merged_tag,                                                                       \
                   next_submitted_value_origin_tag); /* A tag describing a value computed from values submitted in the  \
                                  0th and 1st round and challenges generated in the 0th and 1st round*/                 \
-    const auto instant_death_tag = []() {                                                                              \
+    [[maybe_unused]] const auto instant_death_tag = []() {                                                             \
         auto some_tag = OriginTag();                                                                                   \
         some_tag.poison();                                                                                             \
         return some_tag;                                                                                               \

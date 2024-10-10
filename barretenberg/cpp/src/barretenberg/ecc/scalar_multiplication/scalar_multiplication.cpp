@@ -201,7 +201,7 @@ template <typename Curve>
 void compute_wnaf_states(uint64_t* point_schedule,
                          bool* input_skew_table,
                          uint64_t* round_counts,
-                         PolynomialSpan<const typename Curve::ScalarField> scalars,
+                         PolynomialSpan<const typename Curve::ScalarField> scalars_,
                          const size_t num_initial_points)
 {
     using Fr = typename Curve::ScalarField;
@@ -220,7 +220,7 @@ void compute_wnaf_states(uint64_t* point_schedule,
             thread_round_counts[i][j] = 0;
         }
     }
-
+    auto scalars = scalars_.span;
     parallel_for(num_threads, [&](size_t i) {
         uint64_t* wnaf_table = &point_schedule[(2 * i) * num_initial_points_per_thread];
         bool* skew_table = &input_skew_table[(2 * i) * num_initial_points_per_thread];
@@ -986,7 +986,7 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
 
 template <typename Curve>
 typename Curve::Element pippenger_without_endomorphism_basis_points(
-    std::span<const typename Curve::ScalarField> scalars,
+    PolynomialSpan<const typename Curve::ScalarField> scalars,
     std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state)
 {
@@ -1042,12 +1042,12 @@ template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<con
                                                               pippenger_runtime_state<curve::BN254>& state);
 
 template curve::BN254::Element pippenger_unsafe_optimized_for_non_dyadic_polys<curve::BN254>(
-    std::span<const curve::BN254::ScalarField> scalars,
+    PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
     pippenger_runtime_state<curve::BN254>& state);
 
 template curve::BN254::Element pippenger_without_endomorphism_basis_points<curve::BN254>(
-    std::span<const curve::BN254::ScalarField> scalars,
+    PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
     pippenger_runtime_state<curve::BN254>& state);
 
@@ -1072,7 +1072,7 @@ template void evaluate_addition_chains<curve::Grumpkin>(affine_product_runtime_s
                                                         bool handle_edge_cases);
 template curve::Grumpkin::Element pippenger_internal<curve::Grumpkin>(
     std::span<const curve::Grumpkin::AffineElement> points,
-    std::span<const curve::Grumpkin::ScalarField> scalars,
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     const size_t num_initial_points,
     pippenger_runtime_state<curve::Grumpkin>& state,
     bool handle_edge_cases);
@@ -1086,22 +1086,22 @@ template curve::Grumpkin::Element evaluate_pippenger_rounds<curve::Grumpkin>(
 template curve::Grumpkin::AffineElement* reduce_buckets<curve::Grumpkin>(
     affine_product_runtime_state<curve::Grumpkin>& state, bool first_round = true, bool handle_edge_cases = false);
 
-template curve::Grumpkin::Element pippenger<curve::Grumpkin>(std::span<const curve::Grumpkin::ScalarField> scalars,
+template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
                                                              std::span<const curve::Grumpkin::AffineElement> points,
                                                              pippenger_runtime_state<curve::Grumpkin>& state,
                                                              bool handle_edge_cases = true);
 
 template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
-    std::span<const curve::Grumpkin::ScalarField> scalars,
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 template curve::Grumpkin::Element pippenger_unsafe_optimized_for_non_dyadic_polys<curve::Grumpkin>(
-    std::span<const curve::Grumpkin::ScalarField> scalars,
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 
 template curve::Grumpkin::Element pippenger_without_endomorphism_basis_points<curve::Grumpkin>(
-    std::span<const curve::Grumpkin::ScalarField> scalars,
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 

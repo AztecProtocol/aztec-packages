@@ -222,13 +222,13 @@ template <typename Curve_> class IPA {
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {&a_vec.at(0), /*size*/ round_size}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
+                {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {&a_vec.at(round_size), /*size*/ round_size}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
+                {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -352,7 +352,7 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {&msm_scalars[0], /*size*/ pippenger_size}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state);
+            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state);
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -403,7 +403,7 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {&s_vec[0], /*size*/ poly_length}, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
+           {0, {&s_vec[0], /*size*/ poly_length}}, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
 
         // Step 9.
         // Receive a₀ from the prover
