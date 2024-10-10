@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.57.0...barretenberg.js-v0.58.0) (2024-10-10)
+
+
+### Features
+
+* Browser tests for UltraHonk ([#9047](https://github.com/AztecProtocol/aztec-packages/issues/9047)) ([f0d45dd](https://github.com/AztecProtocol/aztec-packages/commit/f0d45dd8d0c00707cd18989c3a45ff0c3cbc92a6))
+
+
+### Bug Fixes
+
+* Limit number of bb.js threads to 32 ([#9070](https://github.com/AztecProtocol/aztec-packages/issues/9070)) ([97e4b9b](https://github.com/AztecProtocol/aztec-packages/commit/97e4b9b2e0d37575b6b5e4c7a22f85b60d1f418b))
+* Make gate counting functions less confusing and avoid estimations ([#9046](https://github.com/AztecProtocol/aztec-packages/issues/9046)) ([0bda0a4](https://github.com/AztecProtocol/aztec-packages/commit/0bda0a4d71ae0fb4352de0746f7d96b63b787888))
+
 ## [0.57.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.56.0...barretenberg.js-v0.57.0) (2024-10-07)
 
 
