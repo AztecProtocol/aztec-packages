@@ -1,4 +1,4 @@
-import { type L2Block, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, EthAddress, Fr, Header } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
@@ -7,7 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { NativeWorldStateService } from './native_world_state.js';
-import { assertSameState, mockBlock } from './test_util.js';
+import { assertSameState, compareChains, mockBlock } from './test_util.js';
 
 describe('NativeWorldState', () => {
   let dataDir: string;
@@ -106,70 +106,6 @@ describe('NativeWorldState', () => {
 
   describe('Pending and Proven chain', () => {
     let ws: NativeWorldStateService;
-
-    const compareChains = async (left: MerkleTreeReadOperations, right: MerkleTreeReadOperations) => {
-      expect(await left.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.NULLIFIER_TREE),
-      );
-      expect(await left.getTreeInfo(MerkleTreeId.ARCHIVE)).toEqual(await right.getTreeInfo(MerkleTreeId.ARCHIVE));
-      expect(await left.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      );
-      expect(await left.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE),
-      );
-      expect(await left.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE),
-      );
-
-      expect(await left.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.ARCHIVE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.ARCHIVE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
-      );
-    };
-
-    const compareSnapshots = async (left: MerkleTreeReadOperations, right: MerkleTreeReadOperations) => {
-      expect(await left.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.NULLIFIER_TREE),
-      );
-      expect(await left.getTreeInfo(MerkleTreeId.ARCHIVE)).toEqual(await right.getTreeInfo(MerkleTreeId.ARCHIVE));
-      expect(await left.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      );
-      expect(await left.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE),
-      );
-      expect(await left.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE)).toEqual(
-        await right.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE),
-      );
-
-      expect(await left.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.ARCHIVE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.ARCHIVE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, 0n),
-      );
-      expect(await left.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n)).toEqual(
-        await right.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
-      );
-    };
 
     beforeEach(async () => {
       ws = await NativeWorldStateService.tmp();
@@ -368,7 +304,7 @@ describe('NativeWorldState', () => {
         const blockNumber = i + 1;
         const nonReorgSnapshot = nonReorgState.getSnapshot(blockNumber);
         const reorgSnaphsot = ws.getSnapshot(blockNumber);
-        await compareSnapshots(reorgSnaphsot, nonReorgSnapshot);
+        await compareChains(reorgSnaphsot, nonReorgSnapshot);
       }
 
       await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
