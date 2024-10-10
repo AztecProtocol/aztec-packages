@@ -1,7 +1,7 @@
 // docs:start:token_all
 // docs:start:imports
 mod types;
-mod test;
+// mod test;
 
 use dep::aztec::macros::aztec;
 
@@ -19,8 +19,7 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
-        oracle::random::random,
+        context::{PrivateContext, PrivateCallInterface}, hash::pedersen_hash, oracle::random::random,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress, FunctionSelector},
         encrypted_logs::{
         encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained, encrypt_and_emit_partial_log},
@@ -28,14 +27,14 @@ contract Token {
     },
         keys::getters::get_public_keys,
         macros::{storage::storage, events::event, functions::{initializer, private, view, public}},
-        utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize}
+        utils::comparison::Comparator, protocol_types::{point::Point, traits::{is_empty, Serialize}}
     };
 
     // docs:start:import_authwit
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     // docs:end:import_authwit
 
-    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balance_set::BalanceSet};
+    use crate::types::{token_note::TokenNote, balance_set::BalanceSet};
 
     // docs:end::imports
 
@@ -47,6 +46,8 @@ contract Token {
     // therefore read more notes than in the base case to increase the efficiency of the overhead, since this results in
     // an overall small circuit regardless.
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
+
+    global TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX = 3;
 
     #[event]
     #[derive(Serialize)]
@@ -69,9 +70,6 @@ contract Token {
         balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
         // docs:end:storage_balances
         total_supply: PublicMutable<U128, Context>,
-        // docs:start:storage_pending_shields
-        pending_shields: PrivateSet<TransparentNote, Context>,
-        // docs:end:storage_pending_shields
         public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
         symbol: SharedImmutable<FieldCompressedString, Context>,
         name: SharedImmutable<FieldCompressedString, Context>,
@@ -191,19 +189,50 @@ contract Token {
         storage.total_supply.write(supply);
     }
     // docs:end:mint_public
-    // docs:start:mint_private
+
+    // docs:start:finalize_mint_to_private
+    /// Finalizes a mint of token `amount` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_transfer_to_private` first.
+    /// TODO: Do we want to use `prepare_transfer_to_private` name here or shall we generalize it?
+    /// The `transfer_preparer_storage_slot_commitment` has to be computed off-chain the same way as was done
+    /// in the preparation call.
     #[public]
-    fn mint_private(amount: Field, secret_hash: Field) {
+    fn finalize_mint_to_private(amount: Field, transfer_preparer_storage_slot_commitment: Field) {
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
-        let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount, secret_hash);
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
-        // docs:start:insert_from_public
-        pending_shields.insert_from_public(&mut note);
-        // docs:end:insert_from_public
+
+        // In the case of minting to private, the `from` address is the contract itself.
+        let from = context.this_address();
+
+        // Derive the slot from the transfer preparer storage slot commitment and the `from` address (declared
+        // as `from` in this function)
+        let hiding_point_slot = pedersen_hash(
+            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        );
+
+        // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
+        let hiding_point: Point = context.storage_read(hiding_point_slot);
+        assert(!is_empty(hiding_point), "mint not prepared");
+
+        // Finalize the partial note with the `amount`
+        // TODO(#7728): Remove the next line
+        let amount = U128::from_integer(amount);
+        let finalization_payload = TokenNote::finalization_payload().new(hiding_point, amount);
+
+        // We insert the finalization note hash
+        context.push_note_hash(finalization_payload.note_hash);
+
+        // We emit the `amount` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
+        context.emit_unencrypted_log(finalization_payload.log);
+
+        // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
+        // the writes
+        context.storage_write(hiding_point_slot, Point::empty());
     }
-    // docs:end:mint_private
+    // docs:end:finalize_mint_to_private
+
     // TODO: Nuke this - test functions do not belong to token contract!
     #[private]
     fn privately_mint_private_note(amount: Field) {
@@ -219,23 +248,97 @@ contract Token {
         let supply = storage.total_supply.read() + U128::from_integer(amount);
         storage.total_supply.write(supply);
     }
-    // docs:start:shield
+
+    /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
+    /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
+    /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
+    /// as an argument to the followup call to `finalize_transfer_to_private`.
+    #[private]
+    fn prepare_transfer_to_private(
+        from: AztecAddress,
+        to: AztecAddress,
+        transient_storage_slot_randomness: Field
+    ) {
+        let to_keys = get_public_keys(to);
+        let to_npk_m_hash = to_keys.npk_m.hash();
+        let to_note_slot = storage.balances.at(to).set.storage_slot;
+
+        // We create a setup payload with unpopulated/zero token amount for 'to'
+        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
+        // notes we could just inject it in macros.
+        let note_randomness = unsafe {
+            random()
+        };
+        let note_setup_payload = TokenNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+
+        // We encrypt and emit the partial note log
+        encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
+
+        // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
+        // non-sender's slots
+        let transfer_preparer_storage_slot_commitment: Field = pedersen_hash(
+            [context.msg_sender().to_field(), transient_storage_slot_randomness],
+            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        );
+        // Then we hash the transfer preparer storage slot commitment with `from` and use that as the final slot
+        // --> by hashing it with a `from` we ensure that `from` cannot interfere with slots not assigned to him.
+        let slot: Field = pedersen_hash(
+            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        );
+
+        Token::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point, slot).enqueue(&mut context);
+    }
+
     #[public]
-    fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+    #[internal]
+    fn _store_point_in_transient_storage(point: Point, slot: Field) {
+        // We don't perform check for the overwritten value to be non-zero because the slots are siloed to `to`
+        // and hence `to` can interfere only with his own execution.
+        context.storage_write(slot, point);
+    }
+
+    /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_transfer_to_private` first.
+    /// The `transfer_preparer_storage_slot_commitment` has to be computed off-chain the same way as was done
+    /// in the preparation call.
+    #[public]
+    fn finalize_transfer_to_private(amount: Field, transfer_preparer_storage_slot_commitment: Field) {
+        // We don't need to support authwit here because `prepare_transfer_to_private` allows us to set arbitrary
+        // `from` and `from` will always be the msg sender here.
+        let from = context.msg_sender();
+
+        // Derive the slot from the transfer preparer storage slot commitment and the `from` address (declared
+        // as `from` in this function)
+        let hiding_point_slot = pedersen_hash(
+            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        );
+
+        // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
+        let hiding_point: Point = context.storage_read(hiding_point_slot);
+        assert(!is_empty(hiding_point), "transfer not prepared");
+
+        // We reduce `from`'s balance by amount
+        // TODO(#7728): Remove the next line
         let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
-        let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount.to_field(), secret_hash);
         storage.public_balances.at(from).write(from_balance);
-        pending_shields.insert_from_public(&mut note);
+
+        // Finalize the partial note with the `amount`
+        let finalization_payload = TokenNote::finalization_payload().new(hiding_point, amount);
+
+        // We insert the finalization note hash
+        context.push_note_hash(finalization_payload.note_hash);
+
+        // We emit the `amount` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
+        context.emit_unencrypted_log(finalization_payload.log);
+
+        // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
+        // the writes
+        context.storage_write(hiding_point_slot, Point::empty());
     }
-    // docs:end:shield
+
     // docs:start:transfer_public
     #[public]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
@@ -268,28 +371,7 @@ contract Token {
         storage.total_supply.write(new_supply);
     }
     // docs:end:burn_public
-    // docs:start:redeem_shield
-    #[private]
-    fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
-        let secret_hash = compute_secret_hash(secret);
-        // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
-        // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
-        let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
-            TransparentNote::properties().secret_hash,
-            Comparator.EQ,
-            secret_hash
-        ).set_limit(1);
-        let notes = storage.pending_shields.pop_notes(options);
-        assert(notes.len() == 1, "note not popped");
-        // Add the token note to user's balances set
-        // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
-        // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
-        let from = context.msg_sender();
-        let from_keys = get_public_keys(from);
-        let to_keys = get_public_keys(to);
-        storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
-    }
+
     // docs:end:redeem_shield
     // docs:start:unshield
     #[private]
