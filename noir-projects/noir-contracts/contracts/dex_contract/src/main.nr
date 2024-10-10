@@ -5,7 +5,7 @@ use dep::aztec::macros::aztec;
 // A Noir implementation of a simplified Uniswap v2 pool.
 #[aztec]
 contract DEX {
-    use crate::lib::{get_quote, get_amount_out};
+    use crate::lib::{get_quote, get_amount_out, get_amount_in};
     use dep::aztec::{
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}},
         prelude::{AztecAddress, SharedImmutable}, protocol_types::traits::Serialize
@@ -173,6 +173,7 @@ contract DEX {
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
 
+        // We transfer the liquidity tokens to the DEX and prepare partial notes for the output tokens.
         liquidity_token.transfer_to_public(msg.sender, context.this_address(), liquidity, nonce).call(&mut context);
         let token0_slot_commitment = token0.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
         let token1_slot_commitment = token1.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
@@ -206,17 +207,19 @@ contract DEX {
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
 
-        // Calculate the amounts to be removed from the pool
-        let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
-        let mut balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
+        // We get the reserves and the liquidity token total supply.
+        let reserve0 = token0.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve1 = token1.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let total_supply = liquidity_token.total_supply().view(&mut context) as u64;
 
-        let total_supply = liquidity_token.total_supply().view(&mut context);
+        // We calculate the amounts of token0 and token1 the user is entitled to based on the amount of liquidity they
+        // are removing.
+        let amount0 = liquidity * reserve0 / total_supply;
+        let amount1 = liquidity * reserve1 / total_supply;
 
-        let amount0 = liquidity * balance0 / total_supply;
-        let amount1 = liquidity * balance1 / total_supply;
-        // TODO: Nuke these castings. Ideally make Token return integer and not Field.
-        assert(amount0 as u64 >= amount0_min, "INSUFFICIENT_0_AMOUNT");
-        assert(amount1 as u64 >= amount1_min, "INSUFFICIENT_1_AMOUNT");
+        // We check if the amounts are greater than the minimum amounts the user is willing to accept.
+        assert(amount0 >= amount0_min, "INSUFFICIENT_0_AMOUNT");
+        assert(amount1 >= amount1_min, "INSUFFICIENT_1_AMOUNT");
 
         // At last we burn the liquidity tokens and transfer the token0 and token1 to the user.
         liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
@@ -240,6 +243,7 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
+        // We transfer the `amount_in` to the DEX and we prepare partial note for the output token.
         token_in.transfer_to_public(msg.sender, context.this_address(), amount_in, nonce).call(&mut context);
         let token_out_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
 
@@ -268,16 +272,22 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
+        // We get the reserves. The `amount_in` was already transferred to the DEX so we need to subtract it.
         let reserve_in_with_amount_in = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
         let reserve_in = reserve_in_with_amount_in - amount_in;
         let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
 
+        // Calculate the amount of output token we will get.
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
+        // Transfer the output token to the user.
         token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
     }
 
+    // Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
+    // whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
+    // purpose is to isolate authwits to this specific call.
     #[private]
     fn swap_tokens_for_exact_tokens(amount_out: u64, amount_in_max: u64, from_0_to_1: bool, nonce: Field) {
         let state = storage.state.read_private();
@@ -291,6 +301,7 @@ contract DEX {
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
+        // We transfer the `amount_in_max` to the DEX and we prepare partial notes for refund and for the output token.
         token_in.transfer_to_public(msg.sender, context.this_address(), amount_in_max, nonce).call(&mut context);
         let refund_token_in_slot_commitment = token_in.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
         let token_out_slot_commitment = token_out.prepare_transfer_to_private(context.this_address(), msg.sender).call(&mut context);
@@ -304,27 +315,40 @@ contract DEX {
             token_address_out
         ).enqueue(&mut context);
     }
-    // #[public]
-    // #[internal]
-    // fn _swap_tokens_for_exact_tokens(
-    //     refund_token_in_slot_commitment: Field,
-    //     token_out_slot_commitment: Field,
-    //     amount_out: u64,
-    //     amount_in_max: u64,
-    //     token_address_in: AztecAddress,
-    //     token_address_out: AztecAddress,
-    // ) {
-    //     // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
-    //     // `swap_tokens_for_exact_tokens` which is private and since public functions cannot call private ones
-    //     // it's impossible to reenter this function.
-    //     let token_in = Token::at(token_address_in);
-    //     let token_out = Token::at(token_address_out);
-    //     let reserve_in_with_amount_in_max = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
-    //     let reserve_in = reserve_in_with_amount_in_max - amount_in_max;
-    //     let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
-    //     let amount_in = get_amount_in(amount_out, reserve_in, reserve_out);
-    //     assert(amount_in <= amount_in_max, "EXCESSIVE_INPUT_AMOUNT");
-    //     token_in.finalize_transfer_to_public_with_refund(refund_token_in_slot_commitment, amount_in).call(&mut context);
-    //     token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
-    // }
+
+    #[public]
+    #[internal]
+    fn _swap_tokens_for_exact_tokens(
+        refund_token_in_slot_commitment: Field,
+        token_out_slot_commitment: Field,
+        amount_out: u64,
+        amount_in_max: u64,
+        token_address_in: AztecAddress,
+        token_address_out: AztecAddress
+    ) {
+        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
+        // `swap_tokens_for_exact_tokens` which is private and since public functions cannot call private ones
+        // it's impossible to reenter this function.
+
+        let token_in = Token::at(token_address_in);
+        let token_out = Token::at(token_address_out);
+
+        // We get the reserves. The `amount_in_max` was already transferred to the DEX so we need to subtract it.
+        let reserve_in_with_amount_in_max = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve_in = reserve_in_with_amount_in_max - amount_in_max;
+        let reserve_out = token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
+
+        // Calculate the amount of input token needed to get the desired amount of output token.
+        let amount_in = get_amount_in(amount_out, reserve_in, reserve_out);
+        assert(amount_in <= amount_in_max, "EXCESSIVE_INPUT_AMOUNT");
+
+        // If less than amount_in_max of input token was needed we refund the difference.
+        let refund_amount = amount_in_max - amount_in;
+        if (refund_amount > 0) {
+            token_in.finalize_transfer_to_private(refund_token_in_slot_commitment, refund_amount).call(&mut context);
+        }
+
+        // Transfer the output token to the user.
+        token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
+    }
 }
