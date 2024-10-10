@@ -59,7 +59,7 @@ describe('NFT', () => {
     const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
 
     // In a simple "shield" flow the sender and recipient are the same. In the "uniswap swap to private" flow
-    // it would be the uniswap contract.
+    // the sender would be the uniswap contract.
     const recipient = user1Wallet.getAddress();
 
     const { debugInfo } = await nftContractAsUser1.methods
