@@ -316,17 +316,17 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  // async commonInitSlabAllocator(circuitSize: number): Promise<void> {
-  //   const inArgs = [circuitSize].map(serializeBufferable);
-  //   const outTypes: OutputType[] = [];
-  //   const result = await this.wasm.callWasmExport(
-  //     'common_init_slab_allocator',
-  //     inArgs,
-  //     outTypes.map(t => t.SIZE_IN_BYTES),
-  //   );
-  //   const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-  //   return;
-  // }
+  async commonInitSlabAllocator(circuitSize: number): Promise<void> {
+    const inArgs = [circuitSize].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = await this.wasm.callWasmExport(
+      'common_init_slab_allocator',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
 
   async acirGetCircuitSizes(
     constraintSystemBuf: Uint8Array,
@@ -895,17 +895,17 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  // commonInitSlabAllocator(circuitSize: number): void {
-  //   const inArgs = [circuitSize].map(serializeBufferable);
-  //   const outTypes: OutputType[] = [];
-  //   const result = this.wasm.callWasmExport(
-  //     'common_init_slab_allocator',
-  //     inArgs,
-  //     outTypes.map(t => t.SIZE_IN_BYTES),
-  //   );
-  //   const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-  //   return;
-  // }
+  commonInitSlabAllocator(circuitSize: number): void {
+    const inArgs = [circuitSize].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = this.wasm.callWasmExport(
+      'common_init_slab_allocator',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
 
   acirGetCircuitSizes(constraintSystemBuf: Uint8Array, honkRecursion: boolean): [number, number, number] {
     const inArgs = [constraintSystemBuf, honkRecursion].map(serializeBufferable);
