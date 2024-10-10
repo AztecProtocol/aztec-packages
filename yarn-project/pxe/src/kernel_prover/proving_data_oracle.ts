@@ -1,5 +1,6 @@
 import { type NullifierMembershipWitness } from '@aztec/circuit-types';
 import {
+  PublicKeys,
   type FUNCTION_TREE_HEIGHT,
   type Fr,
   type FunctionSelector,
@@ -20,7 +21,7 @@ export interface ProvingDataOracle {
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
   getContractAddressPreimage(
     address: AztecAddress,
-  ): Promise<{ saltedInitializationHash: Fr; publicKeysHash: Fr; contractClassId: Fr }>;
+  ): Promise<{ saltedInitializationHash: Fr; publicKeys: PublicKeys; contractClassId: Fr }>;
 
   /** Retrieves the preimage of a contract class id from the contract classes db. */
   getContractClassIdPreimage(

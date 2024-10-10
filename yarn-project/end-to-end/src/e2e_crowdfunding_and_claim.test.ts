@@ -57,7 +57,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let claimContract: ClaimContract;
 
   let crowdfundingSecretKey;
-  let crowdfundingPublicKeysHash;
+  let crowdfundingPublicKeys;
   let pxe: PXE;
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
@@ -114,10 +114,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     crowdfundingSecretKey = Fr.random();
-    crowdfundingPublicKeysHash = deriveKeys(crowdfundingSecretKey).publicKeys.hash();
+    crowdfundingPublicKeys = deriveKeys(crowdfundingSecretKey).publicKeys;
 
-    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeysHash(
-      crowdfundingPublicKeysHash,
+    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
+      crowdfundingPublicKeys,
       operatorWallet,
       donationToken.address,
       operatorWallet.getAddress(),

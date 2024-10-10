@@ -15,6 +15,7 @@ import {
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
 import { type ContractInstance, type ContractInstanceWithAddress } from './contracts/index.js';
+import { PublicKeys } from '../types/public_keys.js';
 
 /**
  * Generates a Contract Instance from the deployment params.
@@ -29,7 +30,7 @@ export function getContractInstanceFromDeployParams(
     constructorArgs?: any[];
     skipArgsDecoding?: boolean;
     salt?: Fr;
-    publicKeysHash?: Fr;
+    publicKeys?: PublicKeys;
     deployer?: AztecAddress;
   },
 ): ContractInstanceWithAddress {
@@ -46,12 +47,12 @@ export function getContractInstanceFromDeployParams(
           args,
         )
       : computeInitializationHash(constructorArtifact, args);
-  const publicKeysHash = opts.publicKeysHash ?? Fr.ZERO;
+  const publicKeys = opts.publicKeys ?? PublicKeys.empty();
 
   const instance: ContractInstance = {
     contractClassId,
     initializationHash,
-    publicKeysHash,
+    publicKeys,
     salt,
     deployer,
     version: 1,

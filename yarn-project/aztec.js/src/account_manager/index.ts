@@ -1,5 +1,5 @@
 import { CompleteAddress, type PXE } from '@aztec/circuit-types';
-import { type ContractInstanceWithAddress, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress, deriveKeys, getContractInstanceFromDeployParams, type PublicKeys } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type AccountContract } from '../account/contract.js';
@@ -32,18 +32,26 @@ export class AccountManager {
   // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
   private completeAddress?: CompleteAddress;
   private instance?: ContractInstanceWithAddress;
-  private publicKeysHash?: Fr;
+  private publicKeys?: PublicKeys;
 
   constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
     this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
   }
 
   protected getPublicKeysHash() {
-    if (!this.publicKeysHash) {
-      this.publicKeysHash = deriveKeys(this.secretKey).publicKeys.hash();
+    if (!this.publicKeys) {
+      this.publicKeys = deriveKeys(this.secretKey).publicKeys;
     }
-    return this.publicKeysHash;
+    return this.publicKeys.hash();
   }
+
+  protected getPublicKeys() {
+    if (!this.publicKeys) {
+      this.publicKeys = deriveKeys(this.secretKey).publicKeys;
+    }
+    return this.publicKeys;
+  }
+
 
   /**
    * Returns the entrypoint for this account as defined by its account contract.
@@ -87,7 +95,7 @@ export class AccountManager {
       this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
         constructorArgs: this.accountContract.getDeploymentArgs(),
         salt: this.salt,
-        publicKeysHash: this.getPublicKeysHash(),
+        publicKeys: this.getPublicKeys(),
       });
     }
     return this.instance;
@@ -146,7 +154,7 @@ export class AccountManager {
     const args = this.accountContract.getDeploymentArgs() ?? [];
     return new DeployAccountMethod(
       this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
-      this.getPublicKeysHash(),
+      this.getPublicKeys(),
       deployWallet,
       this.accountContract.getContractArtifact(),
       args,
