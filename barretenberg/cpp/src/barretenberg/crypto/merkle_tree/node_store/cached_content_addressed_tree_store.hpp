@@ -817,11 +817,19 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(ind
             throw std::runtime_error("Failed to retrieve block data");
         }
     }
-    // can only finalise the next unfinalised block
-    if (committedMeta.finalisedBlockHeight + 1 != blockNumber) {
+    // can only finalise blocks that are not finalised
+    if (committedMeta.finalisedBlockHeight >= blockNumber) {
         std::stringstream ss;
         ss << "Unable to finalise block " << blockNumber << " currently finalised block height "
            << committedMeta.finalisedBlockHeight << std::endl;
+        throw std::runtime_error(ss.str());
+    }
+
+    // can currently only finalise up to the unfinalised block height
+    if (committedMeta.finalisedBlockHeight > committedMeta.unfinalisedBlockHeight) {
+        std::stringstream ss;
+        ss << "Unable to finalise block " << blockNumber << " currently unfinalised block height "
+           << committedMeta.unfinalisedBlockHeight << std::endl;
         throw std::runtime_error(ss.str());
     }
 
@@ -830,7 +838,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(ind
     try {
         // determine where we need to prune the leaf keys store up to
         index_t highestIndexToRemove = blockPayload.size - 1;
-        ++committedMeta.finalisedBlockHeight;
+        committedMeta.finalisedBlockHeight = blockNumber;
         // clean up the leaf keys index table
         dataStore_->delete_all_leaf_keys_before_or_equal_index(highestIndexToRemove, *writeTx);
         // persist the new meta data

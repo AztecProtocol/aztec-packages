@@ -14,6 +14,7 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -209,6 +210,9 @@ void finalise_block(TreeType& tree, const index_t& blockNumber, bool expected_su
     Signal signal;
     auto completion = [&](const Response& response) -> void {
         EXPECT_EQ(response.success, expected_success);
+        if (!response.success && expected_success) {
+            std::cout << response.message << std::endl;
+        }
         signal.signal_level();
     };
     tree.finalise_block(blockNumber, completion);
@@ -1536,15 +1540,95 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
             // attemnpting to finalise a block that doesn't exist should fail
             finalise_block(tree, blockToFinalise + numBlocks, false);
 
-            // finalising a block that is not the next one to be finalised should fail
-            finalise_block(tree, blockToFinalise + 1, false);
-
             finalise_block(tree, blockToFinalise, true);
 
             index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
             check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
         }
     }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    index_t blockToFinalise = 8;
+
+    check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
+
+    finalise_block(tree, blockToFinalise);
+
+    index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
+    check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyond_pending_chain)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    // finalising block 1 should fail
+    finalise_block(tree, 1, false);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    // should fail
+    finalise_block(tree, numBlocks + 1, false);
+
+    // finalise the entire chain
+    index_t blockToFinalise = numBlocks;
+
+    check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
+
+    finalise_block(tree, blockToFinalise);
+
+    index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
+    check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_unwound_blocks)

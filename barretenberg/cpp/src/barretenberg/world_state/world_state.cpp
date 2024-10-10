@@ -542,13 +542,10 @@ WorldStateStatus WorldState::set_finalised_blocks(const index_t& toBlockNumber)
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
     if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
-        throw std::runtime_error("Unable to finalise bllock, already finalised");
+        throw std::runtime_error("Unable to finalise block, already finalised");
     }
-    for (index_t blockNumber = archive_state.meta.finalisedBlockHeight + 1; blockNumber <= toBlockNumber;
-         blockNumber++) {
-        if (!set_finalised_block(blockNumber)) {
-            throw std::runtime_error("Failed to set finalised block");
-        }
+    if (!set_finalised_block(toBlockNumber)) {
+        throw std::runtime_error("Failed to set finalised block");
     }
     WorldStateStatus status;
     get_status(status);
