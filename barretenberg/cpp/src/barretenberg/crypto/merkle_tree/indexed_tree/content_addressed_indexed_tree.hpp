@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "indexed_leaf.hpp"
 #include <algorithm>
@@ -858,18 +859,25 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_witho
 
     std::shared_ptr<Status> status = std::make_shared<Status>();
 
-    uint32_t indexPower2Ceil = static_cast<uint32_t>(std::ceil(std::log2(highest_index + 1)));
-    index_t span = static_cast<uint64_t>(std::pow(2, indexPower2Ceil));
-    uint32_t numBatchesPower2Ceil = static_cast<uint32_t>(std::floor(std::log2(workers_->num_threads())));
-    uint64_t numBatches = static_cast<uint64_t>(std::pow(2, numBatchesPower2Ceil));
+    auto log2 = [=](uint64_t value) {
+        uint64_t log = numeric::get_msb(value);
+        uint64_t temp = static_cast<uint64_t>(1) << log;
+        return temp == value ? log : log + 1;
+    };
+
+    uint64_t indexPower2Ceil = log2(highest_index + 1);
+    index_t span = static_cast<index_t>(std::pow(2UL, indexPower2Ceil));
+    uint64_t numBatchesPower2Floor = numeric::get_msb(workers_->num_threads());
+    index_t numBatches = static_cast<index_t>(std::pow(2UL, numBatchesPower2Floor));
     index_t batchSize = span / numBatches;
     batchSize = std::max(batchSize, 2UL);
     index_t startIndex = 0;
-    indexPower2Ceil = static_cast<uint32_t>(std::log2(batchSize));
-    uint32_t rootLevel = depth_ - indexPower2Ceil;
+    indexPower2Ceil = log2(batchSize);
+    uint32_t rootLevel = depth_ - static_cast<uint32_t>(indexPower2Ceil);
 
     // std::cout << "HIGHEST INDEX " << highest_index << " SPAN " << span << " NUM BATCHES " << numBatches
-    //           << " BATCH SIZE " << batchSize << std::endl;
+    //           << " BATCH SIZE " << batchSize << " NUM THREADS " << workers_->num_threads() << " ROOT LEVEL "
+    //           << rootLevel << std::endl;
 
     struct BatchInsertResults {
         std::atomic_uint32_t count;
