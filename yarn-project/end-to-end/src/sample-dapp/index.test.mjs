@@ -30,6 +30,7 @@ describe('token', () => {
       TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
+
     await pxe.addNote(extendedNote, owner.getAddress());
 
     await token.methods.redeem_shield(owner.getAddress(), initialBalance, secret).send().wait();

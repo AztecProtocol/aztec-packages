@@ -31,7 +31,7 @@ import {
   waitForPXE,
 } from "@aztec/aztec.js";
 import { createAccount } from "@aztec/accounts/testing";
-import { TokenContractArtifact } from "@aztec/noir-contracts.js/Token";
+import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const {
   PXE_URL = "http://localhost:8080",

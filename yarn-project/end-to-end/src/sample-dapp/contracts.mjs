@@ -1,7 +1,10 @@
+// docs:start:imports
 import { AztecAddress } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { readFileSync } from 'fs';
+
+// docs:end:imports
 
 // docs:start:get-tokens
 export async function getToken(client) {
