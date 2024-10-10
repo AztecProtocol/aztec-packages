@@ -15,7 +15,9 @@ async function runTest(
   const backend = new UltraHonkBackend(bytecode, { threads });
   const proof = await backend.generateProof(witness);
 
+  debug(`getting the verification key...`);
   const verificationKey = await backend.getVerificationKey();
+  debug(`destroying the backend...`);
   await backend.destroy();
 
   debug(`verifying...`);
@@ -46,13 +48,13 @@ function base64ToUint8Array(base64: string) {
 // Update by extracting from ../acir_tests/1_mul/target/* as needed.
 const acir = inflate(
   base64ToUint8Array(
-    "H4sIAAAAAAAA/+2W3W6CQBCFB7AqVak/VdM0TXmAXuzyo3BXH6Wm+P6P0G5cZCS2N5whkrCJmWUjh505zPKFRPRB5+H8/lwbQ3bt1q49e82HY+OnjbHaJUmxjwod6y8V5ccsVUl63GU602mWfkdZHBdZku3zY75XuU7iQp/SPD6p8xg014qslvbY/v7bs2o29ACnpfh+H9h8YKPL1jwbhwI5Ue059ToGN9agD5cw6UFAd0i4l18q7yHeI8UkRWuqGg6PqkaR2Gt5OErWF6StBbUvz+C1GNk4Zmu+jeUHxowh86b0yry3B3afw6LDNA7snlv/cf7Q8dlaeX9AMr0icEAr0QO4fKmNgSFVBDCmigCkGglNFC8k05QeZp8XWhkBcx4DfZGqH9pnH+hFW+To47SuyPGRzXtybKjp24KidSd03+Ro8p7gPRIlxwlwn9LkaA7psXB9Qdqtk+PUxhlb68kRo9kKORoDQ6rIcUZy5Fg2EpooXkmmKdHkOAXmPAP6IlU/tM8BdY8cA5Ihxyc278mxoWZgC4rWndN9k6PJe473SJQc59QdcjSH9Ey4viDt1slxYeOSrfXkiNFshRyNgSFV5LgkOXIsGwlNFG8k05RoclwAc14CfZGqH9rnFXWPHFckQ47PbN6TY0PNlS0oWndN902OJu813iNRclxTd8jRHNJL4fqCtFsnx42NW7bWkyNGsxVyNAaGVJHjluTIsWwkNFG8k0xToslxA8x5C/RFqn4u2GcPmDOwfoofTi5df4zq4we8wQQCRCoAAA=="
+    "H4sIAAAAAAAA/7WR4QrCIBSF53QjooewN9CpTf/1Khs5GmxshDV6+1bdQEb9WXpA7uXCOV4/UfJWPp8d9Gg+GOpTdDFDX2YpzBLPd4TK/hNPvHv9XMEOUtqysFzwihWm1opJVR8011xpdSq0EFZLXZralMxwKSxvlBENBONwOzKfBY7IAi/+JhQLEokFiciCQH5oFlkkFllEFhnkh2aRR2KReyw+SgPvngbkG5oDgSzsvR95DHyRH/0eauWc7UdH3UD7a+fasbvTqXVnOtzspemGKQHgq4ybtcbtWuNLD1+nN3yZBgAA"
   )
 );
 
 const witness = inflate(
   base64ToUint8Array(
-    "H4sIAAAAAAAC/63UR84DIQyG4b/3mqooinIFG2xsdrkKTOD+R0ibRfb5kEbD6hF6BV7fXdb98duNe7ptxQecJY8Ai3Ph0//pyoqURJqFxpELhVxdSbQmZ2d13QePsbm45ZqNMkts3DWHPpLP1+caMW1myU1tqKmIa6DkWuOgQpJT49KHbl3Z9928t+LhbMoLrhe9Aq03nDW8A9t/ANt/Ant9Aa1vmJXpB9j+F9j+D9jrH2hNQJYep84U2H4GbD8H9loArSVw3q+A82sNfI8b4P3aAnsdAI07wlwMCAAA"
+    "H4sIAAAAAAAC/62Quw0AIBBCPb/r3EUtrnMV4/47qImJ9kID1QtA5io9uR3nP2XCsYoFsES7bHe4XsPDWMoBxKprZQT+NQEPrlbxKAIAAA=="
   )
 );
 

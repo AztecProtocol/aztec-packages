@@ -71,8 +71,8 @@ async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSiz
   // Plus 1 needed! (Move +1 into Crs?)
   const crs = await Crs.new(subgroupSize + Math.floor((subgroupSize * 6) / 10) + 1, crsPath);
 
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
-  await api.commonInitSlabAllocator(subgroupSize);
+  // // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
+  // await api.commonInitSlabAllocator(subgroupSize);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.

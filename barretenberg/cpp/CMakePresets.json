@@ -392,6 +392,7 @@
     {
       "name": "wasm-dbg",
       "displayName": "Build for debug WASM",
+      "binaryDir": "build-wasm-dgb",
       "description": "Build with wasi-sdk to create debug wasm",
       "inherits": "wasm",
       "environment": {

@@ -12,8 +12,8 @@ async function main() {
   debug('starting test...');
   const api = await Barretenberg.new();
 
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-  await api.commonInitSlabAllocator(CIRCUIT_SIZE);
+  // // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
+  // await api.commonInitSlabAllocator(CIRCUIT_SIZE);
 
   // Plus 1 needed!
   const crs = await Crs.new(CIRCUIT_SIZE + 1);

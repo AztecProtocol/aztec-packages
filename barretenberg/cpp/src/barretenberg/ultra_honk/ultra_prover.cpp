@@ -50,11 +50,14 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(proving_key, transcript);
+    info("created oink prover");
     oink_prover.prove();
+    info("created oink proof");
 
     generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
+    info("created decider prover");
     return decider_prover.construct_proof();
 }
 
