@@ -53,7 +53,7 @@ build-protocol-circuits:
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
 
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
-    --prefix="noir-projects-noir-protocol-circuits" \
+    --prefix="noir-projects-noir-protocol-circuits-1" \
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
     --command="./bootstrap.sh" \
     --build_artifacts="target Nargo.toml private_kernel_reset_dimensions.json"

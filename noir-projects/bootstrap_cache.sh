@@ -8,7 +8,7 @@ SCRIPTS_PATH=../build-system/s3-cache-scripts/
 echo -e "\033[1mRetrieving noir projects from remote cache...\033[0m"
 
 PROTOCOL_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../barretenberg/cpp/.rebuild_patterns ./noir-protocol-circuits/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
-$SCRIPTS_PATH/cache-download.sh noir-projects-noir-protocol-circuits-$PROTOCOL_CIRCUITS_HASH.tar.gz noir-protocol-circuits > /dev/null
+$SCRIPTS_PATH/cache-download.sh noir-projects-noir-protocol-circuits-1-$PROTOCOL_CIRCUITS_HASH.tar.gz noir-protocol-circuits > /dev/null
 
 MOCK_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../barretenberg/cpp/.rebuild_patterns ./mock-protocol-circuits/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
 $SCRIPTS_PATH/cache-download.sh noir-projects-mock-protocol-circuits-$MOCK_CIRCUITS_HASH.tar.gz mock-protocol-circuits > /dev/null
