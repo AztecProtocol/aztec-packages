@@ -18,11 +18,20 @@ namespace bb {
 template <typename Fr> struct PolynomialSpan {
     size_t start_index;
     std::span<Fr> span;
+    PolynomialSpan(size_t start_index, std::span<Fr> span)
+        : start_index(start_index)
+        , span(span)
+    {}
     size_t end_index() const { return start_index + size(); }
     Fr* data() { return span.data(); }
     size_t size() const { return span.size(); }
     Fr& operator[](size_t index) { return span[index - start_index]; }
     const Fr& operator[](size_t index) const { return span[index - start_index]; }
+    PolynomialSpan subspan(size_t offset)
+    {
+        ASSERT(offset <= span.size());
+        return { start_index + offset, span.subspan(offset) };
+    }
 };
 
 /**

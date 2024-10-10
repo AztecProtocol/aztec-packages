@@ -124,7 +124,7 @@ void pippenger_bench(State& state) noexcept
         state.ResumeTiming();
         // uint64_t before = rdtsc();
         scalar_multiplication::pippenger<curve::BN254>(
-            { globals.scalars, /*size*/ num_points }, { globals.monomials, /*size*/ num_points * 2 }, run_state);
+            { 0, { globals.scalars, /*size*/ num_points } }, { globals.monomials, /*size*/ num_points * 2 }, run_state);
         // uint64_t after = rdtsc();
         // count += (after - before);
         // ++i;
@@ -168,24 +168,42 @@ void new_plonk_scalar_multiplications_bench(State& state) noexcept
         state.ResumeTiming();
 
         uint64_t before = rdtsc();
-        g1::element a = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[0], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element b = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[1], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element c = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[2], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element d = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[3], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element e = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[4], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element f = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[5], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element g = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[6], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element h = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[7], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
-        g1::element i = scalar_multiplication::pippenger<curve::BN254>(
-            { &globals.scalars[8], /*size*/ MAX_GATES }, { globals.monomials, /*size*/ MAX_GATES * 2 }, run_state);
+        g1::element a =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[0], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element b =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[1], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element c =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[2], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element d =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[3], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element e =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[4], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element f =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[5], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element g =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[6], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element h =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[7], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
+        g1::element i =
+            scalar_multiplication::pippenger<curve::BN254>({ 0, { &globals.scalars[8], /*size*/ MAX_GATES } },
+                                                           { globals.monomials, /*size*/ MAX_GATES * 2 },
+                                                           run_state);
         uint64_t after = rdtsc();
         count += (after - before);
         ++k;

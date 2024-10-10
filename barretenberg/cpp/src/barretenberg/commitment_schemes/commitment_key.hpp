@@ -101,7 +101,7 @@ template <class Curve> class CommitmentKey {
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
         DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            polynomial.span, point_table, pippenger_runtime_state);
+            { 0, polynomial.span }, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
         return point;
     };
@@ -171,7 +171,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
     }
 };
 
