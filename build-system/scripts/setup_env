@@ -25,7 +25,7 @@ ROOT_PATH=$(git rev-parse --show-toplevel)
 BUILD_SYSTEM_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PROJECT=$(cat $ROOT_PATH/PROJECT)
 COMMIT_MESSAGE=$(git log -n 1 --pretty=format:"%s" $COMMIT_HASH)
-PATH=$PATH:$BUILD_SYSTEM_PATH/scripts:$BUILD_SYSTEM_PATH/s3-cache-scripts
+PATH=$PATH:$BUILD_SYSTEM_PATH/scripts
 
 check_env
 
@@ -81,7 +81,7 @@ echo export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH >> $BASH_ENV
 echo export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} >> $BASH_ENV
 echo export BUILDKIT_PROGRESS=plain >> $BASH_ENV
 echo export SSH_CONFIG_PATH=$BUILD_SYSTEM_PATH/remote/ssh_config >> $BASH_ENV
-echo export PATH=\$PATH:$BUILD_SYSTEM_PATH/scripts:$BUILD_SYSTEM_PATH/s3-cache-scripts >> $BASH_ENV
+echo export PATH=\$PATH:$BUILD_SYSTEM_PATH/scripts >> $BASH_ENV
 echo export AWS_DEFAULT_REGION=eu-west-2 >> $BASH_ENV
 echo export ECR_REGION=us-east-2 >> $BASH_ENV
 echo export AWS_ACCOUNT=278380418400 >> $BASH_ENV
