@@ -254,7 +254,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "PROVER_VIEM_POLLING_INTERVAL_MS", value = "10000" },
 
         // Aztec node to pull clientivc proofs from (to be replaced with a p2p connection)
-        { name = "TX_PROVIDER_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}" },
+        { name = "PROVER_COORDINATION_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}" },
 
         // Prover
         { name = "PROVER_PUBLISHER_PRIVATE_KEY", value = local.prover_private_keys[count.index] },
