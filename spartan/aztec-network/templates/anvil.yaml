@@ -88,7 +88,7 @@ data:
       {{ include "helpers.flag" (list "gas-limit" .Values.ethereum.gasLimit) }} \
       {{ include "helpers.flag" (list "fork-url" .Values.ethereum.forkUrl) }} \
       {{ include "helpers.flag" (list "fork-block-number" .Values.ethereum.forkBlockNumber) }} \
-      {{- include "helpers.flag" (list "accounts" .Values.validator.replicas) }} \
+      {{ include "helpers.flag" (list "accounts" .Values.validator.replicas) }} \
       -p {{ .Values.ethereum.service.port }}
     else
       echo "No state file found. Starting with a fresh state and enabling state dumping."
@@ -100,7 +100,7 @@ data:
       {{ include "helpers.flag" (list "gas-limit" .Values.ethereum.gasLimit) }} \
       {{ include "helpers.flag" (list "fork-url" .Values.ethereum.forkUrl) }} \
       {{ include "helpers.flag" (list "fork-block-number" .Values.ethereum.forkBlockNumber) }} \
-      {{- include "helpers.flag" (list "accounts" .Values.validator.replicas) }} \
+      {{ include "helpers.flag" (list "accounts" .Values.validator.replicas) }} \
       -p {{ .Values.ethereum.service.port }}
     fi
 ---
