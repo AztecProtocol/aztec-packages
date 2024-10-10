@@ -243,14 +243,14 @@ contract FPC {
     ...
 
 
-   #[aztec(private)]
+   #[private]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
         Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
         FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).enqueue(&mut context);
     }
 
-    #[aztec(private)]
+    #[private]
     fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
         FPC::at(context.this_address()).prepare_fee(context.msg_sender(), amount, asset, nonce).enqueue(&mut context);
         FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).enqueue(&mut context);

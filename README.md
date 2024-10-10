@@ -1,6 +1,6 @@
 # Aztec Monorepo
 
-All the packages that make up [Aztec](https://docs.aztec.network). 
+All the packages that make up [Aztec](https://docs.aztec.network).
 
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
@@ -17,7 +17,7 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 
 ## Issues Board
 
-All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/aztec/roadmap) section of our docs.
+All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
 
 ## Development Setup
 
