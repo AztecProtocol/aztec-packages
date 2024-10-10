@@ -849,9 +849,6 @@ impl<'context> Elaborator<'context> {
                 for (_, typ) in struct_type.borrow().get_fields(generics) {
                     self.mark_type_as_used(&typ);
                 }
-                for (_, typ) in struct_type.borrow().get_fields(generics) {
-                    self.mark_parameter_type_as_used(&typ);
-                }
             }
             Type::Alias(alias_type, generics) => {
                 self.mark_type_as_used(&alias_type.borrow().get_type(generics));
