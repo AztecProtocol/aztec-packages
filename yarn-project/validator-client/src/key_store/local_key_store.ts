@@ -3,6 +3,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { type Signature } from '@aztec/foundation/eth-signature';
 
 import { type ValidatorKeyStore } from './interface.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * Local Key Store
@@ -21,7 +22,7 @@ export class LocalKeyStore implements ValidatorKeyStore {
    *
    * @returns the address
    */
-  public getAddress() {
+  public getAddress() : EthAddress {
     return this.signer.address;
   }
 
