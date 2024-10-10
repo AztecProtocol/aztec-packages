@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728559798308,
+  "lastUpdate": 1728565179053,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "82b60ebbdb18400363248b80986c993df1b7e4af",
-          "message": "feat: Make UltraKeccak work with Shplemini at bb-level (#8646)\n\nIn this PR:\r\n- make UltraKeccak flavor inherit from Ultra\r\n- make a Shplemini Prover\r\n- run UltraKeccak Honk with Shplemini but with variable size proof for\r\nnow in c++ tests\r\n- only send proof up to sumcheck to smart contract tests",
-          "timestamp": "2024-09-24T13:37:07Z",
-          "tree_id": "890eced6334948dd669128cd0fbe792671331e08",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/82b60ebbdb18400363248b80986c993df1b7e4af"
-        },
-        "date": 1727186565476,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 36062.58769800002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 33579.66793199999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5350.434732000011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4904.183241 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 109223.14233699998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 109223143000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14950.469641,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14950470000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8662511335,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8662511335 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 163672632,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 163672632 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8589236127,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8589236127 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 155233205,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 155233205 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 126421676,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126421676 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1323a34c50e7727435129aa31a05ae7bdfb0ca09",
+          "message": "feat!: unrevert \"feat: new per-enqueued-call gas limit\" (#9140)\n\nReverts AztecProtocol/aztec-packages#9139\r\n\r\nRealized the title should have the exclamation because this will break\r\napps that use more gas in a public enqueued call.",
+          "timestamp": "2024-10-10T13:34:52+01:00",
+          "tree_id": "7de6b667c8c8efafbcc2d423de9c0ad838f79950",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1323a34c50e7727435129aa31a05ae7bdfb0ca09"
+        },
+        "date": 1728565172331,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31367.66525099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28704.635477 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5506.144810999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5165.359020000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93593.718466,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93593721000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15673.543629000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15673545000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8350091301,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8350091301 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153455074,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153455074 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6724415873,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6724415873 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127649366,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127649366 ns\nthreads: 1"
           }
         ]
       }
