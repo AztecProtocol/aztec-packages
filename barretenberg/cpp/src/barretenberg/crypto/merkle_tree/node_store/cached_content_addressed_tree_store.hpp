@@ -1125,7 +1125,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         if (meta_.unfinalisedBlockHeight < blockNumber) {
             throw std::runtime_error("Unable to initialise from future block");
         }
-        if (meta_.oldestHistoricBlock > blockNumber) {
+        if (meta_.oldestHistoricBlock > blockNumber && blockNumber != 0) {
             throw std::runtime_error("Unable to fork from expired historical block");
         }
         BlockPayload blockData;

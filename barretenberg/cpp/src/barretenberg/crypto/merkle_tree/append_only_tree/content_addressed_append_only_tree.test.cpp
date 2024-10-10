@@ -1675,3 +1675,34 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_expired_hi
     EXPECT_THROW(Store(name, depth, 1, db), std::runtime_error);
     EXPECT_THROW(Store(name, depth, 2, db), std::runtime_error);
 }
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_fork_from_block_zero_when_not_latest)
+{
+    std::string name = random_string();
+    uint32_t depth = 20;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t numBlocks = 5;
+
+    const fr initialRoot = memdb.root();
+    const fr_sibling_path path = memdb.get_sibling_path(0);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> values = create_values(1024);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    EXPECT_NO_THROW(Store(name, depth, 0, db));
+
+    std::unique_ptr<Store> store2 = std::make_unique<Store>(name, depth, 0, db);
+    TreeType tree2(std::move(store2), pool);
+
+    check_root(tree2, initialRoot, false);
+    check_sibling_path(tree2, 0, path, false, true);
+}
