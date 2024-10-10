@@ -375,6 +375,7 @@
         "WASI_SDK_PREFIX": "/opt/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
+        "CXXFLAGS": "-DBB_VERBOSE",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
         "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },
@@ -392,6 +393,7 @@
     {
       "name": "wasm-dbg",
       "displayName": "Build for debug WASM",
+      "binaryDir": "build-wasm-dbg",
       "description": "Build with wasi-sdk to create debug wasm",
       "inherits": "wasm",
       "environment": {
