@@ -163,7 +163,7 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const validatorClient = createValidatorClient(config, p2pClient);
+    const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
     const sequencer = config.disableSequencer
