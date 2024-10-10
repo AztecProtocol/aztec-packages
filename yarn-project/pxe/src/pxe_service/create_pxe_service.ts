@@ -54,5 +54,5 @@ function createProver(config: PXEServiceConfig, logSuffix?: string) {
   }
   const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> & PXEServiceConfig;
   const log = createDebugLogger('aztec:pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
-  return BBNativePrivateKernelProver.new(bbConfig, log);
+  return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, log);
 }

@@ -51,10 +51,19 @@ const uint64_t CANONICAL_FORK_ID = 0;
  */
 class WorldState {
   public:
-    WorldState(const std::string& data_dir, uint64_t map_size, uint64_t thread_pool_size);
-    WorldState(const std::string& data_dir,
+    WorldState(uint64_t thread_pool_size,
+               const std::string& data_dir,
+               uint64_t map_size,
+               const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+               const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               uint32_t initial_header_generator_point);
+
+    WorldState(uint64_t thread_pool_size,
+               const std::string& data_dir,
                const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
-               uint64_t thread_pool_size);
+               const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+               const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               uint32_t initial_header_generator_point);
 
     /**
      * @brief Get tree metadata for a particular tree
@@ -217,6 +226,9 @@ class WorldState {
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
+    std::unordered_map<MerkleTreeId, uint32_t> _tree_heights;
+    std::unordered_map<MerkleTreeId, index_t> _initial_tree_size;
+    uint32_t _initial_header_generator_point;
     mutable std::mutex mtx;
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
     uint64_t _forkId = 0;
@@ -231,14 +243,13 @@ class WorldState {
 
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
-    static bb::fr compute_initial_archive(const StateReference& initial_state_ref);
+    bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
+
+    static bb::fr compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,
                                               bool initial_state = false);
-
-    static bool block_state_matches_world_state(const StateReference& block_state_ref,
-                                                const StateReference& tree_state_ref);
 };
 
 template <typename T>

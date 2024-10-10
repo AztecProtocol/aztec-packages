@@ -207,7 +207,6 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
-  enableGas: boolean,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -238,11 +237,9 @@ async function setupWithRemoteEnvironment(
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
-  if (enableGas) {
-    await setupCanonicalFeeJuice(
-      new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
-    );
-  }
+  await setupCanonicalFeeJuice(
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+  );
 
   logger.verbose('Constructing available wallets from already registered accounts...');
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
@@ -328,9 +325,10 @@ export type EndToEndContext = {
  */
 export async function setup(
   numberOfAccounts = 1,
-  opts: SetupOptions = {},
+  opts: SetupOptions = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+  },
   pxeOpts: Partial<PXEServiceConfig> = {},
-  enableGas = false,
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
@@ -389,7 +387,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
 
   const deployL1ContractsValues =
@@ -441,7 +439,7 @@ export async function setup(
 
   const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-  if (!config.skipProtocolContracts && enableGas) {
+  if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
     await setupCanonicalFeeJuice(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),

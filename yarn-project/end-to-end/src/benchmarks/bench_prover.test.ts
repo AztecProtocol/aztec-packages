@@ -60,7 +60,6 @@ describe('benchmarks/proving', () => {
         minTxsPerBlock: 1,
       },
       {},
-      true,
     );
 
     schnorrWalletSalt = Fr.random();

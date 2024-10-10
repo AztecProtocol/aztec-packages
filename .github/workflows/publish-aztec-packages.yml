@@ -1,6 +1,10 @@
 name: Publish Aztec Packages
 
 on:
+  push:
+    branches:
+      - master
+      - "*/release-master*"
   workflow_dispatch:
     inputs:
       tag:
@@ -19,16 +23,25 @@ permissions:
 
 env:
   # Add any global environment variables here
-  DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-  GIT_COMMIT: ${{ github.sha }}
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  SHOULD_PUBLISH_DOCKER_IMAGES: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
   DEPLOY_TAG: ${{ github.event.inputs.tag }}
-
 jobs:
   check-version:
     runs-on: ubuntu-latest
     steps:
       - name: Check if tag is valid
         id: check_tag
+        if: github.event_name == 'workflow_dispatch'
         run: |
           TAG=${{ github.event.inputs.tag }}
           if [[ "$TAG" == aztec-packages-v* ]]; then
@@ -164,14 +177,12 @@ jobs:
 
   publish-manifests:
     needs:
-      [
-        build-aztec-x86,
-        build-aztec-arm,
-        build-nargo-x86,
-        build-nargo-arm,
-        build-cli-wallet-x86,
-        build-cli-wallet-arm,
-      ]
+      - build-aztec-x86
+      - build-aztec-arm
+      - build-nargo-x86
+      - build-nargo-arm
+      - build-cli-wallet-x86
+      - build-cli-wallet-arm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -181,10 +192,16 @@ jobs:
         with:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish aztec manifests
-        if: ${{ github.event.inputs.publish == 'true' }}
+        if: ${{ env.SHOULD_PUBLISH_DOCKER_IMAGES == 'true' }}
         run: |
-          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${DEPLOY_TAG#aztec-packages-v}
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+            DIST_TAG=latest
+          else
+            VERSION=""
+            DIST_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+          fi
 
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
@@ -193,34 +210,41 @@ jobs:
           docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
 
-          docker manifest create aztecprotocol/aztec:$VERSION \
+          # Create and push versioned manifest if a version is provided
+          if [ -n "$VERSION" ]; then
+            docker manifest create aztecprotocol/aztec:$VERSION \
+              aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/aztec:$VERSION
+
+            docker manifest create aztecprotocol/aztec-nargo:$VERSION \
+              aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/aztec-nargo:$VERSION
+
+            docker manifest create aztecprotocol/cli-wallet:$VERSION \
+              aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/cli-wallet:$VERSION
+          fi
+
+          docker manifest create aztecprotocol/aztec:$DIST_TAG \
             aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
             aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
-          docker manifest create aztecprotocol/aztec:latest \
-            aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
-            aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
-          docker manifest push aztecprotocol/aztec:$VERSION
-          docker manifest push aztecprotocol/aztec:latest
+          docker manifest push aztecprotocol/aztec:$DIST_TAG
 
-          docker manifest create aztecprotocol/aztec-nargo:$VERSION \
+          docker manifest create aztecprotocol/aztec-nargo:$DIST_TAG \
             aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
             aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
-          docker manifest create aztecprotocol/aztec-nargo:latest \
-            aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
-            aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
-          docker manifest push aztecprotocol/aztec-nargo:$VERSION
-          docker manifest push aztecprotocol/aztec-nargo:latest
+          docker manifest push aztecprotocol/aztec-nargo:$DIST_TAG
 
-          docker manifest create aztecprotocol/cli-wallet:$VERSION \
+          docker manifest create aztecprotocol/cli-wallet:$DIST_TAG \
             aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
             aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
-          docker manifest create aztecprotocol/cli-wallet:latest \
-            aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
-            aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
-          docker manifest push aztecprotocol/cli-wallet:$VERSION
-          docker manifest push aztecprotocol/cli-wallet:latest
+          docker manifest push aztecprotocol/cli-wallet:$DIST_TAG
 
   publish-npm:
+    if: github.event_name == 'workflow_dispatch'
     needs: publish-manifests
     runs-on: ${{ github.actor }}-x86
     env:
@@ -257,3 +281,33 @@ jobs:
             --DIST_TAG=latest \
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+  # Sometimes runners get killed because they can be spot, we try once more for good measure
+  rerun-check:
+    runs-on: ubuntu-20.04
+    permissions:
+      actions: write
+    needs:
+      - setup-x86
+      - setup-arm
+      - build-aztec-x86
+      - build-aztec-arm
+      - build-nargo-x86
+      - build-nargo-arm
+      - build-cli-wallet-x86
+      - build-cli-wallet-arm
+      - publish-npm
+      - publish-manifests
+    if: github.event.pull_request.draft == false && !cancelled()
+    steps:
+      - name: Check for Rerun
+        env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
+          HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+            echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          fi

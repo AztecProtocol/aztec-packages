@@ -672,7 +672,7 @@ class ECCVMFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         ProvingKey(const CircuitBuilder& builder)
-            : Base(builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
+            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
             , polynomials(builder)
         {}
     };

@@ -38,7 +38,7 @@ jobs:
 
   pdf:
     needs: setup
-    runs-on: master-x86
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -54,6 +54,7 @@ jobs:
       - name: Serve docs
         run: |
           cd aztec-packages/docs
+          yarn install
           yarn build
           yarn serve &
       - name: Checkout PDF repo
