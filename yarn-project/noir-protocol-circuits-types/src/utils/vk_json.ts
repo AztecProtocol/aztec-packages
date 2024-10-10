@@ -1,4 +1,5 @@
 import { Fr, VerificationKeyAsFields, VerificationKeyData } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 interface VkJson {
   keyAsBytes: string;
@@ -15,4 +16,8 @@ export function keyJsonToVKData(json: VkJson): VerificationKeyData {
     ),
     Buffer.from(keyAsBytes, 'hex'),
   );
+}
+
+export function hashVk(keyAsFields: Fr[]): Fr {
+  return poseidon2Hash(keyAsFields);
 }

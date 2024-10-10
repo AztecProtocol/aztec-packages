@@ -42,6 +42,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
   TubeInputs,
   type VMCircuitPublicInputs,
@@ -58,7 +59,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { TubeVk, getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
@@ -709,7 +710,7 @@ export class ProvingOrchestrator implements EpochProver {
         makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
         provingState.globalVariables,
         this.db,
-        VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+        TubeVk,
       ),
     );
 
@@ -1282,7 +1283,12 @@ export class ProvingOrchestrator implements EpochProver {
       // Take the final proof and assign it to the base rollup inputs
       txProvingState.baseRollupInputs.kernelData.proof = proof;
       txProvingState.baseRollupInputs.kernelData.vk = verificationKey;
-      txProvingState.baseRollupInputs.kernelData.vkIndex = getVKIndex(verificationKey);
+      try {
+        txProvingState.baseRollupInputs.kernelData.vkIndex = getVKIndex(verificationKey);
+      } catch (_ignored) {
+        // TODO(#7410) The VK for the tube won't be in the tree, so we manually set it to the tube vk index
+        txProvingState.baseRollupInputs.kernelData.vkIndex = TUBE_INDEX;
+      }
       txProvingState.baseRollupInputs.kernelData.vkPath = getVKSiblingPath(
         txProvingState.baseRollupInputs.kernelData.vkIndex,
       );
