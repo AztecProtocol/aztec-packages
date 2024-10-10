@@ -35,14 +35,12 @@ describe('MemoryAttestationPool', () => {
     const archive = Fr.random();
     const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
 
-    const proposalId = attestations[0].p2pMessageIdentifier().toString();
-
     await ap.addAttestations(attestations);
 
     // Check metrics have been updated.
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
 
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
 
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     expect(retreivedAttestations).toEqual(attestations);
@@ -52,7 +50,7 @@ describe('MemoryAttestationPool', () => {
 
     expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
-    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
   });
 
@@ -64,9 +62,9 @@ describe('MemoryAttestationPool', () => {
 
     for (const attestation of attestations) {
       const slot = attestation.payload.header.globalVariables.slotNumber;
-      const proposalId = attestation.p2pMessageIdentifier().toString();
+      const archive = attestation.archive.toString();
 
-      const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), proposalId);
+      const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), archive);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0]).toEqual(attestation);
       expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
@@ -84,7 +82,7 @@ describe('MemoryAttestationPool', () => {
 
     for (const attestation of attestations) {
       const slot = attestation.payload.header.globalVariables.slotNumber;
-      const proposalId = attestation.p2pMessageIdentifier().toString();
+      const proposalId = attestation.archive.toString();
 
       const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), proposalId);
       expect(retreivedAttestations.length).toBe(1);
@@ -97,7 +95,7 @@ describe('MemoryAttestationPool', () => {
     const slotNumber = 420;
     const archive = Fr.random();
     const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
-    const proposalId = attestations[0].p2pMessageIdentifier().toString();
+    const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);
 
@@ -119,7 +117,7 @@ describe('MemoryAttestationPool', () => {
     const slotNumber = 420;
     const archive = Fr.random();
     const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
-    const proposalId = attestations[0].p2pMessageIdentifier().toString();
+    const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);
 
@@ -137,7 +135,7 @@ describe('MemoryAttestationPool', () => {
     const slotNumber = 420;
     const archive = Fr.random();
     const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
-    const proposalId = attestations[0].p2pMessageIdentifier().toString();
+    const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);
 
