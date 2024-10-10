@@ -30,8 +30,7 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
 
 template <typename FF> struct PolyData {
     Polynomial<FF> polynomial;
-    std::vector<uint32_t> fixed_sizes;
-    std::vector<uint32_t> actual_sizes;
+    std::vector<std::pair<size_t, size_t>> active_range_endpoints;
 };
 
 // Generate a polynomial with random coefficients organized in isolated blocks
@@ -61,11 +60,13 @@ template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_dead_re
 
     uint32_t start_idx = 0;
     uint32_t end_idx = 0;
+    std::vector<std::pair<size_t, size_t>> active_range_endpoints;
     for (auto [block_size, actual_size] : zip_view(fixed_sizes, actual_sizes)) {
         end_idx = start_idx + actual_size;
         for (size_t i = start_idx; i < end_idx; ++i) {
             polynomial.at(i) = FF::random_element();
         }
+        active_range_endpoints.emplace_back(start_idx, end_idx);
         start_idx += block_size;
         // If indicated, populate the 'dead' regions of the blocks with a random constant (mimicking z_perm)
         if (non_zero_dead_regions) {
@@ -76,7 +77,7 @@ template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_dead_re
         }
     }
 
-    return { polynomial, fixed_sizes, actual_sizes };
+    return { polynomial, active_range_endpoints };
 }
 
 constexpr size_t MIN_LOG_NUM_POINTS = 16;
@@ -193,58 +194,58 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     }
 }
 
-// // Commit to a polynomial with structured random entries using the basic commit method
-// template <typename Curve> void bench_commit_structured_random_poly(::benchmark::State& state)
-// {
-//     using Fr = typename Curve::ScalarField;
-//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// Commit to a polynomial with structured random entries using the basic commit method
+template <typename Curve> void bench_commit_structured_random_poly(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>();
+    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
 
-//     for (auto _ : state) {
-//         key->commit(polynomial);
-//     }
-// }
+    for (auto _ : state) {
+        key->commit(polynomial);
+    }
+}
 
-// // Commit to polynomial with block structured random nonzero entries using commit_structured method to preprocess the
-// // input
-// template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
-// {
-//     using Fr = typename Curve::ScalarField;
-//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// Commit to polynomial with block structured random nonzero entries using commit_structured method to preprocess the
+// input
+template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>();
+    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
 
-//     for (auto _ : state) {
-//         key->commit_structured(polynomial, fixed_sizes, actual_sizes);
-//     }
-// }
+    for (auto _ : state) {
+        key->commit_structured(polynomial, active_range_endpoints);
+    }
+}
 
-// // Commit to a polynomial with dense random nonzero entries
-// template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
-// {
-//     using Fr = typename Curve::ScalarField;
-//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// Commit to a polynomial with dense random nonzero entries
+template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
+    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
 
-//     for (auto _ : state) {
-//         key->commit(polynomial);
-//     }
-// }
+    for (auto _ : state) {
+        key->commit(polynomial);
+    }
+}
 
-// // Commit to a polynomial with dense random nonzero entries
-// template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::State& state)
-// {
-//     using Fr = typename Curve::ScalarField;
-//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// Commit to a polynomial with dense random nonzero entries
+template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
+    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
 
-//     for (auto _ : state) {
-//         key->commit_structured_with_nonzero_complement(polynomial, fixed_sizes, actual_sizes);
-//     }
-// }
+    for (auto _ : state) {
+        key->commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
+    }
+}
 
 BENCHMARK(bench_commit_zero<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
@@ -267,10 +268,10 @@ BENCHMARK(bench_commit_random<curve::BN254>)
 BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 

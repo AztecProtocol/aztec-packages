@@ -205,12 +205,9 @@ template <class Curve> class CommitmentKey {
             total_num_scalars += range.second - range.first;
         }
 
+        // Compute "active" percentage of polynomial; resort to standard commit if appropriate
         size_t usage_percentage = total_num_scalars * 100 / polynomial.size();
-        info("usage_percentage = ", usage_percentage);
-        info("total_num_scalars = ", total_num_scalars);
-        info("polynomial.size() = ", polynomial.size());
         if (usage_percentage > 75) {
-            info("SKIPPING STRUCTURED COMMIT!");
             return commit(polynomial);
         }
 
@@ -275,12 +272,9 @@ template <class Curve> class CommitmentKey {
         // endomorphism point (\beta*x, -y) at odd indices).
         std::span<G1> point_table = srs->get_monomial_points();
 
+        // Compute complement percentage of polynomial; resort to standard commit if appropriate
         size_t complement_percentage = total_num_complement_scalars * 100 / polynomial.size();
-        info("complement_percentage = ", complement_percentage);
-        info("total_num_scalars = ", total_num_complement_scalars);
-        info("polynomial.size() = ", polynomial.size());
         if (complement_percentage < 50) {
-            info("SKIPPING STRUCTURED COMMIT ZPERM!");
             return commit(polynomial);
         }
 
