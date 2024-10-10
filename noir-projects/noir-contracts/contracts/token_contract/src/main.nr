@@ -516,11 +516,11 @@ contract Token {
         );
         encrypt_and_emit_partial_log(&mut context, user_setup_payload.log_plaintext, user_keys, user);
 
-        // 6. We convert the hiding points to standard `Point` type as we cannot pass `TokenNoteHidingPoint` type
+        // 6. We convert the partial commitments to standard `Point` type as we cannot pass `TokenNoteHidingPoint` type
         // as an argument to a function due to macro limitations (the `TokenNoteHidingPoint` type is macro generated
         // and hence is not resolved soon enough by the compiler).
-        let fee_payer_point = fee_payer_setup_payload.hiding_point;
-        let user_point = user_setup_payload.hiding_point;
+        let fee_payer_point = fee_payer_setup_payload.partial_commitment;
+        let user_point = user_setup_payload.partial_commitment;
 
         // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
@@ -553,7 +553,7 @@ contract Token {
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
         let refund_amount = funded_amount - tx_fee;
 
-        // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
+        // 3. We construct the note finalization payloads with the correct amounts and partial commitments to get the note
         // hashes and unencrypted logs.
         let fee_payer_finalization_payload = TokenNote::finalization_payload().new(fee_payer_point, tx_fee);
         let user_finalization_payload = TokenNote::finalization_payload().new(user_point, refund_amount);

@@ -70,7 +70,7 @@ describe('NFT', () => {
     const publicOwnerAfter = await nftContractAsUser1.methods.owner_of(TOKEN_ID).simulate();
     expect(publicOwnerAfter).toEqual(AztecAddress.ZERO);
 
-    // We should get 4 data writes setting values to 0 - 3 for note hiding point and 1 for public owner (we transfer
+    // We should get 4 data writes setting values to 0 - 3 for partial commitment and 1 for public owner (we transfer
     // to private so public owner is set to 0). Ideally we would have here only 1 data write as the 4 values change
     // from zero to non-zero to zero in the tx and hence no write could be committed. This makes public writes
     // squashing too expensive for transient storage. This however probably does not matter as I assume we will want

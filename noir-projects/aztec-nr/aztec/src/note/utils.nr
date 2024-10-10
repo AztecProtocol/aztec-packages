@@ -68,7 +68,7 @@ pub fn compute_note_hash_for_nullify_internal<Note, let N: u32>(
 //     //    the same transaction: (note_hash_counter != 0) & (nonce != 0)
 //     // 3. The note was inserted in a previous transaction: (note_hash_counter == 0) & (nonce != 0)
 
-//     let note_hash = note.compute_note_hiding_point().x;
+//     let note_hash = note.compute_note_hash();
 
 //     if header.nonce == 0 {
 //         // Case 1.
