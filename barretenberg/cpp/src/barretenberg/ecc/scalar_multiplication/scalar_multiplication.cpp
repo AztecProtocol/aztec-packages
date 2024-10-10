@@ -1002,6 +1002,12 @@ template void generate_pippenger_point_table<curve::BN254>(const curve::BN254::A
                                                            curve::BN254::AffineElement* table,
                                                            size_t num_points);
 
+template void compute_wnaf_states<curve::BN254>(uint64_t* point_schedule,
+                                                bool* input_skew_table,
+                                                uint64_t* round_counts,
+                                                PolynomialSpan<const curve::BN254::ScalarField> scalars_,
+                                                const size_t num_initial_points);
+
 template uint32_t construct_addition_chains<curve::BN254>(affine_product_runtime_state<curve::BN254>& state,
                                                           bool empty_bucket_counts = true);
 
@@ -1055,6 +1061,12 @@ template curve::BN254::Element pippenger_without_endomorphism_basis_points<curve
 template void generate_pippenger_point_table<curve::Grumpkin>(const curve::Grumpkin::AffineElement* points,
                                                               curve::Grumpkin::AffineElement* table,
                                                               size_t num_points);
+
+template void compute_wnaf_states<curve::BN254>(uint64_t* point_schedule,
+                                                bool* input_skew_table,
+                                                uint64_t* round_counts,
+                                                PolynomialSpan<const curve::BN254::ScalarField> scalars_,
+                                                const size_t num_initial_points);
 
 template uint32_t construct_addition_chains<curve::Grumpkin>(affine_product_runtime_state<curve::Grumpkin>& state,
                                                              bool empty_bucket_counts = true);
