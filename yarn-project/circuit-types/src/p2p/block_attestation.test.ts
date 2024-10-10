@@ -21,7 +21,7 @@ describe('Block Attestation serialization / deserialization', () => {
   it('Should serialize / deserialize + recover sender', () => {
     const account = Secp256k1Signer.random();
 
-    const attestation = makeBlockAttestation(account);
+    const attestation = makeBlockAttestation({ signer: account });
     const serialized = attestation.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
 
