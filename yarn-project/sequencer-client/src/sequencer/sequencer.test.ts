@@ -107,7 +107,7 @@ describe('sequencer', () => {
     );
 
     publisher = mock<L1Publisher>();
-    publisher.getSenderAddress.mockResolvedValue(EthAddress.random());
+    publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
       block.header.globalVariables.slotNumber.toBigInt(),
