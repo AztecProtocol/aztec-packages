@@ -69,10 +69,8 @@ function generateDimensions(dimensionsList) {
 
   const fileContent = ["[", dimensionValuesStrings.join(",\n"), "]"].join("\n");
 
-  const outputFilePath = path.join(root, "target", "dimensions", "private_kernel_reset_dimensions.json");
-  fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
   fs.writeFileSync(
-    outputFilePath,
+    path.join(root, "private_kernel_reset_dimensions.json"),
     fileContent
   );
 }
