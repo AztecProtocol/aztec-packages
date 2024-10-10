@@ -44,9 +44,6 @@ export type DebugLogger = Logger;
 
 export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
   const debugLogger = debug(name);
-  if (currentLevel === 'debug') {
-    debugLogger.enabled = true;
-  }
 
   const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
 
