@@ -392,6 +392,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   @trackSpan('Libp2pService.processAttestationFromPeer', attestation => ({
     [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
   }))
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
@@ -409,7 +410,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   @trackSpan('Libp2pService.processBlockFromPeer', block => ({
     [Attributes.BLOCK_NUMBER]: block.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: block.payload.archive.toString(),
+    [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: block.p2pMessageIdentifier().toString(),
   }))
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
@@ -430,7 +431,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   @trackSpan('Libp2pService.broadcastAttestation', attestation => ({
     [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: attestation.payload.archive.toString(),
+    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
   }))
   private broadcastAttestation(attestation: BlockAttestation): void {

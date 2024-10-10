@@ -325,7 +325,7 @@ export class P2PClient extends WithTracer implements P2P {
   @trackSpan('p2pClient.broadcastProposal', proposal => ({
     [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: proposal.payload.archive.toString(),
+    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): void {

@@ -1,4 +1,5 @@
-import { type EthAddress } from '@aztec/circuits.js';
+import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type Fr } from '@aztec/foundation/fields';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { recoverAddress } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -38,6 +39,10 @@ export class BlockProposal extends Gossipable {
 
   override p2pMessageIdentifier(): Buffer32 {
     return BlockProposalHash.fromField(this.payload.archive);
+  }
+
+  get archive(): Fr {
+    return this.payload.archive;
   }
 
   static async createProposalFromSigner(
