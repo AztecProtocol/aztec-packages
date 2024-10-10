@@ -40,11 +40,11 @@ export async function sendL1ToL2Message(
   expect(txReceipt.logs.length).toBe(1);
 
   // We decode the event and get leaf out of it
-  const txLog = txReceipt.logs[0];
+  const messageSentLog = txReceipt.logs[0];
   const topics = decodeEventLog({
     abi: InboxAbi,
-    data: txLog.data,
-    topics: txLog.topics,
+    data: messageSentLog.data,
+    topics: messageSentLog.topics,
   });
   const receivedMsgHash = topics.args.hash;
   const receivedGlobalLeafIndex = topics.args.index;

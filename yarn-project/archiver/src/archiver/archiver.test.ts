@@ -409,7 +409,8 @@ function makeL2BlockProposedEvent(l1BlockNum: bigint, l2BlockNum: bigint, archiv
 /**
  * Makes fake L1ToL2 MessageSent events for testing purposes.
  * @param l1BlockNum - L1 block number.
- * @param l2BlockNumber - The L2 block number of in which the message was included.
+ * @param l2BlockNumber - The L2 block number for which the message was included.
+ * @param indexInSubtree - the index in the l2Block's subtree in the L1 to L2 Messages Tree.
  * @returns MessageSent event logs.
  */
 function makeMessageSentEventWithIndexInL2BlockSubtree(
