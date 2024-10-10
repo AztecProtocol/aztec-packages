@@ -89,6 +89,7 @@ library Constants {
   uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 15;
   uint256 internal constant ROOT_ROLLUP_INDEX = 16;
   uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 17;
+  uint256 internal constant TUBE_INDEX = 18;
   uint256 internal constant PRIVATE_KERNEL_RESET_INDEX = 20;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;

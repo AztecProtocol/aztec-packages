@@ -151,7 +151,9 @@ describe('e2e_card_game', () => {
   it('should be able to buy packs', async () => {
     const seed = 27n;
     // docs:start:send_tx
+    console.log('Buying pack...');
     await contract.methods.buy_pack(seed).send().wait();
+    console.log('Pack bought');
     // docs:end:send_tx
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
     const expected = getPackedCards(0, seed);

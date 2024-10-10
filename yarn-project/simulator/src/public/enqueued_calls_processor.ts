@@ -23,6 +23,7 @@ import {
   PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
+  TUBE_INDEX,
   type VMCircuitPublicInputs,
   VerificationKeyData,
   makeEmptyProof,
@@ -380,9 +381,9 @@ export class EnqueuedCallsProcessor {
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
     const vk = isFromPrivate
-      ? VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS) // TODO(Alvaro) tube VK here
+      ? VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS) // TODO(#7410) tube VK goes here
       : ProtocolCircuitVks.PublicKernelMergeArtifact;
-    const vkIndex = getVKIndex(vk);
+    const vkIndex = isFromPrivate ? TUBE_INDEX : getVKIndex(vk);
     const siblingPath = getVKSiblingPath(vkIndex);
 
     return new PublicKernelData(previousOutput, proof, vk, vkIndex, siblingPath);

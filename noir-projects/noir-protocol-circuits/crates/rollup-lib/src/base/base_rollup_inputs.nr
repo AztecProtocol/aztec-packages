@@ -23,7 +23,7 @@ use dep::types::{
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
     PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT, ARCHIVE_HEIGHT,
     FEE_JUICE_ADDRESS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX,
-    PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX
+    PRIVATE_KERNEL_EMPTY_INDEX, TUBE_INDEX
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -36,7 +36,7 @@ use dep::types::{
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_EMPTY_INDEX,
-    PRIVATE_KERNEL_TAIL_INDEX,
+    TUBE_INDEX,
     PUBLIC_KERNEL_TAIL_INDEX,
 ];
 
@@ -64,8 +64,7 @@ impl BaseRollupInputs {
         if !dep::std::runtime::is_unconstrained() {
             // Recursively verify the tube proof if straight from private, or the public kernel tail
             self.kernel_data.verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.kernel_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.kernel_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
         // Verify the kernel chain_id and versions
         assert(

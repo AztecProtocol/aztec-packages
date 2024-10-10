@@ -115,6 +115,7 @@ global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
 global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
 global ROOT_ROLLUP_INDEX: u32 = 16;
 global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
+global TUBE_INDEX: u32 = 18;
 global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 

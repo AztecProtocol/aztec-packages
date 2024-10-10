@@ -259,7 +259,7 @@ unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
 unconstrained fn emit_note_hash(note_hash: Field) {
     emit_note_hash_opcode(note_hash)
 }
-unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u1 {
+unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
     nullifier_exists_opcode(nullifier, address)
 }
 unconstrained fn emit_nullifier(nullifier: Field) {
