@@ -21,7 +21,7 @@ build:
         --command="forge build" \
         --build_artifacts="out"
 
-    SAVE ARTIFACT /usr/src/l1-contracts/out /usr/src/l1-contracts/out
+    SAVE ARTIFACT /usr/src/l1-contracts /usr/src/l1-contracts
 
 test:
     FROM +build
