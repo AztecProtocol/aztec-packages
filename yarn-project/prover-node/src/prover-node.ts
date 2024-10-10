@@ -228,13 +228,10 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     const fromBlock = blocks[0].number;
     const toBlock = blocks.at(-1)!.number;
 
-    if ((await this.worldState.status()).syncedToL2Block >= fromBlock) {
-      throw new Error(`Cannot create proving job for block ${fromBlock} as it is behind the current world state`);
-    }
-
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
-    const db = await this.worldState.syncImmediateAndFork(fromBlock - 1);
+    await this.worldState.syncImmediate(fromBlock - 1);
+    const db = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(

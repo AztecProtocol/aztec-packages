@@ -25,6 +25,14 @@ export abstract class BaseMemoryQueue<T> {
   }
 
   /**
+   * Returns next item within the queue, or undefined if the queue is empty. Does not block.
+   * @returns The next item in the queue.
+   */
+  public getImmediate(): T | undefined {
+    return this.items.get();
+  }
+
+  /**
    * Returns next item within the queue, or blocks until an item has been put into the queue.
    *
    * If given a timeout, the promise will reject if no item is received after `timeoutSec` seconds.

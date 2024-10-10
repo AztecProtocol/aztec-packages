@@ -57,6 +57,7 @@ import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@a
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
 import { getContract } from 'viem';
@@ -540,6 +541,10 @@ describe('e2e_synching', () => {
           const archiver = await createArchiver(opts.config!);
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
+          await worldState.start();
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
+
           // We prune the last token and schnorr contract
           const assumeProvenThrough = pendingBlockNumber - 2n;
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
@@ -589,7 +594,16 @@ describe('e2e_synching', () => {
             expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
           });
 
+          // Check world state reverted as well
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(assumeProvenThrough));
+          const archiverLatestBlockHash = await archiver
+            .getBlockHeader(Number(assumeProvenThrough))
+            .then(b => b?.hash());
+          expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
+
           await archiver.stop();
+          await worldState.stop();
         },
         ASSUME_PROVEN_THROUGH,
       );

@@ -85,8 +85,11 @@ interface WithTreeId {
 }
 
 export interface WorldStateStatus {
+  /** Last block number that can still be unwound. */
   unfinalisedBlockNumber: bigint;
+  /** Last block number that is finalised and cannot be unwound. */
   finalisedBlockNumber: bigint;
+  /** Oldest block still available for historical queries and forks. */
   oldestHistoricalBlock: bigint;
 }
 

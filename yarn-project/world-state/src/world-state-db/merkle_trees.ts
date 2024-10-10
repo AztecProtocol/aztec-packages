@@ -197,7 +197,26 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     }
   }
 
-  public async fork(): Promise<MerkleTreeWriteOperations> {
+  public removeHistoricalBlocks(_toBlockNumber: bigint): Promise<WorldStateStatus> {
+    throw new Error('Method not implemented.');
+  }
+
+  public unwindBlocks(_toBlockNumber: bigint): Promise<WorldStateStatus> {
+    throw new Error('Method not implemented.');
+  }
+
+  public setFinalised(_toBlockNumber: bigint): Promise<WorldStateStatus> {
+    throw new Error('Method not implemented.');
+  }
+
+  public getStatus(): Promise<WorldStateStatus> {
+    throw new Error('Method not implemented.');
+  }
+
+  public async fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
+    if (blockNumber) {
+      throw new Error('Block number forking is not supported in js world state');
+    }
     const [ms, db] = await elapsed(async () => {
       const forked = await this.store.fork();
       return MerkleTrees.new(forked, this.telemetryClient, this.log);

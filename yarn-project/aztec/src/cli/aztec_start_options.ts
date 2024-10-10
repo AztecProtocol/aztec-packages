@@ -194,13 +194,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'L1_PRIVATE_KEY',
     },
     {
-      flag: '--node.l2QueueSize <value>',
-      description: 'Size of queue of L2 blocks to store in world state',
-      defaultValue: 1000,
-      envVar: 'L2_QUEUE_SIZE',
-      parseVal: val => parseInt(val, 10),
-    },
-    {
       flag: '--node.worldStateBlockCheckIntervalMS <value>',
       description: 'Frequency in which to check for blocks in ms',
       defaultValue: 100,
