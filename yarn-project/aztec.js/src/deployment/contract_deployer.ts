@@ -1,4 +1,4 @@
-import { PublicKeys, type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress, PublicKeys } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 

@@ -129,6 +129,10 @@ export class PublicKeys {
     ];
   }
 
+  encodeToNoir(): Fr[] {
+    return this.toFields();
+  }
+
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {
     const reader = FieldReader.asReader(fields);
     return new PublicKeys(

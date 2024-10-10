@@ -10,7 +10,7 @@ import {
   computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { computePartialAddress, type PublicKeys } from '@aztec/circuits.js';
+import { type PublicKeys, computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

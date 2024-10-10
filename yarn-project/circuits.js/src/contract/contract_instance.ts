@@ -9,13 +9,13 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { computeContractClassId } from '../contract/contract_class_id.js';
+import { PublicKeys } from '../types/public_keys.js';
 import {
   computeContractAddressFromInstance,
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
 import { type ContractInstance, type ContractInstanceWithAddress } from './contracts/index.js';
-import { PublicKeys } from '../types/public_keys.js';
 
 /**
  * Generates a Contract Instance from the deployment params.

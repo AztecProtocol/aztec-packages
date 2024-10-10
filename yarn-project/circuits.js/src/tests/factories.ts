@@ -1442,7 +1442,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new Point(new Fr(seed + 0x8), new Fr(seed + 0x9), false),
       new Point(new Fr(seed + 0x10), new Fr(seed + 0x11), false),
       new Point(new Fr(seed + 0x12), new Fr(seed + 0x13), false),
-    )
+    ),
   );
 }
 
