@@ -1,7 +1,7 @@
 // Binomial approximation of exponential
 // using lower than desired precisions for everything due to u128 limit
 // (1+x)^n = 1+n*x+[n/2*(n-1)]*x^2+[n/6*(n-1)*(n-2)*x^3]...
-// we are loosing around almost 8 digits of precision from yearly -> daily interest
+// we are losing around almost 8 digits of precision from yearly -> daily interest
 // dividing with 31536000 (seconds per year).
 // rate must be measured with higher precision than 10^9.
 // we use e18, and rates >= 4% yearly. Otherwise need more precision
