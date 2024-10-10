@@ -1,7 +1,8 @@
-import { type EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { recoverAddress } from '@aztec/foundation/crypto';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
@@ -38,6 +39,10 @@ export class BlockProposal extends Gossipable {
 
   override p2pMessageIdentifier(): Buffer32 {
     return BlockProposalHash.fromField(this.payload.archive);
+  }
+
+  get archive(): Fr {
+    return this.payload.archive;
   }
 
   static async createProposalFromSigner(

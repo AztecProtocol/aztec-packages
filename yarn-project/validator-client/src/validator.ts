@@ -5,6 +5,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger, DebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
+import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -30,7 +31,7 @@ export interface Validator {
 
 /** Validator Client
  */
-export class ValidatorClient implements Validator {
+export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
 
   constructor(
@@ -39,15 +40,18 @@ export class ValidatorClient implements Validator {
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
     private log: DebugLogger,
+    telemetry: TelemetryClient,
   ) {
+    // Instatntiate tracer
+    super(telemetry, 'Validator');
+    this.log = createDebugLogger('aztec:validator', {validatorAddress: keyStore.getAddress().toString()});
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
-    this.log = createDebugLogger('aztec:validator', {validatorAddress: keyStore.getAddress().toString()});
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P) {
+  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -60,6 +64,7 @@ export class ValidatorClient implements Validator {
       p2pClient,
       config.attestationPoolingIntervalMs,
       config.attestationWaitTimeoutMs,
+      telemetry,
     );
     validator.registerBlockProposalHandler();
     return validator;

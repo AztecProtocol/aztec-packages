@@ -1760,11 +1760,30 @@ TEST_F(AvmExecutionTests, daGasLeft)
     validate_trace(std::move(trace), public_inputs);
 }
 
+TEST_F(AvmExecutionTests, ExecutorThrowsWithTooMuchGasAllocated)
+{
+    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
+                               "00"                           // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
+
+    std::vector<FF> calldata = {};
+    std::vector<FF> returndata = {};
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, 0);
+    public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET] = MAX_L2_GAS_PER_ENQUEUED_CALL + 1;
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
+        "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
+}
+
 // Should throw whenever the wrong number of public inputs are provided
 TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 {
-    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) +                                        // opcode SENDER
-                               "00"                                                                  // Indirect flag
+    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
+                               "00"                           // Indirect flag
                                + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
 
     std::vector<FF> calldata = {};
@@ -1774,7 +1793,7 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(instructions, calldata, returndata, public_inputs_vec),
+    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
                               "Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
 }
 
