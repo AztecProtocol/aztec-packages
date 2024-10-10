@@ -1,32 +1,28 @@
-use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, NoteInterface, PrivateSet};
+use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_interface::NullifiableNote, note_getter::view_notes, note_emission::OuterNoteEmission},
-    keys::{getters::get_public_keys, public_keys::NpkM}
+    note::note_emission::OuterNoteEmission, keys::public_keys::NpkM
 };
-use crate::types::token_note::OwnedNote;
+use dep::uint_note::uint_note::UintNote;
 
-pub struct BalanceSet<T, Context> {
-    set: PrivateSet<T, Context>,
+pub struct BalanceSet<Context> {
+    set: PrivateSet<UintNote, Context>,
 }
 
-impl<T, Context> BalanceSet<T, Context> {
+impl<Context> BalanceSet<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { set: PrivateSet::new(context, storage_slot) }
     }
 }
 
-impl<T> BalanceSet<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
+impl BalanceSet<UnconstrainedContext> {
+    unconstrained pub fn balance_of(self: Self) -> U128 {
         self.balance_of_with_offset(0)
     }
 
-    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        offset: u32
-    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
+    unconstrained pub fn balance_of_with_offset(self: Self, offset: u32) -> U128 {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
@@ -45,17 +41,13 @@ impl<T> BalanceSet<T, UnconstrainedContext> {
     }
 }
 
-impl<T> BalanceSet<T, &mut PrivateContext> {
-    pub fn add<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        owner_npk_m: NpkM,
-        addend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq {
+impl BalanceSet<&mut PrivateContext> {
+    pub fn add(self: Self, owner_npk_m: NpkM, addend: U128) -> OuterNoteEmission<UintNote> {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
-            let mut addend_note = T::new(addend, owner_npk_m.hash());
+            let mut addend_note = UintNote::new(addend, owner_npk_m.hash());
 
             // docs:start:insert
             OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
@@ -63,11 +55,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        owner_npk_m: NpkM,
-        amount: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq {
+    pub fn sub(self: Self, owner_npk_m: NpkM, amount: U128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
@@ -85,11 +73,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        target_amount: U128,
-        max_notes: u32
-    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq {
+    pub fn try_sub(self: Self, target_amount: U128, max_notes: u32) -> U128 {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
         // Because the `min_sum` notes is not constrained, users could choose to e.g. not call it. However, all this
@@ -115,10 +99,10 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
 // The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
-pub fn preprocess_notes_min_sum<T, let T_SERIALIZED_LEN: u32>(
-    notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+pub fn preprocess_notes_min_sum(
+    notes: [Option<UintNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
-) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
+) -> [Option<UintNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
     for i in 0..notes.len() {

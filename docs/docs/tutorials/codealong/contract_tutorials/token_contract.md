@@ -52,7 +52,7 @@ compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag
 
 We will be working within `main.nr` for the rest of the tutorial.
 
-## How this will work 
+## How this will work
 
 Before writing the functions, let's go through them to see how this contract will work:
 
@@ -158,7 +158,7 @@ Reading through the storage variables:
 
 - `admin` an Aztec address stored in public state.
 - `minters` is a mapping of Aztec addresses in public state. This will store whether an account is an approved minter on the contract.
-- `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `TokenNote`s. The balance is the sum of all of an account's `TokenNote`s.
+- `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `UintNote`s. The balance is the sum of all of an account's `UintNote`s.
 - `total_supply` is an unsigned integer (max 128 bit value) stored in public state and represents the total number of tokens minted.
 - `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
@@ -257,7 +257,7 @@ Storage is referenced as `storage.variable`.
 
 #### `redeem_shield`
 
-This private function enables an account to move tokens from a `TransparentNote` in the `pending_shields` mapping to a `TokenNote` in private `balances`. The `TokenNote` will be associated with a nullifier key, so any account that knows this key can spend this note.
+This private function enables an account to move tokens from a `TransparentNote` in the `pending_shields` mapping to a `UintNote` in private `balances`. The `UintNote` will be associated with a nullifier key, so any account that knows this key can spend this note.
 
 Going through the function logic, first the `secret_hash` is generated from the given secret. This ensures that only the entity possessing the secret can use it to redeem the note. Following this, a `TransparentNote` is retrieved from the set, using the provided amount and secret. The note is subsequently removed from the set, allowing it to be redeemed only once. The recipient's private balance is then increased using the `increment` helper function from the `value_note` [library (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/utils.nr).
 
@@ -267,7 +267,7 @@ The function returns `1` to indicate successful execution.
 
 #### `unshield`
 
-This private function enables un-shielding of private `TokenNote`s stored in `balances` to any Aztec account's `public_balance`.
+This private function enables un-shielding of private `UintNote`s stored in `balances` to any Aztec account's `public_balance`.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. See [the Authorizing token spends section](#authorizing-token-spends) above for more detail--the only difference being that `assert_valid_message_for` is modified to work specifically in the private context. After the authorization check, the sender's private balance is decreased using the `decrement` helper function for the `value_note` library. Then it stages a public function call on this contract ([`_increase_public_balance`](#_increase_public_balance)) to be executed in the [public execution phase](#execution-contexts) of transaction execution. `_increase_public_balance` is marked as an `internal` function, so can only be called by this token contract.
 

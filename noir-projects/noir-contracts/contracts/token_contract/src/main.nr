@@ -31,11 +31,13 @@ contract Token {
         utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize}
     };
 
+    use dep::uint_note::uint_note::UintNote;
+
     // docs:start:import_authwit
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     // docs:end:import_authwit
 
-    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balance_set::BalanceSet};
+    use crate::types::{transparent_note::TransparentNote, balance_set::BalanceSet};
 
     // docs:end::imports
 
@@ -66,7 +68,7 @@ contract Token {
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
+        balances: Map<AztecAddress, BalanceSet<Context>, Context>,
         // docs:end:storage_balances
         total_supply: PublicMutable<U128, Context>,
         // docs:start:storage_pending_shields
@@ -495,13 +497,13 @@ contract Token {
             random()
         };
 
-        let fee_payer_setup_payload = TokenNote::setup_payload().new(
+        let fee_payer_setup_payload = UintNote::setup_payload().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot
         );
 
-        let user_setup_payload = TokenNote::setup_payload().new(
+        let user_setup_payload = UintNote::setup_payload().new(
             user_npk_m_hash,
             user_randomness,
             storage.balances.at(user).set.storage_slot
@@ -555,8 +557,8 @@ contract Token {
 
         // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
         // hashes and unencrypted logs.
-        let fee_payer_finalization_payload = TokenNote::finalization_payload().new(fee_payer_point, tx_fee);
-        let user_finalization_payload = TokenNote::finalization_payload().new(user_point, refund_amount);
+        let fee_payer_finalization_payload = UintNote::finalization_payload().new(fee_payer_point, tx_fee);
+        let user_finalization_payload = UintNote::finalization_payload().new(user_point, refund_amount);
 
         // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
         // to reconstruct the note.
@@ -566,6 +568,7 @@ contract Token {
         // 5. At last we emit the note hashes.
         context.push_note_hash(fee_payer_finalization_payload.note_hash);
         context.push_note_hash(user_finalization_payload.note_hash);
+
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
     // docs:end:complete_refund

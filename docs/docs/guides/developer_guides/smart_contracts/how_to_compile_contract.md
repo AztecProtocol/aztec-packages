@@ -146,7 +146,7 @@ export class TokenContract extends ContractBase {
       },
       balances: {
         slot: new Fr(3n),
-        typ: 'BalancesMap<TokenNote>',
+        typ: 'BalancesMap<UintNote>',
       },
       total_supply: {
         slot: new Fr(4n),
@@ -185,16 +185,16 @@ export class TokenContract extends ContractBase {
     >;
   }
 
-  public static get notes(): ContractNotes<'TransparentNote' | 'TokenNote'> {
+  public static get notes(): ContractNotes<'TransparentNote' | 'UintNote'> {
     const notes = this.artifact.outputs.globals.notes ? (this.artifact.outputs.globals.notes as any) : [];
     return {
       TransparentNote: {
         id: new Fr(84114971101151129711410111011678111116101n),
       },
-      TokenNote: {
+      UintNote: {
         id: new Fr(8411110710111078111116101n),
       },
-    } as ContractNotes<'TransparentNote' | 'TokenNote'>;
+    } as ContractNotes<'TransparentNote' | 'UintNote'>;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
