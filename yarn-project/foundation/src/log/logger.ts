@@ -49,13 +49,13 @@ export function createDebugLogger(name: string, taggedLogData?: LogData ): Debug
 
   const logger = {
     silent: () => {},
-    error: (...args: any[]) => logWithDebug(debugLogger, 'error', {...args, ...taggedLogData}),
-    warn: (...args: any[]) => logWithDebug(debugLogger, 'warn', {...args, ...taggedLogData}),
-    info: (...args: any[]) => logWithDebug(debugLogger, 'info', {...args, ...taggedLogData}),
-    verbose: (...args: any[]) => logWithDebug(debugLogger, 'verbose', {...args, ...taggedLogData}),
-    debug: (...args: any[]) => logWithDebug(debugLogger, 'debug', {...args, ...taggedLogData}),
+    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
+    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, {...data,...taggedLogData}),
+    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, {...data,...taggedLogData}      ),
+    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, {...data,...taggedLogData}),
+    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, {...data,...taggedLogData}),
   };
-  return Object.assign((...args: any[]) => logWithDebug(debugLogger, 'debug', {...args, ...taggedLogData}), logger);
+  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, {...data,...taggedLogData}), logger)
 }
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
