@@ -1,13 +1,18 @@
 import { type BlockAttestation } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
+import { PoolInstrumentation } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
+  private metrics: PoolInstrumentation<BlockAttestation>;
+
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
 
-  constructor(private log = createDebugLogger('aztec:attestation_pool')) {
+  constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:attestation_pool')) {
     this.attestations = new Map();
+    this.metrics = new PoolInstrumentation(telemetry, 'InMemoryAttestationPool');
   }
 
   public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
@@ -35,21 +40,46 @@ export class InMemoryAttestationPool implements AttestationPool {
 
       this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
     }
+
+    // TODO: set these to pending or something ????
+    this.metrics.recordAddedObjects(attestations.length);
     return Promise.resolve();
   }
 
+  #getNumberOfAttestationsInSlot(slot: bigint): number {
+    let total = 0;
+    const slotAttestationMap = getSlotOrDefault(this.attestations, slot);
+
+    if (slotAttestationMap) {
+      for (const proposalAttestationMap of slotAttestationMap.values() ?? []) {
+        total += proposalAttestationMap.size;
+      }
+    }
+    return total;
+  }
+
   public deleteAttestationsForSlot(slot: bigint): Promise<void> {
-    // TODO(md): check if this will free the memory of the inner hash map
+    // We count the number of attestations we are removing
+    const numberOfAttestations = this.#getNumberOfAttestationsInSlot(slot);
+
     this.attestations.delete(slot);
-    this.log.verbose(`Removed attestation for slot ${slot}`);
+    this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
+
+    this.metrics.recordRemovedObjects(numberOfAttestations);
     return Promise.resolve();
   }
 
   public deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void> {
-    const slotAttestationMap = this.attestations.get(slot);
+    const slotAttestationMap = getSlotOrDefault(this.attestations, slot);
     if (slotAttestationMap) {
-      slotAttestationMap.delete(proposalId);
-      this.log.verbose(`Removed attestation for slot ${slot}`);
+      if (slotAttestationMap.has(proposalId)) {
+        const numberOfAttestations = slotAttestationMap.get(proposalId)?.size ?? 0;
+
+        slotAttestationMap.delete(proposalId);
+
+        this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
+        this.metrics.recordRemovedObjects(numberOfAttestations);
+      }
     }
     return Promise.resolve();
   }
@@ -68,6 +98,7 @@ export class InMemoryAttestationPool implements AttestationPool {
         }
       }
     }
+    this.metrics.recordRemovedObjects(attestations.length);
     return Promise.resolve();
   }
 }

@@ -19,11 +19,18 @@ describe('epoch proof quote', () => {
     quote = new EpochProofQuote(payload, Signature.random());
   });
 
+  const checkEquivalence = (serialized: EpochProofQuote, deserialized: EpochProofQuote) => {
+    expect(deserialized.getSize()).toEqual(serialized.getSize());
+    expect(deserialized).toEqual(serialized);
+  };
+
   it('should serialize and deserialize from buffer', () => {
-    expect(EpochProofQuote.fromBuffer(quote.toBuffer())).toEqual(quote);
+    const deserialised = EpochProofQuote.fromBuffer(quote.toBuffer());
+    checkEquivalence(quote, deserialised);
   });
 
   it('should serialize and deserialize from JSON', () => {
-    expect(EpochProofQuote.fromJSON(quote.toJSON())).toEqual(quote);
+    const deserialised = EpochProofQuote.fromJSON(quote.toJSON());
+    checkEquivalence(quote, deserialised);
   });
 });

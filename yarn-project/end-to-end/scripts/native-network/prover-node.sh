@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 
+export PROVER_REAL_PROOFS="$1"
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
 
@@ -28,7 +29,6 @@ export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 export LOG_LEVEL="debug"
 export DEBUG="aztec:*"
 export ETHEREUM_HOST="http://127.0.0.1:8545"
-export PROVER_REAL_PROOFS="false"
 export PROVER_AGENT_ENABLED="true"
 export PROVER_PUBLISHER_PRIVATE_KEY="0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
 export PROVER_COORDINATION_NODE_URL="http://127.0.0.1:8080"

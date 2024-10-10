@@ -542,6 +542,19 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
+  network-test-fake-proofs:
+    needs: build
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: network-test-fake-proofs-x86
+      - name: "Prover Client Tests"
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./yarn-project/+network-test-fake-proofs
+
   l1-contracts-test:
     needs: [build, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
@@ -766,6 +779,7 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
+      - network-test-fake-proofs
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
@@ -821,6 +835,7 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
+      - network-test-fake-proofs
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking

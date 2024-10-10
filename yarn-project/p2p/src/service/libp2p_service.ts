@@ -264,6 +264,21 @@ export class LibP2PService extends WithTracer implements P2PService {
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
+              [BlockAttestation.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
+              [BlockAttestation.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
+              [EpochProofQuote.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,

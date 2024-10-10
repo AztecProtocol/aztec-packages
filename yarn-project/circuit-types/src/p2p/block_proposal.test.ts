@@ -5,13 +5,17 @@ import { BlockProposal } from './block_proposal.js';
 import { makeBlockProposal } from './mocks.js';
 
 describe('Block Proposal serialization / deserialization', () => {
+  const checkEquivalence = (serialized: BlockProposal, deserialized: BlockProposal) => {
+    expect(deserialized.getSize()).toEqual(serialized.getSize());
+    expect(deserialized).toEqual(serialized);
+  };
+
   it('Should serialize / deserialize', () => {
     const proposal = makeBlockProposal();
 
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
-
-    expect(deserialized).toEqual(proposal);
+    checkEquivalence(proposal, deserialized);
   });
 
   it('Should serialize / deserialize + recover sender', () => {
@@ -21,7 +25,7 @@ describe('Block Proposal serialization / deserialization', () => {
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
 
-    expect(deserialized).toEqual(proposal);
+    checkEquivalence(proposal, deserialized);
 
     // Recover signature
     const sender = deserialized.getSender();
