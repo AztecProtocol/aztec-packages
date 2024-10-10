@@ -1958,16 +1958,15 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
  * @param metadata_offset - The offset of the metadata (slot in the sload example)
  * @return Row
  */
-Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(uint8_t indirect,
-                                                                                    uint32_t clk,
-                                                                                    uint32_t data_offset,
-                                                                                    uint32_t metadata_offset)
+Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(
+    uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t address_offset, uint32_t metadata_offset)
 {
     FF exists = execution_hints.get_side_effect_hints().at(side_effect_counter);
-    // TODO: throw error if incorrect
 
-    auto [resolved_data, resolved_metadata] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ data_offset, metadata_offset }, mem_trace_builder);
+    // TODO: resolved_address should be used
+    auto [resolved_data, resolved_address, resolved_metadata] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ data_offset, address_offset, metadata_offset }, mem_trace_builder);
 
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
@@ -2000,20 +1999,19 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
 }
 
 // Specifically for handling the L1TOL2MSGEXISTS and NOTEHASHEXISTS opcodes
-Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(
-    uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, uint32_t leaf_index)
+Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(uint32_t clk,
+                                                                uint32_t data_offset,
+                                                                uint32_t leaf_index,
+                                                                uint32_t metadata_offset)
 {
     // If doesnt exist, should not read_a, but instead get from public inputs
     FF exists = execution_hints.get_leaf_index_hints().at(leaf_index);
 
-    auto [resolved_data, resolved_metadata] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ data_offset, metadata_offset }, mem_trace_builder);
-
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
+        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
 
     auto write_b = constrained_write_to_memory(
-        call_ptr, clk, resolved_metadata, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
+        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && write_b.tag_match;
 
     return Row{
@@ -2258,11 +2256,17 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
-    Row row =
-        create_kernel_output_opcode_for_leaf_index(indirect, clk, note_hash_offset, dest_offset, uint32_t(leaf_index));
+    auto [resolved_note_hash, resolved_leaf_index, resolved_dest] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ note_hash_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
+
+    const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+
+    Row row = create_kernel_output_opcode_for_leaf_index(
+        clk, resolved_note_hash, static_cast<uint32_t>(leaf_index), resolved_dest);
+
     kernel_trace_builder.op_note_hash_exists(clk,
-                                             /*side_effect_counter*/ uint32_t(leaf_index),
+                                             /*side_effect_counter*/ static_cast<uint32_t>(leaf_index),
                                              row.main_ia,
                                              /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_note_hash_exists = FF(1);
@@ -2292,12 +2296,15 @@ void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_off
     side_effect_counter++;
 }
 
-void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect, uint32_t nullifier_offset, uint32_t dest_offset)
+void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
+                                          uint32_t nullifier_offset,
+                                          uint32_t address_offset,
+                                          uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row =
-        create_kernel_output_opcode_with_set_metadata_output_from_hint(indirect, clk, nullifier_offset, dest_offset);
+    Row row = create_kernel_output_opcode_with_set_metadata_output_from_hint(
+        indirect, clk, nullifier_offset, address_offset, dest_offset);
     kernel_trace_builder.op_nullifier_exists(
         clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_nullifier_exists = FF(1);
@@ -2335,10 +2342,18 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
-    Row row = create_kernel_output_opcode_for_leaf_index(indirect, clk, log_offset, dest_offset, uint32_t(leaf_index));
-    kernel_trace_builder.op_l1_to_l2_msg_exists(
-        clk, uint32_t(leaf_index) /*side_effect_counter*/, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+    auto [resolved_log, resolved_leaf_index, resolved_dest] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ log_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
+
+    const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+
+    Row row =
+        create_kernel_output_opcode_for_leaf_index(clk, resolved_log, static_cast<uint32_t>(leaf_index), resolved_dest);
+    kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
+                                                static_cast<uint32_t>(leaf_index) /*side_effect_counter*/,
+                                                row.main_ia,
+                                                /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     // Constrain gas cost
@@ -2500,7 +2515,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
                                               uint32_t ret_offset,
                                               uint32_t ret_size,
                                               uint32_t success_offset,
-                                              [[maybe_unused]] uint32_t function_selector_offset)
+                                              uint32_t function_selector_offset)
 {
     ASSERT(opcode == OpCode::CALL || opcode == OpCode::STATICCALL);
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -2511,10 +2526,16 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
           resolved_args_offset,
           resolved_args_size_offset,
           resolved_ret_offset,
-          resolved_success_offset] =
-        Addressing<6>::fromWire(indirect, call_ptr)
-            .resolve({ gas_offset, addr_offset, args_offset, args_size_offset, ret_offset, success_offset },
-                     mem_trace_builder);
+          resolved_success_offset,
+          resolved_function_selector_offset] = Addressing<7>::fromWire(indirect, call_ptr)
+                                                   .resolve({ gas_offset,
+                                                              addr_offset,
+                                                              args_offset,
+                                                              args_size_offset,
+                                                              ret_offset,
+                                                              success_offset,
+                                                              function_selector_offset },
+                                                            mem_trace_builder);
 
     // Should read the address next to read_gas as well (tuple of gas values (l2Gas, daGas))
     auto read_gas_l2 = constrained_read_from_memory(
@@ -3022,11 +3043,11 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
                                       uint32_t point_length_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset] =
-        Addressing<3>::fromWire(indirect, call_ptr)
-            .resolve({ points_offset, scalars_offset, output_offset }, mem_trace_builder);
+    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset, resolved_point_length_offset] =
+        Addressing<4>::fromWire(indirect, call_ptr)
+            .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
 
-    auto points_length = unconstrained_read_from_memory(point_length_offset);
+    auto points_length = unconstrained_read_from_memory(resolved_point_length_offset);
 
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
     uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point

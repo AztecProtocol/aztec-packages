@@ -1250,7 +1250,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
-        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
+        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, /*address_offset*/ 0, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -1289,7 +1289,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
-        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
+        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, /*address_offset*/ 0, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
