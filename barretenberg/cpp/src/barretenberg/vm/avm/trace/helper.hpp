@@ -22,9 +22,9 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx);
  * @param public_inputs_vec
  * @return VmPublicInputs
  */
-template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF_> const& public_inputs_vec)
+template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<FF_> const& public_inputs_vec)
 {
-    VmPublicInputs<FF_> public_inputs;
+    VmPublicInputs_<FF_> public_inputs;
 
     // Case where we pass in empty public inputs - this will be used in tests where they are not required
     if (public_inputs_vec.empty()) {
@@ -188,7 +188,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
 // rather than the fixed length arrays that are used during circuit building. This method copies each array
 // into a vector to be used by the verifier.
 template <typename FF_>
-std::vector<std::vector<FF_>> copy_public_inputs_columns(VmPublicInputs<FF_> const& public_inputs,
+std::vector<std::vector<FF_>> copy_public_inputs_columns(VmPublicInputs_<FF_> const& public_inputs,
                                                          std::vector<FF_> const& calldata,
                                                          std::vector<FF_> const& returndata)
 {
@@ -234,6 +234,6 @@ std::string to_hex(T value)
 std::string to_hex(bb::avm_trace::AvmMemoryTag tag);
 
 // Mutate the inputs
-void inject_end_gas_values(VmPublicInputs<FF>& public_inputs, std::vector<Row>& trace);
+void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace);
 
 } // namespace bb::avm_trace

@@ -40,9 +40,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
     telemetry: TelemetryClient,
-    private log = createDebugLogger('aztec:validator'),
+    private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
   ) {
-    // Instatntiate tracer
+    // Instantiate tracer
     super(telemetry, 'Validator');
 
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
