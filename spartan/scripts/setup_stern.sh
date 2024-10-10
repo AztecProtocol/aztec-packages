@@ -1,6 +1,12 @@
 #!/bin/bash
 set -eu
 
+# exit if we are not on linux amd64
+if [ "$(uname)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
+  echo "This script is only supported on Linux amd64"
+  exit 1
+fi
+
 if ! command -v stern &> /dev/null; then
   # Download Stern
   curl -Lo stern.tar.gz https://github.com/stern/stern/releases/download/v1.31.0/stern_1.31.0_linux_amd64.tar.gz
