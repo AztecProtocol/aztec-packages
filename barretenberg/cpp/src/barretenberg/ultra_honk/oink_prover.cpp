@@ -101,30 +101,18 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        if (proving_key->is_structured && false) {
-            std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
-            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
+        if (proving_key->is_structured) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
-                polynomials().w_l, fixed_sizes, actual_sizes);
+                polynomials().w_l, proving_key->proving_key.active_block_ranges);
             witness_commitments.w_r = proving_key->proving_key.commitment_key->commit_structured(
-                polynomials().w_r, fixed_sizes, actual_sizes);
+                polynomials().w_r, proving_key->proving_key.active_block_ranges);
             witness_commitments.w_o = proving_key->proving_key.commitment_key->commit_structured(
-                polynomials().w_o, fixed_sizes, actual_sizes);
+                polynomials().w_o, proving_key->proving_key.active_block_ranges);
         } else {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit(polynomials().w_l);
             witness_commitments.w_r = proving_key->proving_key.commitment_key->commit(polynomials().w_r);
             witness_commitments.w_o = proving_key->proving_key.commitment_key->commit(polynomials().w_o);
         }
-
-        // std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
-        // std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
-        // auto w_l_structured =
-        //     proving_key->proving_key.commitment_key->commit_structured(polynomials().w_l, fixed_sizes, actual_sizes);
-        // if (w_l_structured != witness_commitments.w_l) {
-        //     info("Wire commitment NOT equal");
-        // } else {
-        //     info("Wire commitment EQUAL");
-        // }
     }
 
     auto wire_comms = witness_commitments.get_wires();
@@ -185,11 +173,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     }
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        if (proving_key->is_structured && false) {
-            std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
-            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
+        if (proving_key->is_structured) {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
-                polynomials().w_4, fixed_sizes, actual_sizes);
+                polynomials().w_4, proving_key->proving_key.active_block_ranges);
         } else {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit(polynomials().w_4);
         }
@@ -248,34 +234,17 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     // Compute the permutation and lookup grand product polynomials
     proving_key->proving_key.compute_grand_product_polynomials(proving_key->relation_parameters);
 
-    for (size_t i = 0; i < proving_key->proving_key.circuit_size; ++i) {
-        info("idx = ", i);
-        info("coeff = ", polynomials().z_perm[i]);
-    }
-
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::z_perm");
-        if (proving_key->is_structured && false) {
-            std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
-            std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
+        if (proving_key->is_structured) {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
-                    polynomials().z_perm, fixed_sizes, actual_sizes);
+                    polynomials().z_perm, proving_key->proving_key.active_block_ranges);
         } else {
             witness_commitments.z_perm = proving_key->proving_key.commitment_key->commit(polynomials().z_perm);
         }
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
-
-    std::vector<uint32_t>& fixed_sizes = proving_key->proving_key.fixed_block_sizes;
-    std::vector<uint32_t>& actual_sizes = proving_key->proving_key.actual_block_sizes;
-    auto z_perm_structured = proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
-        polynomials().z_perm, fixed_sizes, actual_sizes);
-    if (z_perm_structured != witness_commitments.z_perm) {
-        info("Z_perm commitment NOT equal");
-    } else {
-        info("Z_perm commitment EQUAL");
-    }
 }
 
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()

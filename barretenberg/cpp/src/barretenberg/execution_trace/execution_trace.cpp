@@ -105,10 +105,11 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.size());
 
-        // Save actual and fixed block sizes for use in commit_structured method
+        // Save ranges over which the blocks are "active" for use in structured commitments
         if constexpr (IsHonkFlavor<Flavor>) {
-            proving_key.actual_block_sizes.emplace_back(block_size);
-            proving_key.fixed_block_sizes.emplace_back(block.get_fixed_size());
+            size_t start = offset;
+            size_t end = start + block.size();
+            proving_key.active_block_ranges.emplace_back(start, end);
         }
 
         // Update wire polynomials and copy cycles

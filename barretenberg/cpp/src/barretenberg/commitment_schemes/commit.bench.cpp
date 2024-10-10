@@ -193,58 +193,58 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     }
 }
 
-// Commit to a polynomial with structured random entries using the basic commit method
-template <typename Curve> void bench_commit_structured_random_poly(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// // Commit to a polynomial with structured random entries using the basic commit method
+// template <typename Curve> void bench_commit_structured_random_poly(::benchmark::State& state)
+// {
+//     using Fr = typename Curve::ScalarField;
+//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>();
+//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>();
 
-    for (auto _ : state) {
-        key->commit(polynomial);
-    }
-}
+//     for (auto _ : state) {
+//         key->commit(polynomial);
+//     }
+// }
 
-// Commit to polynomial with block structured random nonzero entries using commit_structured method to preprocess the
-// input
-template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// // Commit to polynomial with block structured random nonzero entries using commit_structured method to preprocess the
+// // input
+// template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
+// {
+//     using Fr = typename Curve::ScalarField;
+//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>();
+//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>();
 
-    for (auto _ : state) {
-        key->commit_structured(polynomial, fixed_sizes, actual_sizes);
-    }
-}
+//     for (auto _ : state) {
+//         key->commit_structured(polynomial, fixed_sizes, actual_sizes);
+//     }
+// }
 
-// Commit to a polynomial with dense random nonzero entries
-template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// // Commit to a polynomial with dense random nonzero entries
+// template <typename Curve> void bench_commit_z_perm(::benchmark::State& state)
+// {
+//     using Fr = typename Curve::ScalarField;
+//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
+//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
 
-    for (auto _ : state) {
-        key->commit(polynomial);
-    }
-}
+//     for (auto _ : state) {
+//         key->commit(polynomial);
+//     }
+// }
 
-// Commit to a polynomial with dense random nonzero entries
-template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+// // Commit to a polynomial with dense random nonzero entries
+// template <typename Curve> void bench_commit_z_perm_preprocessed(::benchmark::State& state)
+// {
+//     using Fr = typename Curve::ScalarField;
+//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
-    auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
+//     auto [polynomial, fixed_sizes, actual_sizes] = structured_random_poly<Fr>(/*non_zero_dead_regions=*/true);
 
-    for (auto _ : state) {
-        key->commit_structured_with_nonzero_complement(polynomial, fixed_sizes, actual_sizes);
-    }
-}
+//     for (auto _ : state) {
+//         key->commit_structured_with_nonzero_complement(polynomial, fixed_sizes, actual_sizes);
+//     }
+// }
 
 BENCHMARK(bench_commit_zero<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
@@ -267,10 +267,10 @@ BENCHMARK(bench_commit_random<curve::BN254>)
 BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_commit_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 

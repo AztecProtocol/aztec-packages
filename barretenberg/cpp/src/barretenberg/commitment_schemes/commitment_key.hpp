@@ -182,54 +182,6 @@ template <class Curve> class CommitmentKey {
         uint32_t total_num_scalars = 0;
     };
 
-    RangeEndpoints compute_range_endpoints(const size_t polynomial_size,
-                                           const std::vector<uint32_t>& structured_sizes,
-                                           const std::vector<uint32_t>& actual_sizes,
-                                           bool complement = false)
-    {
-        // Construct the endpoints of the ranges of active scalar regions
-        const size_t num_blocks = structured_sizes.size();
-        std::vector<std::pair<uint32_t, uint32_t>> scalar_endpoints;
-        scalar_endpoints.reserve(num_blocks);
-
-        uint32_t start_idx = 0;
-        uint32_t end_idx = 0;
-        if (complement) {
-            for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
-                start_idx = end_idx + actual_size;
-                end_idx += block_size;
-                scalar_endpoints.emplace_back(start_idx, end_idx);
-            }
-        } else {
-            for (const auto& [block_size, actual_size] : zip_view(structured_sizes, actual_sizes)) {
-                end_idx = start_idx + actual_size;
-                scalar_endpoints.emplace_back(start_idx, end_idx);
-                start_idx += block_size;
-            }
-        }
-
-        // Complement of the active portion of the final block should extend to the end of the dyadic polynomial size
-        if (complement) {
-            // WORKTODO: make endpoints use size_t?
-            scalar_endpoints.back().second = static_cast<uint32_t>(polynomial_size - 1); // WORKTODO: yeesh.
-        }
-
-        // Accounting for endomorphism points, the corresponding ranges for the active region points are obtained by
-        // simply doubling the corresponding endpoints for the scalars
-        std::vector<std::pair<uint32_t, uint32_t>> point_endpoints;
-        point_endpoints.reserve(num_blocks);
-        for (const auto& range : scalar_endpoints) {
-            point_endpoints.emplace_back(2 * range.first, 2 * range.second);
-        }
-
-        uint32_t total_num_scalars = 0;
-        for (const auto& range : scalar_endpoints) {
-            total_num_scalars += range.second - range.first;
-        }
-
-        return { scalar_endpoints, point_endpoints, total_num_scalars };
-    }
-
     /**
      * @brief Efficiently commit to a polynomial whose nonzero elements are arranged in discrete blocks
      * @details Given a set of fixed structured block sizes and a set of actual block sizes, reconstruct the non-zero
@@ -239,20 +191,19 @@ template <class Curve> class CommitmentKey {
      * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
      *
      * @param polynomial
-     * @param structured_sizes Structured size of the blocks from which the polynomial is comprised
-     * @param actual_sizes The size of the block of non-zero elements in the corresponding fixed size block
+     * @param active_ranges
      * @return Commitment
      */
     Commitment commit_structured(PolynomialSpan<const Fr> polynomial,
-                                 const std::vector<uint32_t>& structured_sizes,
-                                 const std::vector<uint32_t>& actual_sizes)
+                                 const std::vector<std::pair<size_t, size_t>>& active_ranges)
     {
         BB_OP_COUNT_TIME();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
-        // Construct the endpoints describing the ranges of nonzero elements in the input polynomial
-        auto [scalar_endpoints, point_endpoints, total_num_scalars] =
-            compute_range_endpoints(polynomial.end_index(), structured_sizes, actual_sizes);
+        size_t total_num_scalars = 0;
+        for (const auto& range : active_ranges) {
+            total_num_scalars += range.second - range.first;
+        }
 
         size_t usage_percentage = total_num_scalars * 100 / polynomial.size();
         info("usage_percentage = ", usage_percentage);
@@ -264,23 +215,22 @@ template <class Curve> class CommitmentKey {
         }
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial span.
-        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+        // endomorphism point (\beta*x, -y) at odd indices).
+        std::span<G1> point_table = srs->get_monomial_points();
 
         std::vector<Fr> scalars;
-        std::vector<G1> points;
         scalars.reserve(total_num_scalars);
-        points.reserve(total_num_scalars * 2);
-        for (const auto& range : scalar_endpoints) {
-            auto start_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.first);
-            auto end_it = polynomial.span.begin() + static_cast<std::ptrdiff_t>(range.second);
-            scalars.insert(scalars.end(), start_it, end_it);
+        for (const auto& range : active_ranges) {
+            auto start = &polynomial[range.first];
+            auto end = &polynomial[range.second];
+            scalars.insert(scalars.end(), start, end);
         }
-        for (const auto& range : point_endpoints) {
-            auto start_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.first);
-            auto end_it = point_table.begin() + static_cast<std::ptrdiff_t>(range.second);
-            points.insert(points.end(), start_it, end_it);
+        std::vector<G1> points;
+        points.reserve(total_num_scalars * 2);
+        for (const auto& range : active_ranges) {
+            auto start = &point_table[2 * range.first];
+            auto end = &point_table[2 * range.second];
+            points.insert(points.end(), start, end);
         }
 
         // Call pippenger
@@ -296,67 +246,72 @@ template <class Curve> class CommitmentKey {
      * and a copy of all of the points (without endo points) corresponding to their complement.
      *
      * @param polynomial
-     * @param structured_sizes Structured size of the blocks from which the polynomial is comprised
-     * @param actual_sizes The size of the block of non-zero elements in the corresponding fixed size block
+     * @param active_ranges
      * @return Commitment
      */
     Commitment commit_structured_with_nonzero_complement(PolynomialSpan<const Fr> polynomial,
-                                                         const std::vector<uint32_t>& structured_sizes,
-                                                         const std::vector<uint32_t>& actual_sizes)
+                                                         const std::vector<std::pair<size_t, size_t>>& active_ranges)
     {
         BB_OP_COUNT_TIME();
         using BatchedAddition = BatchedAffineAddition<Curve>;
 
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
+        // Compute the active range complement over which the polynomial is assumed to be constant within each range
+        std::vector<std::pair<size_t, size_t>> active_ranges_complement;
+        for (size_t i = 0; i < active_ranges.size(); ++i) {
+            size_t start = active_ranges[i].second;
+            size_t end = active_ranges[i + 1].first;
+            active_ranges_complement.emplace_back(start, end);
+        }
+        active_ranges_complement.back().second = polynomial.end_index(); // Extend final range to end of polynomial
+
+        size_t total_num_complement_scalars = 0;
+        for (const auto& range : active_ranges_complement) {
+            total_num_complement_scalars += range.second - range.first;
+        }
+
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial span.
-        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+        // endomorphism point (\beta*x, -y) at odd indices).
+        std::span<G1> point_table = srs->get_monomial_points();
 
-        // Construct the endpoints describing the ranges of constant nonzero elements in the input polynomial
-        auto [scalar_endpoints, point_endpoints, total_num_scalars] =
-            compute_range_endpoints(polynomial.end_index(), structured_sizes, actual_sizes, /*complement=*/true);
-
-        size_t complement_percentage = total_num_scalars * 100 / polynomial.size();
+        size_t complement_percentage = total_num_complement_scalars * 100 / polynomial.size();
         info("complement_percentage = ", complement_percentage);
-        info("total_num_scalars = ", total_num_scalars);
+        info("total_num_scalars = ", total_num_complement_scalars);
         info("polynomial.size() = ", polynomial.size());
         if (complement_percentage < 50) {
             info("SKIPPING STRUCTURED COMMIT ZPERM!");
             return commit(polynomial);
         }
 
-        Commitment active_region_contribution = commit_structured(polynomial, structured_sizes, actual_sizes);
+        Commitment active_region_contribution = commit_structured(polynomial, active_ranges);
 
         // Copy the raw SRS points corresponding to the constant regions into contiguous memory
         // WORKTODO: add todo about doing this prior to construction of full point table for lower peak memory
         std::vector<G1> points;
-        points.reserve(total_num_scalars);
-        for (const auto& range : point_endpoints) {
-            for (size_t i = range.first; i < range.second; i += 2) {
+        points.reserve(2 * total_num_complement_scalars);
+        for (const auto& range : active_ranges_complement) {
+            size_t start = 2 * range.first;
+            size_t end = 2 * range.second;
+            for (size_t i = start; i < end; i += 2) {
                 points.emplace_back(point_table[i]);
             }
         }
 
+        // Populate the set of unique scalars with first coeff from each range (values assumed constant over each range)
         // Compute the number of points in each sequence to be summed
+        std::vector<Fr> unique_scalars;
         std::vector<size_t> sequence_counts;
-        for (const auto& range : scalar_endpoints) {
-            sequence_counts.emplace_back(range.second - range.first);
+        for (const auto& range : active_ranges_complement) {
+            if (range.second - range.first > 0) {
+                // info("unique scalar = ", polynomial.span[range.first]);
+                unique_scalars.emplace_back(polynomial.span[range.first]);
+                sequence_counts.emplace_back(range.second - range.first);
+            }
         }
 
         // Reduce each sequence to a single point
         auto reduced_points = BatchedAddition::add_in_place(points, sequence_counts);
-
-        // Populate the set of unique scalars with first coeff from each range (values assumed constant over each range)
-        std::vector<Fr> unique_scalars;
-        unique_scalars.reserve(structured_sizes.size());
-        for (auto range : scalar_endpoints) {
-            if (range.second - range.first > 0) {
-                info("unique scalar = ", polynomial.span[range.first]);
-                unique_scalars.emplace_back(polynomial.span[range.first]);
-            }
-        }
 
         // Directly compute the full commitment given the reduced inputs
         Commitment result = active_region_contribution;
