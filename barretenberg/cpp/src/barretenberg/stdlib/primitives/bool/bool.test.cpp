@@ -16,20 +16,10 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-
+STANDARD_TESTING_TAGS
 template <class Builder> class BoolTest : public ::testing::Test {};
 
 using CircuitTypes = ::testing::Types<bb::CircuitSimulatorBN254, bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
-
-// Tags reused in tests
-const size_t parent_id = 0;
-const auto submitted_value_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);
-const auto challenge_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);
-const auto next_challenge_tag = OriginTag(parent_id, /*round_id=*/1, /*is_submitted=*/false);
-
-const auto first_two_merged_tag = OriginTag(submitted_value_origin_tag, challenge_origin_tag);
-const auto first_and_third_merged_tag = OriginTag(submitted_value_origin_tag, next_challenge_tag);
-const auto all_merged_tag = OriginTag(first_two_merged_tag, next_challenge_tag);
 
 TYPED_TEST_SUITE(BoolTest, CircuitTypes);
 TYPED_TEST(BoolTest, TestBasicOperations)
@@ -38,7 +28,7 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
 
-    auto gates_before = builder.get_num_gates();
+    auto gates_before = builder.get_estimated_num_finalized_gates();
 
     bool_ct a = witness_ct(&builder, bb::fr::one());
     bool_ct b = witness_ct(&builder, bb::fr::zero());
@@ -90,7 +80,7 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     EXPECT_EQ(result, true);
 
     if (!IsSimulator<Builder>) {
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 6UL);
     }
 }
@@ -539,12 +529,12 @@ TYPED_TEST(BoolTest, ConditionalAssign)
 
         if (!(lhs_constant | rhs_constant)) {
             // Tags are merged on conditional assign
-            EXPECT_EQ(result.get_origin_tag(), all_merged_tag);
+            EXPECT_EQ(result.get_origin_tag(), first_second_third_merged_tag);
         }
 
         EXPECT_EQ(result.get_value(), condition ? left : right);
     }
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }

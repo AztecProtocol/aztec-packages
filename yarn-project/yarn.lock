@@ -940,6 +940,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -1174,6 +1175,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
@@ -1227,6 +1229,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -3389,6 +3392,7 @@ __metadata:
     "@noir-lang/acvm_js": 0.51.0
     "@noir-lang/noirc_abi": 0.35.0
     "@noir-lang/types": 0.35.0
+  checksum: fd290b2f240bc9d24a00ac341972ea7c2742d0089170e343bef7775f88494bf6ba8f779e1034b8e44939c5ea0a9375afa2c35497ef5e60ea93508919b29b30a7
   languageName: node
   linkType: hard
 

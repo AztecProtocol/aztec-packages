@@ -62,17 +62,19 @@ describe('e2e_block_building', () => {
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
       const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, outgoingViewer, i + 1));
+      const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        await methods[i].create({
-          contractAddressSalt: new Fr(BigInt(i + 1)),
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
-        });
-        await methods[i].prove({});
+        provenTxs.push(
+          await methods[i].prove({
+            contractAddressSalt: new Fr(BigInt(i + 1)),
+            skipClassRegistration: true,
+            skipPublicDeployment: true,
+          }),
+        );
       }
 
       // Send them simultaneously to be picked up by the sequencer
-      const txs = await Promise.all(methods.map(method => method.send()));
+      const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
         logger.info(` ${await tx.getTxHash()}`);
@@ -99,13 +101,13 @@ describe('e2e_block_building', () => {
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
 
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
+      const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        await methods[i].create({});
-        await methods[i].prove({});
+        provenTxs.push(await methods[i].prove({}));
       }
 
       // Send them simultaneously to be picked up by the sequencer
-      const txs = await Promise.all(methods.map(method => method.send()));
+      const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
         logger.info(` ${await tx.getTxHash()}`);
@@ -134,16 +136,16 @@ describe('e2e_block_building', () => {
         [minter.getCompleteAddress(), true],
       );
 
-      await deployer.prove({});
-      await callInteraction.prove({
+      const deployerTx = await deployer.prove({});
+      const callInteractionTx = await callInteraction.prove({
         // we have to skip simulation of public calls simulation is done on individual transactions
         // and the tx deploying the contract might go in the same block as this one
         skipPublicSimulation: true,
       });
 
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
-        deployer.send().wait(),
-        callInteraction.send({ skipPublicSimulation: true }).wait(),
+        deployerTx.send().wait(),
+        callInteractionTx.send().wait(),
       ]);
 
       expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
@@ -288,7 +290,7 @@ describe('e2e_block_building', () => {
       // call test contract
       const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), outgoingViewer);
       const tx = await action.prove();
-      const rct = await action.send().wait();
+      const rct = await tx.send().wait();
 
       // compare logs
       expect(rct.status).toEqual('success');
@@ -318,7 +320,7 @@ describe('e2e_block_building', () => {
         true,
       );
       const tx = await action.prove();
-      const rct = await action.send().wait();
+      const rct = await tx.send().wait();
 
       // compare logs
       expect(rct.status).toEqual('success');
@@ -392,8 +394,7 @@ describe('e2e_block_building', () => {
       const txs = [];
       for (let i = 0; i < 30; i++) {
         const tx = token.methods.mint_public(owner.getAddress(), 10n);
-        await tx.create({ skipPublicSimulation: false });
-        txs.push(tx.send());
+        txs.push(tx.send({ skipPublicSimulation: false }));
       }
 
       logger.info('Waiting for txs to be mined');

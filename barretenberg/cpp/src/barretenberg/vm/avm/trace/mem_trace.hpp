@@ -41,7 +41,6 @@ class AvmMemTraceBuilder {
         FF m_one_min_inv{};
         bool m_sel_mov_ia_to_ic = false;
         bool m_sel_mov_ib_to_ic = false;
-        bool m_sel_cmov = false;
         bool m_tag_err_count_relevant = false;
         bool m_sel_op_slice = false;
 
@@ -80,8 +79,6 @@ class AvmMemTraceBuilder {
     std::vector<MemoryTraceEntry> finalize();
 
     MemEntry read_and_load_mov_opcode(uint8_t space_id, uint32_t clk, uint32_t addr);
-    std::array<MemEntry, 3> read_and_load_cmov_opcode(
-        uint8_t space_id, uint32_t clk, uint32_t a_addr, uint32_t b_addr, uint32_t cond_addr);
     MemEntry read_and_load_jumpi_opcode(uint8_t space_id, uint32_t clk, uint32_t cond_addr);
     MemEntry read_and_load_cast_opcode(uint8_t space_id, uint32_t clk, uint32_t addr, AvmMemoryTag w_in_tag);
     MemRead read_and_load_from_memory(uint8_t space_id,

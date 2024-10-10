@@ -33,7 +33,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
   type ContractClassPublic,
@@ -317,6 +317,7 @@ export class Archiver implements ArchiveSource {
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.
@@ -688,9 +689,10 @@ class ArchiverStoreHelper
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
-    const contractClasses = ContractClassRegisteredEvent.fromLogs(allLogs, ClassRegistererAddress).map(e =>
-      e.toContractClassPublic(),
-    );
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    ).map(e => e.toContractClassPublic());
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
@@ -733,8 +735,14 @@ class ArchiverStoreHelper
    */
   async #storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
     // Filter out private and unconstrained function broadcast events
-    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
-    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(

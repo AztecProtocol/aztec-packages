@@ -27,13 +27,19 @@ import {
   PrivateFPCContract,
   TokenContract,
 } from '@aztec/noir-contracts.js';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, deployCanonicalFeeJuice, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import {
+  type BalancesFn,
+  ensureAccountsPubliclyDeployed,
+  getBalancesFn,
+  setupCanonicalFeeJuice,
+} from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -165,7 +171,7 @@ export class FeesTest {
   public async applyBaseSnapshots() {
     await this.applyInitialAccountsSnapshot();
     await this.applyPublicDeployAccountsSnapshot();
-    await this.applyDeployFeeJuiceSnapshot();
+    await this.applySetupFeeJuiceSnapshot();
     await this.applyDeployBananaTokenSnapshot();
   }
 
@@ -205,15 +211,15 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      publicDeployAccounts(this.aliceWallet, this.wallets),
+      ensureAccountsPubliclyDeployed(this.aliceWallet, this.wallets),
     );
   }
 
-  async applyDeployFeeJuiceSnapshot() {
+  async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
-      'deploy_fee_juice',
+      'setup_fee_juice',
       async context => {
-        await deployCanonicalFeeJuice(
+        await setupCanonicalFeeJuice(
           new SignerlessWallet(
             context.pxe,
             new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.version),
@@ -221,7 +227,7 @@ export class FeesTest {
         );
       },
       async (_data, context) => {
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
+        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 

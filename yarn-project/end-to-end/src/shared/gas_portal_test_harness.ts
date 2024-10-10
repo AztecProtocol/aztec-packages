@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
   type Account,
@@ -78,7 +78,7 @@ export class FeeJuicePortalTestingHarnessFactory {
       client: walletClient,
     });
 
-    const gasL2 = await FeeJuiceContract.at(FeeJuiceAddress, wallet);
+    const gasL2 = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,

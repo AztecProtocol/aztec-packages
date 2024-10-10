@@ -47,7 +47,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
         BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        circuit.finalize_circuit(/*ensure_nonzero=*/true);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
         const bool is_structured = (trace_structure != TraceStructure::NONE);
@@ -76,7 +76,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
             ZoneScopedN("constructing proving key");
 #endif
-
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             if (IsGoblinFlavor<Flavor> && !is_structured) {
                 // Allocate full size polynomials

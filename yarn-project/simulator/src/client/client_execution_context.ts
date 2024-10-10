@@ -1,10 +1,15 @@
 import {
   type AuthWitness,
   type AztecNode,
+  CountedLog,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
   EncryptedL2Log,
   EncryptedL2NoteLog,
   Note,
+  NoteAndSlot,
   type NoteStatus,
+  type PrivateExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -12,6 +17,7 @@ import {
   CallContext,
   FunctionSelector,
   type Header,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   type TxContext,
@@ -27,13 +33,6 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import {
-  CountedLog,
-  CountedNoteLog,
-  CountedPublicExecutionRequest,
-  type ExecutionResult,
-  type NoteAndSlot,
-} from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -64,7 +63,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
-  private nestedExecutions: ExecutionResult[] = [];
+  private nestedExecutions: PrivateExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
@@ -110,8 +109,12 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext,
       this.sideEffectCounter,
     );
+    const privateContextInputsAsFields = privateContextInputs.toFields();
+    if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
+      throw new Error('Invalid private context inputs size');
+    }
 
-    const fields = [...privateContextInputs.toFields(), ...args];
+    const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -303,11 +306,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       },
       counter,
     );
-    this.newNotes.push({
-      storageSlot,
-      noteTypeId,
-      note,
-    });
+    this.newNotes.push(new NoteAndSlot(note, storageSlot, noteTypeId));
   }
 
   /**
@@ -390,7 +389,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     return Fr.fromBuffer(log.hash());
   }
 
-  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
     if (
       childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||

@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FUNCTION_TREE_HEIGHT } from '../../constants.gen.js';
+import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
@@ -40,6 +40,7 @@ export class PrivateCallData {
      * The membership witness for the function leaf corresponding to the function being invoked.
      */
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
+    public protocolContractSiblingPath: Tuple<Fr, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>,
     /**
      * The hash of the ACIR of the function being invoked.
      */
@@ -60,6 +61,7 @@ export class PrivateCallData {
       fields.publicKeysHash,
       fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
+      fields.protocolContractSiblingPath,
       fields.acirHash,
     ] as const;
   }
@@ -91,6 +93,7 @@ export class PrivateCallData {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
+      reader.readArray(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr),
       reader.readObject(Fr),
     );
   }

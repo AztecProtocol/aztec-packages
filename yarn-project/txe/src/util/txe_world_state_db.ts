@@ -1,4 +1,4 @@
-import { MerkleTreeId, type MerkleTreeOperations } from '@aztec/circuit-types';
+import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   Fr,
@@ -11,7 +11,7 @@ import { WorldStateDB } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
 export class TXEWorldStateDB extends WorldStateDB {
-  constructor(private merkleDb: MerkleTreeOperations, dataSource: ContractDataSource) {
+  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
     super(merkleDb, dataSource);
   }
 
