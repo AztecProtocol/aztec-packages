@@ -67,13 +67,20 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
 {{- define "aztec-network.otelCollectorMetricsEndpoint" -}}
-http://metrics-opentelemetry-collector.metrics:4318/v1/metrics
+{{- if .Values.telemetry.enabled -}}
+{{- if .Values.telemetry.otelCollectorEndpoint -}}
+{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "aztec-network.otelCollectorTracesEndpoint" -}}
-http://metrics-opentelemetry-collector.metrics:4318/v1/traces
+{{- if .Values.telemetry.enabled -}}
+{{- if .Values.telemetry.otelCollectorEndpoint -}}
+{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces
 {{- end -}}
-
+{{- end -}}
+{{- end -}}
 
 
 {{- define "helpers.flag" -}}

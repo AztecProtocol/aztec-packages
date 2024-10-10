@@ -68,6 +68,8 @@ import { prettyLogViemError } from './utils.js';
  * Stats for a sent transaction.
  */
 export type TransactionStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Hash of the transaction. */
   transactionHash: string;
   /** Size in bytes of the tx calldata */
@@ -263,8 +265,9 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
+      this.log.verbose(JSON.stringify(err));
       const errorName = tryGetCustomErrorName(err);
-      this.log.verbose(`Proof quote validation failed: ${errorName}`);
+      this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
     return quote;
@@ -326,6 +329,7 @@ export class L1Publisher {
     }
     const calldata = hexToBytes(tx.input);
     return {
+      sender: tx.from.toString(),
       transactionHash: tx.hash,
       calldataSize: calldata.length,
       calldataGas: getCalldataGasUsage(calldata),
@@ -402,7 +406,7 @@ export class L1Publisher {
       const tx = await this.getTransactionStats(txHash);
       const stats: L1PublishBlockStats = {
         ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-        ...pick(tx!, 'calldataGas', 'calldataSize'),
+        ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
       };
@@ -483,7 +487,7 @@ export class L1Publisher {
         const tx = await this.getTransactionStats(txHash);
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
           eventName: 'proof-published-to-l1',
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });

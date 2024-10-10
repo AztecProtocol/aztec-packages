@@ -129,9 +129,11 @@ global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
-global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3;
-global AZTEC_EPOCH_DURATION: u32 = 48;
+global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
+global AZTEC_EPOCH_DURATION: u32 = 16;
 global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
+// The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
+global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
@@ -168,6 +170,7 @@ global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bd
 // GAS DEFAULTS
 global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 100_000_000;
+global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 6_000_000;
 global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
 global DEFAULT_INCLUSION_FEE: Field = 0;
 global DA_BYTES_PER_FIELD: u32 = 32;

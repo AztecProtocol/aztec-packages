@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+# propagate errors inside while loop pipe
+set -o pipefail
 
 # Usage: run_bg_args.sh <main command> <background commands>...
 # Runs the main command with output logging and background commands with logging.
@@ -7,8 +9,8 @@ set -eu
 
 # Check if at least two commands are provided
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <main-command> <background commands>..."
-    exit 1
+  echo "Usage: $0 <main-command> <background commands>..."
+  exit 1
 fi
 
 # Define colors
@@ -55,14 +57,5 @@ for cmd in "$@"; do
     ((i++))
 done
 
-# Wait for the main command to finish and capture its exit code
-wait $main_pid
-main_exit_code=$?
-
-# Kill any remaining background jobs
-for pid in "${bg_pids[@]}"; do
-    kill "$pid" 2>/dev/null || true
-done
-
-# Exit with the same code as the main command
-exit $main_exit_code
+# Run the main command synchronously, piping output through the run_command function with green color
+run_command "$main_cmd" "\e[32m"

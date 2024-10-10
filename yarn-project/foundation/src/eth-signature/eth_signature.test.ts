@@ -20,16 +20,21 @@ describe('eth signature', () => {
     signature = signer.sign(message);
   });
 
+  const checkEquivalence = (serialized: Signature, deserialized: Signature) => {
+    expect(deserialized.getSize()).toEqual(serialized.getSize());
+    expect(deserialized).toEqual(serialized);
+  };
+
   it('should serialize / deserialize to buffer', () => {
     const serialized = signature.toBuffer();
     const deserialized = Signature.fromBuffer(serialized);
-    expect(deserialized).toEqual(signature);
+    checkEquivalence(signature, deserialized);
   });
 
   it('should serialize / deserialize real signature to hex string', () => {
     const serialized = signature.to0xString();
     const deserialized = Signature.from0xString(serialized);
-    expect(deserialized).toEqual(signature);
+    checkEquivalence(signature, deserialized);
   });
 
   it('should recover signer from signature', () => {
@@ -41,13 +46,13 @@ describe('eth signature', () => {
     const signature = new Signature(Buffer32.random(), Buffer32.random(), 1, false);
     const serialized = signature.to0xString();
     const deserialized = Signature.from0xString(serialized);
-    expect(deserialized).toEqual(signature);
+    checkEquivalence(signature, deserialized);
   });
 
   it('should serialize / deserialize to hex string with 2-digit v', () => {
     const signature = new Signature(Buffer32.random(), Buffer32.random(), 26, false);
     const serialized = signature.to0xString();
     const deserialized = Signature.from0xString(serialized);
-    expect(deserialized).toEqual(signature);
+    checkEquivalence(signature, deserialized);
   });
 });

@@ -87,7 +87,7 @@ void test_kernel_lookup(bool indirect,
 /*
  * Helper function to assert row values for a kernel lookup opcode
  */
-void expect_row(auto row, FF selector, FF ia, FF ind_a, FF mem_addr_a, AvmMemoryTag w_in_tag)
+void expect_row(auto row, FF selector, FF ia, [[maybe_unused]] FF ind_a, FF mem_addr_a, AvmMemoryTag w_in_tag)
 {
     // Checks dependent on the opcode
     EXPECT_EQ(row->main_kernel_in_offset, selector);
@@ -96,8 +96,9 @@ void expect_row(auto row, FF selector, FF ia, FF ind_a, FF mem_addr_a, AvmMemory
 
     // Checks that are fixed for kernel inputs
     EXPECT_EQ(row->main_rwa, FF(1));
-    EXPECT_EQ(row->main_ind_addr_a, ind_a);
-    EXPECT_EQ(row->main_sel_resolve_ind_addr_a, FF(ind_a != 0));
+    // TODO(JEANMON): Uncomment once we have a constraining address resolution
+    // EXPECT_EQ(row->main_ind_addr_a, ind_a);
+    // EXPECT_EQ(row->main_sel_resolve_ind_addr_a, FF(ind_a != 0));
     EXPECT_EQ(row->main_sel_mem_op_a, FF(1));
     EXPECT_EQ(row->main_w_in_tag, static_cast<uint32_t>(w_in_tag));
     EXPECT_EQ(row->main_sel_q_kernel_lookup, FF(1));
@@ -1249,7 +1250,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
-        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
+        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, /*address_offset*/ 0, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -1288,7 +1289,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
-        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
+        trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, /*address_offset*/ 0, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(

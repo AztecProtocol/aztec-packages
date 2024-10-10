@@ -328,4 +328,56 @@ TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "NO_TAG_ERR_WRITE");
 }
 
+// Basic test on direct relative memory addressing
+TEST_F(AvmMemoryTests, directRelativeMemory)
+{
+    trace_builder.op_set(0, 42, 0, AvmMemoryTag::U32); // Relative base offset = 42
+
+    trace_builder.op_set(0, 3, 52, AvmMemoryTag::U16);  // Value 3 at offset 52, relative offset 10
+    trace_builder.op_set(0, 5, 142, AvmMemoryTag::U16); // Value 5 at offset 142, relative offset 100
+
+    // Addition with direct relative addressing on the 2 input operands and direct addressing on the output
+    // indirect byte: 00011000 = 24
+    trace_builder.op_add(24, 10, 100, 10, AvmMemoryTag::U16);
+    trace_builder.op_return(0, 0, 0);
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the add selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
+
+    ASSERT_TRUE(row != trace.end());
+
+    // Result of addition 3 + 5 = 8 at memory position 10
+    EXPECT_EQ(row->main_ic, 8);
+    EXPECT_EQ(row->main_mem_addr_c, 10);
+}
+
+// Basic test on indirect relative memory addressing
+TEST_F(AvmMemoryTests, indirectRelativeMemory)
+{
+    trace_builder.op_set(0, 100, 0, AvmMemoryTag::U32); // Relative base offset = 100
+
+    // Operands a and b are saved at memory offsets 10 and 11 respectively.
+    // Unresolved/indirect addresses for a and b are 123 and 147, i.e., M[123]=10 and M[147]=11
+    // Indirect relative addresses for a and b are thus 23 and 47 respectively.
+
+    trace_builder.op_set(0, 10, 123, AvmMemoryTag::U32); // Direct address of a set at indirect offset
+    trace_builder.op_set(0, 11, 147, AvmMemoryTag::U32); // Direct address of b set at indirect offset
+
+    trace_builder.op_set(0, 3, 10, AvmMemoryTag::U8); // a resolved memory offset
+    trace_builder.op_set(0, 5, 11, AvmMemoryTag::U8); // b resolved memory offset
+
+    // Output c = a + b = 8 is stored at direct relative offset 2, i.e., address 102.
+    // indirect byte: 00111011 = 1 + 2 + 8 + 16 + 32 = 59
+    trace_builder.op_add(59, 23, 47, 2, AvmMemoryTag::U8);
+    trace_builder.op_return(0, 0, 0);
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the add selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
+
+    EXPECT_EQ(row->main_ic, 8);
+    EXPECT_EQ(row->main_mem_addr_c, 102);
+}
+
 } // namespace tests_avm

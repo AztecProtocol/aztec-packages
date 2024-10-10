@@ -46,6 +46,7 @@ const NATIVE_LIBRARY_NAME = 'world_state_napi';
 const NATIVE_CLASS_NAME = 'WorldState';
 
 const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
+const MAX_WORLD_STATE_THREADS = 16;
 
 export interface NativeWorldStateInstance {
   call<T extends WorldStateMessageType>(messageType: T, body: WorldStateRequest[T]): Promise<WorldStateResponse[T]>;
@@ -97,7 +98,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       },
       GeneratorIndex.BLOCK_HASH,
       10 * 1024 * 1024, // 10 GB per tree (in KB)
-      16,
+      Math.min(cpus().length, MAX_WORLD_STATE_THREADS),
     );
     this.queue.start();
   }
