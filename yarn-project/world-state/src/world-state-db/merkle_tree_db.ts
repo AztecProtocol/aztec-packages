@@ -57,11 +57,6 @@ export interface MerkleTreeAdminDatabase {
    */
   fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
 
-  /**
-   * Forks the database at the given block number.
-   */
-  fork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
-
   /** Stops the database */
   close(): Promise<void>;
 }

@@ -5,6 +5,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace bb::world_state {
@@ -51,8 +52,9 @@ struct TreeIdOnlyRequest {
 };
 
 struct CreateForkRequest {
-    uint64_t blockNumber;
-    MSGPACK_FIELDS(blockNumber);
+    bool latest;
+    index_t blockNumber;
+    MSGPACK_FIELDS(latest, blockNumber);
 };
 
 struct CreateForkResponse {

@@ -129,7 +129,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     _forks[fork->_forkId] = fork;
 }
 
-Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
+Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
 {
     std::unique_lock lock(mtx);
     auto it = _forks.find(forkId);
@@ -138,14 +138,16 @@ Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
     }
     return it->second;
 }
-uint64_t WorldState::create_fork(index_t blockNumber)
+uint64_t WorldState::create_fork(const std::optional<index_t>& blockNumber)
 {
-    index_t blockNumberForFork = blockNumber;
-    if (blockNumberForFork == 0) {
+    index_t blockNumberForFork = 0;
+    if (!blockNumber.has_value()) {
         // we are forking at latest
         WorldStateStatus currentStatus;
         get_status(currentStatus);
         blockNumberForFork = currentStatus.unfinalisedBlockNumber;
+    } else {
+        blockNumberForFork = blockNumber.value();
     }
     Fork::SharedPtr fork = create_new_fork(blockNumberForFork);
     std::unique_lock lock(mtx);
@@ -155,7 +157,7 @@ uint64_t WorldState::create_fork(index_t blockNumber)
     return forkId;
 }
 
-void WorldState::remove_forks_for_block(index_t blockNumber)
+void WorldState::remove_forks_for_block(const index_t& blockNumber)
 {
     // capture the shared pointers outside of the lock scope so we are not under the lock when the objects are destroyed
     std::vector<Fork::SharedPtr> forks;
@@ -173,7 +175,7 @@ void WorldState::remove_forks_for_block(index_t blockNumber)
     }
 }
 
-void WorldState::delete_fork(uint64_t forkId)
+void WorldState::delete_fork(const uint64_t& forkId)
 {
     if (forkId == 0) {
         throw std::runtime_error("Unable to delete canonical fork");
@@ -187,7 +189,7 @@ void WorldState::delete_fork(uint64_t forkId)
     }
 }
 
-Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
+Fork::SharedPtr WorldState::create_new_fork(const index_t& blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
     fork->_blockNumber = blockNumber;

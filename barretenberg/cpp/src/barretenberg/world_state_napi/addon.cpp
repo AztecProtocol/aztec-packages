@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <sys/types.h>
@@ -572,7 +573,10 @@ bool WorldStateAddon::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<CreateForkRequest> request;
     obj.convert(request);
 
-    uint64_t forkId = _ws->create_fork(request.value.blockNumber);
+    std::optional<index_t> blockNumber =
+        request.value.latest ? std::nullopt : std::optional<index_t>(request.value.blockNumber);
+
+    uint64_t forkId = _ws->create_fork(blockNumber);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<CreateForkResponse> resp_msg(WorldStateMessageType::CREATE_FORK, header, { forkId });

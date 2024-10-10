@@ -195,6 +195,7 @@ interface SyncBlockResponse {
 }
 
 interface CreateForkRequest {
+  latest: boolean;
   blockNumber: number;
 }
 
@@ -204,10 +205,6 @@ interface CreateForkResponse {
 
 interface DeleteForkRequest {
   forkId: number;
-}
-
-interface CreateForkRequest {
-  blockNumber: number;
 }
 
 interface CreateForkResponse {

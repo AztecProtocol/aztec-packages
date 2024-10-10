@@ -102,6 +102,22 @@ describe('NativeWorldState', () => {
 
       await fork.close();
     });
+
+    it('Can create a fork at block 0 when not latest', async () => {
+      const fork = await ws.fork();
+      const forkAtGenesis = await ws.fork();
+
+      for (let i = 0; i < 5; i++) {
+        const blockNumber = i + 1;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        expect(status.unfinalisedBlockNumber).toBe(blockNumber);
+      }
+
+      const forkAtZero = await ws.fork(0);
+      await compareChains(forkAtGenesis, forkAtZero);
+    }, 30_000);
   });
 
   describe('Pending and Proven chain', () => {

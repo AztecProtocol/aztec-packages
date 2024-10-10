@@ -207,8 +207,8 @@ class WorldState {
      */
     void rollback();
 
-    uint64_t create_fork(index_t blockNumber);
-    void delete_fork(uint64_t forkId);
+    uint64_t create_fork(const std::optional<index_t>& blockNumber);
+    void delete_fork(const uint64_t& forkId);
 
     WorldStateStatus set_finalised_blocks(const index_t& toBlockNumber);
     WorldStateStatus unwind_blocks(const index_t& toBlockNumber);
@@ -239,9 +239,9 @@ class WorldState {
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                uint64_t maxReaders);
 
-    Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
-    Fork::SharedPtr create_new_fork(index_t blockNumber);
-    void remove_forks_for_block(index_t blockNumber);
+    Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
+    Fork::SharedPtr create_new_fork(const index_t& blockNumber);
+    void remove_forks_for_block(const index_t& blockNumber);
 
     bool unwind_block(const index_t& blockNumber);
     bool remove_historical_block(const index_t& blockNumber);
