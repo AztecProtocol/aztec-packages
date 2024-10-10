@@ -2,6 +2,7 @@
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/world_state/fork.hpp"
@@ -21,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <sys/types.h>
+#include <unordered_map>
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
@@ -31,6 +33,7 @@ const uint64_t DEFAULT_MAP_SIZE = 1024 * 1024;
 WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
 {
+    uint64_t thread_pool_size = 16;
     std::string data_dir;
     std::unordered_map<MerkleTreeId, uint64_t> map_size{
         { MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
@@ -39,54 +42,88 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         { MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
     };
-    uint64_t thread_pool_size = 16;
+    std::unordered_map<MerkleTreeId, uint32_t> tree_height;
+    std::unordered_map<MerkleTreeId, index_t> tree_prefill;
+    std::vector<MerkleTreeId> tree_ids{
+        MerkleTreeId::NULLIFIER_TREE,        MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::PUBLIC_DATA_TREE,
+        MerkleTreeId::L1_TO_L2_MESSAGE_TREE, MerkleTreeId::ARCHIVE,
+    };
+    uint32_t initial_header_generator_point = 0;
 
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1) {
-        throw Napi::TypeError::New(env, "Wrong number of arguments");
-    }
-
-    if (!info[0].IsString()) {
+    size_t data_dir_index = 0;
+    if (info.Length() > data_dir_index && info[data_dir_index].IsString()) {
+        data_dir = info[data_dir_index].As<Napi::String>();
+    } else {
         throw Napi::TypeError::New(env, "Directory needs to be a string");
     }
 
-    data_dir = info[0].As<Napi::String>();
+    size_t tree_height_index = 1;
+    if (info.Length() > tree_height_index && info[tree_height_index].IsObject()) {
+        Napi::Object obj = info[tree_height_index].As<Napi::Object>();
 
-    if (info.Length() > 1) {
-        if (info[1].IsObject()) {
-            Napi::Object obj = info[1].As<Napi::Object>();
+        for (auto tree_id : tree_ids) {
+            if (obj.Has(tree_id)) {
+                tree_height[tree_id] = obj.Get(tree_id).As<Napi::Number>().Uint32Value();
+            }
+        }
+    } else {
+        throw Napi::TypeError::New(env, "Tree heights must be a map");
+    }
 
-            for (auto tree_id : { MerkleTreeId::ARCHIVE,
-                                  MerkleTreeId::NULLIFIER_TREE,
-                                  MerkleTreeId::NOTE_HASH_TREE,
-                                  MerkleTreeId::PUBLIC_DATA_TREE,
-                                  MerkleTreeId::L1_TO_L2_MESSAGE_TREE }) {
+    size_t tree_prefill_index = 2;
+    if (info.Length() > tree_prefill_index && info[tree_prefill_index].IsObject()) {
+        Napi::Object obj = info[tree_prefill_index].As<Napi::Object>();
+
+        for (auto tree_id : tree_ids) {
+            if (obj.Has(tree_id)) {
+                tree_prefill[tree_id] = obj.Get(tree_id).As<Napi::Number>().Uint32Value();
+            }
+        }
+    } else {
+        throw Napi::TypeError::New(env, "Tree prefill must be a map");
+    }
+
+    size_t initial_header_generator_point_index = 3;
+    if (info.Length() > initial_header_generator_point_index && info[initial_header_generator_point_index].IsNumber()) {
+        initial_header_generator_point = info[initial_header_generator_point_index].As<Napi::Number>().Uint32Value();
+    } else {
+        throw Napi::TypeError::New(env, "Header generator point needs to be a number");
+    }
+
+    // optional parameters
+    size_t map_size_index = 4;
+    if (info.Length() > map_size_index) {
+        if (info[4].IsObject()) {
+            Napi::Object obj = info[map_size_index].As<Napi::Object>();
+
+            for (auto tree_id : tree_ids) {
                 if (obj.Has(tree_id)) {
                     map_size[tree_id] = obj.Get(tree_id).As<Napi::Number>().Uint32Value();
                 }
             }
-        } else if (info[1].IsNumber()) {
-            uint64_t size = info[1].As<Napi::Number>().Uint32Value();
-            for (auto tree_id : { MerkleTreeId::ARCHIVE,
-                                  MerkleTreeId::NULLIFIER_TREE,
-                                  MerkleTreeId::NOTE_HASH_TREE,
-                                  MerkleTreeId::PUBLIC_DATA_TREE,
-                                  MerkleTreeId::L1_TO_L2_MESSAGE_TREE }) {
+        } else if (info[map_size_index].IsNumber()) {
+            uint64_t size = info[map_size_index].As<Napi::Number>().Uint32Value();
+            for (auto tree_id : tree_ids) {
                 map_size[tree_id] = size;
             }
+        } else {
+            throw Napi::TypeError::New(env, "Map size must be a number or an object");
         }
     }
 
-    if (info.Length() > 2) {
-        if (!info[2].IsNumber()) {
+    size_t thread_pool_size_index = 5;
+    if (info.Length() > thread_pool_size_index) {
+        if (!info[thread_pool_size_index].IsNumber()) {
             throw Napi::TypeError::New(env, "Thread pool size must be a number");
         }
 
-        thread_pool_size = info[2].As<Napi::Number>().Uint32Value();
+        thread_pool_size = info[thread_pool_size_index].As<Napi::Number>().Uint32Value();
     }
 
-    _ws = std::make_unique<WorldState>(data_dir, map_size, thread_pool_size);
+    _ws = std::make_unique<WorldState>(
+        thread_pool_size, data_dir, map_size, tree_height, tree_prefill, initial_header_generator_point);
 
     _dispatcher.registerTarget(
         WorldStateMessageType::GET_TREE_INFO,

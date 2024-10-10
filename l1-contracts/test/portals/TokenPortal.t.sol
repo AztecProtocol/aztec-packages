@@ -29,6 +29,7 @@ contract TokenPortalTest is Test {
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
 
@@ -122,7 +123,8 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
     // event we will get
 
     // Perform op
@@ -147,7 +149,8 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
 
     // Perform op
     bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
