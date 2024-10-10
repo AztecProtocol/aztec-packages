@@ -638,6 +638,7 @@ jobs:
             --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/admin-${{ env.FORK_ADMIN_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
+            --timeout 180 \
             --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/basic_contracts.json

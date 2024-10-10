@@ -21,6 +21,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option('--timeout <number>', 'Seconds to wait for deployment', '60')
     .option('--json', 'Output the result as JSON')
     .action(async options => {
       const { bootstrapNetwork } = await import('./bootstrap_network.js');
@@ -31,6 +32,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.l1PrivateKey,
         options.mnemonic,
         options.json,
+        options.timeout,
         log,
         debugLogger,
       );

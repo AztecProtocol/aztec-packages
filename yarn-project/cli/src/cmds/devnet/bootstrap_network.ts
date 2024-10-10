@@ -28,6 +28,7 @@ export async function bootstrapNetwork(
   l1PrivateKey: `0x${string}` | undefined,
   l1Mnemonic: string,
   json: boolean,
+  timeout: number,
   log: LogFn,
   debugLog: DebugLogger,
 ) {
@@ -35,7 +36,7 @@ export async function bootstrapNetwork(
 
   // setup a one-off account contract
   const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
-  const wallet = await account.deploy().getWallet({ proven: true, provenTimeout: 600 });
+  const wallet = await account.deploy().getWallet({ proven: true, provenTimeout: 600, timeout });
 
   const l1Clients = createL1Clients(
     l1Url,
@@ -45,15 +46,15 @@ export async function bootstrapNetwork(
 
   const { erc20Address, portalAddress } = await deployERC20(l1Clients);
 
-  const { token, bridge } = await deployToken(wallet, portalAddress);
+  const { token, bridge } = await deployToken(wallet, portalAddress, timeout);
 
   await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridge.address);
 
-  const fpc = await deployFPC(wallet, token.address);
+  const fpc = await deployFPC(wallet, token.address, timeout);
 
-  const counter = await deployCounter(wallet);
+  const counter = await deployCounter(wallet, timeout);
   // NOTE: Disabling for now in order to get devnet running
-  await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
+  await fundFPC(counter.address, wallet, l1Clients, fpc.address, timeout, debugLog);
 
   if (json) {
     log(
@@ -136,23 +137,24 @@ async function deployERC20({ walletClient, publicClient }: L1Clients) {
 async function deployToken(
   wallet: Wallet,
   l1Portal: EthAddress,
+  timeout: number,
 ): Promise<{ token: ContractDeploymentInfo; bridge: ContractDeploymentInfo }> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenContract, TokenBridgeContract } = await import('@aztec/noir-contracts.js');
   const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
     .send({ universalDeploy: true })
-    .deployed({ proven: true, provenTimeout: 600 });
+    .deployed({ proven: true, provenTimeout: 600, timeout });
   const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal)
     .send({ universalDeploy: true })
-    .deployed({ proven: true, provenTimeout: 600 });
+    .deployed({ proven: true, provenTimeout: 600, timeout });
 
   await new BatchCall(wallet, [
     devCoin.methods.set_minter(bridge.address, true).request(),
     devCoin.methods.set_admin(bridge.address).request(),
   ])
     .send()
-    .wait({ proven: true, provenTimeout: 600 });
+    .wait({ proven: true, provenTimeout: 600, timeout });
 
   return {
     token: {
@@ -194,13 +196,13 @@ async function initPortal(
   await publicClient.waitForTransactionReceipt({ hash });
 }
 
-async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<ContractDeploymentInfo> {
+async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress, timeout: number): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js');
   const fpc = await FPCContract.deploy(wallet, tokenAddress)
     .send({ universalDeploy: true })
-    .deployed({ proven: true, provenTimeout: 600 });
+    .deployed({ proven: true, provenTimeout: 600, timeout });
   const info: ContractDeploymentInfo = {
     address: fpc.address,
     initHash: fpc.instance.initializationHash,
@@ -209,13 +211,13 @@ async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<Co
   return info;
 }
 
-async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
+async function deployCounter(wallet: Wallet, timeout: number): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-contracts.js');
   const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress())
     .send({ universalDeploy: true })
-    .deployed({ proven: true, provenTimeout: 600 });
+    .deployed({ proven: true, provenTimeout: 600, timeout });
   const info: ContractDeploymentInfo = {
     address: counter.address,
     initHash: counter.instance.initializationHash,
@@ -230,6 +232,7 @@ async function fundFPC(
   wallet: Wallet,
   l1Clients: L1Clients,
   fpcAddress: AztecAddress,
+  timeout: number,
   debugLog: DebugLogger,
 ) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -258,14 +261,14 @@ async function fundFPC(
   await counter.methods
     .increment(wallet.getAddress(), wallet.getAddress())
     .send()
-    .wait({ proven: true, provenTimeout: 600 });
+    .wait({ proven: true, provenTimeout: 600, timeout });
   await counter.methods
     .increment(wallet.getAddress(), wallet.getAddress())
     .send()
-    .wait({ proven: true, provenTimeout: 600 });
+    .wait({ proven: true, provenTimeout: 600, timeout });
 
   await feeJuiceContract.methods
     .claim(fpcAddress, claimAmount, claimSecret)
     .send()
-    .wait({ proven: true, provenTimeout: 600 });
+    .wait({ proven: true, provenTimeout: 600, timeout });
 }
