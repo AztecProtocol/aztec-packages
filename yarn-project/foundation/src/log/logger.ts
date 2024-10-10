@@ -49,7 +49,7 @@ export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLo
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
+    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), attatchFixedLogData(data)),
     warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
     info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
     verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
