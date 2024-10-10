@@ -134,21 +134,31 @@ contract NFT {
         public_owners_storage.write(to);
     }
 
+    #[private]
+    fn transfer_to_private(from: AztecAddress, to: AztecAddress, token_id: Field) {
+        let nft = NFT::at(context.this_address());
+
+        let slot_commitment = nft.prepare_transfer_to_private(from, to).call(&mut context);
+
+        // We now transfer the token to this contract so that the `msg_sender` in `finalize_transfer_to_private` call
+        // below is the token owner.
+        nft.transfer_in_public(from, context.this_address(), token_id, 0).enqueue(&mut context);
+
+        // At last we finalize the transfer.
+        nft.finalize_transfer_to_private(slot_commitment, token_id).enqueue(&mut context);
+    }
+
     /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
     /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
-    /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
+    /// as an argument so that we can derive `slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
     #[private]
-    fn prepare_transfer_to_private(
-        from: AztecAddress,
-        to: AztecAddress,
-        transient_storage_slot_randomness: Field
-    ) {
+    fn prepare_transfer_to_private(from: AztecAddress, to: AztecAddress) -> Field {
         let to_keys = get_public_keys(to);
         let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
 
-        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
+        // We create a setup payload with unpopulated/zero token id for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
         let note_randomness = unsafe {
@@ -161,18 +171,23 @@ contract NFT {
 
         // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
         // non-sender's slots
-        let transfer_preparer_storage_slot_commitment: Field = pedersen_hash(
+        let transient_storage_slot_randomness = unsafe {
+            random()
+        };
+        let slot_commitment: Field = pedersen_hash(
             [context.msg_sender().to_field(), transient_storage_slot_randomness],
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
         // Then we hash the transfer preparer storage slot commitment with `from` and use that as the final slot
         // --> by hashing it with a `from` we ensure that `from` cannot interfere with slots not assigned to him.
         let slot: Field = pedersen_hash(
-            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            [from.to_field(), slot_commitment],
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
         NFT::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point, slot).enqueue(&mut context);
+
+        slot_commitment
     }
 
     #[public]
@@ -184,16 +199,12 @@ contract NFT {
     }
 
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_transfer_to_private` first.
-    /// The `transfer_preparer_storage_slot_commitment` has to be computed off-chain the same way as was done
-    /// in the preparation call.
+    /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
+    /// `slot_commitment` must be passed as an argument to this function.
     #[public]
-    fn finalize_transfer_to_private(
-        token_id: Field,
-        transfer_preparer_storage_slot_commitment: Field
-    ) {
+    fn finalize_transfer_to_private(slot_commitment: Field, token_id: Field) {
         // We don't need to support authwit here because `prepare_transfer_to_private` allows us to set arbitrary
-        // `from` and `from` will always be the msg sender here.
+        // `from` and hence the call is authenticated by the loaded hiding point being non-zero.
         let from = context.msg_sender();
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from), "invalid NFT owner");
@@ -201,7 +212,7 @@ contract NFT {
         // Derive the slot from the transfer preparer storage slot commitment and the `from` address (declared
         // as `from` in this function)
         let hiding_point_slot = pedersen_hash(
-            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            [from.to_field(), slot_commitment],
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
@@ -308,3 +319,4 @@ contract NFT {
         (owned_nft_ids, page_limit_reached)
     }
 }
+
