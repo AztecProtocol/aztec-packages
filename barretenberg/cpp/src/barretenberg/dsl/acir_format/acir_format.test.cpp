@@ -51,7 +51,6 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -175,7 +174,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -258,7 +256,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -367,7 +364,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -430,98 +426,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(AcirFormatTests, TestVarKeccak)
-{
-    HashInput input1;
-    input1.witness = 0;
-    input1.num_bits = 8;
-    HashInput input2;
-    input2.witness = 1;
-    input2.num_bits = 8;
-    HashInput input3;
-    input3.witness = 2;
-    input3.num_bits = 8;
-    KeccakConstraint keccak;
-    keccak.inputs = { input1, input2, input3 };
-    keccak.var_message_size = 3;
-    keccak.result = { 4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                      20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 };
-
-    RangeConstraint range_a{
-        .witness = 0,
-        .num_bits = 8,
-    };
-    RangeConstraint range_b{
-        .witness = 1,
-        .num_bits = 8,
-    };
-    RangeConstraint range_c{
-        .witness = 2,
-        .num_bits = 8,
-    };
-    RangeConstraint range_d{
-        .witness = 3,
-        .num_bits = 8,
-    };
-
-    auto dummy = poly_triple{
-        .a = 0,
-        .b = 0,
-        .c = 0,
-        .q_m = 0,
-        .q_l = 1,
-        .q_r = 0,
-        .q_o = 0,
-        .q_c = fr::neg_one() * fr(4),
-    };
-
-    AcirFormat constraint_system{
-        .varnum = 36,
-        .recursive = false,
-        .num_acir_opcodes = 6,
-        .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = { range_a, range_b, range_c, range_d },
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .schnorr_constraints = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_constraints = { keccak },
-        .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = { dummy },
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(constraint_system);
-
-    WitnessVector witness{ 4, 2, 6, 2 };
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
-
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
-}
-
 TEST_F(AcirFormatTests, TestKeccakPermutation)
 {
     Keccakf1600
@@ -571,7 +475,6 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = { keccak_permutation },
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -648,7 +551,6 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -777,7 +679,6 @@ TEST_F(AcirFormatTests, TestBigAdd)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},

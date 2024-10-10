@@ -157,15 +157,6 @@ pub enum BlackBoxFuncCall<F> {
         input2: Box<[FunctionInput<F>; 3]>,
         outputs: (Witness, Witness, Witness),
     },
-    Keccak256 {
-        inputs: Vec<FunctionInput<F>>,
-        /// This is the number of bytes to take
-        /// from the input. Note: if `var_message_size`
-        /// is more than the number of bytes in the input,
-        /// then an error is returned.
-        var_message_size: FunctionInput<F>,
-        outputs: Box<[Witness; 32]>,
-    },
     Keccakf1600 {
         inputs: Box<[FunctionInput<F>; 25]>,
         outputs: Box<[Witness; 25]>,
@@ -254,7 +245,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             BlackBoxFuncCall::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
             BlackBoxFuncCall::MultiScalarMul { .. } => BlackBoxFunc::MultiScalarMul,
             BlackBoxFuncCall::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
-            BlackBoxFuncCall::Keccak256 { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
             BlackBoxFuncCall::RecursiveAggregation { .. } => BlackBoxFunc::RecursiveAggregation,
             BlackBoxFuncCall::BigIntAdd { .. } => BlackBoxFunc::BigIntAdd,
@@ -361,11 +351,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
                 inputs.extend(hashed_message.iter().copied());
                 inputs
             }
-            BlackBoxFuncCall::Keccak256 { inputs, var_message_size, .. } => {
-                let mut inputs = inputs.clone();
-                inputs.push(*var_message_size);
-                inputs
-            }
             BlackBoxFuncCall::RecursiveAggregation {
                 verification_key: key,
                 proof,
@@ -386,8 +371,7 @@ impl<F: Copy> BlackBoxFuncCall<F> {
     pub fn get_outputs_vec(&self) -> Vec<Witness> {
         match self {
             BlackBoxFuncCall::Blake2s { outputs, .. }
-            | BlackBoxFuncCall::Blake3 { outputs, .. }
-            | BlackBoxFuncCall::Keccak256 { outputs, .. } => outputs.to_vec(),
+            | BlackBoxFuncCall::Blake3 { outputs, .. } => outputs.to_vec(),
 
             BlackBoxFuncCall::Keccakf1600 { outputs, .. } => outputs.to_vec(),
 
