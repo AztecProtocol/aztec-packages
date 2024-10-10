@@ -1,7 +1,7 @@
 use crate::{test::utils, types::nft_note::NFTNote, NFT};
 use dep::aztec::{
-    hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
-    oracle::random::random, protocol_types::storage::map::derive_storage_slot_in_map
+    keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader}, oracle::random::random,
+    protocol_types::storage::map::derive_storage_slot_in_map
 };
 use std::test::OracleMock;
 
@@ -60,12 +60,10 @@ unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     let (env, nft_contract_address, _, _, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the commitment
-    let transfer_preparer_storage_slot_commitment = random();
+    let slot_commitment = random();
 
     // Try finalizing the transfer without preparing it
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, slot_commitment));
 }
 
 #[test(should_fail_with="transfer not prepared")]
@@ -91,11 +89,9 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     let (env, nft_contract_address, _, not_owner, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // We set random value for the commitment as the NFT owner check is before we use the value
-    let transfer_preparer_storage_slot_commitment = random();
+    let slot_commitment = random();
 
     // Try transferring someone else's public NFT
     env.impersonate(not_owner);
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, slot_commitment));
 }
