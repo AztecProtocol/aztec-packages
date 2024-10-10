@@ -52,14 +52,11 @@ build-protocol-circuits:
 
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
 
-  # NOTE: this step generate a Nargo.toml from the template file
-  RUN yarn && node ./scripts/generate_variants.js
-
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-projects-noir-protocol-circuits" \
     --rebuild_patterns="../../noir/.rebuild_patterns_native ../../barretenberg/cpp/.rebuild_patterns .rebuild_patterns" \
     --command="./bootstrap.sh" \
-    --build_artifacts="target"
+    --build_artifacts="target Nargo.toml private_kernel_reset_dimensions.json"
 
   WORKDIR /usr/src/noir-projects
   SAVE ARTIFACT noir-protocol-circuits
@@ -105,7 +102,6 @@ test:
 
   COPY +build/. /usr/src/noir-projects
 
-  RUN exit 1
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
 
   RUN cd /usr/src/yarn-project/txe && yarn start & \
