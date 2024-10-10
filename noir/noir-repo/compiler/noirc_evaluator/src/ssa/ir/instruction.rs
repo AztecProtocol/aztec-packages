@@ -641,8 +641,7 @@ impl Instruction {
                         return SimplifiedTo(new_array);
                     }
                 }
-
-                try_optimize_array_set_from_previous_get(dfg, *array, *index, *value)
+                None
             }
             Instruction::Truncate { value, bit_size, max_bit_size } => {
                 if bit_size == max_bit_size {
@@ -815,73 +814,6 @@ fn try_optimize_array_get_from_previous_set(
             return SimplifyResult::SimplifiedTo(array[index]);
         }
     }
-    SimplifyResult::None
-}
-
-// If we have an array set whose value is from an array get on the same array at the same index,
-// we can simplify that array set to the array we were looking to perform an array set upon.
-
-// Simple case:
-// v3 = array_get v1, index v2
-// v5 = array_set v1, index v2, value v3
-
-// If we could not immediately simplify the array set from its value, we can try to follow
-// the array set backwards:
-
-// v3 = array_get v1, index v2
-// v5 = array_set v1, index v4, value [Field 100, Field 101, Field 102]
-// v7 = array_set mut v5, index v2, value v3
-
-// We want to optimize `v7` to `v5`. We see that `v3` comes from an array get to `v1`. We follow `v5` backwards and see an array set
-// to `v1` and that array set occurs to a different index. We now know we can simplify `v7` to `v5` as it is unchanged.
-fn try_optimize_array_set_from_previous_get(
-    dfg: &DataFlowGraph,
-    mut array_id: ValueId,
-    target_index: ValueId,
-    target_value: ValueId,
-) -> SimplifyResult {
-    let array_from_get = match &dfg[target_value] {
-        Value::Instruction { instruction, .. } => match &dfg[*instruction] {
-            Instruction::ArrayGet { array, index } => {
-                if *array == array_id && *index == target_index {
-                    // If array and index match from the value, we can immediately simplify
-                    return SimplifyResult::SimplifiedTo(array_id);
-                } else if *index == target_index {
-                    Some(*array)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        },
-        _ => None,
-    };
-
-    let original_array_id = array_id;
-    // Arbitrary number of maximum tries just to prevent this optimization from taking too long.
-    let max_tries = 5;
-    for _ in 0..max_tries {
-        match &dfg[array_id] {
-            Value::Instruction { instruction, .. } => match &dfg[*instruction] {
-                Instruction::ArraySet { array, index, .. } => {
-                    if *index == target_index {
-                        return SimplifyResult::None;
-                    }
-
-                    if let Some(array_id) = array_from_get {
-                        if *array == array_id {
-                            return SimplifyResult::SimplifiedTo(original_array_id);
-                        }
-                    }
-
-                    array_id = *array; // recur
-                }
-                _ => return SimplifyResult::None,
-            },
-            _ => return SimplifyResult::None,
-        }
-    }
-
     SimplifyResult::None
 }
 
