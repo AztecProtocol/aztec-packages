@@ -890,7 +890,7 @@ typename Curve::Element pippenger_internal(std::span<const typename Curve::Affin
 }
 
 template <typename Curve>
-typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
+typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars_,
                                   std::span<const typename Curve::AffineElement> points,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases)
@@ -904,6 +904,7 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
     // For 8 threads, this neatly coincides with the threshold where Strauss scalar multiplication outperforms
     // Pippenger
     const size_t threshold = get_num_cpus_pow2() * 8;
+    auto scalars = scalars_.span;
     size_t num_initial_points = scalars.size();
     if (num_initial_points == 0) {
         Element out = Group::one;
@@ -927,11 +928,11 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
     const auto slice_bits = static_cast<size_t>(numeric::get_msb(static_cast<uint64_t>(num_initial_points)));
     const auto num_slice_points = static_cast<size_t>(1ULL << slice_bits);
 
-    Element result = pippenger_internal(points, scalars, num_slice_points, state, handle_edge_cases);
+    Element result = pippenger_internal(points, scalars_, num_slice_points, state, handle_edge_cases);
     if (num_slice_points != num_initial_points) {
         return result +
                pippenger(
-                   scalars.subspan(num_slice_points), points.subspan(num_slice_points * 2), state, handle_edge_cases);
+                   scalars_.subspan(num_slice_points), points.subspan(num_slice_points * 2), state, handle_edge_cases);
     }
     return result;
 }
