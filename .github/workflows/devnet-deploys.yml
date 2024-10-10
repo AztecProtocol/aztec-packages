@@ -494,6 +494,7 @@ jobs:
       TF_VAR_BOT_L2_GAS_LIMIT: ${{ needs.set-network.outputs.bot_l2_gas_limit }}
       TF_VAR_BOT_DA_GAS_LIMIT: ${{ needs.set-network.outputs.bot_da_gas_limit }}
       TF_VAR_BOT_COUNT: ${{ needs.set-network.outputs.bot_count }}
+      TF_VAR_IMAGE_TAG: ${{ github.event.inputs.no_rebuild_images == 'true' && github.ref_name || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
