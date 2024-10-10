@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.57.0...aztec-package-v0.58.0) (2024-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* protocol contracts ([#9025](https://github.com/AztecProtocol/aztec-packages/issues/9025))
+
+### Features
+
+* Native tmux-based network e2e ([#9036](https://github.com/AztecProtocol/aztec-packages/issues/9036)) ([f9fc73a](https://github.com/AztecProtocol/aztec-packages/commit/f9fc73a40f5b9d11ad92a6cee3e29d3fcc80425e))
+* Protocol contracts ([#9025](https://github.com/AztecProtocol/aztec-packages/issues/9025)) ([f3bcff0](https://github.com/AztecProtocol/aztec-packages/commit/f3bcff0c0943d190261de366301ed8f9267543f3))
+
+
+### Miscellaneous
+
+* Added healthcheck and startup check ([#9112](https://github.com/AztecProtocol/aztec-packages/issues/9112)) ([ffa012f](https://github.com/AztecProtocol/aztec-packages/commit/ffa012ffb1d0e72ddab68c066ca9e923bd1c0c2b))
+* Rename some prover env vars ([#9032](https://github.com/AztecProtocol/aztec-packages/issues/9032)) ([e27ead8](https://github.com/AztecProtocol/aztec-packages/commit/e27ead85403d3f21ebc406e7d1a7e18190085603))
+
 ## [0.57.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.56.0...aztec-package-v0.57.0) (2024-10-07)
 
 
