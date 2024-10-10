@@ -22,7 +22,7 @@ export class LocalKeyStore implements ValidatorKeyStore {
    *
    * @returns the address
    */
-  public getAddress() : EthAddress {
+  public getAddress(): EthAddress {
     return this.signer.address;
   }
 

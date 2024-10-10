@@ -43,7 +43,7 @@ export type DebugLogger = Logger;
  */
 
 
-export function createDebugLogger(name: string, fixedLogData?: LogData ): DebugLogger {
+export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
   const debugLogger = debug(name);
   if (currentLevel === 'debug') debugLogger.enabled = true;
 
@@ -51,7 +51,7 @@ export function createDebugLogger(name: string, fixedLogData?: LogData ): DebugL
 
 
   const logger = {
-    silent: () => {},
+    silent: () => { },
     error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
     warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
     info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
