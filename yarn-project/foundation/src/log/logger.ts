@@ -36,7 +36,7 @@ export type DebugLogger = Logger;
  * If DEBUG="[module]" env is set, will enable debug logging if the module matches.
  * Uses npm debug for debug level and console.error for other levels.
  * @param name - Name of the module.
- * @param taggedLogData - Additional data to include in the log message.
+ * @param fixedLogData - Additional data to include in the log message.
  * @usage createDebugLogger('aztec:validator', {validatorAddress: '0x1234...'});
  * // will always add the validator address to the log labels
  * @returns A debug logger.
