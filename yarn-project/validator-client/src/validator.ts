@@ -2,7 +2,7 @@ import { type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/c
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger, DebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
 
@@ -38,10 +38,11 @@ export class ValidatorClient implements Validator {
     private p2pClient: P2P,
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
-    private log = createDebugLogger('aztec:validator', {validatorAddress: keyStore.getAddress()}),
+    private log: DebugLogger,
   ) {
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
+    this.log = createDebugLogger('aztec:validator', {validatorAddress: keyStore.getAddress().toString()});
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }

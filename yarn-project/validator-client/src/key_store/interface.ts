@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/circuits.js';
 import { type Buffer32 } from '@aztec/foundation/buffer';
 import { type Signature } from '@aztec/foundation/eth-signature';
 
@@ -12,7 +13,7 @@ export interface ValidatorKeyStore {
    *
    * @returns the address
    */
-  getAddress(): string;
+  getAddress(): EthAddress;
 
   sign(message: Buffer32): Promise<Signature>;
   /**
