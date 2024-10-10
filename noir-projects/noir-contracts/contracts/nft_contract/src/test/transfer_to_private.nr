@@ -20,8 +20,10 @@ unconstrained fn transfer_to_private_to_self() {
     utils::assert_owns_public_nft(env, nft_contract_address, AztecAddress::zero(), token_id);
 }
 
+/// External orchestration means that the calls to prepare and finalize are not done by the NFT contract. This flow
+/// will typically be used by a DEX.
 #[test]
-unconstrained fn transfer_to_private_to_a_different_account() {
+unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
