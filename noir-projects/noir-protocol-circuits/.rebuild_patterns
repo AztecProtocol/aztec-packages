@@ -1,0 +1,2 @@
+^noir-projects/noir-protocol-circuits/.*\.(nr|toml)$
+^noir-projects/noir-protocol-circuits/bootstrap.sh$

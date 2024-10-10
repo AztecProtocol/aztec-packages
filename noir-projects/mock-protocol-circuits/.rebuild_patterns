@@ -1,0 +1,3 @@
+^noir-projects/mock-protocol-circuits/.*\.(nr|toml)$
+^noir-projects/mock-protocol-circuits/bootstrap.sh$
+^noir-projects/noir-protocol-circuits/crates/types/.*\.(nr|toml)$
