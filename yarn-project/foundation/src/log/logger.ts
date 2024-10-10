@@ -42,7 +42,6 @@ export type DebugLogger = Logger;
  * @returns A debug logger.
  */
 
-
 export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
   const debugLogger = debug(name);
   if (currentLevel === 'debug') {
@@ -51,16 +50,18 @@ export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLo
 
   const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
 
-
   const logger = {
-    silent: () => { },
+    silent: () => {},
     error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
     warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
     info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
     verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
     debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
   };
-  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)), logger)
+  return Object.assign(
+    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
+    logger,
+  );
 }
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
