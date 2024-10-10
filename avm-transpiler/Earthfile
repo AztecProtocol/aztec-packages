@@ -8,7 +8,6 @@ source:
     WORKDIR /usr/src/avm-transpiler
 
     COPY --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .rustfmt.toml .
-    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns"
 
 build:
     FROM +source

@@ -30,7 +30,10 @@ const circuits = [
 
 const main = async () => {
   const dimensionsLists = JSON.parse(
-    await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
+    await fs.readFile(
+      '../../noir-projects/noir-protocol-circuits/target/dimensions/private_kernel_reset_dimensions.json',
+      'utf8',
+    ),
   ) as number[][];
   // Need any variant in the set so that the type will be rendered with generics.
   circuits.push(`private_kernel_reset_${dimensionsLists[0].join('_')}`);

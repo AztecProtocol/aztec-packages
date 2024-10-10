@@ -29,6 +29,11 @@ if ! git diff-index --quiet HEAD --; then
   S3_BUILD_CACHE_MINIO_URL=""
 elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
   S3_BUILD_CACHE_DOWNLOAD=true
+elif [ -f ~/.aws/credentials ]; then
+  # make credentials avaialble to earthly
+  AWS_ACCESS_KEY_ID=$(aws configure get default.aws_access_key_id)
+  AWS_SECRET_ACCESS_KEY=$(aws configure get default.aws_secret_access_key)
+  S3_BUILD_CACHE_DOWNLOAD=true
 else
   S3_BUILD_CACHE_UPLOAD=false
   S3_BUILD_CACHE_DOWNLOAD=false
