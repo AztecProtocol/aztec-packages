@@ -12,15 +12,17 @@ template <typename Curve> class BatchedAffineAddition {
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
 
+    // Struct describing a set of points to be reduced to num-sequence-counts-many points via summation of each sequence
     struct AdditionSequences {
         std::vector<size_t> sequence_counts;
         std::span<G1> points;
         std::span<Fq> scratch_space;
     };
 
+    // Collection of addition sequences to be handled by each thread
     struct ThreadData {
         std::vector<AdditionSequences> addition_sequences;
-        std::vector<std::vector<size_t>> sequence_tags;
+        std::vector<std::vector<size_t>> sequence_tags; // allows for the recombining of sequences split across threads
     };
 
   public:
@@ -43,10 +45,14 @@ template <typename Curve> class BatchedAffineAddition {
   private:
     /**
      * @brief Construct the set of AdditionSequences to be handled by each thread
+     * @details To optimize thread utilization, points are distributed evenly across the number of available threads.
+     * This may in general result in the splitting of individual addition sequences across two or more threads. This is
+     * accounted for by assigning a tag to each sequence so that the results can be further combined post-facto to
+     * ensure that the final number of points corresponds exactly to the number of addition sequences.
      *
      * @param points
      * @param sequence_counts
-     * @param scratch_space
+     * @param scratch_space Space for computing and storing the point addition slope denominators
      * @return ThreadData
      */
     static ThreadData construct_thread_data(const std::span<G1>& points,
