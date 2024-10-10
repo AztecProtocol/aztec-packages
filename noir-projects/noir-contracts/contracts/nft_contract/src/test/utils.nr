@@ -50,21 +50,15 @@ pub unconstrained fn setup_mint_and_transfer_to_private(with_account_contracts: 
     let (env, nft_contract_address, owner, recipient, minted_token_id) = setup_and_mint(with_account_contracts);
 
     let note_randomness = random();
-    let transient_storage_slot_randomness = random();
-    let transfer_preparer_storage_slot_commitment = pedersen_hash(
-        [owner.to_field(), transient_storage_slot_randomness],
-        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
-    );
 
     // We mock the Oracle to return the note randomness such that later on we can manually add the note
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer with user being both the sender and the recipient (classical "shield" flow)
-    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness);
-    env.call_private_void(prepare_transfer_to_private_call_interface);
+    let slot_commitment: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner));
 
     // Finalize the transfer of the NFT
-    let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment);
+    let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, slot_commitment);
     env.call_public(finalize_transfer_to_private_call_interface);
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`

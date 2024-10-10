@@ -26,25 +26,15 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     let note_randomness = random();
-    let transient_storage_slot_randomness = random();
-    // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
-    let transfer_preparer_storage_slot_commitment = pedersen_hash(
-        [sender.to_field(), transient_storage_slot_randomness],
-        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
-    );
 
     // We mock the Oracle to return the note randomness such that later on we can manually add the note
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
-    env.call_private_void(
-        NFT::at(nft_contract_address).prepare_transfer_to_private(sender, recipient, transient_storage_slot_randomness)
-    );
+    let slot_commitment: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(sender, recipient));
 
     // Finalize the transfer of the NFT
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, slot_commitment));
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.
@@ -85,25 +75,14 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
 
     let correct_sender = AztecAddress::from_field(9);
 
-    let transient_storage_slot_randomness = random();
-    // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
-    let transfer_preparer_storage_slot_commitment = pedersen_hash(
-        [correct_sender.to_field(), transient_storage_slot_randomness],
-        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
-    );
-
     // We prepare the transfer
-    env.call_private_void(
-        NFT::at(nft_contract_address).prepare_transfer_to_private(correct_sender, recipient, transient_storage_slot_randomness)
-    );
+    let slot_commitment: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(correct_sender, recipient));
 
     // We impersonate incorrect sender and try to finalize the transfer of the NFT. The incorrect sender owns the NFT
     // but tries to consume a prepared transfer not belonging to him. For this reason the test should fail with
     // "transfer not prepared".
     env.impersonate(incorrect_sender);
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, slot_commitment));
 }
 
 #[test(should_fail_with = "invalid NFT owner")]
