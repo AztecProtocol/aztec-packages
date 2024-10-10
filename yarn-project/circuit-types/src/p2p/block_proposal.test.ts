@@ -21,7 +21,7 @@ describe('Block Proposal serialization / deserialization', () => {
   it('Should serialize / deserialize + recover sender', () => {
     const account = Secp256k1Signer.random();
 
-    const proposal = makeBlockProposal(account);
+    const proposal = makeBlockProposal({ signer: account });
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
 

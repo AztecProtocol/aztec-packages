@@ -43,7 +43,7 @@ export class PublicExecutor {
    * Executes a public execution request.
    * @param executionRequest - The execution to run.
    * @param constants - The constants (including global variables) to use.
-   * @param availableGas - The gas available at the start of this enqueued call.
+   * @param allocatedGas - The gas available at the start of this enqueued call.
    * @param txContext - Transaction context.
    * @param pendingSiloedNullifiers - The pending nullifier set from earlier parts of this TX.
    * @param transactionFee - Fee offered for this TX.
@@ -55,7 +55,7 @@ export class PublicExecutor {
   public async simulate(
     executionRequest: PublicExecutionRequest,
     constants: CombinedConstantData,
-    availableGas: Gas,
+    allocatedGas: Gas,
     _txContext: TxContext,
     pendingSiloedNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
@@ -85,7 +85,7 @@ export class PublicExecutor {
 
     const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, constants.globalVariables, transactionFee);
 
-    const avmMachineState = new AvmMachineState(availableGas);
+    const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(avmPersistableState, avmExecutionEnv, avmMachineState);
     const simulator = new AvmSimulator(avmContext);
     const avmResult = await simulator.execute();
@@ -111,7 +111,7 @@ export class PublicExecutor {
 
     const publicExecutionResult = trace.toPublicExecutionResult(
       avmExecutionEnv,
-      /*startGasLeft=*/ availableGas,
+      /*startGasLeft=*/ allocatedGas,
       /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
       bytecode,
       avmResult,
@@ -127,7 +127,7 @@ export class PublicExecutor {
     const _vmCircuitPublicInputs = enqueuedCallTrace.toVMCircuitPublicInputs(
       constants,
       avmExecutionEnv,
-      /*startGasLeft=*/ availableGas,
+      /*startGasLeft=*/ allocatedGas,
       /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
       avmResult,
     );
