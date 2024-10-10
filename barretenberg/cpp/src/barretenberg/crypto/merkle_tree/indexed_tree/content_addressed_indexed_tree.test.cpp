@@ -54,6 +54,22 @@ std::string PersistedContentAddressedIndexedTreeTest::_directory;
 uint64_t PersistedContentAddressedIndexedTreeTest::_maxReaders;
 uint64_t PersistedContentAddressedIndexedTreeTest::_mapSize;
 
+std::unique_ptr<TreeType> create_tree(const std::string& rootDirectory,
+                                      uint64_t mapSize,
+                                      uint64_t maxReaders,
+                                      uint32_t depth,
+                                      uint32_t batchSize,
+                                      ThreadPoolPtr workers)
+{
+    std::string name = random_string();
+    std::filesystem::path directory = rootDirectory;
+    directory.append(name);
+    std::filesystem::create_directories(directory);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, mapSize, maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    return std::make_unique<TreeType>(std::move(store), workers, batchSize);
+}
+
 template <typename TypeOfTree> void check_size(TypeOfTree& tree, index_t expected_size, bool includeUncommitted = true)
 {
     Signal signal;
@@ -353,6 +369,19 @@ void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool
     signal.wait_for_level();
 }
 
+template <typename LeafValueType, typename TypeOfTree>
+void block_sync_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool expectedSuccess = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
+        EXPECT_EQ(response.success, expectedSuccess);
+        signal.signal_level();
+    };
+
+    tree.add_or_update_values(values, completion);
+    signal.wait_for_level();
+}
+
 template <typename TypeOfTree>
 void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
 {
@@ -480,7 +509,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
     NullifierMemoryTree<HashPolicy> memdb(depth, current_size);
 
     ThreadPoolPtr workers = make_thread_pool(1);
-    ;
 
     std::string name = random_string();
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
@@ -649,33 +677,22 @@ void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSi
     ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
-    std::string name1 = random_string();
-    LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(directory, name1, mapSize, maxReaders);
-    std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
-    auto tree1 = TreeType(std::move(store1), workers, batch_size);
-
-    std::string name2 = random_string();
-    LMDBTreeStore::SharedPtr db2 = std::make_shared<LMDBTreeStore>(directory, name2, mapSize, maxReaders);
-    std::unique_ptr<Store> store2 = std::make_unique<Store>(name2, depth, db2);
-    auto tree2 = TreeType(std::move(store2), multi_workers, batch_size);
-
-    std::string name3 = random_string();
-    LMDBTreeStore::SharedPtr db3 = std::make_shared<LMDBTreeStore>(directory, name3, mapSize, maxReaders);
-    std::unique_ptr<Store> store3 = std::make_unique<Store>(name3, depth, db3);
-    auto tree3 = TreeType(std::move(store3), multi_workers, batch_size);
+    auto tree1 = create_tree(directory, mapSize, maxReaders, depth, batch_size, workers);
+    auto tree2 = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
+    auto tree3 = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
 
     for (uint32_t i = 0; i < num_batches; i++) {
 
-        check_root(tree1, memdb.root());
-        check_root(tree2, memdb.root());
-        check_root(tree3, memdb.root());
-        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
+        check_root(*tree1, memdb.root());
+        check_root(*tree2, memdb.root());
+        check_root(*tree3, memdb.root());
+        check_sibling_path(*tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree3, 0, memdb.get_sibling_path(0));
 
-        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree3, 512, memdb.get_sibling_path(512));
 
         std::vector<NullifierLeafValue> batch;
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
@@ -693,7 +710,7 @@ void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSi
                     tree1_low_leaf_witness_data = response.inner.low_leaf_witness_data;
                     signal.signal_level();
                 };
-            tree1.add_or_update_values(batch, completion);
+            tree1->add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
 
@@ -704,27 +721,27 @@ void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSi
                     tree2_low_leaf_witness_data = response.inner.low_leaf_witness_data;
                     signal.signal_level();
                 };
-            tree2.add_or_update_values(batch, completion);
+            tree2->add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
 
         {
             Signal signal;
             auto completion = [&](const TypedResponse<AddDataResponse>&) { signal.signal_level(); };
-            tree3.add_or_update_values(batch, completion);
+            tree3->add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
-        check_root(tree1, memdb.root());
-        check_root(tree2, memdb.root());
-        check_root(tree3, memdb.root());
+        check_root(*tree1, memdb.root());
+        check_root(*tree2, memdb.root());
+        check_root(*tree3, memdb.root());
 
-        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree3, 0, memdb.get_sibling_path(0));
 
-        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree3, 512, memdb.get_sibling_path(512));
 
         for (uint32_t j = 0; j < batch_size; j++) {
             EXPECT_EQ(tree1_low_leaf_witness_data->at(j).leaf, tree2_low_leaf_witness_data->at(j).leaf);
@@ -749,31 +766,20 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
 
     for (uint32_t i = 0; i < num_batches; i++) {
 
-        std::string name1 = random_string();
-        LMDBTreeStore::SharedPtr db1 = std::make_shared<LMDBTreeStore>(directory, name1, mapSize, maxReaders);
-        std::unique_ptr<Store> store1 = std::make_unique<Store>(name1, depth, db1);
-        auto tree1 = TreeType(std::move(store1), workers, batch_size);
+        auto tree1 = create_tree(directory, mapSize, maxReaders, depth, batch_size, workers);
+        auto tree2 = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
+        auto tree3 = create_tree(directory, mapSize, maxReaders, depth, batch_size, multi_workers);
 
-        std::string name2 = random_string();
-        LMDBTreeStore::SharedPtr db2 = std::make_shared<LMDBTreeStore>(directory, name2, mapSize, maxReaders);
-        std::unique_ptr<Store> store2 = std::make_unique<Store>(name2, depth, db2);
-        auto tree2 = TreeType(std::move(store2), multi_workers, batch_size);
+        check_root(*tree1, memdb.root());
+        check_root(*tree2, memdb.root());
+        check_root(*tree3, memdb.root());
+        check_sibling_path(*tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree3, 0, memdb.get_sibling_path(0));
 
-        std::string name3 = random_string();
-        LMDBTreeStore::SharedPtr db3 = std::make_shared<LMDBTreeStore>(directory, name3, mapSize, maxReaders);
-        std::unique_ptr<Store> store3 = std::make_unique<Store>(name3, depth, db3);
-        auto tree3 = TreeType(std::move(store3), multi_workers, batch_size);
-
-        check_root(tree1, memdb.root());
-        check_root(tree2, memdb.root());
-        check_root(tree3, memdb.root());
-        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
-
-        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree3, 512, memdb.get_sibling_path(512));
 
         std::vector<NullifierLeafValue> batch;
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
@@ -791,7 +797,7 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
                     tree1_low_leaf_witness_data = response.inner.low_leaf_witness_data;
                     signal.signal_level();
                 };
-            tree1.add_or_update_values(batch, completion);
+            tree1->add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
 
@@ -802,27 +808,27 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
                     tree2_low_leaf_witness_data = response.inner.low_leaf_witness_data;
                     signal.signal_level();
                 };
-            tree2.add_or_update_values(batch, completion);
+            tree2->add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
 
         {
             Signal signal;
             auto completion = [&](const TypedResponse<AddDataResponse>&) { signal.signal_level(); };
-            tree3.add_or_update_values(batch, completion);
+            tree3->add_or_update_values(batch, completion);
             signal.wait_for_level();
         }
-        check_root(tree1, memdb.root());
-        check_root(tree2, memdb.root());
-        check_root(tree3, memdb.root());
+        check_root(*tree1, memdb.root());
+        check_root(*tree2, memdb.root());
+        check_root(*tree3, memdb.root());
 
-        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree2, 0, memdb.get_sibling_path(0));
-        check_sibling_path(tree3, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree2, 0, memdb.get_sibling_path(0));
+        check_sibling_path(*tree3, 0, memdb.get_sibling_path(0));
 
-        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree2, 512, memdb.get_sibling_path(512));
-        check_sibling_path(tree3, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree1, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree2, 512, memdb.get_sibling_path(512));
+        check_sibling_path(*tree3, 512, memdb.get_sibling_path(512));
 
         for (uint32_t j = 0; j < batch_size; j++) {
             EXPECT_EQ(tree1_low_leaf_witness_data->at(j).leaf, tree2_low_leaf_witness_data->at(j).leaf);
@@ -830,9 +836,9 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
             EXPECT_EQ(tree1_low_leaf_witness_data->at(j).path, tree2_low_leaf_witness_data->at(j).path);
         }
 
-        commit_tree(tree1);
-        commit_tree(tree2);
-        commit_tree(tree3);
+        commit_tree(*tree1);
+        commit_tree(*tree2);
+        commit_tree(*tree3);
     }
 }
 
@@ -851,6 +857,55 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
     while (batchSize <= 32) {
         test_batch_insert(batchSize, _directory, _mapSize, _maxReaders);
         batchSize <<= 1;
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_compare_batch_inserts_different_sized_thread_pools)
+{
+    const uint32_t batch_size = 128;
+    uint32_t depth = 20;
+    ThreadPoolPtr workers = make_thread_pool(1);
+    NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
+
+    auto tree1 = create_tree(_directory, _mapSize, _maxReaders, depth, batch_size, workers);
+    auto tree2 = create_tree(_directory, _mapSize, _maxReaders, depth, batch_size, workers);
+
+    std::vector<std::unique_ptr<TreeType>> trees;
+    for (uint32_t i = 1; i <= 12; i++) {
+        ThreadPoolPtr multiWorkers = make_thread_pool(i);
+        auto tree = create_tree(_directory, _mapSize, _maxReaders, depth, batch_size, multiWorkers);
+        trees.emplace_back(std::move(tree));
+    }
+
+    std::vector<fr> tree1Roots;
+    std::vector<fr> tree2Roots;
+
+    for (uint32_t round = 0; round < 10; round++) {
+        std::vector<fr> frValues1 = create_values(3);
+        std::vector<fr> frValues2 = create_values(3);
+        std::vector<NullifierLeafValue> leaves(128, NullifierLeafValue(fr::zero()));
+        for (uint32_t i = 0; i < 3; i++) {
+            leaves[i] = frValues1[i];
+            leaves[i + 64] = frValues2[i];
+        }
+
+        std::vector<NullifierLeafValue> first(leaves.begin(), leaves.begin() + 64);
+        std::vector<NullifierLeafValue> second(leaves.begin() + 64, leaves.end());
+
+        add_values(*tree1, first);
+        add_values(*tree1, second);
+
+        block_sync_values(*tree2, leaves);
+
+        tree1Roots.push_back(get_root(*tree1));
+        tree2Roots.push_back(get_root(*tree2, true));
+        EXPECT_EQ(tree1Roots[round], tree2Roots[round]);
+
+        for (const auto& tree : trees) {
+            block_sync_values(*tree, leaves);
+            const fr treeRoot = get_root(*tree, true);
+            EXPECT_EQ(treeRoot, tree1Roots[round]);
+        }
     }
 }
 
@@ -1320,7 +1375,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, returns_low_leaves)
     constexpr uint32_t depth = 8;
 
     ThreadPoolPtr workers = make_thread_pool(1);
-    ;
     std::string name = random_string();
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
@@ -1620,7 +1674,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_inserting_a_duplicate_unco
     add_values(tree, nullifierValues2, false);
 }
 
-TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_historic_blocks)
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_historic_blocks)
 {
     auto& random_engine = numeric::get_randomness();
     const uint32_t batch_size = 16;
