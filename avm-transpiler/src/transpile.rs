@@ -900,25 +900,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
-            let message_offset = inputs.pointer.0;
-            let message_size_offset = inputs.size.0;
-
-            let index_offset = domain_separator.0;
-            let dest_offset = output.0;
-
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(AvmOperand::U8 { value: SECOND_OPERAND_INDIRECT }),
-                operands: vec![
-                    AvmOperand::U32 { value: index_offset as u32 },
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
-                ],
-                ..Default::default()
-            });
-        }
         BlackBoxOp::Poseidon2Permutation {
             message,
             output,
@@ -1044,26 +1025,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AvmOperand::U32 { value: scalars_offset as u32 },
                     AvmOperand::U32 { value: outputs_offset as u32 },
                     AvmOperand::U32 { value: num_points as u32 },
-                ],
-                ..Default::default()
-            });
-        }
-        // Temporary while we dont have efficient noir implementations (again)
-        BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-            let input_offset = inputs.pointer.0;
-            let input_size_offset = inputs.size.0;
-            let index_offset = domain_separator.0;
-            let output_offset = output.pointer.0;
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::PEDERSENCOMMITMENT,
-                indirect: Some(AvmOperand::U8 {
-                    value: ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT,
-                }),
-                operands: vec![
-                    AvmOperand::U32 { value: input_offset as u32 },
-                    AvmOperand::U32 { value: output_offset as u32 },
-                    AvmOperand::U32 { value: input_size_offset as u32 },
-                    AvmOperand::U32 { value: index_offset as u32 },
                 ],
                 ..Default::default()
             });

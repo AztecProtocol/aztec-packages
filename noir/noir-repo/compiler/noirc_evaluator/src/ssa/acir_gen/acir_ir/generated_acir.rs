@@ -225,16 +225,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                     output: outputs[0],
                 }
             }
-            BlackBoxFunc::PedersenCommitment => BlackBoxFuncCall::PedersenCommitment {
-                inputs: inputs[0].clone(),
-                outputs: (outputs[0], outputs[1]),
-                domain_separator: constant_inputs[0].to_u128() as u32,
-            },
-            BlackBoxFunc::PedersenHash => BlackBoxFuncCall::PedersenHash {
-                inputs: inputs[0].clone(),
-                output: outputs[0],
-                domain_separator: constant_inputs[0].to_u128() as u32,
-            },
             BlackBoxFunc::EcdsaSecp256k1 => {
                 BlackBoxFuncCall::EcdsaSecp256k1 {
                     // 32 bytes for each public key co-ordinate
@@ -475,7 +465,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// This equation however falls short when `t != 0` because then `t`
     /// may not be `1`. If `t` is non-zero, then `y` is also non-zero due to
-    /// `y == 1 - t` and the equation `y * t == 0` fails.  
+    /// `y == 1 - t` and the equation `y * t == 0` fails.
     ///
     /// To fix, we introduce another free variable called `z` and apply the following
     /// constraint instead: `y == 1 - t * z`.
@@ -485,7 +475,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// We now arrive at the conclusion that when `t == 0`, `y` is `1` and when
     /// `t != 0`, then `y` is `0`.
-    ///  
+    ///
     /// Bringing it all together, We introduce two variables `y` and `z`,
     /// With the following equations:
     /// - `y == 1 - tz` (`z` is a value that is chosen to be the inverse of `t` by the prover)
@@ -646,9 +636,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::AES128Encrypt
         | BlackBoxFunc::Keccak256
         | BlackBoxFunc::Blake2s
-        | BlackBoxFunc::Blake3
-        | BlackBoxFunc::PedersenCommitment
-        | BlackBoxFunc::PedersenHash => None,
+        | BlackBoxFunc::Blake3 => None,
 
         BlackBoxFunc::Keccakf1600 => Some(25),
         // The permutation takes a fixed number of inputs, but the inputs length depends on the proving system implementation.
@@ -703,12 +691,6 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::Poseidon2Permutation => None,
 
         BlackBoxFunc::Sha256Compression => Some(8),
-
-        // Pedersen commitment returns a point
-        BlackBoxFunc::PedersenCommitment => Some(2),
-
-        // Pedersen hash returns a field
-        BlackBoxFunc::PedersenHash => Some(1),
 
         // Can only apply a range constraint to one
         // witness at a time.

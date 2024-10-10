@@ -107,27 +107,6 @@ mod test {
     }
 
     #[test]
-    fn derive_length_generator() {
-        let domain_separator = "pedersen_hash_length";
-        let length_generator = derive_generators(domain_separator.as_bytes(), 1, 0)[0];
-
-        let expected_generator = (
-            "2df8b940e5890e4e1377e05373fae69a1d754f6935e6a780b666947431f2cdcd",
-            "2ecd88d15967bc53b885912e0d16866154acb6aac2d3f85e27ca7eefb2c19083",
-        );
-        assert_eq!(
-            hex::encode(length_generator.x().unwrap().into_bigint().to_bytes_be()),
-            expected_generator.0,
-            "Failed on x component"
-        );
-        assert_eq!(
-            hex::encode(length_generator.y().unwrap().into_bigint().to_bytes_be()),
-            expected_generator.1,
-            "Failed on y component"
-        );
-    }
-
-    #[test]
     fn derives_default_generators() {
         const DEFAULT_GENERATORS: &[[&str; 2]] = &[
             [
