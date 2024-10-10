@@ -120,7 +120,7 @@ describe('Synchronizer', () => {
       const partialAddress = Fr.random();
       const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
-      await synchronizer.addAccount(completeAddress.address, keyStore, startingBlockNum);
+      await synchronizer.addAccount(completeAddress, keyStore, startingBlockNum);
       return completeAddress;
     };
 
@@ -132,15 +132,15 @@ describe('Synchronizer', () => {
 
     await synchronizer.workNoteProcessorCatchUp();
 
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(false);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(false);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressC.address)).toBe(false);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressA)).toBe(false);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressB)).toBe(false);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressC)).toBe(false);
 
     await synchronizer.workNoteProcessorCatchUp();
 
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(true);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(true);
-    expect(await synchronizer.isAccountStateSynchronized(completeAddressC.address)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressA)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressB)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressC)).toBe(true);
   });
 });
 

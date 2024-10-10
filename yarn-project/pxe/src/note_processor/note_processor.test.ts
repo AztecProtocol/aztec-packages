@@ -163,7 +163,7 @@ describe('Note Processor', () => {
     keyStore.getMasterOutgoingViewingPublicKey.mockResolvedValue(account.publicKeys.masterOutgoingViewingPublicKey);
 
     noteProcessor = await NoteProcessor.create(
-      account.address,
+      account,
       keyStore,
       database,
       aztecNode,
@@ -342,7 +342,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blocks);
 
     const newNoteProcessor = await NoteProcessor.create(
-      account.address,
+      account,
       keyStore,
       database,
       aztecNode,
