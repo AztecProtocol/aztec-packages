@@ -859,20 +859,20 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_witho
 
     std::shared_ptr<Status> status = std::make_shared<Status>();
 
-    auto log2 = [=](uint64_t value) {
+    auto log2Ceil = [=](uint64_t value) {
         uint64_t log = numeric::get_msb(value);
         uint64_t temp = static_cast<uint64_t>(1) << log;
         return temp == value ? log : log + 1;
     };
 
-    uint64_t indexPower2Ceil = log2(highest_index + 1);
+    uint64_t indexPower2Ceil = log2Ceil(highest_index + 1);
     index_t span = static_cast<index_t>(std::pow(2UL, indexPower2Ceil));
     uint64_t numBatchesPower2Floor = numeric::get_msb(workers_->num_threads());
     index_t numBatches = static_cast<index_t>(std::pow(2UL, numBatchesPower2Floor));
     index_t batchSize = span / numBatches;
     batchSize = std::max(batchSize, 2UL);
     index_t startIndex = 0;
-    indexPower2Ceil = log2(batchSize);
+    indexPower2Ceil = log2Ceil(batchSize);
     uint32_t rootLevel = depth_ - static_cast<uint32_t>(indexPower2Ceil);
 
     // std::cout << "HIGHEST INDEX " << highest_index << " SPAN " << span << " NUM BATCHES " << numBatches
