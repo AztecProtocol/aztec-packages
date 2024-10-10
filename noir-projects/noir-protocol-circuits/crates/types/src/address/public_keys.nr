@@ -1,10 +1,12 @@
-use dep::protocol_types::{
-    address::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-    hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH},
+use crate::{
+    address::public_keys_hash::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
+    hash::poseidon2_hash_with_separator, point::POINT_LENGTH,
     traits::{Deserialize, Serialize, Empty, is_empty, Hash}
 };
 
-global PUBLIC_KEYS_LENGTH: u32 = 12;
+use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+
+pub global PUBLIC_KEYS_LENGTH: u32 = 12;
 
 pub struct PublicKeys {
     npk_m: NpkM,

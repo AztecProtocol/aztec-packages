@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    traits::{Deserialize, Serialize}, address::AztecAddress,
+    traits::{Deserialize, Serialize}, address::{AztecAddress, PublicKeys, PUBLIC_KEYS_LENGTH},
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     contract_instance::ContractInstance
 };
@@ -7,7 +7,6 @@ use dep::protocol_types::{
 use crate::context::inputs::PrivateContextInputs;
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
-use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
 use crate::oracle::{execution::{get_block_number, get_contract_address}};
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;

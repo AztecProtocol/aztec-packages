@@ -1,5 +1,7 @@
-use crate::keys::{PublicKeys, public_keys::{NpkM, IvpkM, OvpkM, TpkM}};
-use dep::protocol_types::{address::{AztecAddress, PartialAddress}, point::Point};
+use dep::protocol_types::{
+    address::{public_keys::{PublicKeys, NpkM, IvpkM, OvpkM, TpkM}, AztecAddress, PartialAddress},
+    point::Point
+};
 
 #[oracle(getPublicKeysAndPartialAddress)]
 unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> [Field; 13] {}

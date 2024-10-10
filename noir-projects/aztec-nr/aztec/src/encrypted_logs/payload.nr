@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, scalar::Scalar, point::Point, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
-    hash::poseidon2_hash_with_separator
+    address::{AztecAddress, public_keys::{OvpkM, IvpkM}}, scalar::Scalar, point::Point,
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash_with_separator
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     oracle::random::random, utils::point::point_to_bytes, encrypted_logs::{header::EncryptedLogHeader},
-    keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::{OvpkM, IvpkM}}
+    keys::{point_to_symmetric_key::point_to_symmetric_key}
 };
 
 pub fn compute_encrypted_log<let P: u32, let M: u32>(
@@ -147,12 +147,9 @@ pub fn compute_outgoing_body_ciphertext(
 }
 
 mod test {
-    use crate::{
-        encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext},
-        keys::public_keys::{OvpkM, IvpkM}
-    };
+    use crate::{encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext}};
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
-    use dep::protocol_types::{address::AztecAddress, point::Point, scalar::Scalar};
+    use dep::protocol_types::{address::{AztecAddress, public_keys::{OvpkM, IvpkM}}, point::Point, scalar::Scalar};
     use std::test::OracleMock;
 
     #[test]
