@@ -253,13 +253,13 @@ unconstrained fn da_gas_left() -> Field {
 unconstrained fn is_static_call() -> Field {
     is_static_call_opcode()
 }
-unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
+unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u1 {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
 unconstrained fn emit_note_hash(note_hash: Field) {
     emit_note_hash_opcode(note_hash)
 }
-unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
+unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u1 {
     nullifier_exists_opcode(nullifier, address)
 }
 unconstrained fn emit_nullifier(nullifier: Field) {
@@ -268,7 +268,7 @@ unconstrained fn emit_nullifier(nullifier: Field) {
 unconstrained fn emit_unencrypted_log(message: [Field]) {
     emit_unencrypted_log_opcode(message)
 }
-unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {
+unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u1 {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
 }
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
@@ -361,13 +361,13 @@ unconstrained fn da_gas_left_opcode() -> Field {}
 unconstrained fn is_static_call_opcode() -> Field {}
 
 #[oracle(avmOpcodeNoteHashExists)]
-unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u1 {}
 
 #[oracle(avmOpcodeEmitNoteHash)]
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
 
 #[oracle(avmOpcodeNullifierExists)]
-unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8 {}
+unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u1 {}
 
 #[oracle(avmOpcodeEmitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
@@ -376,7 +376,7 @@ unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 unconstrained fn emit_unencrypted_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
-unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u1 {}
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}

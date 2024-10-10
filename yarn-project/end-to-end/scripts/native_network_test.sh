@@ -8,6 +8,8 @@
 # The will run in parallel either in tmux or just interleaved
 # They will log to native-network/logs, where it is easier to debug errors further up the logs, while watching tmux helps catch issues live,
 # or where things crash and need to be tweaked and restarted.
+# Arguments:
+#   Expects a list of scripts from the native-network folder.
 # Optional environment variables:
 #   INTERLEAVED (default: "false") should we just start all programs in the background?
 
@@ -15,7 +17,6 @@ set -eu
 
 # Ensure dependencies are installed
 command -v anvil >/dev/null || (echo "We need 'anvil' installed to be able to simulate ethereum" && exit 1)
-command -v tmux >/dev/null || (echo "We need 'tmux' installed to be able to manage terminal sessions" && exit 1)
 
 REPO=$(git rev-parse --show-toplevel)
 
@@ -35,6 +36,7 @@ rm -f l1-contracts.env l2-contracts.env logs/*.log
 
 function run_parallel() {
   if [ "${INTERLEAVED:-false}" = "false" ] ; then
+    command -v tmux >/dev/null || (echo "We need 'tmux' installed to be able to manage terminal sessions" && exit 1)
     # Run in tmux for local debugging
     "$REPO"/scripts/tmux_split_args.sh native_network_test_session "$@"
   else
@@ -45,12 +47,4 @@ function run_parallel() {
 
 # We exit with the return code of the first command
 # While the others are ran in the background, either in tmux or just interleaved
-run_parallel ./test-transfer.sh \
-  ./deploy-l1-contracts.sh \
-  ./deploy-l2-contracts.sh \
-  ./boot-node.sh \
-  ./ethereum.sh \
-  ./prover-node.sh \
-  ./pxe.sh \
-  ./transaction-bot.sh
-  # "./validator.sh 8081"
+run_parallel "$@"

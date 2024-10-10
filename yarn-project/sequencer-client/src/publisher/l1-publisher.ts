@@ -263,8 +263,9 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
+      this.log.verbose(JSON.stringify(err));
       const errorName = tryGetCustomErrorName(err);
-      this.log.verbose(`Proof quote validation failed: ${errorName}`);
+      this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
     return quote;
