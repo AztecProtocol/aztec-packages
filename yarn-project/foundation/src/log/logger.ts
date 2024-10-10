@@ -36,22 +36,27 @@ export type DebugLogger = Logger;
  * If DEBUG="[module]" env is set, will enable debug logging if the module matches.
  * Uses npm debug for debug level and console.error for other levels.
  * @param name - Name of the module.
+ * @param taggedLogData - Additional data to include in the log message.
+ * @usage createDebugLogger('aztec:validator', {validatorAddress: '0x1234...'});
+ * // will always add the validator address to the log labels
  * @returns A debug logger.
  */
-export function createDebugLogger(name: string): DebugLogger {
+
+
+export function createDebugLogger(name: string, taggedLogData?: LogData ): DebugLogger {
   const debugLogger = debug(name);
+  if (currentLevel === 'debug') debugLogger.enabled = true;
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data),
+    error: (...args: any[]) => logWithDebug(debugLogger, 'error', {...args, ...taggedLogData}),
+    warn: (...args: any[]) => logWithDebug(debugLogger, 'warn', {...args, ...taggedLogData}),
+    info: (...args: any[]) => logWithDebug(debugLogger, 'info', {...args, ...taggedLogData}),
+    verbose: (...args: any[]) => logWithDebug(debugLogger, 'verbose', {...args, ...taggedLogData}),
+    debug: (...args: any[]) => logWithDebug(debugLogger, 'debug', {...args, ...taggedLogData}),
   };
-  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data), logger);
+  return Object.assign((...args: any[]) => logWithDebug(debugLogger, 'debug', {...args, ...taggedLogData}), logger);
 }
-
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
 

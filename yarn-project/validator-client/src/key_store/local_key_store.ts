@@ -17,6 +17,15 @@ export class LocalKeyStore implements ValidatorKeyStore {
   }
 
   /**
+   * Get the address of the signer
+   *
+   * @returns the address
+   */
+  public getAddress() {
+    return this.signer.address;
+  }
+
+  /**
    * Sign a message with the keystore private key
    *
    * @param messageBuffer - The message buffer to sign

@@ -38,7 +38,7 @@ export class ValidatorClient implements Validator {
     private p2pClient: P2P,
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
-    private log = createDebugLogger('aztec:validator'),
+    private log = createDebugLogger('aztec:validator', {validatorAddress: keyStore.getAddress()}),
   ) {
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
