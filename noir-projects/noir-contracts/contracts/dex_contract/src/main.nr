@@ -2,7 +2,10 @@ mod lib;
 
 use dep::aztec::macros::aztec;
 
-// A Noir implementation of a simplified Uniswap v2 pool.
+/// This contract is a demonstration of how an Automated Market Maker (AMM) that requires public state while still
+/// achieving identity privacy can be implemented. It does not, however, provide function privacy.
+///
+/// Note: This is only a demonstration and we (Aztec team) do not think this is the best way to build a DEX.
 #[aztec]
 contract DEX {
     use crate::lib::{get_quote, get_amount_out, get_amount_in};
@@ -13,9 +16,9 @@ contract DEX {
     use std::meta::derive;
     use dep::token::Token;
 
-    // We store the tokens of the pool in a struct such that to load it from SharedImmutable asserts only a single
-    // merkle proof.
-    // (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
+    /// We store the tokens of the pool in a struct such that to load it from SharedImmutable asserts only a single
+    /// merkle proof.
+    /// (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
     #[derive(Serialize)]
     struct State {
         token0: AztecAddress,
@@ -31,8 +34,8 @@ contract DEX {
         state: SharedImmutable<State, Context>,
     }
 
-    // Amount of liquidity which gets locked in the pool when liquidity is provided for the first time. It's purpose
-    // is to prevent the pool from ever emptying which could lead to undefined behavior.
+    /// Amount of liquidity which gets locked in the pool when liquidity is provided for the first time. It's purpose
+    /// is to prevent the pool from ever emptying which could lead to undefined behavior.
     global MINIMUM_LIQUIDITY: u64 = 1000;
 
     // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
@@ -45,10 +48,10 @@ contract DEX {
         storage.state.initialize(State { token0, token1, liquidity_token });
     }
 
-    // Privately adds liquidity to the pool (identity of liquidity provider not revealed). `amount0_desired`
-    // and `amount1_desired` are the amounts of tokens we ideally want to add. `amount0_min` and `amount1_min`
-    // are the minimum amounts we are willing to add. `nonce` can be arbitrary non-zero value and it's here to
-    // isolate authwits to this specific call.
+    /// Privately adds liquidity to the pool (identity of liquidity provider not revealed). `amount0_desired`
+    /// and `amount1_desired` are the amounts of tokens we ideally want to add. `amount0_min` and `amount1_min`
+    /// are the minimum amounts we are willing to add. `nonce` can be arbitrary non-zero value and it's here to
+    /// isolate authwits to this specific call.
     #[private]
     fn add_liquidity(
         amount0_desired: u64,
@@ -164,9 +167,9 @@ contract DEX {
         liquidity_token.finalize_mint_to_private(liquidity_slot_commitment, liquidity).call(&mut context);
     }
 
-    // Removes `liquidity` from the pool and transfers the tokens back to the user. `amount0_min` and `amount1_min` are
-    // the minimum amounts of `token0` and `token1` the user is willing to accept. `nonce` can be arbitrary non-zero
-    // value and its purpose is to isolate authwits to this specific call.
+    /// Removes `liquidity` from the pool and transfers the tokens back to the user. `amount0_min` and `amount1_min` are
+    /// the minimum amounts of `token0` and `token1` the user is willing to accept. `nonce` can be arbitrary non-zero
+    /// value and its purpose is to isolate authwits to this specific call.
     #[private]
     fn remove_liquidity(liquidity: u64, amount0_min: u64, amount1_min: u64, nonce: Field) {
         // TODO: Do we need reentrancy guards in the private funcs? And if yes how to do it?
@@ -230,11 +233,16 @@ contract DEX {
         token1.finalize_transfer_to_private(token1_slot_commitment, amount1).call(&mut context);
     }
 
-    // Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
-    // whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
-    // purpose is to isolate authwits to this specific call.
+    /// Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
+    /// whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
+    /// purpose is to isolate authwits to this specific call.
     #[private]
-    fn swap_exact_tokens_for_tokens(amount_in: u64, amount_out_min: u64, from_0_to_1: bool, nonce: Field) {
+    fn swap_exact_tokens_for_tokens(
+        amount_in: u64,
+        amount_out_min: u64,
+        from_0_to_1: bool,
+        nonce: Field
+    ) {
         let state = storage.state.read_private();
 
         let (token_address_in, token_address_out) = if from_0_to_1 {
@@ -288,11 +296,16 @@ contract DEX {
         token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(&mut context);
     }
 
-    // Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
-    // whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
-    // purpose is to isolate authwits to this specific call.
+    /// Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
+    /// whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
+    /// purpose is to isolate authwits to this specific call.
     #[private]
-    fn swap_tokens_for_exact_tokens(amount_out: u64, amount_in_max: u64, from_0_to_1: bool, nonce: Field) {
+    fn swap_tokens_for_exact_tokens(
+        amount_out: u64,
+        amount_in_max: u64,
+        from_0_to_1: bool,
+        nonce: Field
+    ) {
         let state = storage.state.read_private();
 
         let (token_address_in, token_address_out) = if from_0_to_1 {
