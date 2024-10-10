@@ -12,7 +12,8 @@ The Sandbox is an Aztec network running fully on your machine, and interacting w
 
 You need two global dependencies on your machine:
 
-- Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
+- Node.js >= v18 and <= v20.17 (lts/iron) (later versions, eg v22.9, gives an error around 'assert')
+  - Recommend installing with [nvm](https://github.com/nvm-sh/nvm)
 - Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
 ## Install and run the sandbox
