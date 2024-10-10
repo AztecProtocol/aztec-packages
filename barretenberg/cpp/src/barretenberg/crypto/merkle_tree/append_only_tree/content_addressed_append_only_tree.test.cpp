@@ -1270,6 +1270,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
         check(expected_size, i);
         commit_tree(tree);
 
+        // immediately finalise the block
+        finalise_block(tree, i + 1);
+
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
         historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
         roots.push_back(memdb.root());
@@ -1358,7 +1361,7 @@ void test_unwind(std::string directory,
         const index_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
-        // attempting to unwind a block that is not the tip whould fail
+        // attempting to unwind a block that is not the tip should fail
         unwind_block(tree, blockNumber + 1, false);
         unwind_block(tree, blockNumber);
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
@@ -1668,6 +1671,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_expired_hi
         add_values(tree, values);
         commit_tree(tree);
     }
+    finalise_block(tree, 3);
 
     remove_historic_block(tree, 1);
     remove_historic_block(tree, 2);
@@ -1705,4 +1709,80 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_fork_from_block_zero_whe
 
     check_root(tree2, initialRoot, false);
     check_sibling_path(tree2, 0, path, false, true);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalised_block)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    index_t blockToFinalise = 8;
+
+    finalise_block(tree, blockToFinalise);
+
+    for (uint32_t i = numBlocks; i > blockToFinalise; i--) {
+        unwind_block(tree, i);
+    }
+    unwind_block(tree, blockToFinalise, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_finalised_block)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    index_t blockToFinalise = 8;
+
+    finalise_block(tree, blockToFinalise);
+
+    for (uint32_t i = 0; i < blockToFinalise - 1; i++) {
+        remove_historic_block(tree, i + 1);
+    }
+    remove_historic_block(tree, blockToFinalise, false);
 }

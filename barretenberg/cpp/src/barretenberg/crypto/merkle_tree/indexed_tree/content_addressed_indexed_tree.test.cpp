@@ -396,6 +396,18 @@ void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool ex
 }
 
 template <typename TypeOfTree>
+void finalise_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.finalise_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
+template <typename TypeOfTree>
 void unwind_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
@@ -1918,6 +1930,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
 
     lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(60, 0));
     EXPECT_EQ(lowLeaf.index, 2);
+
+    finalise_block(tree, 3);
 
     // remove historical block 1
     remove_historic_block(tree, 1);

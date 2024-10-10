@@ -877,6 +877,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         if (blockNumber != uncommittedMeta.unfinalisedBlockHeight) {
             throw std::runtime_error("Block number is not the most recent");
         }
+        if (blockNumber <= uncommittedMeta.finalisedBlockHeight) {
+            throw std::runtime_error("Can't unwind a finalised block");
+        }
 
         // populate the required data for the previous block
         if (blockNumber == 1) {
@@ -939,6 +942,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         get_meta(committedMeta, *tx, false);
         if (blockNumber != committedMeta.oldestHistoricBlock) {
             throw std::runtime_error("Block number is not the most historic");
+        }
+        if (blockNumber >= committedMeta.finalisedBlockHeight) {
+            throw std::runtime_error("Can't remove current finalised block");
         }
 
         if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
