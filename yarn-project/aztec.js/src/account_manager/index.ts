@@ -1,5 +1,10 @@
 import { CompleteAddress, type PXE } from '@aztec/circuit-types';
-import { type ContractInstanceWithAddress, deriveKeys, getContractInstanceFromDeployParams, type PublicKeys } from '@aztec/circuits.js';
+import {
+  type ContractInstanceWithAddress,
+  type PublicKeys,
+  deriveKeys,
+  getContractInstanceFromDeployParams,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type AccountContract } from '../account/contract.js';
@@ -51,7 +56,6 @@ export class AccountManager {
     }
     return this.publicKeys;
   }
-
 
   /**
    * Returns the entrypoint for this account as defined by its account contract.

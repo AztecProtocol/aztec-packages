@@ -4,8 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { DEPLOYER_CONTRACT_ADDRESS, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE } from '../../constants.gen.js';
-import { type ContractInstanceWithAddress } from '../contracts/index.js';
 import { PublicKeys } from '../../types/public_keys.js';
+import { type ContractInstanceWithAddress } from '../contracts/index.js';
 
 /** Event emitted from the ContractInstanceDeployer. */
 export class ContractInstanceDeployedEvent {

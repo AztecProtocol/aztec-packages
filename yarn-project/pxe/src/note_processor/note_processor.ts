@@ -1,6 +1,12 @@
 import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { type AztecAddress, type CompleteAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  INITIAL_L2_BLOCK_NUM,
+  MAX_NOTE_HASHES_PER_TX,
+  type PublicKey,
+} from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

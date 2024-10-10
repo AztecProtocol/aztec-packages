@@ -2,8 +2,8 @@ import {
   type ContractArtifact,
   type ContractInstanceWithAddress,
   Fr,
-  getContractClassFromArtifact,
   PublicKeys,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { type AztecNode, createAztecNodeClient } from '@aztec/circuit-types';
 import { getContractArtifact } from '@aztec/cli/cli-utils';

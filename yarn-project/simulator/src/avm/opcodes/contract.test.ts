@@ -59,7 +59,7 @@ describe('Contract opcodes', () => {
         new Field(contractInstance.deployer),
         new Field(contractInstance.contractClassId),
         new Field(contractInstance.initializationHash),
-        ...contractInstance.publicKeys.toFields().map((f) => new Field(f)),
+        ...contractInstance.publicKeys.toFields().map(f => new Field(f)),
       ]);
 
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);

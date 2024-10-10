@@ -2299,8 +2299,14 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
 
     // Generate Hint for call operation
     // Note: opcode does not write 'address' into memory
+    PublicKeysHint public_keys_hints = {
+        grumpkin::g1::affine_element::random_element(),
+        grumpkin::g1::affine_element::random_element(),
+        grumpkin::g1::affine_element::random_element(),
+        grumpkin::g1::affine_element::random_element(),
+    };
     auto execution_hints =
-        ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, 6 } } });
+        ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, public_keys_hints } } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, 6 })); // The first one represents true

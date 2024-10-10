@@ -2,10 +2,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { PublicKeys } from '../../types/public_keys.js';
 import { Gas } from '../gas.js';
 import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
-import { PublicKeys } from '../../types/public_keys.js';
 
 // TODO: Consider just using Tuple.
 export class AvmKeyValueHint {
@@ -217,17 +217,7 @@ export class AvmContractInstanceHint {
    * @returns A new AvmHint instance.
    */
   static from(fields: FieldsOf<AvmContractInstanceHint>): AvmContractInstanceHint {
-    const contractInstanceHintFields = AvmContractInstanceHint.getFields(fields);
-
-    return new AvmContractInstanceHint(
-      contractInstanceHintFields[0],
-      contractInstanceHintFields[1],
-      contractInstanceHintFields[2],
-      contractInstanceHintFields[3],
-      contractInstanceHintFields[4],
-      contractInstanceHintFields[5],
-      PublicKeys.fromFields(contractInstanceHintFields.slice(6, 18)),
-    );
+    return new AvmContractInstanceHint(...AvmContractInstanceHint.getFields(fields));
   }
 
   /**
@@ -243,8 +233,8 @@ export class AvmContractInstanceHint {
       fields.deployer,
       fields.contractClassId,
       fields.initializationHash,
-      ...fields.publicKeys.toFields(),
-    ] as [Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr, Fr];
+      fields.publicKeys,
+    ] as const;
   }
 
   /**

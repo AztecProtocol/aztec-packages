@@ -1,3 +1,4 @@
+import { PublicKeys } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -5,7 +6,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Wallet } from '../account/index.js';
 import { ContractBase } from './contract_base.js';
 import { DeployMethod } from './deploy_method.js';
-import { PublicKeys } from '@aztec/circuits.js';
 
 /**
  * The Contract class represents a contract and provides utility methods for interacting with it.
