@@ -1,0 +1,15 @@
+SubTest
+├── when amount eq 0
+│   └── it return instantly with no changes
+└── when amount gt 0
+    ├── given user have no checkpoints
+    │   └── it revert
+    └── given user have checkpoints
+        ├── when amount is more than last checkpoint
+        │   └── it reverts
+        └── when amount is less or equal to last checkpoint
+            ├── when last checkpoint is "now"
+            │   └── it decreases power by amount
+            └── when last checkpoint in past
+                ├── it adds a checkpoint with power equal to last.power - amount
+                └── it increases num checkpoints

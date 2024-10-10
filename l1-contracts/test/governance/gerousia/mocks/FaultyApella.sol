@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-
-contract FaultyApella is IApella {
+contract FaultyApella {
   error Faulty();
 
-  function propose(address) external pure override(IApella) returns (bool) {
+  function propose(address) external pure returns (bool) {
     require(false, Faulty());
     return true;
   }
