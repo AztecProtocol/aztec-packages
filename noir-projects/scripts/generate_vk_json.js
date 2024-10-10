@@ -56,6 +56,9 @@ async function removeFunctionArtifact(artifactPath) {
 
 async function getBytecodeHash(artifactPath) {
   const { bytecode } = JSON.parse(await fs.readFile(artifactPath));
+  if (!bytecode) {
+    throw new Error("No bytecode found in artifact: " + artifactPath);
+  }
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
