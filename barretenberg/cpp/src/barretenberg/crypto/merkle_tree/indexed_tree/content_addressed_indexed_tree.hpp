@@ -858,14 +858,18 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_witho
 
     std::shared_ptr<Status> status = std::make_shared<Status>();
 
-    uint32_t p = static_cast<uint32_t>(std::log2(highest_index + 1)) + 1;
-    index_t span = static_cast<uint32_t>(std::pow(2, p));
-    uint64_t numBatches = workers_->num_threads();
+    uint32_t indexPower2Ceil = static_cast<uint32_t>(std::ceil(std::log2(highest_index + 1)));
+    index_t span = static_cast<uint64_t>(std::pow(2, indexPower2Ceil));
+    uint32_t numBatchesPower2Ceil = static_cast<uint32_t>(std::floor(std::log2(workers_->num_threads())));
+    uint64_t numBatches = static_cast<uint64_t>(std::pow(2, numBatchesPower2Ceil));
     index_t batchSize = span / numBatches;
-    batchSize = std::max(batchSize, 1UL);
+    batchSize = std::max(batchSize, 2UL);
     index_t startIndex = 0;
-    p = static_cast<uint32_t>(std::log2(batchSize));
-    uint32_t rootLevel = depth_ - p;
+    indexPower2Ceil = static_cast<uint32_t>(std::log2(batchSize));
+    uint32_t rootLevel = depth_ - indexPower2Ceil;
+
+    // std::cout << "HIGHEST INDEX " << highest_index << " SPAN " << span << " NUM BATCHES " << numBatches
+    //           << " BATCH SIZE " << batchSize << std::endl;
 
     struct BatchInsertResults {
         std::atomic_uint32_t count;

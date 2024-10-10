@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 using namespace bb;
@@ -463,13 +464,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 {
     // We use a deep tree with a small amount of storage (100 * 1024) bytes
     constexpr size_t depth = 16;
-    constexpr uint32_t numDbs = 4;
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
 
     {
-        auto environment = std::make_unique<LMDBEnvironment>(directory, 50, numDbs, 2);
         LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 50, _maxReaders);
         std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
@@ -529,7 +528,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
     }
 
     {
-        auto environment = std::make_unique<LMDBEnvironment>(directory, 500, numDbs, 2);
         LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 500, _maxReaders);
         std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
@@ -1547,4 +1545,48 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
             check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
         }
     }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_unwound_blocks)
+{
+    std::string name = random_string();
+    uint32_t depth = 20;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    for (uint32_t i = 0; i < 5; i++) {
+        std::vector<fr> values = create_values(1024);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    unwind_block(tree, 5);
+    unwind_block(tree, 4);
+
+    EXPECT_THROW(Store(name, depth, 5, db), std::runtime_error);
+    EXPECT_THROW(Store(name, depth, 4, db), std::runtime_error);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_expired_historical_blocks)
+{
+    std::string name = random_string();
+    uint32_t depth = 20;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    for (uint32_t i = 0; i < 5; i++) {
+        std::vector<fr> values = create_values(1024);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    remove_historic_block(tree, 1);
+    remove_historic_block(tree, 2);
+
+    EXPECT_THROW(Store(name, depth, 1, db), std::runtime_error);
+    EXPECT_THROW(Store(name, depth, 2, db), std::runtime_error);
 }

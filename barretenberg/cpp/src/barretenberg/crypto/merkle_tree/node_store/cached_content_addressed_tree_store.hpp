@@ -1117,11 +1117,14 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         if (meta_.unfinalisedBlockHeight < blockNumber) {
             throw std::runtime_error("Unable to initialise from future block");
         }
+        if (meta_.oldestHistoricBlock > blockNumber) {
+            throw std::runtime_error("Unable to fork from expired historical block");
+        }
         BlockPayload blockData;
         if (blockNumber == 0) {
             blockData.blockNumber = 0;
-            blockData.root = meta_.root;
-            blockData.size = meta_.size;
+            blockData.root = meta_.initialRoot;
+            blockData.size = meta_.initialSize;
         } else if (get_block_data(blockNumber, blockData, *tx) == false) {
             throw std::runtime_error(
                 (std::stringstream() << "Failed to retrieve block data: " << blockNumber << ". Tree name: " << name_)
