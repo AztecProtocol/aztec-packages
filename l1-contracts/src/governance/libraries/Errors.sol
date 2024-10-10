@@ -11,6 +11,8 @@ pragma solidity >=0.8.27;
  */
 library Errors {
   // Registry
-  error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
+  error Nomismatokopio__InssuficientMintAvailable(uint256 available, uint256 needed); // 0xf268b931
+
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
+  error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
 }
