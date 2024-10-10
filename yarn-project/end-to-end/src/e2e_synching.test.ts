@@ -342,7 +342,7 @@ const variants: VariantDefinition[] = [
   { blockCount: 1000, txCount: 4, txComplexity: TxComplexity.PrivateTransfer },
 ];
 
-describe.skip('e2e_synching', () => {
+describe('e2e_synching', () => {
   // WARNING: Running this with AZTEC_GENERATE_TEST_DATA is VERY slow, and will build a whole slew
   //          of fixtures including multiple blocks with many transaction in.
   it.each(variants)(
@@ -490,7 +490,7 @@ describe.skip('e2e_synching', () => {
     );
   });
 
-  describe.skip('a wild prune appears', () => {
+  describe('a wild prune appears', () => {
     const ASSUME_PROVEN_THROUGH = 0;
 
     it('archiver following catches reorg as it occur and deletes blocks', async () => {
