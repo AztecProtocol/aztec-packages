@@ -1,5 +1,5 @@
 [package]
-name = "dex_contract"
+name = "amm_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"
