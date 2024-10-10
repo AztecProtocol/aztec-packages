@@ -12,11 +12,11 @@ use dep::types::{
     enqueued_call_data::EnqueuedCallData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
     public_kernel_data::PublicKernelData
 },
-    constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_MERGE_INDEX}
+    constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX}
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+    TUBE_INDEX,
     PUBLIC_KERNEL_MERGE_INDEX,
 ];
 

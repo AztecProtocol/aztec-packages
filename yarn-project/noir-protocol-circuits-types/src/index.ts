@@ -100,6 +100,7 @@ export * from './artifacts.js';
 export { maxPrivateKernelResetDimensions, privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
 export * from './utils/private_kernel_reset.js';
 export * from './vks.js';
+export { hashVk } from './utils/vk_json.js';
 
 /* eslint-disable camelcase */
 

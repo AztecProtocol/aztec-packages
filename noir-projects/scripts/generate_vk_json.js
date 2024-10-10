@@ -110,11 +110,9 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
 }
 
 function isMegaHonkCircuit(artifactName) {
-  // TODO Uncomment when mega honk vks are supported in the protocol
-  // return megaHonkPatterns.some((pattern) =>
-  //   artifactName.match(new RegExp(pattern))
-  // );
-  return false;
+  return megaHonkPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  );
 }
 
 async function processArtifact(

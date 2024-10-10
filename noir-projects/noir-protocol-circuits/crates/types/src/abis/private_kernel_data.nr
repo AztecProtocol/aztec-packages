@@ -1,13 +1,13 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{PRIVATE_KERNEL_RESET_INDEX, VK_TREE_HEIGHT},
-    merkle_tree::membership::assert_check_membership, recursion::{verification_key::VerificationKey},
+    merkle_tree::membership::assert_check_membership, recursion::{verification_key::ClientIVCVerificationKey},
     utils::arrays::find_index_hint
 };
 
 pub struct PrivateKernelData {
     public_inputs: PrivateKernelCircuitPublicInputs,
-    vk: VerificationKey,
+    vk: ClientIVCVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
 }
@@ -35,7 +35,7 @@ impl PrivateKernelData {
 }
 
 pub struct PrivateKernelDataWithoutPublicInputs {
-    vk: VerificationKey,
+    vk: ClientIVCVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
 }

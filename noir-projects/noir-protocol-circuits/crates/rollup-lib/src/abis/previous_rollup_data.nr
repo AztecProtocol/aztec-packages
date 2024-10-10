@@ -1,7 +1,7 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    recursion::{proof::NestedRecursiveProof, verification_key::{VerificationKey, HonkVerificationKey}, traits::Verifiable},
     traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
     utils::arrays::find_index_hint
 };
@@ -9,7 +9,7 @@ use dep::types::{
 pub struct PreviousRollupData{
     base_or_merge_rollup_public_inputs : BaseOrMergeRollupPublicInputs,
     proof : NestedRecursiveProof,
-    vk : VerificationKey,
+    vk : HonkVerificationKey,
     vk_witness : MembershipWitness<VK_TREE_HEIGHT>,
 }
 

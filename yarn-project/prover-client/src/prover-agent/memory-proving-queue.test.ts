@@ -1,6 +1,7 @@
 import { ProvingRequestType } from '@aztec/circuit-types';
 import {
   Fr,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   VK_TREE_HEIGHT,
@@ -86,7 +87,7 @@ describe('MemoryProvingQueue', () => {
 
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake();
+    const vk = VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS);
     const vkPath = makeTuple(VK_TREE_HEIGHT, Fr.zero);
     await queue.resolveProvingJob(job!.id, new RootParityInput(proof, vk, vkPath, publicInputs));
     await expect(promise).resolves.toEqual(new RootParityInput(proof, vk, vkPath, publicInputs));
@@ -144,7 +145,7 @@ describe('MemoryProvingQueue', () => {
 
     const output = new RootParityInput(
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      VerificationKeyAsFields.makeFake(),
+      VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
       makeParityPublicInputs(),
     );

@@ -1,11 +1,11 @@
 use dep::types::{
     header::Header, KernelCircuitPublicInputs, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::RecursiveProof, traits::Verifiable}
+    recursion::{verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof, traits::Verifiable}
 };
 
 pub struct EmptyNestedCircuitPublicInputs {
     proof: RecursiveProof,
-    vk: VerificationKey,
+    vk: HonkVerificationKey,
 }
 
 impl Verifiable for EmptyNestedCircuitPublicInputs {

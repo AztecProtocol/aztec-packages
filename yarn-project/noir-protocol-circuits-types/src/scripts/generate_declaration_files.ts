@@ -10,7 +10,7 @@ export = circuit;
 `;
 
 const vk = `\
-const vk: { keyAsBytes: string; keyAsFields: string[] };
+const vk: { keyAsBytes: string; keyAsFields: string[], vkHash: string };
 export = vk;
 `;
 

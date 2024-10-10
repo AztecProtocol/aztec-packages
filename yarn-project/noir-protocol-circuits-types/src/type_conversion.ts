@@ -8,6 +8,7 @@ import {
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -29,6 +30,7 @@ import {
   GasSettings,
   GlobalVariables,
   GrumpkinScalar,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Header,
   KernelCircuitPublicInputs,
   type KernelData,
@@ -136,7 +138,6 @@ import {
   type TreeLeafReadRequestHint,
   TxContext,
   type TxRequest,
-  VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VMCircuitPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
@@ -1006,7 +1007,7 @@ export function mapPrivateCallStackItemToNoir(
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
-    vk: mapVerificationKeyToNoir(privateCallData.vk),
+    vk: mapVerificationKeyToNoir(privateCallData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
@@ -1642,7 +1643,7 @@ function mapPublicKernelDataToNoir(publicKernelData: PublicKernelData): PublicKe
   return {
     public_inputs: mapPublicKernelCircuitPublicInputsToNoir(publicKernelData.publicInputs),
     proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(publicKernelData.proof),
-    vk: mapVerificationKeyToNoir(publicKernelData.vk.keyAsFields),
+    vk: mapVerificationKeyToNoir(publicKernelData.vk.keyAsFields, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_index: mapFieldToNoir(new Fr(publicKernelData.vkIndex)),
     vk_path: mapTuple(publicKernelData.vkPath, mapFieldToNoir),
   };
@@ -1652,7 +1653,7 @@ function mapPublicKernelInnerDataToNoir(publicKernelData: PublicKernelInnerData)
   return {
     public_inputs: mapVMCircuitPublicInputsToNoir(publicKernelData.publicInputs),
     proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(publicKernelData.proof),
-    vk: mapVerificationKeyToNoir(publicKernelData.vk.keyAsFields),
+    vk: mapVerificationKeyToNoir(publicKernelData.vk.keyAsFields, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -1660,18 +1661,21 @@ function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
   return {
     public_inputs: mapKernelCircuitPublicInputsToNoir(kernelData.publicInputs),
     proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(kernelData.proof),
-    vk: mapVerificationKeyToNoir(kernelData.vk.keyAsFields),
+    vk: mapVerificationKeyToNoir(kernelData.vk.keyAsFields, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_index: mapFieldToNoir(new Fr(kernelData.vkIndex)),
     vk_path: mapTuple(kernelData.vkPath, mapFieldToNoir),
   };
 }
 
-export function mapVerificationKeyToNoir(key: VerificationKeyAsFields): VerificationKeyNoir {
-  if (key.key.length !== VERIFICATION_KEY_LENGTH_IN_FIELDS) {
-    throw new Error(`Expected ${VERIFICATION_KEY_LENGTH_IN_FIELDS} fields, got ${key.key.length}`);
+export function mapVerificationKeyToNoir<N extends number>(
+  key: VerificationKeyAsFields,
+  length: N,
+): VerificationKeyNoir<N> {
+  if (key.key.length !== length) {
+    throw new Error(`Expected ${length} fields, got ${key.key.length}`);
   }
   return {
-    key: mapTuple(key.key as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, mapFieldToNoir),
+    key: key.key.map(mapFieldToNoir) as FixedLengthArray<NoirField, N>,
     hash: mapFieldToNoir(key.hash),
   };
 }
@@ -1711,7 +1715,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateKernelInnerData.vk),
+    vk: mapVerificationKeyToNoir(privateKernelInnerData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
     vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
   };
@@ -2168,7 +2172,7 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
       previousRollupData.baseOrMergeRollupPublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk: mapVerificationKeyToNoir(previousRollupData.vk),
+    vk: mapVerificationKeyToNoir(previousRollupData.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_witness: {
       leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
       sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
@@ -2189,7 +2193,7 @@ export function mapPreviousRollupBlockDataToNoir(
       previousRollupData.blockRootOrBlockMergePublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk: mapVerificationKeyToNoir(previousRollupData.vk),
+    vk: mapVerificationKeyToNoir(previousRollupData.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_witness: {
       leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
       sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
@@ -2226,7 +2230,7 @@ export function mapRootRollupParityInputToNoir(
 ): RootRollupParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -2297,7 +2301,7 @@ export function mapRootParityInputToNoir(
 ): ParityRootParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -2615,6 +2619,6 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
 function mapEmptyNestedDataToNoir(inputs: EmptyNestedData): EmptyNestedDataNoir {
   return {
     proof: mapRecursiveProofToNoir(inputs.proof),
-    vk: mapVerificationKeyToNoir(inputs.vk),
+    vk: mapVerificationKeyToNoir(inputs.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }

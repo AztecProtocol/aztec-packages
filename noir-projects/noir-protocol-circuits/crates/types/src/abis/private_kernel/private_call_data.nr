@@ -5,13 +5,13 @@ use crate::{
 },
     address::{SaltedInitializationHash, PublicKeysHash},
     constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
-    merkle_tree::membership::MembershipWitness, recursion::{verification_key::VerificationKey}
+    merkle_tree::membership::MembershipWitness, recursion::{verification_key::ClientIVCVerificationKey}
 };
 
 pub struct PrivateCallData {
     call_stack_item: PrivateCallStackItem,
 
-    vk: VerificationKey,
+    vk: ClientIVCVerificationKey,
 
     salted_initialization_hash: SaltedInitializationHash,
     public_keys_hash: PublicKeysHash,
@@ -26,7 +26,7 @@ pub struct PrivateCallData {
 pub struct PrivateCallDataWithoutPublicInputs {
     call_stack_item: PrivateCallStackItemWithoutPublicInputs,
 
-    vk: VerificationKey,
+    vk: ClientIVCVerificationKey,
 
     salted_initialization_hash: SaltedInitializationHash,
     public_keys_hash: PublicKeysHash,

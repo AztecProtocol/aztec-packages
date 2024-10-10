@@ -9,6 +9,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Fr,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
@@ -40,7 +41,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-  verificationKey: VerificationKeyAsFields.makeEmpty(),
+  verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   outputWitness: new Map(),
   bytecode: Buffer.from([]),
 };

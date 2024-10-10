@@ -44,8 +44,7 @@ impl RootParityInputs {
             //TODO: Do we need to validate this following hash
             //assert(hash(self.children[i].verification_key) == self.children[i].verification_key.hash);
             self.children[i].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.children[i].validate_in_vk_tree();
+            self.children[i].validate_in_vk_tree();
         }
     }
 }

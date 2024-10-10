@@ -25,12 +25,10 @@ impl RootRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].block_root_or_block_merge_public_inputs;

@@ -52,7 +52,7 @@ use crate::{
     partial_state_reference::PartialStateReference,
     tests::{fixtures, fixtures::{contracts::ContractData, contract_functions::ContractFunction}},
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}, point::Point
+    recursion::{verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey}, proof::NestedRecursiveProof}, point::Point
 };
 
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
@@ -147,7 +147,8 @@ pub struct FixtureBuilder {
 
     // Proof.
     proof: NestedRecursiveProof,
-    vk: VerificationKey,
+    honk_vk: HonkVerificationKey,
+    client_ivc_vk: ClientIVCVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     vk_tree_root: Field,
@@ -199,7 +200,8 @@ impl FixtureBuilder {
         let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
 
         let vk_hash = vk_tree.leaves[vk_index];
-        self.vk.hash = vk_hash;
+        self.honk_vk.hash = vk_hash;
+        self.client_ivc_vk.hash = vk_hash;
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
 
@@ -352,7 +354,7 @@ impl FixtureBuilder {
     pub fn to_private_call_data(self) -> PrivateCallData {
         PrivateCallData {
             call_stack_item: self.to_private_call_stack_item(),
-            vk: self.vk,
+            vk: self.client_ivc_vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
             public_keys_hash: self.public_keys_hash,
@@ -477,7 +479,7 @@ impl FixtureBuilder {
 
     pub fn to_private_kernel_data(self) -> PrivateKernelData {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
-        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PrivateKernelData { public_inputs, vk: self.client_ivc_vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_circuit_public_inputs(self) -> PublicCircuitPublicInputs {
@@ -586,7 +588,7 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.honk_vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
@@ -613,7 +615,7 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: self.vk,
+            vk: self.honk_vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -1264,7 +1266,8 @@ impl Empty for FixtureBuilder {
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            honk_vk: VerificationKey::empty(),
+            client_ivc_vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
             vk_tree_root: FixtureBuilder::vk_tree_root(),
