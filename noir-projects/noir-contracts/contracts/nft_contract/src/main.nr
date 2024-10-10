@@ -10,9 +10,12 @@ contract NFT {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
         oracle::random::random,
-        prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
+        prelude::{
+        NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
+        AztecAddress, PublicContext
+    },
         encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
-        hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
+        keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize},
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}}
@@ -132,18 +135,18 @@ contract NFT {
         public_owners_storage.write(to);
     }
 
+    // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
     #[private]
-    fn transfer_to_private(from: AztecAddress, to: AztecAddress, token_id: Field) {
+    fn transfer_to_private(to: AztecAddress, token_id: Field) {
+        let from = context.msg_sender();
+
         let nft = NFT::at(context.this_address());
 
+        // We prepare the transfer.
         let hiding_point_slot = nft.prepare_transfer_to_private(from, to).call(&mut context);
 
-        // We now transfer the token to this contract so that the `msg_sender` in `finalize_transfer_to_private` call
-        // below is the token owner.
-        nft.transfer_in_public(from, context.this_address(), token_id, 0).enqueue(&mut context);
-
         // At last we finalize the transfer.
-        nft.finalize_transfer_to_private(token_id, hiding_point_slot).enqueue(&mut context);
+        nft._finalize_transfer_to_private_trusted(from, token_id, hiding_point_slot).enqueue(&mut context);
     }
 
     /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
@@ -193,9 +196,24 @@ contract NFT {
     /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
     fn finalize_transfer_to_private(token_id: Field, hiding_point_slot: Field) {
-        // We don't need to support authwit here because `prepare_transfer_to_private` allows us to set arbitrary
-        // `from` and hence the call is authenticated by the loaded hiding point being non-zero.
         let from = context.msg_sender();
+        _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
+    }
+
+    #[public]
+    #[internal]
+    fn  _finalize_transfer_to_private_trusted(from: AztecAddress, token_id: Field, hiding_point_slot: Field) {
+        _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
+    }
+
+    #[contract_library_method]
+    fn _finalize_transfer_to_private(
+        from: AztecAddress,
+        token_id: Field,
+        hiding_point_slot: Field,
+        context: &mut PublicContext,
+        storage: Storage<&mut PublicContext>
+    ) {
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from), "invalid NFT owner");
 
