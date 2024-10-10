@@ -28,6 +28,8 @@ export type L2BlockStats = {
 
 /** Stats logged for each L1 publish tx.*/
 export type L1PublishStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Effective gas price of the tx. */
   gasPrice: bigint;
   /** Effective gas used in the tx. */

@@ -68,6 +68,8 @@ import { prettyLogViemError } from './utils.js';
  * Stats for a sent transaction.
  */
 export type TransactionStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Hash of the transaction. */
   transactionHash: string;
   /** Size in bytes of the tx calldata */
@@ -326,6 +328,7 @@ export class L1Publisher {
     }
     const calldata = hexToBytes(tx.input);
     return {
+      sender: tx.from.toString(),
       transactionHash: tx.hash,
       calldataSize: calldata.length,
       calldataGas: getCalldataGasUsage(calldata),
@@ -402,7 +405,7 @@ export class L1Publisher {
       const tx = await this.getTransactionStats(txHash);
       const stats: L1PublishBlockStats = {
         ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-        ...pick(tx!, 'calldataGas', 'calldataSize'),
+        ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
       };
@@ -483,8 +486,9 @@ export class L1Publisher {
         const tx = await this.getTransactionStats(txHash);
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
           eventName: 'proof-published-to-l1',
+          sender: this.account.address,
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
         this.metrics.recordSubmitProof(timer.ms(), stats);
