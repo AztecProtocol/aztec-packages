@@ -19,8 +19,9 @@ TEST="$1"
 REPO=$(git rev-parse --show-toplevel)
 if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
   "$REPO"/spartan/scripts/setup_local_k8s.sh
+  "$REPO"/spartan/scripts/setup_stern.sh
 else
-  echo "Not on x64 Linux, not installing k8s and helm."
+  echo "Not on x64 Linux, not installing k8s, helm or stern."
 fi
 
 # Default values for environment variables
@@ -61,8 +62,15 @@ function show_status_until_pxe_ready() {
   done
 }
 
-show_status_until_pxe_ready &
-SHOW_STATUS_PID=$!
+function show_stern_once_pxe_ready() {
+  set +x # don't spam with our commands
+  # wait for network to be up
+  kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
+  stern spartan -n "$NAMESPACE"
+}
+
+show_status_until_pxe_ready yarn-project/end-to-end/scripts/native_network_test.sh &
+show_stern_once_pxe_ready &
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
@@ -79,12 +87,9 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
 # tunnel in to get access directly to our PXE service in k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
-PORT_FORWARD_PID=$!
 
 cleanup() {
-  echo "Cleaning up..."
-  kill $PORT_FORWARD_PID || true
-  kill $SHOW_STATUS_PID || true
+  kill $(jobs -p) 2>/dev/null || true
 }
 
 trap cleanup EXIT SIGINT SIGTERM
