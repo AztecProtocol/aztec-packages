@@ -86,7 +86,8 @@ contract FinaliseWithdrawTest is ApellaBase {
     uint256 _depositAmount,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
-    uint256[WITHDRAWAL_COUNT] memory _timejumps
+    uint256[WITHDRAWAL_COUNT] memory _timejumps,
+    uint256[WITHDRAWAL_COUNT] memory _timejumps2
   )
     external
     whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps)
@@ -98,6 +99,11 @@ contract FinaliseWithdrawTest is ApellaBase {
     for (uint256 i = 0; i < withdrawalCount; i++) {
       DataStructures.Withdrawal memory withdrawal = apella.getWithdrawal(i);
       assertGt(withdrawal.unlocksAt, block.timestamp);
+
+      uint256 time =
+        bound(_timejumps2[i], block.timestamp, Timestamp.unwrap(withdrawal.unlocksAt) - 1);
+
+      vm.warp(time);
 
       vm.expectRevert(
         abi.encodeWithSelector(
@@ -114,7 +120,8 @@ contract FinaliseWithdrawTest is ApellaBase {
     uint256 _depositAmount,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
-    uint256[WITHDRAWAL_COUNT] memory _timejumps
+    uint256[WITHDRAWAL_COUNT] memory _timejumps,
+    uint256[WITHDRAWAL_COUNT] memory _timejumps2
   )
     external
     whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps)
@@ -129,7 +136,13 @@ contract FinaliseWithdrawTest is ApellaBase {
     uint256 withdrawalCount = apella.withdrawalCount();
     for (uint256 i = 0; i < withdrawalCount; i++) {
       DataStructures.Withdrawal memory withdrawal = apella.getWithdrawal(i);
-      vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
+
+      uint256 upper = i + 1 == withdrawalCount
+        ? type(uint256).max
+        : Timestamp.unwrap(apella.getWithdrawal(i + 1).unlocksAt);
+      uint256 time = bound(_timejumps2[i], Timestamp.unwrap(withdrawal.unlocksAt), upper);
+
+      vm.warp(time);
 
       vm.expectEmit(true, true, true, true, address(apella));
       emit IApella.WithdrawFinalised(i);

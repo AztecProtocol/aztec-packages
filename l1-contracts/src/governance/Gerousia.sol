@@ -108,7 +108,7 @@ contract Gerousia is IGerousia {
     require(_roundNumber < currentRound, Errors.Gerousia__CanOnlyPushProposalInPast());
     require(
       _roundNumber + LIFETIME_IN_ROUNDS >= currentRound,
-      Errors.Gerousia__ProposalTooOld(_roundNumber)
+      Errors.Gerousia__ProposalTooOld(_roundNumber, currentRound)
     );
 
     RoundAccounting storage round = rounds[instance][_roundNumber];
