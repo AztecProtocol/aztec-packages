@@ -1040,29 +1040,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::Keccak256 { message, output } => {
-            let message_offset = message.pointer.to_usize();
-            let message_size_offset = message.size.to_usize();
-            let dest_offset = output.pointer.to_usize();
-            assert_eq!(output.size, 32, "Keccak256 output size must be 32!");
-
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::KECCAK,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .indirect_operand(&output.pointer)
-                        .indirect_operand(&message.pointer)
-                        .direct_operand(&message.size)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
-                ],
-                ..Default::default()
-            });
-        }
         BlackBoxOp::Keccakf1600 { message, output } => {
             let message_offset = message.pointer.to_usize();
             let message_size_offset = message.size.to_usize();
