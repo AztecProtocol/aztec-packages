@@ -154,9 +154,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
         }
 
         round++;
+
         for (size_t i = 0; i < log_n; i++) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Libra:evalution_" + idx, frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:evaluation_" + idx, frs_per_Fr);
         }
         // manifest_expected.add_entry(round, "Libra:evaluation", log_n * frs_per_Fr);
 
@@ -266,6 +267,9 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     info("prover manifest ");
     auto prover_manifest = prover.transcript->get_manifest();
     prover_manifest.print();
+
+    info("expected manifest ");
+    manifest_expected.print();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
