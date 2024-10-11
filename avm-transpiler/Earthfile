@@ -12,11 +12,7 @@ source:
 build:
     FROM +source
     # build avm transpiler, and make sure the big build and deps folders don't hit cache
-    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
-        --prefix="avm-transpiler" \
-        --rebuild_patterns="../noir/.rebuild_patterns_native .rebuild_patterns" \
-        --command="./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}" \
-        --build_artifacts="target"
+    RUN ./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
     SAVE ARTIFACT scripts/compile_then_transpile.sh
 

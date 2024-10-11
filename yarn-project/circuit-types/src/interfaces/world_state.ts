@@ -53,14 +53,6 @@ export interface WorldStateSynchronizer {
   syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
-   * Pauses the synchronizer, syncs to the target block number, forks world state, and resumes.
-   * @param targetBlockNumber - The block number to sync to.
-   * @param forkIncludeUncommitted - Whether to include uncommitted data in the fork.
-   * @returns The db forked at the requested target block number.
-   */
-  syncImmediateAndFork(targetBlockNumber: number): Promise<MerkleTreeWriteOperations>;
-
-  /**
    * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
    */
   fork(block?: number): Promise<MerkleTreeWriteOperations>;
