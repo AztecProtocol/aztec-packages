@@ -47,16 +47,31 @@ contract PushProposalTest is GerousiaBase {
     _;
   }
 
-  function test_WhenRoundTooFarInPast() external givenCanonicalInstanceHoldCode whenRoundInPast {
+  function test_WhenRoundTooFarInPast(uint256 _slotsToJump)
+    external
+    givenCanonicalInstanceHoldCode
+    whenRoundInPast
+  {
     // it revert
 
-    vm.warp(
-      Timestamp.unwrap(
-        leonidas.getTimestampForSlot(Slot.wrap((gerousia.LIFETIME_IN_ROUNDS() + 1) * gerousia.M()))
+    uint256 lower = Timestamp.unwrap(
+      leonidas.getTimestampForSlot(
+        leonidas.getCurrentSlot() + Slot.wrap(gerousia.M() * gerousia.LIFETIME_IN_ROUNDS() + 1)
       )
     );
+    uint256 upper =
+      (type(uint256).max - Timestamp.unwrap(leonidas.GENESIS_TIME())) / leonidas.SLOT_DURATION();
+    uint256 time = bound(_slotsToJump, lower, upper);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__ProposalTooOld.selector, 0));
+    vm.warp(time);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Gerousia__ProposalTooOld.selector,
+        0,
+        gerousia.computeRound(leonidas.getCurrentSlot())
+      )
+    );
     gerousia.pushProposal(0);
   }
 
@@ -97,7 +112,7 @@ contract PushProposalTest is GerousiaBase {
     _;
   }
 
-  function test_GivenLeaderIsAddress0()
+  function test_GivenLeaderIsAddress0(uint256 _slotsToJump)
     external
     givenCanonicalInstanceHoldCode
     whenRoundInPast
@@ -105,6 +120,20 @@ contract PushProposalTest is GerousiaBase {
     givenRoundNotExecutedBefore
   {
     // it revert
+
+    // The first slot in the next round (round 1)
+    Slot lowerSlot = Slot.wrap(gerousia.M());
+    uint256 lower = Timestamp.unwrap(leonidas.getTimestampForSlot(lowerSlot));
+    // the last slot in the LIFETIME_IN_ROUNDS next round
+    uint256 upper = Timestamp.unwrap(
+      leonidas.getTimestampForSlot(
+        lowerSlot + Slot.wrap(gerousia.M() * (gerousia.LIFETIME_IN_ROUNDS() - 1))
+      )
+    );
+    uint256 time = bound(_slotsToJump, lower, upper);
+
+    vm.warp(time);
+
     vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__ProposalCannotBeAddressZero.selector));
     gerousia.pushProposal(0);
   }
@@ -135,8 +164,10 @@ contract PushProposalTest is GerousiaBase {
     gerousia.pushProposal(1);
   }
 
-  modifier givenSufficientYea() {
-    for (uint256 i = 0; i < gerousia.N(); i++) {
+  modifier givenSufficientYea(uint256 _yeas) {
+    uint256 limit = bound(_yeas, gerousia.N(), gerousia.M());
+
+    for (uint256 i = 0; i < limit; i++) {
       vm.prank(proposer);
       assertTrue(gerousia.vote(proposal));
       vm.warp(
@@ -152,14 +183,14 @@ contract PushProposalTest is GerousiaBase {
     _;
   }
 
-  function test_GivenNewCanonicalInstance()
+  function test_GivenNewCanonicalInstance(uint256 _yeas)
     external
     givenCanonicalInstanceHoldCode
     whenRoundInPast
     whenRoundInRecentPast
     givenRoundNotExecutedBefore
     givenLeaderIsNotAddress0
-    givenSufficientYea
+    givenSufficientYea(_yeas)
   {
     // it revert
 
@@ -188,14 +219,14 @@ contract PushProposalTest is GerousiaBase {
     gerousia.pushProposal(1);
   }
 
-  function test_GivenApellaCallReturnFalse()
+  function test_GivenApellaCallReturnFalse(uint256 _yeas)
     external
     givenCanonicalInstanceHoldCode
     whenRoundInPast
     whenRoundInRecentPast
     givenRoundNotExecutedBefore
     givenLeaderIsNotAddress0
-    givenSufficientYea
+    givenSufficientYea(_yeas)
   {
     // it revert
     FalsyApella falsy = new FalsyApella();
@@ -205,14 +236,14 @@ contract PushProposalTest is GerousiaBase {
     gerousia.pushProposal(1);
   }
 
-  function test_GivenApellaCallFails()
+  function test_GivenApellaCallFails(uint256 _yeas)
     external
     givenCanonicalInstanceHoldCode
     whenRoundInPast
     whenRoundInRecentPast
     givenRoundNotExecutedBefore
     givenLeaderIsNotAddress0
-    givenSufficientYea
+    givenSufficientYea(_yeas)
   {
     // it revert
     FaultyApella faulty = new FaultyApella();
@@ -222,14 +253,14 @@ contract PushProposalTest is GerousiaBase {
     gerousia.pushProposal(1);
   }
 
-  function test_GivenApellaCallSucceeds()
+  function test_GivenApellaCallSucceeds(uint256 _yeas)
     external
     givenCanonicalInstanceHoldCode
     whenRoundInPast
     whenRoundInRecentPast
     givenRoundNotExecutedBefore
     givenLeaderIsNotAddress0
-    givenSufficientYea
+    givenSufficientYea(_yeas)
   {
     // it update executed to true
     // it emits {ProposalPushed} event

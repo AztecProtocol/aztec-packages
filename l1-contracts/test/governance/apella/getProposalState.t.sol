@@ -79,7 +79,7 @@ contract GetProposalStateTest is ApellaBase {
     _;
   }
 
-  function test_WhenVotingDelayHaveNotPassed()
+  function test_WhenVotingDelayHaveNotPassed(uint256 _timeJump)
     external
     whenValidProposalId
     givenStateIsUnstable
@@ -87,6 +87,10 @@ contract GetProposalStateTest is ApellaBase {
   {
     // it return Pending
     _statePending("empty");
+
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.pendingThrough()));
+    vm.warp(time);
+
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Pending);
   }
 
@@ -94,7 +98,7 @@ contract GetProposalStateTest is ApellaBase {
     _;
   }
 
-  function test_WhenVotingDurationHaveNotPassed()
+  function test_WhenVotingDurationHaveNotPassed(uint256 _timeJump)
     external
     whenValidProposalId
     givenStateIsUnstable
@@ -103,6 +107,10 @@ contract GetProposalStateTest is ApellaBase {
   {
     // it return Active
     _stateActive("empty");
+
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.activeThrough()));
+    vm.warp(time);
+
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Active);
   }
 
@@ -141,7 +149,6 @@ contract GetProposalStateTest is ApellaBase {
     whenVotingDurationHavePassed
   {
     // it return Rejected
-
     _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
 
     // We can overwrite the quorum to be 0 to hit an invalid case
@@ -173,7 +180,8 @@ contract GetProposalStateTest is ApellaBase {
     address _voter,
     uint256 _totalPower,
     uint256 _votesCast,
-    uint256 _yeas
+    uint256 _yeas,
+    uint256 _timeJump
   )
     external
     whenValidProposalId
@@ -184,6 +192,9 @@ contract GetProposalStateTest is ApellaBase {
     givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
   {
     // it return Queued
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.queuedThrough()));
+    vm.warp(time);
+
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Queued);
   }
 
@@ -196,7 +207,8 @@ contract GetProposalStateTest is ApellaBase {
     address _voter,
     uint256 _totalPower,
     uint256 _votesCast,
-    uint256 _yeas
+    uint256 _yeas,
+    uint256 _timeJump
   )
     external
     whenValidProposalId
@@ -208,6 +220,9 @@ contract GetProposalStateTest is ApellaBase {
     givenExecutionDelayHavePassed
   {
     // it return Executable
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.executableThrough()));
+    vm.warp(time);
+
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Executable);
   }
 
