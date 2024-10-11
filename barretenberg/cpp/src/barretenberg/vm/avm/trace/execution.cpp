@@ -398,7 +398,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::LTE_8:
             trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
                                  std::get<uint8_t>(inst.operands.at(3)));
             break;
@@ -410,7 +410,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::AND_8:
             trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
                                  std::get<uint8_t>(inst.operands.at(3)));
             break;
@@ -434,7 +434,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::XOR_8:
             trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
                                  std::get<uint8_t>(inst.operands.at(3)));
             break;
@@ -456,7 +456,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::SHL_8:
             trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
                                  std::get<uint8_t>(inst.operands.at(3)));
             break;
@@ -468,7 +468,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::SHR_8:
             trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
                                  std::get<uint8_t>(inst.operands.at(3)));
             break;
