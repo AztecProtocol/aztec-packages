@@ -1,9 +1,10 @@
-import { onLog, setLevel } from '@aztec/foundation/log';
+import { currentLevel, onLog, setLevel } from '@aztec/foundation/log';
 
 import * as path from 'path';
 import * as process from 'process';
 import * as winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
+
 
 const { format } = winston;
 const CURRENT_LOG_FILE_NAME = 'aztec.debug.log';
@@ -55,7 +56,7 @@ function createWinstonJsonStdoutLogger(
     return info;
   });
   return winston.createLogger({
-    level: process.env.LOG_LEVEL ?? 'info',
+    level: currentLevel,
     transports: [
       new winston.transports.Console({
         format: format.combine(format.timestamp(), ignoreAztecPattern(), format.json()),
