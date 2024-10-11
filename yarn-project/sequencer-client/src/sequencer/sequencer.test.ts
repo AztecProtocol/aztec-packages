@@ -529,11 +529,11 @@ describe('sequencer', () => {
 
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
-        syncedToL2Block: block.header.globalVariables.blockNumber.toNumber() - 1,
+        syncedToL2Block: { number: block.header.globalVariables.blockNumber.toNumber() - 1, hash: '' },
       });
 
       p2p.getStatus.mockResolvedValue({
-        syncedToL2Block: block.header.globalVariables.blockNumber.toNumber() - 1,
+        syncedToL2Block: { number: block.header.globalVariables.blockNumber.toNumber() - 1, hash: '' },
         state: P2PClientState.IDLE,
       });
 

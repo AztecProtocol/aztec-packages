@@ -3,6 +3,7 @@ import {
   type EpochProofQuote,
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockId,
   type L2BlockSource,
   type ProcessedTx,
   Tx,
@@ -70,7 +71,7 @@ export class Sequencer {
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
-  private lastPublishedBlock = 0;
+  private lastPublishedBlock: L2BlockId = { number: 0, hash: undefined };
   private state = SequencerState.STOPPED;
   private allowedInSetup: AllowedElement[] = [];
   private allowedInTeardown: AllowedElement[] = [];
@@ -615,7 +616,7 @@ export class Sequencer {
 
     const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
     if (publishedL2Block) {
-      this.lastPublishedBlock = block.number;
+      this.lastPublishedBlock = { number: block.number, hash: block.hash().toString() };
     } else {
       throw new Error(`Failed to publish block ${block.number}`);
     }
@@ -657,20 +658,23 @@ export class Sequencer {
    */
   protected async isBlockSynced() {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
-      this.p2pClient.getStatus().then(s => s.syncedToL2Block),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block.number),
+      this.p2pClient.getStatus().then(s => s.syncedToL2Block.number),
       this.l2BlockSource.getBlockNumber(),
       this.l1ToL2MessageSource.getBlockNumber(),
     ]);
     const min = Math.min(...syncedBlocks);
     const [worldState, p2p, l2BlockSource, l1ToL2MessageSource] = syncedBlocks;
-    const result = min >= this.lastPublishedBlock;
-    this.log.debug(`Sync check to last published block ${this.lastPublishedBlock} ${result ? 'succeeded' : 'failed'}`, {
-      worldState,
-      p2p,
-      l2BlockSource,
-      l1ToL2MessageSource,
-    });
+    const result = min >= this.lastPublishedBlock.number;
+    this.log.debug(
+      `Sync check to last published block ${this.lastPublishedBlock.number} ${result ? 'succeeded' : 'failed'}`,
+      {
+        worldState,
+        p2p,
+        l2BlockSource,
+        l1ToL2MessageSource,
+      },
+    );
     return result;
   }
 

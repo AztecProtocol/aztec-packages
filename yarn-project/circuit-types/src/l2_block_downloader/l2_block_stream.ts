@@ -3,7 +3,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type L2Block } from '../l2_block.js';
-import { type L2BlockId, type L2BlockSource, type L2BlockTag } from '../l2_block_source.js';
+import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver. */
 export class L2BlockStream {
@@ -58,11 +58,11 @@ export class L2BlockStream {
       });
 
       // Check if there was a reorg and emit a chain-pruned event if so.
-      let latestBlockNumber = localTips.latest;
+      let latestBlockNumber = localTips.latest.number;
       while (!(await this.areBlockHashesEqual(latestBlockNumber, sourceTips.latest))) {
         latestBlockNumber--;
       }
-      if (latestBlockNumber < localTips.latest) {
+      if (latestBlockNumber < localTips.latest.number) {
         this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest}.`);
         await this.emitEvent({ type: 'chain-pruned', blockNumber: latestBlockNumber });
       }
@@ -83,10 +83,10 @@ export class L2BlockStream {
       // Update the proven and finalized tips.
       // TODO(palla/reorg): Should we emit this before passing the new blocks? This would allow world-state to skip
       // building the data structures for the pending chain if it's unneeded.
-      if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven) {
+      if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven.number) {
         await this.emitEvent({ type: 'chain-proven', blockNumber: sourceTips.proven.number });
       }
-      if (localTips.finalized !== undefined && sourceTips.finalized.number !== localTips.finalized) {
+      if (localTips.finalized !== undefined && sourceTips.finalized.number !== localTips.finalized.number) {
         await this.emitEvent({ type: 'chain-finalized', blockNumber: sourceTips.finalized.number });
       }
     } catch (err: any) {
@@ -124,7 +124,7 @@ export class L2BlockStream {
 /** Interface to the local view of the chain. Implemented by world-state. */
 export interface L2BlockStreamLocalDataProvider {
   getL2BlockHash(number: number): Promise<string | undefined>;
-  getL2Tips(): Promise<{ latest: number } & Partial<Record<L2BlockTag, number>>>;
+  getL2Tips(): Promise<L2Tips>;
 }
 
 /** Interface to a handler of events emitted. */

@@ -5,7 +5,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
 import { type L2Block } from '../l2_block.js';
-import { type L2BlockSource, type L2BlockTag } from '../l2_block_source.js';
+import { type L2BlockSource, type L2Tips } from '../l2_block_source.js';
 import {
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -66,7 +66,7 @@ describe('L2BlockStream', () => {
 
     it('pulls new blocks from offset', async () => {
       setRemoteTips(15);
-      localData.latest = 10;
+      localData.latest.number = 10;
 
       await blockStream.work();
       expect(blockSource.getBlocks).toHaveBeenCalledWith(11, 5, undefined);
@@ -98,7 +98,7 @@ describe('L2BlockStream', () => {
 
     it('handles a reorg and requests blocks from new tip', async () => {
       setRemoteTips(45);
-      localData.latest = 40;
+      localData.latest.number = 40;
 
       for (const i of [37, 38, 39, 40]) {
         // Mess up the block hashes for a bunch of blocks
@@ -114,9 +114,9 @@ describe('L2BlockStream', () => {
 
     it('emits events for chain proven and finalized', async () => {
       setRemoteTips(45, 40, 35);
-      localData.latest = 40;
-      localData.proven = 10;
-      localData.finalized = 10;
+      localData.latest.number = 40;
+      localData.proven.number = 10;
+      localData.finalized.number = 10;
 
       await blockStream.work();
       expect(handler.events).toEqual([
@@ -128,7 +128,7 @@ describe('L2BlockStream', () => {
 
     it('does not emit events for chain proven or finalized if local data ignores them', async () => {
       setRemoteTips(45, 40, 35);
-      localData.latest = 40;
+      localData.latest.number = 40;
 
       await blockStream.work();
       expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) }]);
@@ -148,15 +148,17 @@ class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
 class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvider {
   public readonly blockHashes: Record<number, string> = {};
 
-  public latest = 0;
-  public proven: number | undefined = undefined;
-  public finalized: number | undefined = undefined;
+  public latest = { number: 0, hash: '' };
+  public proven = { number: 0, hash: '' };
+  public finalized = { number: 0, hash: '' };
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
-    return Promise.resolve(number > this.latest ? undefined : this.blockHashes[number] ?? new Fr(number).toString());
+    return Promise.resolve(
+      number > this.latest.number ? undefined : this.blockHashes[number] ?? new Fr(number).toString(),
+    );
   }
 
-  public getL2Tips(): Promise<{ latest: number } & Partial<Record<L2BlockTag, number>>> {
+  public getL2Tips(): Promise<L2Tips> {
     return Promise.resolve(this);
   }
 }

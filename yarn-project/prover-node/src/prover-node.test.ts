@@ -115,7 +115,10 @@ describe('prover-node', () => {
 
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
-    worldState.status.mockResolvedValue({ syncedToL2Block: 1, state: WorldStateRunningState.RUNNING });
+    worldState.status.mockResolvedValue({
+      syncedToL2Block: { number: 1, hash: '' },
+      state: WorldStateRunningState.RUNNING,
+    });
 
     // Publisher returns its sender address
     address = EthAddress.random();
