@@ -73,24 +73,6 @@ unconstrained pub fn assert_public_call_fails(target_address: AztecAddress, func
     oracle_assert_public_call_fails(target_address, function_selector, args)
 }
 
-unconstrained pub fn assert_private_call_fails(
-    target_address: AztecAddress,
-    function_selector: FunctionSelector,
-    argsHash: Field,
-    sideEffectsCounter: Field,
-    isStaticCall: bool,
-    isDelegateCall: bool
-) {
-    oracle_assert_private_call_fails(
-        target_address,
-        function_selector,
-        argsHash,
-        sideEffectsCounter,
-        isStaticCall,
-        isDelegateCall
-    )
-}
-
 unconstrained pub fn add_nullifiers(contractAddress: AztecAddress, nullifiers: [Field]) {
     oracle_add_nullifiers(contractAddress, nullifiers)
 }
@@ -168,16 +150,6 @@ unconstrained fn oracle_assert_public_call_fails(
     target_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field]
-) {}
-
-#[oracle(assertPrivateCallFails)]
-unconstrained fn oracle_assert_private_call_fails(
-    target_address: AztecAddress,
-    function_selector: FunctionSelector,
-    argsHash: Field,
-    sideEffectsCounter: Field,
-    isStaticCall: bool,
-    isDelegateCall: bool
 ) {}
 
 #[oracle(addNullifiers)]

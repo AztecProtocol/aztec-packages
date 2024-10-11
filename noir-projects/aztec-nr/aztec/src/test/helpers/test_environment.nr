@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, traits::Deserialize
-};
+use dep::protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress};
 
 use crate::context::inputs::PrivateContextInputs;
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
@@ -85,7 +82,11 @@ impl TestEnvironment {
         address
     }
 
-    unconstrained fn deploy<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+    unconstrained fn deploy<let N: u32, let M: u32>(
+        _self: Self,
+        path: str<N>,
+        name: str<M>
+    ) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0 }
     }
 
@@ -93,99 +94,14 @@ impl TestEnvironment {
         Deployer { path: "", name, public_keys_hash: 0 }
     }
 
-    unconstrained fn call_private<C, let M: u32, T, Env, let N: u32>(
+    unconstrained fn assert_public_call_fails<C, let M: u32, T>(
         _self: Self,
         call_interface: C
-    ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = get_contract_address();
-        let target_address = call_interface.get_contract_address();
-
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
-        inputs.call_context.function_selector = call_interface.get_selector();
-        inputs.call_context.is_static_call = call_interface.get_is_static();
-        let public_inputs = original_fn(inputs);
-        apply_side_effects_private(target_address, public_inputs);
-
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
-        PackedReturns::new(public_inputs.returns_hash).unpack_into()
-    }
-
-    unconstrained fn call_private_void<C, let M: u32, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = get_contract_address();
-        let target_address = call_interface.get_contract_address();
-
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
-        inputs.call_context.function_selector = call_interface.get_selector();
-        inputs.call_context.is_static_call = call_interface.get_is_static();
-        let public_inputs = original_fn(inputs);
-        apply_side_effects_private(target_address, public_inputs);
-
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
-        PackedReturns::new(public_inputs.returns_hash).assert_empty();
-    }
-
-    unconstrained fn call_public<C, let M: u32, T, Env>(_self: Self, call_interface: C) -> T where C: CallInterface<M, (), T, Env> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = get_contract_address();
-        let original_fn_selector = cheatcodes::get_function_selector();
-        let target_address = call_interface.get_contract_address();
-        let calldata = call_interface.get_args();
-
-        // Public functions are routed through the dispatch function.
-        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
-        let calldata = &[call_interface.get_selector().to_field()].append(calldata);
-        cheatcodes::set_fn_selector(fn_selector);
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        cheatcodes::set_is_static_call(call_interface.get_is_static());
-        cheatcodes::set_calldata(calldata);
-
-        let result = original_fn(());
-
-        cheatcodes::set_fn_selector(original_fn_selector);
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
-        cheatcodes::set_calldata(calldata);
-        cheatcodes::set_is_static_call(call_interface.get_is_static());
-        result
-    }
-
-    unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, (), T, Env> {
+    ) where C: CallInterface<M, T> {
         // Public functions are routed through the dispatch function.
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
         let calldata = &[call_interface.get_selector().to_field()].append(call_interface.get_args());
         cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
-    }
-
-    unconstrained fn assert_private_call_fails<C, let M: u32, T, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
-        cheatcodes::assert_private_call_fails(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            hash_args(call_interface.get_args()),
-            cheatcodes::get_side_effects_counter() as Field,
-            call_interface.get_is_static(),
-            false
-        );
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note

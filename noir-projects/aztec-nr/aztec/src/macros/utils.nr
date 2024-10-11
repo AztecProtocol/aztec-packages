@@ -34,6 +34,10 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
+pub(crate) comptime fn fn_requires_authwit(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("authwit")
+}
+
 /// Takes a function body as a collection of expressions, and alters it by prepending and appending quoted values.
 pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
     // We need to quote the body before we can alter its contents, so we fold it by quoting each expression.
