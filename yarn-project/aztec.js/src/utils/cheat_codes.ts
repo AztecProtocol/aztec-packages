@@ -329,6 +329,18 @@ export class RollupCheatCodes {
     this.logger.verbose(`Advanced to next epoch`);
   }
 
+  /**
+   * Warps time in L1 equivalent to however many slots.
+   * @param howMany - The number of slots to advance.
+   */
+  public async advanceSlots(howMany: number) {
+    const l1Timestamp = Number((await this.client.getBlock()).timestamp);
+    const timeToWarp = howMany * AZTEC_SLOT_DURATION;
+    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp);
+    const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
+    this.logger.verbose(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
+  }
+
   /** Returns the current proof claim (if any) */
   public async getProofClaim(): Promise<EpochProofClaim | undefined> {
     // REFACTOR: This code is duplicated from l1-publisher

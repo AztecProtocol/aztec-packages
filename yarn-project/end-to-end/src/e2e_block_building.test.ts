@@ -2,6 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AztecAddress,
   type AztecNode,
+  type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
   type DebugLogger,
@@ -14,6 +15,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
@@ -399,6 +401,48 @@ describe('e2e_block_building', () => {
 
       logger.info('Waiting for txs to be mined');
       await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
+    });
+  });
+
+  describe('reorgs', () => {
+    let contract: StatefulTestContract;
+    let cheatCodes: CheatCodes;
+    let ownerAddress: AztecAddress;
+    let initialBlockNumber: number;
+    let teardown: () => Promise<void>;
+
+    beforeEach(async () => {
+      ({ teardown, pxe, logger, wallet: owner, cheatCodes } = await setup(1));
+      ownerAddress = owner.getCompleteAddress().address;
+      contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      initialBlockNumber = await pxe.getBlockNumber();
+      logger.info(`Stateful test contract deployed at ${contract.address}`);
+    });
+
+    afterEach(() => teardown());
+
+    it('detects an upcoming reorg and builds a block for the correct slot', async () => {
+      // Advance to a fresh epoch
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      // Send a tx to the contract that updates the public data tree, this should take the first slot
+      logger.info('Sending initial tx');
+      const tx1 = await contract.methods.increment_public_value(ownerAddress, 20).send().wait();
+      expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
+      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(21n);
+
+      // Now move past the proof claim window
+      logger.info('Advancing past the proof claim window');
+      await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 5); // off-by-one?
+
+      // Await (sequencer should wait here, not us)
+      await sleep(5000);
+
+      // Send another tx which should be mined a block that is built on the reorg'd chain
+      logger.info('Sending new tx on reorgd chain');
+      const tx2 = await contract.methods.increment_public_value(ownerAddress, 10).send().wait();
+      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(11n);
+      expect(tx2.blockNumber).toEqual(initialBlockNumber + 1);
     });
   });
 });

@@ -127,7 +127,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
   function prune() external override(IRollup) {
-    require(_canPrune(), Errors.Rollup__NothingToPrune());
+    require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
   }
 
@@ -417,7 +417,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) public override(IRollup) {
-    if (_canPrune()) {
+    if (canPrune()) {
       _prune();
     }
     bytes32 txsEffectsHash = TxsDecoder.decode(_body);
@@ -733,7 +733,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     emit PrunedPending(tips.provenBlockNumber, pending);
   }
 
-  function _canPrune() internal view returns (bool) {
+  function canPrune() public view returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
