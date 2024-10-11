@@ -1,7 +1,6 @@
 use crate::{
     abis::kernel_circuit_public_inputs::VMCircuitPublicInputs,
-    recursion::{proof::NestedRecursiveProof, verification_key::HonkVerificationKey, traits::Verifiable},
-
+    recursion::{proof::NestedRecursiveProof, verification_key::HonkVerificationKey, traits::Verifiable}
 };
 
 pub struct PublicKernelInnerData {

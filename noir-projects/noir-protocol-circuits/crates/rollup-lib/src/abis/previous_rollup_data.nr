@@ -1,7 +1,10 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
-    recursion::{proof::NestedRecursiveProof, verification_key::{VerificationKey, HonkVerificationKey}, traits::Verifiable},
+    recursion::{
+    proof::NestedRecursiveProof, verification_key::{VerificationKey, HonkVerificationKey},
+    traits::Verifiable
+},
     traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
     utils::arrays::find_index_hint
 };

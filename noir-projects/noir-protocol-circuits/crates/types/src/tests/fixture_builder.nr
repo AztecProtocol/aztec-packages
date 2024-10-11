@@ -52,7 +52,11 @@ use crate::{
     partial_state_reference::PartialStateReference,
     tests::{fixtures, fixtures::{contracts::ContractData, contract_functions::ContractFunction}},
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey}, proof::NestedRecursiveProof}, point::Point
+    recursion::{
+    verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
+    proof::NestedRecursiveProof
+},
+    point::Point
 };
 
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
