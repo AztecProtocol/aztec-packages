@@ -169,12 +169,17 @@ contract NFT {
         // We encrypt and emit the partial note log
         encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
 
-        // Using the x-coordinate as a hiding point slot is safe because we have a guarantee that the public functions
-        // of the transaction are executed right after the private ones and for this reason the protocol guarantees
-        // that nobody can front-run us in consuming the hiding point. This guarantee would break
-        // if `finalize_transfer_to_private` was not called in the same transaction. This however is not the flow we
-        // are currently concerned with. To support the multi-transaction flow we could introduce a `from` function
-        // argument, hash the x-coordinate with it and then repeat the hashing in `finalize_transfer_to_private`.
+        // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
+        // we have a guarantee that the public functions of the transaction are executed right after the private ones
+        // and for this reason the protocol guarantees that nobody can front-run us in consuming the hiding point.
+        // This guarantee would break if `finalize_transfer_to_private` was not called in the same transaction. This
+        // however is not the flow we are currently concerned with. To support the multi-transaction flow we could
+        // introduce a `from` function argument, hash the x-coordinate with it and then repeat the hashing in
+        // `finalize_transfer_to_private`.
+        //
+        // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
+        // in our state variables we derive slots using a different hash function from multi scalar multiplication
+        // (MSM).
         let hiding_point_slot = note_setup_payload.hiding_point.x;
 
         // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
