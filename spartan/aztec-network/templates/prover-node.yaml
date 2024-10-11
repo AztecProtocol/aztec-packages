@@ -96,7 +96,7 @@ spec:
             - name: PROVER_AGENT_ENABLED
               value: "{{ .Values.proverNode.proverAgentEnabled }}"
             - name: PROVER_PUBLISHER_PRIVATE_KEY
-              value: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
+              value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
             # get private proofs from the boot node
             - name: PROVER_COORDINATION_NODE_URL
               value: {{ include "aztec-network.bootNodeUrl" . | quote }}

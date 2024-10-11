@@ -116,7 +116,7 @@ spec:
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.bootNode.service.p2pPort }}"
             - name: VALIDATOR_PRIVATE_KEY
-              value: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+              value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
@@ -149,7 +149,7 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
   deploy-contracts.sh: |
-    {{ .Files.Get "files/config/deploy-l1-contracts.sh" | indent 4 }}
+    {{ .Files.Get "files/config/deploy-l1-contracts.sh" | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
