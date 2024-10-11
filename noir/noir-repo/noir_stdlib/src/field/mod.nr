@@ -51,9 +51,9 @@ impl Field {
 
     /// Decomposes `self` into its little endian byte decomposition as a `[u8;N]` array
     /// This array will be zero padded should not all bytes be necessary to represent `self`.
-    ///
+    /// 
     /// # Failures
-    ///  The length N of the array must be big enough to contain all the bytes of the 'self',
+    ///  The length N of the array must be big enough to contain all the bytes of the 'self', 
     ///  and no more than the number of bytes required to represent the field modulus
     ///
     /// # Safety
@@ -84,9 +84,9 @@ impl Field {
 
     /// Decomposes `self` into its big endian byte decomposition as a `[u8;N]` array of length required to represent the field modulus
     /// This array will be zero padded should not all bytes be necessary to represent `self`.
-    ///
+    /// 
     /// # Failures
-    ///  The length N of the array must be big enough to contain all the bytes of the 'self',
+    ///  The length N of the array must be big enough to contain all the bytes of the 'self', 
     ///  and no more than the number of bytes required to represent the field modulus
     ///
     /// # Safety

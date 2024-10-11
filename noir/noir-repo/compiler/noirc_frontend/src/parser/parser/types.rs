@@ -581,14 +581,14 @@ mod tests {
     #[test]
     fn errors_if_missing_right_bracket_after_slice_type() {
         let src = "
-        [Field
+        [Field 
               ^
         ";
         let (src, span) = get_source_with_error_span(src);
         let mut parser = Parser::for_str(&src);
         parser.parse_type();
         let error = get_single_error(&parser.errors, span);
-        assert_eq!(error.to_string(), "Expected a ] but found end of input");
+        assert_eq!(error.to_string(), "Expected a ']' but found end of input");
     }
 
     #[test]

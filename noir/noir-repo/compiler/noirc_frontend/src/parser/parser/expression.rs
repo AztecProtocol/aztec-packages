@@ -975,7 +975,7 @@ mod tests {
     #[test]
     fn parses_unclosed_parentheses() {
         let src = "
-        (
+        ( 
          ^
         ";
         let (src, span) = get_source_with_error_span(src);
@@ -1354,7 +1354,7 @@ mod tests {
         let expr = parser.parse_expression_or_error();
 
         let error = get_single_error(&parser.errors, span);
-        assert_eq!(error.to_string(), "Expected a : but found =");
+        assert_eq!(error.to_string(), "Expected a ':' but found '='");
 
         let ExpressionKind::Constructor(mut constructor) = expr.kind else {
             panic!("Expected constructor");
@@ -1435,7 +1435,7 @@ mod tests {
     #[test]
     fn parses_cast_missing_type() {
         let src = "
-        1 as
+        1 as 
             ^
         ";
         let (src, span) = get_source_with_error_span(src);
