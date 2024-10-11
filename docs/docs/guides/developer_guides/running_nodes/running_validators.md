@@ -45,9 +45,8 @@ For the current state of design please see the RFC at https://forum.aztec.networ
    - Role of Prover Nodes
    - Prover Bond
    - Consensus Participation
-6. [Additional Background](#additional-background)
-7. [Conclusion](#conclusion)
-8. [References](#references)
+6. [Troubleshooting](#troubleshooting)
+7. [References](#references)
 
 ---
 ## Port Forwarding
@@ -178,30 +177,10 @@ Your node requires an Ethereum private key to participate as a validator.
 
 **Steps**:
 
-1. **Generate or Obtain a Private Key**:
-   - Use a secure method to generate an Ethereum private key.
-   - **Warning**: Never share your private key publicly.
+TODO.
 
-2. **Fund the Private Key**:
-   - Ensure the address associated with your private key has enough ETH to cover gas fees.
-
-3. **Securely Store the Private Key**:
-   - Use a key management system or environment variables.
-
-4. **Provide the Private Key to Helm**:
-   - Create a Kubernetes secret:
-     ```bash
-     kubectl create secret generic eth-private-key --from-literal=key=<YOUR_PRIVATE_KEY>
-     ```
-   - Reference the secret in your `values.yaml`:
-     ```yaml
-     ethPrivateKeySecretName: eth-private-key
-     ```
-
-**Fill in Missing Details**:
-
-- Replace `<YOUR_PRIVATE_KEY>` with your actual private key.
-- Ensure that the Kubernetes cluster has access to the secret.
+The use of kubernetes means that these steps apply smoothly to a local KIND instance or a cloud deployment.
+The benefit of using kubernetes is that load balancing is handled for you, meaning that having validator redundancy is easy and critical slots are not missed.
 
 ### How Validators Are Chosen
 
@@ -234,32 +213,10 @@ Validators are recorded in the Layer 1 rollup contract upon joining the network 
   - Validators interact with the rollup contract to fulfill their duties.
   - Proposers submit block proposals and proofs to the contract.
 
-## Additional Background
-
-- **Epochs and Slots**:
-  - An epoch consists of 32 slots.
-  - Each slot represents a fixed time interval.
-
-- **Pending Chain vs. Proven Chain**:
-  - **Pending Chain**: Contains proposed blocks awaiting finalization.
-  - **Proven Chain**: Contains finalized blocks after proofs are verified on L1.
-
-- **Fallback Mechanisms**:
-  - **Based Fallback Mode**: Activated if the chain does not progress, allowing for ledger growth without the committee.
-  - **Forced Inclusion Queue**: Ensures censorship resistance by mandating the inclusion of certain transactions.
-
-- **Security Considerations**:
-  - Keep your private keys secure.
-  - Regularly update your software to the latest versions.
-
-- **Troubleshooting**:
-  - Check logs for error messages.
-  - Verify network connectivity, e.g. running isolated commands to ensure that your UDP ports are open.
-  - Open issues in https://github.com/AztecProtocol/aztec-packages/issues for suspected bugs or gaps in documentation.
-
-## Conclusion
-
-By setting up an Aztec Layer 2 node, you contribute to the network's security, decentralization, and efficiency. Validators play a crucial role in proposing blocks and maintaining the integrity of the blockchain. We encourage you to participate actively and stay informed about protocol updates.
+## Troubleshooting
+- Check logs for error messages.
+- Verify network connectivity, e.g. running isolated commands to ensure that your UDP ports are open.
+- Open issues in https://github.com/AztecProtocol/aztec-packages/issues for suspected bugs or gaps in documentation.
 
 ## References
 

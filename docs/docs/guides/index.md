@@ -116,7 +116,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 ## Running Aztec Nodes
 
 <div className="card-container">
-  <Card shadow='tl' link='/guides/developer_guides/running_nodes/running_validator'>
+  <Card shadow='tl' link='/guides/developer_guides/running_nodes/running_validators'>
     <CardHeader>
       <h3>Run Aztec Validator Nodes</h3>
     </CardHeader>
@@ -124,7 +124,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
       Participate in the Aztec protocol as a validator (also called a sequencer) that helps form consensus on what goes into a block. Runs on consumer hardware.
     </CardBody>
   </Card>
-  <Card shadow='tl' link='/guides/developer_guides/running_nodes/running_prover'>
+  <Card shadow='tl' link='/guides/developer_guides/running_nodes/running_provers'>
     <CardHeader>
       <h3>Run Aztec Prover Nodes</h3>
     </CardHeader>
