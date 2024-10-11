@@ -11,7 +11,7 @@ You can log statements from Aztec.nr contracts that will show ups in the Sandbox
 
 ### Import `debug_log`
 
-Import the [`debug_log` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/debug_log.nr) dependency from Aztec oracles:
+Import the `debug_log` dependency from Aztec oracles:
 
 ```rust
 use dep::aztec::oracle::debug_log::{ debug_log };
@@ -47,16 +47,21 @@ debug_log_array(my_array);
 
 ### Start Sandbox in debug mode
 
-Prepend the command to start the sandbox with `DEBUG=aztec:*` to log everything or `DEBUG=aztec:simulator:oracle` to only log your `debug_log()` statements.
-
-```bash
-# Using the docker-compose.yml setup
-cd ~/.aztec && DEBUG=aztec:* docker-compose up
-```
-
-Alternatively you can update the `DEBUG` environment variable in docker-compose.yml and start the sandbox normally.
+Update the `DEBUG` and `LOG_LEVEL` environment variables in docker-compose.sandbox.yml to the following:
 
 ```yml
-environment:
-  DEBUG: aztec:*
+# ~/.aztec/docker-compose.sandbox.yml
+
+# ...
+
+aztec:
+  image: "aztecprotocol/aztec"
+  ports:
+    - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
+  environment:
+    DEBUG: aztec:simulator:client_execution_context, aztec:sandbox, aztec:avm_simulator:debug_log
+    LOG_LEVEL: debug
+  # ...
 ```
+
+and start the sandbox normally.
