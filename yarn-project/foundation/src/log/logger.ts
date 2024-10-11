@@ -4,15 +4,20 @@ import { inspect } from 'util';
 import { type LogData, type LogFn } from './log_fn.js';
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
-const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : ('info' as const);
 
 /**
  * A valid log severity level.
  */
 export type LogLevel = (typeof LogLevels)[number];
 
-const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-export let currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
+function getLogLevel() {
+  const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
+  const defaultNonTestLogLevel = process.env.DEBUG === undefined ? ('info' as const) : ('debug' as const);
+  const defaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : defaultNonTestLogLevel;
+  return LogLevels.includes(envLogLevel) ? envLogLevel : defaultLogLevel;
+}
+
+export let currentLevel = getLogLevel();
 
 const namespaces = process.env.DEBUG ?? 'aztec:*';
 debug.enable(namespaces);
