@@ -447,8 +447,8 @@ describe('e2e_block_building', () => {
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 1); // off-by-one?
 
-      // Await (sequencer should wait here, not us)
-      await sleep(5000);
+      // Wait a bit before spawning a new pxe
+      await sleep(1000);
 
       // Send another tx which should be mined a block that is built on the reorg'd chain
       // We need to send it from a new pxe since pxe doesn't detect reorgs (yet)
