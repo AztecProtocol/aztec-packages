@@ -37,6 +37,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKeyData,
   makeEmptyRecursiveProof,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { Blob } from '@aztec/foundation/blob';
@@ -180,7 +181,7 @@ describe('LightBlockBuilder', () => {
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     const txCount = Math.max(2, txs.length);
     // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-    const numTxsEffects = Math.max(toNumTxsEffects(txs, globals.gasFees), 342 * txCount);
+    const numTxsEffects = Math.max(toNumTxsEffects(txs, globals.gasFees), TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * txCount);
     await builder.startNewBlock(txCount, numTxsEffects, globals, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
@@ -336,6 +337,8 @@ describe('LightBlockBuilder', () => {
         ),
       ),
     ];
+
+    const blobPublicInputs = [BlobPublicInputs.fromBlob(blob)];
     const outputs = new BlockRootOrBlockMergePublicInputs(
       inputs.startArchiveSnapshot,
       newArchiveSnapshot,
@@ -350,7 +353,7 @@ describe('LightBlockBuilder', () => {
       padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), 32),
       rollupLeft.baseOrMergeRollupPublicInputs.constants.vkTreeRoot,
       inputs.proverId,
-      BlobPublicInputs.fromBlob(blob),
+      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), 32),
     );
 
     return outputs;

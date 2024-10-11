@@ -15,10 +15,12 @@ import {
   type Header,
   type Proof,
   type RootRollupPublicInputs,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { areArraysEqual, times } from '@aztec/foundation/collection';
+import { Blob } from '@aztec/foundation/blob';
+import { areArraysEqual, padArrayEnd, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -28,7 +30,9 @@ import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
+import cKzg from 'c-kzg';
 import pick from 'lodash.pick';
+import { resolve } from 'path';
 import { inspect } from 'util';
 import {
   type BaseError,
@@ -54,6 +58,7 @@ import {
   hexToBytes,
   http,
   publicActions,
+  setupKzg,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type * as chains from 'viem/chains';
@@ -98,8 +103,10 @@ type L1ProcessArgs = {
   archive: Buffer;
   /** The L2 block's leaf in the archive tree. */
   blockHash: Buffer;
-  /** L2 block body. */
+  /** L2 block body. TODO(#9101): Remove block body once we can extract blobs. */
   body: Buffer;
+  /** L2 block blob containing all tx effects. */
+  blob: Blob;
   /** L2 block tx hashes */
   txHashes: TxHash[];
   /** Attestations */
@@ -346,15 +353,21 @@ export class L1Publisher {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
     const digest = getHashedSignaturePayload(consensusPayload);
+    // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+    const txEffectsInBlob = padArrayEnd(
+      block.body.toFields(),
+      Fr.ZERO,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+    );
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
+      blob: new Blob(txEffectsInBlob),
       attestations,
       txHashes: txHashes ?? [],
     };
-
     // Publish body and propose block (if not already published)
     if (this.interrupted) {
       this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
@@ -551,22 +564,15 @@ export class L1Publisher {
 
   private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
     // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-    const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
-      to: this.rollupContract.address,
-      data: encodeFunctionData({
-        abi: this.rollupContract.abi,
-        functionName: 'computeTxsEffectsHash',
-        args: [`0x${encodedData.body.toString('hex')}`],
-      }),
-    });
+    // TODO(Miranda): No clear way to estimate gas for a blob tx, since the publicClient fails
+    const proposeGas = 300000n;
 
     // @note  We perform this guesstimate instead of the usual `gasEstimate` since
     //        viem will use the current state to simulate against, which means that
     //        we will fail estimation in the case where we are simulating for the
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
-    const gasGuesstimate = computeTxsEffectsHashGas + gasGuess;
-
+    const gasGuesstimate = proposeGas + gasGuess;
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -577,7 +583,9 @@ export class L1Publisher {
       `0x${encodedData.blockHash.toString('hex')}`,
       txHashes,
       attestations,
+      // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
       `0x${encodedData.body.toString('hex')}`,
+      encodedData.blob.getEthBlobEvaluationInputs(),
     ] as const;
 
     return { args, gasGuesstimate };
@@ -616,9 +624,24 @@ export class L1Publisher {
     try {
       const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
 
-      return await this.rollupContract.write.propose(args, {
+      const data = encodeFunctionData({
+        abi: this.rollupContract.abi,
+        functionName: 'propose',
+        args,
+      });
+
+      // TODO(Miranda): viem's own path export does not work
+      const mainnetTrustedSetupPath = resolve('../node_modules/viem/trusted-setups/mainnet.json');
+      const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
+
+      // Viem does not allow sending a blob via contract.write()
+      return await this.walletClient.sendTransaction({
+        data,
         account: this.account,
-        gas: gasGuesstimate,
+        to: this.rollupContract.address,
+        blobs: [encodedData.blob.data],
+        kzg,
+        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       });
     } catch (err) {
       prettyLogViemError(err, this.log);
@@ -639,9 +662,25 @@ export class L1Publisher {
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      return await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
+      const data = encodeFunctionData({
+        abi: this.rollupContract.abi,
+        functionName: 'proposeAndClaim',
+        args: [...args, quote.toViemArgs()],
+      });
+
+      // TODO(Miranda): viem's own path export does not work
+      const mainnetTrustedSetupPath = resolve('../node_modules/viem/trusted-setups/mainnet.json');
+
+      const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
+
+      // Viem does not allow sending a blob via contract.write()
+      return await this.walletClient.sendTransaction({
+        data,
         account: this.account,
-        gas: gasGuesstimate,
+        to: this.rollupContract.address,
+        blobs: [encodedData.blob.data],
+        kzg,
+        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       });
     } catch (err) {
       prettyLogViemError(err, this.log);

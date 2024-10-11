@@ -98,7 +98,7 @@ library Constants {
   uint256 internal constant AZTEC_EPOCH_DURATION = 48;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
-    8142738430000951296386584486068033372964809139261822027365426310856631083550;
+    15968896821970115023692603618626494295710206653617615049119070900748674670279;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 20000;
@@ -159,6 +159,7 @@ library Constants {
   uint256 internal constant FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
   uint256 internal constant GLOBAL_VARIABLES_LENGTH = 9;
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH = 2;
+  uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES = 36;
   uint256 internal constant SPONGE_BLOB_LENGTH = 11;
   uint256 internal constant BLOB_PUBLIC_INPUTS = 6;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
@@ -190,6 +191,7 @@ library Constants {
   uint256 internal constant TX_REQUEST_LENGTH = 13;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 23;
+  uint256 internal constant HEADER_LENGTH_BYTES = 584;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 543;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 690;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 546;
@@ -213,8 +215,9 @@ library Constants {
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 50;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 97;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 75;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 283;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 267;
+  uint256 internal constant TX_EFFECTS_BLOB_HASH_INPUT_FIELDS = 342;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

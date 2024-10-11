@@ -1014,7 +1014,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     makeTuple(32, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
     fr(seed + 0x900),
-    makeBlobPublicInputs(seed + 0x100),
+    makeTuple(32, () => makeBlobPublicInputs(seed), 0x100),
   );
 }
 
@@ -1106,7 +1106,6 @@ export function makeEmptyBlockRootRollupInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x200),
     fr(seed + 0x300),
     fr(seed + 0x400),
-    makeBlobPublicInputs(seed + 0x500),
   );
 }
 
@@ -1162,6 +1161,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(32, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
     fr(seed + 0x200),
+    makeTuple(32, () => makeBlobPublicInputs(seed), 0x300),
   );
 }
 

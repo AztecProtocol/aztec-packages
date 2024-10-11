@@ -83,6 +83,9 @@ type VariantDefinition = {
   txComplexity: TxComplexity;
 };
 
+// TODO(Miranda): This test currently fails because it overflows blobs (36txs per block).
+// It works when changing blocks to 11 txs. Remove this msg + test again once more blobs per block have been added.
+
 /**
  * Helper class that wraps a certain variant of test, provides functionality for
  * setting up the test state (e.g., funding accounts etc) and to generate a list of transactions.
@@ -514,7 +517,7 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const [, , , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
@@ -581,7 +584,7 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const [, , , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
@@ -642,7 +645,7 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const [, , , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));

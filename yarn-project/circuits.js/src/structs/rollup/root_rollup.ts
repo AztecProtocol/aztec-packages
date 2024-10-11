@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
@@ -97,6 +98,7 @@ export class RootRollupPublicInputs {
     public fees: Tuple<FeeRecipient, 32>,
     public vkTreeRoot: Fr,
     public proverId: Fr,
+    public blobPublicInputs: Tuple<BlobPublicInputs, 32>,
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
@@ -111,6 +113,7 @@ export class RootRollupPublicInputs {
       fields.fees,
       fields.vkTreeRoot,
       fields.proverId,
+      fields.blobPublicInputs,
     ] as const;
   }
 
@@ -144,6 +147,7 @@ export class RootRollupPublicInputs {
       reader.readArray(32, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readArray(32, BlobPublicInputs),
     );
   }
 

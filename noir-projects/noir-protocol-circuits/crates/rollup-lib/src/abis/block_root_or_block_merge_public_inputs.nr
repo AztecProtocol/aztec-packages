@@ -48,7 +48,7 @@ pub struct BlockRootOrBlockMergePublicInputs {
   fees: [FeeRecipient; 32], // Concatenation of all coinbase and fees for the block range
   vk_tree_root: Field, // Root of allowed vk tree
   prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-  blob_public_inputs: BlobPublicInputs // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
+  blob_public_inputs: [BlobPublicInputs; 32] // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -70,7 +70,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: 0,
             prover_id: 0,
-            blob_public_inputs: BlobPublicInputs::empty()
+            blob_public_inputs: [BlobPublicInputs::empty(); 32]
         }
     }
 }
@@ -107,7 +107,9 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         }
         fields.push(self.vk_tree_root as Field);
         fields.push(self.prover_id as Field);
-        fields.extend_from_array(self.blob_public_inputs.serialize());
+        for i in 0..32 {
+            fields.extend_from_array(self.blob_public_inputs[i].serialize());
+        }
         assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
         fields.storage
@@ -128,7 +130,10 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
             vk_tree_root: reader.read(),
             prover_id: reader.read(),
-            blob_public_inputs: reader.read_struct(BlobPublicInputs::deserialize)
+            blob_public_inputs: reader.read_struct_array(
+                BlobPublicInputs::deserialize,
+                [BlobPublicInputs::empty(); 32]
+            )
         };
 
         reader.finish();

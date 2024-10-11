@@ -19,6 +19,7 @@ import {
   GENESIS_ARCHIVE_ROOT,
   Header,
   StateReference,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -428,7 +429,12 @@ export class Sequencer {
     const blockBuildingTimer = new Timer();
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
     // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
-    await blockBuilder.startNewBlock(blockSize, 342 * numRealTxs, newGlobalVariables, l1ToL2Messages);
+    await blockBuilder.startNewBlock(
+      blockSize,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * numRealTxs,
+      newGlobalVariables,
+      l1ToL2Messages,
+    );
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
@@ -460,16 +466,13 @@ export class Sequencer {
     await this.publisher.validateBlockForSubmission(block.header);
 
     const workDuration = workTimer.ms();
-    this.log.verbose(
-      `Assembled block ${block.number} (with hash: ${block.header.hash().toString()})`,
-      {
-        eventName: 'l2-block-built',
-        duration: workDuration,
-        publicProcessDuration: publicProcessorDuration,
-        rollupCircuitsDuration: blockBuildingTimer.ms(),
-        ...block.getStats(),
-      } satisfies L2BlockBuiltStats,
-    );
+    this.log.verbose(`Assembled block ${block.number} (with hash: ${block.header.hash().toString()})`, {
+      eventName: 'l2-block-built',
+      duration: workDuration,
+      publicProcessDuration: publicProcessorDuration,
+      rollupCircuitsDuration: blockBuildingTimer.ms(),
+      ...block.getStats(),
+    } satisfies L2BlockBuiltStats);
 
     if (this.isFlushing) {
       this.log.verbose(`Flushing completed`);

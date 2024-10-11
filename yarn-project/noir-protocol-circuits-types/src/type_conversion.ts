@@ -2212,7 +2212,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     fees: mapTuple(blockRootOrBlockMergePublicInputs.fees, mapFeeRecipientToNoir),
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
-    blob_public_inputs: mapBlobPublicInputsToNoir(blockRootOrBlockMergePublicInputs.blobPublicInputs),
+    blob_public_inputs: mapTuple(blockRootOrBlockMergePublicInputs.blobPublicInputs, mapBlobPublicInputsToNoir),
   };
 }
 
@@ -2327,7 +2327,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, 32, mapFeeRecipientFromNoir),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
-    mapBlobPublicInputsFromNoir(blockRootOrBlockMergePublicInputs.blob_public_inputs),
+    mapTupleFromNoir(blockRootOrBlockMergePublicInputs.blob_public_inputs, 32, mapBlobPublicInputsFromNoir),
   );
 }
 
@@ -2447,7 +2447,6 @@ export function mapEmptyBlockRootRollupInputsToNoir(
     global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
     vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
-    blob_public_inputs: mapBlobPublicInputsToNoir(rootRollupInputs.blobPublicInputs),
   };
 }
 
@@ -2507,6 +2506,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapTupleFromNoir(rootRollupPublicInputs.fees, 32, mapFeeRecipientFromNoir),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
+    mapTupleFromNoir(rootRollupPublicInputs.blob_public_inputs, 32, mapBlobPublicInputsFromNoir),
   );
 }
 

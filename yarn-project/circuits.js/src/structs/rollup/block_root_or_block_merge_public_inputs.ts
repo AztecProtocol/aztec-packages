@@ -56,7 +56,7 @@ export class BlockRootOrBlockMergePublicInputs {
     /**
      * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p())
      */
-    public blobPublicInputs: BlobPublicInputs,
+    public blobPublicInputs: Tuple<BlobPublicInputs, 32>,
   ) {}
 
   /**
@@ -77,7 +77,7 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readArray(32, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readObject(BlobPublicInputs),
+      reader.readArray(32, BlobPublicInputs),
     );
   }
 

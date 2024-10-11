@@ -27,6 +27,7 @@ import {
   GasFees,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -196,7 +197,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
-      342,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -240,7 +241,7 @@ describe('sequencer', () => {
     await sequencer.work();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      342,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -276,7 +277,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      342 * validTxHashes.length,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * validTxHashes.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -307,7 +308,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      342 * validTxHashes.length,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * validTxHashes.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -340,7 +341,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      342 * validTxHashes.length,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * validTxHashes.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -383,7 +384,7 @@ describe('sequencer', () => {
     await sequencer.work();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       4,
-      342 * 4,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * 4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -473,7 +474,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       3,
-      342 * postFlushTxs.length,
+      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * postFlushTxs.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

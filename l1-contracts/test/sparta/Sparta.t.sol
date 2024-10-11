@@ -216,17 +216,19 @@ contract SpartaTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
-
+      // We mock a successful call to the blob evaluation precompile
+      vm.mockCall(address(0x0a), new bytes(144), abi.encode(true));
       vm.prank(ree.proposer);
-      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body, new bytes(144));
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
-
-      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+      // We mock a successful call to the blob evaluation precompile
+      vm.mockCall(address(0x0a), new bytes(144), abi.encode(true));
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body, new bytes(144));
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

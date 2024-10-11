@@ -44,6 +44,7 @@ import {
   type RootParityInput,
   RootParityInputs,
   type TUBE_PROOF_LENGTH,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   TubeInputs,
   type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
@@ -225,7 +226,7 @@ export class ProvingOrchestrator implements EpochProver {
       0,
     );
     // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-    numTxsEffects = numTxs == 2 ? 684 : numTxsEffects;
+    numTxsEffects = numTxs == 2 ? 2 * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS : numTxsEffects;
 
     // Update the local trees to include the new l1 to l2 messages
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
@@ -399,8 +400,6 @@ export class ProvingOrchestrator implements EpochProver {
       globalVariables: lastBlock.header.globalVariables,
       vkTreeRoot: getVKTreeRoot(),
       proverId: this.proverId,
-      // TODO(Miranda): check below
-      blobPublicInputs: BlobPublicInputs.empty(),
     });
 
     logger.debug(`Enqueuing deferred proving for padding block to enqueue ${paddingBlockCount} paddings`);
@@ -969,7 +968,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         provingState.blockRootRollupPublicInputs = result.inputs;
         provingState.finalProof = result.proof.binaryProof;
-        const blobOutputs = result.inputs.blobPublicInputs;
+        const blobOutputs = result.inputs.blobPublicInputs[0];
 
         // TODO(Miranda): Move the below checks to wherever the ts blob struct will live
         if (!blobOutputs.equals(BlobPublicInputs.fromBlob(blob))) {

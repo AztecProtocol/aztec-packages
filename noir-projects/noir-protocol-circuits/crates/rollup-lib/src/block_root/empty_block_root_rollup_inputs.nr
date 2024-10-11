@@ -9,7 +9,6 @@ pub struct EmptyBlockRootRollupInputs {
     vk_tree_root: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
-    blob_public_inputs: BlobPublicInputs,
 }
 
 impl EmptyBlockRootRollupInputs {
@@ -25,7 +24,7 @@ impl EmptyBlockRootRollupInputs {
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: self.vk_tree_root,
             prover_id: self.prover_id,
-            blob_public_inputs: self.blob_public_inputs
+            blob_public_inputs: [BlobPublicInputs::empty(); 32]
         }
     }
 }

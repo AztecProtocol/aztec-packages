@@ -2,7 +2,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
@@ -17,7 +16,6 @@ export class EmptyBlockRootRollupInputs {
     public readonly vkTreeRoot: Fr,
     // // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     public readonly proverId: Fr,
-    public readonly blobPublicInputs: BlobPublicInputs,
   ) {}
 
   /**
@@ -51,14 +49,7 @@ export class EmptyBlockRootRollupInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<EmptyBlockRootRollupInputs>) {
-    return [
-      fields.archive,
-      fields.blockHash,
-      fields.globalVariables,
-      fields.vkTreeRoot,
-      fields.proverId,
-      fields.blobPublicInputs,
-    ] as const;
+    return [fields.archive, fields.blockHash, fields.globalVariables, fields.vkTreeRoot, fields.proverId] as const;
   }
 
   /**
@@ -74,7 +65,6 @@ export class EmptyBlockRootRollupInputs {
       GlobalVariables.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      BlobPublicInputs.fromBuffer(reader),
     );
   }
 

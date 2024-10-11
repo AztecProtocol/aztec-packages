@@ -1,8 +1,8 @@
 use crate::abis::{
     base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient}
+    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
+    previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData
 };
-use crate::abis::{previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData};
 use dep::types::{
     hash::{
     accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
@@ -20,6 +20,7 @@ use dep::types::{
     log_hash::{LogHash, ScopedLogHash}, sponge_blob::SpongeBlob
 }
 };
+use blob::blob_public_inputs::BlobPublicInputs;
 
 /**
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
@@ -130,6 +131,19 @@ pub fn accumulate_blocks_fees(
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
     // Either way, construct arr in unconstrained and make use of hints to point to merged fee array.
     array_merge(left.fees, right.fees)
+}
+
+// TODO: This fn will be obselete once we have integrated accumulation of blob PIs
+// The goal is to acc. the commitments and openings s.t. one set verifies the opening of many blobs
+// How we accumulate is being worked on by @Mike
+pub fn accumulate_blob_public_inputs(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) -> [BlobPublicInputs; 32] {
+    let left_len = array_length(left.fees);
+    let right_len = array_length(right.fees);
+    assert(left_len + right_len <= 32, "too many blob public input structs accumulated in rollup");
+    array_merge(left.blob_public_inputs, right.blob_public_inputs)
 }
 
 /**

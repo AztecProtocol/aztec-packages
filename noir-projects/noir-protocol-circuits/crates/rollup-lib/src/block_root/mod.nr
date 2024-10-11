@@ -53,7 +53,7 @@ mod tests {
             3
         );
 
-        assert(outputs.blob_public_inputs.z == expected_z);
+        assert(outputs.blob_public_inputs[0].z == expected_z);
     }
 
     #[test(should_fail_with = "block's first blob sponge was not empty")]

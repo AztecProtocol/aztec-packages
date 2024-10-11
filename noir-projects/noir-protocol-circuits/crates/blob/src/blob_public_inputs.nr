@@ -1,5 +1,5 @@
 use crate::config::F;
-use types::traits::{Empty, Serialize, Deserialize};
+use types::{traits::{Empty, Serialize, Deserialize}, constants::BLOB_PUBLIC_INPUTS};
 use bigint::BigNum;
 
 pub struct BlobPublicInputs {
@@ -23,16 +23,16 @@ impl Empty for BlobPublicInputs {
     }
 }
 
-impl Serialize<6> for BlobPublicInputs {
-    fn serialize(self) -> [Field; 6] {
+impl Serialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
+    fn serialize(self) -> [Field; BLOB_PUBLIC_INPUTS] {
         [
             self.z, self.y.limbs[0], self.y.limbs[1], self.y.limbs[2], self.kzg_commitment[0], self.kzg_commitment[1]
         ]
     }
 }
 
-impl Deserialize<6> for BlobPublicInputs {
-    fn deserialize(fields: [Field; 6]) -> Self {
+impl Deserialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
+    fn deserialize(fields: [Field; BLOB_PUBLIC_INPUTS]) -> Self {
         Self {
             z: fields[0],
             y: BigNum { limbs: [fields[1], fields[2], fields[3]] },

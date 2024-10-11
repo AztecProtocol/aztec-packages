@@ -30,13 +30,11 @@ export class ContentCommitment {
   }
 
   toFields(): Fr[] {
-    const serialized = [
-      this.numTxs,
-      Fr.fromBuffer(this.inHash),
-      Fr.fromBuffer(this.outHash),
-    ];
+    const serialized = [this.numTxs, Fr.fromBuffer(this.inHash), Fr.fromBuffer(this.outHash)];
     if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
-      throw new Error(`Expected content commitment to have ${CONTENT_COMMITMENT_LENGTH} fields, but it has ${serialized.length} fields`);
+      throw new Error(
+        `Expected content commitment to have ${CONTENT_COMMITMENT_LENGTH} fields, but it has ${serialized.length} fields`,
+      );
     }
     return serialized;
   }
@@ -53,19 +51,11 @@ export class ContentCommitment {
 
   static fromFields(fields: Fr[] | FieldReader): ContentCommitment {
     const reader = FieldReader.asReader(fields);
-    return new ContentCommitment(
-      reader.readField(),
-      reader.readField().toBuffer(),
-      reader.readField().toBuffer(),
-    );
+    return new ContentCommitment(reader.readField(), reader.readField().toBuffer(), reader.readField().toBuffer());
   }
 
   static empty(): ContentCommitment {
-    return new ContentCommitment(
-      Fr.zero(),
-      Buffer.alloc(NUM_BYTES_PER_SHA256),
-      Buffer.alloc(NUM_BYTES_PER_SHA256),
-    );
+    return new ContentCommitment(Fr.zero(), Buffer.alloc(NUM_BYTES_PER_SHA256), Buffer.alloc(NUM_BYTES_PER_SHA256));
   }
 
   isEmpty(): boolean {

@@ -9,6 +9,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
+import { TX_EFFECTS_BLOB_HASH_INPUT_FIELDS } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
@@ -86,7 +87,12 @@ export class EpochProvingJob {
         });
         // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
         // Start block proving
-        await this.prover.startNewBlock(txCount, 342 * txCount, globalVariables, l1ToL2Messages);
+        await this.prover.startNewBlock(
+          txCount,
+          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * txCount,
+          globalVariables,
+          l1ToL2Messages,
+        );
 
         // Process public fns
         const publicProcessor = this.publicProcessorFactory.create(previousHeader, globalVariables);

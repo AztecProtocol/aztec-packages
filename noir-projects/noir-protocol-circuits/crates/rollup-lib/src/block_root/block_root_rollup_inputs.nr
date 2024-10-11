@@ -5,7 +5,7 @@ use crate::{
 },
     components
 };
-use blob::blob::evaluate_blob;
+use blob::{blob::evaluate_blob, blob_public_inputs::BlobPublicInputs};
 use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
 use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
@@ -123,7 +123,8 @@ impl BlockRootRollupInputs {
         let mut fee_arr = [FeeRecipient::empty(); 32];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        let blob_public_inputs = evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
+        let mut blob_public_inputs = [BlobPublicInputs::empty(); 32];
+        blob_public_inputs[0] = evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added

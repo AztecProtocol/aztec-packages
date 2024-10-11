@@ -1,6 +1,7 @@
 import { Blob } from '@aztec/foundation/blob';
 import { randomInt } from '@aztec/foundation/crypto';
 
+import { BLOB_PUBLIC_INPUTS } from '../constants.gen.js';
 import { makeBlobPublicInputs } from '../tests/factories.js';
 import { BlobPublicInputs } from './blob_public_inputs.js';
 import { Fr } from './index.js';
@@ -26,16 +27,15 @@ describe('PartialStateReference', () => {
     expect(converted.kzgCommitment).toEqual(blob.commitmentToFields());
   });
 
-  // TODO(Miranda): reinstate if to/from fields is required
+  it('serializes to field array and deserializes it back', () => {
+    const fieldArray = blobPI.toFields();
+    const res = BlobPublicInputs.fromFields(fieldArray);
+    expect(res).toEqual(blobPI);
+  });
 
-  // it('serializes to field array and deserializes it back', () => {
-  //   const fieldArray = blobPI.toFields();
-  //   const res = BlobPublicInputs.fromFields(fieldArray);
-  //   expect(res).toEqual(blobPI);
-  // });
-
-  // it('number of fields matches constant', () => {
-  //   const fields = blobPI.toFields();
-  //   expect(fields.length).toBe(BLOB_PUBLIC_INPUTS);
-  // });
+  // NB: In noir, blob.y is represented as a BigNum = 3x Fr fields. In ts, we use bigint for ease of calcs.
+  it('number of fields matches constant', () => {
+    const fields = blobPI.toFields();
+    expect(fields.length).toBe(BLOB_PUBLIC_INPUTS);
+  });
 });

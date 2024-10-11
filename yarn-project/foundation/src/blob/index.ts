@@ -1,7 +1,7 @@
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
-import { poseidon2Hash } from '../crypto/index.js';
+import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
 import { serializeToBuffer } from '../serialize/index.js';
 
@@ -28,7 +28,7 @@ try {
     throw new Error(error);
   }
 }
-
+const VERSIONED_HASH_VERSION_KZG = 0x01;
 /**
  * First run at a simple blob class TODO: Test a lot
  */
@@ -56,6 +56,7 @@ export class Blob {
       );
     }
     this.data = Buffer.concat([serializeToBuffer(txEffects)], BYTES_PER_BLOB);
+    // This matches the output of SpongeBlob.squeeze() in the blob circuit
     this.txsEffectsHash = poseidon2Hash(txEffects);
     this.commitment = Buffer.from(blobToKzgCommitment(this.data));
     this.challengeZ = poseidon2Hash([this.txsEffectsHash, ...this.commitmentToFields()]);
@@ -69,5 +70,29 @@ export class Blob {
 
   commitmentToFields(): [Fr, Fr] {
     return [new Fr(this.commitment.subarray(0, 31)), new Fr(this.commitment.subarray(31, 48))];
+  }
+
+  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash
+  getEthVersionedBlobHash(): Buffer {
+    let hash = sha256(this.commitment);
+    hash[0] = VERSIONED_HASH_VERSION_KZG;
+    return hash;
+  }
+
+  // Returns a proof of opening of the blob to verify on L1 using the point evaluation precompile:
+  //  * input[:32]     - versioned_hash
+  //  * input[32:64]   - z
+  //  * input[64:96]   - y
+  //  * input[96:144]  - commitment C
+  //  * input[144:192] - proof (a commitment to the quotient polynomial q(X))
+  getEthBlobEvaluationInputs(): `0x${string}` {
+    const buf = Buffer.concat([
+      this.getEthVersionedBlobHash(),
+      this.challengeZ.toBuffer(),
+      this.evaluationY,
+      this.commitment,
+      this.proof,
+    ]);
+    return `0x${buf.toString('hex')}`;
   }
 }

@@ -76,11 +76,6 @@ contract DecodersTest is DecoderBase {
         DecoderBase.ContentCommitment memory contentCommitment = referenceHeader.contentCommitment;
 
         assertEq(header.contentCommitment.numTxs, contentCommitment.numTxs, "Invalid txTreeSize");
-        assertEq(
-          header.contentCommitment.txsEffectsHash,
-          contentCommitment.txsEffectsHash,
-          "Invalid txsEffectsHash"
-        );
         assertEq(header.contentCommitment.inHash, contentCommitment.inHash, "Invalid inHash");
         assertEq(header.contentCommitment.outHash, contentCommitment.outHash, "Invalid outHash");
       }
@@ -153,18 +148,6 @@ contract DecodersTest is DecoderBase {
         header.lastArchive.root, referenceHeader.lastArchive.root, "Invalid lastArchive.root"
       );
     }
-
-    // Txs
-    {
-      bytes32 txsEffectsHash = txsHelper.decode(data.block.body);
-      assertEq(txsEffectsHash, data.block.txsEffectsHash, "Invalid txs effects hash");
-      assertEq(
-        txsEffectsHash,
-        data.block.decodedHeader.contentCommitment.txsEffectsHash,
-        "Invalid txs effects hash"
-      );
-    }
-
     // The public inputs are computed based of these values, but not directly part of the decoding per say.
   }
 

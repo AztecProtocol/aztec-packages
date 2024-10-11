@@ -4,6 +4,7 @@ import {
   TxEffect,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -33,6 +34,18 @@ export class Body {
     const reader = BufferReader.asReader(buf);
 
     return new this(reader.readVector(TxEffect));
+  }
+
+  /**
+   * Returns a flat array of fields of all tx effects - used for blobs.
+   * TODO(Miranda): Remove 0s and tightly pack to fill blobs.
+   */
+  toFields() {
+    let flattened: Fr[] = [];
+    this.txEffects.forEach((effect: TxEffect) => {
+      flattened = flattened.concat(effect.toFields());
+    });
+    return flattened;
   }
 
   [inspect.custom]() {

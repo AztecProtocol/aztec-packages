@@ -16,6 +16,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   SpongeBlob,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -48,6 +49,8 @@ export class LightweightBlockBuilder implements BlockBuilder {
   ): Promise<void> {
     this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
     this.numTxs = numTxs;
+    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+    numTxsEffects = numTxs == 2 ? 2 * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS : numTxsEffects;
     this.spongeBlobState = SpongeBlob.init(numTxsEffects);
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);

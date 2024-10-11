@@ -32,10 +32,13 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
   ScopedLogHash,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -401,6 +404,20 @@ describe('L1Publisher integration', () => {
         hash: logs[i].transactionHash!,
       });
 
+      // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+      const txEffectsInBlob = padArrayEnd(
+        block.body.toFields(),
+        Fr.ZERO,
+        TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+      );
+      const blob = new Blob(txEffectsInBlob);
+
+      const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
+      const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
+      expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
+      expect(z).toEqual(blob.challengeZ.toString());
+      expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'propose',
@@ -410,7 +427,9 @@ describe('L1Publisher integration', () => {
           `0x${block.header.hash().toBuffer().toString('hex')}`,
           [],
           [],
+          // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
           `0x${block.body.toBuffer().toString('hex')}`,
+          blob.getEthBlobEvaluationInputs(),
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
@@ -498,6 +517,19 @@ describe('L1Publisher integration', () => {
         hash: logs[i].transactionHash!,
       });
 
+      // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+      const txEffectsInBlob = padArrayEnd(
+        block.body.toFields(),
+        Fr.ZERO,
+        TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+      );
+      const blob = new Blob(txEffectsInBlob);
+      const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
+      const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
+      expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
+      expect(z).toEqual(blob.challengeZ.toString());
+      expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'propose',
@@ -507,7 +539,9 @@ describe('L1Publisher integration', () => {
           `0x${block.header.hash().toBuffer().toString('hex')}`,
           [],
           [],
+          // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
           `0x${block.body.toBuffer().toString('hex')}`,
+          blob.getEthBlobEvaluationInputs(),
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
