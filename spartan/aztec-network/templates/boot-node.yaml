@@ -45,7 +45,7 @@ spec:
             [
               "/bin/sh",
               "-c",
-              "cp /scripts/deploy-contracts.sh /tmp/deploy-contracts.sh && chmod +x /tmp/deploy-contracts.sh && /tmp/deploy-contracts.sh {{ join "," .Values.validator.validatorAddresses | quote }}",
+              "cp /scripts/deploy-contracts.sh /tmp/deploy-contracts.sh && chmod +x /tmp/deploy-contracts.sh && /tmp/deploy-contracts.sh \"{{ join "," .Values.validator.validatorAddresses }}\""
             ]
           volumeMounts:
             - name: shared-volume
