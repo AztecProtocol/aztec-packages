@@ -15,10 +15,10 @@ export class DebugLog extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // Opcode
     OperandType.UINT8, // Indirect
-    OperandType.UINT32, // message memory address
-    OperandType.UINT32, // message size
-    OperandType.UINT32, // fields memory address
-    OperandType.UINT32, // fields size address
+    OperandType.UINT16, // message memory address
+    OperandType.UINT16, // message size
+    OperandType.UINT16, // fields memory address
+    OperandType.UINT16, // fields size address
   ];
 
   constructor(
