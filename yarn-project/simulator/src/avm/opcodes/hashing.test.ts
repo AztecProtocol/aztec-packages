@@ -18,10 +18,10 @@ describe('Hashing Opcodes', () => {
       const buf = Buffer.from([
         Poseidon2.opcode, // opcode
         1, // indirect
-        ...Buffer.from('12345678', 'hex'), // inputStateOffset
-        ...Buffer.from('23456789', 'hex'), // outputStateOffset
+        ...Buffer.from('1234', 'hex'), // inputStateOffset
+        ...Buffer.from('2345', 'hex'), // outputStateOffset
       ]);
-      const inst = new Poseidon2(/*indirect=*/ 1, /*dstOffset=*/ 0x12345678, /*messageOffset=*/ 0x23456789);
+      const inst = new Poseidon2(/*indirect=*/ 1, /*dstOffset=*/ 0x1234, /*messageOffset=*/ 0x2345);
 
       expect(Poseidon2.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -141,15 +141,15 @@ describe('Hashing Opcodes', () => {
       const buf = Buffer.from([
         KeccakF1600.opcode, // opcode
         1, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-        ...Buffer.from('23456789', 'hex'), // messageOffset
-        ...Buffer.from('3456789a', 'hex'), // messageSizeOffset
+        ...Buffer.from('1234', 'hex'), // dstOffset
+        ...Buffer.from('2345', 'hex'), // messageOffset
+        ...Buffer.from('3456', 'hex'), // messageSizeOffset
       ]);
       const inst = new KeccakF1600(
         /*indirect=*/ 1,
-        /*dstOffset=*/ 0x12345678,
-        /*messageOffset=*/ 0x23456789,
-        /*messageSizeOffset=*/ 0x3456789a,
+        /*dstOffset=*/ 0x1234,
+        /*messageOffset=*/ 0x2345,
+        /*messageSizeOffset=*/ 0x3456,
       );
 
       expect(KeccakF1600.deserialize(buf)).toEqual(inst);
@@ -178,15 +178,15 @@ describe('Hashing Opcodes', () => {
       const buf = Buffer.from([
         Sha256Compression.opcode, // opcode
         1, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-        ...Buffer.from('23456789', 'hex'), // stateOffset
-        ...Buffer.from('456789ab', 'hex'), // inputsOffset
+        ...Buffer.from('1234', 'hex'), // dstOffset
+        ...Buffer.from('2345', 'hex'), // stateOffset
+        ...Buffer.from('4567', 'hex'), // inputsOffset
       ]);
       const inst = new Sha256Compression(
         /*indirect=*/ 1,
-        /*dstOffset=*/ 0x12345678,
-        /*stateOffset=*/ 0x23456789,
-        /*inputsOffset=*/ 0x456789ab,
+        /*dstOffset=*/ 0x1234,
+        /*stateOffset=*/ 0x2345,
+        /*inputsOffset=*/ 0x4567,
       );
 
       expect(Sha256Compression.deserialize(buf)).toEqual(inst);

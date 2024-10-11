@@ -41,7 +41,7 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
     trace_builder.op_set(0, 101, 11, AvmMemoryTag::U16);
 
     // All indirect flags are encoded as 7 = 1 + 2 + 4
-    trace_builder.op_add(7, 0, 1, 2, AvmMemoryTag::U16);
+    trace_builder.op_add(7, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -90,7 +90,7 @@ TEST_F(AvmIndirectMemTests, indirectOutputSub)
     trace_builder.op_set(0, 500, 51, AvmMemoryTag::U128);
 
     // The indirect flag is encoded as 4
-    trace_builder.op_sub(4, 50, 51, 5, AvmMemoryTag::U128);
+    trace_builder.op_sub(4, 50, 51, 5);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -138,7 +138,7 @@ TEST_F(AvmIndirectMemTests, indirectInputAMul)
     trace_builder.op_set(0, 7, 101, AvmMemoryTag::U64);
 
     // The indirect flag is encoded as 1
-    trace_builder.op_mul(1, 1000, 101, 102, AvmMemoryTag::U64);
+    trace_builder.op_mul(1, 1000, 101, 102);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 

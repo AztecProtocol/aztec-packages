@@ -40,7 +40,7 @@ fn validate_no_transient_data_nullifiers_for_note_hashes_succeeds() {
     builder.validate_for_private_tail();
 }
 
-#[test(should_fail_with="Cannot link a note hash emitted after a nullifier")]
+#[test(should_fail_with = "Cannot link a note hash emitted after a nullifier")]
 fn validate_no_transient_data_nullifiers_for_note_hashes_emitted_after_fails() {
     let mut builder = PreviousKernelValidatorBuilder::new();
 
@@ -53,7 +53,7 @@ fn validate_no_transient_data_nullifiers_for_note_hashes_emitted_after_fails() {
     builder.validate_for_private_tail();
 }
 
-#[test(should_fail_with="Hinted siloed note hash does not match nullified note hash")]
+#[test(should_fail_with = "Hinted siloed note hash does not match nullified note hash")]
 fn validate_no_transient_data_nullifiers_for_note_hashes_not_found_fails() {
     let mut builder = PreviousKernelValidatorBuilder::new();
 

@@ -1,7 +1,6 @@
-import { AztecAddress, type FunctionSelector, type Gas } from '@aztec/circuits.js';
+import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';

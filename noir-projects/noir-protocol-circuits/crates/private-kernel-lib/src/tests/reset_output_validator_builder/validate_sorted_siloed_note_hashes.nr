@@ -31,7 +31,7 @@ fn validate_sorted_siloed_note_hashes_unordered_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect siloed note hashes")]
+#[test(should_fail_with = "incorrect siloed note hashes")]
 fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 
@@ -46,7 +46,7 @@ fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="unexpected non-empty item")]
+#[test(should_fail_with = "unexpected non-empty item")]
 fn validate_sorted_siloed_note_hashes_extra_item_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 
@@ -61,7 +61,7 @@ fn validate_sorted_siloed_note_hashes_extra_item_fails() {
     builder.validate_with_hints(hints);
 }
 
-#[test(should_fail_with="note hashes have been siloed in a previous reset")]
+#[test(should_fail_with = "note hashes have been siloed in a previous reset")]
 fn validate_sorted_siloed_note_hashes_repeat_siloing_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 

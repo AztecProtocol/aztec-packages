@@ -27,7 +27,7 @@ fn validate_against_call_request_static_call_succeeds() {
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with="contract_address does not match call request")]
+#[test(should_fail_with = "contract_address does not match call request")]
 fn validate_against_call_request_mismatch_contract_address_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -38,7 +38,7 @@ fn validate_against_call_request_mismatch_contract_address_fails() {
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with="call_context does not match call request")]
+#[test(should_fail_with = "call_context does not match call request")]
 fn validate_against_call_request_mismatch_call_context_storage_contract_address_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -49,7 +49,7 @@ fn validate_against_call_request_mismatch_call_context_storage_contract_address_
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with="args_hash does not match call request")]
+#[test(should_fail_with = "args_hash does not match call request")]
 fn validate_against_call_request_mismatch_args_hash_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -60,7 +60,7 @@ fn validate_against_call_request_mismatch_args_hash_fails() {
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with="returns_hash does not match call request")]
+#[test(should_fail_with = "returns_hash does not match call request")]
 fn validate_against_call_request_mismatch_returns_hash_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -71,7 +71,7 @@ fn validate_against_call_request_mismatch_returns_hash_fails() {
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with="start_side_effect_counter does not match call request")]
+#[test(should_fail_with = "start_side_effect_counter does not match call request")]
 fn validate_against_call_request_mismatch_start_side_effect_counter_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -82,7 +82,7 @@ fn validate_against_call_request_mismatch_start_side_effect_counter_fails() {
     builder.validate_against_call_request(request);
 }
 
-#[test(should_fail_with="end_side_effect_counter does not match call request")]
+#[test(should_fail_with = "end_side_effect_counter does not match call request")]
 fn validate_against_call_request_mismatch_end_side_effect_counter_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
