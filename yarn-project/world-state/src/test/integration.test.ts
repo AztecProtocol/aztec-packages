@@ -68,13 +68,13 @@ describe('world-state integration', () => {
       return finalized > tipFinalised;
     };
 
-    while (tips.latest < blockToSyncTo && sleepTime < maxTimeoutMS) {
+    while (tips.latest.number < blockToSyncTo && sleepTime < maxTimeoutMS) {
       await sleep(100);
       sleepTime = Date.now() - startTime;
       tips = await synchronizer.getL2Tips();
     }
 
-    while (waitForFinalised(tips.finalized) && sleepTime < maxTimeoutMS) {
+    while (waitForFinalised(tips.finalized.number) && sleepTime < maxTimeoutMS) {
       await sleep(100);
       sleepTime = Date.now() - startTime;
       tips = await synchronizer.getL2Tips();
