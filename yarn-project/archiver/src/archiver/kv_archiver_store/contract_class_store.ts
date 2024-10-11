@@ -1,12 +1,14 @@
-import { Fr, FunctionSelector, Vector } from '@aztec/circuits.js';
-import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 import {
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ExecutablePrivateFunctionWithMembershipProof,
+  Fr,
+  FunctionSelector,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+  Vector,
+} from '@aztec/circuits.js';
+import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

@@ -309,7 +309,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value of the note hash does not match read request")]
+    #[test(should_fail_with = "Value of the note hash does not match read request")]
     fn pending_note_hash_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -343,7 +343,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
+    #[test(should_fail_with = "Value of the nullifier does not match read request")]
     fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -357,7 +357,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the nullifier")]
     fn pending_nullifier_read_request_reads_before_value_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -496,7 +496,7 @@ mod tests {
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
-    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
+    #[test(should_fail_with = "Value of the hinted transient note hash does not match")]
     fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.append_note_hashes(1);
@@ -576,7 +576,7 @@ mod tests {
         assert_array_eq(public_inputs.end.encrypted_logs_hashes, output_logs);
     }
 
-    #[test(should_fail_with="note hashes have been siloed in a previous reset")]
+    #[test(should_fail_with = "note hashes have been siloed in a previous reset")]
     fn siloing_note_hashes_again_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
 

@@ -1,4 +1,4 @@
-import { MockBlockSource } from '@aztec/archiver/test';
+import { MockL2BlockSource } from '@aztec/archiver/test';
 import { mockEpochProofQuote, mockTx } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -26,7 +26,7 @@ describe('In-Memory P2P Client', () => {
   let attestationPool: Mockify<AttestationPool>;
   let epochProofQuotePool: Mockify<EpochProofQuotePool>;
   let mempools: MemPools;
-  let blockSource: MockBlockSource;
+  let blockSource: MockL2BlockSource;
   let p2pService: Mockify<P2PService>;
   let kvStore: AztecKVStore;
   let client: P2PClient;
@@ -67,7 +67,8 @@ describe('In-Memory P2P Client', () => {
       deleteQuotesToEpoch: jest.fn(),
     };
 
-    blockSource = new MockBlockSource();
+    blockSource = new MockL2BlockSource();
+    blockSource.createBlocks(100);
 
     mempools = {
       txPool,

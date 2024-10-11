@@ -26,14 +26,15 @@ import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
   type CompleteAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
   type Fr,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NodeInfo,
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

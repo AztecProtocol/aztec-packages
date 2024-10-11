@@ -117,11 +117,6 @@ pub enum BlackBoxFunc {
     /// scalar $a$: `a=low+high*2^{128}`, with `low, high < 2^{128}`
     MultiScalarMul,
 
-    /// Computes the Keccak-256 (Ethereum version) of the inputs.
-    /// - inputs: Vector of bytes (witness, 8)
-    /// - outputs: Array of 32 bytes (witness, 8)
-    Keccak256,
-
     /// Keccak Permutation function of width 1600
     /// - inputs: An array of 25 64-bit Keccak lanes that represent a keccak sponge of 1600 bits
     /// - outputs: The result of a keccak f1600 permutation on the input state. Also an array of 25 Keccak lanes.
@@ -216,7 +211,6 @@ impl BlackBoxFunc {
             BlackBoxFunc::AND => "and",
             BlackBoxFunc::XOR => "xor",
             BlackBoxFunc::RANGE => "range",
-            BlackBoxFunc::Keccak256 => "keccak256",
             BlackBoxFunc::Keccakf1600 => "keccakf1600",
             BlackBoxFunc::RecursiveAggregation => "recursive_aggregation",
             BlackBoxFunc::EcdsaSecp256r1 => "ecdsa_secp256r1",
@@ -246,7 +240,6 @@ impl BlackBoxFunc {
             "and" => Some(BlackBoxFunc::AND),
             "xor" => Some(BlackBoxFunc::XOR),
             "range" => Some(BlackBoxFunc::RANGE),
-            "keccak256" => Some(BlackBoxFunc::Keccak256),
             "keccakf1600" => Some(BlackBoxFunc::Keccakf1600),
             "recursive_aggregation" => Some(BlackBoxFunc::RecursiveAggregation),
             "bigint_add" => Some(BlackBoxFunc::BigIntAdd),

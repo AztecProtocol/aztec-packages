@@ -11,6 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   type GlobalVariables,
   type Header,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -22,7 +23,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type SimulationProvider } from '../providers/index.js';
 import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';

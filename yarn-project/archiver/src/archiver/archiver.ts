@@ -4,9 +4,11 @@ import {
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockId,
   type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
+  type L2Tips,
   type LogFilter,
   type LogType,
   type TxEffect,
@@ -15,12 +17,18 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type ContractClassPublic,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
   PrivateFunctionBroadcastedEvent,
+  type PublicFunction,
   UnconstrainedFunctionBroadcastedEvent,
+  type UnconstrainedFunctionWithMembershipProof,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
@@ -35,14 +43,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PublicFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
 import {
@@ -653,6 +653,32 @@ export class Archiver implements ArchiveSource {
 
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
+  }
+
+  async getL2Tips(): Promise<L2Tips> {
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getBlockNumber(),
+      this.getProvenBlockNumber(),
+    ] as const);
+
+    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
+      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+    ] as const);
+
+    if (latestBlockNumber > 0 && !latestBlockHeader) {
+      throw new Error('Failed to retrieve latest block header');
+    }
+
+    if (provenBlockNumber > 0 && !provenBlockHeader) {
+      throw new Error('Failed to retrieve proven block header');
+    }
+
+    return {
+      latest: { number: latestBlockNumber, hash: latestBlockHeader?.hash().toString() } as L2BlockId,
+      proven: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+      finalized: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+    };
   }
 }
 
