@@ -68,7 +68,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir);
+      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir);
     });
 
     afterEach(async () => {
@@ -128,7 +128,7 @@ describe('NativeWorldState', () => {
       await fork.close();
     });
 
-    it('Can create a fork at block 0 when not latest', async () => {
+    it('can create a fork at block 0 when not latest', async () => {
       const fork = await ws.fork();
       const forkAtGenesis = await ws.fork();
 
