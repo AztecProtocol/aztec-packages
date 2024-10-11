@@ -3,6 +3,7 @@ fullnameOverride: ""
 
 network:
   public: false
+  setupL2Contracts: true
 
 telemetry:
   enabled: false
