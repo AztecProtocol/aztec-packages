@@ -37,15 +37,11 @@ contract ApellaBase is TestBase {
   function setUp() public virtual {
     token = IMintableERC20(address(new TestERC20()));
 
-    // @todo We should be using a bit of create2 magic to do this nicely
-    apella = new Apella(token, address(0));
-    registry = new Registry(address(apella));
-    gerousia = new Gerousia(apella, registry, 677, 1000);
+    registry = new Registry(address(this));
+    gerousia = new Gerousia(registry, 677, 1000);
 
-    // cheeky breeky
-    vm.store(address(apella), 0, bytes32(uint256(uint160(address(gerousia)))));
-
-    assertEq(apella.gerousia(), address(gerousia));
+    apella = new Apella(token, address(gerousia));
+    registry.transferOwnership(address(apella));
 
     {
       CallAssetPayload payload = new CallAssetPayload(token, address(apella));

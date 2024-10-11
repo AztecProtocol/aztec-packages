@@ -36,6 +36,7 @@ contract VoteTest is GerousiaBase {
 
   modifier givenCanonicalRollupHoldCode() {
     leonidas = new Leonidas(address(this));
+    vm.prank(registry.getApella());
     registry.upgrade(address(leonidas));
 
     // We jump into the future since slot 0, will behave as if already voted in
@@ -129,6 +130,7 @@ contract VoteTest is GerousiaBase {
     uint256 yeaBefore = gerousia.yeaCount(address(leonidas), leonidasRound, proposal);
 
     Leonidas freshInstance = new Leonidas(address(this));
+    vm.prank(registry.getApella());
     registry.upgrade(address(freshInstance));
 
     vm.warp(Timestamp.unwrap(freshInstance.getTimestampForSlot(Slot.wrap(1))));

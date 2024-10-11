@@ -7,15 +7,14 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Gerousia} from "@aztec/governance/Gerousia.sol";
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 
 contract FakeApella {
-  address public gerousia;
+  address immutable GEROUSIA;
 
   mapping(IPayload => bool) public proposals;
 
-  function setGerousia(address _gerousia) external {
-    gerousia = _gerousia;
+  constructor(address _gerousia) {
+    GEROUSIA = _gerousia;
   }
 
   function propose(IPayload _proposal) external returns (bool) {
@@ -31,10 +30,10 @@ contract GerousiaBase is Test {
 
   function setUp() public virtual {
     registry = new Registry(address(this));
-    apella = new FakeApella();
 
-    gerousia = new Gerousia(IApella(address(apella)), registry, 667, 1000);
+    gerousia = new Gerousia(registry, 667, 1000);
+    apella = new FakeApella(address(gerousia));
 
-    apella.setGerousia(address(gerousia));
+    registry.transferOwnership(address(apella));
   }
 }

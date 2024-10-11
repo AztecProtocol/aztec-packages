@@ -29,6 +29,7 @@ contract PushProposalTest is GerousiaBase {
 
   modifier givenCanonicalInstanceHoldCode() {
     leonidas = new Leonidas(address(this));
+    vm.prank(registry.getApella());
     registry.upgrade(address(leonidas));
 
     // We jump into the future since slot 0, will behave as if already voted in
@@ -196,6 +197,7 @@ contract PushProposalTest is GerousiaBase {
 
     // When using a new registry we change the gerousia's interpetation of time :O
     Leonidas freshInstance = new Leonidas(address(this));
+    vm.prank(registry.getApella());
     registry.upgrade(address(freshInstance));
 
     // The old is still there, just not executable.

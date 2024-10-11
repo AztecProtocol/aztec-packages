@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {Slot} from "@aztec/core/libraries/TimeMath.sol";
-
+import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 interface IGerousia {
@@ -16,4 +16,5 @@ interface IGerousia {
     view
     returns (uint256);
   function computeRound(Slot _slot) external view returns (uint256);
+  function getApella() external view returns (IApella);
 }
