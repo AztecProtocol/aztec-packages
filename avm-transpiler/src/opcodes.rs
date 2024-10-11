@@ -72,14 +72,11 @@ pub enum AvmOpcode {
     // Misc
     DEBUGLOG,
     // Gadgets
-    KECCAK,
     POSEIDON2,
     SHA256COMPRESSION,
     KECCAKF1600,
-    PEDERSEN, // temp - may be removed, but alot of contracts rely on it
     ECADD,
     MSM,
-    PEDERSENCOMMITMENT, // temp
     // Conversions
     TORADIXLE,
 }
@@ -170,14 +167,11 @@ impl AvmOpcode {
             AvmOpcode::DEBUGLOG => "DEBUGLOG",
 
             // Gadgets
-            AvmOpcode::KECCAK => "KECCAK",
-            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
-            AvmOpcode::PEDERSEN => "PEDERSEN",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
-            AvmOpcode::PEDERSENCOMMITMENT => "PEDERSENCOMMITMENT",
             // Conversions
             AvmOpcode::TORADIXLE => "TORADIXLE",
         }

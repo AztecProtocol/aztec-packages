@@ -333,7 +333,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3853;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3823;
 global AVM_PUBLIC_COLUMN_MAX_SIZE : u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE : u32 = 2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 /**
@@ -497,16 +497,13 @@ global AVM_DELEGATECALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_R
 global AVM_RETURN_BASE_L2_GAS: u32 = 28;
 global AVM_REVERT_BASE_L2_GAS: u32 = 28;
 global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12; // Must be equal to AVM_JUMP_BASE_L2_GAS as long as circuit implements debugLog as a jump
-global AVM_KECCAK_BASE_L2_GAS: u32 = 3000;
 global AVM_POSEIDON2_BASE_L2_GAS: u32 = 78;
-global AVM_SHA256_BASE_L2_GAS: u32 = 2610;
-global AVM_PEDERSEN_BASE_L2_GAS: u32 = 1000;
-global AVM_ECADD_BASE_L2_GAS: u32 = 62;
-global AVM_MSM_BASE_L2_GAS: u32 = 1000;
-global AVM_PEDERSENCOMMITMENT_BASE_L2_GAS: u32 = 1000;
-global AVM_TORADIXLE_BASE_L2_GAS: u32 = 46;
 global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 261;
 global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 300;
+global AVM_ECADD_BASE_L2_GAS: u32 = 62;
+global AVM_MSM_BASE_L2_GAS: u32 = 1000;
+global AVM_TORADIXLE_BASE_L2_GAS: u32 = 46;
+
 // Dynamic L2 GAS
 global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
@@ -516,10 +513,6 @@ global AVM_STATICCALL_DYN_L2_GAS: u32 = 4;
 global AVM_DELEGATECALL_DYN_L2_GAS: u32 =  4;
 global AVM_RETURN_DYN_L2_GAS: u32 = 6;
 global AVM_REVERT_DYN_L2_GAS: u32 = 6;
-global AVM_KECCAK_DYN_L2_GAS: u32 = 100;
-global AVM_SHA256_DYN_L2_GAS: u32 = 100;
-global AVM_PEDERSEN_DYN_L2_GAS: u32 = 100;
-global AVM_PEDERSENCOMMITMENT_DYN_L2_GAS: u32 = 100;
 global AVM_MSM_DYN_L2_GAS: u32 = 100;
 global AVM_TORADIXLE_DYN_L2_GAS: u32 = 20;
 
@@ -528,6 +521,7 @@ global AVM_SSTORE_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
