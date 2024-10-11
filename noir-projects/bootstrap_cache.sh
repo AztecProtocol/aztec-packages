@@ -12,9 +12,9 @@ MOCK_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_nat
 CONTRACTS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../avm-transpiler/.rebuild_patterns ../barretenberg/cpp/.rebuild_patterns noir-contracts/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
 
 echo "
-noir-protocol-circuits
-mock-protocol-circuits
-noir-contracts
-" | xargs --max-procs 0 -I {} bash -c "$SCRIPTS_PATH/cache-download.sh noir-projects-{}-$HASH.tar.gz {}"
+noir-protocol-circuits $PROTOCOL_CIRCUITS_HASH
+mock-protocol-circuits $MOCK_CIRCUITS_HASH
+noir-contracts $CONTRACTS_HASH
+" | xargs --max-procs 0 --max-args 2 bash -c "$SCRIPTS_PATH/cache-download.sh noir-projects-\$0-\$1.tar.gz \$0"
 
 yarn

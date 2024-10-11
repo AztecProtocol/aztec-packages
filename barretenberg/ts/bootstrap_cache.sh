@@ -21,11 +21,12 @@ echo "
 bb.js-esm
 bb.js-cjs
 bb.js-browser
-" | xargs --max-procs 0 -I {} bash -c "$SCRIPTS_PATH/cache-download.sh {}-$HASH.tar.gz $TMP/{}"
+" | xargs --max-procs 0 -I {} bash -c "$CACHE_SCRIPTS/cache-download.sh {}-$HASH.tar.gz $TMP/{}"
 
-cp -r $TMP/bb.js-esm/dest dest
-cp -r $TMP/bb.js-cjs/dest dest
-cp -r $TMP/bb.js-browser/dest dest
+mkdir -p dest
+cp -r $TMP/bb.js-esm/dest/* dest/
+cp -r $TMP/bb.js-cjs/dest/* dest/
+cp -r $TMP/bb.js-browser/dest/* dest/
 
 # Annoyingly we still need to install modules, so they can be found as part of module resolution when portalled.
 yarn install

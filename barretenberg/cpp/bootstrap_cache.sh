@@ -25,5 +25,7 @@ barretenberg-preset-release-world-state
 # # clobber the existing build with the cached build
 cp -r $TMP/barretenberg-preset-wasm/build build-wasm/
 cp -r $TMP/barretenberg-preset-wasm-threads/build build-wasm-threads/
-cp -r $TMP/barretenberg-preset-release/build build/
+
+mkdir -p build
+cp -r $TMP/barretenberg-preset-release/build/* build/
 cp -r $TMP/barretenberg-preset-release-world-state/build/* build/
