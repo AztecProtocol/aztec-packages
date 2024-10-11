@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728660795248,
+  "lastUpdate": 1728663341092,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c8cbc3388c2bbe9a0ba8a95717e1b71c602d58e3",
-          "message": "feat: make shplemini proof constant (#8826)\n\nMake Shplemini proofs constant using the same approach as in other\r\nplaces, add relevant github issues for handling the dummy rounds\r\nproperly, make the shplemini recursion test do full verification and\r\nensure recursive shplemini verifiers actually stay constant.",
-          "timestamp": "2024-09-26T16:57:42Z",
-          "tree_id": "a3df21904c8e5c17ed0b60a2f55eeea9bb0987c6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c8cbc3388c2bbe9a0ba8a95717e1b71c602d58e3"
-        },
-        "date": 1727371323146,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35536.94134400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 33244.83370999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5060.799519,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4656.218495 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 100064.39638500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 100064396000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14638.624699000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14638625000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8529050715,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8529050715 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152994515,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152994515 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6939897215,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6939897215 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126063488,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126063488 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 125222938,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125222938 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c1163a9e9516d298e55421f1cf0ed81081151dd",
+          "message": "chore!: remove keccak256 opcode from ACIR/Brillig (#9104)\n\nThis PR removes the keccak256 opcode as we never emit this now,\r\npreferring keccakf1600. As we have #8989 making a breaking change to\r\nserialisation, this is a good time to do this to avoid an extra\r\nserialisation change.",
+          "timestamp": "2024-10-11T15:45:13Z",
+          "tree_id": "76aa125674afe1f33ac20cc043568690febd1d72",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c1163a9e9516d298e55421f1cf0ed81081151dd"
+        },
+        "date": 1728663334361,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31290.522675999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28796.047745 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5527.366165999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5136.880841000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93958.84548300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93958847000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15551.484994999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15551486000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8364026173,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8364026173 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164602531,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164602531 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6772403891,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6772403891 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126241974,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126241974 ns\nthreads: 1"
           }
         ]
       }
