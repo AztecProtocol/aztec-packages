@@ -132,6 +132,8 @@ export class PublicExecutor {
       avmResult,
     );
 
+    PublicExecutor.log.warn(`[AVM] ${fnName} simulation complete, L2 GAS LEFT: ${avmContext.machineState.gasLeft.l2Gas}.`);
+
     return publicExecutionResult;
   }
 }
