@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stack>
-
+#include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
@@ -23,27 +22,6 @@
 namespace bb::avm_trace {
 
 using Row = bb::AvmFullRow<bb::fr>;
-enum class AddressingMode {
-    DIRECT,
-    INDIRECT,
-};
-struct AddressWithMode {
-    AddressingMode mode;
-    uint32_t offset;
-
-    AddressWithMode() = default;
-    AddressWithMode(uint32_t offset)
-        : mode(AddressingMode::DIRECT)
-        , offset(offset)
-    {}
-    AddressWithMode(AddressingMode mode, uint32_t offset)
-        : mode(mode)
-        , offset(offset)
-    {}
-
-    // Dont mutate
-    AddressWithMode operator+(uint val) const noexcept { return { mode, offset + val }; }
-};
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
@@ -127,7 +105,10 @@ class AvmTraceBuilder {
                              uint32_t leaf_index_offset,
                              uint32_t dest_offset);
     void op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset);
-    void op_nullifier_exists(uint8_t indirect, uint32_t nullifier_offset, uint32_t dest_offset);
+    void op_nullifier_exists(uint8_t indirect,
+                             uint32_t nullifier_offset,
+                             uint32_t address_offset,
+                             uint32_t dest_offset);
     void op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset);
     void op_l1_to_l2_msg_exists(uint8_t indirect,
                                 uint32_t log_offset,
@@ -263,13 +244,13 @@ class AvmTraceBuilder {
                                                   uint32_t metadata_offset,
                                                   AvmMemoryTag metadata_r_tag);
 
-    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint8_t indirect,
-                                                                       uint32_t clk,
-                                                                       uint32_t data_offset,
-                                                                       uint32_t metadata_offset);
+    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(
+        uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t address_offset, uint32_t metadata_offset);
 
-    Row create_kernel_output_opcode_for_leaf_index(
-        uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, uint32_t leaf_index);
+    Row create_kernel_output_opcode_for_leaf_index(uint32_t clk,
+                                                   uint32_t data_offset,
+                                                   uint32_t leaf_index,
+                                                   uint32_t metadata_offset);
 
     Row create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
                                                              uint32_t clk,
