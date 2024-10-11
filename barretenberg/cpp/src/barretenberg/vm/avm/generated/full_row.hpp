@@ -326,6 +326,19 @@ template <typename FF> struct AvmFullRow {
     FF mem_tsp{};
     FF mem_val{};
     FF mem_w_in_tag{};
+    FF merkle_tree_clk{};
+    FF merkle_tree_expected_tree_root{};
+    FF merkle_tree_latch{};
+    FF merkle_tree_leaf_index{};
+    FF merkle_tree_leaf_index_is_even{};
+    FF merkle_tree_leaf_value{};
+    FF merkle_tree_left_hash{};
+    FF merkle_tree_output_hash{};
+    FF merkle_tree_path_len{};
+    FF merkle_tree_path_len_inv{};
+    FF merkle_tree_right_hash{};
+    FF merkle_tree_sel_merkle_tree{};
+    FF merkle_tree_sibling_value{};
     FF poseidon2_B_10_0{};
     FF poseidon2_B_10_1{};
     FF poseidon2_B_10_2{};
@@ -614,6 +627,7 @@ template <typename FF> struct AvmFullRow {
     FF poseidon2_full_num_perm_rounds_rem_inv{};
     FF poseidon2_full_output{};
     FF poseidon2_full_padding{};
+    FF poseidon2_full_sel_merkle_tree{};
     FF poseidon2_full_sel_poseidon{};
     FF poseidon2_full_start_poseidon{};
     FF poseidon2_input_addr{};
@@ -703,6 +717,7 @@ template <typename FF> struct AvmFullRow {
     FF perm_pos_mem_write_d_inv{};
     FF perm_pos2_fixed_pos2_perm_inv{};
     FF perm_slice_mem_inv{};
+    FF perm_merkle_poseidon2_inv{};
     FF perm_main_alu_inv{};
     FF perm_main_bin_inv{};
     FF perm_main_conv_inv{};
@@ -763,7 +778,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 749;
+    static constexpr size_t SIZE = 764;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
