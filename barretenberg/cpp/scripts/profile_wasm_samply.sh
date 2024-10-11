@@ -1,3 +1,4 @@
+# This is to be run locally not in a container, so the user must handle samply installation.
 #!/usr/bin/env bash
 set -eu
 
@@ -9,10 +10,10 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 cd $(dirname $0)/..
 
 # Configure and build.
-cmake --preset wasm-threads
+cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning
 cmake --build --preset wasm-threads --target $BENCHMARK
 
 cd build-wasm-threads
 # Consistency with _wasm.sh targets / shorter $COMMAND.
 cp ./bin/$BENCHMARK .
-wasmtime run --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND
+samply record wasmtime run --profile=perfmap --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND
