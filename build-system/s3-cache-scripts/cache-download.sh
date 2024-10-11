@@ -1,14 +1,13 @@
 #!/bin/bash
 set -eu
 
-if [ "$#" -lt 1 ]; then
+if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
     exit 1
 fi
 
 # Get the tar.gz file name from the argument
 TAR_FILE="$1"
-OUT_DIR="${2:-.}"
 
 function on_exit() {
   # Cleanup the temporary tar.gz file
@@ -21,7 +20,6 @@ trap on_exit EXIT
 aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "$TAR_FILE" --quiet --no-progress
 
 # Extract the cache file
-mkdir -p "$OUT_DIR"
-tar -xzf "$TAR_FILE" -C "$OUT_DIR"
+tar -xzf "$TAR_FILE"
 
-echo "Cache download and extraction of $TAR_FILE complete."
+echo "Cache download and extraction complete."
