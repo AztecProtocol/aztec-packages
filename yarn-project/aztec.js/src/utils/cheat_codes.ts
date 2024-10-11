@@ -125,7 +125,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger.verbose(`Mined ${numberOfBlocks} blocks`);
+    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   /**
@@ -150,7 +150,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    this.logger.verbose(`Set block interval to ${interval}`);
+    this.logger.verbose(`Set L1 block interval to ${interval}`);
   }
 
   /**
@@ -162,7 +162,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     }
-    this.logger.verbose(`Set next block timestamp to ${timestamp}`);
+    this.logger.verbose(`Set L1 next block timestamp to ${timestamp}`);
   }
 
   /**
@@ -175,7 +175,7 @@ export class EthCheatCodes {
       throw new Error(`Error warping: ${res.error.message}`);
     }
     await this.mine();
-    this.logger.verbose(`Warped to ${timestamp}`);
+    this.logger.verbose(`Warped L1 timestamp to ${timestamp}`);
   }
 
   /**
@@ -228,7 +228,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     }
-    this.logger.verbose(`Set storage for contract ${contract} at ${slot} to ${value}`);
+    this.logger.verbose(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**

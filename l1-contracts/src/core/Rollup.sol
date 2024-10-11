@@ -316,8 +316,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slot = getSlotAt(_ts);
 
     // Consider if a prune will hit in this slot
-    bool willPrune = _canPruneAt(_ts);
-    uint256 pendingBlockNumber = willPrune ? tips.provenBlockNumber : tips.pendingBlockNumber;
+    uint256 pendingBlockNumber = _canPruneAt(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
     Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
@@ -788,7 +787,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _txEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    _validateHeaderForSubmissionBase(_header, _currentTime, _txEffectsHash, _flags);
+    uint256 pendingBlockNumber =
+      _canPruneAt(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+    _validateHeaderForSubmissionBase(
+      _header, _currentTime, _txEffectsHash, pendingBlockNumber, _flags
+    );
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );
@@ -854,6 +857,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     HeaderLib.Header memory _header,
     Timestamp _currentTime,
     bytes32 _txsEffectsHash,
+    uint256 _pendingBlockNumber,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     require(
@@ -867,20 +871,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     );
 
     require(
-      _header.globalVariables.blockNumber == tips.pendingBlockNumber + 1,
+      _header.globalVariables.blockNumber == _pendingBlockNumber + 1,
       Errors.Rollup__InvalidBlockNumber(
-        tips.pendingBlockNumber + 1, _header.globalVariables.blockNumber
+        _pendingBlockNumber + 1, _header.globalVariables.blockNumber
       )
     );
 
-    bytes32 tipArchive = archive();
+    bytes32 tipArchive = blocks[_pendingBlockNumber].archive;
     require(
       tipArchive == _header.lastArchive.root,
       Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root)
     );
 
     Slot slot = Slot.wrap(_header.globalVariables.slotNumber);
-    Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
+    Slot lastSlot = blocks[_pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Timestamp timestamp = getTimestampForSlot(slot);

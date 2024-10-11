@@ -63,7 +63,7 @@ export class L2BlockStream {
         latestBlockNumber--;
       }
       if (latestBlockNumber < localTips.latest.number) {
-        this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest}.`);
+        this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
         await this.emitEvent({ type: 'chain-pruned', blockNumber: latestBlockNumber });
       }
 

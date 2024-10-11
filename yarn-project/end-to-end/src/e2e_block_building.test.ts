@@ -1,4 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { createAccount } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
@@ -21,6 +22,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import 'jest-extended';
 
@@ -412,7 +414,15 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({ teardown, pxe, logger, wallet: owner, cheatCodes } = await setup(1, { assumeProvenThrough: undefined }));
+      ({
+        teardown,
+        aztecNode,
+        pxe,
+        logger,
+        wallet: owner,
+        cheatCodes,
+      } = await setup(1, { assumeProvenThrough: undefined }));
+
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       initialBlockNumber = await pxe.getBlockNumber();
@@ -422,8 +432,9 @@ describe('e2e_block_building', () => {
     afterEach(() => teardown());
 
     it('detects an upcoming reorg and builds a block for the correct slot', async () => {
-      // Advance to a fresh epoch
+      // Advance to a fresh epoch and mark the current one as proven
       await cheatCodes.rollup.advanceToNextEpoch();
+      await cheatCodes.rollup.markAsProven();
 
       // Send a tx to the contract that updates the public data tree, this should take the first slot
       logger.info('Sending initial tx');
@@ -431,17 +442,28 @@ describe('e2e_block_building', () => {
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
       expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(20n);
 
-      // Now move past the proof claim window
+      // Now move to a new epoch and past the proof claim window
       logger.info('Advancing past the proof claim window');
+      await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 5); // off-by-one?
 
       // Await (sequencer should wait here, not us)
       await sleep(5000);
 
       // Send another tx which should be mined a block that is built on the reorg'd chain
+      // We need to send it from a new pxe since pxe doesn't detect reorgs (yet)
+      logger.info(`Creating new PXE service`);
+      const pxeServiceConfig = { ...getPXEServiceConfig() };
+      const newPxe = await createPXEService(aztecNode, pxeServiceConfig);
+      const newWallet = await createAccount(newPxe);
+      const contractFromNewPxe = await StatefulTestContract.at(contract.address, newWallet);
+      // TODO: Contract.at should automatically register the instance in the pxe
+      logger.info(`Registering contract at ${contractFromNewPxe.address} in new pxe`);
+      await newPxe.registerContract({ instance: contractFromNewPxe.instance, artifact: StatefulTestContractArtifact });
+
       logger.info('Sending new tx on reorgd chain');
-      const tx2 = await contract.methods.increment_public_value(ownerAddress, 10).send().wait();
-      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(10n);
+      const tx2 = await contractFromNewPxe.methods.increment_public_value(ownerAddress, 10).send().wait();
+      expect(await contractFromNewPxe.methods.get_public_value(ownerAddress).simulate()).toEqual(10n);
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 1);
     });
   });
