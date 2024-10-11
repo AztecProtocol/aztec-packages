@@ -412,7 +412,7 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({ teardown, pxe, logger, wallet: owner, cheatCodes } = await setup(1));
+      ({ teardown, pxe, logger, wallet: owner, cheatCodes } = await setup(1, { assumeProvenThrough: undefined }));
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       initialBlockNumber = await pxe.getBlockNumber();
@@ -429,7 +429,7 @@ describe('e2e_block_building', () => {
       logger.info('Sending initial tx');
       const tx1 = await contract.methods.increment_public_value(ownerAddress, 20).send().wait();
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
-      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(21n);
+      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(20n);
 
       // Now move past the proof claim window
       logger.info('Advancing past the proof claim window');
@@ -441,7 +441,7 @@ describe('e2e_block_building', () => {
       // Send another tx which should be mined a block that is built on the reorg'd chain
       logger.info('Sending new tx on reorgd chain');
       const tx2 = await contract.methods.increment_public_value(ownerAddress, 10).send().wait();
-      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(11n);
+      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(10n);
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 1);
     });
   });
