@@ -18,7 +18,7 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 |-------------|---------------|----------------|
 | **CPU**     | 16 cores      | 32 cores       |
 | **Network** | 32 mb/s       | 128 mb/s       |
-| **Storage** | 3 TB          | 5 ATB           |
+| **Storage** | 3 TB          | 5 TB           |
 | **RAM**     | 32 GB         | 64 GB          |
 
 
