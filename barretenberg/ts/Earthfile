@@ -6,11 +6,12 @@ CACHE:
   ARG build_artifacts
   ARG prefix
   # TODO(#8929): reinstate bb.js caching
-  DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
-    --prefix="bb.js-$prefix" \
-    --command="$command" \
-    --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
-    --build_artifacts="$build_artifacts"
+  RUN $command
+  # DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
+  #   --prefix="bb.js-$prefix" \
+  #   --command="$command" \
+  #   --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
+  #   --build_artifacts="$build_artifacts"
 
 deps:
     FROM ../../build-images+from-registry
@@ -33,7 +34,7 @@ deps:
 esm:
     FROM +deps
     DO +CACHE \
-      --prefix="esm" \
+      --prefix="browser" \
       --command="yarn build:esm" \
       --build_artifacts="."
     SAVE ARTIFACT /usr/src/barretenberg/ts build

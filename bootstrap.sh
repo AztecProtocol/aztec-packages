@@ -128,7 +128,7 @@ elif [ "$CMD" = "full" ]; then
 elif [ "$CMD" = "fast" ]; then
   export USE_CACHE=1
   if ! can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: AWS credentials are missing. Note this is for internal aztec devs only.${RESET}"
+    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials. Note this is for internal aztec devs only.${RESET}"
     exit 1
   fi
 elif [ "$CMD" = "check" ]; then
