@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728672149264,
+  "lastUpdate": 1728686376488,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "06be26e2b5dfd4b1fa35f57231e15ebffbe410a7",
-          "message": "feat: CI/local S3 build cache (#8802)\n\nWhat this PR achieves: Optional S3 caching in Earthly files with a 2nd\r\nlayer of file caching (except in C). A future step would be to use this\r\ncache locally for fast bootstrapping. Currently implemented for\r\nbarretenberg and noir.\r\n\r\nIf AWS credentials are available with this script, S3 will be used as a\r\ndownload source. Otherwise, just the local minio cache will be used. If\r\nboth are used, minio will act like a pull-through cache for S3 and\r\nprovide a two-tiered caching solution good for when earthly is being\r\nreally forgetful and you are using artifacts that have not changed in a\r\nwhile.\r\n\r\nUSAGE NOTE: After this PR, you will want to run on\r\nscripts/setup-earthly-local.sh or equivalent if not using zsh. This will\r\ncreate an alias for earthly as earthly-local in the repo, which sets up\r\nscripts and starts the (currently always on) file server.\r\n\r\nUSAGE NOTE: Because we use git to reliably make content hashes that\r\naren't prone to changing due to temporary files, we require all changes\r\nto be committed before we content hashes will be used. The cache will\r\nnot be used at all if there are staged changes. Taking feedback on this.\r\n\r\nI recommend doing something like `git commit -am 'sync' && earthly ...`\r\nif changing files in a loop (possibly with --amend). Remember to `git\r\nadd` new wanted files or you may get old cache.\r\n\r\nUSAGE NOTE: If you do not want AWS secrets in the env for every program\r\nyou can figure out your own wrapper alias, perhaps reading from files\r\n\r\nEARTHFILE DEV NOTE: There is a little bit of a dance to grab rebuild\r\npatterns and run with the git context on the local machine. To enable\r\nthis, WORKDIR needs to match the repo layout, some adjustments thusly\r\n\r\nBundled:\r\n- Just make build the root of the dependency tree in github. This should\r\nfix a lot of contention issues\r\n\r\nFollowups:\r\n- Cache protocol circuits and verification keys",
-          "timestamp": "2024-09-27T13:21:09-04:00",
-          "tree_id": "875973d039d2862163fece6af14a95659f7c8fda",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/06be26e2b5dfd4b1fa35f57231e15ebffbe410a7"
-        },
-        "date": 1727459645949,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31386.048491999987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29089.141487999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4980.701887999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4655.577018 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91437.90183799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91437901000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14356.946732,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14356946000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8067045587,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8067045587 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152190005,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152190005 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6555190176,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6555190176 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126340341,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126340341 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 127226062,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127226062 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce3d08a18684da9f5b1289a2b9bdf60a66342590",
+          "message": "fix: Revert \"fix: Revert \"feat: use s3 cache in bootstrap fast\"\" (#9182)\n\nReverts AztecProtocol/aztec-packages#9181\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2024-10-11T23:17:43+01:00",
+          "tree_id": "1a2e931d086486fd2230dfd5ebf08c38d597d682",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ce3d08a18684da9f5b1289a2b9bdf60a66342590"
+        },
+        "date": 1728686369279,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29632.200125999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27937.362881999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5532.385138999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5229.549459999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86157.205925,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86157208000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15578.442138000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15578442000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3384472781,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3384472781 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152654408,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152654408 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2731867905,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2731867905 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126439816,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126439816 ns\nthreads: 1"
           }
         ]
       }
