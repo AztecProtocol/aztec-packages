@@ -1,9 +1,8 @@
-import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from './verification_key.js';
 
 describe('structs/verification_key_as_fields', () => {
   it(`can serialise and deserialise a verification key as fields`, () => {
-    const vk = VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+    const vk = VerificationKeyAsFields.makeFakeHonk();
     const serialised = vk.toBuffer();
     const deserialised = VerificationKeyAsFields.fromBuffer(serialised);
     expect(vk).toEqual(deserialised);
@@ -21,7 +20,7 @@ describe('structs/verification_key', () => {
 
 describe('structs/verification_key_data', () => {
   it(`can serialise and deserialise a verification key data`, () => {
-    const vk = VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+    const vk = VerificationKeyData.makeFakeHonk();
     const serialised = vk.toBuffer();
     const deserialised = VerificationKeyData.fromBuffer(serialised);
     expect(vk).toEqual(deserialised);

@@ -36,7 +36,6 @@ import {
   FunctionData,
   FunctionSelector,
   GrumpkinScalar,
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -641,7 +640,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
   return new PublicKernelData(
     kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    VerificationKeyData.makeFakeHonk(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -657,7 +656,7 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircui
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    VerificationKeyData.makeFakeHonk(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -736,7 +735,7 @@ function makePublicKernelInnerData(seed = 1) {
   return new PublicKernelInnerData(
     makeVMCircuitPublicInputs(seed),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
-    VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    VerificationKeyData.makeFakeHonk(),
   );
 }
 
@@ -995,7 +994,7 @@ export function makePreviousRollupData(
   return new PreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
-    VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    VerificationKeyAsFields.makeFakeHonk(),
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }
@@ -1013,7 +1012,7 @@ export function makePreviousRollupBlockData(
   return new PreviousRollupBlockData(
     makeBlockRootOrBlockMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
-    VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    VerificationKeyAsFields.makeFakeHonk(),
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }

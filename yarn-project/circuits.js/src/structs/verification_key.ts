@@ -5,7 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 
-import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -126,6 +126,10 @@ export class VerificationKeyAsFields {
    */
   static makeFake(size: number, seed = 1): VerificationKeyAsFields {
     return new VerificationKeyAsFields(makeTuple(size, Fr.random, seed), Fr.random());
+  }
+
+  static makeFakeHonk(seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
   }
 
   /**
@@ -292,11 +296,8 @@ export class VerificationKeyData {
     return this.keyAsFields.isRecursive;
   }
 
-  static makeFake(sizeInFields: number): VerificationKeyData {
-    return new VerificationKeyData(
-      VerificationKeyAsFields.makeFake(sizeInFields),
-      VerificationKey.makeFake().toBuffer(),
-    );
+  static makeFakeHonk(): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }
 
   /**

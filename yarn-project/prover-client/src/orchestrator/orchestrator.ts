@@ -28,7 +28,6 @@ import {
   EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -1235,7 +1234,7 @@ export class ProvingOrchestrator implements EpochProver {
               );
               return {
                 proof: makeEmptyProof(),
-                verificationKey: VerificationKeyData.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+                verificationKey: VerificationKeyData.makeFakeHonk(),
               };
             }
           }

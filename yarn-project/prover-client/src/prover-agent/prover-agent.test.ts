@@ -1,7 +1,6 @@
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import {
   Fr,
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   VK_TREE_HEIGHT,
@@ -41,7 +40,7 @@ describe('ProverAgent', () => {
   it('takes jobs from the queue', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+    const vk = VerificationKeyAsFields.makeFakeHonk();
     prover.getBaseParityProof.mockResolvedValue(
       new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
     );
@@ -70,7 +69,7 @@ describe('ProverAgent', () => {
   it('continues to process jobs', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+    const vk = VerificationKeyAsFields.makeFakeHonk();
     prover.getBaseParityProof.mockResolvedValue(
       new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
     );
