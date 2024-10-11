@@ -29,15 +29,13 @@ contract Gerousia is IGerousia {
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
 
-  IApella public immutable APELLA;
   IRegistry public immutable REGISTRY;
   uint256 public immutable N;
   uint256 public immutable M;
 
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
 
-  constructor(IApella _apella, IRegistry _registry, uint256 _n, uint256 _m) {
-    APELLA = _apella;
+  constructor(IRegistry _registry, uint256 _n, uint256 _m) {
     REGISTRY = _registry;
     N = _n;
     M = _m;
@@ -120,7 +118,7 @@ contract Gerousia is IGerousia {
 
     emit ProposalPushed(round.leader, _roundNumber);
 
-    require(APELLA.propose(round.leader), Errors.Gerousia__FailedToPropose(round.leader));
+    require(getApella().propose(round.leader), Errors.Gerousia__FailedToPropose(round.leader));
     return true;
   }
 
@@ -151,5 +149,9 @@ contract Gerousia is IGerousia {
    */
   function computeRound(Slot _slot) public view override(IGerousia) returns (uint256) {
     return _slot.unwrap() / M;
+  }
+
+  function getApella() public view override(IGerousia) returns (IApella) {
+    return IApella(REGISTRY.getApella());
   }
 }
