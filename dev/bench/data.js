@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728687209537,
+  "lastUpdate": 1728690144997,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4354ae030b5b7e365ff0361e88cd74cd95d71e04",
-          "message": "feat(avm): Integrate public inputs in AVM recursive verifier (#8846)\n\nResolves #8714",
-          "timestamp": "2024-09-28T10:17:08Z",
-          "tree_id": "bfb114f17a65fb9eeaf618715763a4dce20d01a4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4354ae030b5b7e365ff0361e88cd74cd95d71e04"
-        },
-        "date": 1727519881257,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31237.94903199999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28751.546442000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4981.9948709999835,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4673.422072 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91525.805055,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91525805000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14497.779775999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14497780000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8041327740,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8041327740 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151726334,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151726334 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6780932091,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6780932091 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128536533,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128536533 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,66 @@ window.BENCHMARK_DATA = {
             "value": 132125954,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132125954 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c008d9a2fad747142e8ca356d6c00cee1663f2c",
+          "message": "feat: Tracy time with instrumentation (#9170)\n\nAt scripts for profiling locally with tracy and samply, add\r\ninstrumentation so that tracy profile is pretty complete, and combine\r\nBB_OP_COUNT macros with tracy macros.",
+          "timestamp": "2024-10-11T23:11:55Z",
+          "tree_id": "73ea0f6f399ec5ae1fd507ab7784445b9a0edea0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c008d9a2fad747142e8ca356d6c00cee1663f2c"
+        },
+        "date": 1728690137382,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29534.589775,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28072.185873000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5528.562555999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5233.683983000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86053.945606,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86053947000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15534.235607999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15534235000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2792561611,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2792561611 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127901215,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127901215 ns\nthreads: 1"
           }
         ]
       }
