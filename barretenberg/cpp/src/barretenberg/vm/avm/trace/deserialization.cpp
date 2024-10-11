@@ -21,17 +21,17 @@ const std::vector<OperandType> three_operand_format8 = {
 const std::vector<OperandType> three_operand_format16 = {
     OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16,
 };
-const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT8, OperandType::UINT32 };
+const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT8, OperandType::UINT16 };
 
 const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
-                                                        /*gasOffset=*/OperandType::UINT32,
-                                                        /*addrOffset=*/OperandType::UINT32,
-                                                        /*argsOffset=*/OperandType::UINT32,
-                                                        /*argsSize=*/OperandType::UINT32,
-                                                        /*retOffset=*/OperandType::UINT32,
-                                                        /*retSize*/ OperandType::UINT32,
-                                                        /*successOffset=*/OperandType::UINT32,
-                                                        /*functionSelector=*/OperandType::UINT32 };
+                                                        /*gasOffset=*/OperandType::UINT16,
+                                                        /*addrOffset=*/OperandType::UINT16,
+                                                        /*argsOffset=*/OperandType::UINT16,
+                                                        /*argsSize=*/OperandType::UINT16,
+                                                        /*retOffset=*/OperandType::UINT16,
+                                                        /*retSize*/ OperandType::UINT16,
+                                                        /*successOffset=*/OperandType::UINT16,
+                                                        /*functionSelector=*/OperandType::UINT16 };
 
 // Contrary to TS, the format does not contain the opcode byte which prefixes any instruction.
 // The format for OpCode::SET has to be handled separately as it is variable based on the tag.
@@ -81,12 +81,12 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
       } },
 
     // Execution Environment - Calldata
-    { OpCode::CALLDATACOPY, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::CALLDATACOPY, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
     // Machine State - Internal Control Flow
     { OpCode::JUMP_16, { OperandType::UINT16 } },
     { OpCode::JUMPI_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::INTERNALCALL, { OperandType::UINT32 } },
+    { OpCode::INTERNALCALL, { OperandType::UINT16 } },
     { OpCode::INTERNALRETURN, {} },
 
     // Machine State - Memory
@@ -100,93 +100,93 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::MOV_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
     // Side Effects - Public Storage
-    { OpCode::SLOAD, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SSTORE, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SLOAD, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::SSTORE, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     // Side Effects - Notes, Nullfiers, Logs, Messages
     { OpCode::NOTEHASHEXISTS,
       { OperandType::INDIRECT8,
-        OperandType::UINT32,
-        /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT32,
-        OperandType::UINT32 } },
+        OperandType::UINT16,
+        /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT16,
+        OperandType::UINT16 } },
 
     { OpCode::EMITNOTEHASH,
       {
           OperandType::INDIRECT8,
-          OperandType::UINT32,
+          OperandType::UINT16,
       } }, // TODO: new format for these
     { OpCode::NULLIFIEREXISTS,
       { OperandType::INDIRECT8,
-        OperandType::UINT32,
-        /*TODO: Address is not constrained*/ OperandType::UINT32,
-        OperandType::UINT32 } },
+        OperandType::UINT16,
+        /*TODO: Address is not constrained*/ OperandType::UINT16,
+        OperandType::UINT16 } },
     { OpCode::EMITNULLIFIER,
       {
           OperandType::INDIRECT8,
-          OperandType::UINT32,
+          OperandType::UINT16,
       } }, // TODO: new format for these
     /*TODO: leafIndexOffset is not constrained*/
     { OpCode::L1TOL2MSGEXISTS,
       { OperandType::INDIRECT8,
-        OperandType::UINT32,
-        /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT32,
-        OperandType::UINT32 } },
+        OperandType::UINT16,
+        /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT16,
+        OperandType::UINT16 } },
     { OpCode::GETCONTRACTINSTANCE, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::EMITUNENCRYPTEDLOG,
       {
           OperandType::INDIRECT8,
-          OperandType::UINT32,
-          OperandType::UINT32,
+          OperandType::UINT16,
+          OperandType::UINT16,
       } },
-    { OpCode::SENDL2TOL1MSG, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SENDL2TOL1MSG, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
     // Control Flow - Contract Calls
     { OpCode::CALL, external_call_format },
     { OpCode::STATICCALL, external_call_format },
     // DELEGATECALL, -- not in simulator
-    { OpCode::RETURN, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::RETURN, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     // REVERT,
     { OpCode::REVERT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
     { OpCode::REVERT_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
 
     // Misc
     { OpCode::DEBUGLOG,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
     // Gadgets
     // Gadgets - Hashing
     { OpCode::KECCAK, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::POSEIDON2, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::POSEIDON2, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::SHA256COMPRESSION,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::PEDERSEN,
       { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // TEMP ECADD without relative memory
     { OpCode::ECADD,
       { OperandType::INDIRECT16,
-        OperandType::UINT32,     // lhs.x
-        OperandType::UINT32,     // lhs.y
-        OperandType::UINT32,     // lhs.is_infinite
-        OperandType::UINT32,     // rhs.x
-        OperandType::UINT32,     // rhs.y
-        OperandType::UINT32,     // rhs.is_infinite
-        OperandType::UINT32 } }, // dst_offset
+        OperandType::UINT16,     // lhs.x
+        OperandType::UINT16,     // lhs.y
+        OperandType::UINT16,     // lhs.is_infinite
+        OperandType::UINT16,     // rhs.x
+        OperandType::UINT16,     // rhs.y
+        OperandType::UINT16,     // rhs.is_infinite
+        OperandType::UINT16 } }, // dst_offset
     { OpCode::MSM,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::PEDERSENCOMMITMENT,
       { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Gadget - Conversion
     { OpCode::TORADIXLE,
       { OperandType::INDIRECT8,
-        OperandType::UINT32,
-        OperandType::UINT32,
-        OperandType::UINT32,
-        OperandType::UINT32,
+        OperandType::UINT16,
+        OperandType::UINT16,
+        OperandType::UINT16,
+        OperandType::UINT16,
         OperandType::UINT8 } },
     // Gadgets - Unused for now
     { OpCode::SHA256COMPRESSION,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {

@@ -26,6 +26,7 @@ impl TailOutputComposer {
         TailOutputComposer { output_composer }
     }
 
+
     pub unconstrained fn finish(self) -> KernelCircuitPublicInputs {
         let source = self.output_composer.finish();
         let mut output = KernelCircuitPublicInputs::empty();
