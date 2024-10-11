@@ -56,7 +56,30 @@ describe('world-state integration', () => {
     await db.close();
   });
 
-  const awaitSync = () => sleep(200);
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 2000) => {
+    const startTime = Date.now();
+    let sleepTime = 0;
+    let tips = await synchronizer.getL2Tips();
+
+    const waitForFinalised = (tipFinalised?: number) => {
+      if (finalized == undefined || tipFinalised == undefined) {
+        return false;
+      }
+      return finalized > tipFinalised;
+    };
+
+    while (tips.latest < blockToSyncTo && sleepTime < maxTimeoutMS) {
+      await sleep(100);
+      sleepTime = Date.now() - startTime;
+      tips = await synchronizer.getL2Tips();
+    }
+
+    while (waitForFinalised(tips.finalized) && sleepTime < maxTimeoutMS) {
+      await sleep(100);
+      sleepTime = Date.now() - startTime;
+      tips = await synchronizer.getL2Tips();
+    }
+  };
 
   const expectSynchedBlockHashMatches = async (number: number) => {
     const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
@@ -85,7 +108,7 @@ describe('world-state integration', () => {
     it('syncs new blocks from the archiver from genesis', async () => {
       await synchronizer.start();
       archiver.createBlocks(5);
-      await awaitSync();
+      await awaitSync(5);
       await expectSynchedToBlock(5);
     });
 
@@ -94,7 +117,7 @@ describe('world-state integration', () => {
       await synchronizer.start();
 
       archiver.createBlocks(3);
-      await awaitSync();
+      await awaitSync(8);
       await expectSynchedToBlock(8);
     });
 
@@ -104,7 +127,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(10);
 
       archiver.createBlocks(10);
-      await awaitSync();
+      await awaitSync(20);
       await expectSynchedToBlock(20);
     });
 
@@ -113,7 +136,7 @@ describe('world-state integration', () => {
 
       await synchronizer.start();
       archiver.createBlocks(5);
-      await awaitSync();
+      await awaitSync(5);
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
 
@@ -124,7 +147,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(8);
 
       archiver.createBlocks(4);
-      await awaitSync();
+      await awaitSync(12);
       await expectSynchedToBlock(12);
 
       expect(getBlocksSpy).toHaveBeenCalledTimes(3);
@@ -142,7 +165,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(3);
 
       archiver.setProvenBlockNumber(4);
-      await awaitSync();
+      await awaitSync(4);
       await expectSynchedToBlock(4);
     });
   });
@@ -159,7 +182,8 @@ describe('world-state integration', () => {
 
       archiver.removeBlocks(3);
       archiver.createBlocks(2);
-      await awaitSync();
+      await sleep(2000);
+      await awaitSync(4);
       await expectSynchedToBlock(4);
     });
   });
@@ -220,11 +244,11 @@ describe('world-state integration', () => {
       archiver.setProvenBlockNumber(3);
 
       await synchronizer.start();
-      await awaitSync();
+      await awaitSync(5, 3);
       await expectSynchedToBlock(5, 3);
 
       archiver.setProvenBlockNumber(4);
-      await awaitSync();
+      await awaitSync(5, 4);
       await expectSynchedToBlock(5, 4);
     });
   });
