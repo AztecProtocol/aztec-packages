@@ -18,6 +18,30 @@ spec:
         app: prover-node
     spec:
       initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
         - name: configure-prover-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
@@ -33,6 +57,7 @@ spec:
           env:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
+
       containers:
         - name: prover-node
           image: "{{ .Values.images.aztec.image }}"

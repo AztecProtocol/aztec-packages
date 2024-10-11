@@ -20,6 +20,7 @@ using namespace bb;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
+using VmPublicInputs = avm_trace::VmPublicInputs_<field_ct>;
 
 namespace {
 /**
@@ -184,7 +185,7 @@ AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
     const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
     auto it = public_inputs_flattened.begin();
-    avm_trace::VmPublicInputs<field_ct> vm_public_inputs =
+    VmPublicInputs vm_public_inputs =
         avm_trace::convert_public_inputs(std::vector(it, it + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));
     it += PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
     std::vector<field_ct> calldata(it, it + AVM_PUBLIC_COLUMN_MAX_SIZE);

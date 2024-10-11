@@ -53,6 +53,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         proving_key->proving_key.commitment_key =
             std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
     }
+    vinfo("made commitment key");
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
     const OpeningClaim prover_opening_claim =
@@ -62,7 +63,9 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                        sumcheck_output.challenge,
                                        proving_key->proving_key.commitment_key,
                                        transcript);
+    vinfo("executed multivariate-to-univarite reduction");
     PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
+    vinfo("computed opening proof");
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
@@ -76,10 +79,12 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
     BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
+    vinfo("executing relation checking rounds...");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
+    vinfo("executing pcd opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

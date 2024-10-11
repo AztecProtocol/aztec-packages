@@ -218,7 +218,24 @@ struct BitSize {
 };
 
 struct MemoryAddress {
-    uint64_t value;
+
+    struct Direct {
+        uint64_t value;
+
+        friend bool operator==(const Direct&, const Direct&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Direct bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct Relative {
+        uint64_t value;
+
+        friend bool operator==(const Relative&, const Relative&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Relative bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    std::variant<Direct, Relative> value;
 
     friend bool operator==(const MemoryAddress&, const MemoryAddress&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -8561,6 +8578,100 @@ Program::MemoryAddress serde::Deserializable<Program::MemoryAddress>::deserializ
     Program::MemoryAddress obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const MemoryAddress::Direct& lhs, const MemoryAddress::Direct& rhs)
+{
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> MemoryAddress::Direct::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<MemoryAddress::Direct>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline MemoryAddress::Direct MemoryAddress::Direct::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<MemoryAddress::Direct>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::MemoryAddress::Direct>::serialize(const Program::MemoryAddress::Direct& obj,
+                                                                    Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::MemoryAddress::Direct serde::Deserializable<Program::MemoryAddress::Direct>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::MemoryAddress::Direct obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const MemoryAddress::Relative& lhs, const MemoryAddress::Relative& rhs)
+{
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> MemoryAddress::Relative::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<MemoryAddress::Relative>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline MemoryAddress::Relative MemoryAddress::Relative::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<MemoryAddress::Relative>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::MemoryAddress::Relative>::serialize(const Program::MemoryAddress::Relative& obj,
+                                                                      Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::MemoryAddress::Relative serde::Deserializable<Program::MemoryAddress::Relative>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::MemoryAddress::Relative obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }
 

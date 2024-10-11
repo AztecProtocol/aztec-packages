@@ -110,8 +110,17 @@ barretenberg-acir-tests-bb.js:
     # We have diminishing returns after 32 cores, and unnecessarily use resources
     ENV HARDWARE_CONCURRENCY=32
 
+    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672): Try to enable double_verify
+    # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
+    # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
+    RUN BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof
+    # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
+    RUN BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
+    # Commenting for now as fails intermittently. Unreproducable on mainframe.
+    # See https://github.com/AztecProtocol/aztec-packages/issues/2104
+    #RUN BROWSER=webkit THREAD_MODEL=st ./run_acir_tests_browser.sh 1_mul
     # TODO(https://github.com/noir-lang/noir/issues/5106)
-    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)c
+    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)
     # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
     RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x
     # Run a single arbitrary test not involving recursion through bb.js for UltraHonk
@@ -124,12 +133,3 @@ barretenberg-acir-tests-bb.js:
     RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
-    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)
-    # Run 6_array through bb.js on chrome testing multi-threaded browser support.
-    # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
-    RUN BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh 6_array
-    # Run 1_mul through bb.js on chrome/webkit testing single threaded browser support.
-    RUN BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh 1_mul
-    # Commenting for now as fails intermittently. Unreproducable on mainframe.
-    # See https://github.com/AztecProtocol/aztec-packages/issues/2104
-    #RUN BROWSER=webkit THREAD_MODEL=st ./run_acir_tests_browser.sh 1_mul

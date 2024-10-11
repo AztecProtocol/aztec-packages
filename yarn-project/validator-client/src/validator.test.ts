@@ -3,6 +3,7 @@
  */
 import { TxHash } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
@@ -12,7 +13,7 @@ import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
+import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
 import { type ValidatorClientConfig } from './config.js';
 import {
   AttestationTimeoutError,
@@ -80,5 +81,37 @@ describe('ValidationService', () => {
     await expect(validatorClient.ensureTransactionsAreAvailable(proposal)).rejects.toThrow(
       TransactionsNotAvailableError,
     );
+  });
+
+  it('Should collect attestations for a proposal', async () => {
+    const signer = Secp256k1Signer.random();
+    const attestor1 = Secp256k1Signer.random();
+    const attestor2 = Secp256k1Signer.random();
+
+    const archive = Fr.random();
+    const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+
+    const proposal = makeBlockProposal({ signer, archive, txHashes });
+
+    // Mock the attestations to be returned
+    const expectedAttestations = [
+      makeBlockAttestation({ signer: attestor1, archive, txHashes }),
+      makeBlockAttestation({ signer: attestor2, archive, txHashes }),
+    ];
+    p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
+      if (
+        slot === proposal.payload.header.globalVariables.slotNumber.toBigInt() &&
+        proposalId === proposal.archive.toString()
+      ) {
+        return Promise.resolve(expectedAttestations);
+      }
+      return Promise.resolve([]);
+    });
+
+    // Perform the query
+    const numberOfRequiredAttestations = 3;
+    const attestations = await validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+
+    expect(attestations).toHaveLength(numberOfRequiredAttestations);
   });
 });

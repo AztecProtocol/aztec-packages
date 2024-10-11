@@ -22,9 +22,9 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx);
  * @param public_inputs_vec
  * @return VmPublicInputs
  */
-template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF_> const& public_inputs_vec)
+template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<FF_> const& public_inputs_vec)
 {
-    VmPublicInputs<FF_> public_inputs;
+    VmPublicInputs_<FF_> public_inputs;
 
     // Case where we pass in empty public inputs - this will be used in tests where they are not required
     if (public_inputs_vec.empty()) {
@@ -35,6 +35,21 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
     // we throw an exception
     if (public_inputs_vec.size() != PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
         throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
+    }
+
+    // WARNING: this must be constrained by the kernel!
+    // Here this is just a sanity check to prevent generation of proofs that
+    // will be thrown out by the kernel anyway.
+    if constexpr (IsAnyOf<FF_, bb::fr>) {
+        if (public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET] > MAX_L2_GAS_PER_ENQUEUED_CALL) {
+            throw_or_abort(
+                "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
+        }
+    } else {
+        if (public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET].get_value() > MAX_L2_GAS_PER_ENQUEUED_CALL) {
+            throw_or_abort(
+                "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
+        }
     }
 
     std::array<FF_, KERNEL_INPUTS_LENGTH>& kernel_inputs = std::get<KERNEL_INPUTS>(public_inputs);
@@ -173,7 +188,7 @@ template <typename FF_> VmPublicInputs<FF_> convert_public_inputs(std::vector<FF
 // rather than the fixed length arrays that are used during circuit building. This method copies each array
 // into a vector to be used by the verifier.
 template <typename FF_>
-std::vector<std::vector<FF_>> copy_public_inputs_columns(VmPublicInputs<FF_> const& public_inputs,
+std::vector<std::vector<FF_>> copy_public_inputs_columns(VmPublicInputs_<FF_> const& public_inputs,
                                                          std::vector<FF_> const& calldata,
                                                          std::vector<FF_> const& returndata)
 {
@@ -219,6 +234,6 @@ std::string to_hex(T value)
 std::string to_hex(bb::avm_trace::AvmMemoryTag tag);
 
 // Mutate the inputs
-void inject_end_gas_values(VmPublicInputs<FF>& public_inputs, std::vector<Row>& trace);
+void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace);
 
 } // namespace bb::avm_trace

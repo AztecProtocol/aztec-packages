@@ -236,7 +236,7 @@ describe('L1Publisher integration', () => {
     return sendL1ToL2Message(
       { content, secretHash: Fr.ZERO, recipient },
       { publicClient, walletClient, l1ContractAddresses },
-    );
+    ).then(([messageHash, _]) => messageHash);
   };
 
   /**

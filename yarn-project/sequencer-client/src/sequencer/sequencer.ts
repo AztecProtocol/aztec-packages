@@ -284,7 +284,7 @@ export class Sequencer {
       // @note  It is very important that the following function will FAIL and not just return early
       //        if it have made any state changes. If not, we won't rollback the state, and you will
       //        be in for a world of pain.
-      await this.buildBlockAndPublish(validTxs, proposalHeader, historicalHeader);
+      await this.buildBlockAndAttemptToPublish(validTxs, proposalHeader, historicalHeader);
     } catch (err) {
       if (BlockProofError.isBlockProofError(err)) {
         const txHashes = err.txHashes.filter(h => !h.isZero());
@@ -399,10 +399,10 @@ export class Sequencer {
    * @param proposalHeader - The partial header constructed for the proposal
    * @param historicalHeader - The historical header of the parent
    */
-  @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
+  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndPublish(
+  private async buildBlockAndAttemptToPublish(
     validTxs: Tx[],
     proposalHeader: Header,
     historicalHeader: Header | undefined,
@@ -470,6 +470,7 @@ export class Sequencer {
         )})`,
         {
           eventName: 'l2-block-built',
+          creator: this.publisher.getSenderAddress().toString(),
           duration: workDuration,
           publicProcessDuration: publicProcessorDuration,
           rollupCircuitsDuration: blockBuildingTimer.ms(),

@@ -1,4 +1,4 @@
-use acvm::{AcirField, FieldElement};
+use acvm::{acir::brillig::MemoryAddress, AcirField, FieldElement};
 
 fn get_msb(n: u128) -> usize {
     let mut n = n;
@@ -53,6 +53,15 @@ impl BitsQueryable for u128 {
 impl BitsQueryable for usize {
     fn num_bits(&self) -> usize {
         get_msb(*self as u128)
+    }
+}
+
+impl BitsQueryable for MemoryAddress {
+    fn num_bits(&self) -> usize {
+        match self {
+            MemoryAddress::Direct(address) => get_msb(*address as u128),
+            MemoryAddress::Relative(offset) => get_msb(*offset as u128),
+        }
     }
 }
 
