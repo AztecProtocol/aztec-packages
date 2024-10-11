@@ -23,6 +23,7 @@ impl PrivateKernelData {
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == index_in_allowed_list)
         };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], index_in_allowed_list, "Invalid vk index");
 
         assert_check_membership(

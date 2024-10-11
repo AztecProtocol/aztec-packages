@@ -40,6 +40,7 @@ impl PreviousRollupData {
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == leaf_index)
         };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
         assert_check_membership(

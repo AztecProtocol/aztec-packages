@@ -1286,7 +1286,7 @@ export class ProvingOrchestrator implements EpochProver {
       try {
         txProvingState.baseRollupInputs.kernelData.vkIndex = getVKIndex(verificationKey);
       } catch (_ignored) {
-        // TODO(#7410) The VK for the tube won't be in the tree, so we manually set it to the tube vk index
+        // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
         txProvingState.baseRollupInputs.kernelData.vkIndex = TUBE_INDEX;
       }
       txProvingState.baseRollupInputs.kernelData.vkPath = getVKSiblingPath(

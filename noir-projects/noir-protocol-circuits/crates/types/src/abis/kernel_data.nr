@@ -25,6 +25,7 @@ impl KernelData {
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == self.vk_index)
         };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], self.vk_index, "Invalid vk index");
 
         // TODO(#7410) Remove the exception for the tube index
