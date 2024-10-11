@@ -26,7 +26,7 @@ impl TailOutputComposer {
         TailOutputComposer { output_composer }
     }
 
-    unconstrained  pub fn finish(self) -> KernelCircuitPublicInputs {
+    unconstrained pub fn finish(self) -> KernelCircuitPublicInputs {
         let source = self.output_composer.finish();
         let mut output = KernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;

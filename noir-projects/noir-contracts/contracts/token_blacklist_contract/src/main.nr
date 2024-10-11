@@ -249,7 +249,6 @@ contract TokenBlacklist {
     }
 
     /// Internal ///
-
     #[public]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
@@ -266,7 +265,6 @@ contract TokenBlacklist {
     }
 
     /// Unconstrained ///
-
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
     }

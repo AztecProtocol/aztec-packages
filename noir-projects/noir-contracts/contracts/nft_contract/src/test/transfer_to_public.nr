@@ -40,7 +40,7 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail_with="NFT not found when transferring to public")]
+#[test(should_fail_with = "NFT not found when transferring to public")]
 unconstrained fn transfer_to_public_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, _, not_owner, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
@@ -49,7 +49,7 @@ unconstrained fn transfer_to_public_failure_not_an_owner() {
     env.call_private_void(NFT::at(nft_contract_address).transfer_to_public(not_owner, not_owner, token_id, 0));
 }
 
-#[test(should_fail_with="invalid nonce")]
+#[test(should_fail_with = "invalid nonce")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, user, _, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
@@ -57,7 +57,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     env.call_private_void(NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, random()));
 }
 
-#[test(should_fail_with="Authorization not found for message hash")]
+#[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designated_caller() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
 
@@ -69,7 +69,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
     env.call_private_void(transfer_to_public_call_interface);
 }
 
-#[test(should_fail_with="Authorization not found for message hash")]
+#[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
 

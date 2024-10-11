@@ -15,7 +15,7 @@ impl PrivateCallDataValidatorBuilder {
     }
 }
 
-#[test(should_fail_with="contract address cannot be zero")]
+#[test(should_fail_with = "contract address cannot be zero")]
 fn validate_contract_address_zero_storage_contract_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -26,7 +26,7 @@ fn validate_contract_address_zero_storage_contract_address_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_incorrect_function_leaf_index_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -37,7 +37,7 @@ fn validate_contract_address_incorrect_function_leaf_index_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_incorrect_function_leaf_sibling_path_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -48,7 +48,7 @@ fn validate_contract_address_incorrect_function_leaf_sibling_path_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_incorrect_contract_class_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -57,7 +57,7 @@ fn validate_contract_address_incorrect_contract_class_preimage_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_incorrect_partial_address_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -66,7 +66,7 @@ fn validate_contract_address_incorrect_partial_address_preimage_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_incorrect_address_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -81,7 +81,7 @@ fn validate_contract_address_protocol_contract_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_protocol_contract_wrong_index_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
 
@@ -90,7 +90,7 @@ fn validate_contract_address_protocol_contract_wrong_index_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="computed contract address does not match expected one")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_protocol_contract_wrong_computed_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
 
