@@ -255,7 +255,6 @@ describe('Arithmetic Instructions', () => {
       const buf = Buffer.from([
         Opcode.FDIV_16, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // tag
         ...Buffer.from('1234', 'hex'), // aOffset
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset

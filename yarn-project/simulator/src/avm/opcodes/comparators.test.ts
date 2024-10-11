@@ -71,7 +71,6 @@ describe('Comparators', () => {
         new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
         new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
         new Eq(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10),
       ];
 
       for (const o of ops) {
@@ -139,7 +138,6 @@ describe('Comparators', () => {
         new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
         new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
         new Lt(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10),
       ];
 
       for (const o of ops) {
@@ -207,7 +205,6 @@ describe('Comparators', () => {
         new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
         new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
         new Lte(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10),
       ];
 
       for (const o of ops) {
