@@ -4,7 +4,6 @@ import initACVM, {
   blake2s256,
   ecdsa_secp256k1_verify,
   ecdsa_secp256r1_verify,
-  keccak256,
   sha256_compression,
   xor,
 } from '@noir-lang/acvm_js';
