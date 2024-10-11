@@ -4,6 +4,10 @@
 
 This guide provides step-by-step instructions on how to set up an Aztec Layer 2 validator node. Running a node allows you to participate in the Aztec network as a validator (also known as a sequencer or proposer), contributing to the network's security and decentralization.
 
+The use of kubernetes means that these steps apply smoothly to a local KIND instance or a cloud deployment.
+The benefit of using kubernetes is that load balancing is handled for you, meaning that having validator redundancy is easy and critical slots are not missed.
+Note that if only intending to deploy to the cloud, the KIND tool setup can be skipped.
+
 For the current state of design please see the RFC at https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
 
 ## Prerequisites
@@ -109,6 +113,8 @@ git clone https://github.com/AztecProtocol/aztec-packages
 
 TODO
 
+TODO(https://github.com/AztecProtocol/aztec-packages/issues/9210): To be added - Steps for how to use the k8s setup to deploy to cloud.
+
 ## Setting Up on Other Operating Systems
 
 ### macOS
@@ -167,20 +173,9 @@ choco install kubernetes-helm
 
 ## Configuring Helm Install
 
-### Setting Ports
-
-Configure the ports in the Helm chart values file:
-
-### Adding Ethereum Validator Private Keys
-
-Your node requires an Ethereum private key to participate as a validator.
-
 **Steps**:
 
 TODO.
-
-The use of kubernetes means that these steps apply smoothly to a local KIND instance or a cloud deployment.
-The benefit of using kubernetes is that load balancing is handled for you, meaning that having validator redundancy is easy and critical slots are not missed.
 
 ### How Validators Are Chosen
 
