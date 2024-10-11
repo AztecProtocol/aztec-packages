@@ -27,7 +27,7 @@ contract Token {
         encrypted_event_emission::encode_and_encrypt_event_unconstrained
     },
         keys::getters::get_public_keys,
-        macros::{storage::storage, events::event, functions::{initializer, private, view, public}},
+        macros::{storage::storage, events::event, functions::{initializer, private, view, public, internal}},
         utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize}
     };
 
