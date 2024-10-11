@@ -24,3 +24,13 @@ export function getTimestampRangeForEpoch(epochNumber: bigint, constants: { l1Ge
     constants.l1GenesisTime + endSlot * BigInt(AZTEC_SLOT_DURATION),
   ];
 }
+
+export type L1RollupConstants = {
+  l1StartBlock: bigint;
+  l1GenesisTime: bigint;
+};
+
+export const EmptyL1RollupConstants: L1RollupConstants = {
+  l1StartBlock: 0n,
+  l1GenesisTime: 0n,
+};

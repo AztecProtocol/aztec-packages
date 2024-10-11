@@ -801,6 +801,7 @@ export class AztecNodeService implements AztecNode {
     }
 
     this.config = newConfig;
+    this.log.info(`Successfully updated node config: ${JSON.stringify(newConfig, null, 2)}`);
   }
 
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {

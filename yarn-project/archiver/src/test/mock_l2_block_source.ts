@@ -1,8 +1,7 @@
 import { L2Block, type L2BlockSource, type L2Tips, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { getSlotRangeForEpoch } from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-
-import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.

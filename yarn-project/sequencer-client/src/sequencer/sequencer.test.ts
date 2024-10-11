@@ -107,6 +107,11 @@ describe('sequencer', () => {
     );
 
     publisher = mock<L1Publisher>();
+    publisher.l1ContractConstants = {
+      l1GenesisTime: 0n,
+      l1StartBlock: 0n,
+    };
+    publisher.getL1Timestamp.mockResolvedValue(0n);
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
