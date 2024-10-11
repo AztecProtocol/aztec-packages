@@ -1,7 +1,9 @@
 import {
+  EmptyL1RollupConstants,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
+  type L1RollupConstants,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockId,
@@ -15,6 +17,12 @@ import {
   type TxHash,
   type TxReceipt,
   type UnencryptedL2Log,
+} from '@aztec/circuit-types';
+import {
+  getEpochNumberAtTimestamp,
+  getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
 import {
   ContractClassRegisteredEvent,
@@ -60,12 +68,6 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlockFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
-import {
-  getEpochNumberAtTimestamp,
-  getSlotAtTimestamp,
-  getSlotRangeForEpoch,
-  getTimestampRangeForEpoch,
-} from './epoch_helpers.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -931,13 +933,3 @@ class ArchiverStoreHelper
     return this.store.getTotalL1ToL2MessageCount();
   }
 }
-
-export type L1RollupConstants = {
-  l1StartBlock: bigint;
-  l1GenesisTime: bigint;
-};
-
-export const EmptyL1RollupConstants: L1RollupConstants = {
-  l1StartBlock: 0n,
-  l1GenesisTime: 0n,
-};

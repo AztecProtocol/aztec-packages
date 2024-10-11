@@ -1,7 +1,9 @@
 import {
   ConsensusPayload,
+  EmptyL1RollupConstants,
   type EpochProofClaim,
   type EpochProofQuote,
+  type L1RollupConstants,
   type L2Block,
   type TxHash,
   getHashedSignaturePayload,
@@ -139,7 +141,7 @@ export class L1Publisher {
   private sleepTimeMs: number;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
-  public l1ContractConstants: L1RollupConstants;
+  public l1ContractConstants: L1RollupConstants = EmptyL1RollupConstants;
 
   protected log = createDebugLogger('aztec:sequencer:publisher');
 
@@ -211,7 +213,6 @@ export class L1Publisher {
     this.l1ContractConstants = { l1StartBlock, l1GenesisTime };
   }
 
-
   public getSenderAddress(): EthAddress {
     return EthAddress.fromString(this.account.address);
   }
@@ -250,7 +251,7 @@ export class L1Publisher {
    * @return blockNumber - The L2 block number of the next L2 block
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
-    const ts = await this.getL1Timestamp() + BigInt(ETHEREUM_SLOT_DURATION);
+    const ts = (await this.getL1Timestamp()) + BigInt(ETHEREUM_SLOT_DURATION);
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
   }
@@ -326,7 +327,7 @@ export class L1Publisher {
       signatures: [],
     },
   ): Promise<void> {
-    const ts = await this.getL1Timestamp() + BigInt(ETHEREUM_SLOT_DURATION);
+    const ts = (await this.getL1Timestamp()) + BigInt(ETHEREUM_SLOT_DURATION);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };

@@ -10,6 +10,7 @@ import {
   type TxValidator,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { getSlotAtTimestamp } from '@aztec/circuit-types';
 import {
   type AllowedElement,
   BlockProofError,
@@ -27,7 +28,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
@@ -44,7 +45,6 @@ import { prettyLogViemError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
-import { getSlotAtTimestamp } from '@aztec/archiver';
 
 export type ShouldProposeArgs = {
   pendingTxsCount?: number;
@@ -86,6 +86,8 @@ export class Sequencer {
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
 
+  private log: Logger;
+
   /**
    * The logging context is attached to every log message from this class
    * It will be updated on each invocation of work()
@@ -110,8 +112,10 @@ export class Sequencer {
     private txValidatorFactory: TxValidatorFactory,
     telemetry: TelemetryClient,
     private config: SequencerConfig = {},
-    private log = createDebugLogger('aztec:sequencer', this.loggingContext),
   ) {
+    // Logging context is set within work() and will be attached to all log messages from this class.
+    this.log = createDebugLogger('aztec:sequencer', this.loggingContext);
+
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
@@ -243,7 +247,7 @@ export class Sequencer {
     const chainTipArchive =
       chainTip == undefined ? new Fr(GENESIS_ARCHIVE_ROOT).toBuffer() : chainTip?.archive.root.toBuffer();
 
-    let currentL1Timestamp = await this.publisher.getL1Timestamp();
+    const currentL1Timestamp = await this.publisher.getL1Timestamp();
     let slot = getSlotAtTimestamp(currentL1Timestamp, this.publisher.l1ContractConstants);
 
     // Values that will be included in all logs from this point forward.
