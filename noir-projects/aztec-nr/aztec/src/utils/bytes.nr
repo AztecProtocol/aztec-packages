@@ -30,7 +30,7 @@ pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
         let field = input[field_index];
 
         // We expect that the field contains at most 31 bytes of information.
-        field.assert_max_bit_size(248);
+        field.assert_max_bit_size::<248>();
 
         // Now we can safely convert the field to 31 bytes.
         let src: [u8; 31] = field.to_be_bytes();
