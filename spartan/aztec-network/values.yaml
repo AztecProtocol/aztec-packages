@@ -1,6 +1,8 @@
+nameOverride: ""
+fullnameOverride: ""
+
 network:
   public: false
-  enableBots: true
 
 telemetry:
   enabled: false
@@ -18,6 +20,8 @@ images:
     pullPolicy: IfNotPresent
 
 bootNode:
+  external: false
+  externalUrl: ""
   replicas: 1
   service:
     p2pPort: 40400
@@ -62,6 +66,8 @@ validator:
   storage: "8Gi"
 
 proverNode:
+  external: false
+  externalUrl: ""
   replicas: 1
   service:
     nodePort: 8080
@@ -76,12 +82,15 @@ proverNode:
   storage: "8Gi"
 
 pxe:
+  external: false
+  externalUrl: ""
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   service:
     port: 8080
     targetPort: 8080
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -94,6 +103,7 @@ pxe:
       cpu: "200m"
 
 bot:
+  enabled: true
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
@@ -110,6 +120,7 @@ bot:
     type: ClusterIP
     port: 8080
     targetPort: 8080
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -122,6 +133,8 @@ bot:
       cpu: "200m"
 
 ethereum:
+  external: false
+  externalUrl: ""
   replicas: 1
   chainId: 31337
   blockTime: 12
@@ -135,6 +148,7 @@ ethereum:
     type: ClusterIP
     port: 8545
     targetPort: 8545
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10

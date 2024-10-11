@@ -12,11 +12,11 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-helm upgrade --install spartan $SCRIPT_DIR/../aztec-network \
-      --namespace spartan \
+helm upgrade --install oitavos $SCRIPT_DIR/../aztec-network \
+      --namespace oitavos \
       --create-namespace \
       --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
-      --set images.aztec.image="aztecprotocol/aztec:$TAG" \
+      --set images.aztec.image="iamjustmitch/aztec:$TAG" \
       --set network.public=true \
       --wait \
       --wait-for-jobs=true \

@@ -1,0 +1,11 @@
+global:
+  bootNodeUrl: http://a44de547993be46d49cde44dcb13449d-26782180.us-east-1.elb.amazonaws.com:8080
+  ethereumHost: http://a10d1ced78952407ea2a2f1e4070e7fb-1989259361.us-east-1.elb.amazonaws.com:8545
+
+network:
+  public: false
+  enableBots: false
+
+telemetry:
+  enabled: false
+  otelCollectorEndpoint:
