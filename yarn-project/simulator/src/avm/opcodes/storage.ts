@@ -10,8 +10,8 @@ abstract class BaseStorageInstruction extends Instruction {
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {

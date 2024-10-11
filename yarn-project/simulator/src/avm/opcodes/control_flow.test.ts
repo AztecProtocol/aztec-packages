@@ -84,9 +84,9 @@ describe('Control Flow Opcodes', () => {
     it('INTERNALCALL Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         InternalCall.opcode, // opcode
-        ...Buffer.from('12345678', 'hex'), // loc
+        ...Buffer.from('1234', 'hex'), // loc
       ]);
-      const inst = new InternalCall(/*loc=*/ 0x12345678);
+      const inst = new InternalCall(/*loc=*/ 0x1234);
 
       expect(InternalCall.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
