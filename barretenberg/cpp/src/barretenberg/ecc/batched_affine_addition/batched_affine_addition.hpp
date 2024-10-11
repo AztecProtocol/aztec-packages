@@ -34,7 +34,17 @@ template <typename Curve> class BatchedAffineAddition {
      * across all sequences in a given round.
      * @note: Multithreading is achieved by evenly distributing the points across the optimal number of available
      * threads. This can result in the bisecting of some sequences which is acounted for in the final result by further
-     * summing the reduced points that resulted from a sequence split across two or more threads.
+     * summing the reduced points that resulted from a sequence split across two or more threads. An example with two
+     * threads and three add sequences:
+     *
+     *                     |------------------------| Points
+     *                     |------------|-----------| Thread boundaries
+     *                     |---|-----------|--------| Addition sequence boundaries
+     *                     |---|-------|---|--------| New addition sequence boundaries
+     *                     | 0 |   1   | 1 |    2   | Tags
+     *
+     * Each thread recieves two add sequences and reduces them to two points. The resulting four points are further
+     * reduced to three by summing points that share a sequence tag.
      *
      * @param points Set of points to be reduced in place to num-sequences many points
      * @param sequence_counts lengths of the individual sequences to be summed (assumed continguous in points)
@@ -48,7 +58,7 @@ template <typename Curve> class BatchedAffineAddition {
      * @details To optimize thread utilization, points are distributed evenly across the number of available threads.
      * This may in general result in the splitting of individual addition sequences across two or more threads. This is
      * accounted for by assigning a tag to each sequence so that the results can be further combined post-facto to
-     * ensure that the final number of points corresponds exactly to the number of addition sequences.
+     * ensure that the final number of points corresponds to the number of addition sequences.
      *
      * @param points
      * @param sequence_counts
@@ -67,7 +77,7 @@ template <typename Curve> class BatchedAffineAddition {
      * @tparam Curve
      * @param add_sequences
      */
-    static std::span<Fq> batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences);
+    static std::span<Fq> batch_compute_point_addition_slope_inverses(const AdditionSequences& add_sequences);
 
     /**
      * @brief Internal method for in-place summation of a single set of addition sequences

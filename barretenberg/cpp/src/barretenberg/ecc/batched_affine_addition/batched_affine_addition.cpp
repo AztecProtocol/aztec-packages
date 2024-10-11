@@ -10,15 +10,17 @@ template <typename Curve>
 std::vector<typename BatchedAffineAddition<Curve>::G1> BatchedAffineAddition<Curve>::add_in_place(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts)
 {
-    // instantiate scratch space for point addition denominators their calculation
+    // Instantiate scratch space for point addition denominators and their calculation
     std::vector<Fq> scratch_space_vector(points.size());
     std::span<Fq> scratch_space(scratch_space_vector);
 
+    // Divide the work into groups of addition sequences to be reduced by each thread
     auto [addition_sequences, sequence_tags] = construct_thread_data(points, sequence_counts, scratch_space);
 
     const size_t num_threads = addition_sequences.size();
     parallel_for(num_threads, [&](size_t thread_idx) { batched_affine_add_in_place(addition_sequences[thread_idx]); });
 
+    // Construct a vector of the reduced points, accounting for sequences that may have been split across threads
     std::vector<G1> reduced_points;
     size_t prev_tag = std::numeric_limits<size_t>::max();
     for (auto [sequences, tags] : zip_view(addition_sequences, sequence_tags)) {
@@ -66,7 +68,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
         thread_sizes[i]++;
     }
 
-    // Construct the thread endpoints and the thread_points according to the distribution determined above
+    // Construct the point spans for each thread according to the distribution determined above
     std::vector<std::span<G1>> thread_points;
     std::vector<std::span<Fq>> thread_scratch_space;
     std::vector<size_t> thread_endpoints;
@@ -78,7 +80,9 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
         thread_endpoints.emplace_back(point_index);
     }
 
-    // Construct the union of the thread and sequence endpoints by combining, sorting, then removing duplicates
+    // Construct the union of the thread and sequence endpoints by combining, sorting, then removing duplicates. This is
+    // used to break the points into sequences for each thread while tracking tags so that sequences split across one of
+    // more threads can be properly reconstructed.
     std::vector<size_t> all_endpoints;
     all_endpoints.reserve(thread_endpoints.size() + sequence_endpoints.size());
     all_endpoints.insert(all_endpoints.end(), thread_endpoints.begin(), thread_endpoints.end());
@@ -87,6 +91,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     auto last = std::unique(all_endpoints.begin(), all_endpoints.end());
     all_endpoints.erase(last, all_endpoints.end());
 
+    // Construct sequence counts and tags for each thread using the set of all thread and sequence endpoints
     size_t prev_endpoint = 0;
     size_t thread_idx = 0;
     size_t sequence_idx = 0;
@@ -110,6 +115,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
         ASSERT(false);
     }
 
+    // Construct the addition sequences for each thread
     std::vector<AdditionSequences> addition_sequences;
     for (size_t i = 0; i < num_threads; ++i) {
         addition_sequences.emplace_back(thread_sequence_counts[i], thread_points[i], thread_scratch_space[i]);
@@ -120,7 +126,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
 
 template <typename Curve>
 std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
-    Curve>::batch_compute_point_addition_slope_inverses(AdditionSequences add_sequences)
+    Curve>::batch_compute_point_addition_slope_inverses(const AdditionSequences& add_sequences)
 {
     auto points = add_sequences.points;
     auto sequence_counts = add_sequences.sequence_counts;
