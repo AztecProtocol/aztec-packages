@@ -58,4 +58,6 @@ else
   for pathname in "./target"/*.json; do
       BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys"
   done
+
+
 fi
