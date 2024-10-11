@@ -85,7 +85,7 @@ std::string to_hex(bb::avm_trace::AvmMemoryTag tag)
  * @param public_inputs Public inputs structure
  * @param trace The execution trace
  */
-void inject_end_gas_values(VmPublicInputs<FF>& public_inputs, std::vector<Row>& trace)
+void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace)
 {
     auto execution_end_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });

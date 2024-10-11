@@ -1723,7 +1723,7 @@ TEST_F(AvmExecutionTests, daGasLeft)
                                "0007"                           // addr a 7
                                "0009"                           // addr b 9
                                "0001"                           // addr c 1
-                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
+                               + to_hex(OpCode::GETENVVAR_16) + // opcode DAGASLEFT
                                "00"                             // Indirect flag
                                + to_hex(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)) +
                                "0027"                     // dst_offset (indirect addr: 17)

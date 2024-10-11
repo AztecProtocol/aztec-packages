@@ -40,9 +40,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
     telemetry: TelemetryClient,
-    private log = createDebugLogger('aztec:validator'),
+    private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
   ) {
-    // Instatntiate tracer
+    // Instantiate tracer
     super(telemetry, 'Validator');
 
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
@@ -146,7 +146,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
-    const proposalId = proposal.p2pMessageIdentifier().toString();
+    const proposalId = proposal.archive.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
 
     const startTime = Date.now();
