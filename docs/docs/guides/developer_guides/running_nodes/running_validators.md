@@ -223,24 +223,16 @@ Validators are selected through a committee selection process:
 
 ### Recording Validators into the Rollup Contract
 
-Validators are recorded in the Layer 1 rollup contract:
+Validators are recorded in the Layer 1 rollup contract upon joining the network successfully:
 
 - **Validator Registration**:
-  - Validators must register their addresses with the rollup contract.
-  - Registration includes staking a certain amount of tokens (e.g., TST token).
-
-- **Validator Set Maintenance**:
   - The rollup contract maintains the active set of validators.
   - Updates to the validator set occur at the beginning of new epochs.
+  - Registration includes staking a minimum threshold of a to-be-determined collateral.
 
 - **Interaction with the Contract**:
   - Validators interact with the rollup contract to fulfill their duties.
   - Proposers submit block proposals and proofs to the contract.
-
-**Fill in Missing Details**:
-
-- Instructions on how to register your validator address.
-- Details about staking requirements and procedures.
 
 ## Additional Background
 
