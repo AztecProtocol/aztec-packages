@@ -5,9 +5,13 @@ use dep::aztec::{
 };
 use std::test::OracleMock;
 
+/// Internal orchestration means that the calls to `prepare_transfer_to_private`
+/// and `finalize_transfer_to_private` are done by the NFT contract itself.
+/// In this test's case this is done by the `NFT::transfer_to_private(...)` function called
+/// in `utils::setup_mint_and_transfer_to_private`.
 #[test]
-unconstrained fn transfer_to_private_to_self() {
-    // The transfer to private to self is done in `utils::setup_mint_and_transfer_to_private` and for this reason
+unconstrained fn transfer_to_private_internal_orchestration() {
+    // The transfer to private is done in `utils::setup_mint_and_transfer_to_private` and for this reason
     // in this test we just call it and check the outcome.
 
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
