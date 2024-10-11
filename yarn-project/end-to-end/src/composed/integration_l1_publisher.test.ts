@@ -153,16 +153,14 @@ describe('L1Publisher integration', () => {
       client: publicClient,
     });
 
-    const tmpStore = openTmpStore();
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
-      l2QueueSize: 10,
       worldStateProvenBlocksOnly: false,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
     fork = await worldStateSynchronizer.fork();
     builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());

@@ -143,4 +143,14 @@ export class Header {
   totalFees: ${this.totalFees},
 }`;
   }
+
+  public equals(other: this): boolean {
+    return (
+      this.contentCommitment.equals(other.contentCommitment) &&
+      this.state.equals(other.state) &&
+      this.globalVariables.equals(other.globalVariables) &&
+      this.totalFees.equals(other.totalFees) &&
+      this.lastArchive.equals(other.lastArchive)
+    );
+  }
 }

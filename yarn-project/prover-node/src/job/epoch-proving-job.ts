@@ -111,7 +111,7 @@ export class EpochProvingJob {
         });
 
         // Mark block as completed and update archive tree
-        await this.prover.setBlockCompleted();
+        await this.prover.setBlockCompleted(block.header);
         previousHeader = block.header;
       }
 

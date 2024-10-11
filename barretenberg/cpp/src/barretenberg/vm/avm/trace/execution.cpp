@@ -530,9 +530,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // Execution Environment - Calldata
         case OpCode::CALLDATACOPY:
             trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
-                                           std::get<uint32_t>(inst.operands.at(1)),
-                                           std::get<uint32_t>(inst.operands.at(2)),
-                                           std::get<uint32_t>(inst.operands.at(3)));
+                                           std::get<uint16_t>(inst.operands.at(1)),
+                                           std::get<uint16_t>(inst.operands.at(2)),
+                                           std::get<uint16_t>(inst.operands.at(3)));
             break;
 
             // Machine State - Internal Control Flow
@@ -545,7 +545,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                    std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::INTERNALCALL:
-            trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
+            trace_builder.op_internal_call(std::get<uint16_t>(inst.operands.at(0)));
             break;
         case OpCode::INTERNALRETURN:
             trace_builder.op_internal_return();
@@ -608,42 +608,42 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // World State
         case OpCode::SLOAD:
             trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
-                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint16_t>(inst.operands.at(1)),
                                    1,
-                                   std::get<uint32_t>(inst.operands.at(2)));
+                                   std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::SSTORE:
             trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint16_t>(inst.operands.at(1)),
                                     1,
-                                    std::get<uint32_t>(inst.operands.at(2)));
+                                    std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::NOTEHASHEXISTS:
             trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                              std::get<uint32_t>(inst.operands.at(1)),
-                                              std::get<uint32_t>(inst.operands.at(2)),
-                                              std::get<uint32_t>(inst.operands.at(3)));
+                                              std::get<uint16_t>(inst.operands.at(1)),
+                                              std::get<uint16_t>(inst.operands.at(2)),
+                                              std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNOTEHASH:
             trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+                                            std::get<uint16_t>(inst.operands.at(1)));
             break;
         case OpCode::NULLIFIEREXISTS:
             trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                              std::get<uint32_t>(inst.operands.at(1)),
-                                              std::get<uint32_t>(inst.operands.at(2)),
-                                              std::get<uint32_t>(inst.operands.at(3)));
+                                              std::get<uint16_t>(inst.operands.at(1)),
+                                              std::get<uint16_t>(inst.operands.at(2)),
+                                              std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNULLIFIER:
             trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+                                            std::get<uint16_t>(inst.operands.at(1)));
             break;
 
         case OpCode::L1TOL2MSGEXISTS:
             trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint32_t>(inst.operands.at(1)),
-                                                 std::get<uint32_t>(inst.operands.at(2)),
-                                                 std::get<uint32_t>(inst.operands.at(3)));
+                                                 std::get<uint16_t>(inst.operands.at(1)),
+                                                 std::get<uint16_t>(inst.operands.at(2)),
+                                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::GETCONTRACTINSTANCE:
             trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
@@ -654,42 +654,42 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // Accrued Substate
         case OpCode::EMITUNENCRYPTEDLOG:
             trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint32_t>(inst.operands.at(1)),
-                                                  std::get<uint32_t>(inst.operands.at(2)));
+                                                  std::get<uint16_t>(inst.operands.at(1)),
+                                                  std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::SENDL2TOL1MSG:
             trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
-                                               std::get<uint32_t>(inst.operands.at(1)),
-                                               std::get<uint32_t>(inst.operands.at(2)));
+                                               std::get<uint16_t>(inst.operands.at(1)),
+                                               std::get<uint16_t>(inst.operands.at(2)));
             break;
 
             // Control Flow - Contract Calls
         case OpCode::CALL:
             trace_builder.op_call(std::get<uint16_t>(inst.operands.at(0)),
-                                  std::get<uint32_t>(inst.operands.at(1)),
-                                  std::get<uint32_t>(inst.operands.at(2)),
-                                  std::get<uint32_t>(inst.operands.at(3)),
-                                  std::get<uint32_t>(inst.operands.at(4)),
-                                  std::get<uint32_t>(inst.operands.at(5)),
-                                  std::get<uint32_t>(inst.operands.at(6)),
-                                  std::get<uint32_t>(inst.operands.at(7)),
-                                  std::get<uint32_t>(inst.operands.at(8)));
+                                  std::get<uint16_t>(inst.operands.at(1)),
+                                  std::get<uint16_t>(inst.operands.at(2)),
+                                  std::get<uint16_t>(inst.operands.at(3)),
+                                  std::get<uint16_t>(inst.operands.at(4)),
+                                  std::get<uint16_t>(inst.operands.at(5)),
+                                  std::get<uint16_t>(inst.operands.at(6)),
+                                  std::get<uint16_t>(inst.operands.at(7)),
+                                  std::get<uint16_t>(inst.operands.at(8)));
             break;
         case OpCode::STATICCALL:
             trace_builder.op_static_call(std::get<uint16_t>(inst.operands.at(0)),
-                                         std::get<uint32_t>(inst.operands.at(1)),
-                                         std::get<uint32_t>(inst.operands.at(2)),
-                                         std::get<uint32_t>(inst.operands.at(3)),
-                                         std::get<uint32_t>(inst.operands.at(4)),
-                                         std::get<uint32_t>(inst.operands.at(5)),
-                                         std::get<uint32_t>(inst.operands.at(6)),
-                                         std::get<uint32_t>(inst.operands.at(7)),
-                                         std::get<uint32_t>(inst.operands.at(8)));
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(4)),
+                                         std::get<uint16_t>(inst.operands.at(5)),
+                                         std::get<uint16_t>(inst.operands.at(6)),
+                                         std::get<uint16_t>(inst.operands.at(7)),
+                                         std::get<uint16_t>(inst.operands.at(8)));
             break;
         case OpCode::RETURN: {
             auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
-                                               std::get<uint32_t>(inst.operands.at(1)),
-                                               std::get<uint32_t>(inst.operands.at(2)));
+                                               std::get<uint16_t>(inst.operands.at(1)),
+                                               std::get<uint16_t>(inst.operands.at(2)));
             returndata.insert(returndata.end(), ret.begin(), ret.end());
 
             break;
@@ -728,8 +728,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::POSEIDON2:
             trace_builder.op_poseidon2_permutation(std::get<uint8_t>(inst.operands.at(0)),
-                                                   std::get<uint32_t>(inst.operands.at(1)),
-                                                   std::get<uint32_t>(inst.operands.at(2)));
+                                                   std::get<uint16_t>(inst.operands.at(1)),
+                                                   std::get<uint16_t>(inst.operands.at(2)));
 
             break;
         case OpCode::PEDERSEN:
@@ -741,44 +741,44 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::ECADD:
             trace_builder.op_ec_add(std::get<uint16_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)),
-                                    std::get<uint32_t>(inst.operands.at(3)),
-                                    std::get<uint32_t>(inst.operands.at(4)),
-                                    std::get<uint32_t>(inst.operands.at(5)),
-                                    std::get<uint32_t>(inst.operands.at(6)),
-                                    std::get<uint32_t>(inst.operands.at(7)));
+                                    std::get<uint16_t>(inst.operands.at(1)),
+                                    std::get<uint16_t>(inst.operands.at(2)),
+                                    std::get<uint16_t>(inst.operands.at(3)),
+                                    std::get<uint16_t>(inst.operands.at(4)),
+                                    std::get<uint16_t>(inst.operands.at(5)),
+                                    std::get<uint16_t>(inst.operands.at(6)),
+                                    std::get<uint16_t>(inst.operands.at(7)));
             break;
         case OpCode::MSM:
             trace_builder.op_variable_msm(std::get<uint8_t>(inst.operands.at(0)),
-                                          std::get<uint32_t>(inst.operands.at(1)),
-                                          std::get<uint32_t>(inst.operands.at(2)),
-                                          std::get<uint32_t>(inst.operands.at(3)),
-                                          std::get<uint32_t>(inst.operands.at(4)));
+                                          std::get<uint16_t>(inst.operands.at(1)),
+                                          std::get<uint16_t>(inst.operands.at(2)),
+                                          std::get<uint16_t>(inst.operands.at(3)),
+                                          std::get<uint16_t>(inst.operands.at(4)));
             break;
 
             // Conversions
         case OpCode::TORADIXLE:
             trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint32_t>(inst.operands.at(1)),
-                                         std::get<uint32_t>(inst.operands.at(2)),
-                                         std::get<uint32_t>(inst.operands.at(3)),
-                                         std::get<uint32_t>(inst.operands.at(4)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(4)),
                                          std::get<uint8_t>(inst.operands.at(5)));
             break;
 
         case OpCode::SHA256COMPRESSION:
             trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint32_t>(inst.operands.at(1)),
-                                                std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)));
+                                                std::get<uint16_t>(inst.operands.at(1)),
+                                                std::get<uint16_t>(inst.operands.at(2)),
+                                                std::get<uint16_t>(inst.operands.at(3)));
             break;
 
         case OpCode::KECCAKF1600:
             trace_builder.op_keccakf1600(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint32_t>(inst.operands.at(1)),
-                                         std::get<uint32_t>(inst.operands.at(2)),
-                                         std::get<uint32_t>(inst.operands.at(3)));
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)));
 
             break;
         case OpCode::PEDERSENCOMMITMENT:

@@ -63,7 +63,7 @@ export class InternalCall extends Instruction {
   static readonly type: string = 'INTERNALCALL';
   static readonly opcode: Opcode = Opcode.INTERNALCALL;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT16];
 
   constructor(private loc: number) {
     super();
