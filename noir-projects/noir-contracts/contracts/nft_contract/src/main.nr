@@ -143,16 +143,17 @@ contract NFT {
         let nft = NFT::at(context.this_address());
 
         // We prepare the transfer.
-        let hiding_point_slot = nft.prepare_transfer_to_private(from, to).call(&mut context);
+        let hiding_point_slot = nft.prepare_transfer_to_private(to).call(&mut context);
 
-        // At last we finalize the transfer.
-        nft._finalize_transfer_to_private_trusted(from, token_id, hiding_point_slot).enqueue(&mut context);
+        // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
+        // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
+        nft._finalize_transfer_to_private_unsafe(from, token_id, hiding_point_slot).enqueue(&mut context);
     }
 
-    /// Prepares a transfer from public balance of `from` to a private balance of `to`. The transfer then needs to be
+    /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
     /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
     #[private]
-    fn prepare_transfer_to_private(from: AztecAddress, to: AztecAddress) -> Field {
+    fn prepare_transfer_to_private(to: AztecAddress) -> Field {
         let to_keys = get_public_keys(to);
         let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
@@ -168,25 +169,25 @@ contract NFT {
         // We encrypt and emit the partial note log
         encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point).enqueue(&mut context);
-
         // Using the x-coordinate as a hiding point slot is safe because we have a guarantee that the public functions
         // of the transaction are executed right after the private ones and for this reason the protocol guarantees
         // that nobody can front-run us in consuming the hiding point. This guarantee would break
         // if `finalize_transfer_to_private` was not called in the same transaction. This however is not the flow we
-        // are currently concerned with. To support the multi-transaction flow we could hash the x-coordinate with
-        // `from` and then repeat the hashing in `finalize_transfer_to_private`.
+        // are currently concerned with. To support the multi-transaction flow we could introduce a `from` function
+        // argument, hash the x-coordinate with it and then repeat the hashing in `finalize_transfer_to_private`.
         let hiding_point_slot = note_setup_payload.hiding_point.x;
+
+        // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
+        // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
+        // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
+        NFT::at(context.this_address())._store_point_in_transient_storage_unsafe(hiding_point_slot, note_setup_payload.hiding_point).enqueue(&mut context);
 
         hiding_point_slot
     }
 
     #[public]
     #[internal]
-    fn _store_point_in_transient_storage(point: Point) {
-        let slot = point.x;
-        // We don't perform a check for the overwritten value to be zero because the slot is the x-coordinate
-        // of the hiding point and hence we could only overwrite the value in the slot with the same value.
+    fn _store_point_in_transient_storage_unsafe(slot: Field, point: Point) {
         context.storage_write(slot, point);
     }
 
@@ -201,7 +202,7 @@ contract NFT {
 
     #[public]
     #[internal]
-    fn  _finalize_transfer_to_private_trusted(from: AztecAddress, token_id: Field, hiding_point_slot: Field) {
+    fn  _finalize_transfer_to_private_unsafe(from: AztecAddress, token_id: Field, hiding_point_slot: Field) {
         _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
     }
 

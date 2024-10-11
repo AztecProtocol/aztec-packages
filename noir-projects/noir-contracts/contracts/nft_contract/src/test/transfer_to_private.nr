@@ -25,7 +25,7 @@ unconstrained fn transfer_to_private_to_self() {
 #[test]
 unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, nft_contract_address, _, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     let note_randomness = random();
 
@@ -33,9 +33,9 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
-    let hiding_point_slot: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(sender, recipient));
+    let hiding_point_slot: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(recipient));
 
-    // Finalize the transfer of the NFT
+    // Finalize the transfer of the NFT (message sender owns the NFT in public)
     env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot));
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
