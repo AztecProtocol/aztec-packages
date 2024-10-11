@@ -101,7 +101,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        if (proving_key->is_structured) {
+        if (proving_key->get_is_structured()) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_block_ranges);
             witness_commitments.w_r = proving_key->proving_key.commitment_key->commit_structured(
@@ -177,7 +177,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     }
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::wires");
-        if (proving_key->is_structured) {
+        if (proving_key->get_is_structured()) {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_block_ranges);
         } else {
@@ -242,7 +242,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 
     {
         BB_OP_COUNT_TIME_NAME("COMMIT::z_perm");
-        if (proving_key->is_structured) {
+        if (proving_key->get_is_structured()) {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
                     proving_key->proving_key.polynomials.z_perm, proving_key->proving_key.active_block_ranges);

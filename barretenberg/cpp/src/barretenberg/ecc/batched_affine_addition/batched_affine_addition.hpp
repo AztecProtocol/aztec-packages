@@ -7,6 +7,13 @@
 
 namespace bb {
 
+/**
+ * @brief Class for handling fast batched affine addition of large sets of EC points
+ * @brief Useful for pre-reducing the SRS points via summation for commitments to polynomials with large ranges of
+ * constant coefficients.
+ *
+ * @tparam Curve
+ */
 template <typename Curve> class BatchedAffineAddition {
     using G1 = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
@@ -40,8 +47,8 @@ template <typename Curve> class BatchedAffineAddition {
      *                     |------------------------| Points
      *                     |------------|-----------| Thread boundaries
      *                     |---|-----------|--------| Addition sequence boundaries
-     *                     |---|-------|---|--------| New addition sequence boundaries
-     *                     | 0 |   1   | 1 |    2   | Tags
+     *                     |---|--------|---|-------| New addition sequence boundaries
+     *                     | 0 |    1   | 1 |   2   | Tags
      *
      * Each thread recieves two add sequences and reduces them to two points. The resulting four points are further
      * reduced to three by summing points that share a sequence tag.

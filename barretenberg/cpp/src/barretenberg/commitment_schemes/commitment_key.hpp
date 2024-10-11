@@ -197,7 +197,7 @@ template <class Curve> class CommitmentKey {
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
-        const size_t NONZERO_THRESHOLD = 75;
+        constexpr size_t NONZERO_THRESHOLD = 75;
 
         size_t total_num_scalars = 0;
         for (const auto& range : active_ranges) {
@@ -254,16 +254,17 @@ template <class Curve> class CommitmentKey {
         using BatchedAddition = BatchedAffineAddition<Curve>;
 
         // Percentage of constant coefficients below which we resort to the conventional commit method
-        const size_t CONSTANT_THRESHOLD = 50;
+        constexpr size_t CONSTANT_THRESHOLD = 50;
 
         // Compute the active range complement over which the polynomial is assumed to be constant within each range
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
-        for (size_t i = 0; i < active_ranges.size(); ++i) {
-            size_t start = active_ranges[i].second;
-            size_t end = active_ranges[i + 1].first;
+        for (size_t i = 0; i < active_ranges.size() - 1; ++i) {
+            const size_t start = active_ranges[i].second;
+            const size_t end = active_ranges[i + 1].first;
             active_ranges_complement.emplace_back(start, end);
         }
-        active_ranges_complement.back().second = polynomial.end_index(); // Extend final range to end of polynomial
+        // Final complement range goes from end of last active range to the end of the polynomial
+        active_ranges_complement.emplace_back(active_ranges.back().second, polynomial.end_index());
 
         // Compute the total number of scalars in the constant regions
         size_t total_num_complement_scalars = 0;
@@ -287,8 +288,8 @@ template <class Curve> class CommitmentKey {
         std::vector<G1> points;
         points.reserve(2 * total_num_complement_scalars);
         for (const auto& range : active_ranges_complement) {
-            size_t start = 2 * range.first;
-            size_t end = 2 * range.second;
+            const size_t start = 2 * range.first;
+            const size_t end = 2 * range.second;
             for (size_t i = start; i < end; i += 2) {
                 points.emplace_back(point_table[i]);
             }
