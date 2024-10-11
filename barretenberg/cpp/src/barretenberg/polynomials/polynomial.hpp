@@ -29,7 +29,9 @@ template <typename Fr> struct PolynomialSpan {
     const Fr& operator[](size_t index) const { return span[index - start_index]; }
     PolynomialSpan subspan(size_t offset)
     {
-        ASSERT(offset <= span.size());
+        if (offset > span.size()) { // Return a null span
+            return { 0, span.subspan(span.size()) };
+        }
         return { start_index + offset, span.subspan(offset) };
     }
 };
