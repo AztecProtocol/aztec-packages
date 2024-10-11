@@ -158,4 +158,17 @@ export class GlobalVariables {
       this.gasFees,
     )} }`;
   }
+
+  public equals(other: this): boolean {
+    return (
+      this.chainId.equals(other.chainId) &&
+      this.version.equals(other.version) &&
+      this.blockNumber.equals(other.blockNumber) &&
+      this.slotNumber.equals(other.slotNumber) &&
+      this.timestamp.equals(other.timestamp) &&
+      this.coinbase.equals(other.coinbase) &&
+      this.feeRecipient.equals(other.feeRecipient) &&
+      this.gasFees.equals(other.gasFees)
+    );
+  }
 }
