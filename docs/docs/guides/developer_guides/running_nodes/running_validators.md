@@ -10,13 +10,48 @@ Note that if only intending to deploy to the cloud, the KIND tool setup can be s
 
 For the current state of design please see the RFC at https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
 
+## Background Knowledge
+
+This is a brief summary to know what the validator is doing at a high-level, for a detailed explanation see https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
+Validators are selected through a committee selection process:
+
+- **Epoch Initialization**:
+  - At the start of each epoch, the rollup contract computes a random seed using `block.prevrandao`.
+  - The seed is used to select a committee of validators using the Swap-or-Not algorithm.
+  - The committee size is fixed for the duration of the epoch.
+
+- **Proposer Selection**:
+  - Each validator in the committee is assigned proposer duties for specific slots within the epoch.
+  - Proposers know in advance when they will be required to propose a block.
+
+- **Validator Registration**:
+  - The rollup contract maintains the active set of validators.
+  - Updates to the validator set occur at the beginning of new epochs.
+  - Registration includes staking a minimum threshold of a to-be-determined collateral.
+
+- **Interaction with the Contract**:
+  - Validators interact with the rollup contract to fulfill their duties.
+  - Proposers submit block proposals and proofs to the contract.
+
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+1. [Port Forwarding](#port-forwarding)
+2. [Setting Up on Ubuntu 24](#setting-up-on-ubuntu-24)
+3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
+4. [Configuring Deployment](#configuring-deployment)
+6. [Troubleshooting](#troubleshooting)
+7. [References](#references)
+
+---
+
 ## Prerequisites
 
 - **Operating System**: One of the following
   - Ubuntu 24.04 LTS
   - macOS
   - Windows
-- **Basic Knowledge**: Familiarity with your operating system's command-line interface.
+- **Knowledge**: Basic familiarity with running commands on a command-line interface.
 - **Hardware Requirements**:
 | 🖥️          | Minimum       | Recommended    |
 |-------------|---------------|----------------|
@@ -25,18 +60,6 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 | **Storage** | 3 TB          | 5 TB           |
 | **RAM**     | 32 GB         | 64 GB          |
 
-
-## Table of Contents
-
-1. [Port Forwarding](#port-forwarding)
-2. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
-3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
-4. [Configuring Deployment](#configuring-deployment)
-5. [Overview of Prover Nodes](#overview-of-prover-nodes)
-6. [Troubleshooting](#troubleshooting)
-7. [References](#references)
-
----
 ## Port Forwarding
 
 ### Understanding Port Forwarding
@@ -163,38 +186,6 @@ If you are trying to join a test network, this would be a testnet, and you may n
 **Steps**:
 
 TODO.
-
-### How Validators Are Chosen
-
-This is a brief summary to know what the validator is doing at a high-level, for a detailed explanation see https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
-Validators are selected through a committee selection process:
-
-- **Epoch Initialization**:
-  - At the start of each epoch, the rollup contract computes a random seed using `block.prevrandao`.
-  - The seed is used to select a committee of validators using the Swap-or-Not algorithm.
-  - The committee size is fixed for the duration of the epoch.
-
-- **Proposer Selection**:
-  - Each validator in the committee is assigned proposer duties for specific slots within the epoch.
-  - Proposers know in advance when they will be required to propose a block.
-
-**Key Points**:
-
-- **Swap-or-Not Algorithm**: Ensures fair and unbiased selection.
-- **Fixed Committee**: Provides stability and predictability for the epoch.
-
-### Recording Validators into the Rollup Contract
-
-Validators are recorded in the Layer 1 rollup contract upon joining the network successfully:
-
-- **Validator Registration**:
-  - The rollup contract maintains the active set of validators.
-  - Updates to the validator set occur at the beginning of new epochs.
-  - Registration includes staking a minimum threshold of a to-be-determined collateral.
-
-- **Interaction with the Contract**:
-  - Validators interact with the rollup contract to fulfill their duties.
-  - Proposers submit block proposals and proofs to the contract.
 
 ## Troubleshooting
 - Check logs for error messages.
