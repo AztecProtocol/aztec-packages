@@ -77,8 +77,10 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, _, not_owner, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
-    // We set random value for the commitment as the NFT owner check is before we use the value
-    let hiding_point_slot = random();
+    // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
+    // as the NFT owner check is before we use the value but that would made the test less robust against changes
+    // in the contract.)
+    let hiding_point_slot: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(not_owner));
 
     // Try transferring someone else's public NFT
     env.impersonate(not_owner);
