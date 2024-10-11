@@ -932,12 +932,12 @@ class ArchiverStoreHelper
   }
 }
 
-type L1RollupConstants = {
+export type L1RollupConstants = {
   l1StartBlock: bigint;
   l1GenesisTime: bigint;
 };
 
-const EmptyL1RollupConstants: L1RollupConstants = {
+export const EmptyL1RollupConstants: L1RollupConstants = {
   l1StartBlock: 0n,
   l1GenesisTime: 0n,
 };

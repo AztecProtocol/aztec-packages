@@ -801,6 +801,7 @@ export class AztecNodeService implements AztecNode {
     }
 
     this.config = newConfig;
+    this.log.info(`Successfully updated node config: ${JSON.stringify(newConfig, null, 2)}`);
   }
 
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
@@ -823,6 +824,7 @@ export class AztecNodeService implements AztecNode {
     this.sequencer.flush();
     return Promise.resolve();
   }
+
 
   /**
    * Returns an instance of MerkleTreeOperations having first ensured the world state is fully synched

@@ -139,6 +139,7 @@ export class L1Publisher {
   private sleepTimeMs: number;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
+  public l1ContractConstants: L1RollupConstants;
 
   protected log = createDebugLogger('aztec:sequencer:publisher');
 
@@ -154,6 +155,12 @@ export class L1Publisher {
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
+  /**
+   * WARNING: init() MUST be called immediately after construction in order to cache the rollup constants.
+   *          Use new() to create and initialize the publisher.
+   * @param config - The configuration for the L1 publisher.
+   * @param client - The telemetry client.
+   */
   constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
@@ -182,6 +189,29 @@ export class L1Publisher {
     });
   }
 
+  /**
+   * Creates a new L1Publisher and initializes it with l1 constant state.
+   */
+  static async new(config: TxSenderConfig & PublisherConfig, client: TelemetryClient): Promise<L1Publisher> {
+    const publisher = new L1Publisher(config, client);
+    await publisher.init();
+    return publisher;
+  }
+
+  /**
+   * Initializes the rollup contract constants.
+   * MUST be called immediately after construction.
+   * Use new() to create and initialize the publisher.
+   */
+  async init() {
+    const [l1StartBlock, l1GenesisTime] = await Promise.all([
+      this.rollupContract.read.L1_BLOCK_AT_GENESIS(),
+      this.rollupContract.read.GENESIS_TIME(),
+    ] as const);
+    this.l1ContractConstants = { l1StartBlock, l1GenesisTime };
+  }
+
+
   public getSenderAddress(): EthAddress {
     return EthAddress.fromString(this.account.address);
   }
@@ -204,6 +234,13 @@ export class L1Publisher {
   }
 
   /**
+   * @returns The current timestamp of the L1 chain.
+   */
+  public async getL1Timestamp(): Promise<bigint> {
+    return BigInt((await this.publicClient.getBlock()).timestamp);
+  }
+
+  /**
    * @notice  Calls `canProposeAtTime` with the time of the next Ethereum block and the sender address
    *
    * @dev     Throws if unable to propose
@@ -213,7 +250,7 @@ export class L1Publisher {
    * @return blockNumber - The L2 block number of the next L2 block
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const ts = await this.getL1Timestamp() + BigInt(ETHEREUM_SLOT_DURATION);
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
   }
@@ -289,7 +326,7 @@ export class L1Publisher {
       signatures: [],
     },
   ): Promise<void> {
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const ts = await this.getL1Timestamp() + BigInt(ETHEREUM_SLOT_DURATION);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };

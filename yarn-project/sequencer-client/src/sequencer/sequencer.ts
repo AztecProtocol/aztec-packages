@@ -44,11 +44,19 @@ import { prettyLogViemError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
+import { getSlotAtTimestamp } from '@aztec/archiver';
 
 export type ShouldProposeArgs = {
   pendingTxsCount?: number;
   validTxsCount?: number;
   processedTxsCount?: number;
+};
+
+type SequencerLoggingContext = {
+  currentL1Timestamp: bigint;
+  slot: bigint;
+  newBlockNumber: number;
+  chainTipArchive: Buffer;
 };
 
 /**
@@ -78,6 +86,17 @@ export class Sequencer {
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
 
+  /**
+   * The logging context is attached to every log message from this class
+   * It will be updated on each invocation of work()
+   */
+  private loggingContext: SequencerLoggingContext = {
+    currentL1Timestamp: 0n,
+    slot: 0n,
+    newBlockNumber: 0,
+    chainTipArchive: Buffer.alloc(0),
+  };
+
   constructor(
     private publisher: L1Publisher,
     private validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
@@ -91,7 +110,7 @@ export class Sequencer {
     private txValidatorFactory: TxValidatorFactory,
     telemetry: TelemetryClient,
     private config: SequencerConfig = {},
-    private log = createDebugLogger('aztec:sequencer'),
+    private log = createDebugLogger('aztec:sequencer', this.loggingContext),
   ) {
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
@@ -224,7 +243,17 @@ export class Sequencer {
     const chainTipArchive =
       chainTip == undefined ? new Fr(GENESIS_ARCHIVE_ROOT).toBuffer() : chainTip?.archive.root.toBuffer();
 
-    let slot: bigint;
+    let currentL1Timestamp = await this.publisher.getL1Timestamp();
+    let slot = getSlotAtTimestamp(currentL1Timestamp, this.publisher.l1ContractConstants);
+
+    // Values that will be included in all logs from this point forward.
+    this.loggingContext = {
+      currentL1Timestamp,
+      slot,
+      newBlockNumber,
+      chainTipArchive,
+    };
+
     try {
       slot = await this.mayProposeBlock(chainTipArchive, BigInt(newBlockNumber));
     } catch (err) {

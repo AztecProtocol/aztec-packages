@@ -43,7 +43,8 @@ export class SequencerClient {
     simulationProvider: SimulationProvider,
     telemetryClient: TelemetryClient,
   ) {
-    const publisher = new L1Publisher(config, telemetryClient);
+    const publisher = await L1Publisher.new(config, telemetryClient);
+
     const globalsBuilder = new GlobalVariableBuilder(config);
 
     const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, simulationProvider, telemetryClient);
