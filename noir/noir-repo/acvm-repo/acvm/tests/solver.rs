@@ -1099,45 +1099,6 @@ fn blake3_op(
     })
 }
 
-// variable inputs
-// 32 outputs
-fn keccak256_op(
-    function_inputs_and_outputs: (Vec<FunctionInput<FieldElement>>, Vec<Witness>),
-) -> Result<BlackBoxFuncCall<FieldElement>, OpcodeResolutionError<FieldElement>> {
-    let (function_inputs, outputs) = function_inputs_and_outputs;
-    let function_inputs_len = function_inputs.len();
-    Ok(BlackBoxFuncCall::Keccak256 {
-        inputs: function_inputs,
-        var_message_size: FunctionInput::constant(
-            function_inputs_len.into(),
-            FieldElement::max_num_bits(),
-        )?,
-        outputs: outputs.try_into().expect("Keccak256 returns 32 outputs"),
-    })
-}
-
-// var_message_size is the number of bytes to take
-// from the input. Note: if `var_message_size`
-// is more than the number of bytes in the input,
-// then an error is returned.
-//
-// variable inputs
-// 32 outputs
-fn keccak256_invalid_message_size_op(
-    function_inputs_and_outputs: (Vec<FunctionInput<FieldElement>>, Vec<Witness>),
-) -> Result<BlackBoxFuncCall<FieldElement>, OpcodeResolutionError<FieldElement>> {
-    let (function_inputs, outputs) = function_inputs_and_outputs;
-    let function_inputs_len = function_inputs.len();
-    Ok(BlackBoxFuncCall::Keccak256 {
-        inputs: function_inputs,
-        var_message_size: FunctionInput::constant(
-            (function_inputs_len - 1).into(),
-            FieldElement::max_num_bits(),
-        )?,
-        outputs: outputs.try_into().expect("Keccak256 returns 32 outputs"),
-    })
-}
-
 // 25 inputs
 // 25 outputs
 fn keccakf1600_op(
