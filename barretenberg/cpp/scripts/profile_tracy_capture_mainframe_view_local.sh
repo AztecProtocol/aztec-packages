@@ -24,7 +24,7 @@ ssh $BOX "
 	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
 	cd ~/tracy/capture ;
         git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 ;
-	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev ;
+	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev libtbb-dev libfreetype-dev ;
 	mkdir -p build && cd build && cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
 	sleep 0.1 ;
@@ -32,6 +32,7 @@ ssh $BOX "
 	ninja $BENCHMARK ;
 	HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY $COMMAND ;
 " &
+
 wait # TODO(AD) hack - not sure why needed
 ! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy
 cd ~/tracy
