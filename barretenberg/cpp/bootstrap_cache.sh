@@ -14,13 +14,16 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-wasm-$HASH.tar.gz $TMP/build-wasm
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-wasm-threads-$HASH.tar.gz $TMP/build-wasm-threads
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-release-$HASH.tar.gz $TMP/build-release
-$SCRIPTS_PATH/cache-download.sh barretenberg-preset-release-world-state-$HASH.tar.gz $TMP/build-world-state
+# Parallel download of all the cached builds because they're quite big
+echo "
+barretenberg-preset-wasm
+barretenberg-preset-wasm-threads
+barretenberg-preset-release
+barretenberg-preset-release-world-state
+" | xargs --max-procs 0 -I {} bash -c "$SCRIPTS_PATH/cache-download.sh {}-$HASH.tar.gz $TMP/{}"
 
-# clobber the existing build with the cached build
-mv -f $TMP/build-wasm/build build-wasm/
-mv -f $TMP/build-wasm-threads/build build-wasm-threads/
-mv -f $TMP/build-release/build build/
-mv -f $TMP/build-world-state/build/bin/* build/bin/
+# # clobber the existing build with the cached build
+cp -r $TMP/barretenberg-preset-wasm/build build-wasm/
+cp -r $TMP/barretenberg-preset-wasm-threads/build build-wasm-threads/
+cp -r $TMP/barretenberg-preset-release/build build/
+cp -r $TMP/barretenberg-preset-release-world-state/build/* build/

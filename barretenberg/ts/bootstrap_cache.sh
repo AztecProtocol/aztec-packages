@@ -16,13 +16,16 @@ trap on_exit EXIT
 
 HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../cpp/.rebuild_patterns .rebuild_patterns" $CACHE_SCRIPTS/compute-content-hash.sh)
 
-$CACHE_SCRIPTS/cache-download.sh bb.js-esm-$HASH.tar.gz $TMP/esm
-$CACHE_SCRIPTS/cache-download.sh bb.js-cjs-$HASH.tar.gz $TMP/cjs
-$CACHE_SCRIPTS/cache-download.sh bb.js-browser-$HASH.tar.gz $TMP/browser
+# Parallel download of all the cached builds because they're quite big
+echo "
+bb.js-esm
+bb.js-cjs
+bb.js-browser
+" | xargs --max-procs 0 -I {} bash -c "$SCRIPTS_PATH/cache-download.sh {}-$HASH.tar.gz $TMP/{}"
 
-cp -r $TMP/esm/dest dest
-cp -r $TMP/cjs/dest dest
-cp -r $TMP/browser/dest dest
+cp -r $TMP/bb.js-esm/dest dest
+cp -r $TMP/bb.js-cjs/dest dest
+cp -r $TMP/bb.js-browser/dest dest
 
 # Annoyingly we still need to install modules, so they can be found as part of module resolution when portalled.
 yarn install
