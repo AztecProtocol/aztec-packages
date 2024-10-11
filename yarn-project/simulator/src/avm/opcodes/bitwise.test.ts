@@ -1,5 +1,5 @@
 import { type AvmContext } from '../avm_context.js';
-import { TypeTag, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
+import { Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
