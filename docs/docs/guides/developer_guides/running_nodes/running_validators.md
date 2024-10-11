@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This guide provides step-by-step instructions on how to set up an Aztec Layer 2 validator node (also called a sequencer). Running a node allows you to participate in the Aztec network as a validator (also known as a sequencer or proposer), contributing to the network's security and decentralization.
+This guide provides step-by-step instructions on how to set up an Aztec Layer 2 validator node. Running a node allows you to participate in the Aztec network as a validator (also known as a sequencer or proposer), contributing to the network's security and decentralization.
 
 For the current state of design please see the RFC at https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
 
