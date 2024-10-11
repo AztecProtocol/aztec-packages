@@ -1,15 +1,9 @@
-import {
-  keccak256,
-  keccakf1600,
-  pedersenHash,
-  poseidon2Permutation,
-  sha256Compression,
-} from '@aztec/foundation/crypto';
+import { keccakf1600, poseidon2Permutation, sha256Compression } from '@aztec/foundation/crypto';
 
 import { strict as assert } from 'assert';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, TypeTag, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint32, Uint64 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -48,52 +42,6 @@ export class Poseidon2 extends Instruction {
     );
 
     memory.assert({ reads: Poseidon2.stateSize, writes: Poseidon2.stateSize, addressing });
-    context.machineState.incrementPc();
-  }
-}
-
-export class Keccak extends Instruction {
-  static type: string = 'KECCAK';
-  static readonly opcode: Opcode = Opcode.KECCAK;
-
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-  ];
-
-  constructor(
-    private indirect: number,
-    private dstOffset: number,
-    private messageOffset: number,
-    private messageSizeOffset: number,
-  ) {
-    super();
-  }
-
-  // pub fn keccak256(input: [u8], message_size: u32) -> [u8; 32]
-  public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
-    const operands = [this.dstOffset, this.messageOffset, this.messageSizeOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [dstOffset, messageOffset, messageSizeOffset] = addressing.resolve(operands, memory);
-    memory.checkTag(TypeTag.UINT32, messageSizeOffset);
-    const messageSize = memory.get(messageSizeOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(messageSize));
-
-    memory.checkTagsRange(TypeTag.UINT8, messageOffset, messageSize);
-
-    const messageData = Buffer.concat(memory.getSlice(messageOffset, messageSize).map(word => word.toBuffer()));
-    const hashBuffer = keccak256(messageData);
-
-    // We need to convert the hashBuffer because map doesn't work as expected on an Uint8Array (Buffer).
-    const res = [...hashBuffer].map(byte => new Uint8(byte));
-    memory.setSlice(dstOffset, res);
-
-    memory.assert({ reads: messageSize + 1, writes: 32, addressing });
     context.machineState.incrementPc();
   }
 }
@@ -190,56 +138,6 @@ export class Sha256Compression extends Instruction {
     memory.setSlice(outputOffset, res);
 
     memory.assert({ reads: STATE_SIZE + INPUTS_SIZE, writes: STATE_SIZE, addressing });
-    context.machineState.incrementPc();
-  }
-}
-
-export class Pedersen extends Instruction {
-  static type: string = 'PEDERSEN';
-  static readonly opcode: Opcode = Opcode.PEDERSEN;
-
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-  ];
-
-  constructor(
-    private indirect: number,
-    private genIndexOffset: number,
-    private dstOffset: number,
-    private messageOffset: number,
-    private messageSizeOffset: number,
-  ) {
-    super();
-  }
-
-  public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
-    const operands = [this.genIndexOffset, this.dstOffset, this.messageOffset, this.messageSizeOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [genIndexOffset, dstOffset, messageOffset, messageSizeOffset] = addressing.resolve(operands, memory);
-
-    // We hash a set of field elements
-    const genIndex = Number(memory.get(genIndexOffset).toBigInt());
-    memory.checkTag(TypeTag.UINT32, genIndexOffset);
-    const messageSize = Number(memory.get(messageSizeOffset).toBigInt());
-    memory.checkTag(TypeTag.UINT32, messageSizeOffset);
-    const hashData = memory.getSlice(messageOffset, messageSize);
-
-    context.machineState.consumeGas(this.gasCost(messageSize));
-
-    memory.checkTagsRange(TypeTag.FIELD, messageOffset, messageSize);
-
-    // No domain sep for now
-    const hash = pedersenHash(hashData, genIndex);
-    memory.set(dstOffset, new Field(hash));
-
-    memory.assert({ reads: messageSize + 2, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 }

@@ -24,7 +24,6 @@ class AvmKeccakTraceBuilder {
     std::vector<KeccakTraceEntry> finalize();
 
     std::array<uint64_t, 25> keccakf1600(uint32_t clk, std::array<uint64_t, 25> input);
-    std::array<uint8_t, 32> keccak(uint32_t clk, std::vector<uint8_t> input, uint32_t size);
 
   private:
     std::vector<KeccakTraceEntry> keccak_trace;
