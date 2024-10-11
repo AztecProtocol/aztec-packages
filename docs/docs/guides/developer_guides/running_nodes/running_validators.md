@@ -179,6 +179,7 @@ TODO.
 
 ### How Validators Are Chosen
 
+This is a brief summary to know what the validator is doing at a high-level, for a detailed explanation see https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
 Validators are selected through a committee selection process:
 
 - **Epoch Initialization**:
