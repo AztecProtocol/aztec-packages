@@ -1451,19 +1451,6 @@ fn blake3_zeros() {
 }
 
 #[test]
-fn keccak256_zeros() {
-    let results = solve_array_input_blackbox_call(vec![], 32, None, keccak256_op);
-    let expected_results: Vec<_> = vec![
-        197, 210, 70, 1, 134, 247, 35, 60, 146, 126, 125, 178, 220, 199, 3, 192, 229, 0, 182, 83,
-        202, 130, 39, 59, 123, 250, 216, 4, 93, 133, 164, 112,
-    ]
-    .into_iter()
-    .map(|x: u128| FieldElement::from(x))
-    .collect();
-    assert_eq!(results, Ok(expected_results));
-}
-
-#[test]
 fn keccakf1600_zeros() {
     let results = solve_array_input_blackbox_call(
         [(FieldElement::zero(), false); 25].into(),
@@ -1600,24 +1587,6 @@ proptest! {
     fn blake3_injective(inputs_distinct_inputs in any_distinct_inputs(None, 0, 32)) {
         let (inputs, distinct_inputs) = inputs_distinct_inputs;
         let (result, message) = prop_assert_injective(inputs, distinct_inputs, 32, None, blake3_op);
-        prop_assert!(result, "{}", message);
-    }
-
-    #[test]
-    fn keccak256_injective(inputs_distinct_inputs in any_distinct_inputs(Some(8), 0, 32)) {
-        let (inputs, distinct_inputs) = inputs_distinct_inputs;
-        let (result, message) = prop_assert_injective(inputs, distinct_inputs, 32, Some(8), keccak256_op);
-        prop_assert!(result, "{}", message);
-    }
-
-    // TODO(https://github.com/noir-lang/noir/issues/5689): doesn't fail with a user error
-    // The test failing with "not injective" demonstrates that it returns constant output instead
-    // of failing with a user error.
-    #[test]
-    #[should_panic(expected = "Test failed: not injective")]
-    fn keccak256_invalid_message_size_fails(inputs_distinct_inputs in any_distinct_inputs(Some(8), 0, 32)) {
-        let (inputs, distinct_inputs) = inputs_distinct_inputs;
-        let (result, message) = prop_assert_injective(inputs, distinct_inputs, 32, Some(8), keccak256_invalid_message_size_op);
         prop_assert!(result, "{}", message);
     }
 
