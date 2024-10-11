@@ -8,30 +8,6 @@ The use of kubernetes means that these steps apply smoothly to a local KIND inst
 The benefit of using kubernetes is that load balancing is handled for you, meaning that having validator redundancy is easy and critical slots are not missed.
 Note that if only intending to deploy to the cloud, the KIND tool setup can be skipped.
 
-For the current state of design please see the RFC at https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
-
-## Background Knowledge
-
-This is a brief summary to know what the validator is doing at a high-level, for a detailed explanation see https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
-Validators are selected through a committee selection process:
-
-- **Epoch Initialization**:
-  - At the start of each epoch, the rollup contract computes a random seed using `block.prevrandao`.
-  - The seed is used to select a committee of validators using the Swap-or-Not algorithm.
-  - The committee size is fixed for the duration of the epoch.
-
-- **Proposer Selection**:
-  - Each validator in the committee is assigned proposer duties for specific slots within the epoch.
-  - Proposers know in advance when they will be required to propose a block.
-
-- **Validator Registration**:
-  - The rollup contract maintains the active set of validators.
-  - Updates to the validator set occur at the beginning of new epochs.
-  - Registration includes staking a minimum threshold of a to-be-determined collateral.
-
-- **Interaction with the Contract**:
-  - Validators interact with the rollup contract to fulfill their duties.
-  - Proposers submit block proposals and proofs to the contract.
 
 ## Table of Contents
 
@@ -41,7 +17,7 @@ Validators are selected through a committee selection process:
 3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
 4. [Configuring Deployment](#configuring-deployment)
 6. [Troubleshooting](#troubleshooting)
-7. [References](#references)
+7. [Background Knowledge](#background-knowledge)
 
 ---
 
@@ -193,10 +169,26 @@ TODO.
 - Verify network connectivity, e.g. running isolated commands to ensure that your UDP ports are open.
 - Open issues in https://github.com/AztecProtocol/aztec-packages/issues for suspected bugs or gaps in documentation.
 
-## References
+## Background Knowledge
 
-- **Aztec Protocol Documentation**: [docs.aztec.network](https://docs.aztec.network/)
-- **Aztec GitHub Repository**: [Aztec Protocol on GitHub](https://github.com/AztecProtocol)
-- **Swap-or-Not Algorithm**: [Ethereum's RANDAO Implementation](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#randao)
-- **Kubernetes Documentation**: [kubernetes.io/docs](https://kubernetes.io/docs/)
-- **Helm Documentation**: [helm.sh/docs](https://helm.sh/docs/)
+This is a brief summary to know what the validator is doing at a high-level.
+For the current state of design please see the RFC at https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
+Validators are selected through a committee selection process:
+
+- **Epoch Initialization**:
+  - At the start of each epoch, the rollup contract computes a random seed using `block.prevrandao`.
+  - The seed is used to select a committee of validators using the Swap-or-Not algorithm described in the document above.
+  - The committee size is fixed for the duration of the epoch.
+
+- **Proposer Selection**:
+  - Each validator in the committee is assigned proposer duties for specific slots within the epoch.
+  - Proposers know in advance when they will be required to propose a block.
+
+- **Validator Registration**:
+  - The rollup contract maintains the active set of validators.
+  - Updates to the validator set occur at the beginning of new epochs.
+  - Registration includes staking a minimum threshold of a to-be-determined collateral.
+
+- **Interaction with the Contract**:
+  - Validators interact with the rollup contract to fulfill their duties.
+  - Proposers submit block proposals and proofs to the contract.
