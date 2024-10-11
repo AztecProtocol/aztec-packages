@@ -44,7 +44,7 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
-    trace_builder.op_add(0, 0, 1, 4, AvmMemoryTag::U8);
+    trace_builder.op_add(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -91,7 +91,7 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     trace_builder.op_set(0, 3, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 5, 1, AvmMemoryTag::U16);
 
-    trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::U32);
+    trace_builder.op_eq(0, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -135,7 +135,7 @@ TEST_F(AvmMemoryTests, mLastAccessViolation)
     trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:     [4,9,0,0,0,0,....]
-    trace_builder.op_sub(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,5,0,0,0.....]
+    trace_builder.op_sub(0, 1, 0, 2); // [4,9,5,0,0,0.....]
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -166,8 +166,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyValViolation)
     trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
-    trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
-    trace_builder.op_return(0, 2, 1);                   // Return single memory word at position 2 (36)
+    trace_builder.op_mul(0, 1, 0, 2); // [4,9,36,0,0,0.....]
+    trace_builder.op_return(0, 2, 1); // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
@@ -196,8 +196,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
     trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
-    trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
-    trace_builder.op_return(0, 2, 1);                   // Return single memory word at position 2 (36)
+    trace_builder.op_mul(0, 1, 0, 2); // [4,9,36,0,0,0.....]
+    trace_builder.op_return(0, 2, 1); // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
@@ -240,7 +240,7 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
-    trace_builder.op_sub(0, 0, 1, 4, AvmMemoryTag::U8);
+    trace_builder.op_sub(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -277,7 +277,7 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
                         .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_fdiv(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -306,7 +306,7 @@ TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
                         .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_fdiv(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -338,7 +338,7 @@ TEST_F(AvmMemoryTests, directRelativeMemory)
 
     // Addition with direct relative addressing on the 2 input operands and direct addressing on the output
     // indirect byte: 00011000 = 24
-    trace_builder.op_add(24, 10, 100, 10, AvmMemoryTag::U16);
+    trace_builder.op_add(24, 10, 100, 10);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -369,7 +369,7 @@ TEST_F(AvmMemoryTests, indirectRelativeMemory)
 
     // Output c = a + b = 8 is stored at direct relative offset 2, i.e., address 102.
     // indirect byte: 00111011 = 1 + 2 + 8 + 16 + 32 = 59
-    trace_builder.op_add(59, 23, 47, 2, AvmMemoryTag::U8);
+    trace_builder.op_add(59, 23, 47, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 

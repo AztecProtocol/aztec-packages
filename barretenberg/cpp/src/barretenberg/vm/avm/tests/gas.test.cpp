@@ -62,7 +62,7 @@ TEST_F(AvmGasPositiveTests, gasAdd)
     };
 
     // We test that the sender opcode is included at index 0 in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::FF); };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_add(0, 1, 2, 3); };
 
     auto checks = [=](const std::vector<Row>& trace) {
         auto sender_row =
