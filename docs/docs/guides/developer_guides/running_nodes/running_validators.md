@@ -13,39 +13,7 @@ For the current state of design please see the RFC at https://forum.aztec.networ
   - macOS
   - Windows
 - **Basic Knowledge**: Familiarity with your operating system's command-line interface.
-- **Hardware Requirements**: Sufficient resources to run Docker and Kubernetes.
-
-## Table of Contents
-
-1. [Hardware Requirements](#hardware-requirements)
-2. [Port Forwarding](#port-forwarding)
-   - Understanding Port Forwarding
-   - When Port Forwarding Is Not Possible
-3. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
-   - Updating the System
-   - Installing Docker
-   - Starting Docker Service
-   - Cloning the Aztec Packages Repository
-   - Running the Setup Script
-4. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
-   - macOS
-   - Windows
-5. [Configuring Helm Install](#configuring-helm-install)
-   - Setting Ports
-   - Adding Ethereum Validator Private Keys
-   - How Validators Are Chosen
-   - Recording Validators into the Rollup Contract
-6. [Overview of Prover Nodes](#overview-of-prover-nodes)
-   - Role of Prover Nodes
-   - Prover Bond
-   - Consensus Participation
-7. [Additional Background](#additional-background)
-8. [Conclusion](#conclusion)
-9. [References](#references)
-
----
-
-## Hardware Requirements
+- **Hardware Requirements**:
 | 🖥️          | Minimum       | Recommended    |
 |-------------|---------------|----------------|
 | **CPU**     | 16 cores      | 32 cores       |
@@ -53,6 +21,35 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 | **Storage** | 3 TB          | 5 ATB           |
 | **RAM**     | 32 GB         | 64 GB          |
 
+
+## Table of Contents
+
+1. [Port Forwarding](#port-forwarding)
+   - Understanding Port Forwarding
+   - When Port Forwarding Is Not Possible
+2. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
+   - Updating the System
+   - Installing Docker
+   - Starting Docker Service
+   - Cloning the Aztec Packages Repository
+   - Running the Setup Script
+3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
+   - macOS
+   - Windows
+4. [Configuring Helm Install](#configuring-helm-install)
+   - Setting Ports
+   - Adding Ethereum Validator Private Keys
+   - How Validators Are Chosen
+   - Recording Validators into the Rollup Contract
+5. [Overview of Prover Nodes](#overview-of-prover-nodes)
+   - Role of Prover Nodes
+   - Prover Bond
+   - Consensus Participation
+6. [Additional Background](#additional-background)
+7. [Conclusion](#conclusion)
+8. [References](#references)
+
+---
 ## Port Forwarding
 
 ### Understanding Port Forwarding
