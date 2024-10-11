@@ -29,26 +29,10 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 ## Table of Contents
 
 1. [Port Forwarding](#port-forwarding)
-   - Understanding Port Forwarding
-   - When Port Forwarding Is Not Possible
 2. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
-   - Updating the System
-   - Installing Docker
-   - Starting Docker Service
-   - Cloning the Aztec Packages Repository
-   - Running the Setup Script
 3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
-   - macOS
-   - Windows
-4. [Configuring Helm Install](#configuring-helm-install)
-   - Setting Ports
-   - Adding Ethereum Validator Private Keys
-   - How Validators Are Chosen
-   - Recording Validators into the Rollup Contract
+4. [Configuring Deployment](#configuring-helm-install)
 5. [Overview of Prover Nodes](#overview-of-prover-nodes)
-   - Role of Prover Nodes
-   - Prover Bond
-   - Consensus Participation
 6. [Troubleshooting](#troubleshooting)
 7. [References](#references)
 
@@ -171,7 +155,7 @@ choco install kind
 choco install kubernetes-helm
 ```
 
-## Configuring Helm Install
+## Configuring Deployment
 
 **Steps**:
 
