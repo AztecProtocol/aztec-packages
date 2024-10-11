@@ -256,7 +256,7 @@ mod tests {
         builder.check_and_execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_combined_sorted_transformed_value_array_asc_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -266,7 +266,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_combined_sorted_transformed_value_array_asc_cross_boundary_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -275,7 +275,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="items with a counter of 0 should be prepended")]
+    #[test(should_fail_with = "items with a counter of 0 should be prepended")]
     fn assert_combined_sorted_transformed_value_array_asc_unordered_prepended_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -285,7 +285,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="items with a counter of 0 should be prepended")]
+    #[test(should_fail_with = "items with a counter of 0 should be prepended")]
     fn assert_combined_sorted_transformed_value_array_asc_mixed_prepended_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -295,7 +295,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_combined_sorted_transformed_value_array_asc_unordered_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -305,7 +305,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch counter")]
+    #[test(should_fail_with = "mismatch counter")]
     fn assert_combined_sorted_transformed_value_array_asc_unordered_values_with_ordered_counters_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -319,7 +319,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_combined_sorted_transformed_value_array_asc_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -330,7 +330,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_combined_sorted_transformed_value_array_asc_extra_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -341,7 +341,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_combined_sorted_transformed_value_array_asc_duplicate_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -352,7 +352,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="items with a counter of 0 should be prepended")]
+    #[test(should_fail_with = "items with a counter of 0 should be prepended")]
     fn assert_combined_sorted_transformed_value_array_asc_duplicate_zero_counter_fails() {
         let mut builder = TestDataBuilder::new();
 

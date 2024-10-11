@@ -1,7 +1,7 @@
-use dep::protocol_types::address::AztecAddress;
+use dep::protocol_types::{address::AztecAddress, public_keys::PublicKeys};
 use crate::{
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
-    keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, OUTGOING_INDEX}}
+    keys::{constants::{NULLIFIER_INDEX, OUTGOING_INDEX}}
 };
 
 mod test;

@@ -18,6 +18,7 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include "barretenberg/world_state_napi/message.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <exception>
@@ -40,8 +41,6 @@ template <typename LeafValueType> struct BatchInsertionResult {
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
-
-const uint64_t CANONICAL_FORK_ID = 0;
 
 /**
  * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
@@ -201,50 +200,59 @@ class WorldState {
     /**
      * @brief Commits the current state of the world state.
      */
-    void commit();
+    bool commit();
 
     /**
      * @brief Rolls back any uncommitted changes made to the world state.
      */
     void rollback();
 
-    /**
-     * @brief Synchronizes the world state with a new block.
-     *
-     * @param block The block to synchronize with.
-     */
-    bool sync_block(const StateReference& block_state_ref,
-                    const bb::fr& block_header_hash,
-                    const std::vector<bb::fr>& notes,
-                    const std::vector<bb::fr>& l1_to_l2_messages,
-                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
+    uint64_t create_fork(const std::optional<index_t>& blockNumber);
+    void delete_fork(const uint64_t& forkId);
 
-    uint64_t create_fork(index_t blockNumber);
-    void delete_fork(Fork::Id forkId);
+    WorldStateStatus set_finalised_blocks(const index_t& toBlockNumber);
+    WorldStateStatus unwind_blocks(const index_t& toBlockNumber);
+    WorldStateStatus remove_historical_blocks(const index_t& toBlockNumber);
+
+    void get_status(WorldStateStatus& status) const;
+    WorldStateStatus sync_block(
+        const StateReference& block_state_ref,
+        const bb::fr& block_header_hash,
+        const std::vector<bb::fr>& notes,
+        const std::vector<bb::fr>& l1_to_l2_messages,
+        const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+        const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
+
     std::unordered_map<MerkleTreeId, uint32_t> _tree_heights;
     std::unordered_map<MerkleTreeId, index_t> _initial_tree_size;
-    uint32_t _initial_header_generator_point;
     mutable std::mutex mtx;
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
     uint64_t _forkId = 0;
+    uint32_t _initial_header_generator_point;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
     void create_canonical_fork(const std::string& dataDir,
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                uint64_t maxReaders);
 
-    Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
-    Fork::SharedPtr create_new_fork(index_t blockNumber);
+    Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
+    Fork::SharedPtr create_new_fork(const index_t& blockNumber);
+    void remove_forks_for_block(const index_t& blockNumber);
+
+    bool unwind_block(const index_t& blockNumber);
+    bool remove_historical_block(const index_t& blockNumber);
+    bool set_finalised_block(const index_t& blockNumber);
+
+    static bool block_state_matches_world_state(const StateReference& block_state_ref,
+                                                const StateReference& tree_state_ref);
 
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-
     static bb::fr compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
@@ -257,7 +265,6 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
                                                                                 MerkleTreeId id,
                                                                                 index_t leaf) const
 {
-    using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 

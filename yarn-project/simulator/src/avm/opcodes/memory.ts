@@ -163,9 +163,9 @@ export class CalldataCopy extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(

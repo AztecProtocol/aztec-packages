@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "indexed_leaf.hpp"
 #include <algorithm>
@@ -361,6 +362,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
     auto job = [=, this]() {
         execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
             [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -445,6 +449,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -497,6 +504,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
     auto job = [=, this]() {
         execute_and_report<GetLowIndexedLeafResponse>(
             [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -849,14 +859,25 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_witho
 
     std::shared_ptr<Status> status = std::make_shared<Status>();
 
-    uint32_t p = static_cast<uint32_t>(std::log2(highest_index + 1)) + 1;
-    index_t span = static_cast<uint32_t>(std::pow(2, p));
-    uint64_t numBatches = workers_->num_threads();
+    auto log2Ceil = [=](uint64_t value) {
+        uint64_t log = numeric::get_msb(value);
+        uint64_t temp = static_cast<uint64_t>(1) << log;
+        return temp == value ? log : log + 1;
+    };
+
+    uint64_t indexPower2Ceil = log2Ceil(highest_index + 1);
+    index_t span = static_cast<index_t>(std::pow(2UL, indexPower2Ceil));
+    uint64_t numBatchesPower2Floor = numeric::get_msb(workers_->num_threads());
+    index_t numBatches = static_cast<index_t>(std::pow(2UL, numBatchesPower2Floor));
     index_t batchSize = span / numBatches;
-    batchSize = std::max(batchSize, 1UL);
+    batchSize = std::max(batchSize, 2UL);
     index_t startIndex = 0;
-    p = static_cast<uint32_t>(std::log2(batchSize));
-    uint32_t rootLevel = depth_ - p;
+    indexPower2Ceil = log2Ceil(batchSize);
+    uint32_t rootLevel = depth_ - static_cast<uint32_t>(indexPower2Ceil);
+
+    // std::cout << "HIGHEST INDEX " << highest_index << " SPAN " << span << " NUM BATCHES " << numBatches
+    //           << " BATCH SIZE " << batchSize << " NUM THREADS " << workers_->num_threads() << " ROOT LEVEL "
+    //           << rootLevel << std::endl;
 
     struct BatchInsertResults {
         std::atomic_uint32_t count;
@@ -1034,6 +1055,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
                         //           << std::endl;
 
+                        // std::cout << "Low leaf found at index " << low_leaf_index << " index of new leaf "
+                        //           << index_of_new_leaf << std::endl;
+
                         store_->put_cached_leaf_by_index(low_leaf_index, low_leaf);
                         // leaves_pre[low_leaf_index] = low_leaf;
                         insertion.low_leaf = low_leaf;
@@ -1044,9 +1068,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         // Update the current leaf's value, don't change it's link
                         IndexedLeafValueType replacement_leaf =
                             IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextValue);
-                        IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
-                        // don't update the index for this empty leaf
-                        store_->set_leaf_key_at_index(index_of_new_leaf, empty_leaf);
+                        // IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
+                        //  don't update the index for this empty leaf
+                        // std::cout << "Low leaf updated at index " << low_leaf_index << " index of new leaf "
+                        //           << index_of_new_leaf << std::endl;
+                        // store_->set_leaf_key_at_index(index_of_new_leaf, empty_leaf);
                         store_->put_cached_leaf_by_index(low_leaf_index, replacement_leaf);
                         insertion.low_leaf = replacement_leaf;
                         // The set of appended leaves already has an empty leaf in the slot at index
