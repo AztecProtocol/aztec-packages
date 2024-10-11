@@ -9,11 +9,11 @@ telemetry:
 
 ethereum:
   external: true
-  externalUrl: http://a10d1ced78952407ea2a2f1e4070e7fb-1989259361.us-east-1.elb.amazonaws.com:8545
+  externalUrl: a10d1ced78952407ea2a2f1e4070e7fb-1989259361.us-east-1.elb.amazonaws.com
 
 bootNode:
   external: true
-  externalUrl: http://a44de547993be46d49cde44dcb13449d-26782180.us-east-1.elb.amazonaws.com:8080
+  externalUrl: a44de547993be46d49cde44dcb13449d-26782180.us-east-1.elb.amazonaws.com
 
 validator:
   replicas: 1

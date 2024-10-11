@@ -63,7 +63,7 @@ spec:
             [
               "/bin/bash",
               "-c",
-              "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
+              "sleep 30 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
           livenessProbe:
             exec:
@@ -108,13 +108,21 @@ spec:
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
-              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pPort }}"
+              {{- if .Values.bootNode.externalHost }}
+              value: "{{ .Values.bootNode.externalHost }}:{{ .Values.bootNode.service.p2pTcpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pTcpPort }}"
+              {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
-              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pPort }}"
+              {{- if .Values.bootNode.externalHost }}
+              value: "{{ .Values.bootNode.externalHost }}:{{ .Values.bootNode.service.p2pUdpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pUdpPort }}"
+              {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.bootNode.service.p2pPort }}"
+              value: "0.0.0.0:{{ .Values.bootNode.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.bootNode.service.p2pPort }}"
+              value: "0.0.0.0:{{ .Values.bootNode.service.p2pUdpPort }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
@@ -123,7 +131,8 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
-            - containerPort: {{ .Values.bootNode.service.p2pPort }}
+            - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
+            - containerPort: {{ .Values.bootNode.service.p2pUdpPort }}
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
@@ -163,8 +172,11 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
   ports:
-    - port: {{ .Values.bootNode.service.p2pPort }}
-      name: p2p
+    - port: {{ .Values.bootNode.service.p2pTcpPort }}
+      name: p2p-tpc
+    - port: {{ .Values.bootNode.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
 ---
@@ -181,8 +193,11 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
   ports:
-    - port: {{ .Values.bootNode.service.p2pPort }}
-      name: p2p
+    - port: {{ .Values.bootNode.service.p2pTcpPort }}
+      name: p2p-tpc
+    - port: {{ .Values.bootNode.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
 {{ end }}

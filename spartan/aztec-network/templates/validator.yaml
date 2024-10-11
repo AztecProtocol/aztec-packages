@@ -109,20 +109,29 @@ spec:
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
-              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pPort }}"
+              {{- if .Values.validator.externalHost }}
+              value: "{{ .Values.validator.externalHost }}:{{ .Values.validator.service.p2pTcpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pTcpPort }}"
+              {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
-              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pPort }}"
+              {{- if .Values.validator.externalHost }}
+              value: "{{ .Values.validator.externalHost }}:{{ .Values.validator.service.p2pUdpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pUdpPort }}"
+              {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.validator.service.p2pPort }}"
+              value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.validator.service.p2pPort }}"
+              value: "0.0.0.0:{{ .Values.validator.service.p2pUdpPort }}"
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
-            - containerPort: {{ .Values.validator.service.p2pPort }}
+            - containerPort: {{ .Values.validator.service.p2pTcpPort }}
+            - containerPort: {{ .Values.validator.service.p2pUdpPort }}
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
       volumes:
@@ -165,8 +174,11 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pPort }}
-      name: p2p
+    - port: {{ .Values.validator.service.p2pTcpPort }}
+      name: p2p-tcp
+    - port: {{ .Values.validator.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}
       name: node
 ---
@@ -183,8 +195,11 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pPort }}
-      name: p2p
+    - port: {{ .Values.validator.service.p2pTcpPort }}
+      name: p2p-tcp
+    - port: {{ .Values.validator.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}
       name: node
 {{ end }}
