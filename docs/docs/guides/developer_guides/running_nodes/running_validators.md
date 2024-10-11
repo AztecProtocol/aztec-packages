@@ -53,13 +53,14 @@ Validators are selected through a committee selection process:
   - Windows
 - **Knowledge**: Basic familiarity with running commands on a command-line interface.
 - **Hardware Requirements**:
+```
 | 🖥️          | Minimum       | Recommended    |
 |-------------|---------------|----------------|
 | **CPU**     | 16 cores      | 32 cores       |
 | **Network** | 32 mb/s       | 128 mb/s       |
 | **Storage** | 3 TB          | 5 TB           |
 | **RAM**     | 32 GB         | 64 GB          |
-
+```
 ## Port Forwarding
 
 ### Understanding Port Forwarding
