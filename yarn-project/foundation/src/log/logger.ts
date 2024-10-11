@@ -1,10 +1,7 @@
 import debug from 'debug';
 import { inspect } from 'util';
 
-
-
 import { type LogData, type LogFn } from './log_fn.js';
-
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 
