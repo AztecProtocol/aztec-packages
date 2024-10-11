@@ -112,11 +112,12 @@ export class TestContext {
         acvmWorkingDirectory: config.acvmWorkingDirectory,
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
+        bbSkipCleanup: config.bbSkipCleanup,
       };
       localProver = await createProver(bbConfig);
     }
 
-    if (config?.directoryToCleanup) {
+    if (config?.directoryToCleanup && !config.bbSkipCleanup) {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 

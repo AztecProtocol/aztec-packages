@@ -36,22 +36,31 @@ export type DebugLogger = Logger;
  * If DEBUG="[module]" env is set, will enable debug logging if the module matches.
  * Uses npm debug for debug level and console.error for other levels.
  * @param name - Name of the module.
+ * @param fixedLogData - Additional data to include in the log message.
+ * @usage createDebugLogger('aztec:validator', {validatorAddress: '0x1234...'});
+ * // will always add the validator address to the log labels
  * @returns A debug logger.
  */
-export function createDebugLogger(name: string): DebugLogger {
+
+export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
   const debugLogger = debug(name);
+
+  const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data),
+    error: (msg: string, err?: unknown, data?: LogData) =>
+      logWithDebug(debugLogger, 'error', fmtErr(msg, err), attatchFixedLogData(data)),
+    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
+    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
+    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
+    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
   };
-  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data), logger);
+  return Object.assign(
+    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
+    logger,
+  );
 }
-
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
 

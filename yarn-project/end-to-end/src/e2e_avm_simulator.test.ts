@@ -15,7 +15,9 @@ describe('e2e_avm_simulator', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup());
+    ({ teardown, wallet } = await setup(undefined, {
+      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    }));
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
   });
 

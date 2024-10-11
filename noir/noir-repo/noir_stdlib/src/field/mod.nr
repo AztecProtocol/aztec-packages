@@ -8,11 +8,10 @@ impl Field {
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^{bit_size}`.
     // docs:start:assert_max_bit_size
-    pub fn assert_max_bit_size(self, bit_size: u32) {
+    pub fn assert_max_bit_size<let BIT_SIZE: u32>(self) {
         // docs:end:assert_max_bit_size
-        crate::assert_constant(bit_size);
-        assert(bit_size < modulus_num_bits() as u32);
-        self.__assert_max_bit_size(bit_size);
+        assert(BIT_SIZE < modulus_num_bits() as u32);
+        self.__assert_max_bit_size(BIT_SIZE);
     }
 
     #[builtin(apply_range_constraint)]
@@ -20,7 +19,7 @@ impl Field {
 
     /// Decomposes `self` into its little endian bit decomposition as a `[u1; N]` array.
     /// This slice will be zero padded should not all bits be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^N` as the resulting slice will not
     /// be able to represent the original `Field`.
@@ -36,7 +35,7 @@ impl Field {
 
     /// Decomposes `self` into its big endian bit decomposition as a `[u1; N]` array.
     /// This array will be zero padded should not all bits be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
     /// Causes a constraint failure for `Field` values exceeding `2^N` as the resulting slice will not
     /// be able to represent the original `Field`.
@@ -52,9 +51,9 @@ impl Field {
 
     /// Decomposes `self` into its little endian byte decomposition as a `[u8;N]` array
     /// This array will be zero padded should not all bytes be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
-    ///  The length N of the array must be big enough to contain all the bytes of the 'self', 
+    ///  The length N of the array must be big enough to contain all the bytes of the 'self',
     ///  and no more than the number of bytes required to represent the field modulus
     ///
     /// # Safety
@@ -85,9 +84,9 @@ impl Field {
 
     /// Decomposes `self` into its big endian byte decomposition as a `[u8;N]` array of length required to represent the field modulus
     /// This array will be zero padded should not all bytes be necessary to represent `self`.
-    /// 
+    ///
     /// # Failures
-    ///  The length N of the array must be big enough to contain all the bytes of the 'self', 
+    ///  The length N of the array must be big enough to contain all the bytes of the 'self',
     ///  and no more than the number of bytes required to represent the field modulus
     ///
     /// # Safety
@@ -118,14 +117,20 @@ impl Field {
 
     // docs:start:to_le_radix
     pub fn to_le_radix<let N: u32>(self: Self, radix: u32) -> [u8; N] {
-        crate::assert_constant(radix);
+        // Brillig does not need an immediate radix
+        if !crate::runtime::is_unconstrained() {
+            crate::assert_constant(radix);
+        }
         self.__to_le_radix(radix)
     }
     // docs:end:to_le_radix
 
     // docs:start:to_be_radix
     pub fn to_be_radix<let N: u32>(self: Self, radix: u32) -> [u8; N] {
-        crate::assert_constant(radix);
+        // Brillig does not need an immediate radix
+        if !crate::runtime::is_unconstrained() {
+            crate::assert_constant(radix);
+        }
         self.__to_be_radix(radix)
     }
     // docs:end:to_be_radix
