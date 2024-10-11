@@ -31,7 +31,7 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 1. [Port Forwarding](#port-forwarding)
 2. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
 3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
-4. [Configuring Deployment](#configuring-helm-install)
+4. [Configuring Deployment](#configuring-deployment)
 5. [Overview of Prover Nodes](#overview-of-prover-nodes)
 6. [Troubleshooting](#troubleshooting)
 7. [References](#references)
@@ -156,6 +156,9 @@ choco install kubernetes-helm
 ```
 
 ## Configuring Deployment
+
+Ensure you have a funded ethereum address on the network used by the validator set you are trying to join.
+If you are trying to join a test network, this would be a testnet, and you may need to use a faucet to get ETH or ask the network maintainers.
 
 **Steps**:
 
