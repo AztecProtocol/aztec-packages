@@ -917,7 +917,7 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
     // Pippenger
     const size_t threshold = get_num_cpus_pow2() * 8;
     auto scalars = scalars_.span;
-    size_t num_initial_points = scalars.size();
+    size_t num_initial_points = scalars_.start_index + scalars.size();
     if (num_initial_points == 0) {
         Element out = Group::one;
         out.self_set_infinity();
@@ -928,8 +928,10 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
         std::vector<Element> exponentiation_results(num_initial_points);
         // might as well multithread this...
         // Possible optimization: use group::batch_mul_with_endomorphism here.
-        parallel_for(num_initial_points,
-                     [&](size_t i) { exponentiation_results[i] = Element(points[i * 2]) * scalars[i]; });
+        parallel_for(num_initial_points, [&](size_t i) {
+            exponentiation_results[i] =
+                Element(points[i * 2]) * (i >= scalars_.start_index ? scalars[i - scalars_.start_index] : 0);
+        });
 
         for (size_t i = num_initial_points - 1; i > 0; --i) {
             exponentiation_results[i - 1] += exponentiation_results[i];
@@ -965,13 +967,14 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     const size_t threshold = get_num_cpus_pow2() * 8;
     // Delegate edge-cases to normal pippenger_unsafe().
-    if (scalars.size() <= threshold) {
+    if (scalars.start_index + scalars.size() <= threshold) {
         return pippenger_unsafe(scalars, points, state);
     }
-    // We need a padding of scalars.
-    ASSERT(numeric::round_up_power_2(scalars.size()) * 2 <= points.size());
+    // We need a padding of points.
+    ASSERT((numeric::round_up_power_2(scalars.start_index + scalars.size())) * 2 <= points.size());
     // We do not optimize for the small case at all.
-    return pippenger_internal(points, scalars, numeric::round_up_power_2(scalars.size()), state, false);
+    return pippenger_internal(
+        points, scalars, numeric::round_up_power_2(scalars.start_index + scalars.size()), state, false);
 }
 
 /**
@@ -1003,9 +1006,10 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
     std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state)
 {
-    std::vector<typename Curve::AffineElement> G_mod(scalars.size() * 2);
-    ASSERT(scalars.size() <= points.size());
-    bb::scalar_multiplication::generate_pippenger_point_table<Curve>(points.data(), &G_mod[0], scalars.size());
+    std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
+    ASSERT(scalars.start_index + scalars.size() <= points.size());
+    bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
+        points.data(), &G_mod[0], scalars.start_index + scalars.size());
     return pippenger(scalars, G_mod, state, false);
 }
 
