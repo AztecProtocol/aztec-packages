@@ -22,7 +22,6 @@ import {
   PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
-  TUBE_INDEX,
   type VMCircuitPublicInputs,
   makeEmptyProof,
   makeEmptyRecursiveProof,
@@ -379,7 +378,7 @@ export class EnqueuedCallsProcessor {
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
     const vk = isFromPrivate ? TubeVk : ProtocolCircuitVks.PublicKernelMergeArtifact;
-    const vkIndex = isFromPrivate ? TUBE_INDEX : getVKIndex(vk);
+    const vkIndex = getVKIndex(vk);
     const siblingPath = getVKSiblingPath(vkIndex);
 
     return new PublicKernelData(previousOutput, proof, vk, vkIndex, siblingPath);
