@@ -1,7 +1,7 @@
 # Running Prover Nodes
 
 TODO(https://github.com/AztecProtocol/aztec-packages/issues/9190)
-*Details about how to configure a prover node are to be determined (TBD). This guide will be updated once the information becomes available.*
+*Details about how to configure a prover node and hardware requirements are to be determined. This guide will be updated once the information becomes available.*
 
 For the current state of design please see the RFC at https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155.
 
