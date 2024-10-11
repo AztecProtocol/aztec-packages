@@ -13,7 +13,8 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
-    this.checkTags(memory, this.inTag, aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
+    memory.checkTagsAreSame(aOffset, bOffset);
 
     const a = memory.getAs<IntegralValue>(aOffset);
     const b = memory.getAs<IntegralValue>(bOffset);
