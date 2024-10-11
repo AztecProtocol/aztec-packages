@@ -7,7 +7,7 @@ import {
   type MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
-  PublicKeys,
+  type PublicKeys,
   type VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';

@@ -101,7 +101,6 @@ export class TXEService {
     initializer: ForeignCallArray,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
-    // TODO: Fix this
     publicKeysHash: ForeignCallSingle,
   ) {
     const initializerStr = fromArray(initializer)
@@ -117,6 +116,7 @@ export class TXEService {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
+      // TODO: Modify this to allow for passing public keys.
       publicKeys: PublicKeys.empty(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
@@ -131,7 +131,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeys.hash(),
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -509,7 +509,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeys.hash(),
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -524,7 +524,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeys.hash(),
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }

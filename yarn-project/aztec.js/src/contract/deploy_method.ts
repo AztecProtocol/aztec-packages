@@ -2,7 +2,7 @@ import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types
 import {
   AztecAddress,
   type ContractInstanceWithAddress,
-  PublicKeys,
+  type PublicKeys,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,

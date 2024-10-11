@@ -71,7 +71,7 @@ describe('Data generation for noir tests', () => {
         address: `AztecAddress { inner: ${address.toString()} }`,
         partial_address: `PartialAddress { inner: ${partialAddress.toString()} }`,
         contract_class_id: `ContractClassId { inner: ${contractClassId.toString()} }`,
-        public_keys_hash: `PublicKeys { inner: ${contract.publicKeys.toString()} }`,
+        public_keys: `PublicKeys { inner: ${contract.publicKeys.toString()} }`,
         salted_initialization_hash: `SaltedInitializationHash { inner: ${saltedInitializationHash.toString()} }`,
         deployer: `AztecAddress { inner: ${deployer.toString()} }`,
       }),
