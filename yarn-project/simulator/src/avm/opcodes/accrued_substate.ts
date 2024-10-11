@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { TypeTag, Uint8 } from '../avm_memory_types.js';
+import { TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { NullifierCollisionError } from '../journal/nullifiers.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -44,7 +44,7 @@ export class NoteHashExists extends Instruction {
       noteHash,
       leafIndex,
     );
-    memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
+    memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
@@ -116,7 +116,7 @@ export class NullifierExists extends Instruction {
     const address = memory.get(addressOffset).toFr();
     const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
-    memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
+    memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
@@ -202,7 +202,7 @@ export class L1ToL2MessageExists extends Instruction {
       msgHash,
       msgLeafIndex,
     );
-    memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
+    memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
@@ -268,7 +268,7 @@ export class SendL2ToL1Message extends Instruction {
 
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();
-    context.persistableState.writeL2ToL1Message(recipient, content);
+    context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
 
     memory.assert({ reads: 2, addressing });
     context.machineState.incrementPc();

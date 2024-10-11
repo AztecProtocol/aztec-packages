@@ -22,7 +22,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
 
-    commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
+    key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
 }
 
 /**
@@ -44,7 +44,7 @@ void ECCVMProver::execute_wire_commitments_round()
     auto wire_polys = key->polynomials.get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
     }
 }
 
@@ -70,7 +70,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         key->polynomials, relation_parameters, key->circuit_size);
     transcript->send_to_verifier(commitment_labels.lookup_inverses,
-                                 commitment_key->commit(key->polynomials.lookup_inverses));
+                                 key->commitment_key->commit(key->polynomials.lookup_inverses));
 }
 
 /**
@@ -82,7 +82,7 @@ void ECCVMProver::execute_grand_product_computation_round()
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
 
-    transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->polynomials.z_perm));
+    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
 
 /**
@@ -126,7 +126,7 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.claimed_evaluations.get_unshifted(),
                          sumcheck_output.claimed_evaluations.get_shifted(),
                          sumcheck_output.challenge,
-                         commitment_key,
+                         key->commitment_key,
                          transcript);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
@@ -176,10 +176,10 @@ void ECCVMProver::execute_pcs_rounds()
                                                      .opening_pair = { evaluation_challenge_x, batched_evaluation } } };
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    const OpeningClaim batched_opening_claim = Shplonk::prove(commitment_key, opening_claims, transcript);
+    const OpeningClaim batched_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(commitment_key, batched_opening_claim, transcript);
+    PCS::compute_opening_proof(key->commitment_key, batched_opening_claim, transcript);
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");

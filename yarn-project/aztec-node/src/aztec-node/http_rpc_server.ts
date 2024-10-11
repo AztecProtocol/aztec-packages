@@ -1,6 +1,7 @@
 import {
   type AztecNode,
   EncryptedNoteL2BlockL2Logs,
+  EpochProofQuote,
   ExtendedUnencryptedL2Log,
   L2Block,
   LogId,
@@ -53,6 +54,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       Tx,
       TxReceipt,
       UnencryptedL2BlockL2Logs,
+      EpochProofQuote,
     },
     // disable methods not part of the AztecNode interface
     ['start', 'stop'],

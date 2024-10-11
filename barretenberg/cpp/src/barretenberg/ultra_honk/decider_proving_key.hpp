@@ -13,7 +13,7 @@
 namespace bb {
 /**
  * @brief  A DeciderProvingKey is normally constructed from a finalized circuit and it contains all the information
- * required by an Ultra Goblin Honk prover to create a proof. A DeciderProvingKey is also the result of running the
+ * required by an Mega Honk prover to create a proof. A DeciderProvingKey is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *
@@ -47,6 +47,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
+        vinfo("DeciderProvingKey(Circuit&)");
+        vinfo("creating decider proving key");
+
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
@@ -74,6 +77,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         {
 
             PROFILE_THIS_NAME("constructing proving key");
+            vinfo("constructing proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             if (IsGoblinFlavor<Flavor> && !is_structured) {
@@ -83,6 +87,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 // Allocate the wires and selectors polynomials
                 {
                     PROFILE_THIS_NAME("allocating wires");
+                    vinfo("allocating wires");
 
                     for (auto& wire : proving_key.polynomials.get_wires()) {
                         wire = Polynomial::shiftable(proving_key.circuit_size);
@@ -90,6 +95,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating gate selectors");
+                    vinfo("allocating gate selectors");
 
                     // Define gate selectors over the block they are isolated to
                     for (auto [selector, block] :
@@ -111,6 +117,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating non-gate selectors");
+                    vinfo("allocating non-gate selectors");
 
                     // Set the other non-gate selector polynomials to full size
                     for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
@@ -119,6 +126,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 if constexpr (IsGoblinFlavor<Flavor>) {
                     PROFILE_THIS_NAME("allocating ecc op wires and selector");
+                    vinfo("allocating ecc op wires and selector");
 
                     // Allocate the ecc op wires and selector
                     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
@@ -157,6 +165,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 size_t table_offset = dyadic_circuit_size - max_tables_size;
                 {
                     PROFILE_THIS_NAME("allocating table polynomials");
+                    vinfo("allocating table polynomials");
 
                     ASSERT(dyadic_circuit_size > max_tables_size);
 
@@ -169,6 +178,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating sigmas and ids");
+                    vinfo("allocating sigmas and ids");
 
                     for (auto& sigma : proving_key.polynomials.get_sigmas()) {
                         sigma = typename Flavor::Polynomial(proving_key.circuit_size);
@@ -180,6 +190,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
+                    vinfo("allocating lookup read counts and tags");
                     proving_key.polynomials.lookup_read_counts =
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
@@ -188,6 +199,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
                     // Allocate the lookup_inverses polynomial
+                    vinfo("allocating lookup and databus inverses");
                     const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
                     // at top of trace
@@ -215,6 +227,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("constructing z_perm");
+                    vinfo("constructing z_perm");
 
                     // Allocate the z_perm polynomial
                     proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
@@ -222,6 +235,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
                 {
                     PROFILE_THIS_NAME("allocating lagrange polynomials");
+                    vinfo("allocating lagrange polynomials");
 
                     // First and last lagrange polynomials (in the full circuit size)
                     proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
@@ -238,10 +252,12 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
+            vinfo("constructing prover instance after trace populate");
 
             // If Goblin, construct the databus polynomials
             if constexpr (IsGoblinFlavor<Flavor>) {
                 PROFILE_THIS_NAME("constructing databus polynomials");
+                vinfo("constructing databus polynomials");
 
                 construct_databus_polynomials(circuit);
             }
@@ -252,6 +268,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
+            vinfo("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
                 proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
@@ -259,6 +276,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         {
             PROFILE_THIS_NAME("constructing lookup read counts");
+            vinfo("constructing lookup read counts");
 
             construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
                                                  proving_key.polynomials.lookup_read_tags,

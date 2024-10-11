@@ -30,9 +30,9 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     _;
   }
 
-  constructor(IERC20 _token, address _owner) {
+  constructor(IERC20 _token, address _rollup) {
+    ROLLUP = _rollup;
     token = _token;
-    ROLLUP = _owner;
   }
 
   /**

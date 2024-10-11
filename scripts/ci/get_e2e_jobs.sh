@@ -7,7 +7,7 @@ cd "$(dirname "$0")"/../..
 BRANCH=$1
 LABELS=$2
 
-# Define the allow_list
+# Define the jobs that will run on every PR
 allow_list=(
   "e2e-2-pxes"
   "e2e-authwit"
@@ -24,8 +24,9 @@ allow_list=(
   "e2e-static-calls"
   "integration-l1-publisher"
   "e2e-cheat-codes"
-  "e2e-prover-with-padding"
+  "e2e-prover-fake-proofs"
   "e2e-lending-contract"
+  "kind-network-smoke"
 )
 
 # Add labels from input to the allow_list

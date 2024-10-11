@@ -1,12 +1,15 @@
 import {
   type AztecNode,
+  CountedPublicExecutionRequest,
   EncryptedNoteFunctionL2Logs,
   type L1ToL2Message,
   type L2BlockNumber,
   Note,
   PackedValues,
+  type PrivateExecutionResult,
   PublicExecutionRequest,
   TxExecutionRequest,
+  collectSortedEncryptedLogs,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
@@ -20,6 +23,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -69,7 +73,6 @@ import { toFunctionSelector } from 'viem';
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
-import { CountedPublicExecutionRequest, type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 import { computeNoteHash } from './test_utils.js';
 
@@ -180,7 +183,7 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  const getEncryptedNoteSerializedLength = (result: ExecutionResult) => {
+  const getEncryptedNoteSerializedLength = (result: PrivateExecutionResult) => {
     const fnLogs = new EncryptedNoteFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
     return fnLogs.getKernelLength();
   };
@@ -833,13 +836,10 @@ describe('Private Execution test suite', () => {
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
       const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueue_call_to_child');
-      const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'pub_set_value')!;
+      const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childContractArtifact).toBeDefined();
       const childAddress = AztecAddress.random();
-      const childSelector = FunctionSelector.fromNameAndParameters(
-        childContractArtifact.name,
-        childContractArtifact.parameters,
-      );
+      const childSelector = FunctionSelector.fromSignature('pub_set_value(Field)');
       const parentAddress = AztecAddress.random();
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
@@ -855,11 +855,11 @@ describe('Private Execution test suite', () => {
       const request = new CountedPublicExecutionRequest(
         PublicExecutionRequest.from({
           contractAddress: childAddress,
-          args: [new Fr(42n)],
+          args: [childSelector.toField(), new Fr(42n)],
           callContext: CallContext.from({
             msgSender: parentAddress,
             storageContractAddress: childAddress,
-            functionSelector: childSelector,
+            functionSelector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
             isDelegateCall: false,
             isStaticCall: false,
           }),

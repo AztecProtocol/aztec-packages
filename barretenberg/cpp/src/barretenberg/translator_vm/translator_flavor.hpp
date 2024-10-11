@@ -128,65 +128,6 @@ class TranslatorFlavor {
                               lagrange_even_in_minicircuit,            // column 4
                               lagrange_second,                         // column 5
                               lagrange_second_to_last_in_minicircuit); // column 6
-        auto get_selectors() { return RefArray<DataType, 0>{}; };
-        auto get_sigma_polynomials() { return RefArray<DataType, 0>{}; };
-        auto get_id_polynomials() { return RefArray<DataType, 0>{}; };
-
-        inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
-        {
-            const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
-
-            for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-                this->lagrange_odd_in_minicircuit.at(i) = 1;
-                this->lagrange_even_in_minicircuit.at(i + 1) = 1;
-            }
-            this->lagrange_second.at(1) = 1;
-            this->lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
-        }
-
-        /**
-         * @brief Compute the extra numerator for Goblin range constraint argument
-         *
-         * @details Goblin proves that several polynomials contain only values in a certain range through 2 relations:
-         * 1) A grand product which ignores positions of elements (TranslatorPermutationRelation)
-         * 2) A relation enforcing a certain ordering on the elements of the given polynomial
-         * (TranslatorDeltaRangeConstraintRelation)
-         *
-         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from MAX_VALUE
-         * to 0. We order these polynomials and use them in the denominator of the grand product, at the same time
-         * checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an extra range
-         * constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
-         *
-         */
-        inline void compute_extra_range_constraint_numerator()
-        {
-            auto& extra_range_constraint_numerator = this->ordered_extra_range_constraints_numerator;
-
-            static constexpr uint32_t MAX_VALUE = (1 << MICRO_LIMB_BITS) - 1;
-
-            // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
-            size_t sorted_elements_count = (MAX_VALUE / SORT_STEP) + 1 + (MAX_VALUE % SORT_STEP == 0 ? 0 : 1);
-
-            // Check that we can fit every element in the polynomial
-            ASSERT((NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
-
-            std::vector<size_t> sorted_elements(sorted_elements_count);
-
-            // Calculate the sequence in integers
-            sorted_elements[0] = MAX_VALUE;
-            for (size_t i = 1; i < sorted_elements_count; i++) {
-                sorted_elements[i] = (sorted_elements_count - 1 - i) * SORT_STEP;
-            }
-
-            // TODO(#756): can be parallelized further. This will use at most 5 threads
-            auto fill_with_shift = [&](size_t shift) {
-                for (size_t i = 0; i < sorted_elements_count; i++) {
-                    extra_range_constraint_numerator.at(shift + i * (NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
-                }
-            };
-            // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
-            parallel_for(NUM_CONCATENATED_WIRES + 1, fill_with_shift);
-        }
     };
 
     template <typename DataType> class ConcatenatedRangeConstraints {
@@ -356,14 +297,6 @@ class TranslatorFlavor {
                                DerivedWitnessEntities<DataType>::get_all(),
                                ConcatenatedRangeConstraints<DataType>::get_all());
         }
-        std::vector<std::string> get_unshifted_labels()
-        {
-            return concatenate(WireNonshiftedEntities<DataType>::get_labels(),
-                               WireToBeShiftedEntities<DataType>::get_labels(),
-                               OrderedRangeConstraints<DataType>::get_labels(),
-                               DerivedWitnessEntities<DataType>::get_labels(),
-                               ConcatenatedRangeConstraints<DataType>::get_labels());
-        }
         auto get_to_be_shifted()
         {
             return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
@@ -376,14 +309,14 @@ class TranslatorFlavor {
          *
          * @return auto
          */
-        auto get_concatenated_constraints() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
+        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
 
         /**
-         * @brief Get the polynomials that are concatenated for the permutation relation
+         * @brief Get the entities concatenated for the permutation relation
          *
          * @return std::vector<auto>
          */
-        std::vector<RefVector<DataType>> get_concatenation_groups()
+        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
             return {
                 {
@@ -570,105 +503,22 @@ class TranslatorFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
-         * @brief Get the polynomials that are concatenated for the permutation relation
+         * @brief Get entities concatenated for the permutation relation
          *
-         * @return std::vector<auto>
          */
-        std::vector<RefVector<DataType>> get_concatenation_groups()
+        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
-            return {
-                {
-                    this->p_x_low_limbs_range_constraint_0,
-                    this->p_x_low_limbs_range_constraint_1,
-                    this->p_x_low_limbs_range_constraint_2,
-                    this->p_x_low_limbs_range_constraint_3,
-                    this->p_x_low_limbs_range_constraint_4,
-                    this->p_x_low_limbs_range_constraint_tail,
-                    this->p_x_high_limbs_range_constraint_0,
-                    this->p_x_high_limbs_range_constraint_1,
-                    this->p_x_high_limbs_range_constraint_2,
-                    this->p_x_high_limbs_range_constraint_3,
-                    this->p_x_high_limbs_range_constraint_4,
-                    this->p_x_high_limbs_range_constraint_tail,
-                    this->p_y_low_limbs_range_constraint_0,
-                    this->p_y_low_limbs_range_constraint_1,
-                    this->p_y_low_limbs_range_constraint_2,
-                    this->p_y_low_limbs_range_constraint_3,
-                },
-                {
-                    this->p_y_low_limbs_range_constraint_4,
-                    this->p_y_low_limbs_range_constraint_tail,
-                    this->p_y_high_limbs_range_constraint_0,
-                    this->p_y_high_limbs_range_constraint_1,
-                    this->p_y_high_limbs_range_constraint_2,
-                    this->p_y_high_limbs_range_constraint_3,
-                    this->p_y_high_limbs_range_constraint_4,
-                    this->p_y_high_limbs_range_constraint_tail,
-                    this->z_low_limbs_range_constraint_0,
-                    this->z_low_limbs_range_constraint_1,
-                    this->z_low_limbs_range_constraint_2,
-                    this->z_low_limbs_range_constraint_3,
-                    this->z_low_limbs_range_constraint_4,
-                    this->z_low_limbs_range_constraint_tail,
-                    this->z_high_limbs_range_constraint_0,
-                    this->z_high_limbs_range_constraint_1,
-                },
-                {
-                    this->z_high_limbs_range_constraint_2,
-                    this->z_high_limbs_range_constraint_3,
-                    this->z_high_limbs_range_constraint_4,
-                    this->z_high_limbs_range_constraint_tail,
-                    this->accumulator_low_limbs_range_constraint_0,
-                    this->accumulator_low_limbs_range_constraint_1,
-                    this->accumulator_low_limbs_range_constraint_2,
-                    this->accumulator_low_limbs_range_constraint_3,
-                    this->accumulator_low_limbs_range_constraint_4,
-                    this->accumulator_low_limbs_range_constraint_tail,
-                    this->accumulator_high_limbs_range_constraint_0,
-                    this->accumulator_high_limbs_range_constraint_1,
-                    this->accumulator_high_limbs_range_constraint_2,
-                    this->accumulator_high_limbs_range_constraint_3,
-                    this->accumulator_high_limbs_range_constraint_4,
-                    this->accumulator_high_limbs_range_constraint_tail,
-                },
-                {
-                    this->quotient_low_limbs_range_constraint_0,
-                    this->quotient_low_limbs_range_constraint_1,
-                    this->quotient_low_limbs_range_constraint_2,
-                    this->quotient_low_limbs_range_constraint_3,
-                    this->quotient_low_limbs_range_constraint_4,
-                    this->quotient_low_limbs_range_constraint_tail,
-                    this->quotient_high_limbs_range_constraint_0,
-                    this->quotient_high_limbs_range_constraint_1,
-                    this->quotient_high_limbs_range_constraint_2,
-                    this->quotient_high_limbs_range_constraint_3,
-                    this->quotient_high_limbs_range_constraint_4,
-                    this->quotient_high_limbs_range_constraint_tail,
-                    this->relation_wide_limbs_range_constraint_0,
-                    this->relation_wide_limbs_range_constraint_1,
-                    this->relation_wide_limbs_range_constraint_2,
-                    this->relation_wide_limbs_range_constraint_3,
-                },
-            };
+            return WitnessEntities<DataType>::get_groups_to_be_concatenated();
         }
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
-         *
-         * @return auto
+         * @brief Getter for entities constructed by concatenation
          */
-        auto get_concatenated_constraints() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
+        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
         /**
          * @brief Get the polynomials from the grand product denominator
          *
@@ -688,7 +538,6 @@ class TranslatorFlavor {
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -698,29 +547,12 @@ class TranslatorFlavor {
         // get_to_be_shifted is inherited
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // this getter is necessary for more uniform zk verifiers
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted_witnesses() { return this->get_shifted(); };
         auto get_wires_and_ordered_range_constraints()
         {
             return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
         };
 
-        /**
-         * @brief Polynomials/commitments, that can be constructed only after the r challenge has been received from
-         * gemini
-         *
-         * @return auto
-         */
-        auto get_special() { return get_concatenated_constraints(); }
-
-        auto get_unshifted_then_shifted_then_special()
-        {
-            auto result{ this->get_unshifted() };
-            auto shifted{ get_shifted() };
-            auto special{ get_special() };
-            result.insert(result.end(), shifted.begin(), shifted.end());
-            result.insert(result.end(), special.begin(), special.end());
-            return result;
-        }
         // Get witness polynomials including shifts. This getter is required by ZK-Sumcheck.
         auto get_all_witnesses()
         {
@@ -854,11 +686,67 @@ class TranslatorFlavor {
 
             // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
             // polynomials at second and second to last indices in the minicircuit
-            polynomials.compute_lagrange_polynomials(builder);
+            compute_lagrange_polynomials(builder);
 
             // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and
             // maximum range constraint compute_extra_range_constraint_numerator();
-            polynomials.compute_extra_range_constraint_numerator();
+            compute_extra_range_constraint_numerator();
+        }
+
+        inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
+        {
+            const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
+
+            for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
+                polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
+                polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+            }
+            polynomials.lagrange_second.at(1) = 1;
+            polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
+        }
+
+        /**
+         * @brief Compute the extra numerator for Goblin range constraint argument
+         *
+         * @details Goblin proves that several polynomials contain only values in a certain range through 2
+         * relations: 1) A grand product which ignores positions of elements (TranslatorPermutationRelation) 2) A
+         * relation enforcing a certain ordering on the elements of the given polynomial
+         * (TranslatorDeltaRangeConstraintRelation)
+         *
+         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from
+         * MAX_VALUE to 0. We order these polynomials and use them in the denominator of the grand product, at the
+         * same time checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an
+         * extra range constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
+         *
+         */
+        inline void compute_extra_range_constraint_numerator()
+        {
+            auto& extra_range_constraint_numerator = polynomials.ordered_extra_range_constraints_numerator;
+
+            static constexpr uint32_t MAX_VALUE = (1 << MICRO_LIMB_BITS) - 1;
+
+            // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
+            size_t sorted_elements_count = (MAX_VALUE / SORT_STEP) + 1 + (MAX_VALUE % SORT_STEP == 0 ? 0 : 1);
+
+            // Check that we can fit every element in the polynomial
+            ASSERT((NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
+
+            std::vector<size_t> sorted_elements(sorted_elements_count);
+
+            // Calculate the sequence in integers
+            sorted_elements[0] = MAX_VALUE;
+            for (size_t i = 1; i < sorted_elements_count; i++) {
+                sorted_elements[i] = (sorted_elements_count - 1 - i) * SORT_STEP;
+            }
+
+            // TODO(#756): can be parallelized further. This will use at most 5 threads
+            auto fill_with_shift = [&](size_t shift) {
+                for (size_t i = 0; i < sorted_elements_count; i++) {
+                    extra_range_constraint_numerator.at(shift + i * (NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
+                }
+            };
+            // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
+            parallel_for(NUM_CONCATENATED_WIRES + 1, fill_with_shift);
         }
     };
 

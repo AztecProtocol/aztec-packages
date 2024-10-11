@@ -270,7 +270,7 @@ TEST(stdlib_transcript, validate_transcript)
     check_group_element("PI_Z");
     check_group_element("PI_Z_OMEGA");
 
-    info("builder gates = ", builder.get_num_gates());
+    info("builder gates = ", builder.get_estimated_num_finalized_gates());
 
     auto result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);

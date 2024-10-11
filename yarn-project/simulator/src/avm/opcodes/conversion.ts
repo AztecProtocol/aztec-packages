@@ -17,7 +17,7 @@ export class ToRadixLE extends Instruction {
     OperandType.UINT32, // dst memory address
     OperandType.UINT32, // radix memory address
     OperandType.UINT32, // number of limbs (Immediate)
-    OperandType.UINT1, // output is in "bits" mode (Immediate - Uint1 still takes up a whole byte)
+    OperandType.UINT8, // output is in "bits" mode (Immediate - Uint1 still takes up a whole byte)
   ];
 
   constructor(

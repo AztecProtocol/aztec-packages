@@ -1,3 +1,7 @@
+import { type AztecAddress, retryUntil } from '@aztec/aztec.js';
+
+import '@jest/globals';
+
 import { FullProverTest } from './e2e_prover_test.js';
 
 const TIMEOUT = 1_800_000;
@@ -8,14 +12,19 @@ process.env.AVM_PROVING_STRICT = '1';
 describe('full_prover', () => {
   const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
   const t = new FullProverTest('full_prover', 1, realProofs);
-  let { provenAssets, accounts, tokenSim, logger } = t;
+
+  let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
+  let sender: AztecAddress;
+  let recipient: AztecAddress;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     await t.deployVerifier();
-    ({ provenAssets, accounts, tokenSim, logger } = t);
+
+    ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
+    [sender, recipient] = accounts.map(a => a.address);
   });
 
   afterAll(async () => {
@@ -29,47 +38,76 @@ describe('full_prover', () => {
   it(
     'makes both public and private transfers',
     async () => {
-      logger.info(
-        `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,
-      );
-      const privateBalance = await provenAssets[0].methods.balance_of_private(accounts[0].address).simulate();
-      const privateSendAmount = privateBalance / 2n;
+      logger.info(`Starting test for public and private transfer`);
+
+      // Create the two transactions
+      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+      const privateSendAmount = privateBalance / 10n;
       expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(accounts[1].address, privateSendAmount);
+      const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
-      const publicBalance = await provenAssets[1].methods.balance_of_public(accounts[0].address).simulate();
-      const publicSendAmount = publicBalance / 2n;
+      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+      const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAssets[1].methods.transfer_public(
-        accounts[0].address,
-        accounts[1].address,
-        publicSendAmount,
-        0,
-      );
-      const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+      const publicInteraction = provenAssets[1].methods.transfer_public(sender, recipient, publicSendAmount, 0);
 
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying kernel tail to public proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
+      // Prove them
+      logger.info(`Proving txs`);
+      const provingOpts = { skipPublicSimulation: true };
+      const [publicProvenTx, privateProvenTx] = await Promise.all([
+        publicInteraction.prove(provingOpts),
+        privateInteraction.prove(provingOpts),
+      ]);
 
-      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying private kernel tail proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+      // Verify them
+      logger.info(`Verifying txs`);
+      await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
+      await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
-      // TODO(palla/prover): The following depends on the epoch boundaries to work. It assumes that we're proving
-      // 2-block epochs, and a new epoch is starting now, so the 2nd tx will land on the last block of the epoch and
-      // get proven. That relies on how many blocks we mined before getting here.
-      // We can make this more robust when we add padding, set 1-block epochs, and rollback the test config to
-      // have a min of 2 txs per block, so these both land on the same block.
-      logger.info(`Sending first tx and awaiting it to be mined`);
-      await privateInteraction.send({ skipPublicSimulation: true }).wait({ timeout: 300, interval: 10 });
-      logger.info(`Sending second tx and awaiting it to be proven`);
-      await publicInteraction
-        .send({ skipPublicSimulation: true })
-        .wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 });
+      // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
+      // and we have more than one block in the epoch we end up proving
+      logger.info(`Sending private tx`);
+      const txPrivate = privateProvenTx.send();
+      await txPrivate.wait({ timeout: 300, interval: 10, proven: false });
 
-      tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
-      tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
+      logger.info(`Sending public tx`);
+      const txPublic = publicProvenTx.send();
+      await txPublic.wait({ timeout: 300, interval: 10, proven: false });
+
+      logger.info(`Both txs have been mined`);
+      const txs = [txPrivate, txPublic];
+
+      // Flag the transfers on the token simulator
+      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+      tokenSim.transferPublic(sender, recipient, publicSendAmount);
+
+      // Warp to the next epoch
+      const epoch = await cheatCodes.rollup.getEpoch();
+      logger.info(`Advancing from epoch ${epoch} to next epoch`);
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      // Wait until the prover node submits a quote
+      logger.info(`Waiting for prover node to submit quote for epoch ${epoch}`);
+      await retryUntil(() => t.aztecNode.getEpochProofQuotes(epoch).then(qs => qs.length > 0), 'quote', 60, 1);
+
+      // Send another tx so the sequencer can assemble a block that includes the prover node claim
+      // so the prover node starts proving
+      logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
+      const sendOpts = { skipPublicSimulation: true };
+      await provenAssets[0].methods
+        .transfer(recipient, privateSendAmount)
+        .send(sendOpts)
+        .wait({ timeout: 300, interval: 10 });
+      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+
+      // Expect the block to have a claim
+      const claim = await cheatCodes.rollup.getProofClaim();
+      expect(claim).toBeDefined();
+      expect(claim?.epochToProve).toEqual(epoch);
+
+      // And wait for the first pair of txs to be proven
+      logger.info(`Awaiting proof for the previous epoch`);
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
     },
     TIMEOUT,
   );
@@ -80,11 +118,11 @@ describe('full_prover', () => {
       return;
     }
 
-    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
-    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
+    const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
+    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(sender, recipient, 1n, 0);
 
-    const sentPrivateTx = privateInteraction.send();
-    const sentPublicTx = publicInteraction.send();
+    const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
+    const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
 
     const results = await Promise.allSettled([
       sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),

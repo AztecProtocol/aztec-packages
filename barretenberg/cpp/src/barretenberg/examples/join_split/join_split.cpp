@@ -20,7 +20,7 @@ Builder new_join_split_circuit(join_split_tx const& tx)
 
     info("public inputs: ", builder.public_inputs.size());
 
-    info("num gates before finalization: ", builder.get_num_gates());
+    info("num gates before finalization: ", builder.get_estimated_num_finalized_gates());
 
     return builder;
 }

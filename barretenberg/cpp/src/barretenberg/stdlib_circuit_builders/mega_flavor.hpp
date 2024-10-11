@@ -550,6 +550,9 @@ class MegaFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             set_metadata(proving_key);
+            if (proving_key.commitment_key == nullptr) {
+                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }

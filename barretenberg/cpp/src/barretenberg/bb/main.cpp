@@ -159,16 +159,15 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system, witness);
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
 
     Timer pk_timer;
     acir_composer.init_proving_key();
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
 
-    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
-    write_benchmark("subgroup_size", acir_composer.get_dyadic_circuit_size(), "acir_test", current_dir);
+    write_benchmark("gate_count", acir_composer.get_finalized_total_circuit_size(), "acir_test", current_dir);
+    write_benchmark("subgroup_size", acir_composer.get_finalized_dyadic_circuit_size(), "acir_test", current_dir);
 
     Timer proof_timer;
     auto proof = acir_composer.create_proof();
@@ -199,12 +198,9 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     // Construct a bberg circuit from the acir representation
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
     // Construct Honk proof
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
@@ -370,9 +366,18 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
+    // has been integrated into noir kernel programs
+    bool is_kernel = false;
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+
+        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
+        if (!circuit.databus_propagation_data.is_kernel) {
+            circuit.databus_propagation_data.is_kernel = is_kernel;
+        }
+        is_kernel = !is_kernel;
         ivc.accumulate(circuit);
     }
 
@@ -458,6 +463,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
                                            // assumes that folding is never done with ultrahonk.
 
     // Accumulate the entire program stack into the IVC
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
@@ -465,9 +471,13 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto builder = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
+        // Set the internal is_kernel flag to trigger automatic appending of kernel logic if true
+        builder.databus_propagation_data.is_kernel = is_kernel;
+
         ivc.accumulate(builder);
 
         program_stack.pop_back();
+        is_kernel = !is_kernel; // toggle the kernel indicator flag on/off
     }
     return ivc.prove_and_verify();
 }
@@ -503,12 +513,15 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
                                            // assumes that folding is never done with ultrahonk.
 
     // Accumulate the entire program stack into the IVC
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
         auto circuit = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        circuit.databus_propagation_data.is_kernel = is_kernel;
+        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
 
         ivc.accumulate(circuit);
 
@@ -591,7 +604,7 @@ void prove_tube(const std::string& output_path)
     // set_public on each witness
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    num_public_inputs -= 2 * 8;                       // don't add the databus return data commitments (2x)
+    num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.folding_proof[i + offset]);
@@ -653,8 +666,8 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system, witness);
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 
@@ -672,6 +685,8 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  *
  * Communication:
  * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size.
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as
+ * their gate count differs
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
@@ -684,7 +699,9 @@ template <typename Builder = UltraCircuitBuilder> void gateCount(const std::stri
     for (auto constraint_system : constraint_systems) {
         auto builder = acir_format::create_circuit<Builder>(
             constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
-        auto circuit_size = builder.get_total_circuit_size();
+        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        size_t circuit_size = builder.num_gates;
+        vinfo("Calculated circuit size in gateCount: ", circuit_size);
 
         // Build individual circuit report
         std::string gates_per_opcode_str;
@@ -760,8 +777,9 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system);
+    acir_composer.finalize_circuit();
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
@@ -778,8 +796,9 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system);
+    acir_composer.finalize_circuit();
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
     auto serialized_pk = to_buffer(*pk);
 
@@ -1071,12 +1090,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     }
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
-
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
-    return Prover{ builder };
+    auto prover = Prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    return std::move(prover);
 }
 
 /**
@@ -1201,12 +1217,9 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     auto witness = get_witness(witnessPath);
     auto builder = acir_format::create_circuit<Builder>(constraints, 0, witness, honk_recursion);
 
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
     // Construct Honk proof and verification key
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     std::vector<FF> proof = prover.construct_proof();
     VerificationKey verification_key(prover.proving_key->proving_key);
 
@@ -1288,8 +1301,9 @@ void prove_output_all(const std::string& bytecodePath, const std::string& witnes
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.create_finalized_circuit(constraint_system, witness);
+    acir_composer.finalize_circuit();
+    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 
@@ -1353,12 +1367,9 @@ void prove_honk_output_all(const std::string& bytecodePath,
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(srs_size);
-
     // Construct Honk proof
     Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
 
     // We have been given a directory, we will write the proof and verification key
@@ -1536,7 +1547,7 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "prove_keccak_ultra_honk") {
+        } else if (command == "prove_ultra_keccak_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "prove_ultra_keccak_honk_output_all") {
