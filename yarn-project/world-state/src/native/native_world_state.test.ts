@@ -103,6 +103,31 @@ describe('NativeWorldState', () => {
       await fork.close();
     });
 
+    it('creates a fork at a block number', async () => {
+      const initialFork = await ws.fork();
+      for (let i = 0; i < 5; i++) {
+        const { block, messages } = await mockBlock(i + 1, 2, initialFork);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const fork = await ws.fork(3);
+      const stateReference = await fork.getStateReference();
+      const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
+      const header = new Header(
+        new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+        makeContentCommitment(),
+        stateReference,
+        makeGlobalVariables(),
+        Fr.ZERO,
+      );
+
+      await fork.updateArchive(header);
+
+      expect(await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).not.toEqual(archiveInfo);
+
+      await fork.close();
+    });
+
     it('Can create a fork at block 0 when not latest', async () => {
       const fork = await ws.fork();
       const forkAtGenesis = await ws.fork();

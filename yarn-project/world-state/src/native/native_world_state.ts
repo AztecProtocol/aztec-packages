@@ -121,11 +121,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? 0,
     });
-    return new MerkleTreesForkFacade(
-      this.instance,
-      this.initialHeader!,
-      worldStateRevision(true, resp.forkId, blockNumber),
-    );
+    return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
 
   public getInitialHeader(): Header {
