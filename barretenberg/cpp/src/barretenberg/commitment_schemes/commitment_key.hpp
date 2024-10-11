@@ -236,7 +236,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call pippenger
-        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
     }
 
     /**
