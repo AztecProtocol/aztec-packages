@@ -1,3 +1,4 @@
+
 # NOTE: intended to be ran from one's external computer, connecting to Aztec mainframe
 # IF ON YOUR LOCAL COMPUTER USE NORMAL INTERACTIVE TRACY WORKFLOW
 # the benchmark runs with headless capture and then we copy the trace file and run tracy profiler
