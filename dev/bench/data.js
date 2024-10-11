@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728663341092,
+  "lastUpdate": 1728669384101,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68ba5d443a79c06d972019abe39faaf851bb3247",
-          "message": "chore(bb.js): strip wasm-threads again (#8833)\n\nper community request, closes #941",
-          "timestamp": "2024-09-26T14:59:29-04:00",
-          "tree_id": "52510dbcb108b5e0cb59e2207755051fdb8c9f06",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/68ba5d443a79c06d972019abe39faaf851bb3247"
-        },
-        "date": 1727378930010,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 35545.45031699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 32994.146046 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5067.817661999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4642.186872000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 99927.02935000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 99927030000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14595.011742,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14595012000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8534346218,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8534346218 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 154415404,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 154415404 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6933373917,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6933373917 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125647041,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125647041 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126241974,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126241974 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "26f406b0591b3f88cb37c5e8f7cb3cbfc625315e",
+          "message": "feat: structured commit (#9027)\n\nAdds two new methods `commit_structured` and\r\n`commit_structured_with_nonzero_complement` designed to commit to wires\r\nand the permutation grand product, respectively. The first handles\r\npolynomials with islands of non-zero values by simply copying the\r\nnonzero inputs into contiguous memory using the known endpoints then\r\nusing the conventional `commit` method. The second assumes blocks of\r\narbitrary values interspersed with blocks of constant values (with the\r\nconstant differing between blocks), i.e. the form of z_perm in the\r\nstructured trace setting. This method uses `commit_structured` to\r\ncompute the contribution from the non-constant regions. The constant\r\nregion contribution is computed by first summing all points sharing a\r\nscalar using batched affine addition (implemented in new class\r\n`BatchedAfffineAddition`), then performing the MSM on the reduced result\r\nwith one mul per constant scalar.\r\n\r\nNote: The core affine addition logic used herein was adapted from my\r\nearlier work on the `MsmSorter` which had additional logic for sorting\r\npolynomials to arrange them in sequences to be added (but was not\r\nmultithreaded). There turns out not to be a use case for this, at least\r\nfor now. I've created an issue to either refactor that method to use the\r\nnew and improved logic in `BatchedAfffineAddition` or to simply delete\r\nit.\r\n\r\nThe relevant before and after number for ClientIvc (total savings\r\n~1.7s):\r\n\r\n```\r\nClientIVCBench/Full/6      33537 ms\r\nCOMMIT::wires(t)                 2217    43.65%\r\nCOMMIT::z_perm(t)                2304    45.36%\r\n```\r\n\r\n```\r\nClientIVCBench/Full/6      31802 ms\r\nCOMMIT::wires(t)                 1720    51.07%\r\nCOMMIT::z_perm(t)                1090    32.37%\r\n```",
+          "timestamp": "2024-10-11T10:25:59-07:00",
+          "tree_id": "2f6edd64a8a5a7be594b61aee365d6b392e867d8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/26f406b0591b3f88cb37c5e8f7cb3cbfc625315e"
+        },
+        "date": 1728669377427,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29524.255001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27581.414136000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5556.055346000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5266.7690379999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86992.54759500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86992549000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15623.592941000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15623593000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3380550931,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3380550931 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 150839000,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 150839000 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2755803694,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2755803694 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127113699,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127113699 ns\nthreads: 1"
           }
         ]
       }
