@@ -12,7 +12,7 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
-    memory.checkTags(this.inTag, aOffset, bOffset);
+    memory.checkTagsAreSame(aOffset, bOffset);
 
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);

@@ -276,7 +276,6 @@ mod tests {
     /**
      * asc
      */
-
     #[test]
     fn assert_split_sorted_transformed_value_array_asc_succeeds() {
         let builder = TestDataBuilder::new();
@@ -292,7 +291,6 @@ mod tests {
     /**
      * desc
      */
-
     #[test]
     fn assert_split_sorted_transformed_value_array_desc_succeeds() {
         let builder = TestDataBuilder::new_desc();
@@ -302,8 +300,7 @@ mod tests {
     /**
      * Failed cases.
      */
-
-    #[test(should_fail_with="mismatch number of values lt")]
+    #[test(should_fail_with = "mismatch number of values lt")]
     fn assert_split_sorted_transformed_value_array_asc_empty_extra_item_fails() {
         let mut builder = TestDataBuilder::empty();
 
@@ -312,7 +309,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch sorted values")]
+    #[test(should_fail_with = "mismatch sorted values")]
     fn assert_split_sorted_transformed_value_array_asc_lt_wrong_sorted_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -321,7 +318,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch sorted values")]
+    #[test(should_fail_with = "mismatch sorted values")]
     fn assert_split_sorted_transformed_value_array_asc_gte_wrong_sorted_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -333,7 +330,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter")]
+    #[test(should_fail_with = "value array must be sorted by counter")]
     fn assert_split_sorted_transformed_value_array_asc_gte_wrong_sorted_order_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -349,7 +346,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch counters")]
+    #[test(should_fail_with = "mismatch counters")]
     fn assert_split_sorted_transformed_value_array_asc_gte_wrong_counter_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -363,7 +360,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch sorted values")]
+    #[test(should_fail_with = "mismatch sorted values")]
     fn assert_split_sorted_transformed_value_array_asc_misplace_lt_to_gte_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -377,7 +374,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch number of values lt")]
+    #[test(should_fail_with = "mismatch number of values lt")]
     fn assert_split_sorted_transformed_value_array_asc_duplicate_lt_to_gte_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -388,7 +385,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="mismatch number of values gte")]
+    #[test(should_fail_with = "mismatch number of values gte")]
     fn assert_split_sorted_transformed_value_array_asc_gte_duplicate_items_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -399,7 +396,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter")]
+    #[test(should_fail_with = "value array must be sorted by counter")]
     fn assert_split_sorted_transformed_value_array_asc_multiple_zero_counter_items_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -410,7 +407,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="counters must not be the same")]
+    #[test(should_fail_with = "counters must not be the same")]
     fn assert_split_sorted_transformed_value_array_desc_multiple_zero_counter_items_fails() {
         let mut builder = TestDataBuilder::new_desc();
 
@@ -421,7 +418,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter")]
+    #[test(should_fail_with = "value array must be sorted by counter")]
     fn assert_split_sorted_transformed_value_array_asc_lt_empty_item_at_index_0_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -442,7 +439,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="invalid array")]
+    #[test(should_fail_with = "invalid array")]
     fn assert_split_sorted_transformed_value_array_asc_gte_empty_item_at_index_0_fails() {
         let mut builder = TestDataBuilder::new();
 

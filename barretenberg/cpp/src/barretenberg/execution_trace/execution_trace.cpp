@@ -105,6 +105,11 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.size());
 
+        // Save ranges over which the blocks are "active" for use in structured commitments
+        if constexpr (IsHonkFlavor<Flavor>) {
+            proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
+        }
+
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {

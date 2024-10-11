@@ -22,11 +22,6 @@ pub enum BlackBoxOp {
         message: HeapVector,
         output: HeapArray,
     },
-    /// Calculates the Keccak256 hash of the inputs.
-    Keccak256 {
-        message: HeapVector,
-        output: HeapArray,
-    },
     /// Keccak Permutation function of 1600 width
     Keccakf1600 {
         message: HeapVector,

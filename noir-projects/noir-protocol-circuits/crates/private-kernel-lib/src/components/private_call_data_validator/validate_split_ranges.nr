@@ -106,7 +106,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
     fn validate_split_ranges_less_than_last_non_revertible_fails() {
         let mut builder = TestBuilder::new();
 
@@ -119,7 +119,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
     fn validate_split_ranges_equal_last_non_revertible_fails() {
         let mut builder = TestBuilder::new();
 
@@ -131,7 +131,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
     fn validate_split_ranges_greater_than_first_revertible_fails() {
         let mut builder = TestBuilder::new();
 
@@ -156,7 +156,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
     fn validate_split_ranges_0_wrong_hint_fails() {
         let mut builder = TestBuilder::new();
 
@@ -169,7 +169,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
     fn validate_split_ranges_index_hint_greater_than_len_fails() {
         let mut builder = TestBuilder::new();
 

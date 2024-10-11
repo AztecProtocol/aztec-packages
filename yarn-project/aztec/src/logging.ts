@@ -1,4 +1,4 @@
-import { onLog, setLevel } from '@aztec/foundation/log';
+import { currentLevel, onLog, setLevel } from '@aztec/foundation/log';
 
 import * as path from 'path';
 import * as process from 'process';
@@ -55,7 +55,7 @@ function createWinstonJsonStdoutLogger(
     return info;
   });
   return winston.createLogger({
-    level: process.env.LOG_LEVEL ?? 'info',
+    level: currentLevel,
     transports: [
       new winston.transports.Console({
         format: format.combine(format.timestamp(), ignoreAztecPattern(), format.json()),
