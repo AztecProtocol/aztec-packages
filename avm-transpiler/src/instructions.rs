@@ -1,15 +1,10 @@
 use std::fmt::{self, Display};
 use std::fmt::{Debug, Formatter};
 
+use acvm::acir::brillig::MemoryAddress;
 use acvm::{AcirField, FieldElement};
 
 use crate::opcodes::AvmOpcode;
-
-/// Common values of the indirect instruction flag
-pub const ALL_DIRECT: u8 = 0b00000000;
-pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
-pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
-pub const SECOND_OPERAND_INDIRECT: u8 = 0b00000100;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
@@ -138,6 +133,51 @@ impl AvmOperand {
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::FF { value } => value.to_be_bytes(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct AddressingModeBuilder {
+    indirect: Vec<bool>,
+    relative: Vec<bool>,
+}
+
+impl AddressingModeBuilder {
+    pub(crate) fn direct_operand(mut self, address: &MemoryAddress) -> Self {
+        self.relative.push(address.is_relative());
+        self.indirect.push(false);
+
+        self
+    }
+
+    pub(crate) fn indirect_operand(mut self, address: &MemoryAddress) -> Self {
+        self.relative.push(address.is_relative());
+        self.indirect.push(true);
+
+        self
+    }
+
+    pub(crate) fn build(self) -> AvmOperand {
+        let num_operands = self.indirect.len();
+        assert!(num_operands <= 8, "Too many operands for building addressing mode bytes");
+
+        let mut result = 0;
+        for (i, (indirect, relative)) in
+            self.indirect.into_iter().zip(self.relative.into_iter()).enumerate()
+        {
+            if indirect {
+                result |= 1 << i;
+            }
+            if relative {
+                result |= 1 << (num_operands + i);
+            }
+        }
+
+        if num_operands <= 4 {
+            AvmOperand::U8 { value: result as u8 }
+        } else {
+            AvmOperand::U16 { value: result as u16 }
         }
     }
 }

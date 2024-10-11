@@ -79,9 +79,9 @@ fn inversion_brillig_oracle_equivalence() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: MemoryAddress::from(0),
-        rhs: MemoryAddress::from(1),
-        destination: MemoryAddress::from(2),
+        lhs: MemoryAddress::direct(0),
+        rhs: MemoryAddress::direct(1),
+        destination: MemoryAddress::direct(2),
     };
 
     let opcodes = vec![
@@ -125,27 +125,27 @@ fn inversion_brillig_oracle_equivalence() {
     let brillig_bytecode = BrilligBytecode {
         bytecode: vec![
             BrilligOpcode::Const {
-                destination: MemoryAddress(0),
+                destination: MemoryAddress::direct(0),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(2u64),
             },
             BrilligOpcode::Const {
-                destination: MemoryAddress(1),
+                destination: MemoryAddress::direct(1),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(0u64),
             },
             BrilligOpcode::CalldataCopy {
-                destination_address: MemoryAddress(0),
-                size_address: MemoryAddress(0),
-                offset_address: MemoryAddress(1),
+                destination_address: MemoryAddress::direct(0),
+                size_address: MemoryAddress::direct(0),
+                offset_address: MemoryAddress::direct(1),
             },
             equal_opcode,
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(1))],
                 destination_value_types: vec![HeapValueType::field()],
-                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(0))],
                 input_value_types: vec![HeapValueType::field()],
             },
             BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 3 },
@@ -218,9 +218,9 @@ fn double_inversion_brillig_oracle() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: MemoryAddress::from(0),
-        rhs: MemoryAddress::from(1),
-        destination: MemoryAddress::from(4),
+        lhs: MemoryAddress::direct(0),
+        rhs: MemoryAddress::direct(1),
+        destination: MemoryAddress::direct(4),
     };
 
     let opcodes = vec![
@@ -271,34 +271,34 @@ fn double_inversion_brillig_oracle() {
     let brillig_bytecode = BrilligBytecode {
         bytecode: vec![
             BrilligOpcode::Const {
-                destination: MemoryAddress(0),
+                destination: MemoryAddress::direct(0),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(3u64),
             },
             BrilligOpcode::Const {
-                destination: MemoryAddress(1),
+                destination: MemoryAddress::direct(1),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(0u64),
             },
             BrilligOpcode::CalldataCopy {
-                destination_address: MemoryAddress(0),
-                size_address: MemoryAddress(0),
-                offset_address: MemoryAddress(1),
+                destination_address: MemoryAddress::direct(0),
+                size_address: MemoryAddress::direct(0),
+                offset_address: MemoryAddress::direct(1),
             },
             equal_opcode,
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(1))],
                 destination_value_types: vec![HeapValueType::field()],
-                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(0))],
                 input_value_types: vec![HeapValueType::field()],
             },
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(3))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(3))],
                 destination_value_types: vec![HeapValueType::field()],
-                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(2))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(2))],
                 input_value_types: vec![HeapValueType::field()],
             },
             BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 5 },
@@ -389,32 +389,32 @@ fn oracle_dependent_execution() {
     let brillig_bytecode = BrilligBytecode {
         bytecode: vec![
             BrilligOpcode::Const {
-                destination: MemoryAddress(0),
+                destination: MemoryAddress::direct(0),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(3u64),
             },
             BrilligOpcode::Const {
-                destination: MemoryAddress(1),
+                destination: MemoryAddress::direct(1),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(0u64),
             },
             BrilligOpcode::CalldataCopy {
-                destination_address: MemoryAddress(0),
-                size_address: MemoryAddress(0),
-                offset_address: MemoryAddress(1),
+                destination_address: MemoryAddress::direct(0),
+                size_address: MemoryAddress::direct(0),
+                offset_address: MemoryAddress::direct(1),
             }, // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(1))],
                 destination_value_types: vec![HeapValueType::field()],
-                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(0))],
                 input_value_types: vec![HeapValueType::field()],
             },
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(3))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(3))],
                 destination_value_types: vec![HeapValueType::field()],
-                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(2))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(2))],
                 input_value_types: vec![HeapValueType::field()],
             },
             BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 4 },
@@ -522,35 +522,35 @@ fn brillig_oracle_predicate() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: MemoryAddress::from(0),
-        rhs: MemoryAddress::from(1),
-        destination: MemoryAddress::from(2),
+        lhs: MemoryAddress::direct(0),
+        rhs: MemoryAddress::direct(1),
+        destination: MemoryAddress::direct(2),
     };
 
     let brillig_bytecode = BrilligBytecode {
         bytecode: vec![
             BrilligOpcode::Const {
-                destination: MemoryAddress(0),
+                destination: MemoryAddress::direct(0),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(2u64),
             },
             BrilligOpcode::Const {
-                destination: MemoryAddress(1),
+                destination: MemoryAddress::direct(1),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(0u64),
             },
             BrilligOpcode::CalldataCopy {
-                destination_address: MemoryAddress(0),
-                size_address: MemoryAddress(0),
-                offset_address: MemoryAddress(1),
+                destination_address: MemoryAddress::direct(0),
+                size_address: MemoryAddress::direct(0),
+                offset_address: MemoryAddress::direct(1),
             },
             equal_opcode,
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(1))],
                 destination_value_types: vec![HeapValueType::field()],
-                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::direct(0))],
                 input_value_types: vec![HeapValueType::field()],
             },
         ],
@@ -649,23 +649,23 @@ fn unsatisfied_opcode_resolved_brillig() {
     let w_result = Witness(6);
 
     let calldata_copy_opcode = BrilligOpcode::CalldataCopy {
-        destination_address: MemoryAddress(0),
-        size_address: MemoryAddress(0),
-        offset_address: MemoryAddress(1),
+        destination_address: MemoryAddress::direct(0),
+        size_address: MemoryAddress::direct(0),
+        offset_address: MemoryAddress::direct(1),
     };
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: MemoryAddress::from(0),
-        rhs: MemoryAddress::from(1),
-        destination: MemoryAddress::from(2),
+        lhs: MemoryAddress::direct(0),
+        rhs: MemoryAddress::direct(1),
+        destination: MemoryAddress::direct(2),
     };
     // Jump pass the trap if the values are equal, else
     // jump to the trap
     let location_of_stop = 3;
 
     let jmp_if_opcode =
-        BrilligOpcode::JumpIf { condition: MemoryAddress::from(2), location: location_of_stop };
+        BrilligOpcode::JumpIf { condition: MemoryAddress::direct(2), location: location_of_stop };
 
     let trap_opcode = BrilligOpcode::Trap { revert_data: HeapArray::default() };
     let stop_opcode = BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 };
@@ -673,12 +673,12 @@ fn unsatisfied_opcode_resolved_brillig() {
     let brillig_bytecode = BrilligBytecode {
         bytecode: vec![
             BrilligOpcode::Const {
-                destination: MemoryAddress(0),
+                destination: MemoryAddress::direct(0),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(2u64),
             },
             BrilligOpcode::Const {
-                destination: MemoryAddress(1),
+                destination: MemoryAddress::direct(1),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
                 value: FieldElement::from(0u64),
             },

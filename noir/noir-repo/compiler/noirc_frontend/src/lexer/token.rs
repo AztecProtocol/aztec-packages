@@ -776,6 +776,7 @@ impl Attribute {
             ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["fold"] => Attribute::Function(FunctionAttribute::Fold),
             ["no_predicates"] => Attribute::Function(FunctionAttribute::NoPredicates),
+            ["inline_always"] => Attribute::Function(FunctionAttribute::InlineAlways),
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -836,6 +837,7 @@ pub enum FunctionAttribute {
     Recursive,
     Fold,
     NoPredicates,
+    InlineAlways,
 }
 
 impl FunctionAttribute {
@@ -883,6 +885,13 @@ impl FunctionAttribute {
         matches!(self, FunctionAttribute::NoPredicates)
     }
 
+    /// Check whether we have an `inline_always` attribute
+    /// This is used to indicate that a function should always be inlined
+    /// regardless of the target runtime.
+    pub fn is_inline_always(&self) -> bool {
+        matches!(self, FunctionAttribute::InlineAlways)
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             FunctionAttribute::Foreign(_) => "foreign",
@@ -892,6 +901,7 @@ impl FunctionAttribute {
             FunctionAttribute::Recursive => "recursive",
             FunctionAttribute::Fold => "fold",
             FunctionAttribute::NoPredicates => "no_predicates",
+            FunctionAttribute::InlineAlways => "inline_always",
         }
     }
 }
@@ -906,6 +916,7 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Recursive => write!(f, "#[recursive]"),
             FunctionAttribute::Fold => write!(f, "#[fold]"),
             FunctionAttribute::NoPredicates => write!(f, "#[no_predicates]"),
+            FunctionAttribute::InlineAlways => write!(f, "#[inline_always]"),
         }
     }
 }
@@ -1020,6 +1031,7 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Recursive => "",
             FunctionAttribute::Fold => "",
             FunctionAttribute::NoPredicates => "",
+            FunctionAttribute::InlineAlways => "",
         }
     }
 }

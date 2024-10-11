@@ -51,16 +51,17 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         computeSecretHash(secret), // secretHash
       );
 
-      await sendL2Message(message);
+      const actualMessage1Index = await sendL2Message(message);
 
       const [message1Index, _1] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message.hash(), 0n))!;
+      expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
       // Finally, we consume the L1 -> L2 message using the test contract either from private or public
       await consumeMethod(message.content, secret, message.sender.sender, message1Index).send().wait();
 
       // We send and consume the exact same message the second time to test that oracles correctly return the new
       // non-nullified message
-      await sendL2Message(message);
+      const actualMessage2Index = await sendL2Message(message);
 
       // We check that the duplicate message was correctly inserted by checking that its message index is defined and
       // larger than the previous message index
@@ -72,6 +73,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       expect(message2Index).toBeDefined();
       expect(message2Index).toBeGreaterThan(message1Index);
+      expect(actualMessage2Index.toBigInt()).toBe(message2Index);
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
@@ -81,7 +83,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   );
 
   const sendL2Message = async (message: L1ToL2Message) => {
-    const msgHash = await sendL1ToL2Message(message, crossChainTestHarness);
+    const [msgHash, globalLeafIndex] = await sendL1ToL2Message(message, crossChainTestHarness);
     await crossChainTestHarness.makeMessageConsumable(msgHash);
+    return globalLeafIndex;
   };
 });

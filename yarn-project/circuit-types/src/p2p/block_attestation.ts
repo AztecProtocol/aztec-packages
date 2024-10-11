@@ -1,7 +1,8 @@
-import { type EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
@@ -37,7 +38,11 @@ export class BlockAttestation extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockAttestationHash.fromField(this.payload.archive);
+    return new BlockAttestationHash(keccak256(this.signature.toBuffer()));
+  }
+
+  get archive(): Fr {
+    return this.payload.archive;
   }
 
   /**Get sender
