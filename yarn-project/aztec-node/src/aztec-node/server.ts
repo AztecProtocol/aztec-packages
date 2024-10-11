@@ -825,7 +825,6 @@ export class AztecNodeService implements AztecNode {
     return Promise.resolve();
   }
 
-
   /**
    * Returns an instance of MerkleTreeOperations having first ensured the world state is fully synched
    * @param blockNumber - The block number at which to get the data.
