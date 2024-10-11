@@ -944,9 +944,14 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
 
     Element result = pippenger_internal(points, scalars_, num_slice_points, state, handle_edge_cases);
     if (num_slice_points != num_initial_points) {
-        return result +
-               pippenger(
-                   scalars_.subspan(num_slice_points), points.subspan(num_slice_points * 2), state, handle_edge_cases);
+        auto remaining_span = scalars_;
+        if (num_slice_points <= scalars_.start_index) {
+            remaining_span.start_index -= num_slice_points;
+        } else {
+            remaining_span.start_index = 0;
+            remaining_span.span = scalars_.subspan(num_slice_points - scalars_.start_index).span;
+        }
+        return result + pippenger(remaining_span, points.subspan(num_slice_points * 2), state, handle_edge_cases);
     }
     return result;
 }
