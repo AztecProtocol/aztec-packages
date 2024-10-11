@@ -21,8 +21,16 @@ template <typename Fr> struct PolynomialSpan {
     size_t end_index() const { return start_index + size(); }
     Fr* data() { return span.data(); }
     size_t size() const { return span.size(); }
-    Fr& operator[](size_t index) { return span[index - start_index]; }
-    const Fr& operator[](size_t index) const { return span[index - start_index]; }
+    Fr& operator[](size_t index)
+    {
+        ASSERT(index >= start_index && index < end_index());
+        return span[index - start_index];
+    }
+    const Fr& operator[](size_t index) const
+    {
+        ASSERT(index >= start_index && index < end_index());
+        return span[index - start_index];
+    }
 };
 
 /**

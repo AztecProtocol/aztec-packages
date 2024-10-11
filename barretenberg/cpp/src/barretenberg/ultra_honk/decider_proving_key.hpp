@@ -32,6 +32,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
     using Trace = ExecutionTrace_<Flavor>;
 
+    // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
+    bool is_structured;
+
   public:
     ProvingKey proving_key;
 
@@ -45,14 +48,12 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     DeciderProvingKey_(Circuit& circuit,
                        TraceStructure trace_structure = TraceStructure::NONE,
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+        : is_structured(trace_structure != TraceStructure::NONE)
     {
         BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
         vinfo("creating decider proving key");
 
         circuit.finalize_circuit(/*ensure_nonzero=*/true);
-
-        // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
-        const bool is_structured = (trace_structure != TraceStructure::NONE);
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
@@ -313,6 +314,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
     DeciderProvingKey_() = default;
     ~DeciderProvingKey_() = default;
+
+    bool get_is_structured() { return is_structured; }
 
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
