@@ -33,7 +33,7 @@ describe('world-state integration', () => {
     log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
     ({ blocks, messages } = await mockBlocks(1, MAX_BLOCK_COUNT, 1, db));
     log.info(`Generated ${blocks.length} mock blocks`);
-  });
+  }, 30_000);
 
   beforeEach(async () => {
     config = {
