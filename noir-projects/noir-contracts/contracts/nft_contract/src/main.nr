@@ -143,7 +143,7 @@ contract NFT {
         let nft = NFT::at(context.this_address());
 
         // We prepare the transfer.
-        let hiding_point_slot = nft.prepare_transfer_to_private(to).call(&mut context);
+        let hiding_point_slot = nft._prepare_transfer_to_private(to).call(&mut context);
 
         // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
@@ -154,6 +154,17 @@ contract NFT {
     /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
     #[private]
     fn prepare_transfer_to_private(to: AztecAddress) -> Field {
+        NFT::at(context.this_address())._prepare_transfer_to_private(to).call(&mut context)
+    }
+
+    /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
+    /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
+    ///
+    /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
+    /// function.
+    #[private]
+    #[internal]
+    fn _prepare_transfer_to_private(to: AztecAddress) -> Field {
         let to_keys = get_public_keys(to);
         let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
