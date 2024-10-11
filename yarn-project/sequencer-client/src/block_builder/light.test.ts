@@ -28,11 +28,9 @@ import {
   RootParityInputs,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
-  type VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
@@ -50,7 +48,6 @@ import {
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
-  makeEmptyMembershipWitness,
 } from '@aztec/prover-client/helpers';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
