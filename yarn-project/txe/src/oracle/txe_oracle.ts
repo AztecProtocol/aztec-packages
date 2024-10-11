@@ -77,9 +77,6 @@ export class TXE implements TypedOracle {
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
-  // This will hold the _real_ calldata. That is, the one without the PublicContextInputs.
-  // TODO: Remove this comment once PublicContextInputs are removed.
-  private calldata: Fr[] = [];
 
   private contractDataOracle: ContractDataOracle;
 
@@ -126,16 +123,8 @@ export class TXE implements TypedOracle {
     return this.functionSelector;
   }
 
-  getCalldata() {
-    return this.calldata;
-  }
-
   setMsgSender(msgSender: Fr) {
     this.msgSender = msgSender;
-  }
-
-  setCalldata(calldata: Fr[]) {
-    this.calldata = calldata;
   }
 
   setFunctionSelector(functionSelector: FunctionSelector) {
@@ -206,27 +195,6 @@ export class TXE implements TypedOracle {
     inputs.startSideEffectCounter = sideEffectsCounter;
     inputs.callContext.functionSelector = this.functionSelector;
     return inputs;
-  }
-
-  async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
-    const nullifier = siloNullifier(targetAddress, innerNullifier!);
-    const db = await this.trees.getLatest();
-    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
-    return index !== undefined;
-  }
-
-  async avmOpcodeEmitNullifier(nullifier: Fr) {
-    const db = await this.trees.getLatest();
-    const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
-    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
-    return Promise.resolve();
-  }
-
-  async avmOpcodeEmitNoteHash(noteHash: Fr) {
-    const db = await this.trees.getLatest();
-    const siloedNoteHash = siloNoteHash(this.contractAddress, noteHash);
-    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
-    return Promise.resolve();
   }
 
   deriveKeys(secret: Fr) {
@@ -467,24 +435,6 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async avmOpcodeStorageRead(slot: Fr) {
-    const db = await this.trees.getLatest();
-
-    const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
-
-    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
-    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return Fr.ZERO;
-    }
-
-    const preimage = (await db.getLeafPreimage(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      lowLeafResult.index,
-    )) as PublicDataTreeLeafPreimage;
-
-    return preimage.value;
-  }
-
   async storageRead(
     contractAddress: Fr,
     startStorageSlot: Fr,
@@ -717,7 +667,6 @@ export class TXE implements TypedOracle {
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
-    this.setCalldata(args);
 
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;

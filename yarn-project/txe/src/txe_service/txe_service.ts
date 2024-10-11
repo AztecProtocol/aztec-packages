@@ -199,16 +199,6 @@ export class TXEService {
     ]);
   }
 
-  setMsgSender(msgSender: ForeignCallSingle) {
-    (this.typedOracle as TXE).setMsgSender(fromSingle(msgSender));
-    return toForeignCallResult([]);
-  }
-
-  getMsgSender() {
-    const msgSender = (this.typedOracle as TXE).getMsgSender();
-    return toForeignCallResult([toSingle(msgSender)]);
-  }
-
   getSideEffectsCounter() {
     const counter = (this.typedOracle as TXE).getSideEffectsCounter();
     return toForeignCallResult([toSingle(new Fr(counter))]);
@@ -239,21 +229,6 @@ export class TXEService {
     }
 
     return toForeignCallResult([]);
-  }
-
-  setFunctionSelector(functionSelector: ForeignCallSingle) {
-    (this.typedOracle as TXE).setFunctionSelector(FunctionSelector.fromField(fromSingle(functionSelector)));
-    return toForeignCallResult([]);
-  }
-
-  setCalldata(_length: ForeignCallSingle, calldata: ForeignCallArray) {
-    (this.typedOracle as TXE).setCalldata(fromArray(calldata));
-    return toForeignCallResult([]);
-  }
-
-  getFunctionSelector() {
-    const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
-    return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
   // PXE oracles
@@ -457,42 +432,6 @@ export class TXEService {
     ]);
   }
 
-  async avmOpcodeCall(
-    _gas: ForeignCallArray,
-    address: ForeignCallSingle,
-    _length: ForeignCallSingle,
-    args: ForeignCallArray,
-    functionSelector: ForeignCallSingle,
-  ) {
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(
-      fromSingle(address),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
-      fromArray(args),
-      /* isStaticCall */ false,
-      /* isDelegateCall */ false,
-    );
-
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
-  }
-
-  async avmOpcodeStaticCall(
-    _gas: ForeignCallArray,
-    address: ForeignCallSingle,
-    _length: ForeignCallSingle,
-    args: ForeignCallArray,
-    functionSelector: ForeignCallSingle,
-  ) {
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(
-      fromSingle(address),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
-      fromArray(args),
-      /* isStaticCall */ true,
-      /* isDelegateCall */ false,
-    );
-
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
-  }
-
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {
     const parsedAddress = AztecAddress.fromField(fromSingle(address));
     const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
@@ -649,5 +588,43 @@ export class TXEService {
   emitUnencryptedLog(_contractAddress: ForeignCallSingle, _message: ForeignCallArray, _counter: ForeignCallSingle) {
     // TODO(#8811): Implement
     return toForeignCallResult([]);
+  }
+
+  // AVM oracles (only to perform calls directly from the tests)
+
+  async avmOpcodeCall(
+    _gas: ForeignCallArray,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    args: ForeignCallArray,
+    functionSelector: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(
+      fromSingle(address),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromArray(args),
+      /* isStaticCall */ false,
+      /* isDelegateCall */ false,
+    );
+
+    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
+  }
+
+  async avmOpcodeStaticCall(
+    _gas: ForeignCallArray,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    args: ForeignCallArray,
+    functionSelector: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(
+      fromSingle(address),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromArray(args),
+      /* isStaticCall */ true,
+      /* isDelegateCall */ false,
+    );
+
+    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
   }
 }

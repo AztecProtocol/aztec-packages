@@ -4,7 +4,7 @@ use crate::context::inputs::PrivateContextInputs;
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
+use crate::test::helpers::{cheatcodes, utils::Deployer};
 use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
