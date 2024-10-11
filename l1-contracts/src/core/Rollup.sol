@@ -315,12 +315,16 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   {
     Slot slot = getSlotAt(_ts);
 
-    Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
+    // Consider if a prune will hit in this slot
+    bool willPrune = _canPruneAt(_ts);
+    uint256 pendingBlockNumber = willPrune ? tips.provenBlockNumber : tips.pendingBlockNumber;
+
+    Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    // Make sure that the proposer is up to date
-    bytes32 tipArchive = archive();
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     SignatureLib.Signature[] memory sigs = new SignatureLib.Signature[](0);
@@ -328,7 +332,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
     _validateLeonidas(slot, sigs, _archive, flags);
 
-    return (slot, tips.pendingBlockNumber + 1);
+    return (slot, pendingBlockNumber + 1);
   }
 
   /**
@@ -734,6 +738,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   function canPrune() public view returns (bool) {
+    return _canPruneAt(Timestamp.wrap(block.timestamp));
+  }
+
+  function _canPruneAt(Timestamp _ts) internal view returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
@@ -741,7 +749,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       return false;
     }
 
-    Slot currentSlot = getCurrentSlot();
+    Slot currentSlot = getSlotAt(_ts);
     Epoch oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
     Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
 
