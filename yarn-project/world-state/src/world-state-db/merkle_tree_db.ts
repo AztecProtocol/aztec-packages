@@ -3,6 +3,8 @@ import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
+import { type WorldStateStatus } from '../native/message.js';
+
 /**
  *
  * @remarks Short explanation:
@@ -30,18 +32,13 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-/** Return type for handleL2BlockAndMessages */
-export type HandleL2BlockAndMessagesResult = {
-  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
-};
-
 export interface MerkleTreeAdminDatabase {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus>;
 
   /**
    * Gets a handle that allows reading the latest committed state
@@ -59,11 +56,6 @@ export interface MerkleTreeAdminDatabase {
    * @param blockNumber - The block number to fork at. If not provided, the current block number is used.
    */
   fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
-
-  /**
-   * Forks the database at the given block number.
-   */
-  fork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
 
   /** Stops the database */
   close(): Promise<void>;
