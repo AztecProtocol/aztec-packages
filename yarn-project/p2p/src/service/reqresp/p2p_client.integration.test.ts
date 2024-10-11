@@ -1,5 +1,5 @@
 // An integration test for the p2p client to test req resp protocols
-import { MockBlockSource } from '@aztec/archiver/test';
+import { MockL2BlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -49,7 +49,7 @@ describe('Req Resp p2p client integration', () => {
   let txPool: Mockify<TxPool>;
   let attestationPool: Mockify<AttestationPool>;
   let epochProofQuotePool: Mockify<EpochProofQuotePool>;
-  let blockSource: MockBlockSource;
+  let blockSource: MockL2BlockSource;
   let kvStore: AztecKVStore;
   let worldStateSynchronizer: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
@@ -142,7 +142,9 @@ describe('Req Resp p2p client integration', () => {
         deleteQuotesToEpoch: jest.fn(),
       };
 
-      blockSource = new MockBlockSource();
+      blockSource = new MockL2BlockSource();
+      blockSource.createBlocks(100);
+
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();
       const deps = {

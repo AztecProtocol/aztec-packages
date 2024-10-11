@@ -59,15 +59,15 @@ function test() {
   cd $1
 
   set +e
-  start=$(date +%s%3N)
+  start=$SECONDS
   $FLOW_SCRIPT
   result=$?
-  end=$(date +%s%3N)
+  end=$SECONDS
   duration=$((end - start))
   set -eu
 
   if [ $result -eq 0 ]; then
-    echo -e "\033[32mPASSED\033[0m ($duration ms)"
+    echo -e "\033[32mPASSED\033[0m ($duration s)"
   else
     echo -e "\033[31mFAILED\033[0m"
     touch "$error_file"

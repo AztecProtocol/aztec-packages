@@ -11,6 +11,7 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 
@@ -169,7 +170,7 @@ export interface P2P {
 /**
  * The P2P client implementation.
  */
-export class P2PClient implements P2P {
+export class P2PClient extends WithTracer implements P2P {
   /** L2 block download to stay in sync with latest blocks. */
   private latestBlockDownloader: L2BlockDownloader;
 
@@ -210,8 +211,11 @@ export class P2PClient implements P2P {
     mempools: MemPools,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
+    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:p2p'),
   ) {
+    super(telemetryClient, 'P2PClient');
+
     const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
     // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
@@ -318,6 +322,12 @@ export class P2PClient implements P2P {
     this.log.info('P2P client stopped.');
   }
 
+  @trackSpan('p2pClient.broadcastProposal', proposal => ({
+    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
+    [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
+  }))
   public broadcastProposal(proposal: BlockProposal): void {
     this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
     return this.p2pService.propagate(proposal);

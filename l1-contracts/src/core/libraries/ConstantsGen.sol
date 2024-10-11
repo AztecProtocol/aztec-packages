@@ -95,9 +95,10 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 36;
-  uint256 internal constant AZTEC_EPOCH_DURATION = 48;
+  uint256 internal constant AZTEC_SLOT_DURATION = 24;
+  uint256 internal constant AZTEC_EPOCH_DURATION = 16;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
+  uint256 internal constant AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS = 13;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     8142738430000951296386584486068033372964809139261822027365426310856631083550;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
@@ -117,6 +118,7 @@ library Constants {
     14061769416655647708490531650437236735160113654556896985372298487345;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 100000000;
+  uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 6000000;
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DEFAULT_INCLUSION_FEE = 0;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
@@ -210,8 +212,8 @@ library Constants {
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 664;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 30;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 124;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 108;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 60;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 44;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

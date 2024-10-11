@@ -4,9 +4,11 @@ import {
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockId,
   type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
+  type L2Tips,
   type LogFilter,
   type LogType,
   type TxEffect,
@@ -317,6 +319,7 @@ export class Archiver implements ArchiveSource {
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.
@@ -652,6 +655,32 @@ export class Archiver implements ArchiveSource {
 
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
+  }
+
+  async getL2Tips(): Promise<L2Tips> {
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getBlockNumber(),
+      this.getProvenBlockNumber(),
+    ] as const);
+
+    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
+      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+    ] as const);
+
+    if (latestBlockNumber > 0 && !latestBlockHeader) {
+      throw new Error('Failed to retrieve latest block header');
+    }
+
+    if (provenBlockNumber > 0 && !provenBlockHeader) {
+      throw new Error('Failed to retrieve proven block header');
+    }
+
+    return {
+      latest: { number: latestBlockNumber, hash: latestBlockHeader?.hash().toString() } as L2BlockId,
+      proven: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+      finalized: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+    };
   }
 }
 

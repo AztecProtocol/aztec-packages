@@ -3,6 +3,8 @@ import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
+import { type WorldStateStatus } from '../native/message.js';
+
 /**
  *
  * @remarks Short explanation:
@@ -30,18 +32,13 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-/** Return type for handleL2BlockAndMessages */
-export type HandleL2BlockAndMessagesResult = {
-  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
-};
-
 export interface MerkleTreeAdminDatabase {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus>;
 
   /**
    * Gets a handle that allows reading the latest committed state
@@ -61,9 +58,31 @@ export interface MerkleTreeAdminDatabase {
   fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
 
   /**
-   * Forks the database at the given block number.
+   * Removes all historical snapshots up to but not including the given block number
+   * @param toBlockNumber The block number of the new oldest historical block
+   * @returns The new WorldStateStatus
    */
-  fork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
+  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Removes all pending blocks down to but not including the given block number
+   * @param toBlockNumber The block number of the new tip of the pending chain,
+   * @returns The new WorldStateStatus
+   */
+  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Advances the finalised block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * @returns The new WorldStateStatus
+   */
+  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Gets the current status of the database.
+   * @returns The current WorldStateStatus.
+   */
+  getStatus(): Promise<WorldStateStatus>;
 
   /** Stops the database */
   close(): Promise<void>;

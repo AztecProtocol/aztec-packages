@@ -47,6 +47,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
         BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
+        vinfo("creating decider proving key");
+
         circuit.finalize_circuit(/*ensure_nonzero=*/true);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
@@ -76,6 +78,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
             ZoneScopedN("constructing proving key");
 #endif
+            vinfo("constructing proving key");
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             if (IsGoblinFlavor<Flavor> && !is_structured) {
                 // Allocate full size polynomials
@@ -86,6 +89,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating wires");
 #endif
+                    vinfo("allocating wires");
                     for (auto& wire : proving_key.polynomials.get_wires()) {
                         wire = Polynomial::shiftable(proving_key.circuit_size);
                     }
@@ -94,6 +98,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating gate selectors");
 #endif
+                    vinfo("allocating gate selectors");
                     // Define gate selectors over the block they are isolated to
                     for (auto [selector, block] :
                          zip_view(proving_key.polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
@@ -116,6 +121,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating non-gate selectors");
 #endif
+                    vinfo("allocating non-gate selectors");
                     // Set the other non-gate selector polynomials to full size
                     for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
                         selector = Polynomial(proving_key.circuit_size);
@@ -125,6 +131,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating ecc op wires and selector");
 #endif
+                    vinfo("allocating ecc op wires and selector");
                     // Allocate the ecc op wires and selector
                     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
                     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
@@ -164,6 +171,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating table polynomials");
 #endif
+                    vinfo("allocating table polynomials");
                     ASSERT(dyadic_circuit_size > max_tables_size);
 
                     // Allocate the table polynomials
@@ -177,6 +185,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating sigmas and ids");
 #endif
+                    vinfo("allocating sigmas and ids");
                     for (auto& sigma : proving_key.polynomials.get_sigmas()) {
                         sigma = typename Flavor::Polynomial(proving_key.circuit_size);
                     }
@@ -187,6 +196,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
+                    vinfo("allocating lookup read counts and tags");
                     proving_key.polynomials.lookup_read_counts =
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
@@ -195,6 +205,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
                     // Allocate the lookup_inverses polynomial
+                    vinfo("allocating lookup and databus inverses");
                     const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
                     // at top of trace
@@ -224,6 +235,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("constructing z_perm");
 #endif
+                    vinfo("constructing z_perm");
                     // Allocate the z_perm polynomial
                     proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
                 }
@@ -232,6 +244,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
                     ZoneScopedN("allocating lagrange polynomials");
 #endif
+                    vinfo("allocating lagrange polynomials");
                     // First and last lagrange polynomials (in the full circuit size)
                     proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
                     proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, dyadic_circuit_size - 1);
@@ -248,12 +261,14 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
         ZoneScopedN("constructing prover instance after trace populate");
 #endif
+        vinfo("constructing prover instance after trace populate");
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
 #ifdef TRACY_MEMORY
             ZoneScopedN("constructing databus polynomials");
 #endif
+            vinfo("constructing databus polynomials");
             construct_databus_polynomials(circuit);
         }
 
@@ -265,6 +280,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
             ZoneScopedN("constructing lookup table polynomials");
 #endif
+            vinfo("constructing lookup table polynomials");
             construct_lookup_table_polynomials<Flavor>(
                 proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
         }
@@ -273,6 +289,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 #ifdef TRACY_MEMORY
             ZoneScopedN("constructing lookup read counts");
 #endif
+            vinfo("constructing lookup read counts");
             construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
                                                  proving_key.polynomials.lookup_read_tags,
                                                  circuit,

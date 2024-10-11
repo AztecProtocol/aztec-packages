@@ -16,17 +16,17 @@ describe('Conversion Opcodes', () => {
       const buf = Buffer.from([
         ToRadixLE.opcode, // opcode
         1, // indirect
-        ...Buffer.from('12345678', 'hex'), // inputStateOffset
-        ...Buffer.from('23456789', 'hex'), // outputStateOffset
-        ...Buffer.from('3456789A', 'hex'), // radixOffset
-        ...Buffer.from('00000100', 'hex'), // numLimbs
+        ...Buffer.from('1234', 'hex'), // inputStateOffset
+        ...Buffer.from('2345', 'hex'), // outputStateOffset
+        ...Buffer.from('3456', 'hex'), // radixOffset
+        ...Buffer.from('0100', 'hex'), // numLimbs
         ...Buffer.from('01', 'hex'), // outputBits
       ]);
       const inst = new ToRadixLE(
         /*indirect=*/ 1,
-        /*srcOffset=*/ 0x12345678,
-        /*dstOffset=*/ 0x23456789,
-        /*radixOffset=*/ 0x3456789a,
+        /*srcOffset=*/ 0x1234,
+        /*dstOffset=*/ 0x2345,
+        /*radixOffset=*/ 0x3456,
         /*numLimbs=*/ 256,
         /*outputBits=*/ 1,
       );
