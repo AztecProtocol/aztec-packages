@@ -445,7 +445,7 @@ describe('e2e_block_building', () => {
       // Now move to a new epoch and past the proof claim window
       logger.info('Advancing past the proof claim window');
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 5); // off-by-one?
+      await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 1); // off-by-one?
 
       // Await (sequencer should wait here, not us)
       await sleep(5000);
