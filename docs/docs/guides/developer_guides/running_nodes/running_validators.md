@@ -17,32 +17,41 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 
 ## Table of Contents
 
-1. [Port Forwarding](#port-forwarding)
+1. [Hardware Requirements](#hardware-requirements)
+2. [Port Forwarding](#port-forwarding)
    - Understanding Port Forwarding
    - When Port Forwarding Is Not Possible
-2. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
+3. [Setting Up on Ubuntu 24 (x64)](#setting-up-on-ubuntu-24-x64)
    - Updating the System
    - Installing Docker
    - Starting Docker Service
    - Cloning the Aztec Packages Repository
    - Running the Setup Script
-3. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
+4. [Setting Up on Other Operating Systems](#setting-up-on-other-operating-systems)
    - macOS
    - Windows
-4. [Configuring Helm Install](#configuring-helm-install)
+5. [Configuring Helm Install](#configuring-helm-install)
    - Setting Ports
    - Adding Ethereum Validator Private Keys
    - How Validators Are Chosen
    - Recording Validators into the Rollup Contract
-5. [Overview of Prover Nodes](#overview-of-prover-nodes)
+6. [Overview of Prover Nodes](#overview-of-prover-nodes)
    - Role of Prover Nodes
    - Prover Bond
    - Consensus Participation
-6. [Additional Background](#additional-background)
-7. [Conclusion](#conclusion)
-8. [References](#references)
+7. [Additional Background](#additional-background)
+8. [Conclusion](#conclusion)
+9. [References](#references)
 
 ---
+
+## Hardware Requirements
+| 🖥️          | Minimum       | Recommended    |
+|-------------|---------------|----------------|
+| **CPU**     | 16 cores      | 32 cores       |
+| **Network** | 32 mb/s       | 128 mb/s       |
+| **Storage** | 3 TB          | 5 ATB           |
+| **RAM**     | 32 GB         | 64 GB          |
 
 ## Port Forwarding
 
@@ -102,23 +111,7 @@ git clone https://github.com/AztecProtocol/aztec-packages
 
 ### Running the Setup Script
 
-Navigate to the cloned repository and run the setup script:
-
-```bash
-cd aztec-packages
-./setup_script.sh
-```
-
-**Note**: The setup script installs Kubernetes (`k8s`), Kind, and Helm. It currently supports only Ubuntu 24 with x64 architecture.
-
-**Fill in Missing Details**:
-
-- Ensure that you have executable permissions for the script:
-  ```bash
-  chmod +x setup_script.sh
-  ```
-- The script may prompt for administrative privileges; enter your password when required.
-- If you encounter errors, verify that all dependencies are installed and your system meets the hardware requirements.
+TODO
 
 ## Setting Up on Other Operating Systems
 

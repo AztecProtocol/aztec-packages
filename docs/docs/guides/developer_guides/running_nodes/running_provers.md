@@ -9,14 +9,6 @@ For the current state of design please see the RFC at https://forum.aztec.networ
 
 Prover nodes play a critical role in the Aztec network by generating zero-knowledge proofs (ZKPs) that finalize blocks on the Proven Chain.
 
-### Hardware Requirements
-| 🖥️          | Minimum       | Recommended    |
-|-------------|---------------|----------------|
-| **CPU**     | 16 cores      | 32 cores       |
-| **Network** | 32 mb/s       | 128 mb/s       |
-| **Storage** | 3 TB          | 5 TB           |
-| **RAM**     | 32 GB         | 64 GB          |
-
 ### Role of Prover Nodes
 
 - **Proof Generation**: Provers generate zero-knowledge proofs for entire epochs, ensuring the validity of transactions and state transitions. These are verified by the solidity rollup smart contract on Ethereum.
