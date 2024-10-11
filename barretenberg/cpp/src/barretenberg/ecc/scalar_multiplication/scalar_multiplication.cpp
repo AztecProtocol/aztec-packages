@@ -228,10 +228,6 @@ void compute_wnaf_states(uint64_t* point_schedule,
         const uint64_t point_offset = i * num_points_per_thread;
         const size_t scalar_offset = i * num_initial_points_per_thread;
 
-        // How many defined scalars are there?
-        const size_t defined_extent = std::min(scalar_offset + num_initial_points_per_thread, scalars.size());
-        const size_t defined_scalars = defined_extent > scalar_offset ? defined_extent - scalar_offset : 0;
-
         auto wnaf_first_half = [&](const uint64_t* scalar, size_t j) {
             wnaf::fixed_wnaf_with_counts(scalar,
                                          &wnaf_table[j * 2],
@@ -250,14 +246,30 @@ void compute_wnaf_states(uint64_t* point_schedule,
                                          num_points,
                                          wnaf_bits);
         };
-        for (size_t j = 0; j < defined_scalars; j++) {
+
+        // How many defined scalars are there?
+        const size_t defined_left_endpoint =
+            scalars_.start_index > scalar_offset
+                ? std::min(scalars_.start_index - scalar_offset, num_initial_points_per_thread)
+                : 0;
+        const size_t defined_extent =
+            std::min(scalar_offset + num_initial_points_per_thread, scalars_.start_index + scalars.size());
+        const size_t defined_right_endpoint = defined_extent > scalar_offset ? defined_extent - scalar_offset : 0;
+
+        for (size_t j = 0; j < defined_left_endpoint; j++) {
+            // If we are trying to use a non-power-of-2
+            static const uint64_t PADDING_ZEROES[] = { 0, 0 };
+            wnaf_first_half(PADDING_ZEROES, j);
+            wnaf_second_half(PADDING_ZEROES, j);
+        }
+        for (size_t j = defined_left_endpoint; j < defined_right_endpoint; j++) {
             Fr T0 = scalars[scalar_offset + j].from_montgomery_form();
             Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
 
             wnaf_first_half(&T0.data[0], j);
             wnaf_second_half(&T0.data[2], j);
         }
-        for (size_t j = defined_scalars; j < num_initial_points_per_thread; j++) {
+        for (size_t j = defined_right_endpoint; j < num_initial_points_per_thread; j++) {
             // If we are trying to use a non-power-of-2
             static const uint64_t PADDING_ZEROES[] = { 0, 0 };
             wnaf_first_half(PADDING_ZEROES, j);

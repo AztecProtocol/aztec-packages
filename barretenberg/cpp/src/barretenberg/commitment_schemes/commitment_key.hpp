@@ -85,7 +85,11 @@ template <class Curve> class CommitmentKey {
     {
         BB_OP_COUNT_TIME();
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
-        const size_t consumed_srs = numeric::round_up_power_2(polynomial.size()) + polynomial.start_index;
+        // just pick a starting index so that it doesn't go over the dyadic_circuit_size
+        size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
+        size_t new_start_index =
+            polynomial.end_index() > dyadic_poly_size ? polynomial.end_index() - dyadic_poly_size : 0;
+        const size_t consumed_srs = new_start_index + dyadic_poly_size;
         auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
         // We only need the
         if (consumed_srs > srs->get_monomial_size()) {
@@ -98,10 +102,11 @@ template <class Curve> class CommitmentKey {
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
-        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+
+        std::span<G1> point_table = srs->get_monomial_points().subspan(new_start_index * 2);
         DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            { 0, polynomial.span }, point_table, pippenger_runtime_state);
+            { new_start_index, polynomial.span }, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
         return point;
     };
