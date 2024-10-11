@@ -4,15 +4,15 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
+
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   type ContractClassPublic,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
-
-import { SchnorrSignature } from '../barretenberg/index.js';
+} from '../contract/index.js';
 import {
   ARCHIVE_HEIGHT,
   AZTEC_EPOCH_DURATION,

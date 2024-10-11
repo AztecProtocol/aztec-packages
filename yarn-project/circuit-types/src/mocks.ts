@@ -2,6 +2,7 @@ import {
   AztecAddress,
   CallContext,
   ClientIvcProof,
+  type ContractInstanceWithAddress,
   EthAddress,
   GasSettings,
   LogHash,
@@ -16,6 +17,7 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedDataBuilder,
   ScopedLogHash,
+  SerializableContractInstance,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
@@ -32,7 +34,6 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';

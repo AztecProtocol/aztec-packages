@@ -8,8 +8,11 @@ import {
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
+  type ContractClassPublic,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
   Fr,
   FunctionSelector,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -27,11 +30,6 @@ import {
   type PublicContractsDB,
   type PublicStateDB,
 } from '@aztec/simulator';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-} from '@aztec/types/contracts';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
