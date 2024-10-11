@@ -456,15 +456,17 @@ describe('e2e_block_building', () => {
       const pxeServiceConfig = { ...getPXEServiceConfig() };
       const newPxe = await createPXEService(aztecNode, pxeServiceConfig);
       const newWallet = await createAccount(newPxe);
-      const contractFromNewPxe = await StatefulTestContract.at(contract.address, newWallet);
+      expect(await pxe.getBlockNumber()).toEqual(initialBlockNumber + 1);
+
       // TODO: Contract.at should automatically register the instance in the pxe
-      logger.info(`Registering contract at ${contractFromNewPxe.address} in new pxe`);
-      await newPxe.registerContract({ instance: contractFromNewPxe.instance, artifact: StatefulTestContractArtifact });
+      logger.info(`Registering contract at ${contract.address} in new pxe`);
+      await newPxe.registerContract({ instance: contract.instance, artifact: StatefulTestContractArtifact });
+      const contractFromNewPxe = await StatefulTestContract.at(contract.address, newWallet);
 
       logger.info('Sending new tx on reorgd chain');
       const tx2 = await contractFromNewPxe.methods.increment_public_value(ownerAddress, 10).send().wait();
       expect(await contractFromNewPxe.methods.get_public_value(ownerAddress).simulate()).toEqual(10n);
-      expect(tx2.blockNumber).toEqual(initialBlockNumber + 1);
+      expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
     });
   });
 });

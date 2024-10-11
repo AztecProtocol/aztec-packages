@@ -3,7 +3,6 @@ import {
   type EpochProofQuote,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockId,
   type L2BlockSource,
   type ProcessedTx,
   Tx,
