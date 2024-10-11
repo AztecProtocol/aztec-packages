@@ -21,6 +21,31 @@ spec:
       # We expect the validators to have already been added to the smart contract by this point - but this container still needs
       # to be run in order to get the values
       initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
+
         - name: configure-validator-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
@@ -50,7 +75,7 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
+            - "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
