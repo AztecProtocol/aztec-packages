@@ -19,13 +19,13 @@ PRESET=${PRESET:-tracy-time-instrumented}
 
 ssh $BOX "
 	set -eux ;
-	cd ~/aztec-packages/barretenberg/cpp/ ;
-	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
 	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
 	cd ~/tracy/capture ;
         git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 ;
 	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev libtbb-dev libfreetype-dev ;
 	mkdir -p build && cd build && cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
+	cd ~/aztec-packages/barretenberg/cpp/ ;
+	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
 	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
 	sleep 0.1 ;
 	cd ~/aztec-packages/barretenberg/cpp/build-$PRESET ;
