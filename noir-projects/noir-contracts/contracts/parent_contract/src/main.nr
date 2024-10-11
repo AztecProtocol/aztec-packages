@@ -246,13 +246,16 @@ contract Parent {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account();
+        // Deploy parent contract
+        let parent_contract = env.deploy_self("Parent").without_initializer();
+        let parent_contract_address = parent_contract.to_address();
         // Deploy child contract
         let child_contract = env.deploy("./@child_contract", "Child").without_initializer();
         let child_contract_address = child_contract.to_address();
         cheatcodes::advance_blocks_by(1);
         // Set value in child through parent
         let value_to_set = 7;
-        let result = Parent::interface().private_call(
+        let result = Parent::at(parent_contract_address).private_call(
             child_contract_address,
             comptime {
             FunctionSelector::from_signature("private_set_value(Field,(Field))")
@@ -270,7 +273,7 @@ contract Parent {
         assert(note_value == value_to_set);
         assert(note_value == result);
         // Get value from child through parent
-        let read_result = Parent::interface().private_call(
+        let read_result = Parent::at(parent_contract_address).private_call(
             child_contract_address,
             comptime {
             FunctionSelector::from_signature("private_get_value(Field,(Field))")

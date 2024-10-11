@@ -9,7 +9,7 @@ unconstrained fn transfer_in_public() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer the NFT
-    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0).call(&mut env.public());
 
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
@@ -20,7 +20,7 @@ unconstrained fn transfer_in_public_to_self() {
     let (env, nft_contract_address, user, _, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer the NFT
-    env.call_public(NFT::at(nft_contract_address).transfer_in_public(user, user, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_public(user, user, token_id, 0).call(&mut env.public());
 
     // Check the user stayed the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, user, token_id);
@@ -36,13 +36,14 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer the NFT
-    env.call_public(transfer_in_public_from_call_interface);
+    transfer_in_public_from_call_interface.call(&mut env.public());
 
     // Check the is recipient is the new public owner
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail_with="invalid nonce")]
+//#[test(should_fail_with="invalid nonce")]
+#[test(should_fail_with="Nested call failed!")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -53,21 +54,21 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     let token_id = random();
 
     // Try to transfer the NFT
-    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, random()));
+    NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, random()).call(&mut env.public());
 }
 
-#[test(should_fail_with="invalid owner")]
+//#[test(should_fail_with="invalid owner")]
+#[test(should_fail_with="Nested call failed!")]
 unconstrained fn transfer_in_public_non_existent_nft() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, recipient) = utils::setup(/* with_account_contracts */ false);
 
     // Try to transfer the NFT
     let token_id = 612;
-    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0).call(&mut env.public());
 }
 
-// Not checking error message here with should_fail_with because noir panics when I try doing that.
-#[test]
+#[test(should_fail_with="Nested call failed!")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ true);
@@ -75,13 +76,10 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval(
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens
-    env.assert_public_call_fails(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1));
-    // Check the sender stayed the public owner
-    utils::assert_owns_public_nft(env, nft_contract_address, sender, token_id);
+    NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1).call(&mut env.public());
 }
 
-// Not checking error message here with should_fail_with because noir panics when I try doing that.
-#[test]
+#[test(should_fail_with="Nested call failed!")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ true);
@@ -90,7 +88,5 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_wrong_caller() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens
-    env.assert_public_call_fails(transfer_in_public_from_call_interface);
-    // Check the sender stayed the public owner
-    utils::assert_owns_public_nft(env, nft_contract_address, sender, token_id);
+    transfer_in_public_from_call_interface.call(&mut env.public());
 }

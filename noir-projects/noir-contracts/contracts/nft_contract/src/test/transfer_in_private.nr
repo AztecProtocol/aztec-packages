@@ -10,7 +10,7 @@ unconstrained fn transfer_in_private() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT to the recipient
-    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 0).call(&mut env.private());
 
     // Recipient should have the note in their private nfts
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
@@ -22,7 +22,7 @@ unconstrained fn transfer_in_private_to_self() {
     let (env, nft_contract_address, owner, _, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT back to the owner
-    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(owner, owner, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_private(owner, owner, token_id, 0).call(&mut env.private());
 
     // NFT owner should stay the same
     utils::assert_owns_private_nft(nft_contract_address, owner, token_id);
@@ -35,7 +35,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
     let not_deployed = cheatcodes::create_account();
 
     // Transfer the NFT to the recipient
-    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, not_deployed.address, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_private(sender, not_deployed.address, token_id, 0).call(&mut env.private());
 
     // Owner of the private NFT should be the not_deployed account
     utils::assert_owns_private_nft(nft_contract_address, not_deployed.address, token_id);
@@ -53,7 +53,7 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer the NFT to the recipient
-    env.call_private_void(transfer_in_private_call_interface);
+    transfer_in_private_call_interface.call(&mut env.private());
 
     // Recipient should be the private NFT owner
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
@@ -65,7 +65,7 @@ unconstrained fn transfer_in_private_failure_not_an_owner() {
     let (env, nft_contract_address, owner, not_owner, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
     // Try transferring the NFT from not_owner
     env.impersonate(not_owner);
-    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0));
+    NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0).call(&mut env.private());
 }
 
 #[test(should_fail_with="invalid nonce")]
@@ -79,7 +79,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() 
     let token_id = random();
 
     // Try transferring the NFT
-    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1));
+    NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1).call(&mut env.private());
 }
 
 #[test(should_fail_with="Authorization not found for message hash")]
@@ -95,7 +95,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try transferring the NFT
-    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1));
+    NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1).call(&mut env.private());
 }
 
 #[test(should_fail_with="Authorization not found for message hash")]
@@ -113,5 +113,5 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try transferring the NFT
-    env.call_private_void(transfer_in_private_from_call_interface);
+    transfer_in_private_from_call_interface.call(&mut env.private());
 }

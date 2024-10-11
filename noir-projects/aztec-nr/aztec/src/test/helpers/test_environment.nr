@@ -104,6 +104,20 @@ impl TestEnvironment {
         cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
     }
 
+    unconstrained fn assert_private_call_fails<C, let M: u32, T>(
+        _self: Self,
+        call_interface: C
+    ) where C: CallInterface<M, T> {
+        cheatcodes::assert_private_call_fails(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            hash_args(call_interface.get_args()),
+            cheatcodes::get_side_effects_counter() as Field,
+            call_interface.get_is_static(),
+            false
+        );
+    }
+
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
     unconstrained pub fn add_note<Note, let N: u32>(

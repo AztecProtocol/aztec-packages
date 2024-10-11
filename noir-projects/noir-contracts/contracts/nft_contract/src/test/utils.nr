@@ -29,7 +29,7 @@ unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
         "TestNFT000000000000000000000000",
         "TN00000000000000000000000000000"
     );
-    let nft_contract = env.deploy_self("NFT").with_public_initializer(initializer_call_interface);
+    let nft_contract = env.deploy_self("NFT").with_public_void_initializer(initializer_call_interface);
     let nft_contract_address = nft_contract.to_address();
     env.advance_block_by(1);
     (&mut env, nft_contract_address, owner, recipient)
@@ -40,8 +40,7 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
     let (env, nft_contract_address, owner, recipient) = setup(with_account_contracts);
     let minted_token_id = 615;
 
-    let mint_public_call_interface = NFT::at(nft_contract_address).mint(owner, minted_token_id);
-    env.call_public(mint_public_call_interface);
+    NFT::at(nft_contract_address).mint(owner, minted_token_id).call(&mut env.public());
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -60,12 +59,10 @@ unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: 
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer with user being both the sender and the recipient (classical "shield" flow)
-    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness);
-    env.call_private_void(prepare_transfer_to_private_call_interface);
+    NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness).call(&mut env.private());
 
     // Finalize the transfer of the NFT
-    let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment);
-    env.call_public(finalize_transfer_to_private_call_interface);
+    NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public());
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.
@@ -105,8 +102,7 @@ unconstrained pub fn assert_owns_public_nft(
     owner: AztecAddress,
     token_id: Field
 ) {
-    let owner_of_interface = NFT::at(nft_contract_address).owner_of(token_id);
-    let obtained_owner = env.call_public(owner_of_interface);
+    let obtained_owner = NFT::at(nft_contract_address).owner_of(token_id).view(&mut env.public());
 
     assert(owner == obtained_owner, "Incorrect NFT owner");
 }

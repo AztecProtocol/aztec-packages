@@ -23,5 +23,5 @@ unconstrained fn check_decimals_public() {
     // Check decimals
     let result = Token::at(token_contract_address).public_get_decimals().view(&mut env.public());
 
-    assert(result == 18 as u8);
+    assert(result == 18);
 }

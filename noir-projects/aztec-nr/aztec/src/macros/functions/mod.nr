@@ -1,6 +1,6 @@
 mod interfaces;
 
-use std::{meta::type_of, collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
+use std::meta::type_of;
 use super::utils::{
     modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
     fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer
@@ -9,8 +9,6 @@ use protocol_types::meta::flatten_to_fields;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 use super::utils::fn_requires_authwit;
-
-comptime mut global AUTHWITS: UHashMap<FunctionDefinition, Quoted, BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
 // #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.
@@ -65,10 +63,6 @@ pub comptime fn noinitcheck(_f: FunctionDefinition) {
     // Marker attribute
 }
 
-pub comptime fn authwit(f: FunctionDefinition, arg: Quoted) {
-    AUTHWITS.insert(f, arg)
-}
-
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);".quoted_contents()
@@ -82,26 +76,6 @@ comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
 comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);".quoted_contents()
-}
-
-comptime fn create_authwit_check(f: FunctionDefinition) -> Quoted {
-    let maybe_arg = AUTHWITS.get(f);
-    let fn_visibility = get_fn_visibility(f);
-    assert(maybe_arg.is_some(), f"#[authwit(...)] attribute must be applied after #[{fn_visibility}]");
-    let arg = maybe_arg.unwrap();
-    let authwit_fn_suffix = if is_fn_private(f) {
-        quote { }
-    } else {
-        quote { _public }
-    };
-    let fn_name = f"dep::authwit::auth::assert_current_call_valid_authwit{authwit_fn_suffix}".quoted_contents();
-    quote {
-        if (!$arg.eq(context.msg_sender())) {
-            $fn_name(&mut context, $arg);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-     }
 }
 
 /// Private functions are executed client-side and preserve privacy.
@@ -151,12 +125,6 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
 
     // Modifications introduced by the different marker attributes.
-
-    let authwit_check = if fn_requires_authwit(f) {
-        create_authwit_check(f)
-    } else {
-        quote {}
-    };
 
     let internal_check = if is_fn_internal(f) {
         create_internal_check(f)
@@ -238,7 +206,6 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
-        $authwit_check
     };
 
     let to_append = quote {

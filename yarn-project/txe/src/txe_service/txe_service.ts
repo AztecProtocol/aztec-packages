@@ -231,6 +231,32 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  async assertPrivateCallFails(
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
+    sideEffectCounter: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
+    isDelegateCall: ForeignCallSingle,
+  ) {
+    try {
+      await this.typedOracle.callPrivateFunction(
+        fromSingle(targetContractAddress),
+        FunctionSelector.fromField(fromSingle(functionSelector)),
+        fromSingle(argsHash),
+        fromSingle(sideEffectCounter).toNumber(),
+        fromSingle(isStaticCall).toBool(),
+        fromSingle(isDelegateCall).toBool(),
+      );
+      throw new ExpectedFailureError('Private call did not fail');
+    } catch (e) {
+      if (e instanceof ExpectedFailureError) {
+        throw e;
+      }
+    }
+    return toForeignCallResult([]);
+  }
+
   // PXE oracles
 
   getRandomField() {
