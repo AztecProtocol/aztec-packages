@@ -114,7 +114,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_sorted_transformed_value_array_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -124,7 +124,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_sorted_transformed_value_array_unordered_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -144,7 +144,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_sorted_transformed_value_array_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -154,7 +154,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="unexpected non-empty item")]
+    #[test(should_fail_with = "unexpected non-empty item")]
     fn assert_sorted_transformed_value_array_hint_to_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -166,7 +166,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_sorted_transformed_value_array_missing_item_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -182,13 +182,13 @@ mod tests {
         builder.execute_capped(5);
     }
 
-    #[test(should_fail_with="capped_size does not cover all non-empty items")]
+    #[test(should_fail_with = "capped_size does not cover all non-empty items")]
     fn assert_sorted_transformed_value_array_capped_size_not_fully_covered_fails() {
         let builder = TestDataBuilder::new();
         builder.execute_capped(3);
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_sorted_transformed_value_array_capped_size_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
