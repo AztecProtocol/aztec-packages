@@ -2,11 +2,6 @@ import { type ContractArtifact, type FunctionSelector, FunctionType } from '@azt
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import {
-  type ContractClassPublic,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunctionMembershipProof,
-} from '@aztec/types/contracts';
 
 import { computeRootFromSiblingPath } from '../merkle/index.js';
 import {
@@ -18,6 +13,11 @@ import {
   getArtifactMerkleTreeHasher,
 } from './artifact_hash.js';
 import { getContractClassPrivateFunctionFromArtifact } from './contract_class.js';
+import {
+  type ContractClassPublic,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type PrivateFunctionMembershipProof,
+} from './interfaces/index.js';
 import { computePrivateFunctionLeaf, computePrivateFunctionsTree } from './private_function.js';
 
 /**

@@ -202,7 +202,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the note hash does not match read request")]
+    #[test(should_fail_with = "Value of the note hash does not match read request")]
     fn verify_reset_note_hash_read_requests_wrong_hinted_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -212,7 +212,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Contract address of the note hash does not match read request")]
+    #[test(should_fail_with = "Contract address of the note hash does not match read request")]
     fn verify_reset_note_hash_read_requests_different_contract_addresses_fails() {
         let mut builder = TestBuilder::new();
 
@@ -221,7 +221,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the note hash")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the note hash")]
     fn verify_reset_note_hash_read_requests_invalid_counter_fails() {
         let mut builder = TestBuilder::new();
 
@@ -233,7 +233,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the note hash leaf does not match read request")]
+    #[test(should_fail_with = "Value of the note hash leaf does not match read request")]
     fn verify_reset_note_hash_read_requests_invalid_leaf_fails() {
         let mut builder = TestBuilder::new();
 

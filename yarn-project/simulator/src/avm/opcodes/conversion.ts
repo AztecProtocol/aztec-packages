@@ -13,10 +13,10 @@ export class ToRadixLE extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // Opcode
     OperandType.UINT8, // Indirect
-    OperandType.UINT32, // src memory address
-    OperandType.UINT32, // dst memory address
-    OperandType.UINT32, // radix memory address
-    OperandType.UINT32, // number of limbs (Immediate)
+    OperandType.UINT16, // src memory address
+    OperandType.UINT16, // dst memory address
+    OperandType.UINT16, // radix memory address
+    OperandType.UINT16, // number of limbs (Immediate)
     OperandType.UINT8, // output is in "bits" mode (Immediate - Uint1 still takes up a whole byte)
   ];
 

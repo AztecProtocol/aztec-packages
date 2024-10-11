@@ -54,19 +54,18 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
     validate_trace(std::move(trace), public_inputs);
 }
 
-TEST_F(AvmGasPositiveTests, gasAdd)
+TEST_F(AvmGasPositiveTests, gasMov)
 {
     StartGas start_gas = {
         .l2_gas = 3000,
         .da_gas = 10,
     };
 
-    // We test that the sender opcode is included at index 0 in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::FF); };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_mov(0, 1, 2); };
 
     auto checks = [=](const std::vector<Row>& trace) {
         auto sender_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
+            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mov == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
     };
 

@@ -13,9 +13,9 @@ export class NoteHashExists extends Instruction {
   static readonly wireFormat = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -55,7 +55,7 @@ export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
   static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(private indirect: number, private noteHashOffset: number) {
     super();
@@ -89,9 +89,9 @@ export class NullifierExists extends Instruction {
   static readonly wireFormat = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -127,7 +127,7 @@ export class EmitNullifier extends Instruction {
   static type: string = 'EMITNULLIFIER';
   static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(private indirect: number, private nullifierOffset: number) {
     super();
@@ -172,9 +172,9 @@ export class L1ToL2MessageExists extends Instruction {
   static readonly wireFormat = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -213,7 +213,7 @@ export class EmitUnencryptedLog extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(private indirect: number, private logOffset: number, private logSizeOffset: number) {
     super();
@@ -248,7 +248,7 @@ export class SendL2ToL1Message extends Instruction {
   static type: string = 'SENDL2TOL1MSG';
   static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(private indirect: number, private recipientOffset: number, private contentOffset: number) {
     super();
