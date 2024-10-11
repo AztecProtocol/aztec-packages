@@ -419,8 +419,7 @@
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
-        "MULTITHREADING": "ON",
-        "ENABLE_TRACY": "ON"
+        "MULTITHREADING": "ON"
       }
     },
     {

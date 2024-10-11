@@ -63,7 +63,6 @@ endif()
 
 
 if(ENABLE_TRACY_TIME_INSTRUMENTED)
-    add_compile_options(-DTRACY_ENABLE)
     add_compile_options(-DTRACY_INSTRUMENTED)
 endif()
 
