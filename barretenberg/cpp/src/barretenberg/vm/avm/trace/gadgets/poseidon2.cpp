@@ -82,22 +82,18 @@ std::array<FF, 4> AvmPoseidon2TraceBuilder::poseidon2_permutation(
     return entry.output;
 }
 
-FF AvmPoseidon2TraceBuilder::poseidon2_hash(std::vector<FF> input, uint32_t clk)
+FF AvmPoseidon2TraceBuilder::poseidon2_hash(std::vector<FF> input, uint32_t clk, Poseidon2Caller caller)
 {
     using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
     FF output = Poseidon2::hash(input);
-    // 64 rounds of hashing should be enough (1 << 6 == 64) per full hash invocation
-    // This completely arbitrary and we might change this in the future
-    // But we need a way to allow multiple rows of poseidon2 permutation per poseidon2 full call
-    auto entry_clk = clk << 6;
     // Add the full hash trace event
     poseidon2_hash_trace.push_back(Poseidon2FullTraceEntry{
-        .clk = entry_clk,
+        .clk = clk,
         .input = input,
         .output = output,
         .input_length = input.size(),
+        .caller = caller,
     });
-
     const FF iv = (static_cast<uint256_t>(input.size()) << 64);
     std::array<FF, 4> input_array = { 0, 0, 0, iv };
 
@@ -108,7 +104,7 @@ FF AvmPoseidon2TraceBuilder::poseidon2_hash(std::vector<FF> input, uint32_t clk)
         input_array[1] += input[i + 1];
         input_array[2] += input[i + 2];
 
-        auto entry_idx = entry_clk + (i / 3);
+        auto entry_idx = clk + (i / 3);
         auto entry = gen_poseidon_perm_entry(input_array, static_cast<uint32_t>(entry_idx));
         entry.is_immediate = true;
         poseidon2_trace.push_back(entry);
@@ -135,9 +131,9 @@ void AvmPoseidon2TraceBuilder::finalize_full(std::vector<AvmFullRow<FF>>& main_t
             dest.poseidon2_full_input_len = src.input_length;
             dest.poseidon2_full_sel_poseidon = FF::one();
             dest.poseidon2_full_clk = src.clk + j;
-            dest.poseidon2_full_input_0 = src.input[3 * j];
-            dest.poseidon2_full_input_1 = src.input[3 * j + 1];
-            dest.poseidon2_full_input_2 = src.input[3 * j + 2];
+            dest.poseidon2_full_input_0 = 3 * j < src.input.size() ? src.input[3 * j] : FF::zero();
+            dest.poseidon2_full_input_1 = 3 * j + 1 < src.input.size() ? src.input[3 * j + 1] : FF::zero();
+            dest.poseidon2_full_input_2 = 3 * j + 2 < src.input.size() ? src.input[3 * j + 2] : FF::zero();
             dest.poseidon2_full_output = src.output;
             dest.poseidon2_full_num_perm_rounds_rem = num_rounds_rem;
             dest.poseidon2_full_padding = padded_size - src.input_length;
@@ -160,6 +156,16 @@ void AvmPoseidon2TraceBuilder::finalize_full(std::vector<AvmFullRow<FF>>& main_t
             } else {
                 dest.poseidon2_full_execute_poseidon_perm = FF::one();
                 num_rounds_rem--;
+            }
+
+            switch (src.caller) {
+            case Poseidon2Caller::NONE:
+            case Poseidon2Caller::BYTECODE_HASHING:
+                break;
+            case Poseidon2Caller::MERKLE_TREE: {
+                dest.poseidon2_full_sel_merkle_tree = FF::one();
+                break;
+            }
             }
             // Careful - we assume here that the permutation events are in order
             perm_event++;

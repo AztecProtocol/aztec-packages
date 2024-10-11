@@ -1,0 +1,76 @@
+include "./poseidon2_full.pil";
+
+// Handles membership and insertion into a merkle tree
+namespace merkle_tree(256);
+    
+    pol commit sel_merkle_tree;
+    sel_merkle_tree * (1 - sel_merkle_tree) = 0;
+    // Will probably used in permutation with other traces
+    pol commit sel_update_op;
+    sel_update_op * (1 - sel_update_op) = 0;
+    pol commit sel_membership_op;
+    sel_membership_op * (1 - sel_membership_op) = 0;
+    // Gotta stop using clk for things that are more like foreign keys
+    pol commit clk;
+    // Inputs to the gadget
+    pol commit leaf_value;
+    pol commit leaf_index;
+    pol commit path_len;
+    pol commit expected_tree_root;
+    // Output of the gadget
+    // Boolean result of the membership check
+    pol commit is_member;
+    is_member * (1 - is_member) = 0;
+
+    // These are all hinted
+    pol commit sibling_value;
+
+    // If we are not done, the path_len decrements by 1
+    sel_merkle_tree * (1 - latch) * (path_len' - path_len + 1) = 0;
+
+    pol commit latch;
+    latch * (1 - latch) = 0;
+    pol commit path_len_inv;
+    // latch == 1 when the path_len == 0
+    sel_merkle_tree * (path_len * (latch * (1 - path_len_inv) + path_len_inv) - 1 + latch) = 0;
+
+    pol commit leaf_index_is_even;
+    leaf_index_is_even * (1 - leaf_index_is_even) = 0;
+    pol LEAF_INDEX_IS_ODD = (1 - leaf_index_is_even);
+    // If we are not done, the next leaf index is half the current leaf index;
+    sel_merkle_tree * (1 - latch) * (leaf_index' * 2 + LEAF_INDEX_IS_ODD - leaf_index) = 0;
+
+    // These are what are sent to poseidon2
+    // These arrange the leaf_value and sibling_value in the correct order
+    pol commit left_hash;
+    pol commit right_hash;
+    // I dont think these can be safely combined
+    // if the leaf index is even, the leaf value is the left hash and the sibling value is the right hash
+    // vice-versa
+    sel_merkle_tree * (leaf_index_is_even * (left_hash - leaf_value) + LEAF_INDEX_IS_ODD * (right_hash - leaf_value)) = 0;
+    sel_merkle_tree * (leaf_index_is_even * (right_hash - sibling_value) + LEAF_INDEX_IS_ODD * (left_hash - sibling_value)) = 0;
+    pol commit output_hash;
+
+    // If we are not done, the output hash is the next value in
+    sel_merkle_tree * (1 - latch) * (leaf_value' - output_hash) = 0;
+
+    pol LAST_COMPUTE = sel_merkle_tree * latch;
+
+    // Membership check
+    pol ROOT_DIFF = output_hash - expected_tree_root;
+    // Need an additional helper that holds the inverse of the difference;
+    pol commit diff_inv;
+    // is_member == 1 if ROOT_DIFF == 0
+    sel_membership_op * LAST_COMPUTE * (ROOT_DIFF * (is_member * (1 - diff_inv) + diff_inv) - 1 + is_member) = 0;
+
+    // Permutation to the full poseidon2 gadget
+    #[PERM_MERKLE_POSEIDON2]
+    sel_merkle_tree { clk, left_hash, right_hash, output_hash } is
+    poseidon2_full.sel_merkle_tree {poseidon2_full.clk, poseidon2_full.input_0, poseidon2_full.input_1, poseidon2_full.output };
+
+
+
+
+
+
+
