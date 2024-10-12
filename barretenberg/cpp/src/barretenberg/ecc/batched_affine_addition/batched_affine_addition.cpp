@@ -119,7 +119,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     std::vector<AdditionSequences> addition_sequences;
     for (size_t i = 0; i < num_threads; ++i) {
         addition_sequences.push_back(
-            AdditionSequences(thread_sequence_counts[i], thread_points[i], thread_scratch_space[i]));
+            AdditionSequences{ thread_sequence_counts[i], thread_points[i], thread_scratch_space[i] });
     }
 
     return { addition_sequences, thread_sequence_tags };
