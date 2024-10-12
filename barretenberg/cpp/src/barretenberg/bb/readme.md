@@ -43,6 +43,16 @@ This binary will take as input ACIR and witness values described in the IR to cr
 
 If installation was successful, the command would print the version of `bb` installed.
 
+> **Note:** For macOS users, if you encounter the following error using `bb`:
+>
+> ```
+> The backend encountered an error: "dyld[3537]: Library not loaded:
+> /usr/local/opt/llvm@16/lib/libunwind.1.dylib\n
+> ...
+> ```
+>
+> Installing LLVM should resolve the issue, e.g. run `brew install llvm@16`
+
 ### Usage prerequisites
 
 Certain `bb` commands will expect the tool `jq` to already be installed. If `jq -V` doesn't return a version number, install it from [here](https://jqlang.github.io/jq/download/).
