@@ -90,7 +90,7 @@ template <class Curve> class CommitmentKey {
         // just pick a starting index so that it doesn't go over the dyadic_circuit_size
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
         size_t relative_start_index =
-            polynomial.end_index() > dyadic_poly_size ? dyadic_poly_size - polynomial.size() : 0;
+            polynomial.end_index() > dyadic_poly_size ? dyadic_poly_size - polynomial.size() : polynomial.start_index;
         size_t actual_start_index = polynomial.start_index - relative_start_index;
         const size_t consumed_srs = actual_start_index + dyadic_poly_size;
         auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
