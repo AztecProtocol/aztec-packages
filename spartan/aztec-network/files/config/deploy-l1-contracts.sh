@@ -1,10 +1,16 @@
 #!/bin/sh
-set -ex
+set -exu
 
 alias aztec='node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js'
 
 # Run the deploy-l1-contracts command and capture the output
-output=$(aztec deploy-l1-contracts --validators $1)
+output=""
+# if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
+if [ "$INIT_VALIDATORS" = "true" ]; then
+  output=$(aztec deploy-l1-contracts --validators $1)
+else
+  output=$(aztec deploy-l1-contracts)
+fi
 
 echo "$output"
 

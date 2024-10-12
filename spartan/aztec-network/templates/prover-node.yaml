@@ -43,6 +43,7 @@ spec:
                 echo "Waiting for boot node..."
                 sleep 5
               done
+              echo "Boot node is ready!"
         - name: configure-prover-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}

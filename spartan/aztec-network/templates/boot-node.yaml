@@ -55,6 +55,8 @@ spec:
           env:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
+            - name: INIT_VALIDATORS
+              value: {{ not .Values.validator.external | quote }}
       containers:
         - name: boot-node
           image: {{ .Values.images.aztec.image }}
@@ -108,14 +110,14 @@ spec:
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
-              {{- if .Values.bootNode.externalHost }}
-              value: "{{ .Values.bootNode.externalHost }}:{{ .Values.bootNode.service.p2pTcpPort }}"
+              {{- if .Values.bootNode.externalTcpHost }}
+              value: "{{ .Values.bootNode.externalTcpHost }}:{{ .Values.bootNode.service.p2pTcpPort }}"
               {{- else }}
               value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pTcpPort }}"
               {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
-              {{- if .Values.bootNode.externalHost }}
-              value: "{{ .Values.bootNode.externalHost }}:{{ .Values.bootNode.service.p2pUdpPort }}"
+              {{- if .Values.bootNode.externalUdpHost }}
+              value: "{{ .Values.bootNode.externalUdpHost }}:{{ .Values.bootNode.service.p2pUdpPort }}"
               {{- else }}
               value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pUdpPort }}"
               {{- end }}
@@ -184,7 +186,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-boot-node-lb
+  name: {{ include "aztec-network.fullname" . }}-boot-node-lb-tcp
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -195,10 +197,27 @@ spec:
   ports:
     - port: {{ .Values.bootNode.service.p2pTcpPort }}
       name: p2p-tpc
+    - port: {{ .Values.bootNode.service.nodePort }}
+      name: node
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-boot-node-lb-udp
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: boot-node
+  ports:
     - port: {{ .Values.bootNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
-    - port: {{ .Values.bootNode.service.nodePort }}
-      name: node
 {{ end }}
 {{ end }}
