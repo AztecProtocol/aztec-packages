@@ -1168,7 +1168,7 @@ template <typename FF_> class poseidon2Impl {
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm * ((FF(1) - new_term.poseidon2_sel_poseidon_perm_mem_op) +
+            auto tmp = (new_term.poseidon2_sel_poseidon_perm * ((FF(1) - new_term.poseidon2_sel_poseidon_perm_mem_op) -
                                                                 new_term.poseidon2_sel_poseidon_perm_immediate));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);

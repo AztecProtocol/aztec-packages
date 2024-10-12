@@ -16,7 +16,7 @@ namespace poseidon2(256);
     sel_poseidon_perm_immediate * (1 - sel_poseidon_perm_immediate) = 0;
 
     // If poseidon perm is active, it must be either a mem op or immediate but not both
-    sel_poseidon_perm * (1 - sel_poseidon_perm_mem_op + sel_poseidon_perm_immediate) = 0;
+    sel_poseidon_perm * (1 - sel_poseidon_perm_mem_op - sel_poseidon_perm_immediate) = 0;
     // If inactive the mem op or immediate selectors must be 0
     (1 - sel_poseidon_perm) * (sel_poseidon_perm_mem_op + sel_poseidon_perm_immediate) = 0;
 

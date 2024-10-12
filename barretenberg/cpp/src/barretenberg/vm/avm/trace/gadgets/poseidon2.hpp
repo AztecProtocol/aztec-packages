@@ -9,6 +9,12 @@
 
 namespace bb::avm_trace {
 
+enum Poseidon2Caller {
+    NONE = 0,
+    BYTECODE_HASHING = 1,
+    MERKLE_TREE = 2,
+};
+
 class AvmPoseidon2TraceBuilder {
   public:
     struct Poseidon2FullTraceEntry {
@@ -16,6 +22,7 @@ class AvmPoseidon2TraceBuilder {
         std::vector<FF> input;
         FF output;
         size_t input_length = 0;
+        Poseidon2Caller caller = Poseidon2Caller::NONE;
     };
     struct Poseidon2TraceEntry {
         uint32_t clk = 0;
@@ -40,7 +47,7 @@ class AvmPoseidon2TraceBuilder {
                                             uint32_t clk,
                                             uint32_t input_addr,
                                             uint32_t output_addr);
-    FF poseidon2_hash(std::vector<FF> input, uint32_t clk);
+    FF poseidon2_hash(std::vector<FF> input, uint32_t clk, Poseidon2Caller caller = Poseidon2Caller::NONE);
     // Finalize for the full poseidon hash
     void finalize_full(std::vector<AvmFullRow<FF>>& main_trace);
 
