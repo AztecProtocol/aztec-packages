@@ -219,7 +219,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, configure]
-    if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
+    if: needs.build.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
