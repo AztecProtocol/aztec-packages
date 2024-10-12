@@ -12,12 +12,6 @@ VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
 INHERIT_USER=${INHERIT_USER:-1}
 
-if [[ -n "${NETWORK:-}" ]]; then
-  VERSION=$NETWORK
-  # enable proving if connecting to a network by default
-  export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
-fi
-
 # preserve arguments to pass to docker run
 declare -a preserved_args
 
@@ -88,14 +82,6 @@ while [[ "$#" -gt 0 ]]; do
     preserved_args+=("$1" "$2") # Store both argument and value
     shift 2                     # Move past argument and value
     ;;
-  --pxe.network)
-    VERSION="$2" # Set version to user-specified network (e.g. 'devnet')
-    echo "Using aztecprotocol/aztec: $VERSION"
-    preserved_args+=("$1" "$2") # Store both argument and value
-    # turn on proving if connecting to a network by default
-    export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
-    shift 2
-    ;; # Move past argument and value
   *)
     preserved_args+=("$1") # Store unrecognized/other arguments
     shift                  # Move to next argument
