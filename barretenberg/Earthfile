@@ -27,7 +27,7 @@ barretenberg-acir-tests-bb-helper:
   ENV TEST_SRC /usr/src/acir_artifacts
   ENV VERBOSE=1
   ENV HARDWARE_CONCURRENCY=32
-  RUN $command
+  RUN eval "$command"
 
 barretenberg-acir-tests-bb:
   # Note: before parallelization this was the longest test target at 24 minutes.
