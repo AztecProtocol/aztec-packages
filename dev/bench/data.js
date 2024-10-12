@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728690144997,
+  "lastUpdate": 1728746174666,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fad3d6e41765c774696ecc98d45a27851c7c4442",
-          "message": "feat: Faster CIV benching with mocked VKs (#8843)\n\nRather than going through a whole separate (and more expensive) CIVC\r\nprover flow to get vks, we just use random group elements. In order to\r\nget assurance that the benchmark is still a good reflection of\r\nperformance, we refactor the functions used in the benchmark to create\r\nan equivalent test.",
-          "timestamp": "2024-09-30T03:44:01Z",
-          "tree_id": "af576d80388a276e60020c87ec0dfd06a0dd81cb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fad3d6e41765c774696ecc98d45a27851c7c4442"
-        },
-        "date": 1727669036792,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31708.77826999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29374.254102000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5067.799370999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4770.776283 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 96144.082579,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 96144084000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14558.825446,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14558826000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8260900741,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8260900741 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152813824,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152813824 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6723423607,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6723423607 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125016510,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125016510 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3584,6 +3512,66 @@ window.BENCHMARK_DATA = {
             "value": 127901215,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127901215 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80ea32cfda8c149980938382518c47a6da123e72",
+          "message": "fix: mac-build (#9216)\n\nfix mac build issues with emplace back",
+          "timestamp": "2024-10-12T15:52:58+01:00",
+          "tree_id": "137906381e8599ed68ece91e5ad570a3243d76e9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/80ea32cfda8c149980938382518c47a6da123e72"
+        },
+        "date": 1728746167426,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29618.566467000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27895.605439 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5518.821794000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5217.721629 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86548.20175899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86548204000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15583.017112000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15583017000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2801559134,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2801559134 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126363947,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126363947 ns\nthreads: 1"
           }
         ]
       }
