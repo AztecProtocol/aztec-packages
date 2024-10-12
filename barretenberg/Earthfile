@@ -33,44 +33,44 @@ barretenberg-acir-tests-bb:
   # Note: before parallelization this was the longest test target at 24 minutes.
   # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
   # This ensures we test independent pk construction through real/garbage witness data paths.
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify ./run_acir_tests.sh"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify ./run_acir_tests.sh"
 
   # Run the acir test through native bb build prove_then_verify_ultra_honk flow
   # Note that the script will skip the Plonk related tests
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh"
 
   # Construct and separately verify a MegaHonk proof for all acir programs
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh"
 
   # Construct and verify a UltraHonk proof for a single program
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash"
 
   # Construct and verify a MegaHonk proof for a single arbitrary program
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array"
 
   # Construct and verify a MegaHonk proof on one non-recursive program using the new witness stack workflow
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh merkle_insert"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh merkle_insert"
 
   # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh"
 
   # Fold and verify an ACIR program stack using ClientIvc
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic"
 
   # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic"
 
   # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic"
 
   # Construct and separately verify a UltraHonk proof for a single program that recursively verifies a Honk proof
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof"
 
   # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof"
 
   # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
-  BUILD barretenberg-acir-tests-bb-helper --command="FLOW=all_cmds ./run_acir_tests.sh 1_mul"
+  BUILD +barretenberg-acir-tests-bb-helper --command="FLOW=all_cmds ./run_acir_tests.sh 1_mul"
 
 barretenberg-acir-tests-sol:
   FROM ../build-images/+from-registry
