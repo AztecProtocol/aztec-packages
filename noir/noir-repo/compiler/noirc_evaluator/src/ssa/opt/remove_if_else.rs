@@ -38,7 +38,7 @@ impl Ssa {
 impl Function {
     pub(crate) fn remove_if_else(&mut self) {
         // This should match the check in flatten_cfg
-        if matches!(self.runtime(), RuntimeType::Brillig(_)) {
+        if let crate::ssa::ir::function::RuntimeType::Brillig = self.runtime() {
             // skip
         } else {
             Context::default().remove_if_else(self);
@@ -119,7 +119,9 @@ impl Context {
                             }
                             SizeChange::Dec { old, new } => {
                                 let old_capacity = self.get_or_find_capacity(&function.dfg, old);
-                                self.slice_sizes.insert(new, old_capacity - 1);
+                                // We use a saturating sub here as calling `pop_front` or `pop_back` on a zero-length slice
+                                // would otherwise underflow.
+                                self.slice_sizes.insert(new, old_capacity.saturating_sub(1));
                             }
                         }
                     }
