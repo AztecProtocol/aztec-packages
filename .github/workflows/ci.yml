@@ -35,14 +35,6 @@ env:
   WAIT_FOR_RUNNERS: false
 
 jobs:
-  setup:
-    if: github.event.pull_request.draft == false
-    uses: ./.github/workflows/setup-runner.yml
-    with:
-      username: ${{ github.event.pull_request.user.login || github.actor }}
-      runner_type: builder-x86
-    secrets: inherit
-
   configure:
     runs-on: ubuntu-20.04
     if: github.event.pull_request.draft == false
@@ -75,19 +67,15 @@ jobs:
           BRANCH: "${{ github.ref_name }}"
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "username=${{ github.event.pull_request.user.login }}"
             echo "username=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
           else
-            # Fetch the total number of commits on the current branch
-            # We use gh api to avoid a full history fetch
-            COMMIT_COUNT=$(gh api -H "Accept: application/vnd.github.v3+json" \
-              "/repos/${REPO}/commits?per_page=1&sha=${BRANCH}" \
-              -q '. | length')
-
-            # Calculate runner index based on modulo operation
-            COMMIT_MODULO_8=$((COMMIT_COUNT % 8))
-
-            # Output the runner-specific username
-            echo "username=master-${COMMIT_MODULO_8}" >> $GITHUB_OUTPUT
+            GIT_HASH="${{ github.sha }}"
+            GIT_HASH_LAST8=${GIT_HASH: -8}
+            GIT_HASH_LAST8_DEC=$(printf "%d" 0x$GIT_HASH_LAST8)
+            GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
+            echo "username=master-${GIT_HASH_MODULO_8}"
+            echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
           fi
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
@@ -123,6 +111,15 @@ jobs:
               - '!(.github/**)'
               # Always rebuild when this file changes
               - .github/workflows/ci.yml
+
+  setup:
+    needs: [configure]
+    if: github.event.pull_request.draft == false
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ needs.configure.outputs.username }}-x86
+      runner_type: builder-x86
+    secrets: inherit
 
   build-images:
     needs: [setup, configure]
@@ -687,7 +684,7 @@ jobs:
         run: earthly-ci +export-boxes
 
   boxes-test:
-    needs: boxes
+    needs: [boxes, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
