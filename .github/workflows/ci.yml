@@ -280,6 +280,7 @@ jobs:
     needs:
       - acir-bench
       - bench-e2e
+      - configure
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
