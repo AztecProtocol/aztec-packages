@@ -12,9 +12,8 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_k
                                                                                    const std::string& domain_separator)
 {
 
-#ifdef TRACY_MEMORY
-    ZoneScopedN("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-#endif
+    PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+
     OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
     oink_prover.prove();
 }
@@ -22,7 +21,7 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_k
 template <class DeciderProvingKeys>
 void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_key()
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
@@ -49,7 +48,7 @@ std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>, Polynomial<type
 ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     const std::shared_ptr<const typename DeciderProvingKeys::DeciderPK>& accumulator)
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::perturbator_round");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
@@ -79,7 +78,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
                                                                 const std::vector<FF>& deltas,
                                                                 const DeciderProvingKeys& keys)
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::combiner_quotient_round");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
@@ -119,7 +118,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
@@ -163,10 +162,8 @@ template <class DeciderProvingKeys>
 FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::prove()
 {
 
-#ifdef TRACY_MEMORY
-    ZoneScopedN("ProtogalaxyProver::prove");
-#endif
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
+    PROFILE_THIS_NAME("ProtogalaxyProver::prove");
+
     // Ensure keys are all of the same size
     for (size_t idx = 0; idx < DeciderProvingKeys::NUM - 1; ++idx) {
         if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {

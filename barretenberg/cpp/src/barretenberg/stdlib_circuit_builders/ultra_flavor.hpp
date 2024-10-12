@@ -294,9 +294,8 @@ class UltraFlavor {
         ProverPolynomials(size_t circuit_size)
         {
 
-#ifdef TRACY_MEMORY
-            ZoneScopedN("creating empty prover polys");
-#endif
+            PROFILE_THIS_NAME("creating empty prover polys");
+
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
                                    /*largest possible index*/ circuit_size,
@@ -318,7 +317,7 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
-            BB_OP_COUNT_TIME();
+            PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
                 result_field = polynomial[row_idx];
@@ -565,9 +564,8 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
 
-#ifdef TRACY_MEMORY
-            ZoneScopedN("PartiallyEvaluatedMultivariates constructor");
-#endif
+            PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
+
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {

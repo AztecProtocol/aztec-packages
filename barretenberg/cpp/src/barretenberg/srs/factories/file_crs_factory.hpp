@@ -45,9 +45,8 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
         : num_points(num_points)
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("FileProverCrs constructor");
-#endif
+        PROFILE_THIS_NAME("FileProverCrs constructor");
+
         monomials_ = scalar_multiplication::point_table_alloc<typename Curve::AffineElement>(num_points);
 
         srs::IO<Curve>::read_transcript_g1(monomials_.get(), num_points, path);

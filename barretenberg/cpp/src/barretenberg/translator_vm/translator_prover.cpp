@@ -13,7 +13,7 @@ TranslatorProver::TranslatorProver(CircuitBuilder& circuit_builder, const std::s
     , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
     , transcript(transcript)
 {
-    BB_OP_COUNT_TIME();
+    PROFILE_THIS();
 
     // Compute total number of gates, dyadic circuit size, etc.
     key = std::make_shared<ProvingKey>(circuit_builder);
@@ -194,7 +194,7 @@ HonkProof TranslatorProver::export_proof()
 
 HonkProof TranslatorProver::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("TranslatorProver::construct_proof");
+    PROFILE_THIS_NAME("TranslatorProver::construct_proof");
 
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
