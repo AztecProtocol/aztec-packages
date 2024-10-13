@@ -572,14 +572,15 @@ void Univariate<Fr, domain_end, domain_start, skip_count>::self_extend_from()
 //     return os;
 // }
 
-template class Univariate<bb::fr, 2ul, 0ul, 0ul>;
-template class Univariate<bb::fr, 3ul, 0ul, 0ul>;
-template class Univariate<bb::fr, 3ul, 1ul, 0ul>;
-template class Univariate<bb::fr, 4ul, 0ul, 0ul>;
-template class Univariate<bb::fr, 5ul, 0ul, 0ul>;
-template class Univariate<bb::fr, 6ul, 0ul, 0ul>;
-template class Univariate<bb::fr, 10ul, 0ul, 0ul>;
-template class Univariate<bb::fr, 37ul, 32ul, 0ul>;
+// polynomials_tests
+template class Univariate<bb::fr, 2, 0, 0>;
+template class Univariate<bb::fr, 3, 0, 0>;
+template class Univariate<bb::fr, 3, 1, 0>;
+template class Univariate<bb::fr, 4, 0, 0>;
+template class Univariate<bb::fr, 5, 0, 0>;
+template class Univariate<bb::fr, 6, 0, 0>;
+template class Univariate<bb::fr, 10, 0, 0>;
+template class Univariate<bb::fr, 37, 32, 0>;
 
 template void Univariate<bb::fr, 10, 0, 0>::self_extend_from<2>();
 template Univariate<bb::fr, 10, 0, 0> Univariate<bb::fr, 2, 0, 0>::extend_to<10, 0>() const;
@@ -587,6 +588,14 @@ template Univariate<bb::fr, 3, 0, 0> Univariate<bb::fr, 2, 0, 0>::extend_to<3, 0
 template Univariate<bb::fr, 6, 0, 0> Univariate<bb::fr, 6, 0, 0>::extend_to<6, 0>() const;
 template Univariate<bb::fr, 6, 0, 0> Univariate<bb::fr, 5, 0, 0>::extend_to<6, 0>() const;
 
-// template std::ostream& operator<<(std::ostream& os, const Univariate<bb::fr, 10, 0, 0>& u);
+// utra_honk_tests deduplicated from >8000 insts in linker error
+template class Univariate<bb::fr, 7, 0, 0>;
+template class Univariate<bb::fr, 8, 0, 0>;
+template Univariate<bb::fr, 7, 0, 0> Univariate<bb::fr, 2, 0, 0>::extend_to<7, 0>() const;
+template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 2, 0, 0>::extend_to<8, 0>() const;
+template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 3, 0, 0>::extend_to<8, 0>() const;
+template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 5, 0, 0>::extend_to<8, 0>() const;
+template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 6, 0, 0>::extend_to<8, 0>() const;
+template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 7, 0, 0>::extend_to<8, 0>() const;
 
 } // namespace bb

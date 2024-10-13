@@ -137,7 +137,6 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return os;
     }
 
-  private:
     Univariate zero_skipped_elements() const noexcept;
     // Begin iterators
     auto begin() { return evaluations.begin(); }
