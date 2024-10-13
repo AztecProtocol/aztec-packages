@@ -78,13 +78,18 @@ function show_logs() {
 show_status_until_pxe_ready &
 show_logs &
 
+DEBUG="${DEBUG:-'aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database'}"
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set ingress.enabled=true \
+      --set bootNode.debug="$DEBUG" \
+      --set validator.debug="$DEBUG" \
+      --set proverNode.debug="$DEBUG" \
+      --set pxe.debug="$DEBUG" \
+      --set bot.debug="$DEBUG" \
       --wait \
       --wait-for-jobs=true \
       --timeout=30m

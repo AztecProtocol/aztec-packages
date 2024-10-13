@@ -40,7 +40,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
     telemetry: TelemetryClient,
-    private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
+    private log = createDebugLogger('aztec:validator', {fixedLogData: { validatorAddress: keyStore.getAddress().toString() }}),
   ) {
     // Instantiate tracer
     super(telemetry, 'Validator');

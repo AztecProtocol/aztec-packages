@@ -1,7 +1,10 @@
 import debug from 'debug';
 import { inspect } from 'util';
 
+
+
 import { type LogData, type LogFn } from './log_fn.js';
+
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 
@@ -36,6 +39,16 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  */
 export type DebugLogger = Logger;
 
+export interface DebuggerLoggerOptions {
+  fixedLogData?: LogData;
+  // Easy way to trigger logs only on a different value
+  ignoreImmediateDuplicates?: boolean;
+}
+
+interface DebuggerLoggerOptionsWithState extends DebuggerLoggerOptions {
+  lastLogMessage?: string;
+}
+
 /**
  * Creates a new DebugLogger for the current module, defaulting to the LOG_LEVEL env var.
  * If DEBUG="[module]" env is set, will enable debug logging if the module matches.
@@ -47,22 +60,22 @@ export type DebugLogger = Logger;
  * @returns A debug logger.
  */
 
-export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
+export function createDebugLogger(name: string, options?: DebuggerLoggerOptions): DebugLogger {
   const debugLogger = debug(name);
-
-  const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
+  // Copied so we can be sure it is mutable
+  const optionsWithState = { ...options };
 
   const logger = {
     silent: () => {},
     error: (msg: string, err?: unknown, data?: LogData) =>
-      logWithDebug(debugLogger, 'error', fmtErr(msg, err), attatchFixedLogData(data)),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
+      logWithDebug(debugLogger, 'error', fmtErr(msg, err), data, optionsWithState),
+    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data, optionsWithState),
+    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data, optionsWithState),
+    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data, optionsWithState),
+    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data, optionsWithState),
   };
   return Object.assign(
-    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
+    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data, optionsWithState),
     logger,
   );
 }
@@ -90,14 +103,30 @@ export function setLevel(level: LogLevel) {
  * @param level - Intended log level.
  * @param args - Args to log.
  */
-function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?: LogData) {
+function logWithDebug(
+  debug: debug.Debugger,
+  level: LogLevel,
+  msg: string,
+  data: LogData | undefined,
+  options: DebuggerLoggerOptionsWithState,
+) {
+  if (options.fixedLogData) {
+    // Attach fixed log data that will be bundled in every message, providing context on this logger
+    data = { ...options.fixedLogData, ...data };
+  }
   for (const handler of logHandlers) {
     handler(level, debug.namespace, msg, data);
   }
 
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
+  if (options.ignoreImmediateDuplicates && options.lastLogMessage === msg) {
+    // Early exit as we are only configured to log on changes in logged data
+    return;
+  }
   if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
     debug('[%s] %s', level.toUpperCase(), msg);
+    options.lastLogMessage = msg;
+
   }
 }
 
