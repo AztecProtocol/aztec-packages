@@ -50,7 +50,13 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
+function cleanup() {
+  kill $(jobs -p) 2>/dev/null || true
+}
+
 function show_status_until_pxe_ready() {
+  # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
+  trap cleanup EXIT SIGINT SIGTERM
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100} ; do
@@ -62,15 +68,17 @@ function show_status_until_pxe_ready() {
   done
 }
 
-function show_stern_once_pxe_ready() {
+function show_logs() {
+  # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
+  trap cleanup EXIT SIGINT SIGTERM
   set +x # don't spam with our commands
   # wait for network to be up
   kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
   stern spartan -n "$NAMESPACE"
 }
 
-show_status_until_pxe_ready yarn-project/end-to-end/scripts/native_network_test.sh &
-show_stern_once_pxe_ready &
+show_status_until_pxe_ready &
+show_logs &
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
@@ -87,10 +95,6 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
 # tunnel in to get access directly to our PXE service in k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
-
-cleanup() {
-  kill $(jobs -p) 2>/dev/null || true
-}
 
 trap cleanup EXIT SIGINT SIGTERM
 

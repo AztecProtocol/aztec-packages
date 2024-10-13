@@ -31,15 +31,14 @@ main_cmd="$1"
 shift
 
 # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
-function cleanup_function() {
+function cleanup() {
   kill $(jobs -p) 2>/dev/null || true
-  return
 }
 
 # Function to run a command and prefix the output with color
 function run_command() {
   # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
-  trap cleanup_function INT EXIT
+  trap cleanup EXIT SIGINT SIGTERM
   local cmd="$1"
   local color="$2"
   $cmd 2>&1 | while IFS= read -r line; do
@@ -47,6 +46,7 @@ function run_command() {
   done
 }
 
+trap cleanup EXIT SIGINT SIGTERM
 # Run background commands without logging output
 i=0
 for cmd in "$@"; do
