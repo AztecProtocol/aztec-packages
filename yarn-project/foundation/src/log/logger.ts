@@ -3,7 +3,7 @@ import { inspect } from 'util';
 
 
 
-import { type LogData, type LogFn } from './log_fn.js';
+import { type LogData, type LogFn, LogOptions } from './log_fn.js';
 
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
@@ -26,12 +26,12 @@ const namespaces = process.env.DEBUG ?? 'aztec:*';
 debug.enable(namespaces);
 
 /** Log function that accepts an exception object */
-type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
+type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData, options?: LogOptions) => void;
 
 /**
  * Logger that supports multiple severity levels.
  */
-export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn };
+export type Logger = { [K in Exclude<LogLevel, 'error'>]: LogFn } & { /** Error log function */ error: ErrorLogFn };
 
 /**
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
@@ -41,11 +41,9 @@ export type DebugLogger = Logger;
 
 export interface DebuggerLoggerOptions {
   fixedLogData?: LogData;
-  // Easy way to trigger logs only on a different value
-  ignoreImmediateDuplicates?: boolean;
 }
 
-interface DebuggerLoggerOptionsWithState extends DebuggerLoggerOptions {
+interface DebuggerLoggerState extends DebuggerLoggerOptions {
   lastLogMessage?: string;
 }
 
@@ -63,19 +61,23 @@ interface DebuggerLoggerOptionsWithState extends DebuggerLoggerOptions {
 export function createDebugLogger(name: string, options?: DebuggerLoggerOptions): DebugLogger {
   const debugLogger = debug(name);
   // Copied so we can be sure it is mutable
-  const optionsWithState = { ...options };
+  const logState = { ...options };
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) =>
-      logWithDebug(debugLogger, 'error', fmtErr(msg, err), data, optionsWithState),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data, optionsWithState),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data, optionsWithState),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data, optionsWithState),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data, optionsWithState),
+    error: (msg: string, err?: unknown, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'error', fmtErr(msg, err), data, logState, options),
+    warn: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'warn', msg, data, logState, options),
+    info: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'info', msg, data, logState, options),
+    verbose: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'verbose', msg, data, logState, options),
+    debug: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'debug', msg, data, logState, options),
   };
   return Object.assign(
-    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data, optionsWithState),
+    (msg: string, data?: LogData, options?: LogOptions) => logger.debug(msg, data, options),
     logger,
   );
 }
@@ -108,25 +110,25 @@ function logWithDebug(
   level: LogLevel,
   msg: string,
   data: LogData | undefined,
-  options: DebuggerLoggerOptionsWithState,
+  logState: DebuggerLoggerState,
+  options?: LogOptions
 ) {
-  if (options.fixedLogData) {
+  if (logState.fixedLogData) {
     // Attach fixed log data that will be bundled in every message, providing context on this logger
-    data = { ...options.fixedLogData, ...data };
+    data = { ...logState.fixedLogData, ...data };
   }
   for (const handler of logHandlers) {
     handler(level, debug.namespace, msg, data);
   }
 
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
-  if (options.ignoreImmediateDuplicates && options.lastLogMessage === msg) {
+  if (options?.ignoreImmediateDuplicates && logState.lastLogMessage === msg) {
     // Early exit as we are only configured to log on changes in logged data
     return;
   }
   if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
     debug('[%s] %s', level.toUpperCase(), msg);
-    options.lastLogMessage = msg;
-
+    logState.lastLogMessage = msg;
   }
 }
 

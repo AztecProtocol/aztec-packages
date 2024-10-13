@@ -10,7 +10,7 @@ export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
   // We ignore duplicates to only print new work
-  private readonly log = createDebugLogger('aztec:l2_block_stream', {ignoreImmediateDuplicates: true});
+  private readonly log = createDebugLogger('aztec:l2_block_stream');
 
   constructor(
     private l2BlockSource: L2BlockSource,
@@ -57,7 +57,7 @@ export class L2BlockStream {
         sourceLatestHash: sourceTips.latest.hash,
         sourceProvenHash: sourceTips.proven.hash,
         sourceFinalizedHash: sourceTips.finalized.hash,
-      });
+      }, {ignoreImmediateDuplicates: true});
 
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.latest;
