@@ -31,7 +31,20 @@ if ! command -v helm &> /dev/null; then
 fi
 
 if kind get clusters | grep -q "^kind$"; then
-  echo "Cluster 'kind' already exists. Skipping creation."
+  echo "Cluster 'kind' already exists. Should we recreate it? (y/n)"
+  read -r response
+
+  if [[ "$response" == "y" || "$response" == "Y" ]]; then
+    echo "Deleting existing 'kind' cluster..."
+    kind delete cluster --name kind
+
+    echo "Recreating 'kind' cluster..."
+    kind create cluster --name kind
+
+    echo "Cluster 'kind' has been recreated successfully."
+  else
+    echo "Skipping cluster recreation. Using existing 'kind' cluster."
+  fi
 else
   kind create cluster
 fi
