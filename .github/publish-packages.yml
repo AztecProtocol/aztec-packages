@@ -323,10 +323,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ATTEMPT: ${{ env.RUN_ATTEMPT }}
         run: |
+          # Retry first with failed and then with all, in case a runner snagged (e.g. ARM runner going down doesn't get rescued by a rescue script currently)
           if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT == 1 ]]; then
-            echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
           elif [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT == 2 ]]; then
-            echo "Retrying second workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }} -F rerun_mode=all
           fi
