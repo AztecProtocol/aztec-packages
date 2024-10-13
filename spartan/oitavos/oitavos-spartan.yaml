@@ -7,8 +7,8 @@ telemetry:
 
 bootNode:
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*"
-  externalTcpHost: a32232476dd1841b58f3a72a5cc5007b-171632666.us-east-1.elb.amazonaws.com
-  externalUdpHost: a63a7f4819ca44eb58e9dc42c1e4b11e-a3423b2c54b3ab38.elb.us-east-1.amazonaws.com
+  externalTcpHost: a9357baf90dc74b178aed922ec792502-1479432860.us-east-1.elb.amazonaws.com
+  externalUdpHost: a653b2f7235e44a95a0a077d8b88c817-7a4e146a79838ca0.elb.us-east-1.amazonaws.com
   validator:
     disabled: true
 

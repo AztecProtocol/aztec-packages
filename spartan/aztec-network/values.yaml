@@ -115,7 +115,7 @@ bot:
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   botPrivateKey: "0xcafe"
-  txIntervalSeconds: 5
+  txIntervalSeconds: 24
   privateTransfersPerTx: 1
   publicTransfersPerTx: 0
   # Do not wait for transactions
