@@ -498,9 +498,10 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
           { fr("0x20ea8ca97f96508aaed2d6cdc4198a41c77c640bfa8785a51bb905b9a672ba0b"), 1 } },
     };
 
-    bool sync_res = ws.sync_block(
+    WorldStateStatus status = ws.sync_block(
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
-    EXPECT_EQ(sync_res, false);
+    WorldStateStatus expected{ .unfinalisedBlockNumber = 1, .finalisedBlockNumber = 0, .oldestHistoricalBlock = 1 };
+    EXPECT_EQ(status, expected);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(43));
@@ -539,9 +540,10 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
         EXPECT_NE(uncommitted_state_ref.at(tree_id), snapshot);
     }
 
-    bool sync_res = ws.sync_block(
+    WorldStateStatus status = ws.sync_block(
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
-    EXPECT_EQ(sync_res, false);
+    WorldStateStatus expected{ .unfinalisedBlockNumber = 1, .finalisedBlockNumber = 0, .oldestHistoricalBlock = 1 };
+    EXPECT_EQ(status, expected);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(43));
@@ -582,9 +584,10 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
         EXPECT_EQ(uncommitted_state_ref.at(tree_id), snapshot);
     }
 
-    bool sync_res = ws.sync_block(
+    WorldStateStatus status = ws.sync_block(
         block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
-    EXPECT_EQ(sync_res, true);
+    WorldStateStatus expected{ .unfinalisedBlockNumber = 1, .finalisedBlockNumber = 0, .oldestHistoricalBlock = 1 };
+    EXPECT_EQ(status, expected);
 
     assert_leaf_value(ws, WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE, 1, fr(1));
 
@@ -739,7 +742,8 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
         MerkleTreeId::ARCHIVE);
 
     // committed fork state should match the state before fork had been modified
-    EXPECT_EQ(fork_archive_state_after_commit.meta, fork_archive_state_before_insert.meta);
+    EXPECT_EQ(fork_archive_state_after_commit.meta.size, fork_archive_state_before_insert.meta.size);
+    EXPECT_EQ(fork_archive_state_after_commit.meta.root, fork_archive_state_before_insert.meta.root);
     // canonical state before commit should match state after commit
     // EXPECT_EQ(canonical_archive_state_after_commit.meta, canonical_archive_state_after_insert.meta);
     EXPECT_EQ(canonical_archive_state_after_commit.meta.root, canonical_archive_state_after_insert.meta.root);

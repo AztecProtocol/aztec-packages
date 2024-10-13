@@ -4,7 +4,6 @@ use dep::types::address::AztecAddress;
 /**
  * constants
  */
-
 #[test]
 fn validate_propagated_values_constants_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -15,7 +14,7 @@ fn validate_propagated_values_constants_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch constants")]
+#[test(should_fail_with = "mismatch constants")]
 fn validate_propagated_values_constants_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -29,7 +28,6 @@ fn validate_propagated_values_constants_mismatch_fails() {
 /**
  * max_block_number
  */
-
 #[test]
 fn validate_propagated_values_max_block_number_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -40,7 +38,7 @@ fn validate_propagated_values_max_block_number_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch rollup_validation_requests")]
+#[test(should_fail_with = "mismatch rollup_validation_requests")]
 fn validate_propagated_values_max_block_number_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -54,7 +52,6 @@ fn validate_propagated_values_max_block_number_mismatch_fails() {
 /**
  * fee_payer
  */
-
 #[test]
 fn validate_propagated_values_fee_payer_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -65,7 +62,7 @@ fn validate_propagated_values_fee_payer_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch fee_payer")]
+#[test(should_fail_with = "mismatch fee_payer")]
 fn validate_propagated_values_fee_payer_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -79,7 +76,6 @@ fn validate_propagated_values_fee_payer_mismatch_fails() {
 /**
  * note_hashes
  */
-
 #[test]
 fn validate_propagated_values_note_hashes_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -90,7 +86,7 @@ fn validate_propagated_values_note_hashes_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch note_hashes")]
+#[test(should_fail_with = "mismatch note_hashes")]
 fn validate_propagated_values_note_hashes_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -103,7 +99,7 @@ fn validate_propagated_values_note_hashes_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch note_hashes")]
+#[test(should_fail_with = "mismatch note_hashes")]
 fn validate_propagated_values_note_hashes_extra_item_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -117,7 +113,6 @@ fn validate_propagated_values_note_hashes_extra_item_fails() {
 /**
  * nullifiers
  */
-
 #[test]
 fn validate_propagated_values_nullifiers_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -128,7 +123,7 @@ fn validate_propagated_values_nullifiers_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch nullifiers")]
+#[test(should_fail_with = "mismatch nullifiers")]
 fn validate_propagated_values_nullifiers_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -141,7 +136,7 @@ fn validate_propagated_values_nullifiers_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch nullifiers")]
+#[test(should_fail_with = "mismatch nullifiers")]
 fn validate_propagated_values_nullifiers_extra_item_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -155,7 +150,6 @@ fn validate_propagated_values_nullifiers_extra_item_fails() {
 /**
  * note_encrypted_log_hashes
  */
-
 #[test]
 fn validate_propagated_values_note_encrypted_log_hashes_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -166,7 +160,7 @@ fn validate_propagated_values_note_encrypted_log_hashes_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch note_encrypted_logs_hashes")]
+#[test(should_fail_with = "mismatch note_encrypted_logs_hashes")]
 fn validate_propagated_values_note_encrypted_log_hashes_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -179,7 +173,7 @@ fn validate_propagated_values_note_encrypted_log_hashes_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch note_encrypted_logs_hashes")]
+#[test(should_fail_with = "mismatch note_encrypted_logs_hashes")]
 fn validate_propagated_values_note_encrypted_log_hashes_non_zero_counter_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -196,7 +190,6 @@ fn validate_propagated_values_note_encrypted_log_hashes_non_zero_counter_fails()
 /**
  * encrypted_log_hashes
  */
-
 #[test]
 fn validate_propagated_values_encrypted_log_hashes_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
@@ -207,7 +200,7 @@ fn validate_propagated_values_encrypted_log_hashes_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch encrypted_logs_hashes")]
+#[test(should_fail_with = "mismatch encrypted_logs_hashes")]
 fn validate_propagated_values_encrypted_logs_hashes_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -220,7 +213,7 @@ fn validate_propagated_values_encrypted_logs_hashes_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch encrypted_logs_hashes")]
+#[test(should_fail_with = "mismatch encrypted_logs_hashes")]
 fn validate_propagated_values_encrypted_logs_hashes_non_zero_counter_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 

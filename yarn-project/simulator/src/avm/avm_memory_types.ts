@@ -333,6 +333,16 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   /**
+   * Check that all tags at the given offsets are the same.
+   */
+  public checkTagsAreSame(...offsets: number[]) {
+    const tag = this.getTag(offsets[0]);
+    for (let i = 1; i < offsets.length; i++) {
+      this.checkTag(tag, offsets[i]);
+    }
+  }
+
+  /**
    * Check tags for all memory in the specified range.
    */
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number) {
@@ -509,6 +519,10 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
 
   public checkTags(tag: TypeTag, ...offsets: number[]): void {
     this.wrapped.checkTags(tag, ...offsets);
+  }
+
+  public checkTagsAreSame(...offsets: number[]): void {
+    this.wrapped.checkTagsAreSame(...offsets);
   }
 
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number): void {

@@ -14,7 +14,7 @@ namespace bb {
 ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {
-    BB_OP_COUNT_TIME_NAME("ECCVMProver(CircuitBuilder&)");
+    PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/939): Remove redundancy between
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
@@ -193,7 +193,7 @@ HonkProof ECCVMProver::export_proof()
 
 HonkProof ECCVMProver::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("ECCVMProver::construct_proof");
+    PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
     execute_preamble_round();
 

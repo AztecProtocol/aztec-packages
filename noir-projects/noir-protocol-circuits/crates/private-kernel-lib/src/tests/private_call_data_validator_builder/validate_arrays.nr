@@ -8,7 +8,7 @@ fn unshift_empty_item<T, let N: u32>(vec: &mut BoundedVec<T, N>) {
     vec.storage[0] = empty_item;
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_note_hash_read_requests_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -18,7 +18,7 @@ fn validate_arrays_malformed_note_hash_read_requests_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_nullifier_read_requests_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -28,7 +28,7 @@ fn validate_arrays_malformed_nullifier_read_requests_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_key_validation_requests_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -38,7 +38,7 @@ fn validate_arrays_malformed_key_validation_requests_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_note_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -48,7 +48,7 @@ fn validate_arrays_malformed_note_hashes_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_nullifiers_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -58,7 +58,7 @@ fn validate_arrays_malformed_nullifiers_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_l2_to_l1_msgs_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -68,7 +68,7 @@ fn validate_arrays_malformed_l2_to_l1_msgs_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_private_call_requests_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -78,7 +78,7 @@ fn validate_arrays_malformed_private_call_requests_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_public_call_stack_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -88,7 +88,7 @@ fn validate_arrays_malformed_public_call_stack_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_note_encrypted_logs_hashes() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -98,7 +98,7 @@ fn validate_arrays_malformed_note_encrypted_logs_hashes() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -108,7 +108,7 @@ fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid array")]
+#[test(should_fail_with = "invalid array")]
 fn validate_arrays_malformed_unencrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 

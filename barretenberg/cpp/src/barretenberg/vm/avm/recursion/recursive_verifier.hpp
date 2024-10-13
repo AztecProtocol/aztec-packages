@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/recursive_flavor.hpp"
 
 namespace bb {
 template <typename Flavor> class AvmRecursiveVerifier_ {

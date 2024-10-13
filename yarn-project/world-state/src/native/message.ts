@@ -71,11 +71,26 @@ export enum WorldStateMessageType {
   CREATE_FORK,
   DELETE_FORK,
 
+  FINALISE_BLOCKS,
+  UNWIND_BLOCKS,
+  REMOVE_HISTORICAL_BLOCKS,
+
+  GET_STATUS,
+
   CLOSE = 999,
 }
 
 interface WithTreeId {
   treeId: MerkleTreeId;
+}
+
+export interface WorldStateStatus {
+  /** Last block number that can still be unwound. */
+  unfinalisedBlockNumber: bigint;
+  /** Last block number that is finalised and cannot be unwound. */
+  finalisedBlockNumber: bigint;
+  /** Oldest block still available for historical queries and forks. */
+  oldestHistoricalBlock: bigint;
 }
 
 interface WithForkId {
@@ -103,6 +118,10 @@ export type SerializedIndexedLeaf = {
 
 interface WithLeafValue {
   leaf: SerializedLeafValue;
+}
+
+interface BlockShiftRequest {
+  toBlockNumber: bigint;
 }
 
 interface WithLeaves {
@@ -175,11 +194,20 @@ interface SyncBlockRequest {
 }
 
 interface SyncBlockResponse {
-  isBlockOurs: boolean;
+  status: WorldStateStatus;
 }
 
 interface CreateForkRequest {
+  latest: boolean;
   blockNumber: number;
+}
+
+interface CreateForkResponse {
+  forkId: number;
+}
+
+interface DeleteForkRequest {
+  forkId: number;
 }
 
 interface CreateForkResponse {
@@ -215,6 +243,12 @@ export type WorldStateRequest = {
   [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
   [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
 
+  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: BlockShiftRequest;
+  [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
+  [WorldStateMessageType.FINALISE_BLOCKS]: BlockShiftRequest;
+
+  [WorldStateMessageType.GET_STATUS]: void;
+
   [WorldStateMessageType.CLOSE]: void;
 };
 
@@ -242,6 +276,12 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
+
+  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatus;
+  [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatus;
+  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatus;
+
+  [WorldStateMessageType.GET_STATUS]: WorldStateStatus;
 
   [WorldStateMessageType.CLOSE]: void;
 };

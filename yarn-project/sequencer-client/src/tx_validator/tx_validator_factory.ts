@@ -6,7 +6,7 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { type GlobalVariables } from '@aztec/circuits.js';
+import { type ContractDataSource, type GlobalVariables } from '@aztec/circuits.js';
 import {
   AggregateTxValidator,
   DataTxValidator,
@@ -16,7 +16,6 @@ import {
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { readPublicState } from '@aztec/simulator';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';

@@ -194,7 +194,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
+    #[test(should_fail_with = "Value of the nullifier does not match read request")]
     fn verify_reset_nullifier_read_requests_wrong_hinted_value() {
         let mut builder = TestBuilder::new();
 
@@ -204,7 +204,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Contract address of the nullifier does not match read request")]
+    #[test(should_fail_with = "Contract address of the nullifier does not match read request")]
     fn verify_reset_nullifier_read_requests_different_contract_addresses_fails() {
         let mut builder = TestBuilder::new();
 
@@ -213,7 +213,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the nullifier")]
     fn verify_reset_nullifier_read_requests_invalid_counter() {
         let mut builder = TestBuilder::new();
 
@@ -225,7 +225,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the nullifier leaf does not match read request")]
+    #[test(should_fail_with = "Value of the nullifier leaf does not match read request")]
     fn verify_reset_nullifier_read_requests_invalid_leaf() {
         let mut builder = TestBuilder::new();
 
