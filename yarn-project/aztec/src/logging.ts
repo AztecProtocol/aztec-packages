@@ -5,7 +5,6 @@ import * as process from 'process';
 import * as winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 
-
 const { format } = winston;
 const CURRENT_LOG_FILE_NAME = 'aztec.debug.log';
 const LOG_DIR = 'log';
