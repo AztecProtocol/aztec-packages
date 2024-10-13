@@ -17,6 +17,7 @@ on:
         required: true
 
 permissions:
+  # Necessary to upload new release artifacts
   contents: write
   issues: write
 
