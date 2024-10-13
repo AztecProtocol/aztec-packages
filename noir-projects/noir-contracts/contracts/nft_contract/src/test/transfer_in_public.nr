@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::oracle::unsafe_rand::unsafe_rand;
+use dep::aztec::oracle::random::random;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::NFT;
 
@@ -42,7 +42,7 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail_with="invalid nonce")]
+#[test(should_fail_with = "invalid nonce")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -50,13 +50,13 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, nft_contract_address, sender, recipient) = utils::setup(/* with_account_contracts */ false);
 
     // We set random value for the token_id as the nonce check is before we use the value.
-    let token_id = unsafe_rand();
+    let token_id = random();
 
     // Try to transfer the NFT
-    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, unsafe_rand()));
+    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, random()));
 }
 
-#[test(should_fail_with="invalid owner")]
+#[test(should_fail_with = "invalid owner")]
 unconstrained fn transfer_in_public_non_existent_nft() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, recipient) = utils::setup(/* with_account_contracts */ false);

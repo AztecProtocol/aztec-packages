@@ -57,6 +57,7 @@ import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@a
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
 import { getContract } from 'viem';
@@ -67,6 +68,7 @@ import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
+const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
 
 const MINT_AMOUNT = 1000n;
 
@@ -240,15 +242,15 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.create({
+        const tx = deployMethod.send({
           contractAddressSalt: accountManager.salt,
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
         });
-        this.contractAddresses.push(accountManager.getAddress());
-        txs.push(deployMethod.send());
+        txs.push(tx);
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PrivateTransfer) {
@@ -338,6 +340,7 @@ const variants: VariantDefinition[] = [
   { blockCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer },
   { blockCount: 10, txCount: 36, txComplexity: TxComplexity.PublicTransfer },
   { blockCount: 10, txCount: 9, txComplexity: TxComplexity.Spam },
+  { blockCount: 1000, txCount: 4, txComplexity: TxComplexity.PrivateTransfer },
 ];
 
 describe('e2e_synching', () => {
@@ -349,10 +352,23 @@ describe('e2e_synching', () => {
       if (!AZTEC_GENERATE_TEST_DATA) {
         return;
       }
+
+      // @note  If the `RUN_THE_BIG_ONE` flag is not set, we DO NOT run it.
+      if (!RUN_THE_BIG_ONE && variantDef.blockCount === 1000) {
+        return;
+      }
+
       const variant = new TestVariant(variantDef);
 
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
-      const { teardown, pxe, sequencer, aztecNode, wallet } = await setup(1, { salt: SALT, l1StartTime: START_TIME });
+      // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
+      // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
+      const { teardown, pxe, sequencer, aztecNode, wallet } = await setup(1, {
+        salt: SALT,
+        l1StartTime: START_TIME,
+        l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
+        assumeProvenThrough: 10 + variant.blockCount,
+      });
       variant.setPXE(pxe as PXEService);
 
       // Deploy a token, such that we could use it
@@ -381,12 +397,13 @@ describe('e2e_synching', () => {
       await variant.writeBlocks(blocks);
       await teardown();
     },
-    1_200_000,
+    240_400_000,
   );
 
   const testTheVariant = async (
     variant: TestVariant,
     alternativeSync: (opts: Partial<EndToEndContext>, variant: TestVariant) => Promise<void>,
+    assumeProvenThrough: number = Number.MAX_SAFE_INTEGER,
   ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
@@ -397,6 +414,7 @@ describe('e2e_synching', () => {
         salt: SALT,
         l1StartTime: START_TIME,
         skipProtocolContracts: true,
+        assumeProvenThrough,
       });
 
     await (aztecNode as any).stop();
@@ -412,6 +430,7 @@ describe('e2e_synching', () => {
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
+        viemPollingIntervalMS: 100,
       },
       new NoopTelemetryClient(),
     );
@@ -426,6 +445,7 @@ describe('e2e_synching', () => {
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
+      // If it breaks here, first place you should look is the pruning.
       await publisher.proposeL2Block(block);
     }
 
@@ -435,32 +455,45 @@ describe('e2e_synching', () => {
   };
 
   describe('replay history and then do a fresh sync', () => {
-    it.each(variants)('vanilla - %s', async (variantDef: VariantDefinition) => {
-      await testTheVariant(
-        new TestVariant(variantDef),
-        async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
-          // All the blocks have been "re-played" and we are now to simply get a new node up to speed
-          const timer = new Timer();
-          const freshNode = await AztecNodeService.createAndSync(
-            { ...opts.config!, disableSequencer: true, disableValidator: true },
-            new NoopTelemetryClient(),
-          );
-          const syncTime = timer.s();
+    it.each(variants)(
+      'vanilla - %s',
+      async (variantDef: VariantDefinition) => {
+        // @note  If the `RUN_THE_BIG_ONE` flag is not set, we DO NOT run it.
+        if (!RUN_THE_BIG_ONE && variantDef.blockCount === 1000) {
+          return;
+        }
 
-          const blockNumber = await freshNode.getBlockNumber();
+        await testTheVariant(
+          new TestVariant(variantDef),
+          async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
+            // All the blocks have been "re-played" and we are now to simply get a new node up to speed
+            const timer = new Timer();
+            const freshNode = await AztecNodeService.createAndSync(
+              { ...opts.config!, disableSequencer: true, disableValidator: true },
+              new NoopTelemetryClient(),
+            );
+            const syncTime = timer.s();
 
-          opts.logger!.info(
-            `Stats: ${variant.description()}: ${JSON.stringify({
-              numberOfBlocks: blockNumber,
-              syncTime,
-            })}`,
-          );
-        },
-      );
-    });
+            const blockNumber = await freshNode.getBlockNumber();
+
+            opts.logger!.info(
+              `Stats: ${variant.description()}: ${JSON.stringify({
+                numberOfBlocks: blockNumber,
+                syncTime,
+              })}`,
+            );
+
+            await freshNode.stop();
+          },
+        );
+      },
+      RUN_THE_BIG_ONE ? 600_000 : 300_000,
+    );
   });
 
   describe('a wild prune appears', () => {
+    const ASSUME_PROVEN_THROUGH = 0;
+
     it('archiver following catches reorg as it occur and deletes blocks', async () => {
       if (AZTEC_GENERATE_TEST_DATA) {
         return;
@@ -507,6 +540,10 @@ describe('e2e_synching', () => {
 
           const archiver = await createArchiver(opts.config!);
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
+          await worldState.start();
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
           const assumeProvenThrough = pendingBlockNumber - 2n;
@@ -556,7 +593,19 @@ describe('e2e_synching', () => {
           [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
             expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
           });
+
+          // Check world state reverted as well
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(assumeProvenThrough));
+          const archiverLatestBlockHash = await archiver
+            .getBlockHeader(Number(assumeProvenThrough))
+            .then(b => b?.hash());
+          expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
+
+          await archiver.stop();
+          await worldState.stop();
         },
+        ASSUME_PROVEN_THROUGH,
       );
     });
 
@@ -620,6 +669,7 @@ describe('e2e_synching', () => {
           await aztecNode.stop();
           await watcher.stop();
         },
+        ASSUME_PROVEN_THROUGH,
       );
     });
 
@@ -678,6 +728,7 @@ describe('e2e_synching', () => {
           await aztecNode.stop();
           await watcher.stop();
         },
+        ASSUME_PROVEN_THROUGH,
       );
     });
   });

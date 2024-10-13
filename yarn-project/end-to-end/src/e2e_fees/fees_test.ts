@@ -17,7 +17,7 @@ import {
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
-import { PortalERC20Abi } from '@aztec/l1-artifacts';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 import {
   AppSubscriptionContract,
   TokenContract as BananaCoin,
@@ -27,14 +27,19 @@ import {
   PrivateFPCContract,
   TokenContract,
 } from '@aztec/noir-contracts.js';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type ProverNode } from '@aztec/prover-node';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, deployCanonicalFeeJuice, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import {
+  type BalancesFn,
+  ensureAccountsPubliclyDeployed,
+  getBalancesFn,
+  setupCanonicalFeeJuice,
+} from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -55,7 +60,6 @@ export class FeesTest {
   public logger: DebugLogger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
-  public proverNode!: ProverNode;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -167,7 +171,7 @@ export class FeesTest {
   public async applyBaseSnapshots() {
     await this.applyInitialAccountsSnapshot();
     await this.applyPublicDeployAccountsSnapshot();
-    await this.applyDeployFeeJuiceSnapshot();
+    await this.applySetupFeeJuiceSnapshot();
     await this.applyDeployBananaTokenSnapshot();
   }
 
@@ -175,10 +179,9 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig, proverNode }) => {
+      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
-        this.proverNode = proverNode;
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -208,15 +211,15 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      publicDeployAccounts(this.aliceWallet, this.wallets),
+      ensureAccountsPubliclyDeployed(this.aliceWallet, this.wallets),
     );
   }
 
-  async applyDeployFeeJuiceSnapshot() {
+  async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
-      'deploy_fee_juice',
+      'setup_fee_juice',
       async context => {
-        await deployCanonicalFeeJuice(
+        await setupCanonicalFeeJuice(
           new SignerlessWallet(
             context.pxe,
             new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.version),
@@ -224,7 +227,7 @@ export class FeesTest {
         );
       },
       async (_data, context) => {
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
+        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
@@ -340,7 +343,7 @@ export class FeesTest {
           const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1FeeJuiceAddress.toString(),
-            abi: PortalERC20Abi,
+            abi: TestERC20Abi,
             client: walletClient,
           });
           return await gasL1.read.balanceOf([this.coinbase.toString()]);

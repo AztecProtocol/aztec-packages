@@ -72,7 +72,6 @@ enum class OpCode : uint8_t {
     SET_FF,
     MOV_8,
     MOV_16,
-    CMOV,
 
     // World State
     SLOAD,           // Public Storage

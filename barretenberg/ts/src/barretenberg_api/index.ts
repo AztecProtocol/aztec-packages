@@ -333,7 +333,7 @@ export class BarretenbergApi {
     honkRecursion: boolean,
   ): Promise<[number, number, number]> {
     const inArgs = [constraintSystemBuf, honkRecursion].map(serializeBufferable);
-    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer(), NumberDeserializer()];
+    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_get_circuit_sizes',
       inArgs,
@@ -909,7 +909,7 @@ export class BarretenbergApiSync {
 
   acirGetCircuitSizes(constraintSystemBuf: Uint8Array, honkRecursion: boolean): [number, number, number] {
     const inArgs = [constraintSystemBuf, honkRecursion].map(serializeBufferable);
-    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer(), NumberDeserializer()];
+    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_get_circuit_sizes',
       inArgs,

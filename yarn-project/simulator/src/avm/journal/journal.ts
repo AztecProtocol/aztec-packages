@@ -1,8 +1,8 @@
-import { AztecAddress, type FunctionSelector, type Gas } from '@aztec/circuits.js';
+import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { SerializableContractInstance } from '@aztec/types/contracts';
+import { createDebugLogger } from '@aztec/foundation/log';
 
+import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
@@ -21,7 +21,7 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class AvmPersistableStateManager {
-  private readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:state_manager');
+  private readonly log = createDebugLogger('aztec:avm_simulator:state_manager');
 
   constructor(
     /** Reference to node storage */
@@ -187,12 +187,13 @@ export class AvmPersistableStateManager {
 
   /**
    * Write an L2 to L1 message.
+   * @param contractAddress - L2 contract address that created this message
    * @param recipient - L1 contract address to send the message to.
    * @param content - Message content.
    */
-  public writeL2ToL1Message(recipient: Fr, content: Fr) {
-    this.log.debug(`L1Messages(${recipient}) += ${content}.`);
-    this.trace.traceNewL2ToL1Message(recipient, content);
+  public writeL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
+    this.log.debug(`L2ToL1Messages(${contractAddress}) += (recipient: ${recipient}, content: ${content}).`);
+    this.trace.traceNewL2ToL1Message(contractAddress, recipient, content);
   }
 
   /**
@@ -256,9 +257,12 @@ export class AvmPersistableStateManager {
     if (!avmCallResults.reverted) {
       this.acceptNestedCallState(nestedState);
     }
-    const functionName =
-      (await this.worldStateDB.getDebugFunctionName(nestedEnvironment.address, nestedEnvironment.functionSelector)) ??
-      `${nestedEnvironment.address}:${nestedEnvironment.functionSelector}`;
+    const functionName = await getPublicFunctionDebugName(
+      this.worldStateDB,
+      nestedEnvironment.address,
+      nestedEnvironment.functionSelector,
+      nestedEnvironment.calldata,
+    );
 
     this.log.verbose(`[AVM] Calling nested function ${functionName}`);
 

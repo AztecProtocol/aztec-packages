@@ -1,6 +1,6 @@
 use acvm::{acir::AcirField, FieldElement};
 use noirc_errors::{Position, Span, Spanned};
-use std::{fmt, iter::Map, vec::IntoIter};
+use std::fmt;
 
 use crate::{
     lexer::errors::LexerErrorKind,
@@ -73,6 +73,8 @@ pub enum BorrowedToken<'input> {
     Dot,
     /// ..
     DoubleDot,
+    /// ..=
+    DoubleDotEqual,
     /// (
     LeftParen,
     /// )
@@ -190,6 +192,8 @@ pub enum Token {
     Dot,
     /// ..
     DoubleDot,
+    /// ..=
+    DoubleDotEqual,
     /// (
     LeftParen,
     /// )
@@ -279,6 +283,7 @@ pub fn token_to_borrowed_token(token: &Token) -> BorrowedToken<'_> {
         Token::ShiftRight => BorrowedToken::ShiftRight,
         Token::Dot => BorrowedToken::Dot,
         Token::DoubleDot => BorrowedToken::DoubleDot,
+        Token::DoubleDotEqual => BorrowedToken::DoubleDotEqual,
         Token::LeftParen => BorrowedToken::LeftParen,
         Token::RightParen => BorrowedToken::RightParen,
         Token::LeftBrace => BorrowedToken::LeftBrace,
@@ -409,6 +414,7 @@ impl fmt::Display for Token {
             Token::ShiftRight => write!(f, ">>"),
             Token::Dot => write!(f, "."),
             Token::DoubleDot => write!(f, ".."),
+            Token::DoubleDotEqual => write!(f, "..="),
             Token::LeftParen => write!(f, "("),
             Token::RightParen => write!(f, ")"),
             Token::LeftBrace => write!(f, "{{"),
@@ -770,6 +776,7 @@ impl Attribute {
             ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["fold"] => Attribute::Function(FunctionAttribute::Fold),
             ["no_predicates"] => Attribute::Function(FunctionAttribute::NoPredicates),
+            ["inline_always"] => Attribute::Function(FunctionAttribute::InlineAlways),
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -830,6 +837,7 @@ pub enum FunctionAttribute {
     Recursive,
     Fold,
     NoPredicates,
+    InlineAlways,
 }
 
 impl FunctionAttribute {
@@ -877,6 +885,13 @@ impl FunctionAttribute {
         matches!(self, FunctionAttribute::NoPredicates)
     }
 
+    /// Check whether we have an `inline_always` attribute
+    /// This is used to indicate that a function should always be inlined
+    /// regardless of the target runtime.
+    pub fn is_inline_always(&self) -> bool {
+        matches!(self, FunctionAttribute::InlineAlways)
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             FunctionAttribute::Foreign(_) => "foreign",
@@ -886,6 +901,7 @@ impl FunctionAttribute {
             FunctionAttribute::Recursive => "recursive",
             FunctionAttribute::Fold => "fold",
             FunctionAttribute::NoPredicates => "no_predicates",
+            FunctionAttribute::InlineAlways => "inline_always",
         }
     }
 }
@@ -900,6 +916,7 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Recursive => write!(f, "#[recursive]"),
             FunctionAttribute::Fold => write!(f, "#[fold]"),
             FunctionAttribute::NoPredicates => write!(f, "#[no_predicates]"),
+            FunctionAttribute::InlineAlways => write!(f, "#[inline_always]"),
         }
     }
 }
@@ -1014,6 +1031,7 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Recursive => "",
             FunctionAttribute::Fold => "",
             FunctionAttribute::NoPredicates => "",
+            FunctionAttribute::InlineAlways => "",
         }
     }
 }
@@ -1220,25 +1238,6 @@ impl Keyword {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Tokens(pub Vec<SpannedToken>);
-
-type TokenMapIter = Map<IntoIter<SpannedToken>, fn(SpannedToken) -> (Token, Span)>;
-
-impl<'a> From<Tokens> for chumsky::Stream<'a, Token, Span, TokenMapIter> {
-    fn from(tokens: Tokens) -> Self {
-        let end_of_input = match tokens.0.last() {
-            Some(spanned_token) => spanned_token.to_span(),
-            None => Span::single_char(0),
-        };
-
-        fn get_span(token: SpannedToken) -> (Token, Span) {
-            let span = token.to_span();
-            (token.into_token(), span)
-        }
-
-        let iter = tokens.0.into_iter().map(get_span as fn(_) -> _);
-        chumsky::Stream::from_iter(end_of_input, iter)
-    }
-}
 
 #[cfg(test)]
 mod keywords {

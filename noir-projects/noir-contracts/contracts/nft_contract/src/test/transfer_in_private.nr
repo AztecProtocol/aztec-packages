@@ -1,6 +1,6 @@
 use crate::test::utils;
 use dep::aztec::test::helpers::cheatcodes;
-use aztec::oracle::unsafe_rand::unsafe_rand;
+use aztec::oracle::random::random;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::NFT;
 
@@ -59,7 +59,7 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail_with="NFT not found when transferring")]
+#[test(should_fail_with = "NFT not found when transferring")]
 unconstrained fn transfer_in_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, not_owner, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
@@ -68,7 +68,7 @@ unconstrained fn transfer_in_private_failure_not_an_owner() {
     env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0));
 }
 
-#[test(should_fail_with="invalid nonce")]
+#[test(should_fail_with = "invalid nonce")]
 unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The nonce check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -76,13 +76,13 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() 
     let (env, nft_contract_address, sender, recipient) = utils::setup(/* with_account_contracts */ false);
 
     // We set random value for the token_id as the nonce check is before we use the value.
-    let token_id = unsafe_rand();
+    let token_id = random();
 
     // Try transferring the NFT
     env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1));
 }
 
-#[test(should_fail_with="Authorization not found for message hash")]
+#[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -90,7 +90,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval
     let (env, nft_contract_address, sender, recipient) = utils::setup(/* with_account_contracts */ true);
 
     // We set random value for the token_id as the nonce check is before we use the value.
-    let token_id = unsafe_rand();
+    let token_id = random();
 
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
@@ -98,7 +98,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval
     env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1));
 }
 
-#[test(should_fail_with="Authorization not found for message hash")]
+#[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -106,7 +106,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
     let (env, nft_contract_address, sender, recipient) = utils::setup(/* with_account_contracts */ true);
 
     // We set random value for the token_id as the nonce check is before we use the value.
-    let token_id = unsafe_rand();
+    let token_id = random();
 
     let transfer_in_private_from_call_interface = NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
     authwit_cheatcodes::add_private_authwit_from_call_interface(sender, sender, transfer_in_private_from_call_interface);

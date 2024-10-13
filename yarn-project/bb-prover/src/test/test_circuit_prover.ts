@@ -114,6 +114,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       inputs.chainId,
       inputs.version,
       inputs.vkTreeRoot,
+      inputs.protocolContractTreeRoot,
     );
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
     const witness = await this.wasmSimulator.simulateCircuit(
@@ -142,6 +143,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       inputs.chainId,
       inputs.version,
       inputs.vkTreeRoot,
+      inputs.protocolContractTreeRoot,
     );
     const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
     const witness = await this.wasmSimulator.simulateCircuit(

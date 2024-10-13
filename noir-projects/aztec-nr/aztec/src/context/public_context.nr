@@ -1,6 +1,6 @@
 use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
 use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::constants::MAX_FIELD_VALUE;
+use dep::protocol_types::constants::{MAX_FIELD_VALUE, PUBLIC_DISPATCH_SELECTOR};
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::gas::GasOpts;
@@ -70,11 +70,12 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
+        let args = &[function_selector.to_field()].append(args);
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
             args,
-            function_selector.to_field()
+            PUBLIC_DISPATCH_SELECTOR
         );
         let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
@@ -90,11 +91,12 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
+        let args = &[function_selector.to_field()].append(args);
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
             args,
-            function_selector.to_field()
+            PUBLIC_DISPATCH_SELECTOR
         );
 
         assert(success == 1, "Nested static call failed!");
@@ -127,7 +129,9 @@ impl PublicContext {
         sender()
     }
     fn selector(_self: Self) -> FunctionSelector {
-        FunctionSelector::from_u32(function_selector())
+        // The selector is the first element of the calldata when calling a public function through dispatch.
+        let raw_selector: [Field; 1] = calldata_copy(0, 1);
+        FunctionSelector::from_field(raw_selector[0])
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
@@ -215,9 +219,10 @@ unconstrained fn sender() -> AztecAddress {
 unconstrained fn portal() -> EthAddress {
     portal_opcode()
 }
-unconstrained fn function_selector() -> u32 {
-    function_selector_opcode()
-}
+// UNUSED: Remove.
+// unconstrained fn function_selector() -> u32 {
+//     function_selector_opcode()
+// }
 unconstrained fn transaction_fee() -> Field {
     transaction_fee_opcode()
 }
@@ -248,13 +253,13 @@ unconstrained fn da_gas_left() -> Field {
 unconstrained fn is_static_call() -> Field {
     is_static_call_opcode()
 }
-unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
+unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u1 {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
 unconstrained fn emit_note_hash(note_hash: Field) {
     emit_note_hash_opcode(note_hash)
 }
-unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
+unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u1 {
     nullifier_exists_opcode(nullifier, address)
 }
 unconstrained fn emit_nullifier(nullifier: Field) {
@@ -263,7 +268,7 @@ unconstrained fn emit_nullifier(nullifier: Field) {
 unconstrained fn emit_unencrypted_log(message: [Field]) {
     emit_unencrypted_log_opcode(message)
 }
-unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {
+unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u1 {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
 }
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
@@ -321,8 +326,9 @@ unconstrained fn sender_opcode() -> AztecAddress {}
 #[oracle(avmOpcodePortal)]
 unconstrained fn portal_opcode() -> EthAddress {}
 
-#[oracle(avmOpcodeFunctionSelector)]
-unconstrained fn function_selector_opcode() -> u32 {}
+// UNUSED: Remove.
+// #[oracle(avmOpcodeFunctionSelector)]
+// unconstrained fn function_selector_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTransactionFee)]
 unconstrained fn transaction_fee_opcode() -> Field {}
@@ -355,13 +361,13 @@ unconstrained fn da_gas_left_opcode() -> Field {}
 unconstrained fn is_static_call_opcode() -> Field {}
 
 #[oracle(avmOpcodeNoteHashExists)]
-unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u1 {}
 
 #[oracle(avmOpcodeEmitNoteHash)]
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
 
 #[oracle(avmOpcodeNullifierExists)]
-unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8 {}
+unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u1 {}
 
 #[oracle(avmOpcodeEmitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
@@ -370,7 +376,7 @@ unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 unconstrained fn emit_unencrypted_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
-unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u1 {}
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}

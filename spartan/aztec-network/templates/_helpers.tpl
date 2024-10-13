@@ -67,13 +67,20 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
 {{- define "aztec-network.otelCollectorMetricsEndpoint" -}}
-{{ include "aztec-network.metricsHost" . }}:{{ .Values.metrics.ports.otlp }}/v1/metrics
+{{- if .Values.telemetry.enabled -}}
+{{- if .Values.telemetry.otelCollectorEndpoint -}}
+{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "aztec-network.otelCollectorTracesEndpoint" -}}
-{{ include "aztec-network.metricsHost" . }}:{{ .Values.metrics.ports.otlp }}/v1/traces
+{{- if .Values.telemetry.enabled -}}
+{{- if .Values.telemetry.otelCollectorEndpoint -}}
+{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces
 {{- end -}}
-
+{{- end -}}
+{{- end -}}
 
 
 {{- define "helpers.flag" -}}
@@ -82,10 +89,10 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- if $value -}}
   {{- if kindIs "string" $value -}}
     {{- if ne $value "" -}}
---{{ $name }} {{ $value }}
+--{{ $name }} {{ $value }}{{ " " }}
     {{- end -}}
   {{- else -}}
---{{ $name }} {{ $value }}
+--{{ $name }} {{ $value }}{{ " " }}
   {{- end -}}
 {{- end -}}
 {{- end -}}

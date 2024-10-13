@@ -10,28 +10,31 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
+  type PrivateExecutionResult,
   type SiblingPath,
-  type SimulatedTx,
   type SyncStatus,
   type Tx,
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
+  type TxProvingResult,
   type TxReceipt,
+  type TxSimulationResult,
   type UniqueNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
   type CompleteAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
   type Fr,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NodeInfo,
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -106,15 +109,15 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.proveTx(txRequest, simulatePublic, this.scopes);
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
+    return this.pxe.proveTx(txRequest, privateExecutionResult);
   }
   simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-  ): Promise<SimulatedTx> {
+  ): Promise<TxSimulationResult> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {

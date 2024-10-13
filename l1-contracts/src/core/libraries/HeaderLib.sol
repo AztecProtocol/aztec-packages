@@ -112,9 +112,10 @@ library HeaderLib {
    * @return The decoded header
    */
   function decode(bytes calldata _header) internal pure returns (Header memory) {
-    if (_header.length != HEADER_LENGTH) {
-      revert Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length);
-    }
+    require(
+      _header.length == HEADER_LENGTH,
+      Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length)
+    );
 
     Header memory header;
 
@@ -196,9 +197,10 @@ library HeaderLib {
     fields[23] = bytes32(_header.totalFees);
 
     // fail if the header structure has changed without updating this function
-    if (fields.length != Constants.HEADER_LENGTH) {
-      revert Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length);
-    }
+    require(
+      fields.length == Constants.HEADER_LENGTH,
+      Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length)
+    );
 
     return fields;
   }
@@ -223,11 +225,12 @@ library HeaderLib {
     fields[8] = bytes32(_globalVariables.gasFees.feePerL2Gas);
 
     // fail if the header structure has changed without updating this function
-    if (fields.length != Constants.GLOBAL_VARIABLES_LENGTH) {
-      // TODO(Miranda): Temporarily using this method and below error while block-root proofs are verified
-      // When we verify root proofs, this method can be removed => no need for separate named error
-      revert Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length);
-    }
+    // TODO(Miranda): Temporarily using this method and below error while block-root proofs are verified
+    // When we verify root proofs, this method can be removed => no need for separate named error
+    require(
+      fields.length == Constants.GLOBAL_VARIABLES_LENGTH,
+      Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length)
+    );
 
     return fields;
   }

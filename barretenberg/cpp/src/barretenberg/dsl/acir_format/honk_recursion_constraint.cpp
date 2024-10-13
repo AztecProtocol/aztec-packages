@@ -94,7 +94,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    // first 7 commitments
+    // first 8 witness commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -105,20 +105,20 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    // now the univariates, which can just be 0s (7*CONST_PROOF_SIZE_LOG_N Frs)
+    // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
 
-    // now the sumcheck evaluations, which is just 43 0s
+    // now the sumcheck evaluations, which is just 44 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
 
-    // now the zeromorph commitments, which are CONST_PROOF_SIZE_LOG_N comms
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
+    for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
         builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
@@ -128,7 +128,13 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    // lastly the 2 commitments
+    // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
+    for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
+        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        offset++;
+    }
+
+    // lastly the shplonk batched quotient commitment and kzg quotient commitment
     for (size_t i = 0; i < 2; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);

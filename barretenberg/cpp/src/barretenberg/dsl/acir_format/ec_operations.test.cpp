@@ -74,7 +74,6 @@ TEST_F(EcOperations, TestECOperations)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -91,6 +90,7 @@ TEST_F(EcOperations, TestECOperations)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -212,7 +212,6 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -229,6 +228,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

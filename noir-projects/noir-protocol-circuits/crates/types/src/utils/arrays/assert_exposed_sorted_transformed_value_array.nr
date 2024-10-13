@@ -96,7 +96,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_exposed_sorted_transformed_value_array_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -106,7 +106,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_exposed_sorted_transformed_value_array_unordered_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -131,7 +131,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect hinted counter")]
+    #[test(should_fail_with = "incorrect hinted counter")]
     fn assert_exposed_sorted_transformed_value_array_unordered_values_with_ordered_counters_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -151,7 +151,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_exposed_sorted_transformed_value_array_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -161,7 +161,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_exposed_sorted_transformed_value_array_hint_to_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -173,7 +173,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_exposed_sorted_transformed_value_array_missing_item_fails() {
         let mut builder = TestDataBuilder::new();
 

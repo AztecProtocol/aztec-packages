@@ -152,7 +152,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -169,6 +168,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -205,7 +205,6 @@ TEST_F(MegaHonk, Databus)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -222,6 +221,7 @@ TEST_F(MegaHonk, Databus)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -313,7 +313,6 @@ TEST_F(MegaHonk, DatabusReturn)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -330,6 +329,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

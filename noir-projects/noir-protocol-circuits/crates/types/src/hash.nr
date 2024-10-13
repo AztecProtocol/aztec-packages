@@ -212,7 +212,8 @@ pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
+        // TODO: This is not checking that the decomposition is smaller than P
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -233,7 +234,8 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
+        // TODO: This is not checking that the decomposition is smaller than P
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -250,6 +252,7 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     hash
 }
 
+#[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -eu
 
-BENCHMARK=${1:-goblin_bench}
-COMMAND=${2:-./bin/$BENCHMARK}
+BENCHMARK=${1:-client_ivc_bench}
+COMMAND=${2:-./bin/$BENCHMARK --benchmark_filter=ClientIVCBench/Full/6}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 # Move above script dir.

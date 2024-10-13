@@ -134,7 +134,7 @@ class GoblinProver {
      */
     PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder, MergeProof& proof) const
     {
-        BB_OP_COUNT_TIME_NAME("Goblin::merge");
+        PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
         return merge_verifier.verify_proof(proof);
     };
@@ -146,7 +146,7 @@ class GoblinProver {
      */
     MergeProof prove_merge(MegaCircuitBuilder& circuit_builder)
     {
-        BB_OP_COUNT_TIME_NAME("Goblin::merge");
+        PROFILE_THIS_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
         // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
         // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added
@@ -171,17 +171,23 @@ class GoblinProver {
     void prove_eccvm()
     {
         {
-            ZoneScopedN("Create ECCVMBuilder and ECCVMProver");
+
+            PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
+
             auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
             eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         }
         {
-            ZoneScopedN("Construct ECCVM Proof");
+
+            PROFILE_THIS_NAME("Construct ECCVM Proof");
+
             goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
         }
 
         {
-            ZoneScopedN("Assign Translation Evaluations");
+
+            PROFILE_THIS_NAME("Assign Translation Evaluations");
+
             goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
         }
     }
@@ -198,14 +204,18 @@ class GoblinProver {
         eccvm_key = eccvm_prover->key;
         eccvm_prover = nullptr;
         {
-            ZoneScopedN("Create TranslatorBuilder and TranslatorProver");
+
+            PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
+
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
             translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
         }
 
         {
-            ZoneScopedN("Construct Translator Proof");
+
+            PROFILE_THIS_NAME("Construct Translator Proof");
+
             goblin_proof.translator_proof = translator_prover->construct_proof();
         }
     }
@@ -219,14 +229,20 @@ class GoblinProver {
      */
     GoblinProof prove(MergeProof merge_proof_in = {})
     {
-        ZoneScopedN("Goblin::prove");
+
+        PROFILE_THIS_NAME("Goblin::prove");
+
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
-            ZoneScopedN("prove_eccvm");
+
+            PROFILE_THIS_NAME("prove_eccvm");
+
             prove_eccvm();
         }
         {
-            ZoneScopedN("prove_translator");
+
+            PROFILE_THIS_NAME("prove_translator");
+
             prove_translator();
         }
         return goblin_proof;

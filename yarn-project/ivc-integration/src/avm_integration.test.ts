@@ -6,7 +6,13 @@ import {
   getPublicInputs,
   verifyProof,
 } from '@aztec/bb-prover';
-import { AvmCircuitInputs, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
+import {
+  AvmCircuitInputs,
+  FunctionSelector,
+  Gas,
+  GlobalVariables,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_PUBLIC_COLUMN_MAX_SIZE,
@@ -26,7 +32,6 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs/promises';
@@ -41,7 +46,7 @@ import { MockPublicKernelCircuit, witnessGenMockPublicKernelCircuit } from './in
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
 
-jest.setTimeout(180_000);
+jest.setTimeout(240_000);
 
 const logger = createDebugLogger('aztec:avm-integration');
 

@@ -21,7 +21,7 @@ fn validate_gas_used_succeeds() {
     builder.validate_with_output(output);
 }
 
-#[test(should_fail_with="incorrect metered gas used")]
+#[test(should_fail_with = "incorrect metered gas used")]
 fn validate_gas_used_wrong_da_gas_fails() {
     let builder = TailOutputValidatorBuilder::new_with_data();
     let mut output = builder.export_output();
@@ -32,7 +32,7 @@ fn validate_gas_used_wrong_da_gas_fails() {
     builder.validate_with_output(output);
 }
 
-#[test(should_fail_with="incorrect metered gas used")]
+#[test(should_fail_with = "incorrect metered gas used")]
 fn validate_gas_used_wrong_l2_gas_fails() {
     let builder = TailOutputValidatorBuilder::new_with_data();
     let mut output = builder.export_output();
@@ -43,7 +43,7 @@ fn validate_gas_used_wrong_l2_gas_fails() {
     builder.validate_with_output(output);
 }
 
-#[test(should_fail_with="The gas used exceeds the gas limits")]
+#[test(should_fail_with = "The gas used exceeds the gas limits")]
 fn validate_gas_used_exceed_da_limit_fails() {
     let mut builder = TailOutputValidatorBuilder::new_with_data();
     let mut output = builder.export_output();
@@ -57,7 +57,7 @@ fn validate_gas_used_exceed_da_limit_fails() {
     builder.validate_with_output(output);
 }
 
-#[test(should_fail_with="The gas used exceeds the gas limits")]
+#[test(should_fail_with = "The gas used exceeds the gas limits")]
 fn validate_gas_used_exceed_l2_limit_fails() {
     let mut builder = TailOutputValidatorBuilder::new_with_data();
     let mut output = builder.export_output();

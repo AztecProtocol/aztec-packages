@@ -101,6 +101,10 @@ export interface DeployL1ContractsArgs {
    */
   vkTreeRoot: Fr;
   /**
+   * The protocol contract tree root.
+   */
+  protocolContractTreeRoot: Fr;
+  /**
    * The block number to assume proven through.
    */
   assumeProvenThrough?: number;
@@ -200,16 +204,20 @@ export const deployL1Contracts = async (
   logger.info(`Deployed Registry at ${registryAddress}`);
 
   const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
-
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
-
-  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [
+    account.address.toString(),
+    registryAddress.toString(),
+    feeJuiceAddress.toString(),
+    args.l2FeeJuiceAddress.toString(),
+  ]);
+  logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
-    getAddress(feeJuicePortalAddress.toString()),
+    feeJuicePortalAddress.toString(),
     args.vkTreeRoot.toString(),
+    args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
   ]);
@@ -251,22 +259,16 @@ export const deployL1Contracts = async (
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
   logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
-  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
-    const initPortalTxHash = await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]);
+  if ((await feeJuicePortal.read.owner([])) !== zeroAddress) {
+    const initPortalTxHash = await feeJuicePortal.write.initialize([]);
     txHashes.push(initPortalTxHash);
-    logger.verbose(
-      `Fee juice portal initializing with registry ${registryAddress.toString()} in tx ${initPortalTxHash}`,
-    );
+    logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
   } else {
     logger.verbose(`Fee juice portal is already initialized`);
   }
 
   logger.info(
-    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
   if (isAnvilTestChain(chain.id)) {

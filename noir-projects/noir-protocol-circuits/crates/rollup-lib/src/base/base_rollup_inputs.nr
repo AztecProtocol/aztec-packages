@@ -79,6 +79,10 @@ impl BaseRollupInputs {
         assert(
             self.kernel_data.public_inputs.constants.vk_tree_root == self.constants.vk_tree_root, "kernel vk_tree_root does not match the rollup vk_tree_root"
         );
+        assert(
+            self.kernel_data.public_inputs.constants.protocol_contract_tree_root
+            == self.constants.protocol_contract_tree_root, "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root"
+        );
 
         // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
         // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
@@ -619,6 +623,12 @@ mod tests {
             inputs
         }
 
+        unconstrained fn new_with_previous_kernel(previous_vk_index: u32) -> Self {
+            let mut builder = BaseRollupInputsBuilder::new();
+            builder.kernel_data = builder.kernel_data.in_vk_tree(previous_vk_index);
+            builder
+        }
+
         fn build_fee_payer_fee_juice_balance_read_hint(
             self,
             start_public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT>
@@ -712,7 +722,7 @@ mod tests {
             )
         }
 
-        fn build_inputs(mut self) -> BaseRollupInputs {
+        unconstrained fn build_inputs(mut self) -> BaseRollupInputs {
             let mut kernel_data = self.kernel_data.to_kernel_data();
 
             let start_note_hash_tree = NonEmptyMerkleTree::new(
@@ -830,7 +840,10 @@ mod tests {
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-            self.build_inputs().base_rollup_circuit()
+            let inputs = unsafe {
+                self.build_inputs()
+            };
+            inputs.base_rollup_circuit()
         }
 
         fn succeeds(self) {
@@ -1351,7 +1364,7 @@ mod tests {
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 
-    #[test(should_fail_with="Not enough balance for fee payer to pay for transaction")]
+    #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
     unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
         let fee_payer = AztecAddress::from_field(0x1234);
         let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
@@ -1382,7 +1395,7 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with="Wrong leaf slot for Fee Juice balance read hint")]
+    #[test(should_fail_with = "Wrong leaf slot for Fee Juice balance read hint")]
     unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
         let fee_payer = AztecAddress::from_field(0x1234);
         let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
@@ -1424,24 +1437,27 @@ mod tests {
 
     #[test]
     fn valid_previous_kernel_empty() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_EMPTY_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
+        };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_tail() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_TAIL_INDEX)
+        };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_public_tail() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(PUBLIC_KERNEL_TAIL_INDEX);
+        let builder = unsafe {
+            BaseRollupInputsBuilder::new_with_previous_kernel(PUBLIC_KERNEL_TAIL_INDEX)
+        };
 
         let _res = builder.execute();
     }

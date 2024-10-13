@@ -68,7 +68,7 @@ mod tests {
     use dep::types::hash::accumulate_sha256;
     use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX};
 
-    #[test(should_fail_with="The rollup should be filled greedily from L to R, but received a L base and R merge")]
+    #[test(should_fail_with = "The rollup should be filled greedily from L to R, but received a L base and R merge")]
     fn different_rollup_type_fails() {
         let mut inputs = default_merge_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 0;
@@ -76,7 +76,7 @@ mod tests {
         let _output = inputs.merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input proofs have different constants")]
+    #[test(should_fail_with = "input proofs have different constants")]
     fn constants_different_chain_id_fails() {
         let mut inputs = default_merge_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = 1;
@@ -84,7 +84,7 @@ mod tests {
         let _output = inputs.merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input proofs have different note hash tree snapshots")]
+    #[test(should_fail_with = "input proofs have different note hash tree snapshots")]
     fn previous_rollups_dont_follow_note_hash() {
         let mut inputs = default_merge_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.note_hash_tree.root = 0;
@@ -92,7 +92,7 @@ mod tests {
         let _output = inputs.merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input proofs have different nullifier tree snapshots")]
+    #[test(should_fail_with = "input proofs have different nullifier tree snapshots")]
     fn previous_rollups_dont_follow_nullifier() {
         let mut inputs = default_merge_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.nullifier_tree.root = 0;

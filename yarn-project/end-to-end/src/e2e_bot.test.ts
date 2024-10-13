@@ -1,6 +1,5 @@
 import { Fr, type PXE } from '@aztec/aztec.js';
-import { Bot, type BotConfig } from '@aztec/bot';
-import { SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
+import { Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 
 import { setup } from './fixtures/utils.js';
 
@@ -17,6 +16,7 @@ describe('e2e_bot', () => {
     config = {
       ...getBotDefaultConfig(),
       ...senderPrivateKey,
+      followChain: 'PENDING',
     };
     bot = await Bot.create(config, { pxe });
   });

@@ -144,23 +144,35 @@ export class AztecLmdbStore implements AztecKVStore {
   }
 
   /**
-   * Clears all entries in the store
+   * Clears all entries in the store & sub DBs.
    */
   async clear() {
+    await this.#data.clearAsync();
+    await this.#multiMapData.clearAsync();
     await this.#rootDb.clearAsync();
   }
 
   /**
+   * Drops the database & sub DBs.
+   */
+  async drop() {
+    await this.#data.drop();
+    await this.#multiMapData.drop();
+    await this.#rootDb.drop();
+  }
+
+  /**
    * Close the database. Note, once this is closed we can no longer interact with the DB.
-   * Closing the root DB also closes child DBs.
    */
   async close() {
+    await this.#data.close();
+    await this.#multiMapData.close();
     await this.#rootDb.close();
   }
 
   /** Deletes this store and removes the database files from disk */
   async delete() {
-    await this.#rootDb.drop();
+    await this.drop();
     await this.close();
     if (this.path) {
       await rm(this.path, { recursive: true, force: true });

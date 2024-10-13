@@ -4,17 +4,18 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
+
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   type ContractClassPublic,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
-
-import { SchnorrSignature } from '../barretenberg/index.js';
+} from '../contract/index.js';
 import {
   ARCHIVE_HEIGHT,
+  AZTEC_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   AvmContractInstanceHint,
@@ -138,7 +139,6 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
-  packBytecode,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -215,20 +215,6 @@ function makeNullifier(seed: number) {
 export function makeTxContext(seed: number = 1): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
   return new TxContext(new Fr(seed), Fr.ZERO, makeGasSettings());
-}
-
-/**
- * Creates arbitrary constant data with the given seed.
- * @param seed - The seed to use for generating the constant data.
- * @returns A constant data object.
- */
-export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(
-    makeHeader(seed, undefined),
-    makeTxContext(seed + 4),
-    new Fr(seed + 1),
-    makeGlobalVariables(seed + 5),
-  );
 }
 
 /**
@@ -357,6 +343,7 @@ export function makeCombinedConstantData(seed = 1): CombinedConstantData {
     makeHeader(seed),
     makeTxContext(seed + 0x100),
     new Fr(seed + 0x200),
+    new Fr(seed + 0x201),
     makeGlobalVariables(seed + 0x300),
   );
 }
@@ -519,7 +506,7 @@ export function makePublicKernelCircuitPublicInputs(
   fullAccumulatedData = true,
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
-    makeConstantData(seed),
+    makeCombinedConstantData(seed),
     makePublicValidationRequests(seed + 0x100),
     makePublicAccumulatedData(seed + 0x200, fullAccumulatedData),
     makePublicAccumulatedData(seed + 0x300, fullAccumulatedData),
@@ -554,7 +541,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
       )
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
-    makeConstantData(seed + 0x300),
+    makeCombinedConstantData(seed + 0x300),
     RevertCode.OK,
     makeAztecAddress(seed + 0x700),
     forPublic,
@@ -571,7 +558,7 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
   return new KernelCircuitPublicInputs(
     makeRollupValidationRequests(seed),
     makeCombinedAccumulatedData(seed, fullAccumulatedData),
-    makeConstantData(seed + 0x100),
+    makeCombinedConstantData(seed + 0x100),
     makePartialStateReference(seed + 0x200),
     RevertCode.OK,
     makeAztecAddress(seed + 0x700),
@@ -892,7 +879,8 @@ export function makeConstantBaseRollupData(
   return ConstantRollupData.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
     vkTreeRoot: fr(seed + 0x401),
-    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x402),
+    protocolContractTreeRoot: fr(seed + 0x402),
+    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x500),
   });
 }
 
@@ -986,8 +974,9 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x501),
     globalVariables ?? makeGlobalVariables(seed + 0x502),
     fr(seed + 0x600),
-    makeTuple(32, () => makeFeeRecipient(seed), 0x700),
+    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
+    fr(seed + 0x801),
     fr(seed + 0x900),
   );
 }
@@ -1076,6 +1065,7 @@ export function makeEmptyBlockRootRollupInputs(
     fr(seed + 0x100),
     globalVariables ?? makeGlobalVariables(seed + 0x200),
     fr(seed + 0x300),
+    fr(seed + 0x301),
     fr(seed + 0x400),
   );
 }
@@ -1129,8 +1119,9 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x600),
     fr(seed + 0x700),
     fr(seed + 0x800),
-    makeTuple(32, () => makeFeeRecipient(seed), 0x900),
+    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
+    fr(seed + 0x101),
     fr(seed + 0x200),
   );
 }
@@ -1362,7 +1353,7 @@ export function makeContractClassPublic(seed = 0): ContractClassPublic {
   const artifactHash = fr(seed + 1);
   const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = packBytecode(publicFunctions);
+  const packedBytecode = publicFunctions[0].bytecode;
   const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
   const id = computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 /**
  * @title Errors Library
@@ -11,6 +11,10 @@ pragma solidity >=0.8.18;
  */
 library Errors {
   // Registry
-  error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
+  error Nomismatokopio__InssuficientMintAvailable(uint256 available, uint256 needed); // 0xf268b931
+
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
+  error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
+
+  error Sysstia__InvalidCaller(address caller, address canonical); // 0xb95e39f6
 }

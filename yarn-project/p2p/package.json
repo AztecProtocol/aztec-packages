@@ -37,6 +37,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -86,6 +89,7 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.14.6",

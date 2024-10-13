@@ -54,7 +54,6 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -71,6 +70,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

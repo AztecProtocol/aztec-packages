@@ -14,7 +14,6 @@ use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
 use noirc_evaluator::ssa::SsaProgramArtifact;
 use noirc_frontend::debug::build_debug_crate_file;
-use noirc_frontend::graph::{CrateId, CrateName};
 use noirc_frontend::hir::def_map::{Contract, CrateDefMap};
 use noirc_frontend::hir::Context;
 use noirc_frontend::monomorphization::{
@@ -35,6 +34,7 @@ use debug::filter_relevant_files;
 
 pub use contract::{CompiledContract, CompiledContractOutputs, ContractFunction};
 pub use debug::DebugFile;
+pub use noirc_frontend::graph::{CrateId, CrateName};
 pub use program::CompiledProgram;
 
 const STD_CRATE_NAME: &str = "std";
@@ -124,6 +124,12 @@ pub struct CompileOptions {
     /// This check should always be run on production code.
     #[arg(long)]
     pub skip_underconstrained_check: bool,
+
+    /// Setting to decide on an inlining strategy for brillig functions.
+    /// A more aggressive inliner should generate larger programs but more optimized
+    /// A less aggressive inliner should generate smaller programs
+    #[arg(long, hide = true, allow_hyphen_values = true, default_value_t = i64::MAX)]
+    pub inliner_aggressiveness: i64,
 }
 
 pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {
@@ -580,6 +586,7 @@ pub fn compile_no_check(
         },
         emit_ssa: if options.emit_ssa { Some(context.package_build_path.clone()) } else { None },
         skip_underconstrained_check: options.skip_underconstrained_check,
+        inliner_aggressiveness: options.inliner_aggressiveness,
     };
 
     let SsaProgramArtifact { program, debug, warnings, names, brillig_names, error_types, .. } =

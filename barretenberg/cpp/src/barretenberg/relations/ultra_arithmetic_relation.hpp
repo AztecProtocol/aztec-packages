@@ -82,7 +82,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("Arithmetic::accumulate");
+        PROFILE_THIS_NAME("Arithmetic::accumulate");
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
