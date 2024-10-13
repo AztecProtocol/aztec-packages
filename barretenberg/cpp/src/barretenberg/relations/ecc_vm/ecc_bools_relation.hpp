@@ -16,7 +16,7 @@ namespace bb {
 template <typename FF_> class ECCVMBoolsRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t ZK_RELATION_LENGTH = 5;
+
     static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };
@@ -29,6 +29,9 @@ polynomials,
     static constexpr std::array<size_t, 19> SUBRELATION_WITNESS_DEGREES{
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     };
+
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

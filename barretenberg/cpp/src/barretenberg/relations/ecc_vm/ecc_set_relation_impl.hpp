@@ -100,7 +100,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
-        // TODO(@zac-williamson #22f26) optimize
+        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr;
         numerator *= wnaf_slice_input3; // degree-4
     }
@@ -414,6 +414,6 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         scaling_factor;
 
     // Contribution (2)
-    std::get<1>(accumulator) += ShortView((lagrange_last_short * z_perm_shift_short) * scaling_factor);
+    std::get<1>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
 }
 } // namespace bb

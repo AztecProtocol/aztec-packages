@@ -152,7 +152,7 @@ template <typename Flavor> class SumcheckProver {
     using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
     // Define the length of Libra Univariates. For non-ZK Flavors: set to 0.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
-    using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
+    using LibraUnivariates = std::vector<Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;

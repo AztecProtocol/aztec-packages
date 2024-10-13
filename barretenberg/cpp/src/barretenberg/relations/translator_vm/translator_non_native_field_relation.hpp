@@ -7,7 +7,6 @@ namespace bb {
 template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t ZK_RELATION_LENGTH = 5;
 
     // 1 + polynomial degree of this relation
     static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
@@ -16,7 +15,7 @@ template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
         3  // Prime subrelation (checks result in native field)
     };
     /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+     * @brief Upper bound on the degrees of subrelations considered as polynomials only in witness
 polynomials,
      * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
      * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
@@ -26,6 +25,8 @@ polynomials,
         2, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
         2  // Prime subrelation (checks result in native field)
     };
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *

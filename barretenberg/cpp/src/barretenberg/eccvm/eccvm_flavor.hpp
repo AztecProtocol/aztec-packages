@@ -39,7 +39,7 @@ class ECCVMFlavor {
     using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
 
-    // Indicates that this flavor runs with non-ZK Sumcheck.
+    // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr size_t NUM_WIRES = 85;
 
@@ -1151,12 +1151,13 @@ class ECCVMFlavor {
             }
 
             size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
+            sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
+                NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < log_circuit_size; i++) {
                 libra_evaluations.emplace_back(
                     NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
             }
-            sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                NativeTranscript::proof_data, num_frs_read);
+
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 zm_cq_comms.push_back(
                     NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));

@@ -6,7 +6,6 @@ namespace bb {
 template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t ZK_RELATION_LENGTH = 13;
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7; // degree(op(op - 1)(op - 2)(op - 3)(op - 4)(op - 8)) = 6
@@ -14,7 +13,7 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
         7 // opcode constraint relation
     };
     /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+     * @brief Upper bound on the degrees of subrelations considered as polynomials only in witness
 polynomials,
      * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
      * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
@@ -22,6 +21,8 @@ polynomials,
     static constexpr std::array<size_t, 1> SUBRELATION_WITNESS_DEGREES{
         6 // opcode constraint relation
     };
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 13;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *

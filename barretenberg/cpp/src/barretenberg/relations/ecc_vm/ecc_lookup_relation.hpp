@@ -11,8 +11,6 @@ namespace bb {
 template <typename FF_> class ECCVMLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t ZK_RELATION_LENGTH = 17;
-
     static constexpr size_t READ_TERMS = 4;
     static constexpr size_t WRITE_TERMS = 2;
     // 1 + polynomial degree of this relation
@@ -32,6 +30,9 @@ polynomials,
         LENGTH - 1, // grand product construction sub-relation
         LENGTH - 1  // left-shiftable polynomial sub-relation
     };
+
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 17;
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 

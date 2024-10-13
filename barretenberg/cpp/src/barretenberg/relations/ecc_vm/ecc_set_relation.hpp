@@ -11,7 +11,6 @@ namespace bb {
 template <typename FF_> class ECCVMSetRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t ZK_RELATION_LENGTH = 43;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         22, // grand product construction sub-relation
@@ -25,8 +24,11 @@ polynomials,
      */
     static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
         21, // grand product construction sub-relation
-        2   // left-shiftable polynomial sub-relation
+        1   // left-shiftable polynomial sub-relation
     };
+
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 43;
 
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {

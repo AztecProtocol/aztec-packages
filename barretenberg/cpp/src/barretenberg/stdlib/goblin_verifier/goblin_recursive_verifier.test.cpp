@@ -95,7 +95,6 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         OuterProver prover(proving_key);
         auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-        info("problem?");
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);

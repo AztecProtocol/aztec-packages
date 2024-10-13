@@ -69,7 +69,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     auto multivariate_to_univariate_opening_claim = ZeroMorph::verify(circuit_size,
