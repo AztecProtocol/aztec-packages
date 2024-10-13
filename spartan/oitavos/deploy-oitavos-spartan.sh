@@ -1,11 +1,11 @@
 #!/bin/bash
 set -eu
 
-TAG=$1
+IMAGE=$1
 
-if [ -z "$TAG" ]; then
-  echo "Usage: $0 <tag> <values>"
-  echo "Example: $0 latest 48-validators"
+if [ -z "$IMAGE" ]; then
+  echo "Usage: $0 <image> <values>"
+  echo "Example: $0 aztecprotocol:aztec/master"
   exit 1
 fi
 
@@ -15,7 +15,7 @@ helm upgrade --install oitavos $SCRIPT_DIR/../aztec-network \
       --namespace oitavos \
       --create-namespace \
       --values $SCRIPT_DIR/oitavos-spartan.yaml \
-      --set images.aztec.image="iamjustmitch/aztec:$TAG" \
+      --set images.aztec.image="$IMAGE" \
       --wait \
       --wait-for-jobs=true \
       --timeout=30m
