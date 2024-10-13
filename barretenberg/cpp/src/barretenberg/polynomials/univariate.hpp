@@ -46,6 +46,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate(Univariate&& other) noexcept = default;
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
+    size_t size() { return evaluations.size(); };
 
     // Conversion function
     Univariate<Fr, domain_end, domain_start> convert() const noexcept;

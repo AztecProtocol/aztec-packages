@@ -1,4 +1,5 @@
 #include "univariate.hpp"
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
 namespace bb {
@@ -597,5 +598,44 @@ template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 3, 0, 0>::extend_to<8, 0
 template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 5, 0, 0>::extend_to<8, 0>() const;
 template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 6, 0, 0>::extend_to<8, 0>() const;
 template Univariate<bb::fr, 8, 0, 0> Univariate<bb::fr, 7, 0, 0>::extend_to<8, 0>() const;
+
+// client_ivc_tests... this is >100k insts in linker error
+
+template class Univariate<bb::fq, 2, 0, 0>;
+template class Univariate<bb::fq, 3, 0, 0>;
+template class Univariate<bb::fq, 5, 0, 0>;
+template class Univariate<bb::fq, 6, 0, 0>;
+template class Univariate<bb::fq, 8, 0, 0>;
+template class Univariate<bb::fq, 9, 0, 0>;
+template class Univariate<bb::fq, 21, 0, 0>;
+template class Univariate<bb::fq, 22, 0, 0>;
+
+template class Univariate<bb::fr, 3, 0, 1>;
+template class Univariate<bb::fr, 5, 0, 1>;
+template class Univariate<bb::fr, 6, 0, 1>;
+template class Univariate<bb::fr, 7, 0, 1>;
+template class Univariate<bb::fr, 11, 0, 0>;
+template class Univariate<bb::fr, 11, 0, 1>;
+template class Univariate<bb::fr, 12, 0, 0>;
+template class Univariate<bb::fr, 12, 2, 0>;
+
+template void Univariate<bb::fr, 11, 0, 1>::self_extend_from<2>();
+
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 21, 0, 0>::extend_to<22, 0>() const;
+template Univariate<bb::fq, 21, 0, 0> Univariate<bb::fq, 2, 0, 0>::extend_to<21, 0>() const;
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 2, 0, 0>::extend_to<22, 0>() const;
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 3, 0, 0>::extend_to<22, 0>() const;
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 5, 0, 0>::extend_to<22, 0>() const;
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 6, 0, 0>::extend_to<22, 0>() const;
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 8, 0, 0>::extend_to<22, 0>() const;
+template Univariate<bb::fq, 22, 0, 0> Univariate<bb::fq, 9, 0, 0>::extend_to<22, 0>() const;
+
+template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 11, 0, 0>::extend_to<12, 0>() const;
+template Univariate<bb::fr, 11, 0, 1> Univariate<bb::fr, 2, 0, 0>::extend_to<11, 1>() const;
+template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 2, 0, 0>::extend_to<12, 0>() const;
+template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 3, 0, 0>::extend_to<12, 0>() const;
+template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 5, 0, 0>::extend_to<12, 0>() const;
+template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 6, 0, 0>::extend_to<12, 0>() const;
+template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 7, 0, 0>::extend_to<12, 0>() const;
 
 } // namespace bb
