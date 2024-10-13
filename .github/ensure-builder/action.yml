@@ -80,7 +80,7 @@ runs:
           scripts/run_on_builder "
             echo "Unpacking repo"
             git config --global advice.detachedHead false
-            flock ~/run-$RUN_ID.lock 'git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID' || true
+            flock ~/run-$RUN_ID.lock git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID || true
             echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
             chmod 600 ~/.ssh/build_instance_key
           " || true
