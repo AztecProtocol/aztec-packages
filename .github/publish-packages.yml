@@ -47,7 +47,7 @@ jobs:
           REPO: "${{ github.repository }}"
           BRANCH: "${{ github.ref_name }}"
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "username=${{ github.event.pull_request.user.login }}"
             echo "username=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
           else
