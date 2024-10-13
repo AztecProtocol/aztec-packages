@@ -700,8 +700,10 @@ template <typename Curve> class ZeroMorphVerifier_ {
             // If Ultra and using biggroup, handle edge cases in batch_mul
             if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
                 return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+                info(commitments.size());
             } else {
                 return Commitment::batch_mul(commitments, scalars);
+                info(commitments.size());
             }
         } else {
             return batch_mul_native(commitments, scalars);
@@ -799,6 +801,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 C_zeta_Z = Commitment::batch_mul(points, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
             } else {
                 C_zeta_Z = Commitment::batch_mul(points, scalars);
+                info(" c zeta size ", points.size());
             }
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;

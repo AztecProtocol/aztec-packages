@@ -364,5 +364,57 @@ template <typename Curve> class ShpleminiVerifier_ {
             commitments.emplace_back(std::move(fold_commitments[j]));
         }
     }
+    // static void add_hiding_commitments(RefSpan<Commitment> hiding_commitments,
+    //                                    BatchOpeningClaim<Curve>& batch_opening_claim)
+    // {}
+    static void remove_shifted_commitments(BatchOpeningClaim<Curve>& accumulator,
+                                           const size_t TO_BE_SHIFTED_WITNESSES_START,
+                                           const size_t TO_BE_SHIFTED_WITNESSES_END,
+                                           const size_t SHIFTED_WITNESSES_START,
+                                           const size_t SHIFTED_WITNESSES_END,
+                                           const size_t TO_BE_SHIFTED_PRECOMPUTED_START,
+                                           const size_t TO_BE_SHIFTED_PRECOMPUTED_END,
+                                           const size_t SHIFTED_PRECOMPUTED_START,
+                                           const size_t SHIFTED_PRECOMPUTED_END)
+    {
+        // Get references to the scalars and commitments in the accumulator
+        auto& commitments = accumulator.commitments;
+        auto& scalars = accumulator.scalars;
+
+        // Step 1: Iterate over the to-be-shifted witness scalars and their shifted counterparts
+        for (size_t i = TO_BE_SHIFTED_WITNESSES_START, j = SHIFTED_WITNESSES_START;
+             i < TO_BE_SHIFTED_WITNESSES_END && j < SHIFTED_WITNESSES_END;
+             ++i, ++j) {
+            // Update the to-be-shifted scalar: sum it with its corresponding shifted counterpart
+            scalars[i] = scalars[i] + scalars[j];
+        }
+
+        // Step 2: Iterate over the to-be-shifted precomputed scalars and their shifted counterparts
+        for (size_t i = TO_BE_SHIFTED_PRECOMPUTED_START, j = SHIFTED_PRECOMPUTED_START;
+             i <= TO_BE_SHIFTED_PRECOMPUTED_END && j <= SHIFTED_PRECOMPUTED_END;
+             ++i, ++j) {
+            info(i, "  ", j);
+
+            // Update the to-be-shifted scalar with its corresponding shifted counterpart
+            scalars[i] = scalars[i] + scalars[j];
+        }
+
+        // Step 3: Erase the shifted scalars and commitments (after all updates)
+        // Erase from shifted witness indices
+        ASSERT(SHIFTED_WITNESSES_END > SHIFTED_PRECOMPUTED_END);
+
+        for (size_t i = SHIFTED_WITNESSES_END - 1; i > SHIFTED_WITNESSES_START; --i) {
+            // Corrected the signedness issue using std::ptrdiff_t for erasing elements
+            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(i));
+            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(i));
+        }
+
+        // Erase from shifted precomputed indices
+        for (size_t i = SHIFTED_PRECOMPUTED_END + 1; i > SHIFTED_PRECOMPUTED_START - 1; --i) {
+            // Corrected the signedness issue using std::ptrdiff_t for erasing elements
+            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(i));
+            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(i));
+        }
+    }
 };
 } // namespace bb

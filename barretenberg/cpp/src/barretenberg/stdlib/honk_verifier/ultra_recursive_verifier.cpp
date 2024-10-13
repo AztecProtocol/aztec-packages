@@ -100,6 +100,19 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
                                                                 multivariate_challenge,
                                                                 Commitment::one(builder),
                                                                 transcript);
+    if constexpr (std::is_same_v<Flavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
+        info("am I here");
+        Shplemini::remove_shifted_commitments(opening_claim,
+                                              Flavor::TO_BE_SHIFTED_WITNESSES_START + 1,
+                                              Flavor::TO_BE_SHIFTED_WITNESSES_END + 1,
+                                              Flavor::SHIFTED_WITNESSES_START + 1,
+                                              Flavor::SHIFTED_WITNESSES_END + 1,
+                                              Flavor::TO_BE_SHIFTED_PRECOMPUTED_START + 1,
+                                              Flavor::TO_BE_SHIFTED_PRECOMPUTED_END + 1,
+                                              Flavor::SHIFTED_PRECOMPUTED_START + 1,
+                                              Flavor::SHIFTED_PRECOMPUTED_END + 1);
+    }
+
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();
