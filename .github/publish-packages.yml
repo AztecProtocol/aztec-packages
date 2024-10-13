@@ -297,11 +297,14 @@ jobs:
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
+  # Sometimes runners get killed because they can be spot, we try once more for good measure
   rerun-check:
     runs-on: ubuntu-latest
     permissions:
       actions: write
     needs:
+      - setup-x86
+      - setup-arm
       - build-aztec-x86
       - build-aztec-arm
       - build-nargo-x86
@@ -319,7 +322,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ATTEMPT: ${{ env.RUN_ATTEMPT }}
         run: |
-          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]]; then
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT = 1 ]]; then
             echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          elif [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT = 2 ]]; then
+            echo "Retrying second workflow failure. This is a stop-gap until things are more stable."
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }} -F rerun_mode=all
           fi
