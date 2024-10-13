@@ -5,6 +5,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
+import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -30,7 +31,7 @@ export interface Validator {
 
 /** Validator Client
  */
-export class ValidatorClient implements Validator {
+export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
 
   constructor(
@@ -38,15 +39,18 @@ export class ValidatorClient implements Validator {
     private p2pClient: P2P,
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
-    private log = createDebugLogger('aztec:validator'),
+    telemetry: TelemetryClient,
+    private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
   ) {
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
+    // Instantiate tracer
+    super(telemetry, 'Validator');
 
+    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P) {
+  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -59,6 +63,7 @@ export class ValidatorClient implements Validator {
       p2pClient,
       config.attestationPoolingIntervalMs,
       config.attestationWaitTimeoutMs,
+      telemetry,
     );
     validator.registerBlockProposalHandler();
     return validator;
@@ -89,7 +94,7 @@ export class ValidatorClient implements Validator {
       }
       return undefined;
     }
-    this.log.debug(
+    this.log.verbose(
       `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
     );
 
@@ -141,7 +146,7 @@ export class ValidatorClient implements Validator {
     const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
-    const proposalId = proposal.p2pMessageIdentifier().toString();
+    const proposalId = proposal.archive.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
 
     const startTime = Date.now();

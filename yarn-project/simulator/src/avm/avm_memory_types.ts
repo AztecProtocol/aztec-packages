@@ -333,6 +333,16 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   /**
+   * Check that all tags at the given offsets are the same.
+   */
+  public checkTagsAreSame(...offsets: number[]) {
+    const tag = this.getTag(offsets[0]);
+    for (let i = 1; i < offsets.length; i++) {
+      this.checkTag(tag, offsets[i]);
+    }
+  }
+
+  /**
    * Check tags for all memory in the specified range.
    */
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number) {
@@ -413,7 +423,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   /** No-op. Implemented here for compatibility with the MeteredTaggedMemory. */
-  public assert(_operations: Partial<MemoryOperations & { indirect: number }>) {}
+  public assert(_operations: Partial<MemoryOperations & { addressing: Addressing }>) {}
 }
 
 /** Tagged memory wrapper with metering for each memory read and write operation. */
@@ -435,10 +445,15 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
    * Asserts that the exact number of memory operations have been performed.
    * Indirect represents the flags for indirect accesses: each bit set to one counts as an extra read.
    */
-  public assert(operations: Partial<MemoryOperations & { indirect: number }>) {
-    const { reads: expectedReads, writes: expectedWrites, indirect } = { reads: 0, writes: 0, ...operations };
+  public assert(operations: Partial<MemoryOperations & { addressing: Addressing }>) {
+    const {
+      reads: expectedReads,
+      writes: expectedWrites,
+      addressing,
+    } = { reads: 0, writes: 0, addressing: new Addressing([]), ...operations };
 
-    const totalExpectedReads = expectedReads + Addressing.fromWire(indirect ?? 0).count(AddressingMode.INDIRECT);
+    const totalExpectedReads =
+      expectedReads + addressing.count(AddressingMode.INDIRECT) + addressing.count(AddressingMode.RELATIVE);
     const { reads: actualReads, writes: actualWrites } = this.reset();
     if (actualReads !== totalExpectedReads) {
       throw new InstructionExecutionError(
@@ -504,6 +519,10 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
 
   public checkTags(tag: TypeTag, ...offsets: number[]): void {
     this.wrapped.checkTags(tag, ...offsets);
+  }
+
+  public checkTagsAreSame(...offsets: number[]): void {
+    this.wrapped.checkTagsAreSame(...offsets);
   }
 
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number): void {

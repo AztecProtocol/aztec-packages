@@ -28,7 +28,9 @@ template <class Flavor> class ExecutionTrace_ {
 
         TraceData(Builder& builder, ProvingKey& proving_key)
         {
-            ZoneScopedN("TraceData constructor");
+
+            PROFILE_THIS_NAME("TraceData constructor");
+
             if constexpr (IsHonkFlavor<Flavor>) {
                 // Initialize and share the wire and selector polynomials
                 for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
@@ -45,7 +47,9 @@ template <class Flavor> class ExecutionTrace_ {
                     proving_key.polynomial_store.put(wire_tag, wires[idx].share());
                 }
                 {
-                    ZoneScopedN("selector initialization");
+
+                    PROFILE_THIS_NAME("selector initialization");
+
                     for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
                         selectors[idx] = Polynomial(proving_key.circuit_size);
                         std::string selector_tag = builder.selector_names[idx] + "_lagrange";
@@ -54,7 +58,8 @@ template <class Flavor> class ExecutionTrace_ {
                 }
             }
             {
-                ZoneScopedN("copy cycle initialization");
+                PROFILE_THIS_NAME("copy cycle initialization");
+
                 copy_cycles.resize(builder.variables.size());
             }
         }

@@ -1,9 +1,9 @@
-mod poseidon;
-mod mimc;
-mod poseidon2;
-mod keccak;
-mod sha256;
-mod sha512;
+pub mod poseidon;
+pub mod mimc;
+pub mod poseidon2;
+pub mod keccak;
+pub mod sha256;
+pub mod sha512;
 
 use crate::default::Default;
 use crate::uint128::U128;
@@ -32,12 +32,18 @@ pub fn pedersen_commitment<let N: u32>(input: [Field; N]) -> EmbeddedCurvePoint 
     pedersen_commitment_with_separator(input, 0)
 }
 
+#[inline_always]
 pub fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {
     pedersen_hash_with_separator_noir(input, separator)
 }
 
 pub fn pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> EmbeddedCurvePoint {
-    pedersen_commitment_with_separator_noir(input, separator)
+    let value = __pedersen_commitment_with_separator(input, separator);
+    if (value[0] == 0) & (value[1] == 0) {
+        EmbeddedCurvePoint { x: 0, y: 0, is_infinite: true }
+    } else {
+        EmbeddedCurvePoint { x: value[0], y: value[1], is_infinite: false }
+    }
 }
 
 #[no_predicates]
@@ -82,6 +88,7 @@ fn __pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32)
 #[foreign(pedersen_commitment)]
 fn __pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> [Field; 2] {}
 
+#[inline_always]
 #[field(bn254)]
 pub fn derive_generators<let N: u32, let M: u32>(domain_separator_bytes: [u8; M], starting_index: u32) -> [EmbeddedCurvePoint; N] {
     crate::assert_constant(domain_separator_bytes);
@@ -91,10 +98,7 @@ pub fn derive_generators<let N: u32, let M: u32>(domain_separator_bytes: [u8; M]
 
 #[builtin(derive_pedersen_generators)]
 #[field(bn254)]
-fn __derive_generators<let N: u32, let M: u32>(
-    domain_separator_bytes: [u8; M],
-    starting_index: u32
-) -> [EmbeddedCurvePoint; N] {}
+fn __derive_generators<let N: u32, let M: u32>(domain_separator_bytes: [u8; M], starting_index: u32) -> [EmbeddedCurvePoint; N] {}
 
 #[field(bn254)]
 // Same as from_field but:

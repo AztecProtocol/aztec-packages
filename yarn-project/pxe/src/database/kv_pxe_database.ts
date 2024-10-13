@@ -5,7 +5,13 @@ import {
   type OutgoingNotesFilter,
   type PublicKey,
 } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  Header,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
@@ -18,7 +24,6 @@ import {
   type AztecSingleton,
 } from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
-import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
@@ -495,7 +500,9 @@ export class KVPxeDatabase implements PxeDatabase {
     return true;
   }
 
-  addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+  async addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+    await this.#addScope(completeAddress.address);
+
     return this.#db.transaction(() => {
       const addressString = completeAddress.address.toString();
       const buffer = completeAddress.toBuffer();

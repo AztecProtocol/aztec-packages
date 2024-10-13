@@ -64,15 +64,15 @@ contract Inbox is IInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external override(IInbox) returns (bytes32) {
-    if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__ActorTooLarge(_recipient.actor);
-    }
-    if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__ContentTooLarge(_content);
-    }
-    if (uint256(_secretHash) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__SecretHashTooLarge(_secretHash);
-    }
+    require(
+      uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
+      Errors.Inbox__ActorTooLarge(_recipient.actor)
+    );
+    require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
+    require(
+      uint256(_secretHash) <= Constants.MAX_FIELD_VALUE,
+      Errors.Inbox__SecretHashTooLarge(_secretHash)
+    );
 
     FrontierLib.Tree storage currentTree = trees[inProgress];
 
@@ -89,7 +89,11 @@ contract Inbox is IInbox {
     });
 
     bytes32 leaf = message.sha256ToField();
-    uint256 index = currentTree.insertLeaf(leaf);
+    // this is the global leaf index and not index in the l2Block subtree
+    // such that users can simply use it and don't need access to a node if they are to consume it in public.
+    // trees are constant size so global index = tree number * size + subtree index
+    uint256 index =
+      (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.insertLeaf(leaf);
     totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 
@@ -108,13 +112,8 @@ contract Inbox is IInbox {
    * @return The root of the consumed tree
    */
   function consume(uint256 _toConsume) external override(IInbox) returns (bytes32) {
-    if (msg.sender != ROLLUP) {
-      revert Errors.Inbox__Unauthorized();
-    }
-
-    if (_toConsume >= inProgress) {
-      revert Errors.Inbox__MustBuildBeforeConsume();
-    }
+    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+    require(_toConsume < inProgress, Errors.Inbox__MustBuildBeforeConsume());
 
     bytes32 root = EMPTY_ROOT;
     if (_toConsume > Constants.INITIAL_L2_BLOCK_NUM) {

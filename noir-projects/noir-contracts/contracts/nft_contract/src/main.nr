@@ -9,9 +9,10 @@ use dep::aztec::macros::aztec;
 contract NFT {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
+        oracle::random::random,
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note}, hash::pedersen_hash,
-        keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
+        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
+        hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize},
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}}
@@ -137,19 +138,26 @@ contract NFT {
     /// finalized by calling `finalize_transfer_to_private`. `transient_storage_slot_randomness` is passed
     /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
-    // TODO(#8238): Remove the `note_randomness` argument below once we have partial notes delivery (then we can just
-    // fetch the randomness from oracle).
     #[private]
     fn prepare_transfer_to_private(
         from: AztecAddress,
         to: AztecAddress,
-        note_randomness: Field,
         transient_storage_slot_randomness: Field
     ) {
-        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
-        let to_npk_m_hash = get_public_keys(to).npk_m.hash();
+        let to_keys = get_public_keys(to);
+        let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
-        let hiding_point = NFTNote::hiding_point().new(to_npk_m_hash, note_randomness, to_note_slot);
+
+        // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
+        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
+        // notes we could just inject it in macros.
+        let note_randomness = unsafe {
+            random()
+        };
+        let note_setup_payload = NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+
+        // We encrypt and emit the partial note log
+        encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
 
         // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
         // non-sender's slots
@@ -164,7 +172,7 @@ contract NFT {
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
 
-        NFT::at(context.this_address())._store_point_in_transient_storage(hiding_point.inner, slot).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage(note_setup_payload.hiding_point, slot).enqueue(&mut context);
     }
 
     #[public]
@@ -198,22 +206,24 @@ contract NFT {
         );
 
         // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
-        let mut hiding_point = NFTNote::hiding_point().from_point(context.storage_read(hiding_point_slot));
+        let hiding_point: Point = context.storage_read(hiding_point_slot);
         assert(!is_empty(hiding_point), "transfer not prepared");
 
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
-        // Finalize the hiding point with the `token_id` and insert the note
-        let note_hash = hiding_point.finalize(token_id);
-        context.push_note_hash(note_hash);
+        // Finalize the partial note with the `token_id`
+        let finalization_payload = NFTNote::finalization_payload().new(hiding_point, token_id);
+
+        // We insert the finalization note hash
+        context.push_note_hash(finalization_payload.note_hash);
+
+        // We emit the `token_id` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
+        context.emit_unencrypted_log(finalization_payload.log);
 
         // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
         // the writes
-        context.storage_write(
-            hiding_point_slot,
-            NFTNote::hiding_point().from_point(Point::empty())
-        );
+        context.storage_write(hiding_point_slot, Point::empty());
     }
 
     /**

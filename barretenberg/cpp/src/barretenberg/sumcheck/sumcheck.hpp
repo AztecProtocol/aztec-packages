@@ -209,7 +209,8 @@ template <typename Flavor> class SumcheckProver {
         auto round_univariate = round.compute_univariate(
             round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
         {
-            ZoneScopedN("rest of sumcheck round 1");
+
+            PROFILE_THIS_NAME("rest of sumcheck round 1");
 
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
@@ -226,8 +227,11 @@ template <typename Flavor> class SumcheckProver {
                                                       // release memory?        // All but final round
                                                       // We operate on partially_evaluated_polynomials in place.
         }
+        vinfo("completed sumcheck round 0");
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-            ZoneScopedN("sumcheck loop");
+
+            PROFILE_THIS_NAME("sumcheck loop");
+
             // Write the round univariate to the transcript
             round_univariate = round.compute_univariate(round_idx,
                                                         partially_evaluated_polynomials,
@@ -248,6 +252,7 @@ template <typename Flavor> class SumcheckProver {
 
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
+            vinfo("completed sumcheck round ", round_idx);
         }
         // Check that the challenges \f$ u_0,\ldots, u_{d-1} \f$ do not satisfy the equation \f$ u_0(1-u_0) + \ldots +
         // u_{d-1} (1 - u_{d-1}) = 0 \f$. This equation is satisfied with probability ~ 1/|FF|, in such cases the prover

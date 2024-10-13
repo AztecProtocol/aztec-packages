@@ -2,11 +2,13 @@ import { EthAddress } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { inspect } from 'util';
 
-import { type Signable } from '../p2p/signature_utils.js';
+export class EpochProofQuotePayload {
+  // Cached values
+  private asBuffer: Buffer | undefined;
+  private size: number | undefined;
 
-export class EpochProofQuotePayload implements Signable {
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
@@ -26,7 +28,13 @@ export class EpochProofQuotePayload implements Signable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    // We cache the buffer to avoid recalculating it
+    if (this.asBuffer) {
+      return this.asBuffer;
+    }
+    this.asBuffer = serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    this.size = this.asBuffer.length;
+    return this.asBuffer;
   }
 
   static fromBuffer(buf: Buffer | BufferReader): EpochProofQuotePayload {
@@ -40,7 +48,7 @@ export class EpochProofQuotePayload implements Signable {
     );
   }
 
-  static fromFields(fields: FieldsOf<EpochProofQuotePayload>): EpochProofQuotePayload {
+  static from(fields: FieldsOf<EpochProofQuotePayload>): EpochProofQuotePayload {
     return new EpochProofQuotePayload(
       fields.epochToProve,
       fields.validUntilSlot,
@@ -50,17 +58,53 @@ export class EpochProofQuotePayload implements Signable {
     );
   }
 
-  getPayloadToSign(): Buffer {
-    const abi = parseAbiParameters('uint256, uint256, uint256, address, uint32');
-    const encodedData = encodeAbiParameters(abi, [
-      this.epochToProve,
-      this.validUntilSlot,
-      this.bondAmount,
-      this.prover.toString(),
-      this.basisPointFee,
-    ] as const);
+  toJSON() {
+    return {
+      epochToProve: this.epochToProve.toString(),
+      validUntilSlot: this.validUntilSlot.toString(),
+      bondAmount: this.bondAmount.toString(),
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
 
-    // NOTE: trim the first two bytes to get rid of the `0x` prefix
-    return Buffer.from(encodedData.slice(2), 'hex');
+  static fromJSON(obj: any) {
+    return new EpochProofQuotePayload(
+      BigInt(obj.epochToProve),
+      BigInt(obj.validUntilSlot),
+      BigInt(obj.bondAmount),
+      EthAddress.fromString(obj.prover),
+      obj.basisPointFee,
+    );
+  }
+
+  toViemArgs(): {
+    epochToProve: bigint;
+    validUntilSlot: bigint;
+    bondAmount: bigint;
+    prover: `0x${string}`;
+    basisPointFee: number;
+  } {
+    return {
+      epochToProve: this.epochToProve,
+      validUntilSlot: this.validUntilSlot,
+      bondAmount: this.bondAmount,
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
+  getSize(): number {
+    // We cache size to avoid recalculating it
+    if (this.size) {
+      return this.size;
+    }
+    // Size is cached when calling toBuffer
+    this.toBuffer();
+    return this.size!;
+  }
+
+  [inspect.custom](): string {
+    return `EpochProofQuotePayload { epochToProve: ${this.epochToProve}, validUntilSlot: ${this.validUntilSlot}, bondAmount: ${this.bondAmount}, prover: ${this.prover}, basisPointFee: ${this.basisPointFee} }`;
   }
 }

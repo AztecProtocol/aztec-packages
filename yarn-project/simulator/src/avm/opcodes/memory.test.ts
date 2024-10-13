@@ -5,7 +5,7 @@ import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_m
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
-import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
+import { CalldataCopy, Cast, Mov, Set } from './memory.js';
 
 describe('Memory instructions', () => {
   let context: AvmContext;
@@ -364,103 +364,20 @@ describe('Memory instructions', () => {
     });
   });
 
-  describe('CMOV', () => {
-    it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
-        CMov.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('a2345678', 'hex'), // bOffset
-        ...Buffer.from('b2345678', 'hex'), // condOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      const inst = new CMov(
-        /*indirect=*/ 0x01,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0xa2345678,
-        /*condOffset=*/ 0xb2345678,
-        /*dstOffset=*/ 0x3456789a,
-      );
-
-      expect(CMov.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
-    });
-
-    it('Should move A if COND is true, on different memory cells (integral condition)', async () => {
-      context.machineState.memory.set(0, new Uint32(123)); // A
-      context.machineState.memory.set(1, new Uint16(456)); // B
-      context.machineState.memory.set(2, new Uint8(2)); // Condition
-
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
-        context,
-      );
-
-      const actual = context.machineState.memory.get(3);
-      const tag = context.machineState.memory.getTag(3);
-      expect(actual).toEqual(new Uint32(123));
-      expect(tag).toEqual(TypeTag.UINT32);
-    });
-
-    it('Should move B if COND is false, on different memory cells (integral condition)', async () => {
-      context.machineState.memory.set(0, new Uint32(123)); // A
-      context.machineState.memory.set(1, new Uint16(456)); // B
-      context.machineState.memory.set(2, new Uint8(0)); // Condition
-
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
-        context,
-      );
-
-      const actual = context.machineState.memory.get(3);
-      const tag = context.machineState.memory.getTag(3);
-      expect(actual).toEqual(new Uint16(456));
-      expect(tag).toEqual(TypeTag.UINT16);
-    });
-
-    it('Should move A if COND is true, on different memory cells (field condition)', async () => {
-      context.machineState.memory.set(0, new Uint32(123)); // A
-      context.machineState.memory.set(1, new Uint16(456)); // B
-      context.machineState.memory.set(2, new Field(1)); // Condition
-
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
-        context,
-      );
-
-      const actual = context.machineState.memory.get(3);
-      const tag = context.machineState.memory.getTag(3);
-      expect(actual).toEqual(new Uint32(123));
-      expect(tag).toEqual(TypeTag.UINT32);
-    });
-
-    it('Should move B if COND is false, on different memory cells (integral condition)', async () => {
-      context.machineState.memory.set(0, new Uint32(123)); // A
-      context.machineState.memory.set(1, new Uint16(456)); // B
-      context.machineState.memory.set(2, new Field(0)); // Condition
-
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
-        context,
-      );
-
-      const actual = context.machineState.memory.get(3);
-      const tag = context.machineState.memory.getTag(3);
-      expect(actual).toEqual(new Uint16(456));
-      expect(tag).toEqual(TypeTag.UINT16);
-    });
-  });
-
   describe('CALLDATACOPY', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // cdOffsetAddress
-        ...Buffer.from('23456789', 'hex'), // copysizeOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
+        ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
         /*indirect=*/ 0x01,
-        /*cdOffsetAddress=*/ 0x12345678,
-        /*copysizeOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+        /*cdOffsetAddress=*/ 0x1234,
+        /*copysizeOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
       );
 
       expect(CalldataCopy.deserialize(buf)).toEqual(inst);

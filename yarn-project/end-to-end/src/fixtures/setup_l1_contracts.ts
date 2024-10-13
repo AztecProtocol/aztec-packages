@@ -7,15 +7,15 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { type HDAccount, type PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
@@ -46,8 +46,8 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
     feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
+      contractAbi: TestERC20Abi,
+      contractBytecode: TestERC20Bytecode,
     },
     feeJuicePortal: {
       contractAbi: FeeJuicePortalAbi,
@@ -56,8 +56,9 @@ export const setupL1Contracts = async (
   };
 
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
-    l2FeeJuiceAddress: FeeJuiceAddress,
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     salt: undefined,
     ...args,
   });

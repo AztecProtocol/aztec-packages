@@ -123,21 +123,18 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
+    // Ranges over which the execution trace is "active"
+    std::vector<std::pair<size_t, size_t>> active_block_ranges;
+
     ProvingKey_() = default;
-    ProvingKey_(const size_t circuit_size,
+    ProvingKey_(const size_t dyadic_circuit_size,
                 const size_t num_public_inputs,
                 std::shared_ptr<CommitmentKey_> commitment_key = nullptr)
     {
-        if (commitment_key == nullptr) {
-            ZoneScopedN("init commitment key");
-            this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size);
-        } else {
-            // Don't create another commitment key if we already have one
-            this->commitment_key = commitment_key;
-        }
-        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
-        this->circuit_size = circuit_size;
-        this->log_circuit_size = numeric::get_msb(circuit_size);
+        this->commitment_key = commitment_key;
+        this->evaluation_domain = bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size);
+        this->circuit_size = dyadic_circuit_size;
+        this->log_circuit_size = numeric::get_msb(dyadic_circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
 };

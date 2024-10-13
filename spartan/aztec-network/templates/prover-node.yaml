@@ -18,6 +18,30 @@ spec:
         app: prover-node
     spec:
       initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
         - name: configure-prover-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
@@ -33,8 +57,9 @@ spec:
           env:
             - name: ETHEREUM_HOST
               value: {{ include "aztec-network.ethereumHost" . | quote }}
+
       containers:
-        - name: aztec
+        - name: prover-node
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
@@ -72,22 +97,28 @@ spec:
             - name: PROVER_PUBLISHER_PRIVATE_KEY
               value: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
             # get private proofs from the boot node
-            - name: TX_PROVIDER_NODE_URL
+            - name: PROVER_COORDINATION_NODE_URL
               value: {{ include "aztec-network.bootNodeUrl" . | quote }}
-            # prover agent gets jobs from itself
-            - name: AZTEC_NODE_URL
-              value: "$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
+            - name: PROVER_JOB_SOURCE_URL
+              value: "http://$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
           resources:
             {{- toYaml .Values.proverNode.resources | nindent 12 }}
       volumes:
-        - name: shared-volume
-          emptyDir: {}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-configure-prover-env
-
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "aztec-network.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.proverNode.storage }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -106,10 +137,27 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
+  type: ClusterIP
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: prover-node
   ports:
     - port: {{ .Values.proverNode.service.nodePort }}
       name: node
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-node-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-node
+  ports:
+    - port: {{ .Values.proverNode.service.nodePort }}
+      name: node
+{{ end }}

@@ -7,15 +7,13 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.dstOffset],
-      memory,
-    );
-    this.checkTags(memory, this.inTag, aOffset, bOffset);
+    const operands = [this.aOffset, this.bOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
+    this.checkTags(memory, aOffset, bOffset);
 
     const a = memory.getAs<IntegralValue>(aOffset);
     const b = memory.getAs<IntegralValue>(bOffset);
@@ -23,13 +21,14 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     const res = this.compute(a, b);
     memory.set(dstOffset, res);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 
   protected abstract compute(a: IntegralValue, b: IntegralValue): IntegralValue;
-  protected checkTags(memory: TaggedMemoryInterface, inTag: number, aOffset: number, bOffset: number) {
-    memory.checkTags(inTag, aOffset, bOffset);
+  protected checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
+    memory.checkTagsAreSame(aOffset, bOffset);
   }
 }
 
@@ -67,8 +66,8 @@ export class Shl extends ThreeOperandBitwiseInstruction {
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shl(b);
   }
-  protected override checkTags(memory: TaggedMemoryInterface, inTag: number, aOffset: number, bOffset: number) {
-    memory.checkTag(inTag, aOffset);
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
     memory.checkTag(TypeTag.UINT8, bOffset);
   }
 }
@@ -80,8 +79,8 @@ export class Shr extends ThreeOperandBitwiseInstruction {
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shr(b);
   }
-  protected override checkTags(memory: TaggedMemoryInterface, inTag: number, aOffset: number, bOffset: number) {
-    memory.checkTag(inTag, aOffset);
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
     memory.checkTag(TypeTag.UINT8, bOffset);
   }
 }
@@ -98,18 +97,19 @@ export class Not extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    const operands = [this.srcOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
     TaggedMemory.checkIsIntegralTag(memory.getTag(srcOffset));
     const value = memory.getAs<IntegralValue>(srcOffset);
 
     const res = value.not();
     memory.set(dstOffset, res);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 }

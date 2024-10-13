@@ -1,6 +1,6 @@
 import { randomContractInstanceWithAddress } from '@aztec/circuit-types';
+import { SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { mock } from 'jest-mock-extended';
 
@@ -139,9 +139,9 @@ describe('journal', () => {
 
     it('Should maintain l1 messages', () => {
       const recipient = new Fr(1);
-      persistableState.writeL2ToL1Message(recipient, utxo);
+      persistableState.writeL2ToL1Message(address, recipient, utxo);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(recipient, utxo);
+      expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(address, recipient, utxo);
     });
   });
 

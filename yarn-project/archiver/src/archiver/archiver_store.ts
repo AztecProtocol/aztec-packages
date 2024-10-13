@@ -10,15 +10,16 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
+  type Fr,
+  type Header,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -63,6 +64,14 @@ export interface ArchiverDataStore {
    * @returns The requested L2 blocks.
    */
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]>;
+
+  /**
+   * Gets up to `limit` amount of L2 block headers starting from `from`.
+   * @param from - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested L2 block headers.
+   */
+  getBlockHeaders(from: number, limit: number): Promise<Header[]>;
 
   /**
    * Gets a tx effect.

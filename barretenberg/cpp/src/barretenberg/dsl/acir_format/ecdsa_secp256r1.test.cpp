@@ -140,7 +140,6 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -157,6 +156,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -198,7 +198,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -215,6 +214,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -254,7 +254,6 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -271,6 +270,7 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -306,7 +306,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -323,6 +322,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

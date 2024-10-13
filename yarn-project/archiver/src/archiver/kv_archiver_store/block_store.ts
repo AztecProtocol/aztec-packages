@@ -139,6 +139,18 @@ export class BlockStore {
     return this.getBlockFromBlockStorage(blockStorage);
   }
 
+  /**
+   * Gets the headers for a sequence of L2 blocks.
+   * @param start - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested L2 block headers
+   */
+  *getBlockHeaders(start: number, limit: number): IterableIterator<Header> {
+    for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
+      yield Header.fromBuffer(blockStorage.header);
+    }
+  }
+
   private getBlockFromBlockStorage(blockStorage: BlockStorage) {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
@@ -149,7 +161,7 @@ export class BlockStore {
     }
     const body = Body.fromBuffer(blockBodyBuffer);
 
-    const l2Block = L2Block.fromFields({ header, archive, body });
+    const l2Block = new L2Block(archive, header, body);
     return { data: l2Block, l1: blockStorage.l1 };
   }
 

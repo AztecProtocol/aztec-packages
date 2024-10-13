@@ -62,60 +62,16 @@ export class Set extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], memory);
+    const operands = [this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [dstOffset] = addressing.resolve(operands, memory);
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
     memory.set(dstOffset, res);
 
-    memory.assert(memoryOperations);
-    context.machineState.incrementPc();
-  }
-}
-
-export class CMov extends Instruction {
-  static readonly type: string = 'CMOV';
-  static readonly opcode: Opcode = Opcode.CMOV;
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-  ];
-
-  constructor(
-    private indirect: number,
-    private aOffset: number,
-    private bOffset: number,
-    private condOffset: number,
-    private dstOffset: number,
-  ) {
-    super();
-  }
-
-  public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 3, writes: 1, indirect: this.indirect };
-    const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
-
-    const [aOffset, bOffset, condOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.condOffset, this.dstOffset],
-      memory,
-    );
-
-    const a = memory.get(aOffset);
-    const b = memory.get(bOffset);
-    const cond = memory.get(condOffset);
-
-    // TODO: reconsider toBigInt() here
-    memory.set(dstOffset, cond.toBigInt() > 0 ? a : b);
-
-    memory.assert(memoryOperations);
+    memory.assert({ writes: 1, addressing });
     context.machineState.incrementPc();
   }
 }
@@ -144,18 +100,19 @@ export class Cast extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    const operands = [this.srcOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
 
     const a = memory.get(srcOffset);
     const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
 
     memory.set(dstOffset, casted);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 }
@@ -183,17 +140,18 @@ export class Mov extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    const operands = [this.srcOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
 
     const a = memory.get(srcOffset);
 
     memory.set(dstOffset, a);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 }
@@ -205,9 +163,9 @@ export class CalldataCopy extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -222,21 +180,19 @@ export class CalldataCopy extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
     // We don't need to check tags here because: (1) the calldata is NOT in memory, and (2) we are the ones writing to destination.
-    const [cdStartOffset, copySizeOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.cdStartOffset, this.copySizeOffset, this.dstOffset],
-      memory,
-    );
+    const operands = [this.cdStartOffset, this.copySizeOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [cdStartOffset, copySizeOffset, dstOffset] = addressing.resolve(operands, memory);
 
     const cdStart = memory.get(cdStartOffset).toNumber();
     const copySize = memory.get(copySizeOffset).toNumber();
-    const memoryOperations = { reads: 2, writes: copySize, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: copySize }));
+    context.machineState.consumeGas(this.gasCost(copySize));
 
     const transformedData = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
 
     memory.setSlice(dstOffset, transformedData);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 2, writes: copySize, addressing });
     context.machineState.incrementPc();
   }
 }

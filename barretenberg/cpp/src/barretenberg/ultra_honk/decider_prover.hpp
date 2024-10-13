@@ -46,8 +46,6 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
     SumcheckOutput<Flavor> sumcheck_output;
 
-    std::shared_ptr<CommitmentKey> commitment_key;
-
   private:
     HonkProof proof;
 };

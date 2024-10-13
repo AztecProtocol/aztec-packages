@@ -1,20 +1,18 @@
 import type {
   ARCHIVE_HEIGHT,
+  ContractClassPublic,
+  ContractInstanceWithAddress,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  ProtocolContractAddresses,
 } from '@aztec/circuits.js';
 import type { L1ContractAddresses } from '@aztec/ethereum';
 import type { ContractArtifact } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
-import type {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ProtocolContractAddresses,
-} from '@aztec/types/contracts';
 
 import type { L2Block } from '../l2_block.js';
 import type { FromLogType, GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
@@ -28,12 +26,13 @@ import type { SequencerConfig } from './configs.js';
 import type { L2BlockNumber } from './l2_block_number.js';
 import type { NullifierMembershipWitness } from './nullifier_tree.js';
 import type { ProverConfig } from './prover-client.js';
+import { type ProverCoordination } from './prover-coordination.js';
 
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode {
+export interface AztecNode extends ProverCoordination {
   /**
    * Find the index of the given leaf in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
@@ -308,7 +307,7 @@ export interface AztecNode {
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getHeader(): Promise<Header>;
+  getHeader(blockNumber?: L2BlockNumber): Promise<Header>;
 
   /**
    * Simulates the public part of a transaction with the current state.

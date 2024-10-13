@@ -44,8 +44,9 @@ describe('Prover agent <-> queue integration', () => {
     getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
     getBlockRootRollupProof: makeBlockRootRollupInputs,
     getEmptyPrivateKernelProof: () =>
-      new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
-    getEmptyTubeProof: () => new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
+      new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
+    getEmptyTubeProof: () =>
+      new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
     getMergeRollupProof: makeMergeRollupInputs,
     getPublicKernelInnerProof: makePublicKernelInnerCircuitPrivateInputs,
     getPublicKernelMergeProof: makePublicKernelCircuitPrivateInputs,

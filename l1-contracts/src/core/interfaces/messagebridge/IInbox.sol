@@ -13,10 +13,10 @@ interface IInbox {
   /**
    * @notice Emitted when a message is sent
    * @param l2BlockNumber - The L2 block number in which the message is included
-   * @param index - The index of the message in the block
+   * @param index - The index of the message in the L1 to L2 messages tree
    * @param hash - The hash of the message
    */
-  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 hash);
+  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash);
 
   // docs:start:send_l1_to_l2_message
   /**

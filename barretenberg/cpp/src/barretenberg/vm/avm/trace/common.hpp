@@ -15,10 +15,13 @@ using FF = AvmFlavorSettings::FF;
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
 template <typename FF_>
-using VmPublicInputs = std::tuple<std::array<FF_, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
-                                  std::array<FF_, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs data
-                                  std::array<FF_, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs side effects
-                                  std::array<FF_, KERNEL_OUTPUTS_LENGTH>>; // Output: Kernel outputs metadata
+using VmPublicInputs_ = std::tuple<std::array<FF_, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
+                                   std::array<FF_, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs data
+                                   std::array<FF_, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs side effects
+                                   std::array<FF_, KERNEL_OUTPUTS_LENGTH>>; // Output: Kernel outputs metadata
+
+// This is the VmPublicInputs type for the current AVM flavor
+using VmPublicInputs = VmPublicInputs_<FF>;
 // Constants for indexing into the tuple above
 static const size_t KERNEL_INPUTS = 0;
 static const size_t KERNEL_OUTPUTS_VALUE = 1;

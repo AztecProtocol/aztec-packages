@@ -278,6 +278,61 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
+    function generateGeminiRChallenge(Honk.Proof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr geminiR, Fr nextPreviousChallenge)
+    {
+        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
+        gR[0] = Fr.unwrap(prevChallenge);
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
+            gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
+            gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
+            gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;
+            gR[4 + i * 4] = proof.geminiFoldComms[i].y_1;
+        }
+
+        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
+        Fr unused;
+        (geminiR, unused) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateShplonkNuChallenge(Honk.Proof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr shplonkNu, Fr nextPreviousChallenge)
+    {
+        uint256[(CONST_PROOF_SIZE_LOG_N) + 1] memory shplonkNuChallengeElements;
+        shplonkNuChallengeElements[0] = Fr.unwrap(prevChallenge);
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            shplonkNuChallengeElements[i + 1] = Fr.unwrap(proof.geminiAEvaluations[i]);
+        }
+
+        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
+        Fr unused;
+        (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateShplonkZChallenge(Honk.Proof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr shplonkZ, Fr nextPreviousChallenge)
+    {
+        uint256[5] memory shplonkZChallengeElements;
+        shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
+
+        shplonkZChallengeElements[1] = proof.shplonkQ.x_0;
+        shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
+        shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
+        shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
+
+        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
+        Fr unused;
+        (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
+    }
+
     // TODO: mod q proof points
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
@@ -384,7 +439,7 @@ library TranscriptLib {
 
             uint256 y1Start = yEnd;
             uint256 y1End = y1Start + 0x20;
-            p.geminiFoldUnivariates[i] = Honk.G1ProofPoint({
+            p.geminiFoldComms[i] = Honk.G1ProofPoint({
                 x_0: uint256(bytes32(proof[xStart:xEnd])),
                 x_1: uint256(bytes32(proof[x1Start:x1End])),
                 y_0: uint256(bytes32(proof[yStart:yEnd])),
