@@ -37,7 +37,9 @@ error ShpleminiFailed();
 contract BlakeHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public
+    // view  WORKTODO: bring back
+    override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
@@ -200,6 +202,9 @@ contract BlakeHonkVerifier is IVerifier {
         Fr unshiftedScalar;
         // i-th shifted commitment is multiplied by −ρⁱ⁺ᵏ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
         Fr shiftedScalar;
+        // Negative versions of the values above - these are used in hot loops, so storing is preferred
+        Fr unshiftedScalarNeg;
+        Fr shiftedScalarNeg;
         // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
         // Linear combination of multilinear (sumcheck) evaluations and powers of rho
@@ -210,7 +215,7 @@ contract BlakeHonkVerifier is IVerifier {
 
     function verifyShplemini(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
         internal
-        view
+        // WORKTODO: reinstantiate view func
         returns (bool verified)
     {
         ShpleminiIntermediates memory mem; // stack
@@ -262,16 +267,25 @@ contract BlakeHonkVerifier is IVerifier {
         mem.batchingChallenge = Fr.wrap(1);
         mem.batchedEvaluation = Fr.wrap(0);
 
+        // TODO: move into mem above - same with one below!!!!
+        // mem.unshiftedScalarNeg = mem.unshiftedScalar.neg();
         for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
             scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            // scalars[i] = mem.unshiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+
+            logFr("scalars", i, scalars[i]);
         }
         // g commitments are accumulated at r
+        // mem.shiftedScalarNeg = mem.unshiftedScalar.neg();
         for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
             scalars[i] = mem.shiftedScalar.neg() * mem.batchingChallenge;
+            // scalars[i] = mem.shiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+
+            logFr("scalars", i, scalars[i]);
         }
 
         commitments[1] = vk.qm;
@@ -401,14 +415,27 @@ contract BlakeHonkVerifier is IVerifier {
         Fr[CONST_PROOF_SIZE_LOG_N] memory eval_challenge_powers
     ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals) {
         Fr eval_challenge = tp.shplonkZ;
+
         inverse_vanishing_evals[0] = (eval_challenge - eval_challenge_powers[0]).invert();
+
+        Fr temp = eval_challenge - eval_challenge_powers[0];
+        logFr("before inversion", 0, temp);
+
+
+        logFr("inversion ", 0, inverse_vanishing_evals[0]);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             Fr round_inverted_denominator = Fr.wrap(0);
             if (i <= LOG_N + 1) {
+
+                // TOOD(md): remove both lines
+                temp = (eval_challenge + eval_challenge_powers[i]);
+                logFr("before inversion ", i + 1, temp);
+
                 round_inverted_denominator = (eval_challenge + eval_challenge_powers[i]).invert();
             }
             inverse_vanishing_evals[i + 1] = round_inverted_denominator;
+            logFr("inverted gemini denominator ", i, inverse_vanishing_evals[i + 1]);
         }
     }
 
@@ -418,6 +445,8 @@ contract BlakeHonkVerifier is IVerifier {
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers
     ) internal view returns (Fr a_0_pos) {
+        // OTP: this does not need to iterate more than LOG_N times
+        // There is no benefit - the current code is CONST_PROOF_SIZE_LOG_N
         for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = tp.sumCheckUChallenges[i - 1];
@@ -428,6 +457,9 @@ contract BlakeHonkVerifier is IVerifier {
                     - evalNeg * (challengePower * (Fr.wrap(1) - u) - u)
             );
             // Divide by the denominator
+            Fr sum = challengePower * (Fr.wrap(1) - u) + u;
+            logFr("b4  inversion ", i, u);
+            logFr("The inversion ", sum.invert());
             batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
 
             bool is_dummy_round = (i > LOG_N);
@@ -443,7 +475,7 @@ contract BlakeHonkVerifier is IVerifier {
     function batchMul(
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
-    ) internal view returns (Honk.G1Point memory result) {
+    ) internal returns (Honk.G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
         assembly {
             let success := 0x01
@@ -456,7 +488,30 @@ contract BlakeHonkVerifier is IVerifier {
             mstore(add(free, 0x60), mload(add(0x20, mload(base))))
             // Add scalar
             mstore(add(free, 0x80), mload(scalars))
+
+            // Inputs
+            log4(
+                0x00,
+                0x00,
+                0x20,
+                // The point
+                mload(mload(base)),
+                mload(add(0x20, mload(base))),
+                // The scalar
+                mload(scalars)
+            )
+
             success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, free, 0x40))
+
+            // TEMPLOG: Initial accumualtor
+            log3(
+                0x00,
+                0x00,
+                0x00,
+                mload(free),
+                mload(add(free, 0x20))
+            )
+
 
             let count := 0x01
             for {} lt(count, limit) { count := add(count, 1) } {
@@ -468,6 +523,18 @@ contract BlakeHonkVerifier is IVerifier {
                 mstore(add(free, 0x60), mload(add(0x20, mload(base_base))))
                 // Add scalar
                 mstore(add(free, 0x80), mload(scalar_base))
+
+            log4(
+                0x00,
+                0x00,
+                count,
+                // The point
+                mload(add(free, 0x40)),
+                mload(add(free, 0x60)),
+                // The scalar
+                mload(add(free, 0x80))
+            )
+
 
                 success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
                 // accumulator = accumulator + accumulator_2
@@ -484,14 +551,14 @@ contract BlakeHonkVerifier is IVerifier {
         bytes memory input = abi.encodePacked(
             rhs.x,
             rhs.y,
-            // Fixed G1 point
+            // G2 [1]
             uint256(0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2),
             uint256(0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed),
             uint256(0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b),
             uint256(0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa),
             lhs.x,
             lhs.y,
-            // G1 point from VK
+            // G2 [x]
             uint256(0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1),
             uint256(0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0),
             uint256(0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4),

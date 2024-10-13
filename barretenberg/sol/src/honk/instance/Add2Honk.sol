@@ -437,7 +437,6 @@ contract Add2HonkVerifier is IVerifier {
         a_0_pos = batchedEvalAccumulator;
     }
 
-    // This implementation is the same as above with different constants
     function batchMul(
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
@@ -482,14 +481,14 @@ contract Add2HonkVerifier is IVerifier {
         bytes memory input = abi.encodePacked(
             rhs.x,
             rhs.y,
-            // Fixed G1 point
+            // G2 [1]
             uint256(0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2),
             uint256(0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed),
             uint256(0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b),
             uint256(0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa),
             lhs.x,
             lhs.y,
-            // G1 point from VK
+            // G2 [x]
             uint256(0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1),
             uint256(0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0),
             uint256(0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4),

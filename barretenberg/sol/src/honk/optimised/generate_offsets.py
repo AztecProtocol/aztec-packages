@@ -275,6 +275,14 @@ def print_subrelation_intermediates(pointer: int):
 
     return pointer
 
+def print_batch_scalars(pointer: int):
+    BATCH_SIZE = 74
+    for i in range(0, BATCH_SIZE):
+        print_fr(pointer, "BATCH_SCALAR_" + str(i) + "_LOC")
+        pointer += 32
+
+    return pointer
+
 
 def main():
     # This is an arbitrary offset, but will need to be adjusted based on the
@@ -317,6 +325,11 @@ def main():
     print("")
     print("// Subrelation intermediates")
     pointer = print_subrelation_intermediates(pointer)
+
+    # This is a temporary method to write where the batch scalars should be
+    # But in reality it will overlap with the sumcheck univariates
+    pointer = 0x6420
+    pointer = print_batch_scalars(pointer)
 
 
 main()
