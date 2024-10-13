@@ -204,10 +204,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                 BlackBoxFuncCall::XOR { lhs: inputs[0][0], rhs: inputs[1][0], output: outputs[0] }
             }
             BlackBoxFunc::RANGE => BlackBoxFuncCall::RANGE { input: inputs[0][0] },
-            BlackBoxFunc::SHA256 => BlackBoxFuncCall::SHA256 {
-                inputs: inputs[0].clone(),
-                outputs: outputs.try_into().expect("Compiler should generate correct size outputs"),
-            },
             BlackBoxFunc::Blake2s => BlackBoxFuncCall::Blake2s {
                 inputs: inputs[0].clone(),
                 outputs: outputs.try_into().expect("Compiler should generate correct size outputs"),
@@ -298,9 +294,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                 input2: Box::new([inputs[3][0], inputs[4][0], inputs[5][0]]),
                 outputs: (outputs[0], outputs[1], outputs[2]),
             },
-            BlackBoxFunc::Keccak256 => {
-                unreachable!("unexpected BlackBox {}", func_name.to_string())
-            }
             BlackBoxFunc::Keccakf1600 => BlackBoxFuncCall::Keccakf1600 {
                 inputs: inputs[0]
                     .clone()
@@ -479,7 +472,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// This equation however falls short when `t != 0` because then `t`
     /// may not be `1`. If `t` is non-zero, then `y` is also non-zero due to
-    /// `y == 1 - t` and the equation `y * t == 0` fails.  
+    /// `y == 1 - t` and the equation `y * t == 0` fails.
     ///
     /// To fix, we introduce another free variable called `z` and apply the following
     /// constraint instead: `y == 1 - t * z`.
@@ -489,7 +482,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// We now arrive at the conclusion that when `t == 0`, `y` is `1` and when
     /// `t != 0`, then `y` is `0`.
-    ///  
+    ///
     /// Bringing it all together, We introduce two variables `y` and `z`,
     /// With the following equations:
     /// - `y == 1 - tz` (`z` is a value that is chosen to be the inverse of `t` by the prover)
@@ -648,8 +641,6 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         // All of the hash/cipher methods will take in a
         // variable number of inputs.
         BlackBoxFunc::AES128Encrypt
-        | BlackBoxFunc::Keccak256
-        | BlackBoxFunc::SHA256
         | BlackBoxFunc::Blake2s
         | BlackBoxFunc::Blake3
         | BlackBoxFunc::PedersenCommitment
@@ -701,10 +692,7 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::AND | BlackBoxFunc::XOR => Some(1),
 
         // 32 byte hash algorithms
-        BlackBoxFunc::Keccak256
-        | BlackBoxFunc::SHA256
-        | BlackBoxFunc::Blake2s
-        | BlackBoxFunc::Blake3 => Some(32),
+        BlackBoxFunc::Blake2s | BlackBoxFunc::Blake3 => Some(32),
 
         BlackBoxFunc::Keccakf1600 => Some(25),
         // The permutation returns a fixed number of outputs, equals to the inputs length which depends on the proving system implementation.

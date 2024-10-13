@@ -6,17 +6,14 @@ use crate::{
     traits::Empty
 };
 
-struct MembershipWitness<let N: u32> {
+pub struct MembershipWitness<let N: u32> {
     leaf_index: Field,
     sibling_path: [Field; N]
 }
 
 impl<let N: u32> Empty for MembershipWitness<N> {
     fn empty() -> Self {
-        MembershipWitness {
-            leaf_index: 0,
-            sibling_path: [0; N]
-        }
+        MembershipWitness { leaf_index: 0, sibling_path: [0; N] }
     }
 }
 
@@ -206,7 +203,7 @@ mod tests {
         assert_eq(check_membership_at_index(2, leaf_preimages[0].as_leaf()), false);
     }
 
-    #[test(should_fail_with="membership check failed")]
+    #[test(should_fail_with = "membership check failed")]
     fn test_assert_check_membership_failed_wrong_leaf() {
         assert_check_membership_at_index(0, leaf_preimages[1].as_leaf());
     }
@@ -225,7 +222,7 @@ mod tests {
         assert_eq(res, false);
     }
 
-    #[test(should_fail_with="membership check failed")]
+    #[test(should_fail_with = "membership check failed")]
     fn test_assert_check_membership_false_wrong_root() {
         let tree = build_tree();
         let tree_root = 56;
@@ -248,17 +245,17 @@ mod tests {
         assert_check_non_membership_at_index(1, 45);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_non_membership_failed_wrong_low_leaf() {
         assert_check_non_membership_at_index(3, 25);
     }
 
-    #[test(should_fail_with="Key is not less than the next leaf")]
+    #[test(should_fail_with = "Key is not less than the next leaf")]
     fn test_assert_check_non_membership_failed_wrong_next_key() {
         assert_check_non_membership_at_index(2, 25);
     }
 
-    #[test(should_fail_with="Low leaf does not exist")]
+    #[test(should_fail_with = "Low leaf does not exist")]
     fn test_assert_check_non_membership_failed_invalid_leaf() {
         let tree = build_tree();
         let tree_root = tree.get_root();
@@ -282,22 +279,22 @@ mod tests {
         conditionally_assert_check_membership_at_index(false, 1, leaf_preimages[1].get_key() + 1);
     }
 
-    #[test(should_fail_with="Key does not match the key of the leaf preimage")]
+    #[test(should_fail_with = "Key does not match the key of the leaf preimage")]
     fn test_conditionally_assert_check_membership_exists_value_mismatch() {
         conditionally_assert_check_membership_at_index(true, 1, leaf_preimages[1].get_key() + 1);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_conditionally_assert_check_membership_failed_not_exists_wrong_low_leaf() {
         conditionally_assert_check_membership_at_index(false, 3, 25);
     }
 
-    #[test(should_fail_with="Key is not less than the next leaf")]
+    #[test(should_fail_with = "Key is not less than the next leaf")]
     fn test_conditionally_assert_check_membership_failed_not_exists_wrong_next_key() {
         conditionally_assert_check_membership_at_index(false, 2, 25);
     }
 
-    #[test(should_fail_with="membership check failed")]
+    #[test(should_fail_with = "membership check failed")]
     fn test_conditionally_assert_check_membership_failed_exists_invalid_leaf() {
         let tree = build_tree();
         let tree_root = tree.get_root();
@@ -312,7 +309,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="membership check failed")]
+    #[test(should_fail_with = "membership check failed")]
     fn test_conditionally_assert_check_membership_failed_not_exists_invalid_leaf() {
         let tree = build_tree();
         let tree_root = tree.get_root();

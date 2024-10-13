@@ -284,7 +284,9 @@ class join_split_tests : public ::testing::Test {
         if (circuit.failed()) {
             info("Logic failed: ", circuit.err());
         }
-        return { !circuit.failed(), circuit.err(), circuit.get_public_inputs(), circuit.get_num_gates() };
+        return {
+            !circuit.failed(), circuit.err(), circuit.get_public_inputs(), circuit.get_estimated_num_finalized_gates()
+        };
     }
 
     verify_result sign_and_verify_logic(join_split_tx& tx, key_pair const& signing_key)
@@ -701,12 +703,12 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
     // The below part detects any changes in the join-split circuit
     constexpr size_t DYADIC_CIRCUIT_SIZE = 1 << 16;
 
-    constexpr uint256_t CIRCUIT_HASH("0x9170317e02f4131b84f6b4efdd3ac23e5f392d815df37750c8f05a94c64797b2");
+    constexpr uint256_t CIRCUIT_HASH("0x2b30566e4d921ea9b0c76802d86ea5b8381ffa78ef143af1b0d0e3045862cb6b");
 
     const uint256_t circuit_hash = circuit.hash_circuit();
     // circuit is finalized now
     if (!CIRCUIT_CHANGE_EXPECTED) {
-        EXPECT_LT(circuit.get_num_gates(), DYADIC_CIRCUIT_SIZE)
+        EXPECT_LT(circuit.get_estimated_num_finalized_gates(), DYADIC_CIRCUIT_SIZE)
             << "The gate count for the join-split circuit has crossed a power-of-two boundary.";
         EXPECT_EQ(circuit_hash, CIRCUIT_HASH)
             << "The circuit hash for the join_split circuit has changed to: " << circuit_hash;

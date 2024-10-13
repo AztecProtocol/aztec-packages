@@ -5,18 +5,53 @@ use serde::{Deserialize, Serialize};
 pub type Label = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct MemoryAddress(pub usize);
+pub enum MemoryAddress {
+    Direct(usize),
+    Relative(usize),
+}
 
 /// `MemoryAddress` refers to the index in VM memory.
 impl MemoryAddress {
-    pub fn to_usize(self) -> usize {
-        self.0
+    pub fn direct(address: usize) -> Self {
+        MemoryAddress::Direct(address)
     }
-}
+    pub fn relative(offset: usize) -> Self {
+        MemoryAddress::Relative(offset)
+    }
 
-impl From<usize> for MemoryAddress {
-    fn from(value: usize) -> Self {
-        MemoryAddress(value)
+    pub fn unwrap_direct(self) -> usize {
+        match self {
+            MemoryAddress::Direct(address) => address,
+            MemoryAddress::Relative(_) => panic!("Expected direct memory address"),
+        }
+    }
+
+    pub fn unwrap_relative(self) -> usize {
+        match self {
+            MemoryAddress::Direct(_) => panic!("Expected relative memory address"),
+            MemoryAddress::Relative(offset) => offset,
+        }
+    }
+
+    pub fn to_usize(self) -> usize {
+        match self {
+            MemoryAddress::Direct(address) => address,
+            MemoryAddress::Relative(offset) => offset,
+        }
+    }
+
+    pub fn is_relative(&self) -> bool {
+        match self {
+            MemoryAddress::Relative(_) => true,
+            MemoryAddress::Direct(_) => false,
+        }
+    }
+
+    pub fn offset(&self, amount: usize) -> Self {
+        match self {
+            MemoryAddress::Direct(address) => MemoryAddress::Direct(address + amount),
+            MemoryAddress::Relative(offset) => MemoryAddress::Relative(offset + amount),
+        }
     }
 }
 
@@ -54,7 +89,7 @@ pub struct HeapArray {
 
 impl Default for HeapArray {
     fn default() -> Self {
-        Self { pointer: MemoryAddress(0), size: 0 }
+        Self { pointer: MemoryAddress::direct(0), size: 0 }
     }
 }
 
@@ -188,6 +223,11 @@ pub enum BrilligOpcode<F> {
         lhs: MemoryAddress,
         rhs: MemoryAddress,
     },
+    Not {
+        destination: MemoryAddress,
+        source: MemoryAddress,
+        bit_size: IntegerBitSize,
+    },
     Cast {
         destination: MemoryAddress,
         source: MemoryAddress,
@@ -210,8 +250,8 @@ pub enum BrilligOpcode<F> {
     /// Copies calldata after the offset to the specified address and length
     CalldataCopy {
         destination_address: MemoryAddress,
-        size: usize,
-        offset: usize,
+        size_address: MemoryAddress,
+        offset_address: MemoryAddress,
     },
     /// We don't support dynamic jumps or calls
     /// See https://github.com/ethereum/aleth/issues/3404 for reasoning

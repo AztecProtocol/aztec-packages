@@ -34,7 +34,9 @@ pub fn get_header_at(block_number: u32, context: PrivateContext) -> Header {
         );
 
         // 3) Get the header hint of a given block from an oracle
-        let historical = get_header_at_internal(block_number);
+        let historical = unsafe {
+            get_header_at_internal(block_number)
+        };
 
         // 4) We make sure that the header hint we received from the oracle exists in the state tree and is the actual header
         // at the desired block number
@@ -60,7 +62,9 @@ fn constrain_get_header_at_internal(
     let block_hash = header_hint.hash();
 
     // 2) Get the membership witness of the block in the archive tree
-    let witness = get_archive_membership_witness(last_archive_block_number, block_hash);
+    let witness = unsafe {
+        get_archive_membership_witness(last_archive_block_number, block_hash)
+    };
 
     // 3) Check that the block is in the archive (i.e. the witness is valid)
     assert(
@@ -74,7 +78,7 @@ fn constrain_get_header_at_internal(
 }
 
 #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
-fn fetching_a_valid_but_different_header_should_fail() {
+unconstrained fn fetching_a_valid_but_different_header_should_fail() {
     let mut env = TestEnvironment::new();
 
     env.advance_block_to(3);

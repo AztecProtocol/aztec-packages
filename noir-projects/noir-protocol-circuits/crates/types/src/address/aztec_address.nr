@@ -1,26 +1,30 @@
 use crate::{
-    crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
-    constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
-    contract_class_id::ContractClassId, hash::poseidon2_hash_with_separator,
+    abis::function_selector::FunctionSelector,
+    address::{
+    partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
+    salted_initialization_hash::SaltedInitializationHash
+},
+    constants::{AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
+    contract_class_id::ContractClassId,
+    hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
+    merkle_tree::membership::MembershipWitness,
     traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
 };
 
 // Aztec address
-struct AztecAddress {
+pub struct AztecAddress {
     inner : Field
 }
 
 impl Eq for AztecAddress {
-    fn eq(self, other : Self) -> bool {
+    fn eq(self, other: Self) -> bool {
         self.to_field() == other.to_field()
     }
 }
 
 impl Empty for AztecAddress {
     fn empty() -> Self {
-        Self {
-            inner : 0
-        }
+        Self { inner: 0 }
     }
 }
 
@@ -60,6 +64,34 @@ impl AztecAddress {
                 GENERATOR_INDEX__CONTRACT_ADDRESS_V1
             )
         )
+    }
+
+    pub fn compute_from_private_function(
+        function_selector: FunctionSelector,
+        functino_vk_hash: Field,
+        function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
+        contract_class_artifact_hash: Field,
+        contract_class_public_bytecode_commitment: Field,
+        salted_initialization_hash: SaltedInitializationHash,
+        public_keys_hash: PublicKeysHash
+    ) -> Self {
+        let private_functions_root = private_functions_root_from_siblings(
+            function_selector,
+            functino_vk_hash,
+            function_leaf_membership_witness.leaf_index,
+            function_leaf_membership_witness.sibling_path
+        );
+
+        let contract_class_id = ContractClassId::compute(
+            contract_class_artifact_hash,
+            private_functions_root,
+            contract_class_public_bytecode_commitment
+        );
+
+        // Compute contract address using the preimage which includes the class_id.
+        let partial_address = PartialAddress::compute_from_salted_initialization_hash(contract_class_id, salted_initialization_hash);
+
+        AztecAddress::compute(public_keys_hash, partial_address)
     }
 
     pub fn is_zero(self) -> bool {

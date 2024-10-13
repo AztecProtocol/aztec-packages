@@ -1,17 +1,6 @@
-import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { FunctionSelector, type GlobalVariables } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-
-export class AvmContextInputs {
-  static readonly SIZE = 2;
-
-  constructor(private argsHash: Fr, private isStaticCall: boolean) {}
-
-  public toFields(): Fr[] {
-    return [this.argsHash, new Fr(this.isStaticCall)];
-  }
-}
 
 /**
  * Contains variables that remain constant during AVM execution
@@ -25,17 +14,11 @@ export class AvmExecutionEnvironment {
     public readonly functionSelector: FunctionSelector, // may be temporary (#7224)
     public readonly contractCallDepth: Fr,
     public readonly transactionFee: Fr,
-    public readonly header: Header,
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
     public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
-  ) {
-    // We encode some extra inputs (AvmContextInputs) in calldata.
-    // This will have to go once we move away from one proof per call.
-    const inputs = new AvmContextInputs(computeVarArgsHash(calldata), isStaticCall).toFields();
-    this.calldata = [...inputs, ...calldata];
-  }
+  ) {}
 
   private deriveEnvironmentForNestedCallInternal(
     targetAddress: AztecAddress,
@@ -51,7 +34,6 @@ export class AvmExecutionEnvironment {
       functionSelector,
       this.contractCallDepth.add(Fr.ONE),
       this.transactionFee,
-      this.header,
       this.globals,
       isStaticCall,
       isDelegateCall,
@@ -93,10 +75,5 @@ export class AvmExecutionEnvironment {
     _functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
     throw new Error('Delegate calls not supported!');
-  }
-
-  public getCalldataWithoutPrefix(): Fr[] {
-    // clip off the first few entries
-    return this.calldata.slice(AvmContextInputs.SIZE);
   }
 }

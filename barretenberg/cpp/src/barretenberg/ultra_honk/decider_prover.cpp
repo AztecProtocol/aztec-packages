@@ -13,11 +13,10 @@ namespace bb {
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
+DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving_key,
                                        const std::shared_ptr<Transcript>& transcript)
-    : accumulator(std::move(inst))
+    : proving_key(std::move(proving_key))
     , transcript(transcript)
-    , commitment_key(accumulator->proving_key.commitment_key)
 {}
 
 /**
@@ -28,11 +27,16 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
-    auto instance_size = accumulator->proving_key.circuit_size;
-    auto sumcheck = Sumcheck(instance_size, transcript);
+    size_t polynomial_size = proving_key->proving_key.circuit_size;
+    auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
-        ZoneScopedN("sumcheck.prove");
-        sumcheck_output = sumcheck.prove(accumulator);
+
+        PROFILE_THIS_NAME("sumcheck.prove");
+
+        sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                         proving_key->relation_parameters,
+                                         proving_key->alphas,
+                                         proving_key->gate_challenges);
     }
 }
 
@@ -44,16 +48,23 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  * */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim = ZeroMorph::prove(accumulator->proving_key.circuit_size,
-                                                 accumulator->proving_key.polynomials.get_unshifted(),
-                                                 accumulator->proving_key.polynomials.get_to_be_shifted(),
-                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                 sumcheck_output.claimed_evaluations.get_shifted(),
-                                                 sumcheck_output.challenge,
-                                                 commitment_key,
-                                                 transcript);
-    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+    if (proving_key->proving_key.commitment_key == nullptr) {
+        proving_key->proving_key.commitment_key =
+            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    }
+    vinfo("made commitment key");
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    const OpeningClaim prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                       proving_key->proving_key.polynomials.get_unshifted(),
+                                       proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                       sumcheck_output.challenge,
+                                       proving_key->proving_key.commitment_key,
+                                       transcript);
+    vinfo("executed multivariate-to-univarite reduction");
+    PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
+    vinfo("computed opening proof");
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
@@ -64,13 +75,15 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
+    PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
+    vinfo("executing relation checking rounds...");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
+    vinfo("executing pcd opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

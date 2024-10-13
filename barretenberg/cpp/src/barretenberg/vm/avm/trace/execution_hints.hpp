@@ -21,8 +21,8 @@ inline void read(uint8_t const*& it, ExternalCallHint& hint)
     using serialize::read;
     read(it, hint.success);
     read(it, hint.return_data);
-    read(it, hint.l2_gas_used);
     read(it, hint.da_gas_used);
+    read(it, hint.l2_gas_used);
     read(it, hint.end_side_effect_counter);
 }
 
@@ -105,8 +105,15 @@ struct ExecutionHints {
     {
         std::unordered_map<uint32_t, FF> hints_map;
         push_vec_into_map(hints_map, storage_value_hints);
-        push_vec_into_map(hints_map, note_hash_exists_hints);
         push_vec_into_map(hints_map, nullifier_exists_hints);
+        return hints_map;
+    }
+
+    // Leaf index -> exists
+    std::unordered_map<uint32_t, FF> get_leaf_index_hints() const
+    {
+        std::unordered_map<uint32_t, FF> hints_map;
+        push_vec_into_map(hints_map, note_hash_exists_hints);
         push_vec_into_map(hints_map, l1_to_l2_message_exists_hints);
         return hints_map;
     }

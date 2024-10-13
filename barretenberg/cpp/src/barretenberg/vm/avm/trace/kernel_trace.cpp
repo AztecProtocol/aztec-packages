@@ -17,6 +17,7 @@ namespace bb::avm_trace {
 void AvmKernelTraceBuilder::reset()
 {
     kernel_trace.clear();
+    kernel_trace.shrink_to_fit(); // Reclaim memory.
     kernel_input_selector_counter.clear();
     kernel_output_selector_counter.clear();
 }
@@ -51,7 +52,7 @@ FF AvmKernelTraceBuilder::op_address(uint32_t clk)
         .operation = KernelTraceOpType::ADDRESS,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(ADDRESS_SELECTOR);
+    return perform_kernel_input_lookup(ADDRESS_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_storage_address(uint32_t clk)
@@ -61,7 +62,7 @@ FF AvmKernelTraceBuilder::op_storage_address(uint32_t clk)
         .operation = KernelTraceOpType::STORAGE_ADDRESS,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(STORAGE_ADDRESS_SELECTOR);
+    return perform_kernel_input_lookup(STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_sender(uint32_t clk)
@@ -71,7 +72,7 @@ FF AvmKernelTraceBuilder::op_sender(uint32_t clk)
         .operation = KernelTraceOpType::SENDER,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(SENDER_SELECTOR);
+    return perform_kernel_input_lookup(SENDER_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_function_selector(uint32_t clk)
@@ -81,7 +82,7 @@ FF AvmKernelTraceBuilder::op_function_selector(uint32_t clk)
         .operation = KernelTraceOpType::FUNCTION_SELECTOR,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(FUNCTION_SELECTOR_SELECTOR);
+    return perform_kernel_input_lookup(FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_transaction_fee(uint32_t clk)
@@ -91,7 +92,7 @@ FF AvmKernelTraceBuilder::op_transaction_fee(uint32_t clk)
         .operation = KernelTraceOpType::TRANSACTION_FEE,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(TRANSACTION_FEE_SELECTOR);
+    return perform_kernel_input_lookup(TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_chain_id(uint32_t clk)
@@ -101,7 +102,7 @@ FF AvmKernelTraceBuilder::op_chain_id(uint32_t clk)
         .operation = KernelTraceOpType::CHAIN_ID,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(CHAIN_ID_SELECTOR);
+    return perform_kernel_input_lookup(CHAIN_ID_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_version(uint32_t clk)
@@ -111,7 +112,7 @@ FF AvmKernelTraceBuilder::op_version(uint32_t clk)
         .operation = KernelTraceOpType::VERSION,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(VERSION_SELECTOR);
+    return perform_kernel_input_lookup(VERSION_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_block_number(uint32_t clk)
@@ -121,17 +122,7 @@ FF AvmKernelTraceBuilder::op_block_number(uint32_t clk)
         .operation = KernelTraceOpType::BLOCK_NUMBER,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(BLOCK_NUMBER_SELECTOR);
-}
-
-FF AvmKernelTraceBuilder::op_coinbase(uint32_t clk)
-{
-    KernelTraceEntry entry = {
-        .clk = clk,
-        .operation = KernelTraceOpType::COINBASE,
-    };
-    kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(COINBASE_SELECTOR);
+    return perform_kernel_input_lookup(BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_timestamp(uint32_t clk)
@@ -141,7 +132,7 @@ FF AvmKernelTraceBuilder::op_timestamp(uint32_t clk)
         .operation = KernelTraceOpType::TIMESTAMP,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(TIMESTAMP_SELECTOR);
+    return perform_kernel_input_lookup(TIMESTAMP_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_fee_per_da_gas(uint32_t clk)
@@ -151,7 +142,7 @@ FF AvmKernelTraceBuilder::op_fee_per_da_gas(uint32_t clk)
         .operation = KernelTraceOpType::FEE_PER_DA_GAS,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(FEE_PER_DA_GAS_SELECTOR);
+    return perform_kernel_input_lookup(FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET);
 }
 
 FF AvmKernelTraceBuilder::op_fee_per_l2_gas(uint32_t clk)
@@ -161,7 +152,17 @@ FF AvmKernelTraceBuilder::op_fee_per_l2_gas(uint32_t clk)
         .operation = KernelTraceOpType::FEE_PER_L2_GAS,
     };
     kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(FEE_PER_L2_GAS_SELECTOR);
+    return perform_kernel_input_lookup(FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET);
+}
+
+FF AvmKernelTraceBuilder::op_is_static_call(uint32_t clk)
+{
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .operation = KernelTraceOpType::IS_STATIC_CALL,
+    };
+    kernel_trace.push_back(entry);
+    return perform_kernel_input_lookup(IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET);
 }
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
@@ -173,7 +174,16 @@ void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk,
 {
 
     uint32_t offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + note_hash_exists_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, note_hash, FF(result));
+    // TODO(#8287)Lookups are heavily underconstrained atm
+    if (result == 1) {
+        perform_kernel_output_lookup(offset, side_effect_counter, note_hash, FF(result));
+    } else {
+        // if the note_hash does NOT exist, the public inputs already contains the correct output value (i.e. the
+        // actual value at the index), so we don't try to overwrite the value
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = FF(result);
+        kernel_output_selector_counter[offset]++;
+    }
     note_hash_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -245,7 +255,16 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk,
                                                    uint32_t result)
 {
     uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, message, FF(result));
+    // TODO(#8287)Lookups are heavily underconstrained atm
+    if (result == 1) {
+        perform_kernel_output_lookup(offset, side_effect_counter, message, FF(result));
+    } else {
+        // if the l1_to_l2_msg_exists is false, the public inputs already contains the correct output value (i.e. the
+        // actual value at the index), so we don't try to overwrite the value
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = FF(result);
+        kernel_output_selector_counter[offset]++;
+    }
     l1_to_l2_msg_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -256,10 +275,13 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk,
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash)
+void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk,
+                                                    uint32_t side_effect_counter,
+                                                    const FF& log_hash,
+                                                    const FF& log_length)
 {
     uint32_t offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + emit_unencrypted_log_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, log_hash, FF(0));
+    perform_kernel_output_lookup(offset, side_effect_counter, log_hash, log_length);
     emit_unencrypted_log_offset++;
 
     KernelTraceEntry entry = {
@@ -344,51 +366,51 @@ void AvmKernelTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
             switch (src.operation) {
             // IN
             case KernelTraceOpType::ADDRESS:
-                dest.main_kernel_in_offset = ADDRESS_SELECTOR;
+                dest.main_kernel_in_offset = ADDRESS_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::STORAGE_ADDRESS:
-                dest.main_kernel_in_offset = STORAGE_ADDRESS_SELECTOR;
+                dest.main_kernel_in_offset = STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::SENDER:
-                dest.main_kernel_in_offset = SENDER_SELECTOR;
+                dest.main_kernel_in_offset = SENDER_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::FUNCTION_SELECTOR:
-                dest.main_kernel_in_offset = FUNCTION_SELECTOR_SELECTOR;
+                dest.main_kernel_in_offset = FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::TRANSACTION_FEE:
-                dest.main_kernel_in_offset = TRANSACTION_FEE_SELECTOR;
+                dest.main_kernel_in_offset = TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::CHAIN_ID:
-                dest.main_kernel_in_offset = CHAIN_ID_SELECTOR;
+                dest.main_kernel_in_offset = CHAIN_ID_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::VERSION:
-                dest.main_kernel_in_offset = VERSION_SELECTOR;
+                dest.main_kernel_in_offset = VERSION_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::BLOCK_NUMBER:
-                dest.main_kernel_in_offset = BLOCK_NUMBER_SELECTOR;
-                dest.main_sel_q_kernel_lookup = 1;
-                break;
-            case KernelTraceOpType::COINBASE:
-                dest.main_kernel_in_offset = COINBASE_SELECTOR;
+                dest.main_kernel_in_offset = BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::TIMESTAMP:
-                dest.main_kernel_in_offset = TIMESTAMP_SELECTOR;
+                dest.main_kernel_in_offset = TIMESTAMP_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::FEE_PER_DA_GAS:
-                dest.main_kernel_in_offset = FEE_PER_DA_GAS_SELECTOR;
+                dest.main_kernel_in_offset = FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::FEE_PER_L2_GAS:
-                dest.main_kernel_in_offset = FEE_PER_L2_GAS_SELECTOR;
+                dest.main_kernel_in_offset = FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET;
+                dest.main_sel_q_kernel_lookup = 1;
+                break;
+            case KernelTraceOpType::IS_STATIC_CALL:
+                dest.main_kernel_in_offset = IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             // OUT
@@ -488,29 +510,21 @@ void AvmKernelTraceBuilder::finalize_columns(std::vector<AvmFullRow<FF>>& main_t
         dest.main_sel_kernel_out = FF(1);
     }
 
+    // Kernel inputs gas selectors
+    main_trace.at(DA_START_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_da_start_gas_kernel_input = FF(1);
+    main_trace.at(L2_START_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_l2_start_gas_kernel_input = FF(1);
+    main_trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_da_end_gas_kernel_input = FF(1);
+    main_trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_sel_l2_end_gas_kernel_input = FF(1);
+
     // Write lookup counts for inputs
     for (auto const& [selector, count] : kernel_input_selector_counter) {
         main_trace.at(selector).lookup_into_kernel_counts = FF(count);
     }
-    // for (uint32_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
-    //     auto value = kernel_input_selector_counter.find(i);
-    //     if (value != kernel_input_selector_counter.end()) {
-    //         auto& dest = main_trace.at(i);
-    //         dest.lookup_into_kernel_counts = FF(value->second);
-    //     }
-    // }
 
     // Write lookup counts for outputs
     for (auto const& [selector, count] : kernel_output_selector_counter) {
         main_trace.at(selector).kernel_output_lookup_counts = FF(count);
     }
-    // for (uint32_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
-    //     auto value = kernel_output_selector_counter.find(i);
-    //     if (value != kernel_output_selector_counter.end()) {
-    //         auto& dest = main_trace.at(i);
-    //         dest.kernel_output_lookup_counts = FF(value->second);
-    //     }
-    // }
 }
 
 } // namespace bb::avm_trace

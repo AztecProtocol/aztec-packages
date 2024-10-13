@@ -7,7 +7,6 @@ use crate::{
     test::helpers::test_environment::TestEnvironment
 };
 
-use dep::protocol_types::address::AztecAddress;
 use dep::std::{test::OracleMock, mem::zeroed};
 
 global new_value = 17;
@@ -18,27 +17,27 @@ global storage_slot = 47;
 
 global TEST_INITIAL_DELAY: u32 = 32;
 
-fn setup() -> TestEnvironment {
+unconstrained fn setup() -> TestEnvironment {
     TestEnvironment::new()
 }
 
-fn in_public(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext> {
+unconstrained fn in_public(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext> {
     SharedMutable::new(&mut env.public(), storage_slot)
 }
 
-fn in_private(
+unconstrained fn in_private(
     env: &mut TestEnvironment,
     historical_block_number: u32
 ) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
     SharedMutable::new(&mut env.private_at(historical_block_number), storage_slot)
 }
 
-fn in_unconstrained(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, UnconstrainedContext> {
+unconstrained fn in_unconstrained(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, UnconstrainedContext> {
     SharedMutable::new(env.unkonstrained(), storage_slot)
 }
 
 #[test]
-fn test_get_current_value_in_public_initial() {
+unconstrained fn test_get_current_value_in_public_initial() {
     let env = setup();
     let state_var = in_public(env);
 
@@ -46,7 +45,7 @@ fn test_get_current_value_in_public_initial() {
 }
 
 #[test]
-fn test_get_scheduled_value_in_public() {
+unconstrained fn test_get_scheduled_value_in_public() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -58,7 +57,7 @@ fn test_get_scheduled_value_in_public() {
 }
 
 #[test]
-fn test_get_current_value_in_public_before_scheduled_change() {
+unconstrained fn test_get_current_value_in_public_before_scheduled_change() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -77,7 +76,7 @@ fn test_get_current_value_in_public_before_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_value_in_public_at_scheduled_change() {
+unconstrained fn test_get_current_value_in_public_at_scheduled_change() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -90,7 +89,7 @@ fn test_get_current_value_in_public_at_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_value_in_public_after_scheduled_change() {
+unconstrained fn test_get_current_value_in_public_after_scheduled_change() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -103,7 +102,7 @@ fn test_get_current_value_in_public_after_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_delay_in_public_initial() {
+unconstrained fn test_get_current_delay_in_public_initial() {
     let env = setup();
     let state_var = in_public(env);
 
@@ -111,7 +110,7 @@ fn test_get_current_delay_in_public_initial() {
 }
 
 #[test]
-fn test_get_scheduled_delay_in_public() {
+unconstrained fn test_get_scheduled_delay_in_public() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -124,7 +123,7 @@ fn test_get_scheduled_delay_in_public() {
 }
 
 #[test]
-fn test_get_current_delay_in_public_before_scheduled_change() {
+unconstrained fn test_get_current_delay_in_public_before_scheduled_change() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -143,7 +142,7 @@ fn test_get_current_delay_in_public_before_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_delay_in_public_at_scheduled_change() {
+unconstrained fn test_get_current_delay_in_public_at_scheduled_change() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -156,7 +155,7 @@ fn test_get_current_delay_in_public_at_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_delay_in_public_after_scheduled_change() {
+unconstrained fn test_get_current_delay_in_public_after_scheduled_change() {
     let mut env = setup();
     let state_var = in_public(env);
 
@@ -169,7 +168,7 @@ fn test_get_current_delay_in_public_after_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_value_in_private_initial() {
+unconstrained fn test_get_current_value_in_private_initial() {
     let mut env = setup();
 
     let historical_block_number = env.block_number();
@@ -180,7 +179,7 @@ fn test_get_current_value_in_private_initial() {
 }
 
 #[test]
-fn test_get_current_value_in_private_before_change() {
+unconstrained fn test_get_current_value_in_private_before_change() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -196,7 +195,7 @@ fn test_get_current_value_in_private_before_change() {
 }
 
 #[test]
-fn test_get_current_value_in_private_immediately_before_change() {
+unconstrained fn test_get_current_value_in_private_immediately_before_change() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -213,7 +212,7 @@ fn test_get_current_value_in_private_immediately_before_change() {
 }
 
 #[test]
-fn test_get_current_value_in_private_at_change() {
+unconstrained fn test_get_current_value_in_private_at_change() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -230,7 +229,7 @@ fn test_get_current_value_in_private_at_change() {
 }
 
 #[test]
-fn test_get_current_value_in_private_after_change() {
+unconstrained fn test_get_current_value_in_private_after_change() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -247,7 +246,7 @@ fn test_get_current_value_in_private_after_change() {
 }
 
 #[test]
-fn test_get_current_value_in_private_with_non_initial_delay() {
+unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -268,8 +267,8 @@ fn test_get_current_value_in_private_with_non_initial_delay() {
     assert_eq(private_state_var.context.max_block_number.unwrap(), historical_block_number + new_delay);
 }
 
-#[test(should_fail_with="Hint values do not match hash")]
-fn test_get_current_value_in_private_bad_value_hints() {
+#[test(should_fail_with = "Hint values do not match hash")]
+unconstrained fn test_get_current_value_in_private_bad_value_hints() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -288,8 +287,8 @@ fn test_get_current_value_in_private_bad_value_hints() {
     let _ = private_state_var.get_current_value_in_private();
 }
 
-#[test(should_fail_with="Hint values do not match hash")]
-fn test_get_current_value_in_private_bad_delay_hints() {
+#[test(should_fail_with = "Hint values do not match hash")]
+unconstrained fn test_get_current_value_in_private_bad_delay_hints() {
     let mut env = setup();
 
     let public_state_var = in_public(env);
@@ -308,8 +307,8 @@ fn test_get_current_value_in_private_bad_delay_hints() {
     let _ = private_state_var.get_current_value_in_private();
 }
 
-#[test(should_fail_with="Non-zero value change for zero hash")]
-fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
+#[test(should_fail_with = "Non-zero value change for zero hash")]
+unconstrained fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let mut env = setup();
 
     let historical_block_number = env.block_number();
@@ -325,8 +324,8 @@ fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let _ = state_var.get_current_value_in_private();
 }
 
-#[test(should_fail_with="Non-zero delay change for zero hash")]
-fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
+#[test(should_fail_with = "Non-zero delay change for zero hash")]
+unconstrained fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
     let mut env = setup();
 
     let historical_block_number = env.block_number();
@@ -343,7 +342,7 @@ fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
 }
 
 #[test]
-fn test_get_current_value_in_unconstrained_initial() {
+unconstrained fn test_get_current_value_in_unconstrained_initial() {
     let env = setup();
     let state_var = in_unconstrained(env);
 
@@ -351,7 +350,7 @@ fn test_get_current_value_in_unconstrained_initial() {
 }
 
 #[test]
-fn test_get_current_value_in_unconstrained_before_scheduled_change() {
+unconstrained fn test_get_current_value_in_unconstrained_before_scheduled_change() {
     let mut env = setup();
     let state_var_public = in_public(env);
 
@@ -374,7 +373,7 @@ fn test_get_current_value_in_unconstrained_before_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_value_in_unconstrained_at_scheduled_change() {
+unconstrained fn test_get_current_value_in_unconstrained_at_scheduled_change() {
     let mut env = setup();
     let state_var_public = in_public(env);
 
@@ -389,7 +388,7 @@ fn test_get_current_value_in_unconstrained_at_scheduled_change() {
 }
 
 #[test]
-fn test_get_current_value_in_unconstrained_after_scheduled_change() {
+unconstrained fn test_get_current_value_in_unconstrained_after_scheduled_change() {
     let mut env = setup();
     let state_var_public = in_public(env);
 

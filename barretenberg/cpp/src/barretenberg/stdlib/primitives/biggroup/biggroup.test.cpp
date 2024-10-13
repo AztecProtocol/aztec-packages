@@ -16,6 +16,9 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+template <typename T>
+concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
+
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
 template <typename _Curve, bool _use_bigfield = false> struct TestType {
@@ -45,7 +48,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using bool_ct = stdlib::bool_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
@@ -61,9 +64,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct a = element_ct::from_witness(&builder, input_a);
             element_ct b = element_ct::from_witness(&builder, input_b);
 
-            uint64_t before = builder.get_num_gates();
+            uint64_t before = builder.get_estimated_num_finalized_gates();
             element_ct c = a + b;
-            uint64_t after = builder.get_num_gates();
+            uint64_t after = builder.get_estimated_num_finalized_gates();
             if (i == num_repetitions - 1) {
                 std::cout << "num gates per add = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Biggroup", "ADD", "Gate Count", after - before);
@@ -285,9 +288,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = P * x;
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -735,9 +738,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = element_ct::wnaf_batch_mul({ P }, { x });
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -905,10 +908,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             // Note: need >136 bits to complete this when working over bigfield
             element_ct c = element_ct::template wnaf_batch_mul<128>({ P }, { x });
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -952,9 +955,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_ct x3 = scalar_ct::from_witness(&builder, scalar3);
             scalar_ct x4 = scalar_ct::from_witness(&builder, scalar4);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = element_ct::batch_mul({ P1, P2, P3, P4 }, { x1, x2, x3, x4 }, 128);
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
             element out = input1 * scalar1;
             out += (input2 * scalar2);
@@ -1191,9 +1194,6 @@ using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuild
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
-template <typename T>
-concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
-
 TYPED_TEST(stdlib_biggroup, add)
 {
 
@@ -1304,7 +1304,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 {
     // ULTRATODO: make this work for secp curves
-    if constexpr (TypeParam::Curve::type == CurveType::BN254) {
+    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; i++) {
             TestFixture::test_compute_naf();
@@ -1318,8 +1318,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_compute_wnaf();
         };
@@ -1332,8 +1332,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_compute_wnaf();
         };
@@ -1346,7 +1346,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
    case where Fr is a bigfield. */
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
 {
-    if constexpr (!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) {
+    if constexpr ((!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) ||
+                  (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>)) {
         GTEST_SKIP();
     } else {
         TestFixture::test_compute_wnaf();
@@ -1360,8 +1361,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
     } else {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_batch_mul_short_scalars();
         };
@@ -1372,8 +1373,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_128_bit)
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
     } else {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_wnaf_batch_mul_128_bit();
         };
@@ -1393,7 +1394,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+            GTEST_SKIP();
         } else {
             TestFixture::test_bn254_endo_batch_mul();
         };
@@ -1405,7 +1406,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+            GTEST_SKIP();
         } else {
             TestFixture::test_mixed_mul_bn254_endo();
         };

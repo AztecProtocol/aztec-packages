@@ -17,7 +17,7 @@ use dep::types::{
 }
 };
 
-struct PublicKernelTeardownCircuitPrivateInputs {
+pub struct PublicKernelTeardownCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }
@@ -57,7 +57,7 @@ mod tests {
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
         public_call_stack_item_compressed::PublicCallStackItemCompressed
     },
-        address::AztecAddress, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
+        address::AztecAddress, constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, traits::is_empty
     };
 
@@ -113,7 +113,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with="Bytecode hash cannot be zero")]
+    #[test(should_fail_with = "Bytecode hash cannot be zero")]
     fn no_bytecode_hash_should_fail() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.bytecode_hash = 0;
@@ -121,7 +121,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Contract address cannot be zero")]
+    #[test(should_fail_with = "Contract address cannot be zero")]
     fn contract_address_must_be_valid() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -131,7 +131,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Function signature cannot be zero")]
+    #[test(should_fail_with = "Function signature cannot be zero")]
     fn function_selector_must_be_valid() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.function_data.selector = FunctionSelector::zero();
@@ -139,7 +139,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Cannot execute a private function with the public kernel circuit")]
+    #[test(should_fail_with = "Cannot execute a private function with the public kernel circuit")]
     fn private_call_should_fail() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.function_data.is_private = true;
@@ -147,7 +147,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
+    #[test(should_fail_with = "call stack item does not match item at the top of the call stack")]
     fn inconsistent_call_request_item_should_fail() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -158,7 +158,7 @@ mod tests {
         builder.failed_with_call_request_item(item);
     }
 
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
+    #[test(should_fail_with = "call stack item does not match item at the top of the call stack")]
     fn incorrect_msg_sender_fails_for_regular_calls() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -169,7 +169,7 @@ mod tests {
         builder.failed_with_call_request_item(item);
     }
 
-    #[test(should_fail_with="call stack storage address does not match expected contract address")]
+    #[test(should_fail_with = "call stack storage address does not match expected contract address")]
     fn incorrect_storage_contract_address_fails_for_regular_calls() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -185,7 +185,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
+    #[test(should_fail_with = "call stack item does not match item at the top of the call stack")]
     fn incorrect_msg_sender_for_delegate_calls_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
 
@@ -196,7 +196,7 @@ mod tests {
         builder.failed_with_call_request_item(item);
     }
 
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
+    #[test(should_fail_with = "call stack item does not match item at the top of the call stack")]
     fn public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
 
@@ -207,7 +207,7 @@ mod tests {
         builder.failed_with_call_request_item(item);
     }
 
-    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
+    #[test(should_fail_with = "curent contract address must not match storage contract address for delegate calls")]
     fn previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
 
@@ -216,7 +216,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="incorrect storage_contract_address for call request")]
+    #[test(should_fail_with = "incorrect storage_contract_address for call request")]
     fn incorrect_storage_contract_address_for_call_request_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -229,7 +229,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
+    #[test(should_fail_with = "incorrect storage_contract_address for delegate call request")]
     fn incorrect_call_context_for_delegate_call_request_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -248,7 +248,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Cannot run unnecessary teardown circuit")]
+    #[test(should_fail_with = "Cannot run unnecessary teardown circuit")]
     fn private_previous_kernel_non_empty_private_call_stack_should_fail() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -261,7 +261,7 @@ mod tests {
         let _ = kernel.execute();
     }
 
-    #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
+    #[test(should_fail_with = "No contract storage update requests are allowed for static calls")]
     fn previous_private_kernel_fails_if_contract_storage_update_requests_on_static_call() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.is_static_call = true;
@@ -299,7 +299,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Start gas for teardown phase does not match teardown gas allocation")]
+    #[test(should_fail_with = "Start gas for teardown phase does not match teardown gas allocation")]
     fn validates_start_gas() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
@@ -309,7 +309,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Transaction fee on teardown phase does not match expected value")]
+    #[test(should_fail_with = "Transaction fee on teardown phase does not match expected value")]
     fn validates_transaction_fee() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.transaction_fee = 1234;
@@ -328,7 +328,7 @@ mod tests {
         assert_eq(public_inputs.constants.global_variables.block_number, 11);
     }
 
-    #[test(should_fail_with="Global variables injected into the public call do not match constants")]
+    #[test(should_fail_with = "Global variables injected into the public call do not match constants")]
     fn validates_global_variables() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 

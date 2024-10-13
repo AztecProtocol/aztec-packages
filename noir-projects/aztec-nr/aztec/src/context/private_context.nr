@@ -14,13 +14,11 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-    call_context::CallContext, function_selector::FunctionSelector, gas::Gas,
-    max_block_number::MaxBlockNumber,
+    call_context::CallContext, function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
-    public_call_stack_item_compressed::PublicCallStackItemCompressed, read_request::ReadRequest,
-    note_hash::NoteHash, nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
+    public_call_request::PublicCallRequest, read_request::ReadRequest, note_hash::NoteHash,
+    nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
 },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -28,13 +26,13 @@ use dep::protocol_types::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
+    MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, PUBLIC_DISPATCH_SELECTOR
 },
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::Empty
+    header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::Empty
 };
 
 // When finished, one can call .finish() to convert back to the abi
-struct PrivateContext {
+pub struct PrivateContext {
     // docs:start:private-context
     inputs: PrivateContextInputs,
     side_effect_counter: u32,
@@ -297,7 +295,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -308,7 +306,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -319,7 +317,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -409,7 +407,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -420,7 +418,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -431,7 +429,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -470,7 +468,13 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        enqueue_public_function_call_internal(
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+        // WARNING: This is insecure and should be temporary!
+        // The oracle repacks the arguments and returns a new args_hash.
+        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        // b) this is only temporary.
+        let args_hash = enqueue_public_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
@@ -479,6 +483,10 @@ impl PrivateContext {
             is_delegate_call
         );
 
+        // Public calls are rerouted through the dispatch function.
+        let function_selector = comptime {
+            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
+        };
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
@@ -486,17 +494,7 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let item = PublicCallStackItemCompressed {
-            contract_address,
-            call_context,
-            args_hash,
-            returns_hash: 0,
-            revert_code: 0,
-            start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty()
-        };
-
-        let call_request = PublicCallRequest { item, counter };
+        let call_request = PublicCallRequest { contract_address, call_context, args_hash, counter };
         self.public_call_requests.push(call_request);
     }
 
@@ -507,7 +505,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args);
         self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -522,7 +520,13 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        set_public_teardown_function_call_internal(
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+        // WARNING: This is insecure and should be temporary!
+        // The oracle repacks the arguments and returns a new args_hash.
+        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        // b) this is only temporary.
+        let args_hash = set_public_teardown_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
@@ -531,6 +535,9 @@ impl PrivateContext {
             is_delegate_call
         );
 
+        let function_selector = comptime {
+            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
+        };
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
@@ -538,18 +545,10 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let item = PublicCallStackItemCompressed {
+        self.public_teardown_call_request = PublicCallRequest {
             contract_address,
             call_context,
             args_hash,
-            returns_hash: 0,
-            revert_code: 0,
-            start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty()
-        };
-
-        self.public_teardown_call_request = PublicCallRequest {
-            item,
             counter,
         };
     }

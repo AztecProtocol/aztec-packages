@@ -2,8 +2,8 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -16,7 +16,7 @@ class MegaTranscriptTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Flavor = MegaFlavor;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
 
@@ -80,11 +80,14 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
+        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
             std::string label = "alpha_" + std::to_string(i);
-            manifest_expected.add_challenge(round, label);
-            round++;
+            alpha_labels[i] = label;
         }
+
+        manifest_expected.add_challenge(round, alpha_labels);
+        round++;
 
         for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
@@ -104,15 +107,21 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
+            manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
         }
-        manifest_expected.add_challenge(round, "ZM:y");
-
+        manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        manifest_expected.add_entry(round, "ZM:C_q", frs_per_G);
-        manifest_expected.add_challenge(round, "ZM:x", "ZM:z");
+        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
+        }
+
+        manifest_expected.add_challenge(round, "Shplonk:nu");
+        round++;
+        manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
+        manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
@@ -156,8 +165,8 @@ TEST_F(MegaTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -187,12 +196,12 @@ TEST_F(MegaTranscriptTests, VerifierManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     verifier.verify_proof(proof);
 
@@ -242,10 +251,10 @@ TEST_F(MegaTranscriptTests, StructureTest)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 

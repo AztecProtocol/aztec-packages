@@ -1,7 +1,7 @@
-use crate::{traits::Empty, hash::accumulate_sha256};
+use crate::{hash::accumulate_sha256};
 // N = maximum leaves
 // For now we only care about the root
-struct VariableMerkleTree {
+pub struct VariableMerkleTree {
     // leaves: [Field; N],
     root: Field,
 }
@@ -33,7 +33,9 @@ impl VariableMerkleTree {
     //
     pub fn new_sha<let N: u32>(leaves: [Field; N], num_non_empty_leaves: u32) -> Self {
         // Find size of tree required
-        let height = get_height(num_non_empty_leaves, 0);
+        let height = unsafe {
+            get_height(num_non_empty_leaves, 0)
+        };
         let next_power_2 = 2 << height;
         let prev_power_2 = next_power_2 / 2;
         assert(
@@ -205,4 +207,3 @@ mod tests {
         assert_eq(tree.root, full_tree.get_root());
     }
 }
-

@@ -1,7 +1,9 @@
-import { type MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeOperations } from '@aztec/circuit-types/interfaces';
+import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
+
+import { type WorldStateStatus } from '../native/message.js';
 
 /**
  *
@@ -22,24 +24,6 @@ export const INITIAL_NULLIFIER_TREE_SIZE = 2 * MAX_NULLIFIERS_PER_TX;
 
 export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 
-/**
- * Adds a last boolean flag in each function on the type.
- */
-type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer Return
-  ? (...args: [...Rest, boolean]) => Return
-  : F;
-
-/**
- * Defines the names of the setters on Merkle Trees.
- */
-type MerkleTreeSetters =
-  | 'appendLeaves'
-  | 'updateLeaf'
-  | 'commit'
-  | 'rollback'
-  | 'handleL2BlockAndMessages'
-  | 'batchInsert';
-
 export type TreeSnapshots = {
   [MerkleTreeId.NULLIFIER_TREE]: IndexedTreeSnapshot;
   [MerkleTreeId.NOTE_HASH_TREE]: TreeSnapshot<Fr>;
@@ -48,25 +32,58 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-/**
- * Defines the interface for operations on a set of Merkle Trees configuring whether to return committed or uncommitted data.
- */
-export type MerkleTreeDb = {
-  [Property in keyof MerkleTreeOperations as Exclude<Property, MerkleTreeSetters>]: WithIncludeUncommitted<
-    MerkleTreeOperations[Property]
-  >;
-} & Pick<MerkleTreeOperations, MerkleTreeSetters> & {
-    /**
-     * Returns a snapshot of the current state of the trees.
-     * @param block - The block number to take the snapshot at.
-     */
-    getSnapshot(block: number): Promise<TreeSnapshots>;
+export interface MerkleTreeAdminDatabase {
+  /**
+   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
+   * @param block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
+   */
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus>;
 
-    /**
-     * Forks the database at its current state.
-     */
-    fork(): Promise<MerkleTreeDb>;
+  /**
+   * Gets a handle that allows reading the latest committed state
+   */
+  getCommitted(): MerkleTreeReadOperations;
 
-    /** Deletes this database. */
-    delete(): Promise<void>;
-  };
+  /**
+   * Gets a handle that allows reading the state as it was at the given block number
+   * @param blockNumber - The block number to get the snapshot for
+   */
+  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+
+  /**
+   * Forks the database at its current state.
+   * @param blockNumber - The block number to fork at. If not provided, the current block number is used.
+   */
+  fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
+
+  /**
+   * Removes all historical snapshots up to but not including the given block number
+   * @param toBlockNumber The block number of the new oldest historical block
+   * @returns The new WorldStateStatus
+   */
+  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Removes all pending blocks down to but not including the given block number
+   * @param toBlockNumber The block number of the new tip of the pending chain,
+   * @returns The new WorldStateStatus
+   */
+  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Advances the finalised block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * @returns The new WorldStateStatus
+   */
+  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatus>;
+
+  /**
+   * Gets the current status of the database.
+   * @returns The current WorldStateStatus.
+   */
+  getStatus(): Promise<WorldStateStatus>;
+
+  /** Stops the database */
+  close(): Promise<void>;
+}

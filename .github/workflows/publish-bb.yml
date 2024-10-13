@@ -17,6 +17,7 @@ on:
 permissions:
   # Necessary to upload new release artifacts
   contents: write
+  issues: write
 
 jobs:
   build-x86_64-linux-gnu:
@@ -59,7 +60,7 @@ jobs:
         run: tar -cvzf barretenberg-x86_64-linux-gnu.tar.gz bb
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: release-linux
           path: |
@@ -128,7 +129,7 @@ jobs:
       #     NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: release-wasm
           path: |
@@ -163,7 +164,7 @@ jobs:
           7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-x86_64-apple-darwin.tar.gz
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: barretenberg-x86_64-apple-darwin
           path: ./barretenberg/cpp/build/bin/barretenberg-x86_64-apple-darwin.tar.gz
@@ -195,7 +196,7 @@ jobs:
           7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-aarch64-apple-darwin.tar.gz
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: barretenberg-aarch64-apple-darwin
           path: ./barretenberg/cpp/build/bin/barretenberg-aarch64-apple-darwin.tar.gz
@@ -243,22 +244,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download files from Linux Runner
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: release-linux
 
       - name: Download files for WASM
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: release-wasm
 
       - name: Download files from x86_64 Mac Runner
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: barretenberg-x86_64-apple-darwin
 
       - name: Download files from aarch64 Mac Runner
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: barretenberg-aarch64-apple-darwin
 

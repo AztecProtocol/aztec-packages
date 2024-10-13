@@ -1,7 +1,7 @@
 use crate::{parity_public_inputs::ParityPublicInputs, utils::sha256_merkle_tree::Sha256MerkleTree};
-use dep::types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree, utils::uint256::U256};
+use dep::types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
 
-struct BaseParityInputs {
+pub struct BaseParityInputs {
     msgs: [Field; NUM_MSGS_PER_BASE_PARITY],
     vk_tree_root: Field,
 }

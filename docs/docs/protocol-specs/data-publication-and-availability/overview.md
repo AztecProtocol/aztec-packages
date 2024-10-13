@@ -13,7 +13,7 @@ As for that, we highly recommend reading [this very nice post](https://dba.xyz/d
 Essentially Data Publication $\subset$ Data Availability, since if it is available, it must also have been published.
 This difference might be small but becomes important in a few moments.
 
-Progressing the state of the validating light node requires that we can convince it (and therefore the [availability oracle](./index.md#availability-oracle)) that the data was published - as it needs to compute the public inputs for the proof.
+Progressing the state of the validating light node requires that we can convince it that the data was published - as it needs to compute the public inputs for the proof.
 The exact method of computing these public inputs can vary depending on the data layer, but generally, it could be by providing the data directly or by using data availability sampling or a data availability committee.
 
 The exact mechanism greatly impacts the security and cost of the system, and will be discussed in the following sections.
@@ -94,9 +94,9 @@ You could say that the transactions are pre-confirmed until they convince the va
 ### No-consensus
 
 If there is no explicit consensus for the Rollup, staking can still be utilized for leader selection, picking a distinct sequencer which will have a period to propose a block and convince the validating light-client.
-The user can as earlier define his own confirmation rules and could decide that if the sequencer acknowledge his transaction, then he sees it as confirmed.
-This have a weaker guarantees than the consensus based as the sequencer could be malicious and not uphold his part of the deal.
-Nevertheless, the user could always do an out of protocol agreement with the sequencer, where the sequencer guarantees that he will include the transaction or the user will be able to slash him and get compensated.
+The user can as earlier define his own confirmation rules and could decide that if the sequencer acknowledges his transaction, then he sees it as confirmed.
+This has weaker guarantees than the consensus-based approach as the sequencer could be malicious and not uphold his part of the deal.
+Nevertheless, the user could always do an out-of-protocol agreement with the sequencer, where the sequencer guarantees that he will include the transaction or the user will be able to slash him and get compensated.
 
 :::info Fernet
 Fernet lives in this category if you have a single sequencer active from the proposal to proof inclusion stage.
@@ -107,7 +107,7 @@ If the user is not satisfied with the guarantee provided by the sequencer, he ca
 
 ## Data Availability and Publication
 
-As alluded to earlier, we belong to the school of thought that Data Availability and Publication is different things.
+As alluded to earlier, we belong to the school of thought that Data Availability and Publication are different things.
 Generally, what is often referred to as Data Availability is merely Data Publication, e.g., whether or not the data have been published somewhere.
 For data published on Ethereum you will currently have no issues getting a hold of the data because there are many full nodes and they behave nicely, but they are not guaranteed to continue doing so.
 New nodes are essentially bootstrapped by other friendly nodes.
@@ -125,7 +125,7 @@ The latency is based on using Ethereum L1 as the home of the validating light no
 |Method | Publication | Availability | Quantity | Latency | Description |
 | ------- | :----------: | :----------: | :----------: | :-------: | :-------: |
 |calldata| Eth L1 | Eth L1 | $78,125~\dfrac{byte}{s}$ | None | Part of the transaction payload required to execute history, if you can sync an Ethereum node from zero, this is available. Essentially, if Ethereum lives this is available. Have to compete against everything on Ethereum for blockspace. |
-|blobs| Eth L1 | benevolent Eth L1 super full-nodes | x | None | New blob data, will be published but only commitments available from the execution environment. Content can be discarded later and don't have to be stored forever. Practically a "committee" of whoever wants can keep it, and you rely on someone from this set providing the data to you. |
+|blobs| Eth L1 | benevolent Eth L1 super full-nodes | x | None | New blob data, will be published but only commitments available from the execution environment. Content can be discarded later and doesn't have to be stored forever. Practically a "committee" of whoever wants can keep it, and you rely on someone from this set providing the data to you. |
 ^^|  | | $31,744 \dfrac{byte}{s}$ | None |  target of `3` blobs of size `4096` fields (`380,928` bytes per block) |
 ^^|  | | $677,205 \dfrac{byte}{s}$ | None | target of `64` blobs of size `4096` fields (`8,126,464` bytes per block) |
 |Celestia| Celestia + Blobstream bridge | Celestia Full Storage Nodes | $161,319~\dfrac{byte}{s}$ | ~100 mins  | 2MB blocks. Can be used in proof after relay happens, with latency improvements expected.|
@@ -246,7 +246,7 @@ Assuming that this is a decent guess, and we can estimate the data requirements 
 Using the values from just above for transaction data requirements, we can get a ball park estimate of what we can expect to require at different throughput levels.
 
 <!-- prettier-ignore -->
-|Throughput | Everyone | Someone | Total | 
+|Throughput | Everyone | Someone | Total |
 |:-----:|:-----:|:-----:|:-----:|
 | 1 TPS | $512 \dfrac{byte}{s}$ | $1036 \dfrac{byte}{s}$ | $1548 \dfrac{byte}{s}$ |
 | 10 TPS | $5120 \dfrac{byte}{s}$ | $10360 \dfrac{byte}{s}$ | $15480 \dfrac{byte}{s}$ |

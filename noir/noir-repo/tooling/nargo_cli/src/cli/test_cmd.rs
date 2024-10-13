@@ -5,18 +5,14 @@ use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 use fm::FileManager;
 use nargo::{
-    insert_all_files_for_workspace_into_file_manager, ops::TestStatus, package::Package, parse_all,
-    prepare_package,
+    insert_all_files_for_workspace_into_file_manager,
+    ops::TestStatus,
+    package::{CrateName, Package},
+    parse_all, prepare_package,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
-use noirc_driver::{
-    check_crate, file_manager_with_stdlib, CheckOptions, CompileOptions,
-    NOIR_ARTIFACT_VERSION_STRING,
-};
-use noirc_frontend::{
-    graph::CrateName,
-    hir::{FunctionNameMatch, ParsedFiles},
-};
+use noirc_driver::{check_crate, CompileOptions, NOIR_ARTIFACT_VERSION_STRING};
+use noirc_frontend::hir::{FunctionNameMatch, ParsedFiles};
 use rayon::prelude::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
@@ -66,7 +62,7 @@ pub(crate) fn run(args: TestCommand, config: NargoConfig) -> Result<(), CliError
         Some(NOIR_ARTIFACT_VERSION_STRING.to_string()),
     )?;
 
-    let mut workspace_file_manager = file_manager_with_stdlib(&workspace.root_dir);
+    let mut workspace_file_manager = workspace.new_file_manager();
     insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
     let parsed_files = parse_all(&workspace_file_manager);
 
@@ -186,9 +182,7 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     // We then need to construct a separate copy for each test.
 
     let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
-    let error_on_unused_imports = package.error_on_unused_imports();
-    let check_options = CheckOptions::new(compile_options, error_on_unused_imports);
-    check_crate(&mut context, crate_id, &check_options)
+    check_crate(&mut context, crate_id, compile_options)
         .expect("Any errors should have occurred when collecting test functions");
 
     let test_functions = context
@@ -217,9 +211,7 @@ fn get_tests_in_package(
     options: &CompileOptions,
 ) -> Result<Vec<String>, CliError> {
     let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
-    let error_on_unused_imports = package.error_on_unused_imports();
-    let check_options = CheckOptions::new(options, error_on_unused_imports);
-    check_crate_and_report_errors(&mut context, crate_id, &check_options)?;
+    check_crate_and_report_errors(&mut context, crate_id, options)?;
 
     Ok(context
         .get_all_test_functions_in_crate_matching(&crate_id, fn_name)

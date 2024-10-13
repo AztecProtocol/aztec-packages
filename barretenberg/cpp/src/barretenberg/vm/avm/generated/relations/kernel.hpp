@@ -10,9 +10,9 @@ template <typename FF_> class kernelImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 44> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 43> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -20,18 +20,18 @@ template <typename FF_> class kernelImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto constants_SENDER_SELECTOR = FF(0);
-        const auto constants_ADDRESS_SELECTOR = FF(1);
-        const auto constants_STORAGE_ADDRESS_SELECTOR = FF(1);
-        const auto constants_FUNCTION_SELECTOR_SELECTOR = FF(2);
-        const auto constants_CHAIN_ID_SELECTOR = FF(29);
-        const auto constants_VERSION_SELECTOR = FF(30);
-        const auto constants_BLOCK_NUMBER_SELECTOR = FF(31);
-        const auto constants_TIMESTAMP_SELECTOR = FF(33);
-        const auto constants_COINBASE_SELECTOR = FF(34);
-        const auto constants_FEE_PER_DA_GAS_SELECTOR = FF(36);
-        const auto constants_FEE_PER_L2_GAS_SELECTOR = FF(37);
-        const auto constants_TRANSACTION_FEE_SELECTOR = FF(41);
+        const auto constants_SENDER_KERNEL_INPUTS_COL_OFFSET = FF(0);
+        const auto constants_ADDRESS_KERNEL_INPUTS_COL_OFFSET = FF(1);
+        const auto constants_STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET = FF(1);
+        const auto constants_FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET = FF(2);
+        const auto constants_IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET = FF(3);
+        const auto constants_CHAIN_ID_KERNEL_INPUTS_COL_OFFSET = FF(4);
+        const auto constants_VERSION_KERNEL_INPUTS_COL_OFFSET = FF(5);
+        const auto constants_BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET = FF(6);
+        const auto constants_TIMESTAMP_KERNEL_INPUTS_COL_OFFSET = FF(7);
+        const auto constants_FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET = FF(8);
+        const auto constants_FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET = FF(9);
+        const auto constants_TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET = FF(14);
         const auto constants_START_NOTE_HASH_EXISTS_WRITE_OFFSET = FF(0);
         const auto constants_START_NULLIFIER_EXISTS_OFFSET = FF(16);
         const auto constants_START_NULLIFIER_NON_EXISTS_OFFSET = FF(32);
@@ -50,10 +50,10 @@ template <typename FF_> class kernelImpl {
                    new_term.main_sel_op_chain_id) +
                   new_term.main_sel_op_version) +
                  new_term.main_sel_op_block_number) +
-                new_term.main_sel_op_coinbase) +
-               new_term.main_sel_op_timestamp) +
-              new_term.main_sel_op_fee_per_l2_gas) +
-             new_term.main_sel_op_fee_per_da_gas);
+                new_term.main_sel_op_timestamp) +
+               new_term.main_sel_op_fee_per_l2_gas) +
+              new_term.main_sel_op_fee_per_da_gas) +
+             new_term.main_sel_op_is_static_call);
         const auto main_KERNEL_OUTPUT_SELECTORS =
             ((((((((new_term.main_sel_op_note_hash_exists + new_term.main_sel_op_emit_note_hash) +
                    new_term.main_sel_op_nullifier_exists) +
@@ -149,80 +149,85 @@ template <typename FF_> class kernelImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_address * (new_term.main_kernel_in_offset - constants_ADDRESS_SELECTOR));
+            auto tmp = (new_term.main_sel_op_address *
+                        (new_term.main_kernel_in_offset - constants_ADDRESS_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_op_storage_address *
-                        (new_term.main_kernel_in_offset - constants_STORAGE_ADDRESS_SELECTOR));
+                        (new_term.main_kernel_in_offset - constants_STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_sender * (new_term.main_kernel_in_offset - constants_SENDER_SELECTOR));
+            auto tmp = (new_term.main_sel_op_sender *
+                        (new_term.main_kernel_in_offset - constants_SENDER_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_op_function_selector *
-                        (new_term.main_kernel_in_offset - constants_FUNCTION_SELECTOR_SELECTOR));
+                        (new_term.main_kernel_in_offset - constants_FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_op_transaction_fee *
-                        (new_term.main_kernel_in_offset - constants_TRANSACTION_FEE_SELECTOR));
+                        (new_term.main_kernel_in_offset - constants_TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_chain_id * (new_term.main_kernel_in_offset - constants_CHAIN_ID_SELECTOR));
+            auto tmp = (new_term.main_sel_op_is_static_call *
+                        (new_term.main_kernel_in_offset - constants_IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_version * (new_term.main_kernel_in_offset - constants_VERSION_SELECTOR));
+            auto tmp = (new_term.main_sel_op_chain_id *
+                        (new_term.main_kernel_in_offset - constants_CHAIN_ID_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_block_number *
-                        (new_term.main_kernel_in_offset - constants_BLOCK_NUMBER_SELECTOR));
+            auto tmp = (new_term.main_sel_op_version *
+                        (new_term.main_kernel_in_offset - constants_VERSION_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp =
-                (new_term.main_sel_op_timestamp * (new_term.main_kernel_in_offset - constants_TIMESTAMP_SELECTOR));
+            auto tmp = (new_term.main_sel_op_block_number *
+                        (new_term.main_kernel_in_offset - constants_BLOCK_NUMBER_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_coinbase * (new_term.main_kernel_in_offset - constants_COINBASE_SELECTOR));
+            auto tmp = (new_term.main_sel_op_timestamp *
+                        (new_term.main_kernel_in_offset - constants_TIMESTAMP_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_op_fee_per_da_gas *
-                        (new_term.main_kernel_in_offset - constants_FEE_PER_DA_GAS_SELECTOR));
+                        (new_term.main_kernel_in_offset - constants_FEE_PER_DA_GAS_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_op_fee_per_l2_gas *
-                        (new_term.main_kernel_in_offset - constants_FEE_PER_L2_GAS_SELECTOR));
+                        (new_term.main_kernel_in_offset - constants_FEE_PER_L2_GAS_KERNEL_INPUTS_COL_OFFSET));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
@@ -363,22 +368,15 @@ template <typename FF_> class kernelImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp = (main_KERNEL_OUTPUT_SELECTORS *
-                        (new_term.main_side_effect_counter_shift - (new_term.main_side_effect_counter + FF(1))));
+            auto tmp = (main_KERNEL_INPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_lookup));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-            auto tmp = (main_KERNEL_INPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_lookup));
-            tmp *= scaling_factor;
-            std::get<42>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
             auto tmp = (main_KERNEL_OUTPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_output_lookup));
             tmp *= scaling_factor;
-            std::get<43>(evals) += typename Accumulator::View(tmp);
+            std::get<42>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -421,15 +419,15 @@ template <typename FF> class kernel : public Relation<kernelImpl<FF>> {
         case 14:
             return "FEE_TRANSACTION_FEE_KERNEL";
         case 15:
-            return "CHAIN_ID_KERNEL";
+            return "IS_STATIC_CALL_KERNEL";
         case 16:
-            return "VERSION_KERNEL";
+            return "CHAIN_ID_KERNEL";
         case 17:
-            return "BLOCK_NUMBER_KERNEL";
+            return "VERSION_KERNEL";
         case 18:
-            return "TIMESTAMP_KERNEL";
+            return "BLOCK_NUMBER_KERNEL";
         case 19:
-            return "COINBASE_KERNEL";
+            return "TIMESTAMP_KERNEL";
         case 20:
             return "FEE_DA_GAS_KERNEL";
         case 21:
@@ -453,10 +451,8 @@ template <typename FF> class kernel : public Relation<kernelImpl<FF>> {
         case 39:
             return "SSTORE_KERNEL_OUTPUT";
         case 41:
-            return "SIDE_EFFECT_COUNTER_INCREMENT";
-        case 42:
             return "KERNEL_INPUT_ACTIVE_CHECK";
-        case 43:
+        case 42:
             return "KERNEL_OUTPUT_ACTIVE_CHECK";
         }
         return std::to_string(index);

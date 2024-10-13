@@ -95,8 +95,13 @@ impl FunctionBuilder {
     }
 
     /// Finish the current function and create a new unconstrained function.
-    pub(crate) fn new_brillig_function(&mut self, name: String, function_id: FunctionId) {
-        self.new_function_with_type(name, function_id, RuntimeType::Brillig);
+    pub(crate) fn new_brillig_function(
+        &mut self,
+        name: String,
+        function_id: FunctionId,
+        inline_type: InlineType,
+    ) {
+        self.new_function_with_type(name, function_id, RuntimeType::Brillig(inline_type));
     }
 
     /// Consume the FunctionBuilder returning all the functions it has generated.
@@ -420,25 +425,20 @@ impl FunctionBuilder {
     /// within the given value. If the given value is not an array and does not contain
     /// any arrays, this does nothing.
     pub(crate) fn increment_array_reference_count(&mut self, value: ValueId) {
-        self.update_array_reference_count(value, true, None);
+        self.update_array_reference_count(value, true);
     }
 
     /// Insert instructions to decrement the reference count of any array(s) stored
     /// within the given value. If the given value is not an array and does not contain
     /// any arrays, this does nothing.
     pub(crate) fn decrement_array_reference_count(&mut self, value: ValueId) {
-        self.update_array_reference_count(value, false, None);
+        self.update_array_reference_count(value, false);
     }
 
     /// Increment or decrement the given value's reference count if it is an array.
     /// If it is not an array, this does nothing. Note that inc_rc and dec_rc instructions
     /// are ignored outside of unconstrained code.
-    fn update_array_reference_count(
-        &mut self,
-        value: ValueId,
-        increment: bool,
-        load_address: Option<ValueId>,
-    ) {
+    fn update_array_reference_count(&mut self, value: ValueId, increment: bool) {
         match self.type_of_value(value) {
             Type::Numeric(_) => (),
             Type::Function => (),
@@ -446,40 +446,16 @@ impl FunctionBuilder {
                 if element.contains_an_array() {
                     let reference = value;
                     let value = self.insert_load(reference, element.as_ref().clone());
-                    self.update_array_reference_count(value, increment, Some(reference));
+                    self.update_array_reference_count(value, increment);
                 }
             }
-            typ @ Type::Array(..) | typ @ Type::Slice(..) => {
+            Type::Array(..) | Type::Slice(..) => {
                 // If there are nested arrays or slices, we wait until ArrayGet
                 // is issued to increment the count of that array.
-                let update_rc = |this: &mut Self, value| {
-                    if increment {
-                        this.insert_inc_rc(value);
-                    } else {
-                        this.insert_dec_rc(value);
-                    }
-                };
-
-                update_rc(self, value);
-                let dfg = &self.current_function.dfg;
-
-                // This is a bit odd, but in brillig the inc_rc instruction operates on
-                // a copy of the array's metadata, so we need to re-store a loaded array
-                // even if there have been no other changes to it.
-                if let Some(address) = load_address {
-                    // If we already have a load from the Type::Reference case, avoid inserting
-                    // another load and rc update.
-                    self.insert_store(address, value);
-                } else if let Value::Instruction { instruction, .. } = &dfg[value] {
-                    let instruction = &dfg[*instruction];
-                    if let Instruction::Load { address } = instruction {
-                        // We can't re-use `value` in case the original address was stored
-                        // to again in the meantime. So introduce another load.
-                        let address = *address;
-                        let new_load = self.insert_load(address, typ);
-                        update_rc(self, new_load);
-                        self.insert_store(address, new_load);
-                    }
+                if increment {
+                    self.insert_inc_rc(value);
+                } else {
+                    self.insert_dec_rc(value);
                 }
             }
         }
@@ -533,7 +509,7 @@ mod tests {
     fn insert_constant_call() {
         // `bits` should be an array of constants [1, 1, 1, 0...] of length 8:
         // let x = 7;
-        // let bits = x.to_le_bits(8);
+        // let bits: [u1; 8] = x.to_le_bits();
         let func_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("func".into(), func_id);
         let one = builder.numeric_constant(FieldElement::one(), Type::bool());
@@ -546,13 +522,7 @@ mod tests {
         let call_results =
             builder.insert_call(to_bits_id, vec![input, length], result_types).into_owned();
 
-        let slice_len = match &builder.current_function.dfg[call_results[0]] {
-            Value::NumericConstant { constant, .. } => *constant,
-            _ => panic!(),
-        };
-        assert_eq!(slice_len, FieldElement::from(8_u128));
-
-        let slice = match &builder.current_function.dfg[call_results[1]] {
+        let slice = match &builder.current_function.dfg[call_results[0]] {
             Value::Array { array, .. } => array,
             _ => panic!(),
         };

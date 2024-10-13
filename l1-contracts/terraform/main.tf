@@ -20,15 +20,6 @@ output "rollup_contract_address" {
   value = var.ROLLUP_CONTRACT_ADDRESS
 }
 
-variable "AVAILABILITY_ORACLE_CONTRACT_ADDRESS" {
-  type    = string
-  default = ""
-}
-
-output "availability_oracle_contract_address" {
-  value = var.AVAILABILITY_ORACLE_CONTRACT_ADDRESS
-}
-
 variable "REGISTRY_CONTRACT_ADDRESS" {
   type    = string
   default = ""

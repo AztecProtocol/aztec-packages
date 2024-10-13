@@ -5,16 +5,11 @@ use dep::types::{
     max_block_number::MaxBlockNumber, nullifier::{Nullifier, ScopedNullifier},
     private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
-    address::AztecAddress,
-    constants::{
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_TX,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
-},
-    traits::is_empty, transaction::tx_request::TxRequest,
+    address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc}
 };
 
-struct DataSource {
+pub struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
@@ -24,7 +19,7 @@ pub fn create_first_nullifier(tx_request: TxRequest) -> ScopedNullifier {
     Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
 }
 
-struct PrivateKernelCircuitPublicInputsComposer {
+pub struct PrivateKernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
 }
 
@@ -32,7 +27,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
     pub fn new_from_tx_request(
         tx_request: TxRequest,
         private_call_public_inputs: PrivateCircuitPublicInputs,
-        vk_tree_root: Field
+        vk_tree_root: Field,
+        protocol_contract_tree_root: Field
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
@@ -40,6 +36,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
             private_call_public_inputs.historical_header,
             tx_request.tx_context,
             vk_tree_root,
+            protocol_contract_tree_root,
         );
 
         // Since it's the first iteration, we need to push the tx hash nullifier into the `nullifiers` array
@@ -99,7 +96,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         *self
     }
 
-    pub fn sort_ordered_values(&mut self) {
+    unconstrained pub fn sort_ordered_values(&mut self) {
         // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage = sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
         self.public_inputs.end.unencrypted_logs_hashes.storage = sort_by_counter_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);

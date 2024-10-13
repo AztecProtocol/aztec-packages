@@ -4,6 +4,7 @@ pub(crate) mod brillig_block_variables;
 pub(crate) mod brillig_directive;
 pub(crate) mod brillig_fn;
 pub(crate) mod brillig_slice_ops;
+mod constant_allocation;
 mod variable_liveness;
 
 use acvm::FieldElement;
@@ -25,6 +26,8 @@ pub(crate) fn convert_ssa_function(
     let mut function_context = FunctionContext::new(func);
 
     brillig_context.enter_context(Label::function(func.id()));
+
+    brillig_context.call_check_max_stack_depth_procedure();
 
     for block in function_context.blocks.clone() {
         BrilligBlock::compile(&mut function_context, &mut brillig_context, block, &func.dfg);

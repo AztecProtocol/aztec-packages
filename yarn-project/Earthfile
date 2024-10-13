@@ -6,7 +6,8 @@ deps:
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
     FROM ../build-images+from-registry
     # copy bb, bb-js and noir-packages
-    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/
+    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/bin
+    COPY ../barretenberg/cpp/+preset-release-world-state/bin /usr/src/barretenberg/cpp/build/bin
     COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
     COPY ../noir/+packages/packages /usr/src/noir/packages
     WORKDIR /usr/src/yarn-project
@@ -34,13 +35,14 @@ build:
     BUILD ../barretenberg/cpp/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+nargo
-    BUILD ../noir-projects/+build
+    BUILD --pass-args ../noir-projects/+build
     BUILD ../l1-contracts/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+packages
     FROM +deps
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
     COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
     COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
     COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
@@ -116,12 +118,12 @@ protocol-verification-keys:
 rollup-verifier-contract:
     FROM +bb-cli
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
+    RUN --entrypoint write-contract -c BlockRootRollupArtifact -n UltraHonkVerifier.sol
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
 txe:
     FROM +cli-base
-    RUN yarn workspaces focus @aztec/txe --production && yarn cache clean
+    RUN yarn workspaces focus @aztec/txe && yarn cache clean
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/txe/dest/bin/index.js"]
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -150,13 +152,13 @@ aztec-prod:
 
 aztec:
     FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
     COPY +aztec-prod/usr/src /usr/src
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
     LET port=8080
     ENV PORT=$port
@@ -211,13 +213,13 @@ end-to-end-base:
     ENV CHROME_BIN="/usr/bin/chromium"
     ENV PATH=/opt/foundry/bin:$PATH
     ENV HARDWARE_CONCURRENCY=""
+    ENV FAKE_PROOFS=""
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
     ENV PROVER_AGENT_CONCURRENCY=8
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
-
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
     RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
 
 end-to-end:
@@ -276,3 +278,30 @@ prover-client-test:
     ARG test
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
+
+# NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
+# Running this inside the main builder as the point is not to run this through dockerization.
+network-test-fake-proofs:
+    FROM +build
+    WORKDIR /usr/src/
+    # Bare minimum git setup to run 'git rev-parse --show-toplevel'
+    RUN git init -b master
+    COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
+    WORKDIR /usr/src/yarn-project
+    # All script arguments are in the end-to-end/scripts/native-network folder
+    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+        ./test-transfer.sh \
+        ./deploy-l1-contracts.sh \
+        ./deploy-l2-contracts.sh \
+        ./boot-node.sh \
+        ./ethereum.sh \
+        "./prover-node.sh false" \
+        ./pxe.sh
+
+publish-npm:
+    FROM +build
+    ARG DIST_TAG="latest"
+    ARG VERSION
+    ARG DRY_RUN=0
+    WORKDIR /usr/src/yarn-project
+    RUN --secret NPM_TOKEN ./publish_npm.sh $DIST_TAG $VERSION $DRY_RUN

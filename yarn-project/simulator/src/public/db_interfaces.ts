@@ -1,8 +1,11 @@
 import { type NullifierMembershipWitness } from '@aztec/circuit-types';
-import { type FunctionSelector, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  type ContractInstanceWithAddress,
+  type FunctionSelector,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type MessageLoadOracleInputs } from '../acvm/index.js';
 
@@ -99,6 +102,13 @@ export interface CommitmentsDB {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Gets commitment in the note hash tree given a leaf index.
+   * @param leafIndex - the leaf to look up.
+   * @returns - The commitment at that index. Undefined if leaf index is not found.
+   */
+  getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

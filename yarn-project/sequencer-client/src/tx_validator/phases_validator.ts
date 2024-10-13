@@ -1,13 +1,13 @@
 import {
   type AllowedElement,
   type PublicExecutionRequest,
-  PublicKernelType,
+  PublicKernelPhase,
   Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AbstractPhaseManager, ContractsDataSourcePublicDB } from '@aztec/simulator';
-import { type ContractDataSource } from '@aztec/types/contracts';
+import { ContractsDataSourcePublicDB, EnqueuedCallsProcessor } from '@aztec/simulator';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
@@ -27,7 +27,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // which is what we're trying to do as part of the current txs.
       await this.contractDataSource.addNewContracts(tx);
 
-      if (await this.#validateTx(tx)) {
+      if (await this.validateTx(tx)) {
         validTxs.push(tx);
       } else {
         invalidTxs.push(tx);
@@ -39,14 +39,13 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     return Promise.resolve([validTxs, invalidTxs]);
   }
 
-  async #validateTx(tx: Tx): Promise<boolean> {
+  async validateTx(tx: Tx): Promise<boolean> {
     if (!tx.data.forPublic) {
       this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
       return true;
     }
 
-    const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
-
+    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(

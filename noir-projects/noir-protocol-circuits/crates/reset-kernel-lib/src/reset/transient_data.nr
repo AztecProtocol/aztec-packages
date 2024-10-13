@@ -3,7 +3,7 @@ use dep::types::{
     traits::is_empty
 };
 
-struct TransientDataIndexHint {
+pub struct TransientDataIndexHint {
     nullifier_index: u32,
     note_hash_index: u32,
 }
@@ -162,8 +162,12 @@ pub fn verify_squashed_transient_data<
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32
 ) {
-    let squashed_note_hash_hints = get_squashed_note_hash_hints(transient_data_index_hints);
-    let squashed_nullifier_hints = get_squashed_nullifier_hints(transient_data_index_hints);
+    let squashed_note_hash_hints = unsafe {
+        get_squashed_note_hash_hints(transient_data_index_hints)
+    };
+    let squashed_nullifier_hints = unsafe {
+        get_squashed_nullifier_hints(transient_data_index_hints)
+    };
     verify_squashed_transient_data_with_hint_indexes(
         note_hashes,
         nullifiers,
@@ -353,8 +357,12 @@ mod tests {
         }
 
         pub fn get_hint_indexes(self) -> ([bool; NUM_NOTE_HASHES], [bool; NUM_NULLIFIERS]) {
-            let squashed_note_hash_hints = get_squashed_note_hash_hints(self.transient_data_index_hints);
-            let squashed_nullifier_hints = get_squashed_nullifier_hints(self.transient_data_index_hints);
+            let squashed_note_hash_hints = unsafe {
+                get_squashed_note_hash_hints(self.transient_data_index_hints)
+            };
+            let squashed_nullifier_hints = unsafe {
+                get_squashed_nullifier_hints(self.transient_data_index_hints)
+            };
             (squashed_note_hash_hints, squashed_nullifier_hints)
         }
 
@@ -431,7 +439,7 @@ mod tests {
         TestDataBuilder::new_identical_note_hashes().verify();
     }
 
-    #[test(should_fail_with="Invalid transient data index hint")]
+    #[test(should_fail_with = "Invalid transient data index hint")]
     fn fails_non_nada_index_hint() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -442,7 +450,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
+    #[test(should_fail_with = "Value of the hinted transient note hash does not match")]
     fn fails_mismatch_note_hash_value() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -451,7 +459,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Contract address of the hinted transient note hash does not match")]
+    #[test(should_fail_with = "Contract address of the hinted transient note hash does not match")]
     fn fails_mismatch_contract_address() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -460,7 +468,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Cannot nullify a note hash created afterwards")]
+    #[test(should_fail_with = "Cannot nullify a note hash created afterwards")]
     fn fails_nullify_note_hash_emitted_afterwards() {
         let mut builder = TestDataBuilder::new();
 
@@ -472,7 +480,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Cannot squash a non-revertible note hash with a revertible nullifier")]
+    #[test(should_fail_with = "Cannot squash a non-revertible note hash with a revertible nullifier")]
     fn fails_nullify_non_revertible_note_hash_with_revertible_nullifier() {
         let mut builder = TestDataBuilder::new();
 
@@ -484,7 +492,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Propagated note hash does not match")]
+    #[test(should_fail_with = "Propagated note hash does not match")]
     fn fails_wrong_expected_note_hash_value() {
         let mut builder = TestDataBuilder::new();
 
@@ -493,7 +501,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Propagated note hash does not match")]
+    #[test(should_fail_with = "Propagated note hash does not match")]
     fn fails_wrong_expected_note_hash_counter() {
         let mut builder = TestDataBuilder::new();
 
@@ -502,7 +510,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Wrong squashed note hash hint")]
+    #[test(should_fail_with = "Wrong squashed note hash hint")]
     fn fails_wrong_note_hash_squashed_hint() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -512,7 +520,7 @@ mod tests {
         builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Empty note hash must be padded to the right")]
+    #[test(should_fail_with = "Empty note hash must be padded to the right")]
     fn fails_unexpected_note_hash_value() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -521,7 +529,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Wrong squashed note hash hint")]
+    #[test(should_fail_with = "Wrong squashed note hash hint")]
     fn fails_propagate_note_hash_for_squashed_nullifier() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -535,7 +543,7 @@ mod tests {
         builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Empty note hash must be padded to the right")]
+    #[test(should_fail_with = "Empty note hash must be padded to the right")]
     fn fails_identical_note_hashes_nullify_same_note_hash() {
         let mut builder = TestDataBuilder::new_identical_note_hashes();
 
@@ -553,7 +561,7 @@ mod tests {
         builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Wrong number of note hashes removed")]
+    #[test(should_fail_with = "Wrong number of note hashes removed")]
     fn fails_note_hash_not_propagated() {
         let mut builder = TestDataBuilder::new();
 
@@ -568,7 +576,7 @@ mod tests {
         builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Propagated nullifier does not match")]
+    #[test(should_fail_with = "Propagated nullifier does not match")]
     fn fails_wrong_expected_nullifier_value() {
         let mut builder = TestDataBuilder::new();
 
@@ -577,7 +585,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Propagated nullifier does not match")]
+    #[test(should_fail_with = "Propagated nullifier does not match")]
     fn fails_wrong_expected_nullifier_counter() {
         let mut builder = TestDataBuilder::new();
 
@@ -586,7 +594,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Wrong squashed nullifier hint")]
+    #[test(should_fail_with = "Wrong squashed nullifier hint")]
     fn fails_wrong_nullifier_hint_index() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -600,7 +608,7 @@ mod tests {
         builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Empty nullifier must be padded to the right")]
+    #[test(should_fail_with = "Empty nullifier must be padded to the right")]
     fn fails_unexpected_nullifier_value() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -609,7 +617,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Wrong number of nullifiers removed")]
+    #[test(should_fail_with = "Wrong number of nullifiers removed")]
     fn fails_propagate_nullifier_for_squashed_note_hash() {
         let mut builder = TestDataBuilder::new();
 
@@ -623,7 +631,7 @@ mod tests {
         builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Empty log must be padded to the right")]
+    #[test(should_fail_with = "Empty log must be padded to the right")]
     fn fails_unexpected_log_value() {
         let mut builder = TestDataBuilder::new_clear_all();
 
@@ -632,7 +640,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Propagated note log does not match")]
+    #[test(should_fail_with = "Propagated note log does not match")]
     fn fails_wrong_expected_log_value() {
         let mut builder = TestDataBuilder::new();
 
@@ -641,7 +649,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Propagated note log does not match")]
+    #[test(should_fail_with = "Propagated note log does not match")]
     fn fails_wrong_expected_log_counter() {
         let mut builder = TestDataBuilder::new();
 
@@ -650,7 +658,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the hinted transient note hash does not match log")]
+    #[test(should_fail_with = "Value of the hinted transient note hash does not match log")]
     fn fails_log_not_nullified() {
         let mut builder = TestDataBuilder::new();
 
@@ -659,7 +667,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the hinted transient note hash does not match log")]
+    #[test(should_fail_with = "Value of the hinted transient note hash does not match log")]
     fn fails_wrong_log_note_hash() {
         let mut builder = TestDataBuilder::new();
 
@@ -668,7 +676,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Empty log must be padded to the right")]
+    #[test(should_fail_with = "Empty log must be padded to the right")]
     fn fails_propagate_too_many_logs() {
         let mut builder = TestDataBuilder::new_clear_all();
 

@@ -70,7 +70,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
         TestFixture::read_transcript_g2(TestFixture::SRS_PATH);
     }
     auto crs = srs::factories::FileProverCrs<Curve>(num_points / 2, TestFixture::SRS_PATH);
-    auto* monomials = crs.get_monomial_points();
+    std::span<AffineElement> monomials = crs.get_monomial_points();
 
     std::vector<uint64_t> point_schedule(bb::scalar_multiplication::point_table_size(num_points / 2));
     std::array<bool, num_points> bucket_empty_status;
@@ -681,7 +681,8 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     }
     scalar_multiplication::pippenger_runtime_state<Curve> state(target_degree);
 
-    Element first = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ target_degree }, monomials, state);
+    Element first = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ target_degree }, { monomials, /*size*/ 2 * target_degree }, state);
     first = first.normalize();
 
     for (size_t i = 0; i < target_degree; ++i) {
@@ -689,7 +690,8 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     }
     scalar_multiplication::pippenger_runtime_state<Curve> state_2(target_degree);
 
-    Element second = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ target_degree }, monomials, state_2);
+    Element second = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ target_degree }, { monomials, /*size*/ 2 * target_degree }, state_2);
     second = second.normalize();
 
     EXPECT_EQ((first.z == second.z), true);
@@ -732,7 +734,8 @@ TYPED_TEST(ScalarMultiplicationTests, UndersizedInputs)
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ num_points }, { points, /*size*/ num_points * 2 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -769,7 +772,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerSmall)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ num_points }, { points, /*size*/ num_points * 2 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -808,7 +812,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerEdgeCaseDbl)
     }
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ num_points }, { points, /*size*/ num_points * 2 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -866,7 +871,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerShortInputs)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points.get(), points.get(), num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points.get(), state);
+    Element result = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ num_points }, { points.get(), /*size*/ num_points * 2 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -902,8 +908,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafe)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points.get(), points.get(), num_points);
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
-    Element result =
-        scalar_multiplication::pippenger_unsafe<Curve>({ scalars, /*size*/ num_points }, points.get(), state);
+    Element result = scalar_multiplication::pippenger_unsafe<Curve>(
+        { scalars, /*size*/ num_points }, { points.get(), /* size*/ num_points * 2 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -960,7 +966,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafeShortInputs)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger_unsafe<Curve>({ scalars, /*size*/ num_points }, points, state);
+    Element result = scalar_multiplication::pippenger_unsafe<Curve>(
+        { scalars, /*size*/ num_points }, { points, num_points * 2 + 1 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -997,7 +1004,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerOne)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(
+        { scalars, /*size*/ num_points }, { points, /*size*/ num_points * 2 }, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -1018,7 +1026,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerZeroPoints)
     AffineElement* points = (AffineElement*)aligned_alloc(32, sizeof(AffineElement) * (2 + 1));
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(0);
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ 0 }, points, state);
+    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ 0 }, { points, /*size*/ 0 }, state);
 
     aligned_free(scalars);
     aligned_free(points);
@@ -1043,7 +1051,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerMulByZero)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, 1);
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(1);
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ 1 }, points, state);
+    Element result = scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ 1 }, { points, /*size*/ 2 }, state);
 
     aligned_free(scalars);
     aligned_free(points);

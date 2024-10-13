@@ -52,11 +52,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
     ...numberConfigHelper(1000),
   },
-  viemPollingIntervalMS: {
-    env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',
-    description: 'The polling interval viem uses in ms',
-    ...numberConfigHelper(1000),
-  },
   dataDirectory: {
     env: 'DATA_DIRECTORY',
     description: 'Optional dir to store data. If omitted will store in memory.',
@@ -67,6 +62,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     ...numberConfigHelper(1_000),
   },
   ...l1ReaderConfigMappings,
+  viemPollingIntervalMS: {
+    env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',
+    description: 'The polling interval viem uses in ms',
+    ...numberConfigHelper(1000),
+  },
 };
 
 /**

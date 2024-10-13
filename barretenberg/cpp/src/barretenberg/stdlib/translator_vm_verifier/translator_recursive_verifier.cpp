@@ -125,8 +125,8 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                            multivariate_challenge,
                                            Commitment::one(builder),
                                            transcript,
-                                           commitments.get_concatenation_groups(),
-                                           claimed_evaluations.get_concatenated_constraints());
+                                           commitments.get_groups_to_be_concatenated(),
+                                           claimed_evaluations.get_concatenated());
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     return pairing_points;
@@ -134,7 +134,9 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 
 template <typename Flavor>
 bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
-    const TranslationEvaluations_<typename Flavor::BF, typename Flavor::FF>& translation_evaluations)
+    const TranslationEvaluations_<
+        typename stdlib::bigfield<typename Flavor::CircuitBuilder, typename Flavor::Curve::BaseFieldNative::Params>,
+        typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         const BF reconstructed = BF(arr[0], arr[1], arr[2], arr[3]);

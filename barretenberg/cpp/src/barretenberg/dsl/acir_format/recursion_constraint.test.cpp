@@ -93,14 +93,12 @@ Builder create_inner_circuit()
         .logic_constraints = { logic_constraint },
         .range_constraints = { range_a, range_b },
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -109,11 +107,15 @@ Builder create_inner_circuit()
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -209,7 +211,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
-            .proof_type = PLONK_RECURSION,
+            .proof_type = PLONK,
         };
         recursion_constraints.push_back(recursion_constraint);
 
@@ -254,14 +256,12 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -270,11 +270,15 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .ec_add_constraints = {},
         .recursion_constraints = recursion_constraints,
         .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -294,7 +298,7 @@ TEST_F(AcirRecursionConstraint, TestBasicDoubleRecursionConstraints)
 
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto layer_2_composer = Composer();
     auto prover = layer_2_composer.create_ultra_with_keccak_prover(layer_2_circuit);
@@ -351,7 +355,7 @@ TEST_F(AcirRecursionConstraint, TestOneOuterRecursiveCircuit)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
+    info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
@@ -380,7 +384,7 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
+    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);

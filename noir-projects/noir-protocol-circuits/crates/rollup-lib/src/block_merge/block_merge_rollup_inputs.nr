@@ -8,15 +8,13 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     BLOCK_MERGE_ROLLUP_INDEX,
 ];
 
-struct BlockMergeRollupInputs {
+pub struct BlockMergeRollupInputs {
     previous_rollup_data : [PreviousRollupBlockData; 2]
 }
 
 impl Empty for BlockMergeRollupInputs {
     fn empty() -> Self {
-        BlockMergeRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2]
-        }
+        BlockMergeRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2] }
     }
 }
 
@@ -63,34 +61,32 @@ impl BlockMergeRollupInputs {
             out_hash,
             fees,
             vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: left.prover_id // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
         }
     }
 }
 
 mod tests {
-    use crate::{
-        block_merge::block_merge_rollup_inputs::BlockMergeRollupInputs,
-        tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs
-    };
-    use dep::types::{hash::accumulate_sha256, address::EthAddress};
+    use crate::{tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs};
+    use dep::types::{hash::accumulate_sha256};
     use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX};
 
-    #[test(should_fail_with="input blocks have different chain id")]
+    #[test(should_fail_with = "input blocks have different chain id")]
     fn constants_different_chain_id_fails() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.chain_id = 1;
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input blocks have different chain version")]
+    #[test(should_fail_with = "input blocks have different chain version")]
     fn constants_different_ver_fails() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.version = 1;
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input blocks have different archive tree snapshots")]
+    #[test(should_fail_with = "input blocks have different archive tree snapshots")]
     fn previous_rollups_dont_follow_archive() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.new_archive.root = 0;
@@ -98,7 +94,7 @@ mod tests {
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input block hashes do not follow on from each other")]
+    #[test(should_fail_with = "input block hashes do not follow on from each other")]
     fn previous_rollups_dont_follow_block_hash() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_block_hash = 0;
@@ -106,7 +102,7 @@ mod tests {
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input block numbers do not follow on from each other")]
+    #[test(should_fail_with = "input block numbers do not follow on from each other")]
     fn previous_rollups_dont_follow_block_number() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.block_number = 2;

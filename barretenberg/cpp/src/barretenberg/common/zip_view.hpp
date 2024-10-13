@@ -122,9 +122,15 @@ class zip_iterator {
     T iter, iter_end;
     std::size_t index = 0;
 
+    // This indirection over std::ref fixes iota_view() and other non-reference containers
+    static auto ref(const auto& t) { return std::ref(t); }
+    static auto ref(auto& t) { return std::ref(t); }
+    // We don't forward any reference if we have a value type
+    static auto ref(const auto&& t) { return t; }
+    static auto ref(auto&& t) { return t; }
     template <std::size_t... I> auto get_refs(T t, std::index_sequence<I...>) const
     {
-        return std::make_tuple(std::ref(*std::get<I>(t))...);
+        return std::make_tuple(ref(*std::get<I>(t))...);
     }
 
     template <class F, class A, std::size_t... I> auto apply2_impl(F&& f, A&& a, A&& b, std::index_sequence<I...>)

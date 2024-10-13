@@ -10,14 +10,14 @@ namespace bb {
 template <typename Flavor> class TranslatorRecursiveVerifier_ {
   public:
     using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
     using NativeBF = typename Flavor::Curve::BaseFieldNative;
+    using Builder = typename Flavor::CircuitBuilder;
+    using BF = typename stdlib::bigfield<Builder, typename NativeBF::Params>;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
     using TranslationEvaluations = TranslationEvaluations_<BF, FF>;

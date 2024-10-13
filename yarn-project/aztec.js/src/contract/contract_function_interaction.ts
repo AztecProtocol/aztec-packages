@@ -4,7 +4,7 @@ import {
   type FunctionAbi,
   FunctionSelector,
   FunctionType,
-  decodeReturnValues,
+  decodeFromAbi,
   encodeArguments,
 } from '@aztec/foundation/abi';
 
@@ -54,17 +54,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
-    if (!this.txRequest) {
-      const calls = [this.request()];
-      const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
-      this.txRequest = await this.wallet.createTxExecutionRequest({
-        calls,
-        fee,
-        nonce: opts?.nonce,
-        cancellable: opts?.cancellable,
-      });
-    }
-    return this.txRequest;
+    const calls = [this.request()];
+    const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
+    const txRequest = await this.wallet.createTxExecutionRequest({
+      calls,
+      fee,
+      nonce: opts?.nonce,
+      cancellable: opts?.cancellable,
+    });
+    return txRequest;
   }
 
   /**
@@ -107,9 +105,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // For public functions we retrieve the first values directly from the public output.
     const rawReturnValues =
       this.functionDao.functionType == FunctionType.PRIVATE
-        ? simulatedTx.privateReturnValues?.nested?.[0].values
-        : simulatedTx.publicOutput?.publicReturnValues?.[0].values;
+        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
+        : simulatedTx.getPublicReturnValues()?.[0].values;
 
-    return rawReturnValues ? decodeReturnValues(this.functionDao.returnTypes, rawReturnValues) : [];
+    return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
   }
 }

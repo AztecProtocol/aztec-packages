@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.52.0 # x-release-please-version
+    VERSION 0.57.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -38,6 +38,7 @@ option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 # Note: Must do 'sudo apt-get install libdw-dev' or equivalent
 option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
 option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
+option(ENABLE_PIC "Builds with position independent code" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -53,11 +54,21 @@ if(CHECK_CIRCUIT_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES)
 endif()
 
-if(ENABLE_TRACY)
+if(ENABLE_TRACY OR ENABLE_TRACY_TIME_INSTRUMENTED)
     add_compile_options(-DTRACY_ENABLE)
     SET(TRACY_LIBS Tracy::TracyClient)
 else()
     SET(TRACY_LIBS)
+endif()
+
+
+if(ENABLE_TRACY_TIME_INSTRUMENTED)
+    add_compile_options(-DTRACY_INSTRUMENTED)
+endif()
+
+if(TRACY_PROFILE_MEMORY)
+  add_compile_options(-DTRACY_MEMORY)
+  add_compile_options(-DTRACY_INSTRUMENTED)
 endif()
 
 if(ENABLE_ASAN)

@@ -13,8 +13,7 @@ export * from './archiver/index.js';
 export * from './rpc/index.js';
 export * from './factory.js';
 
-// We are not storing the info from these events in the archiver for now (and we don't really need to), so we expose this query directly
-export { retrieveL2ProofVerifiedEvents } from './archiver/data_retrieval.js';
+export { retrieveL2ProofVerifiedEvents, retrieveBlockFromRollup } from './archiver/data_retrieval.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -26,6 +25,7 @@ async function main() {
   const config = getArchiverConfigFromEnv();
   const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
+  log.info(`Starting archiver in main(): ${JSON.stringify(config)}`);
   const publicClient = createPublicClient({
     chain: localhost,
     transport: http(rpcUrl),
@@ -36,7 +36,6 @@ async function main() {
   const archiver = new Archiver(
     publicClient,
     l1Contracts.rollupAddress,
-    l1Contracts.availabilityOracleAddress,
     l1Contracts.inboxAddress,
     l1Contracts.registryAddress,
     archiverStore,

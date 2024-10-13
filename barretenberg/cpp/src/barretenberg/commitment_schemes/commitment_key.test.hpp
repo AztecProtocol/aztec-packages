@@ -72,15 +72,6 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     Commitment commit(const Polynomial& polynomial) { return commitment_key->commit(polynomial); }
 
-    Polynomial random_polynomial(const size_t n)
-    {
-        Polynomial p(n);
-        for (size_t i = 0; i < n; ++i) {
-            p[i] = Fr::random_element(engine);
-        }
-        return p;
-    }
-
     Fr random_element() { return Fr::random_element(engine); }
 
     OpeningPair<Curve> random_eval(const Polynomial& polynomial)
@@ -89,15 +80,6 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         Fr y{ polynomial.evaluate(x) };
         return { x, y };
     }
-
-    std::pair<OpeningClaim<Curve>, Polynomial> random_claim(const size_t n)
-    {
-        auto polynomial = random_polynomial(n);
-        auto opening_pair = random_eval(polynomial);
-        auto commitment = commit(polynomial);
-        auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
-        return { opening_claim, polynomial };
-    };
 
     std::vector<Fr> random_evaluation_point(const size_t num_variables)
     {
@@ -115,7 +97,6 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         Fr y_expected = witness.evaluate(x);
         EXPECT_EQ(y, y_expected) << "OpeningClaim: evaluations mismatch";
         Commitment commitment_expected = commit(witness);
-        // found it
         EXPECT_EQ(commitment, commitment_expected) << "OpeningClaim: commitment mismatch";
     }
 
@@ -148,14 +129,12 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
      * @brief Ensures that a set of opening pairs is correct by checking that evaluations are
      * correct by recomputing them from each witness polynomial.
      */
-    void verify_batch_opening_pair(std::span<const OpeningPair<Curve>> opening_pairs,
-                                   std::span<const Polynomial> witnesses)
+    void verify_batch_opening_pair(std::vector<ProverOpeningClaim<Curve>> opening_claims)
     {
-        const size_t num_pairs = opening_pairs.size();
-        ASSERT_EQ(witnesses.size(), num_pairs);
-
-        for (size_t j = 0; j < num_pairs; ++j) {
-            this->verify_opening_pair(opening_pairs[j], witnesses[j]);
+        for (auto claim : opening_claims) {
+            auto& [x, y] = claim.opening_pair;
+            Fr y_expected = claim.polynomial.evaluate(x);
+            EXPECT_EQ(y, y_expected) << "OpeningPair: evaluations mismatch";
         }
     }
 

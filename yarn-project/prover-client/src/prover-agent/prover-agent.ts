@@ -161,18 +161,16 @@ export class ProverAgent {
         return this.circuitProver.getAvmProof(inputs);
       }
 
-      case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL: {
-        return this.circuitProver.getPublicKernelProof({
-          type: request.kernelType,
-          inputs,
-        });
+      case ProvingRequestType.PUBLIC_KERNEL_INNER: {
+        return this.circuitProver.getPublicKernelInnerProof(inputs);
+      }
+
+      case ProvingRequestType.PUBLIC_KERNEL_MERGE: {
+        return this.circuitProver.getPublicKernelMergeProof(inputs);
       }
 
       case ProvingRequestType.PUBLIC_KERNEL_TAIL: {
-        return this.circuitProver.getPublicTailProof({
-          type: request.kernelType,
-          inputs,
-        });
+        return this.circuitProver.getPublicTailProof(inputs);
       }
 
       case ProvingRequestType.BASE_ROLLUP: {
@@ -181,6 +179,10 @@ export class ProverAgent {
 
       case ProvingRequestType.MERGE_ROLLUP: {
         return this.circuitProver.getMergeRollupProof(inputs);
+      }
+
+      case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP: {
+        return this.circuitProver.getEmptyBlockRootRollupProof(inputs);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {

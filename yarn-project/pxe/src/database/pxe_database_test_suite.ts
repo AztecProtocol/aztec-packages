@@ -1,10 +1,15 @@
 import { type IncomingNotesFilter, NoteStatus, type OutgoingNotesFilter, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM, PublicKeys } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  INITIAL_L2_BLOCK_NUM,
+  PublicKeys,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { type IncomingNoteDao } from './incoming_note_dao.js';
 import { randomIncomingNoteDao } from './incoming_note_dao.test.js';

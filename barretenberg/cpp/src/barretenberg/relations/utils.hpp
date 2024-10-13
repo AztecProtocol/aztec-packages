@@ -140,14 +140,6 @@ template <typename Flavor> class RelationUtils {
         }
     }
 
-    // This is an simpler, iterative version of constexpr_for.
-    // Replace it with constexpr_for once that one is iterative.
-    template <size_t N, typename F> static constexpr void iterative_constexpr_for(F&& f)
-    {
-        auto seq = std::make_index_sequence<N>{};
-        [&]<size_t... I>(std::index_sequence<I...>) { (f.template operator()<I>(), ...); }(seq);
-    }
-
     /**
      * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
      *
@@ -164,7 +156,7 @@ template <typename Flavor> class RelationUtils {
                                                                         const Parameters& relation_parameters,
                                                                         const FF& partial_evaluation_result)
     {
-        iterative_constexpr_for<NUM_RELATIONS>([&]<size_t rel_index>() {
+        constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             // FIXME: You wan't /*consider_skipping=*/false here, but tests need to be fixed.
             accumulate_single_relation<Parameters, rel_index, /*consider_skipping=*/true>(
                 evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
@@ -182,15 +174,16 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename Parameters>
     // TODO(#224)(Cody): Input should be an array?
-    inline static void accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
-                                                       RelationEvaluations& relation_evaluations,
-                                                       const Parameters& relation_parameters,
-                                                       const FF& partial_evaluation_result)
+    inline static RelationEvaluations accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
+                                                                      const Parameters& relation_parameters,
+                                                                      const FF& partial_evaluation_result)
     {
-        iterative_constexpr_for<NUM_RELATIONS>([&]<size_t rel_index>() {
+        RelationEvaluations result;
+        constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             accumulate_single_relation<Parameters, rel_index>(
-                evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
+                evaluations, result, relation_parameters, partial_evaluation_result);
         });
+        return result;
     }
 
     template <typename Parameters, size_t relation_idx, bool consider_skipping = true>
@@ -260,48 +253,6 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scales elements, representing evaluations of polynomials in subrelations, by separate challenges and then
-     * sum them together. This function has identical functionality with the one above with the caveat that one such
-     * evaluation is part of a linearly dependent subrelation and hence needs to be accumulated separately.
-     *
-     * @details Such functionality is needed when computing the evaluation of the full relation at a specific row in
-     * the execution trace because a linearly dependent subrelation does not act on a specific row but rather on the
-     * entire execution trace.
-     *
-     * @param tuple
-     * @param challenges
-     * @param current_scalar
-     * @param result
-     * @param linearly_dependent_contribution
-     */
-    static void scale_and_batch_elements(auto& tuple,
-                                         const RelationSeparator& challenges,
-                                         FF current_scalar,
-                                         FF& result,
-                                         FF& linearly_dependent_contribution)
-        requires bb::IsFoldingFlavor<Flavor>
-    {
-        size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-
-        auto scale_by_challenge_and_accumulate =
-            [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-                const bool is_subrelation_linearly_independent =
-                    bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-                if (is_subrelation_linearly_independent) {
-                    result += element * tmp[idx];
-                } else {
-                    linearly_dependent_contribution += element * tmp[idx];
-                }
-                idx++;
-            };
-        apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, tuple);
-    }
-
-    /**
      * @brief Scale elements by consecutive powers of a given challenge then sum the result
      * @param result Batched result
      */
@@ -344,7 +295,7 @@ template <typename Flavor> class RelationUtils {
      * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
      */
     template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
-    static void apply_to_tuple_of_arrays_elements(Operation&& operation, std::tuple<Ts...>& tuple)
+    static void apply_to_tuple_of_arrays_elements(Operation&& operation, const std::tuple<Ts...>& tuple)
     {
         using Relation = typename std::tuple_element_t<outer_idx, Relations>;
         const auto subrelation_length = Relation::SUBRELATION_PARTIAL_LENGTHS.size();

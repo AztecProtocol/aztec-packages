@@ -62,7 +62,9 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
      */
     PermutationMapping(size_t circuit_size)
     {
-        ZoneScopedN("PermutationMapping constructor");
+
+        PROFILE_THIS_NAME("PermutationMapping constructor");
+
         for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
             sigmas[col_idx].reserve(circuit_size);
             if constexpr (generalized) {
@@ -199,14 +201,15 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             //  -(i+1) -> (n+i)
             // These indices are chosen so they can easily be computed by the verifier. They can expect the running
             // product to be equal to the "public input delta" that is computed in <honk/utils/grand_product_delta.hpp>
-            current_permutation_poly[i] = -FF(current_mapping.row_index + 1 + num_gates * current_mapping.column_index);
+            current_permutation_poly.at(i) =
+                -FF(current_mapping.row_index + 1 + num_gates * current_mapping.column_index);
         } else if (current_mapping.is_tag) {
             // Set evaluations to (arbitrary) values disjoint from non-tag values
-            current_permutation_poly[i] = num_gates * Flavor::NUM_WIRES + current_mapping.row_index;
+            current_permutation_poly.at(i) = num_gates * Flavor::NUM_WIRES + current_mapping.row_index;
         } else {
             // For the regular permutation we simply point to the next location by setting the evaluation to its
             // index
-            current_permutation_poly[i] = FF(current_mapping.row_index + num_gates * current_mapping.column_index);
+            current_permutation_poly.at(i) = FF(current_mapping.row_index + num_gates * current_mapping.column_index);
         }
         ITERATE_OVER_DOMAIN_END;
         wire_index++;
@@ -385,12 +388,16 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
     } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
-            ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
+            PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_sigmas(), mapping.sigmas, key);
         }
         {
-            ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
+            PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_ids(), mapping.ids, key);
         }

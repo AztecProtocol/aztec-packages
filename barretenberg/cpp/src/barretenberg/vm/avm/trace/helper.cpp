@@ -1,9 +1,7 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
-
+#include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include <algorithm>
 #include <cassert>
-
-#include "barretenberg/vm/avm/trace/mem_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -69,38 +67,37 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
         return false;
     }
 
-    return static_cast<bool>((ind_value & (1 << operand_idx)) >> operand_idx);
+    return (ind_value & (1 << operand_idx)) != 0;
 }
 
-std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& public_inputs,
-                                                        std::vector<FF> const& calldata,
-                                                        std::vector<FF> const& returndata)
+std::string to_hex(bb::avm_trace::AvmMemoryTag tag)
 {
-    // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
-    // For each of the public input vectors
-    std::vector<FF> public_inputs_kernel_inputs(std::get<KERNEL_INPUTS>(public_inputs).begin(),
-                                                std::get<KERNEL_INPUTS>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_value_outputs(std::get<KERNEL_OUTPUTS_VALUE>(public_inputs).begin(),
-                                                       std::get<KERNEL_OUTPUTS_VALUE>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_side_effect_outputs(
-        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs).begin(),
-        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_metadata_outputs(std::get<KERNEL_OUTPUTS_METADATA>(public_inputs).begin(),
-                                                          std::get<KERNEL_OUTPUTS_METADATA>(public_inputs).end());
+    return to_hex(static_cast<uint8_t>(tag));
+}
 
-    assert(public_inputs_kernel_inputs.size() == KERNEL_INPUTS_LENGTH);
-    assert(public_inputs_kernel_value_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-    assert(public_inputs_kernel_side_effect_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-    assert(public_inputs_kernel_metadata_outputs.size() == KERNEL_OUTPUTS_LENGTH);
+/**
+ *
+ *  ONLY FOR TESTS - Required by dsl module and therefore cannot be moved to test/helpers.test.cpp
+ *
+ * @brief Helper routine which injects the end gas values in public inputs and in the public column
+ *        of kernel inputs in the trace.
+ *
+ * @param public_inputs Public inputs structure
+ * @param trace The execution trace
+ */
+void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace)
+{
+    auto execution_end_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });
+    ASSERT(execution_end_row != trace.end());
 
-    return {
-        std::move(public_inputs_kernel_inputs),
-        std::move(public_inputs_kernel_value_outputs),
-        std::move(public_inputs_kernel_side_effect_outputs),
-        std::move(public_inputs_kernel_metadata_outputs),
-        calldata,
-        returndata,
-    };
+    trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
+    trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
+
+    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
+        execution_end_row->main_l2_gas_remaining;
+    std::get<avm_trace::KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET) =
+        execution_end_row->main_da_gas_remaining;
 }
 
 } // namespace bb::avm_trace

@@ -1,4 +1,11 @@
-import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import {
+  type Body,
+  MerkleTreeId,
+  type MerkleTreeWriteOperations,
+  type ProcessedTx,
+  TxEffect,
+  getTreeHeight,
+} from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -6,28 +13,29 @@ import {
   BaseRollupInputs,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
   ConstantRollupData,
+  ContentCommitment,
   Fr,
   type GlobalVariables,
-  type Header,
+  Header,
   KernelData,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
+  MerkleTreeCalculator,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
+  type ParityPublicInputs,
   PartialStateReference,
   PreviousRollupBlockData,
   PreviousRollupData,
@@ -37,20 +45,25 @@ import {
   PublicDataUpdateRequest,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput,
   RootRollupInputs,
   StateDiffHints,
-  type StateReference,
+  StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
+
+import { inspect } from 'util';
 
 /**
  * Type representing the names of the trees for the base rollup.
@@ -66,7 +79,7 @@ export async function buildBaseRollupInput(
   tx: ProcessedTx,
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
-  db: MerkleTreeOperations,
+  db: MerkleTreeWriteOperations,
   kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
@@ -189,7 +202,6 @@ export function createMergeRollupInputs(
   return mergeInputs;
 }
 
-// TODO(#7346): Integrate batch rollup circuits and test below
 export function createBlockMergeRollupInputs(
   left: [
     BlockRootOrBlockMergePublicInputs,
@@ -209,11 +221,85 @@ export function createBlockMergeRollupInputs(
   return mergeInputs;
 }
 
+export function buildHeaderFromCircuitOutputs(
+  previousMergeData: [BaseOrMergeRollupPublicInputs, BaseOrMergeRollupPublicInputs],
+  parityPublicInputs: ParityPublicInputs,
+  rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
+  updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
+  logger?: DebugLogger,
+) {
+  const contentCommitment = new ContentCommitment(
+    new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
+    sha256Trunc(
+      Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
+    ),
+    parityPublicInputs.shaRoot.toBuffer(),
+    sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
+  );
+  const state = new StateReference(updatedL1ToL2TreeSnapshot, previousMergeData[1].end);
+  const header = new Header(
+    rootRollupOutputs.previousArchive,
+    contentCommitment,
+    state,
+    previousMergeData[0].constants.globalVariables,
+    previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
+  );
+  if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
+    logger?.error(
+      `Block header mismatch when building header from circuit outputs.` +
+        `\n\nHeader: ${inspect(header)}` +
+        `\n\nCircuit: ${toFriendlyJSON(rootRollupOutputs)}`,
+    );
+    throw new Error(`Block header mismatch when building from circuit outputs`);
+  }
+  return header;
+}
+
+export async function buildHeaderFromTxEffects(
+  body: Body,
+  globalVariables: GlobalVariables,
+  l1ToL2Messages: Fr[],
+  db: MerkleTreeReadOperations,
+) {
+  const stateReference = new StateReference(
+    await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
+    new PartialStateReference(
+      await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
+      await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
+      await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
+    ),
+  );
+
+  const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+
+  const outHash = computeUnbalancedMerkleRoot(
+    body.txEffects.map(tx => tx.txOutHash()),
+    TxEffect.empty().txOutHash(),
+  );
+
+  l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+  const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
+  const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+  const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
+    l1ToL2Messages.map(msg => msg.toBuffer()),
+  );
+
+  const contentCommitment = new ContentCommitment(
+    new Fr(body.numberOfTxsIncludingPadded),
+    body.getTxsEffectsHash(),
+    parityShaRoot,
+    outHash,
+  );
+
+  const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
+  return new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees);
+}
+
 // Validate that the roots of all local trees match the output of the root circuit simulation
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
   blockHeader: Header,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ) {
   await Promise.all([
     validateState(blockHeader.state, db),
@@ -221,7 +307,7 @@ export async function validateBlockRootOutput(
   ]);
 }
 
-export async function validateState(state: StateReference, db: MerkleTreeOperations) {
+export async function validateState(state: StateReference, db: MerkleTreeReadOperations) {
   const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
     async (id: MerkleTreeId) => {
       return { key: id, value: await getTreeSnapshot(id, db) };
@@ -238,58 +324,13 @@ export async function validateState(state: StateReference, db: MerkleTreeOperati
   );
 }
 
-// Builds the inputs for the block root rollup circuit, without making any changes to trees
-export async function getBlockRootRollupInput(
-  rollupOutputLeft: BaseOrMergeRollupPublicInputs,
-  rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-  verificationKeyLeft: VerificationKeyAsFields,
-  rollupOutputRight: BaseOrMergeRollupPublicInputs,
-  rollupProofRight: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-  verificationKeyRight: VerificationKeyAsFields,
-  l1ToL2Roots: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-  newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-  messageTreeSnapshot: AppendOnlyTreeSnapshot,
-  messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-  db: MerkleTreeOperations,
-  proverId: Fr,
-) {
-  const previousRollupData: BlockRootRollupInputs['previousRollupData'] = [
-    getPreviousRollupDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
-    getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
-  ];
-
-  const getRootTreeSiblingPath = async (treeId: MerkleTreeId) => {
-    const { size } = await db.getTreeInfo(treeId);
-    const path = await db.getSiblingPath(treeId, size);
-    return path.toFields();
-  };
-
-  // Get blocks tree
-  const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
-  const newArchiveSiblingPathArray = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE);
-
-  const newArchiveSiblingPath = makeTuple(
-    ARCHIVE_HEIGHT,
-    i => (i < newArchiveSiblingPathArray.length ? newArchiveSiblingPathArray[i] : Fr.ZERO),
-    0,
-  );
-
-  return BlockRootRollupInputs.from({
-    previousRollupData,
-    l1ToL2Roots,
-    newL1ToL2Messages,
-    newL1ToL2MessageTreeRootSiblingPath: messageTreeRootSiblingPath,
-    startL1ToL2MessageTreeSnapshot: messageTreeSnapshot,
-    startArchiveSnapshot,
-    newArchiveSiblingPath,
-    // TODO(#7346): Inject previous block hash (required when integrating batch rollup circuits)
-    previousBlockHash: Fr.ZERO,
-    proverId,
-  });
+export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
+  const { size } = await db.getTreeInfo(treeId);
+  const path = await db.getSiblingPath(treeId, size);
+  return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
 }
 
 // Builds the inputs for the final root rollup circuit, without making any changes to trees
-// TODO(#7346): Integrate batch rollup circuits and test below
 export function getRootRollupInput(
   rollupOutputLeft: BlockRootOrBlockMergePublicInputs,
   rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
@@ -342,16 +383,17 @@ export function getPreviousRollupBlockDataFromPublicInputs(
 
 export async function getConstantRollupData(
   globalVariables: GlobalVariables,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ): Promise<ConstantRollupData> {
   return ConstantRollupData.from({
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,
   });
 }
 
-export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations): Promise<AppendOnlyTreeSnapshot> {
+export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeReadOperations): Promise<AppendOnlyTreeSnapshot> {
   const treeInfo = await db.getTreeInfo(id);
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
@@ -381,7 +423,7 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
   );
 }
 
-export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeOperations) {
+export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
   const allPublicDataUpdateRequests = padArrayEnd(
     tx.finalPublicDataUpdateRequests,
     PublicDataUpdateRequest.empty(),
@@ -449,7 +491,7 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
 export async function getSubtreeSiblingPath(
   treeId: MerkleTreeId,
   subtreeHeight: number,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ): Promise<Fr[]> {
   const nextAvailableLeafIndex = await db.getTreeInfo(treeId).then(t => t.size);
   const fullSiblingPath = await db.getSiblingPath(treeId, nextAvailableLeafIndex);
@@ -463,7 +505,7 @@ export async function getMembershipWitnessFor<N extends number>(
   value: Fr,
   treeId: MerkleTreeId,
   height: N,
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
 ): Promise<MembershipWitness<N>> {
   // If this is an empty tx, then just return zeroes
   if (value.isZero()) {

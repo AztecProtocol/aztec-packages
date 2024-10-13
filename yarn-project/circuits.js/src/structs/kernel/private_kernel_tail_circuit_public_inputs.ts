@@ -1,8 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicCallRequest } from '../public_call_request.js';
@@ -159,17 +157,14 @@ export class PrivateKernelTailCircuitPublicInputs {
       throw new Error('Private tail public inputs is not for public circuit.');
     }
     return new PublicKernelCircuitPublicInputs(
+      this.constants,
       this.forPublic.validationRequests,
       this.forPublic.endNonRevertibleData,
       this.forPublic.end,
-      this.constants,
-      this.revertCode,
-      padArrayEnd(
-        [this.forPublic.publicTeardownCallRequest],
-        PublicCallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      ),
+      0, // endSideEffectCounter
+      this.forPublic.publicTeardownCallRequest,
       this.feePayer,
+      this.revertCode,
     );
   }
 

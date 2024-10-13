@@ -1,5 +1,5 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, Header } from '@aztec/circuits.js';
+import { GasFees, GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
 import { FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -10,20 +10,13 @@ import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import {
-  type CommitmentsDB,
-  type PublicContractsDB,
-  type PublicStateDB,
-  resolveAssertionMessage,
-  traverseCauseChain,
-} from '../../index.js';
+import { type WorldStateDB, resolveAssertionMessage, traverseCauseChain } from '../../index.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
-import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
-import { Field, Uint8, Uint64 } from '../avm_memory_types.js';
+import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { type AvmRevertReason } from '../errors.js';
-import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';
@@ -43,32 +36,19 @@ export function initContext(overrides?: {
   );
 }
 
-/** Creates an empty host storage with mocked dbs. */
-export function initHostStorage(overrides?: {
-  publicDb?: PublicStateDB;
-  contractsDb?: PublicContractsDB;
-  commitmentsDb?: CommitmentsDB;
-}): HostStorage {
-  return new HostStorage(
-    overrides?.publicDb || mock<PublicStateDB>(),
-    overrides?.contractsDb || mock<PublicContractsDB>(),
-    overrides?.commitmentsDb || mock<CommitmentsDB>(),
-  );
-}
-
 /** Creates an empty state manager with mocked host storage. */
 export function initPersistableStateManager(overrides?: {
-  hostStorage?: HostStorage;
+  worldStateDB?: WorldStateDB;
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
 }): AvmPersistableStateManager {
-  const hostStorage = overrides?.hostStorage || initHostStorage();
+  const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
-    hostStorage,
+    worldStateDB,
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
-    overrides?.publicStorage || new PublicStorage(hostStorage.publicStateDb),
-    overrides?.nullifiers || new NullifierManager(hostStorage.commitmentsDb),
+    overrides?.publicStorage || new PublicStorage(worldStateDB),
+    overrides?.nullifiers || new NullifierManager(worldStateDB),
   );
 }
 
@@ -83,7 +63,6 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
-    overrides?.header ?? Header.empty(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
@@ -112,7 +91,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? 1e8,
+    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_ENQUEUED_CALL,
     daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }
@@ -124,24 +103,12 @@ export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
 }
 
-/**
- * Adjust the user index to account for the AvmContextInputs size.
- * This is a hack for testing, and should go away once AvmContextInputs themselves go away.
- */
-export function adjustCalldataIndex(userIndex: number): number {
-  return userIndex + AvmContextInputs.SIZE;
-}
-
-export function anyAvmContextInputs() {
-  const tv = [];
-  for (let i = 0; i < AvmContextInputs.SIZE; i++) {
-    tv.push(expect.any(Fr));
-  }
-  return tv;
-}
-
 export function randomMemoryBytes(length: number): Uint8[] {
   return [...Array(length)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+}
+
+export function randomMemoryUint32s(length: number): Uint32[] {
+  return [...Array(length)].map(_ => new Uint32(Math.floor(Math.random() * 255)));
 }
 
 export function randomMemoryUint64s(length: number): Uint64[] {

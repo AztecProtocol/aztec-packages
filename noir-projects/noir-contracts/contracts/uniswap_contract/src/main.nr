@@ -4,33 +4,33 @@ mod util;
 // Demonstrates how to use portal contracts to swap on L1 Uniswap with funds on L2
 // Has two separate flows for private and public respectively
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1
-contract Uniswap {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable, SharedImmutable};
-    use dep::aztec::context::gas::GasOpts;
+use dep::aztec::macros::aztec;
 
-    use dep::authwit::auth::{
-        IS_VALID_SELECTOR, assert_current_call_valid_authwit_public,
-        compute_authwit_message_hash_from_call, compute_authwit_message_hash, set_authorized
-    };
+#[aztec]
+contract Uniswap {
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, SharedImmutable};
+
+    use dep::authwit::auth::{assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call, set_authorized};
 
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
+    use dep::aztec::macros::{storage::storage, functions::{public, initializer, view, internal, private}};
 
-    #[aztec(storage)]
-    struct Storage {
-        portal_address: SharedImmutable<EthAddress>,
+    #[storage]
+    struct Storage<Context> {
+        portal_address: SharedImmutable<EthAddress, Context>,
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(portal_address: EthAddress) {
         storage.portal_address.initialize(portal_address);
     }
     // docs:end:uniswap_setup
 
     // docs:start:swap_public
-    #[aztec(public)]
+    #[public]
     fn swap_public(
         sender: AztecAddress,
         input_asset_bridge: AztecAddress,
@@ -91,7 +91,7 @@ contract Uniswap {
     // docs:end:swap_public
 
     // docs:start:swap_private
-    #[aztec(private)]
+    #[private]
     fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress,
@@ -154,13 +154,9 @@ contract Uniswap {
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn _approve_bridge_and_exit_input_asset_to_L1(
-        token: AztecAddress,
-        token_bridge: AztecAddress,
-        amount: Field
-    ) {
+    #[public]
+    #[internal]
+    fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
         // Since we will authorize and instantly spend the funds, all in public, we can use the same nonce
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
         let nonce = 0xdeadbeef;
@@ -185,9 +181,9 @@ contract Uniswap {
     // docs:end:authwit_uniswap_set
 
     // docs:start:assert_token_is_same
-    #[aztec(public)]
-    #[aztec(internal)]
-    #[aztec(view)]
+    #[public]
+    #[internal]
+    #[view]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
             token.eq(TokenBridge::at(token_bridge).get_token().view(&mut context)), "input_asset address is not the same as seen in the bridge contract"

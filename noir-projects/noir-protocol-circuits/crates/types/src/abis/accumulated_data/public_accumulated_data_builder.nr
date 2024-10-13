@@ -2,7 +2,7 @@ use crate::{
     abis::{
     gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
     note_hash::ScopedNoteHash, nullifier::Nullifier, public_call_request::PublicCallRequest,
-    public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
+    public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
@@ -13,7 +13,7 @@ use crate::{
     traits::Empty, utils::arrays::array_to_bounded_vec
 };
 
-struct PublicAccumulatedDataBuilder {
+pub struct PublicAccumulatedDataBuilder {
     note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
     l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
@@ -70,7 +70,7 @@ impl Empty for PublicAccumulatedDataBuilder {
             unencrypted_logs_hashes: BoundedVec::new(),
             public_data_update_requests: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            gas_used: Gas::empty(),
+            gas_used: Gas::empty()
         }
     }
 }

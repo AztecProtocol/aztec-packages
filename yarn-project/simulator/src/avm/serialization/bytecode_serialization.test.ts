@@ -1,9 +1,9 @@
 import { strict as assert } from 'assert';
 
-import { Add, Address, Call, StaticCall, Sub } from '../opcodes/index.js';
+import { Add, Call, EnvironmentVariable, GetEnvVar, StaticCall, Sub } from '../opcodes/index.js';
 import { type BufferCursor } from './buffer_cursor.js';
 import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
-import { type Opcode } from './instruction_serialization.js';
+import { Opcode } from './instruction_serialization.js';
 
 class InstA {
   constructor(private n: number) {}
@@ -48,8 +48,8 @@ class InstB {
 describe('Bytecode Serialization', () => {
   it('Should deserialize using instruction set', () => {
     const instructionSet: InstructionSet = new Map<Opcode, any>([
-      [InstA.opcode, InstA],
-      [InstB.opcode, InstB],
+      [InstA.opcode, InstA.deserialize],
+      [InstB.opcode, InstB.deserialize],
     ]);
     const a = new InstA(0x1234);
     const b = new InstB(0x5678n);
@@ -72,30 +72,33 @@ describe('Bytecode Serialization', () => {
 
   it('Should deserialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
-      new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
+      new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
+        Opcode.GETENVVAR_16,
+        GetEnvVar.wireFormat16,
+      ),
       new Call(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       ),
     ];
     const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
@@ -107,30 +110,33 @@ describe('Bytecode Serialization', () => {
 
   it('Should serialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
-      new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
+      new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
+        Opcode.GETENVVAR_16,
+        GetEnvVar.wireFormat16,
+      ),
       new Call(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       ),
     ];
 

@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::{oracle::unsafe_rand::unsafe_rand, test::helpers::cheatcodes};
+use dep::aztec::oracle::random::random;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 
@@ -30,7 +30,7 @@ unconstrained fn unshield_on_behalf_of_other() {
     utils::check_public_balance(token_contract_address, recipient, unshield_amount);
 }
 
-#[test(should_fail_with="Balance too low")]
+#[test(should_fail_with = "Balance too low")]
 unconstrained fn unshield_failure_more_than_balance() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
@@ -40,17 +40,17 @@ unconstrained fn unshield_failure_more_than_balance() {
     env.call_private_void(unshield_call_interface);
 }
 
-#[test(should_fail_with="invalid nonce")]
+#[test(should_fail_with = "invalid nonce")]
 unconstrained fn unshield_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
-    let unshield_call_interface = Token::at(token_contract_address).unshield(owner, owner, unshield_amount, unsafe_rand());
+    let unshield_call_interface = Token::at(token_contract_address).unshield(owner, owner, unshield_amount, random());
     env.call_private_void(unshield_call_interface);
 }
 
-#[test(should_fail_with="Balance too low")]
+#[test(should_fail_with = "Balance too low")]
 unconstrained fn unshield_failure_on_behalf_of_other_more_than_balance() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
 
@@ -63,7 +63,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_more_than_balance() {
     env.call_private_void(unshield_call_interface);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
 
@@ -76,7 +76,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller()
     env.call_private_void(unshield_call_interface);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn unshield_failure_on_behalf_of_other_no_approval() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
 

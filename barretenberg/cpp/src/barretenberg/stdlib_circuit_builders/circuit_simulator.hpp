@@ -1,5 +1,7 @@
 #pragma once
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
@@ -38,6 +40,7 @@ namespace bb {
 class CircuitSimulatorBN254 {
   public:
     using FF = bb::fr;
+    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr std::string_view NAME_STRING = "SIMULATOR";
     bool contains_recursive_proof = false;
@@ -73,7 +76,7 @@ class CircuitSimulatorBN254 {
 
     void fix_witness([[maybe_unused]] const uint32_t witness_index, [[maybe_unused]] const bb::fr& witness_value){};
 
-    [[nodiscard]] size_t get_num_gates() const { return 0; }
+    [[nodiscard]] size_t get_estimated_num_finalized_gates() const { return 0; }
 
     void create_add_gate([[maybe_unused]] const add_triple_<FF>& in){};
     void create_mul_gate([[maybe_unused]] const mul_triple_<FF>& in){};

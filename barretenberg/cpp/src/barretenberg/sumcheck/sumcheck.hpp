@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "sumcheck_round.hpp"
 
 namespace bb {
@@ -123,7 +123,6 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = ProverInstance_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
@@ -181,18 +180,6 @@ template <typename Flavor> class SumcheckProver {
     /**
      * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
      * until final round, then get full evaluations of prover polynomials, and place them in transcript.
-     */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
-    {
-        return prove(instance->proving_key.polynomials,
-                     instance->relation_parameters,
-                     instance->alphas,
-                     instance->gate_challenges);
-    };
-
-    /**
-     * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
-     * until final round, then get full evaluations of prover polynomials, and place them in transcript.
      * @details See Detailed description of \ref bb::SumcheckProver< Flavor > "Sumcheck Prover <Flavor>.
      * @param full_polynomials Container for ProverPolynomials
      * @param relation_parameters
@@ -222,7 +209,8 @@ template <typename Flavor> class SumcheckProver {
         auto round_univariate = round.compute_univariate(
             round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
         {
-            ZoneScopedN("rest of sumcheck round 1");
+
+            PROFILE_THIS_NAME("rest of sumcheck round 1");
 
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
@@ -239,8 +227,11 @@ template <typename Flavor> class SumcheckProver {
                                                       // release memory?        // All but final round
                                                       // We operate on partially_evaluated_polynomials in place.
         }
+        vinfo("completed sumcheck round 0");
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-            ZoneScopedN("sumcheck loop");
+
+            PROFILE_THIS_NAME("sumcheck loop");
+
             // Write the round univariate to the transcript
             round_univariate = round.compute_univariate(round_idx,
                                                         partially_evaluated_polynomials,
@@ -261,6 +252,7 @@ template <typename Flavor> class SumcheckProver {
 
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
+            vinfo("completed sumcheck round ", round_idx);
         }
         // Check that the challenges \f$ u_0,\ldots, u_{d-1} \f$ do not satisfy the equation \f$ u_0(1-u_0) + \ldots +
         // u_{d-1} (1 - u_{d-1}) = 0 \f$. This equation is satisfied with probability ~ 1/|FF|, in such cases the prover
@@ -337,7 +329,7 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j][i >> 1] = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
+                pep_view[j].at(i >> 1) = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
             }
         });
     };
@@ -352,7 +344,8 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j][i >> 1] = polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
+                pep_view[j].at(i >> 1) =
+                    polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
             }
         });
     };
@@ -749,6 +742,7 @@ template <typename Flavor> class SumcheckVerifier {
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
                 // Only utilize the checked value if this is not a constant proof size padding round

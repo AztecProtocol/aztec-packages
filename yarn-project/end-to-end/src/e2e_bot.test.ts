@@ -1,7 +1,6 @@
 import { Fr, type PXE } from '@aztec/aztec.js';
-import { Bot, type BotConfig } from '@aztec/bot';
+import { Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 
-import { getBotDefaultConfig } from '../../bot/src/config.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
@@ -17,6 +16,7 @@ describe('e2e_bot', () => {
     config = {
       ...getBotDefaultConfig(),
       ...senderPrivateKey,
+      followChain: 'PENDING',
     };
     bot = await Bot.create(config, { pxe });
   });
@@ -48,5 +48,21 @@ describe('e2e_bot', () => {
     expect(bot2.wallet.getAddress().toString()).toEqual(wallet.getAddress().toString());
     expect(bot2.token.address.toString()).toEqual(token.address.toString());
     expect(bot2.recipient.toString()).toEqual(recipient.toString());
+  });
+
+  it('sends token from the bot using EasyPrivateToken', async () => {
+    const easyBot = await Bot.create(
+      {
+        ...config,
+        contract: SupportedTokenContracts.EasyPrivateTokenContract,
+      },
+      { pxe },
+    );
+    const { recipient: recipientBefore } = await easyBot.getBalances();
+
+    await easyBot.run();
+    const { recipient: recipientAfter } = await easyBot.getBalances();
+    expect(recipientAfter.privateBalance - recipientBefore.privateBalance).toEqual(1n);
+    expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(0n);
   });
 });

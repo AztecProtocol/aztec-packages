@@ -1,12 +1,14 @@
-use crate::address::{AztecAddress, EthAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress};
-use crate::tests::fixtures;
-use crate::contract_class_id::ContractClassId;
+use crate::{
+    address::{AztecAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress},
+    contract_class_id::ContractClassId, hash::private_functions_root_from_siblings,
+    tests::fixtures::contract_functions::get_protocol_contract_function
+};
 
-struct ContractData {
+pub struct ContractData {
     address: AztecAddress,
     artifact_hash: Field,
     contract_address_salt: Field,
-    contract_class_id: ContractClassId, 
+    contract_class_id: ContractClassId,
     private_functions_root: Field,
     public_bytecode_commitment: Field,
     public_keys_hash: PublicKeysHash,
@@ -42,3 +44,42 @@ global parent_contract = ContractData {
   salted_initialization_hash: SaltedInitializationHash { inner: 0x24bd6ac7a182e2cf25e437c72f53544ef81dfd97d9afee23abb07a638e7be749 },
   deployer: AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }
 };
+
+pub fn get_protocol_contract(index: u32) -> ContractData {
+    let seed = index as Field;
+    let artifact_hash = 576576 + seed;
+    let salted_initialization_hash = SaltedInitializationHash { inner: 281972 + seed };
+    let public_bytecode_commitment = 38383 + seed;
+    let public_keys_hash = PublicKeysHash { inner: 8023893 + seed };
+
+    let function = get_protocol_contract_function(index);
+    let private_functions_root = private_functions_root_from_siblings(
+        function.data.selector,
+        function.vk_hash,
+        function.membership_witness.leaf_index,
+        function.membership_witness.sibling_path
+    );
+
+    let contract_class_id = ContractClassId::compute(
+        artifact_hash,
+        private_functions_root,
+        public_bytecode_commitment
+    );
+
+    let partial_address = PartialAddress::compute_from_salted_initialization_hash(contract_class_id, salted_initialization_hash);
+
+    let address = AztecAddress::compute(public_keys_hash, partial_address);
+
+    ContractData {
+        contract_address_salt: 1,
+        artifact_hash,
+        public_bytecode_commitment,
+        private_functions_root,
+        address,
+        partial_address,
+        contract_class_id,
+        public_keys_hash,
+        salted_initialization_hash,
+        deployer: AztecAddress { inner: 0 }
+    }
+}

@@ -1,13 +1,10 @@
 use std::fmt::{self, Display};
 use std::fmt::{Debug, Formatter};
 
-use crate::opcodes::AvmOpcode;
+use acvm::acir::brillig::MemoryAddress;
+use acvm::{AcirField, FieldElement};
 
-/// Common values of the indirect instruction flag
-pub const ALL_DIRECT: u8 = 0b00000000;
-pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
-pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
-pub const SECOND_OPERAND_INDIRECT: u8 = 0b00000100;
+use crate::opcodes::AvmOpcode;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
@@ -19,7 +16,7 @@ pub struct AvmInstruction {
     /// Any instructions with memory offset operands have the indirect flag
     /// Each bit is a boolean: 0:direct, 1:indirect
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
-    pub indirect: Option<u8>,
+    pub indirect: Option<AvmOperand>,
 
     /// Some instructions have a destination xor input tag
     /// Its usage will depend on the instruction.
@@ -32,7 +29,7 @@ pub struct AvmInstruction {
 impl Display for AvmInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "opcode {}", self.opcode.name())?;
-        if let Some(indirect) = self.indirect {
+        if let Some(indirect) = &self.indirect {
             write!(f, ", indirect: {}", indirect)?;
         }
         // This will be either inTag or dstTag depending on the operation
@@ -55,8 +52,8 @@ impl AvmInstruction {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.push(self.opcode as u8);
-        if let Some(indirect) = self.indirect {
-            bytes.push(indirect);
+        if let Some(indirect) = &self.indirect {
+            bytes.extend_from_slice(&indirect.to_be_bytes());
         }
         // This will be either inTag or dstTag depending on the operation
         if let Some(tag) = self.tag {
@@ -78,7 +75,7 @@ impl Debug for AvmInstruction {
 impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
-            opcode: AvmOpcode::ADD,
+            opcode: AvmOpcode::ADD_8,
             // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
             indirect: None,
             tag: None,
@@ -92,6 +89,7 @@ impl Default for AvmInstruction {
 #[derive(Copy, Clone, Debug)]
 pub enum AvmTypeTag {
     UNINITIALIZED,
+    UINT1,
     UINT8,
     UINT16,
     UINT32,
@@ -110,6 +108,7 @@ pub enum AvmOperand {
     U32 { value: u32 },
     U64 { value: u64 },
     U128 { value: u128 },
+    FF { value: FieldElement },
 }
 
 impl Display for AvmOperand {
@@ -120,6 +119,7 @@ impl Display for AvmOperand {
             AvmOperand::U32 { value } => write!(f, " U32:{}", value),
             AvmOperand::U64 { value } => write!(f, " U64:{}", value),
             AvmOperand::U128 { value } => write!(f, " U128:{}", value),
+            AvmOperand::FF { value } => write!(f, " FF:{}", value),
         }
     }
 }
@@ -132,6 +132,52 @@ impl AvmOperand {
             AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
+            AvmOperand::FF { value } => value.to_be_bytes(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct AddressingModeBuilder {
+    indirect: Vec<bool>,
+    relative: Vec<bool>,
+}
+
+impl AddressingModeBuilder {
+    pub(crate) fn direct_operand(mut self, address: &MemoryAddress) -> Self {
+        self.relative.push(address.is_relative());
+        self.indirect.push(false);
+
+        self
+    }
+
+    pub(crate) fn indirect_operand(mut self, address: &MemoryAddress) -> Self {
+        self.relative.push(address.is_relative());
+        self.indirect.push(true);
+
+        self
+    }
+
+    pub(crate) fn build(self) -> AvmOperand {
+        let num_operands = self.indirect.len();
+        assert!(num_operands <= 8, "Too many operands for building addressing mode bytes");
+
+        let mut result = 0;
+        for (i, (indirect, relative)) in
+            self.indirect.into_iter().zip(self.relative.into_iter()).enumerate()
+        {
+            if indirect {
+                result |= 1 << i;
+            }
+            if relative {
+                result |= 1 << (num_operands + i);
+            }
+        }
+
+        if num_operands <= 4 {
+            AvmOperand::U8 { value: result as u8 }
+        } else {
+            AvmOperand::U16 { value: result as u16 }
         }
     }
 }

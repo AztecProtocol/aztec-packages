@@ -12,16 +12,16 @@ void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
     // Construct stdlib accumulator, vkey and proof
     auto stdlib_verifier_accum =
-        std::make_shared<RecursiveVerifierInstance>(builder.get(), verifier_input.fold_input.accumulator);
-    auto stdlib_instance_vk =
-        std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.fold_input.instance_vks[0]);
+        std::make_shared<RecursiveDeciderVerificationKey>(builder.get(), verifier_input.fold_input.accumulator);
+    auto stdlib_decider_vk =
+        std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.fold_input.decider_vks[0]);
     auto stdlib_proof = bb::convert_proof_to_witness(builder.get(), proof.folding_proof);
 
     // Perform recursive folding verification
-    FoldingVerifier folding_verifier{ builder.get(), stdlib_verifier_accum, { stdlib_instance_vk } };
+    FoldingVerifier folding_verifier{ builder.get(), stdlib_verifier_accum, { stdlib_decider_vk } };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     auto native_verifier_acc =
-        std::make_shared<FoldVerifierInput::Instance>(recursive_verifier_accumulator->get_value());
+        std::make_shared<FoldVerifierInput::DeciderVK>(recursive_verifier_accumulator->get_value());
 
     // Perform recursive decider verification
     DeciderVerifier decider{ builder.get(), native_verifier_acc };

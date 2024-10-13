@@ -1,10 +1,9 @@
-import { L2Block, deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
+import { deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { AGGREGATION_OBJECT_LENGTH, Fr, HEADER_LENGTH, Proof } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { Proof, RootRollupPublicInputs } from '@aztec/circuits.js';
+import { compileContract, createL1Clients } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { IVerifierAbi } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
@@ -15,6 +14,7 @@ import {
   type Account,
   type Chain,
   type GetContractReturnType,
+  type Hex,
   type HttpTransport,
   type PublicClient,
   type WalletClient,
@@ -25,27 +25,23 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import { getLogger, setupL1Contracts, startAnvil } from '../fixtures/utils.js';
+import { getLogger, startAnvil } from '../fixtures/utils.js';
 
 /**
  * Regenerate this test's fixture with
- * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
+ * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test bb_prover_full_rollup
  */
 describe('proof_verification', () => {
   let proof: Proof;
-  let proverId: Fr;
-  let block: L2Block;
-  let aggregationObject: Fr[];
+  let publicInputs: RootRollupPublicInputs;
   let anvil: Anvil | undefined;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
-  // eslint-disable-next-line
-  let l1ContractAddresses: L1ContractAddresses;
   let logger: Logger;
   let circuitVerifier: BBCircuitVerifier;
   let bbTeardown: () => Promise<void>;
   let acvmTeardown: () => Promise<void>;
-  let verifierContract: GetContractReturnType<any, typeof walletClient>;
+  let verifierContract: GetContractReturnType<typeof IVerifierAbi, typeof walletClient>;
 
   beforeAll(async () => {
     logger = getLogger();
@@ -53,148 +49,63 @@ describe('proof_verification', () => {
     if (!rpcUrl) {
       ({ anvil, rpcUrl } = await startAnvil());
     }
-
-    ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
-      rpcUrl,
-      mnemonicToAccount(MNEMONIC),
-      logger,
-    ));
+    logger.info('Anvil started');
 
     const bb = await getBBConfig(logger);
     const acvm = await getACVMConfig(logger);
 
-    circuitVerifier = await BBCircuitVerifier.new({
-      bbBinaryPath: bb!.bbBinaryPath,
-      bbWorkingDirectory: bb!.bbWorkingDirectory,
-    });
+    circuitVerifier = await BBCircuitVerifier.new(bb!);
 
     bbTeardown = bb!.cleanup;
     acvmTeardown = acvm!.cleanup;
+    logger.info('BB and ACVM initialized');
 
-    const input = {
-      language: 'Solidity',
-      sources: {
-        'UltraHonkVerifier.sol': {
-          content: await circuitVerifier.generateSolidityContract('BlockRootRollupArtifact', 'UltraHonkVerifier.sol'),
-        },
-      },
-      settings: {
-        // we require the optimizer
-        optimizer: {
-          enabled: true,
-          runs: 200,
-        },
-        evmVersion: 'paris',
-        outputSelection: {
-          '*': {
-            '*': ['evm.bytecode.object', 'abi'],
-          },
-        },
-      },
-    };
-
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-    const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
-    const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
-
-    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
-    verifierContract = getContract({
-      address: verifierAddress.toString(),
-      client: publicClient,
-      abi,
-    }) as any;
+    ({ publicClient, walletClient } = createL1Clients(rpcUrl, mnemonicToAccount(MNEMONIC)));
+    const content = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraHonkVerifier.sol');
+    const { bytecode, abi } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', content, solc);
+    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
+    verifierContract = getContract({ address: verifierAddress.toString(), client: publicClient, abi: IVerifierAbi });
+    logger.info('Deployed verifier');
   });
 
   afterAll(async () => {
-    // await ctx.teardown();
     await anvil?.stop();
     await bbTeardown();
     await acvmTeardown();
   });
 
   beforeAll(async () => {
-    // regenerate with
-    // AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
-    const blockResult = JSON.parse(
-      await readFile(join(fileURLToPath(import.meta.url), '../../fixtures/dumps/block_result.json'), 'utf-8'),
+    // AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test bb_prover_full_rollup
+    const epochProof = JSON.parse(
+      await readFile(join(fileURLToPath(import.meta.url), '../../fixtures/dumps/epoch_proof_result.json'), 'utf-8'),
     );
 
-    block = L2Block.fromString(blockResult.block);
-    // TODO(#6624): Note that with honk proofs the below writes incorrect test data to file.
-    // The serialisation does not account for the prepended fields (circuit size, PI size, PI offset) in new Honk proofs, so the written data is shifted.
-    proof = Proof.fromString(blockResult.proof);
-    proverId = Fr.ZERO;
-    aggregationObject = blockResult.aggregationObject.map((x: string) => Fr.fromString(x));
+    proof = Proof.fromString(epochProof.proof);
+    publicInputs = RootRollupPublicInputs.fromString(epochProof.publicInputs);
+  });
+
+  describe('public inputs', () => {
+    it('output and proof public inputs are equal', () => {
+      const proofPublicInputs = proof.extractPublicInputs().map(x => x.toString());
+      const aggregationObject = proof.extractAggregationObject();
+      const outputPublicInputs = [...publicInputs.toFields(), ...aggregationObject].map(x => x.toString());
+
+      expect(proofPublicInputs).toEqual(outputPublicInputs);
+    });
   });
 
   describe('bb', () => {
     it('verifies proof', async () => {
-      await expect(circuitVerifier.verifyProofForCircuit('BlockRootRollupArtifact', proof)).resolves.toBeUndefined();
-    });
-  });
-  // TODO(#6624) & TODO(#7346): The below PIs do not correspond to BlockRoot/Root circuits.
-  // They will need to be updated to whichever circuit we are using when switching on this test.
-  describe('HonkVerifier', () => {
-    it('verifies full proof', async () => {
-      const reader = BufferReader.asReader(proof.buffer);
-      // +2 fields for archive
-      const archive = reader.readArray(2, Fr);
-      const header = reader.readArray(HEADER_LENGTH, Fr);
-      const aggObject = reader.readArray(AGGREGATION_OBJECT_LENGTH, Fr);
-
-      const publicInputs = [...archive, ...header, ...aggObject].map(x => x.toString());
-
-      const proofStr = `0x${proof.buffer
-        .subarray((HEADER_LENGTH + 2 + AGGREGATION_OBJECT_LENGTH) * Fr.SIZE_IN_BYTES)
-        .toString('hex')}` as const;
-
-      await expect(verifierContract.read.verify([proofStr, publicInputs])).resolves.toBeTruthy();
-    });
-
-    it('verifies proof taking public inputs from block', async () => {
-      const proofStr = `0x${proof.withoutPublicInputs().toString('hex')}`;
-      const publicInputs = [...block.archive.toFields(), ...block.header.toFields(), ...aggregationObject].map(x =>
-        x.toString(),
-      );
-
-      await expect(verifierContract.read.verify([proofStr, publicInputs])).resolves.toBeTruthy();
+      await expect(circuitVerifier.verifyProofForCircuit('RootRollupArtifact', proof)).resolves.toBeUndefined();
     });
   });
 
-  describe('Rollup', () => {
-    let availabilityContract: GetContractReturnType<typeof AvailabilityOracleAbi, typeof walletClient>;
-    let rollupContract: GetContractReturnType<typeof RollupAbi, typeof walletClient>;
-
-    beforeAll(async () => {
-      rollupContract = getContract({
-        address: l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: walletClient,
-      });
-
-      availabilityContract = getContract({
-        address: l1ContractAddresses.availabilityOracleAddress.toString(),
-        abi: AvailabilityOracleAbi,
-        client: walletClient,
-      });
-
-      await rollupContract.write.setVerifier([verifierContract.address]);
-      logger.info('Rollup only accepts valid proofs now');
-      await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
-    });
-    // TODO(#6624) & TODO(#7346): Rollup.submitProof has changed to submitBlockRootProof/submitRootProof
-    // The inputs below may change depending on which submit fn we are using when we reinstate this test.
+  describe('honk verifier', () => {
     it('verifies proof', async () => {
-      const args = [
-        `0x${block.header.toBuffer().toString('hex')}`,
-        `0x${block.archive.root.toBuffer().toString('hex')}`,
-        `0x${proverId.toBuffer().toString('hex')}`,
-        `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
-        `0x${proof.withoutPublicInputs().toString('hex')}`,
-      ] as const;
+      const proofStr = `0x${proof.withoutPublicInputs().toString('hex')}` as Hex;
+      const proofPublicInputs = proof.extractPublicInputs().map(x => x.toString());
 
-      await expect(rollupContract.write.submitBlockRootProof(args)).resolves.toBeDefined();
+      await expect(verifierContract.read.verify([proofStr, proofPublicInputs])).resolves.toBeTruthy();
     });
   });
 });

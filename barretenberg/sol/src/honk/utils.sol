@@ -1,5 +1,9 @@
-import {Honk, P, Q} from "./HonkTypes.sol";
+pragma solidity >=0.8.21;
+
+import {Honk} from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
+
+uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
 
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
@@ -42,13 +46,18 @@ function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));
 
-    string memory message = string(abi.encodePacked(name, " ", i, " x: ", x, " y: ", y));
-    console2.log(message);
+    string memory message = string(abi.encodePacked(" x: ", x, " y: ", y));
+    console2.log(name, i, message);
 }
 
 function logUint(string memory name, uint256 value) pure {
     string memory as_hex = bytes32ToString(bytes32(value));
     console2.log(name, as_hex);
+}
+
+function logUint(string memory name, uint256 i, uint256 value) pure {
+    string memory as_hex = bytes32ToString(bytes32(value));
+    console2.log(name, i, as_hex);
 }
 
 function logFr(string memory name, Fr value) pure {

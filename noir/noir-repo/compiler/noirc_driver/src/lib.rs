@@ -14,10 +14,8 @@ use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
 use noirc_evaluator::ssa::SsaProgramArtifact;
 use noirc_frontend::debug::build_debug_crate_file;
-use noirc_frontend::graph::{CrateId, CrateName};
 use noirc_frontend::hir::def_map::{Contract, CrateDefMap};
 use noirc_frontend::hir::Context;
-use noirc_frontend::macros_api::MacroProcessor;
 use noirc_frontend::monomorphization::{
     errors::MonomorphizationError, monomorphize, monomorphize_debug,
 };
@@ -36,6 +34,7 @@ use debug::filter_relevant_files;
 
 pub use contract::{CompiledContract, CompiledContractOutputs, ContractFunction};
 pub use debug::DebugFile;
+pub use noirc_frontend::graph::{CrateId, CrateName};
 pub use program::CompiledProgram;
 
 const STD_CRATE_NAME: &str = "std";
@@ -120,27 +119,17 @@ pub struct CompileOptions {
     #[arg(long, hide = true)]
     pub show_artifact_paths: bool,
 
-    /// Temporary flag to enable the experimental arithmetic generics feature
-    #[arg(long, hide = true)]
-    pub arithmetic_generics: bool,
-
     /// Flag to turn off the compiler check for under constrained values.
     /// Warning: This can improve compilation speed but can also lead to correctness errors.
     /// This check should always be run on production code.
     #[arg(long)]
     pub skip_underconstrained_check: bool,
-}
 
-#[derive(Clone, Debug, Default)]
-pub struct CheckOptions {
-    pub compile_options: CompileOptions,
-    pub error_on_unused_imports: bool,
-}
-
-impl CheckOptions {
-    pub fn new(compile_options: &CompileOptions, error_on_unused_imports: bool) -> Self {
-        Self { compile_options: compile_options.clone(), error_on_unused_imports }
-    }
+    /// Setting to decide on an inlining strategy for brillig functions.
+    /// A more aggressive inliner should generate larger programs but more optimized
+    /// A less aggressive inliner should generate smaller programs
+    #[arg(long, hide = true, allow_hyphen_values = true, default_value_t = i64::MAX)]
+    pub inliner_aggressiveness: i64,
 }
 
 pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {
@@ -228,23 +217,25 @@ fn add_debug_source_to_file_manager(file_manager: &mut FileManager) {
 
 /// Adds the file from the file system at `Path` to the crate graph as a root file
 ///
-/// Note: This methods adds the stdlib as a dependency to the crate.
-/// This assumes that the stdlib has already been added to the file manager.
+/// Note: If the stdlib dependency has not been added yet, it's added. Otherwise
+/// this method assumes the root crate is the stdlib (useful for running tests
+/// in the stdlib, getting LSP stuff for the stdlib, etc.).
 pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
     let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
-    let std_file_id = context
-        .file_manager
-        .name_to_id(path_to_std_lib_file)
-        .expect("stdlib file id is expected to be present");
-    let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+    let std_file_id = context.file_manager.name_to_id(path_to_std_lib_file);
+    let std_crate_id = std_file_id.map(|std_file_id| context.crate_graph.add_stdlib(std_file_id));
 
     let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
 
-    let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
+    if let Some(std_crate_id) = std_crate_id {
+        let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
 
-    add_dep(context, root_crate_id, std_crate_id, STD_CRATE_NAME.parse().unwrap());
+        add_dep(context, root_crate_id, std_crate_id, STD_CRATE_NAME.parse().unwrap());
 
-    root_crate_id
+        root_crate_id
+    } else {
+        context.crate_graph.add_crate_root_and_stdlib(root_file_id)
+    }
 }
 
 pub fn link_to_debug_crate(context: &mut Context, root_crate_id: CrateId) {
@@ -290,21 +281,15 @@ pub fn add_dep(
 pub fn check_crate(
     context: &mut Context,
     crate_id: CrateId,
-    check_options: &CheckOptions,
+    options: &CompileOptions,
 ) -> CompilationResult<()> {
-    let options = &check_options.compile_options;
-
-    let macros: &[&dyn MacroProcessor] =
-        if options.disable_macros { &[] } else { &[&aztec_macros::AztecMacro] };
-
     let mut errors = vec![];
+    let error_on_unused_imports = true;
     let diagnostics = CrateDefMap::collect_defs(
         crate_id,
         context,
         options.debug_comptime_in_file.as_deref(),
-        options.arithmetic_generics,
-        check_options.error_on_unused_imports,
-        macros,
+        error_on_unused_imports,
     );
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
         let diagnostic = CustomDiagnostic::from(&error);
@@ -337,10 +322,7 @@ pub fn compile_main(
     options: &CompileOptions,
     cached_program: Option<CompiledProgram>,
 ) -> CompilationResult<CompiledProgram> {
-    let error_on_unused_imports = true;
-    let check_options = CheckOptions::new(options, error_on_unused_imports);
-
-    let (_, mut warnings) = check_crate(context, crate_id, &check_options)?;
+    let (_, mut warnings) = check_crate(context, crate_id, options)?;
 
     let main = context.get_main_function(&crate_id).ok_or_else(|| {
         // TODO(#2155): This error might be a better to exist in Nargo
@@ -375,9 +357,7 @@ pub fn compile_contract(
     crate_id: CrateId,
     options: &CompileOptions,
 ) -> CompilationResult<CompiledContract> {
-    let error_on_unused_imports = true;
-    let check_options = CheckOptions::new(options, error_on_unused_imports);
-    let (_, warnings) = check_crate(context, crate_id, &check_options)?;
+    let (_, warnings) = check_crate(context, crate_id, options)?;
 
     // TODO: We probably want to error if contracts is empty
     let contracts = context.get_all_contracts(&crate_id);
@@ -470,9 +450,13 @@ fn compile_contract_inner(
             .attributes
             .secondary
             .iter()
-            .filter_map(
-                |attr| if let SecondaryAttribute::Custom(tag) = attr { Some(tag) } else { None },
-            )
+            .filter_map(|attr| {
+                if let SecondaryAttribute::Custom(attribute) = attr {
+                    Some(&attribute.contents)
+                } else {
+                    None
+                }
+            })
             .cloned()
             .collect();
 
@@ -602,6 +586,7 @@ pub fn compile_no_check(
         },
         emit_ssa: if options.emit_ssa { Some(context.package_build_path.clone()) } else { None },
         skip_underconstrained_check: options.skip_underconstrained_check,
+        inliner_aggressiveness: options.inliner_aggressiveness,
     };
 
     let SsaProgramArtifact { program, debug, warnings, names, brillig_names, error_types, .. } =

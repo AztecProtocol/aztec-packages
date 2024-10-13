@@ -1,12 +1,12 @@
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BlockBuilderFactory } from '../block_builder/index.js';
+import { LightweightBlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
@@ -45,14 +45,8 @@ export class SequencerClient {
   ) {
     const publisher = new L1Publisher(config, telemetryClient);
     const globalsBuilder = new GlobalVariableBuilder(config);
-    const merkleTreeDb = worldStateSynchronizer.getLatest();
 
-    const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTreeDb,
-      contractDataSource,
-      simulationProvider,
-      telemetryClient,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, simulationProvider, telemetryClient);
 
     const sequencer = new Sequencer(
       publisher,
@@ -60,11 +54,11 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
-      new BlockBuilderFactory(simulationProvider, telemetryClient),
+      new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
-      new TxValidatorFactory(merkleTreeDb, contractDataSource, !!config.enforceFees),
+      new TxValidatorFactory(worldStateSynchronizer.getCommitted(), contractDataSource, !!config.enforceFees),
       telemetryClient,
       config,
     );
@@ -100,7 +94,7 @@ export class SequencerClient {
     this.sequencer.restart();
   }
 
-  get coinbase() {
+  get coinbase(): EthAddress {
     return this.sequencer.coinbase;
   }
 

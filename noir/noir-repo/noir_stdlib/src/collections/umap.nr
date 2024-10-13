@@ -1,10 +1,7 @@
 use crate::cmp::Eq;
-use crate::collections::vec::Vec;
 use crate::option::Option;
 use crate::default::Default;
-use crate::hash::{Hash, Hasher, BuildHasher, BuildHasherDefault};
-use crate::hash::poseidon2::Poseidon2;
-use crate::collections::bounded_vec::BoundedVec;
+use crate::hash::{Hash, Hasher, BuildHasher};
 
 // An unconstrained hash table with open addressing and quadratic probing.
 // Note that "unconstrained" here means that almost all operations on this
@@ -14,7 +11,7 @@ use crate::collections::bounded_vec::BoundedVec;
 //
 // Compared to the constrained HashMap type, UHashMap can grow automatically
 // as needed and is more efficient since it can break out of loops early.
-struct UHashMap<K, V, B> {
+pub struct UHashMap<K, V, B> {
     _table: [Slot<K, V>],
 
     // Amount of valid elements in the map.
@@ -34,12 +31,9 @@ struct Slot<K, V> {
     _is_deleted: bool,
 }
 
-impl<K, V> Default for Slot<K, V>{
-    fn default() -> Self{
-        Slot{
-            _key_value: Option::none(),
-            _is_deleted: false
-        }
+impl<K, V> Default for Slot<K, V> {
+    fn default() -> Self {
+        Slot { _key_value: Option::none(), _is_deleted: false }
     }
 }
 
@@ -428,25 +422,26 @@ where
     K: Eq + Hash,
     V: Eq,
     B: BuildHasher<H>,
-    H: Hasher
-{
+    H: Hasher {
     fn eq(self, other: UHashMap<K, V, B>) -> bool {
-// docs:end:eq
+        // docs:end:eq
         let mut equal = false;
 
-        if self.len() == other.len(){
+        if self.len() == other.len() {
             equal = true;
-            for slot in self._table{
+            for slot in self._table {
                 // Not marked as deleted and has key-value.
-                if equal & slot.is_valid(){
+                if equal & slot.is_valid() {
                     let (key, value) = slot.key_value_unchecked();
-                    let other_value = unsafe { other.get(key) };
+                    let other_value = unsafe {
+                        other.get(key)
+                    };
 
-                    if other_value.is_none(){
+                    if other_value.is_none() {
                         equal = false;
-                    }else{
+                    } else {
                         let other_value = other_value.unwrap_unchecked();
-                        if value != other_value{
+                        if value != other_value {
                             equal = false;
                         }
                     }
@@ -462,10 +457,9 @@ where
 impl<K, V, B, H> Default for UHashMap<K, V, B>
 where
     B: BuildHasher<H> + Default,
-    H: Hasher + Default
-{
+    H: Hasher + Default {
     fn default() -> Self {
-// docs:end:default
+        // docs:end:default
         UHashMap::with_hasher(B::default())
     }
 }

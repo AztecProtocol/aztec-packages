@@ -17,6 +17,7 @@ COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 # We want the native ACVM and BB binaries
 COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
 COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+COPY --from=barretenberg /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node
 
 WORKDIR /usr/src/yarn-project
 COPY . .
@@ -62,5 +63,5 @@ ENV COMMIT_TAG=$COMMIT_TAG
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project
 # add curl to be able to download CRS file
-RUN apt update && apt install -y curl
+RUN apt update && apt install -y curl jq
 ENTRYPOINT ["yarn"]

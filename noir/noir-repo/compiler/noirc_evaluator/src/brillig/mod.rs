@@ -58,13 +58,16 @@ impl std::ops::Index<FunctionId> for Brillig {
 
 impl Ssa {
     /// Compile to brillig brillig functions and ACIR functions reachable from them
+    #[tracing::instrument(level = "trace", skip_all)]
     pub(crate) fn to_brillig(&self, enable_debug_trace: bool) -> Brillig {
         // Collect all the function ids that are reachable from brillig
         // That means all the functions marked as brillig and ACIR functions called by them
         let brillig_reachable_function_ids = self
             .functions
             .iter()
-            .filter_map(|(id, func)| (func.runtime() == RuntimeType::Brillig).then_some(*id))
+            .filter_map(|(id, func)| {
+                matches!(func.runtime(), RuntimeType::Brillig(_)).then_some(*id)
+            })
             .collect::<BTreeSet<_>>();
 
         let mut brillig = Brillig::default();

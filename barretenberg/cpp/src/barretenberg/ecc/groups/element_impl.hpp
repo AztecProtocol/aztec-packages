@@ -790,9 +790,9 @@ void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr,
  */
 template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
-    const std::span<affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
+    const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
 {
-    BB_OP_COUNT_TIME();
+    PROFILE_THIS();
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = points.size();
 

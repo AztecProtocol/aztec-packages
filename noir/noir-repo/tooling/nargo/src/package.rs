@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Display, path::PathBuf};
 
 use acvm::acir::circuit::ExpressionWidth;
-use noirc_frontend::graph::CrateName;
+pub use noirc_driver::CrateName;
 
 use crate::constants::PROVER_INPUT_FILE;
 
@@ -72,12 +72,5 @@ impl Package {
 
     pub fn is_library(&self) -> bool {
         self.package_type == PackageType::Library
-    }
-
-    pub fn error_on_unused_imports(&self) -> bool {
-        match self.package_type {
-            PackageType::Library => false,
-            PackageType::Binary | PackageType::Contract => true,
-        }
     }
 }

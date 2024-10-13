@@ -1,6 +1,8 @@
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
+import { Addressing, AddressingMode } from './addressing_mode.js';
 import { Add, Div, FieldDiv, Mul, Sub } from './arithmetic.js';
 
 describe('Arithmetic Instructions', () => {
@@ -13,22 +15,18 @@ describe('Arithmetic Instructions', () => {
   describe('Add', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Add.opcode, // opcode
+        Opcode.ADD_16, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Add(
-        /*indirect=*/ 0x01,
-        /*inTag=*/ TypeTag.FIELD,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+      const inst = new Add(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.ADD_16,
+        Add.wireFormat16,
       );
 
-      expect(Add.deserialize(buf)).toEqual(inst);
+      expect(Add.as(Add.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -44,13 +42,36 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Add(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
       });
+    });
+
+    it('Should add in relative indirect mode', async () => {
+      const a = new Field(1n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(10, a);
+      context.machineState.memory.set(11, b);
+
+      context.machineState.memory.set(0, new Uint32(30)); // stack pointer
+      context.machineState.memory.set(32, new Uint32(5)); // indirect
+
+      await new Add(
+        /*indirect=*/ new Addressing([
+          /*aOffset*/ AddressingMode.DIRECT,
+          /*bOffset*/ AddressingMode.DIRECT,
+          /*dstOffset*/ AddressingMode.INDIRECT | AddressingMode.RELATIVE,
+        ]).toWire(),
+        /*aOffset=*/ 10,
+        /*bOffset=*/ 11,
+        /*dstOffset=*/ 2, // We expect the result to be stored at MEM[30 + 2] = 5
+      ).execute(context);
+
+      const actual = context.machineState.memory.get(5);
+      expect(actual).toEqual(new Field(3n));
     });
 
     describe.each([
@@ -64,9 +85,7 @@ describe('Arithmetic Instructions', () => {
       it(`${TypeTag[tag]}`, async () => {
         context.machineState.memory.set(0, a);
 
-        await new Add(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -77,22 +96,18 @@ describe('Arithmetic Instructions', () => {
   describe('Sub', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Sub.opcode, // opcode
+        Opcode.SUB_16, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Sub(
-        /*indirect=*/ 0x01,
-        /*inTag=*/ TypeTag.FIELD,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+      const inst = new Sub(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.SUB_16,
+        Sub.wireFormat16,
       );
 
-      expect(Sub.deserialize(buf)).toEqual(inst);
+      expect(Sub.as(Sub.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -108,9 +123,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Sub(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -134,9 +147,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Sub(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -147,22 +158,18 @@ describe('Arithmetic Instructions', () => {
   describe('Mul', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Mul.opcode, // opcode
+        Opcode.MUL_16, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Mul(
-        /*indirect=*/ 0x01,
-        /*inTag=*/ TypeTag.FIELD,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+      const inst = new Mul(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.MUL_16,
+        Mul.wireFormat16,
       );
 
-      expect(Mul.deserialize(buf)).toEqual(inst);
+      expect(Mul.as(Mul.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -178,9 +185,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Mul(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -199,9 +204,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Mul(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -212,22 +215,18 @@ describe('Arithmetic Instructions', () => {
   describe('Div', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Div.opcode, // opcode
+        Opcode.DIV_16, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Div(
-        /*indirect=*/ 0x01,
-        /*inTag=*/ TypeTag.FIELD,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+      const inst = new Div(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.DIV_16,
+        Div.wireFormat16,
       );
 
-      expect(Div.deserialize(buf)).toEqual(inst);
+      expect(Div.as(Div.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -243,9 +242,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Div(/*indirect=*/ 0, /*inTag=*/ tag, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(
-          context,
-        );
+        await new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -256,20 +253,18 @@ describe('Arithmetic Instructions', () => {
   describe('FDiv', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        FieldDiv.opcode, // opcode
+        Opcode.FDIV_16, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new FieldDiv(
-        /*indirect=*/ 0x01,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+      const inst = new FieldDiv(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.FDIV_16,
+        FieldDiv.wireFormat16,
       );
 
-      expect(FieldDiv.deserialize(buf)).toEqual(inst);
+      expect(FieldDiv.as(FieldDiv.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -280,13 +275,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Div(
-        /*indirect=*/ 0,
-        /*inTag=*/ TypeTag.FIELD,
-        /*aOffset=*/ 0,
-        /*bOffset=*/ 1,
-        /*dstOffset=*/ 2,
-      ).execute(context);
+      await new FieldDiv(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Field(2));

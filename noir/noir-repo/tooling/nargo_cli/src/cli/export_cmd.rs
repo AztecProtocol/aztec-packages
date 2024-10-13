@@ -12,8 +12,7 @@ use nargo::workspace::Workspace;
 use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_driver::{
-    compile_no_check, file_manager_with_stdlib, CheckOptions, CompileOptions, CompiledProgram,
-    NOIR_ARTIFACT_VERSION_STRING,
+    compile_no_check, CompileOptions, CompiledProgram, NOIR_ARTIFACT_VERSION_STRING,
 };
 
 use noirc_frontend::graph::CrateName;
@@ -54,7 +53,7 @@ pub(crate) fn run(args: ExportCommand, config: NargoConfig) -> Result<(), CliErr
         Some(NOIR_ARTIFACT_VERSION_STRING.to_owned()),
     )?;
 
-    let mut workspace_file_manager = file_manager_with_stdlib(&workspace.root_dir);
+    let mut workspace_file_manager = workspace.new_file_manager();
     insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
     let parsed_files = parse_all(&workspace_file_manager);
 
@@ -83,9 +82,7 @@ fn compile_exported_functions(
     compile_options: &CompileOptions,
 ) -> Result<(), CliError> {
     let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
-    let error_on_unused_imports = package.error_on_unused_imports();
-    let check_options = CheckOptions::new(compile_options, error_on_unused_imports);
-    check_crate_and_report_errors(&mut context, crate_id, &check_options)?;
+    check_crate_and_report_errors(&mut context, crate_id, compile_options)?;
 
     let exported_functions = context.get_all_exported_functions_in_crate(&crate_id);
 

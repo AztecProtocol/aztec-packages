@@ -3,8 +3,8 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-
 namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct StdlibTranscriptParams {
@@ -19,7 +19,23 @@ template <typename Builder> struct StdlibTranscriptParams {
         Builder* builder = data[0].get_context();
         return stdlib::poseidon2<Builder>::hash(*builder, data);
     }
-
+    /**
+     * @brief Split a challenge field element into two half-width challenges
+     * @details `lo` is 128 bits and `hi` is 126 bits.
+     * This should provide significantly more than our security parameter bound: 100 bits
+     *
+     * @param challenge
+     * @return std::array<Fr, 2>
+     */
+    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    {
+        // use existing field-splitting code in cycle_scalar
+        using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
+        const cycle_scalar scalar = cycle_scalar(challenge);
+        scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
+        scalar.hi.create_range_constraint(cycle_scalar::HI_BITS);
+        return std::array<Fr, 2>{ scalar.lo, scalar.hi };
+    }
     template <typename T> static inline T convert_challenge(const Fr& challenge)
     {
         Builder* builder = challenge.get_context();

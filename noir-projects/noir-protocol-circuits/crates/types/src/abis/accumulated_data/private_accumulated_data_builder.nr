@@ -8,13 +8,12 @@ use crate::{
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE,
-    L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, FIXED_AVM_STARTUP_L2_GAS
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::Empty
 };
 
-struct PrivateAccumulatedDataBuilder {
+pub struct PrivateAccumulatedDataBuilder {
     note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
@@ -53,7 +52,7 @@ impl Empty for PrivateAccumulatedDataBuilder {
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
+            private_call_stack: BoundedVec::new()
         }
     }
 }

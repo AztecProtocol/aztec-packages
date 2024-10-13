@@ -1,13 +1,15 @@
 #include "decider_verifier.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
@@ -15,15 +17,13 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstanc
 {}
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator)
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
 {}
 
 /**
- * @brief This function verifies a decider proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
- * e*).
- *
+ * @brief Verify a decider proof relative to a decider verification key (ϕ, \vec{β*}, e*).
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
 {
@@ -39,7 +39,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
@@ -56,19 +56,16 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         return false;
     }
 
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
-    // unrolled protocol.
-    auto opening_claim = ZeroMorph::verify(accumulator->verification_key->circuit_size,
-                                           commitments.get_unshifted(),
-                                           commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted(),
-                                           claimed_evaluations.get_shifted(),
-                                           multivariate_challenge,
-                                           Commitment::one(),
-                                           transcript);
-    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
-
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+                                                                      commitments.get_unshifted(),
+                                                                      commitments.get_to_be_shifted(),
+                                                                      claimed_evaluations.get_unshifted(),
+                                                                      claimed_evaluations.get_shifted(),
+                                                                      multivariate_challenge,
+                                                                      Commitment::one(),
+                                                                      transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }

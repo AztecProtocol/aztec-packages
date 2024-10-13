@@ -8,11 +8,10 @@ import {
   AGGREGATION_OBJECT_LENGTH,
   ClientIvcProof,
   Fr,
-  type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -20,14 +19,13 @@ import {
   type VerificationKeyAsFields,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
-import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
+  ClientCircuitVks,
   type ClientProtocolArtifact,
-  PrivateResetTagToArtifactName,
   ProtocolCircuitVks,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
@@ -39,6 +37,7 @@ import {
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
+  getPrivateKernelResetArtifactName,
 } from '@aztec/noir-protocol-circuits-types';
 import { WASMSimulator } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
@@ -58,6 +57,7 @@ import {
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
+import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -129,12 +129,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await this.runInDirectory(operation);
   }
 
-  public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
-    const contractAddress = publicInputs.callContext.storageContractAddress;
-
-    return Promise.resolve(publicInputs.noteHashes.map(commitment => siloNoteHash(contractAddress, commitment.value)));
-  }
-
   public async simulateProofInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
@@ -158,13 +152,15 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   }
 
   public async simulateProofReset(
-    inputs: PrivateKernelResetCircuitPrivateInputsVariants,
+    inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const variantInputs = inputs.trimToSizes();
+    const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
     return await this.simulate(
-      inputs,
-      PrivateResetTagToArtifactName[inputs.sizeTag],
-      convertPrivateKernelResetInputsToWitnessMap,
-      output => convertPrivateKernelResetOutputsFromWitnessMap(output, inputs.sizeTag),
+      variantInputs,
+      artifactName,
+      variantInputs => convertPrivateKernelResetInputsToWitnessMap(variantInputs, artifactName),
+      output => convertPrivateKernelResetOutputsFromWitnessMap(output, artifactName),
     );
   }
 
@@ -213,7 +209,12 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       this.log.debug(`${circuitType} BB out - ${message}`);
     };
 
-    const result = await this.verifyProofFromKey(verificationKey.keyAsBytes, proof, logFunction);
+    const result = await this.verifyProofFromKey(
+      getUltraHonkFlavorForCircuit(circuitType),
+      verificationKey.keyAsBytes,
+      proof,
+      logFunction,
+    );
 
     if (result.status === BB_RESULT.FAILURE) {
       const errorMessage = `Failed to verify ${circuitType} proof!`;
@@ -224,6 +225,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   }
 
   private async verifyProofFromKey(
+    flavor: UltraHonkFlavor,
     verificationKey: Buffer,
     proof: Proof,
     logFunction: (message: string) => void = () => {},
@@ -234,7 +236,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
 
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey);
-      return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
+      return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, flavor, logFunction);
     };
     return await this.runInDirectory(operation);
   }
@@ -276,14 +278,14 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    // TODO(#7410) we dont need to generate vk's for these circuits, they are in the vk tree
-    const { verificationKey } = await this.runInDirectory(dir =>
-      this.computeVerificationKey(dir, Buffer.from(compiledCircuit.bytecode, 'base64'), circuitType),
-    );
+    const verificationKey = ClientCircuitVks[circuitType].keyAsFields;
+    const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
       verificationKey,
       outputWitness,
+      bytecode,
     };
     return kernelOutput;
   }
@@ -301,7 +303,14 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
 
     const timer = new Timer();
 
-    const vkResult = await computeVerificationKey(this.bbBinaryPath, directory, circuitType, bytecode, this.log.debug);
+    const vkResult = await computeVerificationKey(
+      this.bbBinaryPath,
+      directory,
+      circuitType,
+      bytecode,
+      circuitType === 'App' ? 'ultra_honk' : getUltraHonkFlavorForCircuit(circuitType),
+      this.log.debug,
+    );
 
     if (vkResult.status === BB_RESULT.FAILURE) {
       this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);

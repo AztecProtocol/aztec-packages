@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -28,10 +30,10 @@ struct MaxBlockSizeTracker {
     }
 
     // For printing only. Must match the order of the members in the arithmetization
-    std::vector<std::string> block_labels{ "ecc_op",           "pub_inputs", "arithmetic",
-                                           "delta_range",      "elliptic",   "aux",
-                                           "lookup",           "busread",    "poseidon_external",
-                                           "poseidon_internal" };
+    std::vector<std::string> block_labels{
+        "ecc_op", "pub_inputs", "arithmetic", "delta_range",        "elliptic",
+        "aux",    "lookup",     "busread",    "poseidon2_external", "poseidon2_internal"
+    };
 
     void print()
     {

@@ -1,8 +1,9 @@
 import {
-  type BlockProver,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
+  type ProcessedTxHandler,
   PublicDataWrite,
-  PublicKernelType,
+  PublicKernelPhase,
   SimulationError,
   type TreeInfo,
   type TxValidator,
@@ -37,30 +38,24 @@ import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  type PublicExecutionResult,
-  type PublicExecutor,
-  WASMSimulator,
-  computeFeePayerBalanceLeafSlot,
-} from '@aztec/simulator';
+import { type PublicExecutor, WASMSimulator, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicExecutionResultBuilder, makeFunctionCall } from '../mocks/fixtures.js';
-import { type ContractsDataSourcePublicDB, type WorldStatePublicDB } from './public_db_sources.js';
+import { type PublicExecutionResult } from './execution.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let db: MockProxy<MerkleTreeOperations>;
+  let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
-  let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
-  let prover: MockProxy<BlockProver>;
+  let worldStateDB: MockProxy<WorldStateDB>;
+  let handler: MockProxy<ProcessedTxHandler>;
 
   let proof: ClientIvcProof;
   let root: Buffer;
@@ -68,17 +63,16 @@ describe('public_processor', () => {
   let processor: PublicProcessor;
 
   beforeEach(() => {
-    db = mock<MerkleTreeOperations>();
+    db = mock<MerkleTreeWriteOperations>();
     publicExecutor = mock<PublicExecutor>();
-    publicContractsDB = mock<ContractsDataSourcePublicDB>();
-    publicWorldStateDB = mock<WorldStatePublicDB>();
-    prover = mock<BlockProver>();
+    worldStateDB = mock<WorldStateDB>();
+    handler = mock<ProcessedTxHandler>();
 
     proof = ClientIvcProof.empty();
     root = Buffer.alloc(32, 5);
 
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-    publicWorldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
+    worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
   });
 
   describe('with mock circuits', () => {
@@ -86,14 +80,13 @@ describe('public_processor', () => {
 
     beforeEach(() => {
       publicKernel = mock<PublicKernelCircuitSimulator>();
-      processor = new PublicProcessor(
+      processor = PublicProcessor.create(
         db,
         publicExecutor,
         publicKernel,
         GlobalVariables.empty(),
         Header.empty(),
-        publicContractsDB,
-        publicWorldStateDB,
+        worldStateDB,
         new NoopTelemetryClient(),
       );
     });
@@ -102,7 +95,7 @@ describe('public_processor', () => {
       const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
       const hash = tx.getTxHash();
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed.length).toBe(1);
 
@@ -126,21 +119,21 @@ describe('public_processor', () => {
       expect(processed[0]).toEqual(expected);
       expect(failed).toEqual([]);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
       publicExecutor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toEqual([]);
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
-      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
   });
 
@@ -185,14 +178,13 @@ describe('public_processor', () => {
       });
 
       publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-      processor = new PublicProcessor(
+      processor = PublicProcessor.create(
         db,
         publicExecutor,
         publicKernel,
         GlobalVariables.from({ ...GlobalVariables.empty(), gasFees: GasFees.default() }),
         header,
-        publicContractsDB,
-        publicWorldStateDB,
+        worldStateDB,
         new NoopTelemetryClient(),
       );
     });
@@ -204,21 +196,21 @@ describe('public_processor', () => {
         hasLogs: true,
       });
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(failed.map(f => f.error)).toEqual([]);
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       // we keep the logs
       expect(processed[0].encryptedLogs.getTotalLogCount()).toBe(6);
       expect(processed[0].unencryptedLogs.getTotalLogCount()).toBe(2);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
@@ -237,7 +229,7 @@ describe('public_processor', () => {
 
       publicExecutor.simulate.mockResolvedValue(publicExecutionResult);
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
@@ -245,12 +237,12 @@ describe('public_processor', () => {
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
       // we only call checkpoint after successful "setup"
-      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -259,7 +251,7 @@ describe('public_processor', () => {
       );
 
       // We are passing 3 txs but only 2 can fit in the block
-      const [processed, failed] = await processor.process(txs, 2, prover);
+      const [processed, failed] = await processor.process(txs, 2, handler);
 
       expect(processed).toHaveLength(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
@@ -268,11 +260,11 @@ describe('public_processor', () => {
       expect(processed[1].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[1]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[1]);
     });
 
     it('does not send a transaction to the prover if validation fails', async function () {
@@ -281,13 +273,13 @@ describe('public_processor', () => {
       const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
       txValidator.validateTxs.mockRejectedValue([[], [tx]]);
 
-      const [processed, failed] = await processor.process([tx], 1, prover, txValidator);
+      const [processed, failed] = await processor.process([tx], 1, handler, txValidator);
 
       expect(processed).toHaveLength(0);
       expect(failed).toHaveLength(1);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
 
-      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
+      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     it('rolls back app logic db updates on failed public execution, but persists setup', async function () {
@@ -368,25 +360,23 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(1);
-      expect(appLogicSpy).toHaveBeenCalledTimes(2);
-      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(innerSpy).toHaveBeenCalledTimes(1 + 3 + 2);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
       const numPublicDataWrites = 5;
@@ -396,20 +386,18 @@ describe('public_processor', () => {
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotD), fr(0x251)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
       ];
-      // sort increasing by leafIndex
-      expectedWrites.sort((a, b) => (a.leafIndex.lt(b.leafIndex) ? -1 : 1));
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual(expectedWrites);
 
       // we keep the non-revertible logs
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('fails a transaction that reverts in setup', async function () {
@@ -477,27 +465,25 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(0);
       expect(failed).toHaveLength(1);
       expect(failed[0].tx.getTxHash()).toEqual(tx.getTxHash());
 
-      expect(setupSpy).toHaveBeenCalledTimes(1);
-      expect(appLogicSpy).toHaveBeenCalledTimes(0);
-      expect(teardownSpy).toHaveBeenCalledTimes(0);
+      expect(innerSpy).toHaveBeenCalledTimes(3);
+      expect(mergeSpy).toHaveBeenCalledTimes(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
 
-      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
 
-      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
+      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     it('includes a transaction that reverts in teardown', async function () {
@@ -559,7 +545,7 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: teardownRequest.callContext.storageContractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
-              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
+              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 17)],
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(teardownResultSettings),
           ],
@@ -574,36 +560,34 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(2);
-      expect(appLogicSpy).toHaveBeenCalledTimes(1);
-      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(innerSpy).toHaveBeenCalledTimes(2 + 1 + 3);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
         new PublicDataWrite(
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
       ]);
 
       // we keep the non-revertible logs
@@ -612,7 +596,7 @@ describe('public_processor', () => {
 
       expect(processed[0].data.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('includes a transaction that reverts in app logic and teardown', async function () {
@@ -690,36 +674,34 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(2);
-      expect(appLogicSpy).toHaveBeenCalledTimes(1);
-      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(innerSpy).toHaveBeenCalledTimes(2 + 1 + 3);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(2);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
         new PublicDataWrite(
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
       ]);
 
       // we keep the non-revertible logs
@@ -728,10 +710,10 @@ describe('public_processor', () => {
 
       expect(processed[0].data.revertCode).toEqual(RevertCode.BOTH_REVERTED);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
-    it('runs a tx with setup and teardown phases', async function () {
+    it('runs a tx with all phases', async function () {
       const tx = mockTx(1, {
         numberOfNonRevertiblePublicCallRequests: 1,
         numberOfRevertiblePublicCallRequests: 1,
@@ -742,8 +724,9 @@ describe('public_processor', () => {
       const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
       const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
-      const gasLimits = Gas.from({ l2Gas: 1e9, daGas: 1e9 });
-      const teardownGas = Gas.from({ l2Gas: 1e7, daGas: 1e7 });
+      // Keep gas numbers MAX_L2_GAS_PER_ENQUEUED_CALL or the logic below has to get weird
+      const gasLimits = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
+      const teardownGas = Gas.from({ l2Gas: 1e5, daGas: 1e5 });
       tx.data.constants.txContext.gasSettings = GasSettings.from({
         gasLimits: gasLimits,
         teardownGasLimits: teardownGas,
@@ -768,20 +751,26 @@ describe('public_processor', () => {
 
       let simulatorCallCount = 0;
 
+      // Keep gas numbers below MAX_L2_GAS_PER_ENQUEUED_CALL or we need
+      // to separately compute available start gas and "effective" start gas
+      // for each enqueued call after applying that max.
       const initialGas = gasLimits.sub(teardownGas);
-      const setupGasUsed = Gas.from({ l2Gas: 1e6 });
-      const appGasUsed = Gas.from({ l2Gas: 2e6, daGas: 2e6 });
-      const teardownGasUsed = Gas.from({ l2Gas: 3e6, daGas: 3e6 });
+      const setupGasUsed = Gas.from({ l2Gas: 1e4 });
+      const appGasUsed = Gas.from({ l2Gas: 2e4, daGas: 2e4 });
+      const teardownGasUsed = Gas.from({ l2Gas: 3e4, daGas: 3e4 });
       const afterSetupGas = initialGas.sub(setupGasUsed);
       const afterAppGas = afterSetupGas.sub(appGasUsed);
       const afterTeardownGas = teardownGas.sub(teardownGasUsed);
 
       // Total gas used is the sum of teardown gas allocation plus all expenditures along the way,
       // without including the gas used in the teardown phase (since that's consumed entirely up front).
-      const expectedTotalGasUsed = { l2Gas: 1e7 + 1e6 + 2e6, daGas: 1e7 + 2e6 };
+      const expectedTotalGasUsed = teardownGas.add(setupGasUsed).add(appGasUsed);
 
       // Inclusion fee plus block gas fees times total gas used
-      const expectedTxFee = 1e4 + (1e7 + 1e6 + 2e6) * 1 + (1e7 + 2e6) * 1;
+      const expectedTxFee =
+        tx.data.constants.txContext.gasSettings.inclusionFee.toNumber() +
+        expectedTotalGasUsed.l2Gas * 1 +
+        expectedTotalGasUsed.daGas * 1;
       const transactionFee = new Fr(expectedTxFee);
 
       const simulatorResults: PublicExecutionResult[] = [
@@ -843,21 +832,19 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
       const tailSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTail');
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(1);
-      expect(appLogicSpy).toHaveBeenCalledTimes(1);
-      expect(teardownSpy).toHaveBeenCalledTimes(3);
+      expect(innerSpy).toHaveBeenCalledTimes(1 + 1 + 3);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(tailSpy).toHaveBeenCalledTimes(1);
 
       const expectedSimulateCall = (availableGas: Partial<FieldsOf<Gas>>, txFee: number) => [
@@ -868,6 +855,8 @@ describe('public_processor', () => {
         expect.anything(), // pendingNullifiers
         new Fr(txFee),
         expect.anything(), // SideEffectCounter
+        expect.anything(), // PublicValidationRequestArrayLengths
+        expect.anything(), // PublicAccumulatedDataArrayLengths
       ];
 
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
@@ -875,30 +864,28 @@ describe('public_processor', () => {
       expect(publicExecutor.simulate).toHaveBeenNthCalledWith(2, ...expectedSimulateCall(afterSetupGas, 0));
       expect(publicExecutor.simulate).toHaveBeenNthCalledWith(3, ...expectedSimulateCall(teardownGas, expectedTxFee));
 
-      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       expect(processed[0].data.end.gasUsed).toEqual(Gas.from(expectedTotalGasUsed));
-      expect(processed[0].gasUsed[PublicKernelType.SETUP]).toEqual(setupGasUsed);
-      expect(processed[0].gasUsed[PublicKernelType.APP_LOGIC]).toEqual(appGasUsed);
-      expect(processed[0].gasUsed[PublicKernelType.TEARDOWN]).toEqual(teardownGasUsed);
-      expect(processed[0].gasUsed[PublicKernelType.TAIL]).toBeUndefined();
-      expect(processed[0].gasUsed[PublicKernelType.NON_PUBLIC]).toBeUndefined();
+      expect(processed[0].gasUsed[PublicKernelPhase.SETUP]).toEqual(setupGasUsed);
+      expect(processed[0].gasUsed[PublicKernelPhase.APP_LOGIC]).toEqual(appGasUsed);
+      expect(processed[0].gasUsed[PublicKernelPhase.TEARDOWN]).toEqual(teardownGasUsed);
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x152)),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x103)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x152)),
       ]);
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('runs a tx with only teardown', async function () {
@@ -956,21 +943,19 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
       const tailSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTail');
 
-      const [processed, failed] = await processor.process([tx], 1, prover);
+      const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(0);
-      expect(appLogicSpy).toHaveBeenCalledTimes(0);
-      expect(teardownSpy).toHaveBeenCalledTimes(1);
+      expect(innerSpy).toHaveBeenCalledTimes(1);
+      expect(mergeSpy).toHaveBeenCalledTimes(1);
       expect(tailSpy).toHaveBeenCalledTimes(1);
     });
 
@@ -990,19 +975,19 @@ describe('public_processor', () => {
           inclusionFee: new Fr(inclusionFee),
         });
 
-        publicWorldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
+        worldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
+        worldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, prover);
+        const [processed, failed] = await processor.process([tx], 1, handler);
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
         expect(publicExecutor.simulate).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-        expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(1);
+        expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+        expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+        expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
         expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
           PublicDataUpdateRequest.from({
@@ -1012,7 +997,7 @@ describe('public_processor', () => {
           }),
         );
 
-        expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+        expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
       });
 
       it('injects balance update with public enqueued call', async function () {
@@ -1030,21 +1015,21 @@ describe('public_processor', () => {
           inclusionFee: new Fr(inclusionFee),
         });
 
-        publicWorldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
+        worldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
+        worldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, prover);
+        const [processed, failed] = await processor.process([tx], 1, handler);
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
         expect(processed[0].hash).toEqual(tx.getTxHash());
         expect(processed[0].clientIvcProof).toEqual(proof);
         expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-        expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-        expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(1);
+        expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+        expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+        expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
         expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
           PublicDataUpdateRequest.from({
@@ -1054,7 +1039,7 @@ describe('public_processor', () => {
           }),
         );
 
-        expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+        expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
       });
 
       it('tweaks existing balance update from claim', async function () {
@@ -1072,8 +1057,8 @@ describe('public_processor', () => {
           inclusionFee: new Fr(inclusionFee),
         });
 
-        publicWorldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
+        worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
+        worldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
@@ -1083,16 +1068,16 @@ describe('public_processor', () => {
           sideEffectCounter: 0,
         });
 
-        const [processed, failed] = await processor.process([tx], 1, prover);
+        const [processed, failed] = await processor.process([tx], 1, handler);
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
         expect(processed[0].hash).toEqual(tx.getTxHash());
         expect(processed[0].clientIvcProof).toEqual(proof);
         expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-        expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
-        expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(1);
+        expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+        expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+        expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
         expect(processed[0].finalPublicDataUpdateRequests[0]).toEqual(
           PublicDataUpdateRequest.from({
@@ -1102,7 +1087,7 @@ describe('public_processor', () => {
           }),
         );
 
-        expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+        expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
       });
 
       it('rejects tx if fee payer has not enough balance', async function () {
@@ -1120,20 +1105,20 @@ describe('public_processor', () => {
           inclusionFee: new Fr(inclusionFee),
         });
 
-        publicWorldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
+        worldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
+        worldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, prover);
+        const [processed, failed] = await processor.process([tx], 1, handler);
 
         expect(processed).toHaveLength(0);
         expect(failed).toHaveLength(1);
         expect(failed[0].error.message).toMatch(/Not enough balance/i);
         expect(publicExecutor.simulate).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
-        expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(0);
+        expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
+        expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+        expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(0);
       });
     });
   });

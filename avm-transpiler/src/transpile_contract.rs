@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use acvm::FieldElement;
 use base64::Engine;
 use log::info;
@@ -52,6 +50,7 @@ pub struct AvmContractFunctionArtifact {
         deserialize_with = "ProgramDebugInfo::deserialize_compressed_base64_json"
     )]
     pub debug_symbols: ProgramDebugInfo,
+    pub brillig_names: Vec<String>,
     pub assert_messages: HashMap<usize, String>,
 }
 
@@ -73,6 +72,7 @@ pub struct AcirContractFunctionArtifact {
         deserialize_with = "ProgramDebugInfo::deserialize_compressed_base64_json"
     )]
     pub debug_symbols: ProgramDebugInfo,
+    pub brillig_names: Vec<String>,
 }
 
 /// An enum that allows the TranspiledContract struct to contain
@@ -91,13 +91,13 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
         let mut functions: Vec<AvmOrAcirContractFunctionArtifact> = Vec::new();
 
         for function in contract.functions {
-            // TODO(4269): once functions are tagged for transpilation to AVM, check tag
-            if function.custom_attributes.contains(&"aztec(public)".to_string()) {
+            if function.custom_attributes.contains(&"public".to_string()) {
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
                 let brillig_bytecode = extract_brillig_from_acir_program(&acir_program);
                 let assert_messages = extract_static_assert_messages(&acir_program);
+                info!("Extracted Brillig program has {} instructions", brillig_bytecode.len());
 
                 // Map Brillig pcs to AVM pcs (index is Brillig PC, value is AVM PC)
                 let brillig_pcs_to_avm_pcs = map_brillig_pcs_to_avm_pcs(brillig_bytecode);
@@ -109,19 +109,11 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 // Transpile to AVM
                 let avm_bytecode = brillig_to_avm(brillig_bytecode, &brillig_pcs_to_avm_pcs);
 
-                // Gzip AVM bytecode. This has to be removed once we need to do bytecode verification.
-                let mut compressed_avm_bytecode = Vec::new();
-                let mut encoder =
-                    flate2::read::GzEncoder::new(&avm_bytecode[..], flate2::Compression::best());
-                let _ = encoder.read_to_end(&mut compressed_avm_bytecode);
-
                 log::info!(
-                    "{}::{}: compressed {} to {} bytes ({}% reduction)",
+                    "{}::{}: bytecode is {} bytes",
                     contract.name,
                     function.name,
                     avm_bytecode.len(),
-                    compressed_avm_bytecode.len(),
-                    100 - (compressed_avm_bytecode.len() * 100 / avm_bytecode.len())
                 );
 
                 // Patch the debug infos with updated PCs
@@ -137,8 +129,9 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                         is_unconstrained: function.is_unconstrained,
                         custom_attributes: function.custom_attributes,
                         abi: function.abi,
-                        bytecode: base64::prelude::BASE64_STANDARD.encode(compressed_avm_bytecode),
+                        bytecode: base64::prelude::BASE64_STANDARD.encode(avm_bytecode),
                         debug_symbols: ProgramDebugInfo { debug_infos },
+                        brillig_names: function.brillig_names,
                         assert_messages,
                     },
                 ));

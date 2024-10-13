@@ -6,7 +6,7 @@ use dep::aztec::protocol_types::{
 },
     hash::poseidon2_hash_with_separator
 };
-use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
+use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
 
 /**
  * Authenticaion witness helper library
@@ -170,7 +170,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  *
  *
  * --- FAQ ---
- * Q:   Why are we using a success flag of `keccak256("IS_VALID()")` instead of just returning a boolean?
+ * Q:   Why are we using a success flag of `poseidon2_hash_bytes("IS_VALID()")` instead of just returning a boolean?
  * A:   We want to make sure that we don't accidentally return `true` if there is a collision in the function selector.
  *      By returning a hash of `IS_VALID()`, it becomes very unlikely that there is both a collision and we return
  *      a success flag.
@@ -189,7 +189,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR = 0xabf64ad4; // 4 first bytes of keccak256("IS_VALID()")
+global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
 /**
  * Assert that `on_behalf_of` have authorized the current call with a valid authentication witness
@@ -219,7 +219,9 @@ pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_o
     // We perform a static call here and not a standard one to ensure that the account contract cannot re-enter.
     let result: Field = context.static_call_private_function(
         on_behalf_of,
-        FunctionSelector::from_signature("verify_private_authwit(Field)"),
+        comptime {
+        FunctionSelector::from_signature("verify_private_authwit(Field)")
+    },
         [inner_hash]
     ).unpack_into();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
@@ -241,7 +243,10 @@ pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_o
  * @param on_behalf_of The address that have authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit_public
-pub fn assert_current_call_valid_authwit_public(context: &mut PublicContext, on_behalf_of: AztecAddress) {
+pub fn assert_current_call_valid_authwit_public(
+    context: &mut PublicContext,
+    on_behalf_of: AztecAddress
+) {
     let inner_hash = compute_inner_authwit_hash(
         [(*context).msg_sender().to_field(), (*context).selector().to_field(), (*context).get_args_hash()]
     );
@@ -263,7 +268,9 @@ pub fn assert_current_call_valid_authwit_public(context: &mut PublicContext, on_
 pub fn assert_inner_hash_valid_authwit_public(context: &mut PublicContext, on_behalf_of: AztecAddress, inner_hash: Field) {
     let result: Field = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        FunctionSelector::from_signature("consume((Field),Field)"),
+        comptime {
+        FunctionSelector::from_signature("consume((Field),Field)")
+    },
         [on_behalf_of.to_field(), inner_hash].as_slice(),
         GasOpts::default()
     ).deserialize_into();
@@ -357,7 +364,9 @@ pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, ver
 pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authorize: bool) {
     context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        FunctionSelector::from_signature("set_authorized(Field,bool)"),
+        comptime {
+        FunctionSelector::from_signature("set_authorized(Field,bool)")
+    },
         [message_hash, authorize as Field].as_slice(),
         GasOpts::default()
     ).assert_empty();
@@ -373,7 +382,9 @@ pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authoriz
 pub fn set_reject_all(context: &mut PublicContext, reject: bool) {
     context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        FunctionSelector::from_signature("set_reject_all(bool)"),
+        comptime {
+        FunctionSelector::from_signature("set_reject_all(bool)")
+    },
         [context.this_address().to_field(), reject as Field].as_slice(),
         GasOpts::default()
     ).assert_empty();

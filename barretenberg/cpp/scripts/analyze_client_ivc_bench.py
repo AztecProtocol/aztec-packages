@@ -16,7 +16,7 @@ PREFIX = args.prefix
 # Single out an independent set of functions accounting for most of BENCHMARK's real_time
 to_keep = [
     "construct_circuits(t)",
-    "ProverInstance(Circuit&)(t)",
+    "DeciderProvingKey(Circuit&)(t)",
     "ProtogalaxyProver::prove(t)",
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",
@@ -66,7 +66,7 @@ for key in ['commit(t)', 'compute_combiner(t)', 'compute_perturbator(t)', 'compu
 
 print('\nBreakdown of ProtogalaxyProver::prove:')
 protogalaxy_round_labels = [
-    "ProtogalaxyProver_::preparation_round(t)",
+    "ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)",
     "ProtogalaxyProver_::perturbator_round(t)",
     "ProtogalaxyProver_::combiner_quotient_round(t)",
     "ProtogalaxyProver_::update_target_sum_and_fold(t)"

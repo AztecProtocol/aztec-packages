@@ -20,7 +20,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_APP_LOGIC_INDEX,
 ];
 
-struct PublicKernelAppLogicCircuitPrivateInputs {
+pub struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }
@@ -50,13 +50,11 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash}, log_hash::ScopedLogHash,
         nullifier::{Nullifier, ScopedNullifier},
         public_call_stack_item_compressed::PublicCallStackItemCompressed,
-        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        read_request::ReadRequest
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest
     },
-        constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX},
+        constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX},
         contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
         address::AztecAddress, hash::compute_siloed_nullifier,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, traits::is_empty
@@ -150,7 +148,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Cannot run unnecessary app logic circuit")]
+    #[test(should_fail_with = "Cannot run unnecessary app logic circuit")]
     fn public_previous_kernel_private_previous_kernel_should_fail() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.previous_kernel = FixtureBuilder::new().in_vk_tree(PUBLIC_KERNEL_APP_LOGIC_INDEX);
@@ -305,7 +303,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
+    #[test(should_fail_with = "No contract storage update requests are allowed for static calls")]
     fn previous_public_kernel_fails_if_contract_storage_update_requests_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.is_static_call = true;
@@ -314,7 +312,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
+    #[test(should_fail_with = "curent contract address must not match storage contract address for delegate calls")]
     fn previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new().is_delegate_call();
 
@@ -323,7 +321,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="note_hashes must be empty for static calls")]
+    #[test(should_fail_with = "note_hashes must be empty for static calls")]
     fn public_kernel_fails_creating_note_hashes_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.is_static_call = true;
@@ -332,7 +330,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="nullifiers must be empty for static calls")]
+    #[test(should_fail_with = "nullifiers must be empty for static calls")]
     fn public_kernel_fails_creating_nullifiers_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.is_static_call = true;
@@ -341,7 +339,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
+    #[test(should_fail_with = "call stack item does not match item at the top of the call stack")]
     fn public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new().is_delegate_call();
 
@@ -370,7 +368,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Cannot run app logic circuit before setup circuit")]
+    #[test(should_fail_with = "Cannot run app logic circuit before setup circuit")]
     fn previous_kernel_non_empty_non_revertible_public_call_requests_should_fail() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
@@ -415,7 +413,7 @@ mod tests {
         assert_eq(output.end_non_revertible.gas_used, Gas::new(0, 0));
     }
 
-    #[test(should_fail_with="Start gas for public phase does not match transaction gas left")]
+    #[test(should_fail_with = "Start gas for public phase does not match transaction gas left")]
     fn validates_start_gas() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
@@ -425,7 +423,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Transaction fee must be zero on setup and app phases")]
+    #[test(should_fail_with = "Transaction fee must be zero on setup and app phases")]
     fn validates_transaction_fee() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
@@ -445,7 +443,7 @@ mod tests {
         assert_eq(public_inputs.constants.global_variables.block_number, 11);
     }
 
-    #[test(should_fail_with="Global variables injected into the public call do not match constants")]
+    #[test(should_fail_with = "Global variables injected into the public call do not match constants")]
     fn validates_global_variables() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 

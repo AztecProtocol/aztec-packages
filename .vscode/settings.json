@@ -107,7 +107,7 @@
     "*.macros": "cpp",
     "*.tpp": "cpp"
   },
-  "solidity.compileUsingRemoteVersion": "v0.8.18",
+  "solidity.compileUsingRemoteVersion": "v0.8.27",
   "solidity.formatter": "forge",
   "search.exclude": {
     "**/.yarn": true,
@@ -172,4 +172,5 @@
   "files.trimTrailingWhitespace": true,
   "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
   "typescript.tsserver.maxTsServerMemory": 4096,
+  "markdown.extension.toc.levels": "2..6"
 }

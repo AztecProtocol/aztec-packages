@@ -10,6 +10,7 @@ import {
 import {
   type AztecAddress,
   type CompleteAddress,
+  type ContractInstance,
   type Fr,
   type FunctionSelector,
   type Header,
@@ -20,7 +21,6 @@ import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/ab
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -149,6 +149,11 @@ export class SimulatorOracle implements DBOracle {
    */
   async getCommitmentIndex(commitment: Fr) {
     return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+  }
+
+  // We need this in public as part of the EXISTS calls - but isn't used in private
+  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+    throw new Error('Unimplemented in private!');
   }
 
   async getNullifierIndex(nullifier: Fr) {

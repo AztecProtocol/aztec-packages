@@ -6,7 +6,7 @@ use dep::types::{
     merkle_tree::MembershipWitness
 };
 
-struct NoteHashSettledReadHint {
+pub struct NoteHashSettledReadHint {
     read_request_index: u32,
     membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
     leaf_preimage: NoteHashLeafPreimage,
@@ -36,7 +36,7 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     }
 }
 
-struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
+pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
     read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
     settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
@@ -150,13 +150,15 @@ mod tests {
             (hints, tree_root)
         }
 
-        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
-            let unverified_read_requests = self.get_unverified_read_requests();
+            let unverified_read_requests = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -173,7 +175,9 @@ mod tests {
     fn verify_reset_note_hash_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
 
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert(is_empty_array(unverified_read_requests));
 
         builder.verify();
@@ -187,7 +191,9 @@ mod tests {
         builder.read_request_statuses[4] = ReadRequestStatus::empty();
 
         let read_requests = builder.read_requests;
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert_array_eq(
             unverified_read_requests,
             [read_requests[2], read_requests[4]]
@@ -196,7 +202,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the note hash does not match read request")]
+    #[test(should_fail_with = "Value of the note hash does not match read request")]
     fn verify_reset_note_hash_read_requests_wrong_hinted_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -206,7 +212,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Contract address of the note hash does not match read request")]
+    #[test(should_fail_with = "Contract address of the note hash does not match read request")]
     fn verify_reset_note_hash_read_requests_different_contract_addresses_fails() {
         let mut builder = TestBuilder::new();
 
@@ -215,7 +221,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the note hash")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the note hash")]
     fn verify_reset_note_hash_read_requests_invalid_counter_fails() {
         let mut builder = TestBuilder::new();
 
@@ -227,7 +233,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the note hash leaf does not match read request")]
+    #[test(should_fail_with = "Value of the note hash leaf does not match read request")]
     fn verify_reset_note_hash_read_requests_invalid_leaf_fails() {
         let mut builder = TestBuilder::new();
 
@@ -239,4 +245,3 @@ mod tests {
         builder.verify();
     }
 }
-

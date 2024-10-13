@@ -13,7 +13,7 @@ pub fn point_to_bytes(pk: Point) -> [u8; 32] {
     // the "sign") so it's possible to use that last bit as an "is_infinite" flag if desired in the future.
     assert(!pk.is_infinite, "Cannot serialize point at infinity as bytes.");
 
-    let mut result = pk.x.to_be_bytes(32);
+    let mut result: [u8; 32] = pk.x.to_be_bytes();
 
     // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get
     // the sign we check if the y coordinate is less or equal than the curve's order minus 1 divided by 2.
@@ -27,7 +27,7 @@ pub fn point_to_bytes(pk: Point) -> [u8; 32] {
         result[0] += 128;
     }
 
-    result.as_array()
+    result
 }
 
 mod test {
@@ -35,7 +35,7 @@ mod test {
     use crate::utils::point::point_to_bytes;
 
     #[test]
-    fn test_point_to_bytes_positive_sign() {
+    unconstrained fn test_point_to_bytes_positive_sign() {
         let p = Point {
             x: 0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73,
             y: 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a,
@@ -55,7 +55,7 @@ mod test {
     }
 
     #[test]
-    fn test_point_to_bytes_negative_sign() {
+    unconstrained fn test_point_to_bytes_negative_sign() {
         let p = Point {
             x: 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5,
             y: 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0,

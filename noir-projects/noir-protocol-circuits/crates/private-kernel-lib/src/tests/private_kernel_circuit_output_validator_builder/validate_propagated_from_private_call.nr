@@ -10,7 +10,6 @@ fn validate_propagated_from_private_call_empty_data_succeeds() {
  * note_hash_read_requests
  * With private call data only.
  */
-
 #[test]
 fn validate_propagated_from_private_call_note_hash_read_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -21,7 +20,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="source item does not append to dest")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call_note_hash_read_requests_output_mismatch_value_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -33,7 +32,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_mismatch
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="propagated contract address does not match")]
+#[test(should_fail_with = "propagated contract address does not match")]
 fn validate_propagated_from_private_call_note_hash_read_requests_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -45,7 +44,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_mismatch_contra
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="source item does not append to dest")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call_note_hash_read_requests_output_one_less_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -56,7 +55,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_one_less
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_note_hash_read_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -67,7 +66,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_one_more
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_non_empty_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -84,11 +83,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_no
  * note_hash_read_requests
  * With previous kernel.
  */
-
-fn append_note_hash_read_requests_to_previous_kernel(
-    builder: &mut PrivateKernelCircuitOutputValidatorBuilder,
-    num_requests: u32
-) {
+fn append_note_hash_read_requests_to_previous_kernel(builder: &mut PrivateKernelCircuitOutputValidatorBuilder, num_requests: u32) {
     builder.previous_kernel.append_note_hash_read_requests(num_requests);
     builder.output.append_note_hash_read_requests(num_requests);
     builder.offset_values(num_requests as Field);
@@ -105,7 +100,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_s
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="source item does not append to dest")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_mismatch_value_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -118,7 +113,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="propagated contract address does not match")]
+#[test(should_fail_with = "propagated contract address does not match")]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -131,7 +126,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="source item does not append to dest")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_one_less_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -143,7 +138,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -155,7 +150,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_extra_non_empty_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -169,7 +164,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="number of total items exceeds limit")]
+#[test(should_fail_with = "number of total items exceeds limit")]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -187,7 +182,6 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
 /**
  * nullifier_read_requests
  */
-
 #[test]
 fn validate_propagated_from_private_call_nullifier_read_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -198,7 +192,7 @@ fn validate_propagated_from_private_call_nullifier_read_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_nullifier_read_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -212,7 +206,6 @@ fn validate_propagated_from_private_call_nullifier_read_requests_output_one_more
 /**
  * key_validation_requests
  */
-
 #[test]
 fn validate_propagated_from_private_call_key_validation_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -223,7 +216,7 @@ fn validate_propagated_from_private_call_key_validation_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_key_validation_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -237,7 +230,6 @@ fn validate_propagated_from_private_call_key_validation_requests_output_one_more
 /**
  * note_hashes
  */
-
 #[test]
 fn validate_propagated_from_private_call_note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -248,7 +240,7 @@ fn validate_propagated_from_private_call_note_hashes_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_note_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -262,7 +254,6 @@ fn validate_propagated_from_private_call_note_hashes_output_one_more_fails() {
 /**
  * nullifiers
  */
-
 #[test]
 fn validate_propagated_from_private_call_nullifiers_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -274,7 +265,7 @@ fn validate_propagated_from_private_call_nullifiers_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_nullifiers_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -289,7 +280,6 @@ fn validate_propagated_from_private_call_nullifiers_output_one_more_fails() {
 /**
  * l2_to_l1_msgs
  */
-
 #[test]
 fn validate_propagated_from_private_call_l2_to_l1_msgs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -300,7 +290,7 @@ fn validate_propagated_from_private_call_l2_to_l1_msgs_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_l2_to_l1_msgs_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -314,7 +304,6 @@ fn validate_propagated_from_private_call_l2_to_l1_msgs_output_one_more_fails() {
 /**
  * note_encrypted_log_hashes
  */
-
 #[test]
 fn validate_propagated_from_private_call_note_encrypted_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -325,7 +314,7 @@ fn validate_propagated_from_private_call_note_encrypted_log_hashes_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_note_encrypted_log_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -336,7 +325,7 @@ fn validate_propagated_from_private_call_note_encrypted_log_hashes_output_one_mo
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="number of total items exceeds limit")]
+#[test(should_fail_with = "number of total items exceeds limit")]
 fn validate_propagated_from_private_call_note_encrypted_log_hashes_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -353,7 +342,6 @@ fn validate_propagated_from_private_call_note_encrypted_log_hashes_with_previous
 /**
  * encrypted_log_hashes
  */
-
 #[test]
 fn validate_propagated_from_private_call_encrypted_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -364,7 +352,7 @@ fn validate_propagated_from_private_call_encrypted_log_hashes_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_encrypted_log_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -378,7 +366,6 @@ fn validate_propagated_from_private_call_encrypted_log_hashes_output_one_more_fa
 /**
  * unencrypted_log_hashes
  */
-
 #[test]
 fn validate_propagated_from_private_call_unencrypted_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -389,7 +376,7 @@ fn validate_propagated_from_private_call_unencrypted_log_hashes_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_unencrypted_log_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -403,7 +390,6 @@ fn validate_propagated_from_private_call_unencrypted_log_hashes_output_one_more_
 /**
  * private_call_requests
  */
-
 #[test]
 fn validate_propagated_from_private_call_private_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -414,7 +400,7 @@ fn validate_propagated_from_private_call_private_call_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="source item does not reversed append to dest")]
+#[test(should_fail_with = "source item does not reversed append to dest")]
 fn validate_propagated_from_private_call_private_call_requests_not_reversed_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -448,7 +434,7 @@ fn validate_propagated_from_private_call_private_call_requests_with_previous_out
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="number of total items exceeds limit")]
+#[test(should_fail_with = "number of total items exceeds limit")]
 fn validate_propagated_from_private_call_private_call_requests_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -466,7 +452,6 @@ fn validate_propagated_from_private_call_private_call_requests_with_previous_out
 /**
  * public_call_requests
  */
-
 #[test]
 fn validate_propagated_from_private_call_public_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -477,7 +462,7 @@ fn validate_propagated_from_private_call_public_call_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with="output should be appended with empty items")]
+#[test(should_fail_with = "output should be appended with empty items")]
 fn validate_propagated_from_private_call_public_call_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

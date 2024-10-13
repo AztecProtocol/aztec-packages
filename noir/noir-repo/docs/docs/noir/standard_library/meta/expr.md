@@ -18,6 +18,13 @@ If this expression is an array, this returns a slice of each element in the arra
 
 If this expression is an assert, this returns the assert expression and the optional message.
 
+### as_assert_eq
+
+#include_code as_assert_eq noir_stdlib/src/meta/expr.nr rust
+
+If this expression is an assert_eq, this returns the left-hand-side and right-hand-side
+expressions, together with the optional message.
+
 ### as_assign
 
 #include_code as_assign noir_stdlib/src/meta/expr.nr rust
@@ -45,12 +52,40 @@ a slice containing each statement.
 
 If this expression is a boolean literal, return that literal.
 
+### as_cast
+
+#include_code as_cast noir_stdlib/src/meta/expr.nr rust
+
+If this expression is a cast expression (`expr as type`), returns the casted
+expression and the type to cast to.
+
 ### as_comptime
 
 #include_code as_comptime noir_stdlib/src/meta/expr.nr rust
 
 If this expression is a `comptime { stmt1; stmt2; ...; stmtN }` block,
 return each statement in the block.
+
+### as_constructor
+
+#include_code as_constructor noir_stdlib/src/meta/expr.nr rust
+
+If this expression is a constructor `Type { field1: expr1, ..., fieldN: exprN }`,
+return the type and the fields.
+
+### as_for
+
+#include_code as_for noir_stdlib/src/meta/expr.nr rust
+
+If this expression is a for statement over a single expression, return the identifier,
+the expression and the for loop body.
+
+### as_for_range
+
+#include_code as_for noir_stdlib/src/meta/expr.nr rust
+
+If this expression is a for statement over a range, return the identifier,
+the range start, the range end and the for loop body.
 
 ### as_function_call
 
@@ -78,8 +113,21 @@ array and the index.
 
 #include_code as_integer noir_stdlib/src/meta/expr.nr rust
 
-If this element is an integer literal, return the integer as a field
+If this expression is an integer literal, return the integer as a field
 as well as whether the integer is negative (true) or not (false).
+
+### as_lambda
+
+#include_code as_lambda noir_stdlib/src/meta/expr.nr rust
+
+If this expression is a lambda, returns the parameters, return type and body.
+
+### as_let
+
+#include_code as_let noir_stdlib/src/meta/expr.nr rust
+
+If this expression is a let statement, returns the let pattern as an `Expr`,
+the optional type annotation, and the assigned expression.
 
 ### as_member_access
 

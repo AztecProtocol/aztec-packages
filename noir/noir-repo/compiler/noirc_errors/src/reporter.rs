@@ -12,6 +12,12 @@ pub struct CustomDiagnostic {
     pub secondaries: Vec<CustomLabel>,
     notes: Vec<String>,
     pub kind: DiagnosticKind,
+    pub deprecated: bool,
+    pub unnecessary: bool,
+
+    /// An optional call stack to display the full runtime call stack
+    /// leading up to a runtime error. If this is empty it will not be displayed.
+    pub call_stack: Vec<Location>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -35,6 +41,9 @@ impl CustomDiagnostic {
             secondaries: Vec::new(),
             notes: Vec::new(),
             kind: DiagnosticKind::Error,
+            deprecated: false,
+            unnecessary: false,
+            call_stack: Default::default(),
         }
     }
 
@@ -49,6 +58,9 @@ impl CustomDiagnostic {
             secondaries: vec![CustomLabel::new(secondary_message, secondary_span, None)],
             notes: Vec::new(),
             kind,
+            deprecated: false,
+            unnecessary: false,
+            call_stack: Default::default(),
         }
     }
 
@@ -101,11 +113,19 @@ impl CustomDiagnostic {
             secondaries: vec![CustomLabel::new(secondary_message, secondary_span, None)],
             notes: Vec::new(),
             kind: DiagnosticKind::Bug,
+            deprecated: false,
+            unnecessary: false,
+            call_stack: Default::default(),
         }
     }
 
     pub fn in_file(self, file_id: fm::FileId) -> FileDiagnostic {
         FileDiagnostic::new(file_id, self)
+    }
+
+    pub fn with_call_stack(mut self, call_stack: Vec<Location>) -> Self {
+        self.call_stack = call_stack;
+        self
     }
 
     pub fn add_note(&mut self, message: String) {
@@ -196,7 +216,7 @@ impl FileDiagnostic {
         files: &'files impl Files<'files, FileId = fm::FileId>,
         deny_warnings: bool,
     ) -> bool {
-        report(files, &self.diagnostic, Some(self.file_id), &self.call_stack, deny_warnings)
+        report(files, &self.diagnostic, Some(self.file_id), deny_warnings)
     }
 }
 
@@ -205,7 +225,6 @@ pub fn report<'files>(
     files: &'files impl Files<'files, FileId = fm::FileId>,
     custom_diagnostic: &CustomDiagnostic,
     file: Option<fm::FileId>,
-    call_stack: &[Location],
     deny_warnings: bool,
 ) -> bool {
     let color_choice =
@@ -213,7 +232,7 @@ pub fn report<'files>(
     let writer = StandardStream::stderr(color_choice);
     let config = codespan_reporting::term::Config::default();
 
-    let stack_trace = stack_trace(files, call_stack);
+    let stack_trace = stack_trace(files, &custom_diagnostic.call_stack);
     let diagnostic = convert_diagnostic(custom_diagnostic, file, stack_trace, deny_warnings);
     term::emit(&mut writer.lock(), &config, files, &diagnostic).unwrap();
 

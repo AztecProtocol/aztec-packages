@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+mod bit_traits;
 mod instructions;
 mod opcodes;
 mod transpile;

@@ -1,5 +1,6 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
-import { poseidon2Hash, randomBoolean } from '../crypto/index.js';
+import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { randomBoolean } from '../crypto/random/index.js';
 import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
@@ -257,7 +258,7 @@ export class Point {
    * Check this is consistent with how bb is encoding the point at infinity
    */
   public get inf() {
-    return this.x.isZero() && this.y.isZero() && this.isInfinite;
+    return this.isInfinite;
   }
 
   isOnGrumpkin() {

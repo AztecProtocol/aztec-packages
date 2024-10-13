@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{side_effect::OrderedValue, read_request::ScopedReadRequest},
     merkle_tree::{assert_check_non_membership, IndexedTreeLeafPreimage, MembershipWitness},
-    traits::{Empty, is_empty}
+    traits::is_empty
 };
 
 trait NonMembershipHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE> where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
@@ -89,8 +89,7 @@ mod tests {
     use crate::reset::non_existent_read_request::{NonMembershipHint, reset_non_existent_read_requests};
 
     use dep::types::{
-        address::AztecAddress,
-        abis::{read_request::{ReadRequest, ScopedReadRequest}, side_effect::OrderedValue},
+        address::AztecAddress, abis::{read_request::ReadRequest, side_effect::OrderedValue},
         merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, membership::MembershipWitness},
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
@@ -257,7 +256,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Low leaf does not exist")]
+    #[test(should_fail_with = "Low leaf does not exist")]
     fn test_reset_non_existent_read_requests_invalid_preimage_failed() {
         let read_requests = [ReadRequest { value: 10, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([3]);
@@ -273,7 +272,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_reset_non_existent_read_requests_read_settled_failed() {
         let read_requests = [ReadRequest { value: 10, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([3]);
@@ -287,7 +286,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Key is not less than the next leaf")]
+    #[test(should_fail_with = "Key is not less than the next leaf")]
     fn test_reset_non_existent_read_requests_invalid_non_membership_hint_failed() {
         let read_requests = [ReadRequest { value: 10, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([0]);
@@ -301,7 +300,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Value exists in pending set")]
+    #[test(should_fail_with = "Value exists in pending set")]
     fn test_reset_non_existent_read_requests_read_pending_value_failed() {
         let read_requests = [ReadRequest { value: 25, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([1]);
@@ -315,7 +314,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Invalid next pending value index")]
+    #[test(should_fail_with = "Invalid next pending value index")]
     fn test_reset_non_existent_read_requests_wrong_next_pending_index_failed() {
         let read_requests = [ReadRequest { value: 21, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([1]);
@@ -329,7 +328,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Invalid next pending value index")]
+    #[test(should_fail_with = "Invalid next pending value index")]
     fn test_reset_non_existent_read_requests_wrong_max_next_pending_index_failed() {
         let read_requests = [ReadRequest { value: 21, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([1]);
@@ -343,7 +342,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Next pending value index out of bounds")]
+    #[test(should_fail_with = "Next pending value index out of bounds")]
     fn test_reset_non_existent_read_requests_overflown_index_failed() {
         let read_requests = [ReadRequest { value: 21, counter: 50 }.scope(AztecAddress::zero())];
         let (non_membership_hints, root) = get_non_membership_hints([1]);

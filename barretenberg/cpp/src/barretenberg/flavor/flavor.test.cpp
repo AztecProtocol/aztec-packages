@@ -17,9 +17,9 @@ TEST(Flavor, Getters)
     // set
     size_t coset_idx = 0;
     for (auto& id_poly : proving_key.polynomials.get_ids()) {
-        typename Flavor::Polynomial new_poly(proving_key.circuit_size);
+        id_poly = typename Flavor::Polynomial(proving_key.circuit_size);
         for (size_t i = 0; i < proving_key.circuit_size; ++i) {
-            id_poly[i] = coset_idx * proving_key.circuit_size + i;
+            id_poly.at(i) = coset_idx * proving_key.circuit_size + i;
         }
         ++coset_idx;
     }
@@ -49,8 +49,8 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
     using Polynomial = bb::Polynomial<FF>;
 
     PartiallyEvaluatedMultivariates polynomials_A;
-    auto random_poly = Polynomial(10);
-    for (auto& coeff : random_poly) {
+    Polynomial random_poly{ 10 };
+    for (auto& coeff : random_poly.coeffs()) {
         coeff = FF::random_element();
     }
 

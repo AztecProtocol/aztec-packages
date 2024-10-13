@@ -1,5 +1,71 @@
 # Changelog
 
+## [0.57.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.56.0...barretenberg.js-v0.57.0) (2024-10-07)
+
+
+### Features
+
+* Add crsPath to BackendOptions ([#8775](https://github.com/AztecProtocol/aztec-packages/issues/8775)) ([78fa676](https://github.com/AztecProtocol/aztec-packages/commit/78fa676eda1c6b35fe843e72347a77f9f6d89fa4))
+* CI/local S3 build cache ([#8802](https://github.com/AztecProtocol/aztec-packages/issues/8802)) ([06be26e](https://github.com/AztecProtocol/aztec-packages/commit/06be26e2b5dfd4b1fa35f57231e15ebffbe410a7))
+* Use structured polys to reduce prover memory ([#8587](https://github.com/AztecProtocol/aztec-packages/issues/8587)) ([59e3dd9](https://github.com/AztecProtocol/aztec-packages/commit/59e3dd93a70398e828269dbf13d8c4b9b38227ea))
+
+
+### Bug Fixes
+
+* **avm:** Kernel out full proving fix ([#8873](https://github.com/AztecProtocol/aztec-packages/issues/8873)) ([784d483](https://github.com/AztecProtocol/aztec-packages/commit/784d483b592cb80da143634c07d330ba2f2c9ab7))
+* **CI:** Yarn-project publish_npm script ([#8996](https://github.com/AztecProtocol/aztec-packages/issues/8996)) ([dc87b0e](https://github.com/AztecProtocol/aztec-packages/commit/dc87b0e9c33d59924368341f765c7a5fedf420d2))
+
+
+### Miscellaneous
+
+* Publish bb.js in github action ([#8959](https://github.com/AztecProtocol/aztec-packages/issues/8959)) ([a21ab89](https://github.com/AztecProtocol/aztec-packages/commit/a21ab8915937b3c3f98551fb078c9874f2ed1547))
+* Push proof splitting helpers into bb.js ([#8795](https://github.com/AztecProtocol/aztec-packages/issues/8795)) ([951ce6d](https://github.com/AztecProtocol/aztec-packages/commit/951ce6d974504f0453ad2816d10c358d8ef02ce5))
+
+## [0.56.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.55.1...barretenberg.js-v0.56.0) (2024-09-25)
+
+
+### Features
+
+* Use new IVC scheme ([#8480](https://github.com/AztecProtocol/aztec-packages/issues/8480)) ([1c7b06d](https://github.com/AztecProtocol/aztec-packages/commit/1c7b06d6621d9873f84147b2b7f1f22bf21bbacb))
+
+
+### Bug Fixes
+
+* Skip G1 SRS download if numPoints is zero ([#8717](https://github.com/AztecProtocol/aztec-packages/issues/8717)) ([753cdf8](https://github.com/AztecProtocol/aztec-packages/commit/753cdf8b047365b6280c0306fdc6f59f824f740b))
+
+
+### Miscellaneous
+
+* Migrate higher-level APIs for barretenberg to bb.js ([#8677](https://github.com/AztecProtocol/aztec-packages/issues/8677)) ([0237a20](https://github.com/AztecProtocol/aztec-packages/commit/0237a20c989f2b37a64ee18b41c1da361363a81f))
+
+## [0.55.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.55.0...barretenberg.js-v0.55.1) (2024-09-17)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.55.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.54.0...barretenberg.js-v0.55.0) (2024-09-13)
+
+
+### Features
+
+* New test programs for wasm benchmarking ([#8389](https://github.com/AztecProtocol/aztec-packages/issues/8389)) ([0b46e96](https://github.com/AztecProtocol/aztec-packages/commit/0b46e96e8e5d05876a3700b9e50d29d6f349ea6e))
+
+## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.53.0...barretenberg.js-v0.54.0) (2024-09-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.52.0...barretenberg.js-v0.53.0) (2024-09-09)
+
+
+### Bug Fixes
+
+* HonkRecursion serde for cpp bindings ([#8387](https://github.com/AztecProtocol/aztec-packages/issues/8387)) ([6162179](https://github.com/AztecProtocol/aztec-packages/commit/6162179ffc9b04213ef600e1733d2ac696c1dbe6))
+
 ## [0.52.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.51.1...barretenberg.js-v0.52.0) (2024-09-01)
 
 

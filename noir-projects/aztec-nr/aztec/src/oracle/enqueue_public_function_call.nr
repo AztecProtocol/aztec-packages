@@ -8,7 +8,7 @@ unconstrained fn enqueue_public_function_call_oracle(
     _side_effect_counter: u32,
     _is_static_call: bool,
     _is_delegate_call: bool
-) {}
+) -> Field {}
 
 unconstrained pub fn enqueue_public_function_call_internal(
     contract_address: AztecAddress,
@@ -17,7 +17,7 @@ unconstrained pub fn enqueue_public_function_call_internal(
     side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) {
+) -> Field {
     enqueue_public_function_call_oracle(
         contract_address,
         function_selector,
@@ -25,7 +25,7 @@ unconstrained pub fn enqueue_public_function_call_internal(
         side_effect_counter,
         is_static_call,
         is_delegate_call
-    );
+    )
 }
 
 #[oracle(setPublicTeardownFunctionCall)]
@@ -36,7 +36,7 @@ unconstrained fn set_public_teardown_function_call_oracle(
     _side_effect_counter: u32,
     _is_static_call: bool,
     _is_delegate_call: bool
-) {}
+) -> Field {}
 
 unconstrained pub fn set_public_teardown_function_call_internal(
     contract_address: AztecAddress,
@@ -45,7 +45,7 @@ unconstrained pub fn set_public_teardown_function_call_internal(
     side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) {
+) -> Field {
     set_public_teardown_function_call_oracle(
         contract_address,
         function_selector,
@@ -53,12 +53,18 @@ unconstrained pub fn set_public_teardown_function_call_internal(
         side_effect_counter,
         is_static_call,
         is_delegate_call
-    );
+    )
+}
+
+pub fn notify_set_min_revertible_side_effect_counter(counter: u32) {
+    unsafe {
+        notify_set_min_revertible_side_effect_counter_oracle_wrapper(counter)
+    };
+}
+
+unconstrained pub fn notify_set_min_revertible_side_effect_counter_oracle_wrapper(counter: u32) {
+    notify_set_min_revertible_side_effect_counter_oracle(counter);
 }
 
 #[oracle(notifySetMinRevertibleSideEffectCounter)]
 unconstrained fn notify_set_min_revertible_side_effect_counter_oracle(_counter: u32) {}
-
-unconstrained pub fn notify_set_min_revertible_side_effect_counter(counter: u32) {
-    notify_set_min_revertible_side_effect_counter_oracle(counter);
-}
