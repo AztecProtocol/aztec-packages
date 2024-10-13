@@ -53,9 +53,10 @@ fi
 function cleanup() {
   kill $(jobs -p) 2>/dev/null || true
 }
+trap cleanup EXIT SIGINT SIGTERM
 
 function show_status_until_pxe_ready() {
-  # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
+  # trap pattern: https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
   trap cleanup EXIT SIGINT SIGTERM
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
@@ -69,11 +70,8 @@ function show_status_until_pxe_ready() {
 }
 
 function show_logs() {
-  # pattern from https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
+  # trap pattern: https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
   trap cleanup EXIT SIGINT SIGTERM
-  set +x # don't spam with our commands
-  # wait for network to be up
-  kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
   stern spartan -n "$NAMESPACE"
 }
 
@@ -95,8 +93,6 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
 # tunnel in to get access directly to our PXE service in k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
-
-trap cleanup EXIT SIGINT SIGTERM
 
 docker run --rm --network=host \
   -e PXE_URL=http://localhost:9082 \
