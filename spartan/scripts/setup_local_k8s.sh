@@ -36,4 +36,4 @@ else
   kind create cluster
 fi
 
-kubectl cluster-info --context kind-kind
+kubectl config use-context kind-kind
