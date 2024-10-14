@@ -405,9 +405,7 @@ export class Archiver implements ArchiveSource {
 
     this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
     for (const block of retrievedBlocks) {
-      this.log.debug(
-        `ingesting new L2 block [${block.data.number}] published by [${block.data.header.globalVariables.coinbase}]`,
-      );
+      this.log.debug(`ingesting new L2 block`, block.data.header.globalVariables.toFriendlyJSON());
     }
 
     const timer = new Timer();
