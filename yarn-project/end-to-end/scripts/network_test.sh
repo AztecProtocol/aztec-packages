@@ -78,7 +78,7 @@ function show_logs() {
 
 show_status_until_pxe_ready &
 show_logs &
-DEBUG="${DEBUG:-aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database}"
+DEBUG="${DEBUG:-aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:enqueued_call_simulator}"
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
