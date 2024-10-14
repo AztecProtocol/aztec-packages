@@ -84,7 +84,7 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
-      --set iimages.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
+      --set-literal images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
       --set-literal bootNode.debug="$DEBUG" \
       --set-literal validator.debug="$DEBUG" \
       --set-literal proverNode.debug="$DEBUG" \
