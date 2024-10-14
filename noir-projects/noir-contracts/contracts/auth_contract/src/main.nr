@@ -44,7 +44,8 @@ contract Auth {
     // docs:start:public_getter
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_current_public
         storage.authorized.get_current_value_in_public()
@@ -54,7 +55,8 @@ contract Auth {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_scheduled_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_scheduled_public
         let (scheduled_value, _block_of_change): (AztecAddress, u32) = storage.authorized.get_scheduled_value_in_public();
@@ -64,7 +66,8 @@ contract Auth {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_authorized_delay() -> pub u32 {
         storage.authorized.get_current_delay_in_public()
     }

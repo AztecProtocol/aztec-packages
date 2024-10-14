@@ -24,7 +24,8 @@ contract PriceFeed {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_price(asset_id: Field) -> Asset {
         storage.assets.at(asset_id).read()
     }

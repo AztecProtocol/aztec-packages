@@ -143,7 +143,8 @@ contract TokenBridge {
     // docs:start:get_token
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_token() -> AztecAddress {
         storage.token.read()
     }

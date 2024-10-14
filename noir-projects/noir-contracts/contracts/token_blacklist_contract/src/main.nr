@@ -50,21 +50,24 @@ contract TokenBlacklist {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn total_supply() -> pub Field {
         storage.total_supply.read().to_field()
     }
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.public_balances.at(owner).read().to_field()
     }
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_roles(user: AztecAddress) -> UserFlags {
         storage.roles.at(user).get_current_value_in_public()
     }

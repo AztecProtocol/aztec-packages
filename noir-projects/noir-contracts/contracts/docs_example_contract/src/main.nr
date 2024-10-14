@@ -141,7 +141,8 @@ contract DocsExample {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_shared_immutable_constrained_public() -> Leader {
         storage.shared_immutable.read_public()
     }

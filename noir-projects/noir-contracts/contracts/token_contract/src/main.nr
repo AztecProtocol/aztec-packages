@@ -109,7 +109,8 @@ contract Token {
     // docs:end:set_admin
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn public_get_name() -> FieldCompressedString {
         storage.name.read_public()
     }
@@ -122,7 +123,8 @@ contract Token {
     }
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
     }
@@ -134,7 +136,8 @@ contract Token {
     }
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn public_get_decimals() -> pub u8 {
         // docs:start:read_decimals_public
         storage.decimals.read_public()
@@ -151,7 +154,8 @@ contract Token {
     // docs:start:admin
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
@@ -159,7 +163,8 @@ contract Token {
     // docs:start:is_minter
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
@@ -167,7 +172,8 @@ contract Token {
     // docs:start:total_supply
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn total_supply() -> Field {
         storage.total_supply.read().to_integer()
     }
@@ -175,7 +181,8 @@ contract Token {
     // docs:start:balance_of_public
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn balance_of_public(owner: AztecAddress) -> Field {
         storage.public_balances.at(owner).read().to_integer()
     }

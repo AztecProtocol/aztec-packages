@@ -91,7 +91,8 @@ contract NFT {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
     }
@@ -105,7 +106,8 @@ contract NFT {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
     }
@@ -119,14 +121,16 @@ contract NFT {
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
 
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
@@ -305,7 +309,8 @@ contract NFT {
     // Returns zero address when the token does not have a public owner. Reverts if the token does not exist.
     #[public]
     #['public]
-        #['view]
+    #[view]
+    #['view]
     fn owner_of(token_id: Field) -> AztecAddress {
         assert(storage.nft_exists.at(token_id).read(), "token does not exist");
         storage.public_owners.at(token_id).read()
