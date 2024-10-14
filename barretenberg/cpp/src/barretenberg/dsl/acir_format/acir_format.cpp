@@ -245,7 +245,8 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.assert_equalities.at(i));
     }
-
+    info("before processing recursion constraints in acir_format::build_constraints");
+    info("num gates: ", builder.num_gates);
     // RecursionConstraints
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
     // not yet dealing with proper recursion
@@ -437,9 +438,12 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
         }
     }
 
+    info("size_hint: ", size_hint);
+    info("varnum: ", constraint_system.varnum);
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
     };
+    info("after builder construction");
 
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(

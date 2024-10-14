@@ -44,6 +44,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
                                        g2::affine_element const& g2_point)
     : prover_crs_(std::make_shared<MemProverCrs<curve::BN254>>(points))
 {
+    info("start of MemBn254CrsFactory constructor");
     auto g1_identity = g1::affine_element();
     if (!points.empty()) {
         g1_identity = points[0];
@@ -55,6 +56,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
           curve::BN254::name,
           " prover CRS from memory with num points = ",
           prover_crs_->get_monomial_size());
+    info("end of MemBn254CrsFactory constructor");
 }
 
 std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> MemBn254CrsFactory::get_prover_crs(size_t degree)

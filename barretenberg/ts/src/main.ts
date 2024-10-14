@@ -84,6 +84,7 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
   const circuitSize = await getGatesUltra(bytecodePath, /*honkRecursion=*/ true, api);
+  // const circuitSize = Math.pow(2, 20);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const dyadicCircuitSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
 
@@ -94,6 +95,8 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
   // Plus 1 needed! (Move +1 into Crs?)
   const crs = await Crs.new(dyadicCircuitSize + Math.floor((dyadicCircuitSize * 6) / 10) + 1, crsPath);
+
+  // const crs = await Crs.new(dyadicCircuitSize + Math.floor((dyadicCircuitSize * 6) / 10) + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.

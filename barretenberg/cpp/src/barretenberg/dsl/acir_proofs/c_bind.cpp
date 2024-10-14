@@ -10,20 +10,23 @@
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 #include <cstdint>
 #include <memory>
 
 WASM_EXPORT void acir_get_circuit_sizes(
     uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
 {
+    info("beginning of acir_get_circuit_sizes");
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
+    info("after circuit_buf_to_acir_format");
     auto builder = acir_format::create_circuit(constraint_system, 1 << 19, {}, *honk_recursion);
-    *exact = htonl((uint32_t)builder.get_num_gates());
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    auto total_with_extra_gates = builder.get_total_circuit_size() + num_extra_gates;
-    *total = htonl((uint32_t)total_with_extra_gates);
-    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    info("after create_circuit");
+    *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
+    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size()));
+    info("end of acir_get_circuit_sizes");
 }
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
@@ -208,6 +211,9 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
 
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
 {
+    static_cast<void>(acir_vec);
+    static_cast<void>(witness_vec);
+
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
@@ -215,9 +221,14 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
     auto builder =
         acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/true);
 
-    UltraProver prover{ builder };
-    auto proof = prover.construct_proof();
-    *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+    // UltraProver prover{ builder };
+    // OinkProver<UltraFlavor> oink_prover(prover.proving_key, prover.transcript);
+    // oink_prover.prove();
+    // auto proof = prover.construct_proof();
+    // *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+    std::vector<fr> garbage_proof = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    *out = to_heap_buffer(to_buffer</*include_size=*/true>(garbage_proof));
+    info("end of prove_ultra_honk");
 }
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)

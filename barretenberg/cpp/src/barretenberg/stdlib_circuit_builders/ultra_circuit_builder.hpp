@@ -345,6 +345,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                          bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
+        info("start of UltraCircuitBuilder constructor, after CircuitBuilderBase constructor");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
 
         for (size_t idx = 0; idx < varnum; ++idx) {

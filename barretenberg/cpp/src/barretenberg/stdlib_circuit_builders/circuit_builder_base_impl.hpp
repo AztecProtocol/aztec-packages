@@ -5,12 +5,19 @@
 namespace bb {
 template <typename FF_> CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint)
 {
+    info("before reserving in CircuitBuilderBase");
     variables.reserve(size_hint * 3);
+    info("after variables");
     variable_names.reserve(size_hint * 3);
+    info("after variable_names");
     next_var_index.reserve(size_hint * 3);
+    info("after next_var_index");
     prev_var_index.reserve(size_hint * 3);
+    info("after prev_var_index");
     real_variable_index.reserve(size_hint * 3);
+    info("after real_variable_index");
     real_variable_tags.reserve(size_hint * 3);
+    info("after reserving in CircuitBuilderBase");
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_gates() const
