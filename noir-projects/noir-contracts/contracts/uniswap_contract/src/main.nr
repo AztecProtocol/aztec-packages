@@ -160,7 +160,8 @@ contract Uniswap {
     // this method is used for both private and public swaps.
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
         // Since we will authorize and instantly spend the funds, all in public, we can use the same nonce
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
@@ -188,7 +189,8 @@ contract Uniswap {
     // docs:start:assert_token_is_same
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
         #['view]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(

@@ -155,7 +155,8 @@ contract TokenBridge {
     // meaning only user can `redeem_shield` at a later time with their secret.
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn _call_mint_on_token(amount: Field, secret_hash: Field) {
         Token::at(storage.token.read()).mint_private(amount, secret_hash).call(&mut context);
     }
@@ -164,7 +165,8 @@ contract TokenBridge {
     // docs:start:assert_token_is_same
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn _assert_token_is_same(token: AztecAddress) {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }

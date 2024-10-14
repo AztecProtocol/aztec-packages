@@ -190,7 +190,8 @@ contract NFT {
 
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn _store_point_in_transient_storage(point: Point, slot: Field) {
         // We don't perform check for the overwritten value to be non-zero because the slots are siloed to `to`
         // and hence `to` can interfere only with his own execution.
@@ -295,7 +296,8 @@ contract NFT {
 
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
         storage.public_owners.at(token_id).write(to);
     }

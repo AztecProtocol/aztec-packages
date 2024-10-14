@@ -307,7 +307,8 @@ contract DocsExample {
     }
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn update_leader(account: AztecAddress, points: u8) {
         let new_leader = Leader { account, points };
         storage.leader.write(new_leader);

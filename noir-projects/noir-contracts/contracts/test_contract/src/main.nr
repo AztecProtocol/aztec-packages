@@ -85,7 +85,8 @@ contract Test {
 
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn dummy_public_call() {}
 
     #[private]

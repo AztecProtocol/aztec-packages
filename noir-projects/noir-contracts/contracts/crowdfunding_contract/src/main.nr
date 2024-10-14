@@ -105,7 +105,8 @@ contract Crowdfunding {
 
     #[public]
     #['public]
-        #['internal]
+    #[internal]
+    #['internal]
     fn _publish_donation_receipts(amount: u64, to: AztecAddress) {
         WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
     }
