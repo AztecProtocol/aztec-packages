@@ -86,6 +86,10 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    this.log.verbose(`request to attest`, {
+      archive: proposal.payload.archive.toString(),
+      txHashes: proposal.payload.txHashes,
+    });
     try {
       await this.ensureTransactionsAreAvailable(proposal);
     } catch (error: any) {
