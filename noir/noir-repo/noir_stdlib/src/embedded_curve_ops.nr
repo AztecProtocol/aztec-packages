@@ -98,7 +98,7 @@ impl Eq for EmbeddedCurveScalar {
 // For bn254, We have Grumpkin and Baby JubJub.
 // For bls12-381, we have JubJub and Bandersnatch.
 //
-// The embedded curve being used is decided by the 
+// The embedded curve being used is decided by the
 // underlying proof system.
 // docs:start:multi_scalar_mul
 pub fn multi_scalar_mul<let N: u32>(
@@ -112,7 +112,10 @@ pub fn multi_scalar_mul<let N: u32>(
 }
 
 #[foreign(multi_scalar_mul)]
-fn multi_scalar_mul_array_return<let N: u32>(points: [EmbeddedCurvePoint; N], scalars: [EmbeddedCurveScalar; N]) -> [Field; 3] {}
+pub(crate) fn multi_scalar_mul_array_return<let N: u32>(
+    points: [EmbeddedCurvePoint; N],
+    scalars: [EmbeddedCurveScalar; N]
+) -> [Field; 3] {}
 
 #[foreign(multi_scalar_mul)]
 pub(crate) fn multi_scalar_mul_slice(points: [EmbeddedCurvePoint], scalars: [EmbeddedCurveScalar]) -> [Field; 3] {}
