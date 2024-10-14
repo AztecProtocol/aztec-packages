@@ -33,9 +33,8 @@ shift
 
 function cleanup() {
   # kill everything in our process group except our process
-  kill $(pgrep -g $$ | grep -v $$) 2>/dev/null || true
+  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) 2>/dev/null || true
 }
-
 trap cleanup SIGINT SIGTERM EXIT
 
 # Function to run a command and prefix the output with color
@@ -50,7 +49,7 @@ function run_command() {
 # Run background commands without logging output
 i=0
 for cmd in "$@"; do
-  (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || kill -- -$$) &
+  (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || kill 0 ) &
   ((i++)) || true # annoyingly considered a failure based on result
 done
 

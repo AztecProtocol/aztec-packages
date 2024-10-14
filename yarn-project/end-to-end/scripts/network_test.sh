@@ -50,7 +50,11 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+function cleanup() {
+  # kill everything in our process group except our process
+  kill $(pgrep -g $$ | grep -v $$) 2>/dev/null || true
+}
+trap cleanup SIGINT SIGTERM EXIT
 
 function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
