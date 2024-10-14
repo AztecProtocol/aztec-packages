@@ -26,10 +26,30 @@ function filter_noise() {
 }
 
 report_when_anvil_up &
-# Start Anvil with specified parameters
-anvil \
-  --host 0.0.0.0 \
-  --block-time 12 \
-  --chain-id 31337 \
-  --gas-limit 1000000000 \
-  -p 8545 2>&1 | filter_noise
+STATE_DIR="$(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/state"
+STATE_FILE="$STATE_DIR/state.json"
+
+mkdir -p "$STATE_DIR"
+
+if [ -f "$STATE_FILE" ]; then
+  echo "State file found. Loading existing state."
+  anvil \
+    --host 0.0.0.0 \
+    --load-state "$STATE_DIR" \
+    --dump-state "$STATE_DIR" \
+    --block-time 12 \
+    --chain-id 31337 \
+    --gas-limit 1000000000 \
+    --accounts 3 \
+    -p 8545 2>&1 | filter_noise
+else
+  echo "No state file found. Starting with a fresh state and enabling state dumping."
+  anvil \
+    --host 0.0.0.0 \
+    --dump-state "$STATE_DIR" \
+    --block-time 12 \
+    --chain-id 31337 \
+    --gas-limit 1000000000 \
+    --accounts 3 \
+    -p 8545 2>&1 | filter_noise
+fi

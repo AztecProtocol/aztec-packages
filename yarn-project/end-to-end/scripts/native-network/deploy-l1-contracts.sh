@@ -10,6 +10,14 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 
 set -eu
 
+# Check for validator addresses
+if [ $# -gt 0 ]; then
+  INIT_VALIDATORS="true"
+  VALIDATOR_ADDRESSES="$1"
+else
+  INIT_VALIDATORS="false"
+fi
+
 echo "Waiting for Anvil to be up at port 8545..."
 until curl -s -X POST -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
@@ -20,7 +28,11 @@ echo "Done waiting."
 
 # Run the deploy-l1-contracts command and capture the output
 export ETHEREUM_HOST="http://127.0.0.1:8545"
-output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts)
+if [ "$INIT_VALIDATORS" = "true" ]; then
+  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators "$VALIDATOR_ADDRESSES")
+else
+  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts)
+fi
 
 echo "$output"
 
