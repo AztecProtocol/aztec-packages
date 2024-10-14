@@ -311,7 +311,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with="Invalid vk index")]
+    #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
