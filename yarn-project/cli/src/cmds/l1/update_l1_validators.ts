@@ -83,6 +83,30 @@ export async function removeL1Validator({
   await publicClient.waitForTransactionReceipt({ hash: txHash });
 }
 
+export async function pruneRollup({
+  rpcUrl,
+  chainId,
+  privateKey,
+  mnemonic,
+  rollupAddress,
+  log,
+  debugLogger,
+}: RollupCommandArgs & LoggerArgs) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const publicClient = getPublicClient(rpcUrl, chainId);
+  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: walletClient,
+  });
+
+  dualLog(`Trying prune`);
+  const txHash = await rollup.write.prune();
+  dualLog(`Transaction hash: ${txHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+}
+
 export async function fastForwardEpochs({
   rpcUrl,
   chainId,
