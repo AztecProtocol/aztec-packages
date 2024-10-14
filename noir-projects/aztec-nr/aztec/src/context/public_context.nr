@@ -291,7 +291,7 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained pub fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
+pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
     calldata_copy_opcode(cdoffset, copy_size)
 }
 

@@ -2,7 +2,7 @@ use dep::protocol_types::{address::AztecAddress, constants::L1_TO_L2_MSG_TREE_HE
 
 /// Returns the leaf index and sibling path of an entry in the L1 to L2 messaging tree, which can then be used to prove
 /// its existence.
-unconstrained pub fn get_l1_to_l2_membership_witness(
+pub unconstrained fn get_l1_to_l2_membership_witness(
     contract_address: AztecAddress,
     message_hash: Field,
     secret: Field

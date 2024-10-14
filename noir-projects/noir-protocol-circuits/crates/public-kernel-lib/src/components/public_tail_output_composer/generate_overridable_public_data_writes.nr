@@ -14,7 +14,7 @@ impl Empty for LinkedIndexHint {
     }
 }
 
-unconstrained pub fn generate_overridable_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
+pub unconstrained fn generate_overridable_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     public_data_writes: [PublicDataUpdateRequest; NUM_WRITES],
     public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES]
 ) -> ([OverridablePublicDataWrite; NUM_WRITES], [LinkedIndexHint; NUM_WRITES]) {
