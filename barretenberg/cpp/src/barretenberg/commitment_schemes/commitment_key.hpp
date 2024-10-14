@@ -85,7 +85,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size()) + polynomial.start_index;
         auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
@@ -120,7 +120,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
         const size_t poly_size = polynomial.size();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 

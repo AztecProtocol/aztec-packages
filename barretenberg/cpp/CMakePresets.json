@@ -112,8 +112,8 @@
     },
     {
       "name": "tracy-memory",
-      "displayName": "Release build with tracy, optimized for memory tracking",
-      "description": "Release build with tracy, optimized for memory tracking",
+      "displayName": "Release build with tracy with memory tracking",
+      "description": "Release build with tracy with memory tracking",
       "inherits": "clang16",
       "binaryDir": "build-tracy-memory",
       "cacheVariables": {
@@ -122,11 +122,21 @@
       }
     },
     {
-      "name": "tracy-time",
-      "displayName": "Build for tracy time profiling",
-      "description": "Build for tracy time profiling",
-      "binaryDir": "build-tracy-time",
+      "name": "tracy-time-instrumented",
+      "displayName": "Build for tracy time profiling via instrumentation",
+      "description": "Build for tracy time profiling via instrumentation",
+      "binaryDir": "build-tracy-time-instrumented",
       "inherits": "clang16",
+      "cacheVariables": {
+        "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
+      }
+    },
+    {
+      "name": "tracy-time-sampled",
+      "displayName": "Build for tracy time profiling via sampling",
+      "description": "Build for tracy time profiling via sampling",
+      "binaryDir": "build-tracy-time-sampled",
+      "inherits": "default",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",
@@ -134,8 +144,7 @@
         "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
       },
       "cacheVariables": {
-        "ENABLE_TRACY": "ON",
-        "TRACY_PROFILE_TIME": "ON"
+        "ENABLE_TRACY": "ON"
       }
     },
     {
@@ -497,9 +506,14 @@
       "configurePreset": "tracy-memory"
     },
     {
-      "name": "tracy-time",
+      "name": "tracy-time-instrumented",
       "inherits": "default",
-      "configurePreset": "tracy-time"
+      "configurePreset": "tracy-time-instrumented"
+    },
+    {
+      "name": "tracy-time-sampled",
+      "inherits": "default",
+      "configurePreset": "tracy-time-sampled"
     },
     {
       "name": "clang16-pic",

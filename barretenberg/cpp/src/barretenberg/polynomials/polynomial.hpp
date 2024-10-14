@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -57,7 +58,9 @@ template <typename Fr> class Polynomial {
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
         : Polynomial(size, size)
-    {}
+    {
+        PROFILE_THIS();
+    }
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
@@ -257,13 +260,18 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
+        PROFILE_THIS_NAME("generate random polynomial");
+
         return random(size - start_index, size, start_index);
     }
 
     static Polynomial random(size_t size, size_t virtual_size, size_t start_index)
     {
         Polynomial p(size, virtual_size, start_index, DontZeroMemory::FLAG);
-        std::generate_n(p.coefficients_.data(), size, []() { return Fr::random_element(); });
+        parallel_for_heuristic(
+            size,
+            [&](size_t i) { p.coefficients_.data()[i] = Fr::random_element(); },
+            thread_heuristics::ALWAYS_MULTITHREAD);
         return p;
     }
 

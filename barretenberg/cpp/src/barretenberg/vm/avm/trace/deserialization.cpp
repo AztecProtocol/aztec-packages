@@ -16,10 +16,16 @@ namespace bb::avm_trace {
 namespace {
 
 const std::vector<OperandType> three_operand_format8 = {
-    OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT8, OperandType::UINT8, OperandType::UINT8,
+    OperandType::INDIRECT8,
+    OperandType::UINT8,
+    OperandType::UINT8,
+    OperandType::UINT8,
 };
 const std::vector<OperandType> three_operand_format16 = {
-    OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16,
+    OperandType::INDIRECT8,
+    OperandType::UINT16,
+    OperandType::UINT16,
+    OperandType::UINT16,
 };
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT8, OperandType::UINT16 };
 

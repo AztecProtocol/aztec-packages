@@ -314,157 +314,135 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // Compute - Arithmetic
         case OpCode::ADD_8:
             trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::ADD_16:
             trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::SUB_8:
             trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::SUB_16:
             trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::MUL_8:
             trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::MUL_16:
             trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::DIV_8:
             trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::DIV_16:
             trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::FDIV_8:
             trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint8_t>(inst.operands.at(1)),
                                   std::get<uint8_t>(inst.operands.at(2)),
-                                  std::get<uint8_t>(inst.operands.at(3)),
-                                  std::get<uint8_t>(inst.operands.at(4)),
-                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                  std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::FDIV_16:
             trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint16_t>(inst.operands.at(1)),
                                   std::get<uint16_t>(inst.operands.at(2)),
-                                  std::get<uint16_t>(inst.operands.at(3)),
-                                  std::get<uint16_t>(inst.operands.at(4)),
-                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                  std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::EQ_8:
             trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint8_t>(inst.operands.at(1)),
                                 std::get<uint8_t>(inst.operands.at(2)),
-                                std::get<uint8_t>(inst.operands.at(3)),
-                                std::get<uint8_t>(inst.operands.at(4)),
-                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::EQ_16:
             trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint16_t>(inst.operands.at(1)),
                                 std::get<uint16_t>(inst.operands.at(2)),
-                                std::get<uint16_t>(inst.operands.at(3)),
-                                std::get<uint16_t>(inst.operands.at(4)),
-                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::LT_8:
             trace_builder.op_lt(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint8_t>(inst.operands.at(1)),
                                 std::get<uint8_t>(inst.operands.at(2)),
-                                std::get<uint8_t>(inst.operands.at(3)),
-                                std::get<uint8_t>(inst.operands.at(4)),
-                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::LT_16:
             trace_builder.op_lt(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint16_t>(inst.operands.at(1)),
                                 std::get<uint16_t>(inst.operands.at(2)),
-                                std::get<uint16_t>(inst.operands.at(3)),
-                                std::get<uint16_t>(inst.operands.at(4)),
-                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::LTE_8:
             trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::LTE_16:
             trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::AND_8:
             trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::AND_16:
             trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::OR_8:
             trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint8_t>(inst.operands.at(1)),
                                 std::get<uint8_t>(inst.operands.at(2)),
-                                std::get<uint8_t>(inst.operands.at(3)),
-                                std::get<uint8_t>(inst.operands.at(4)),
-                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::OR_16:
             trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint16_t>(inst.operands.at(1)),
                                 std::get<uint16_t>(inst.operands.at(2)),
-                                std::get<uint16_t>(inst.operands.at(3)),
-                                std::get<uint16_t>(inst.operands.at(4)),
-                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::XOR_8:
             trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::XOR_16:
             trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::NOT_8:
             trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
@@ -478,31 +456,27 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::SHL_8:
             trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::SHL_16:
             trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
         case OpCode::SHR_8:
             trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(1)),
                                  std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<uint8_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(3)));
             break;
         case OpCode::SHR_16:
             trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
                                  std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<uint16_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(3)));
             break;
 
             // Compute - Type Conversions
