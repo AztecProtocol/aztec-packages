@@ -1,7 +1,10 @@
 import debug from 'debug';
 import { inspect } from 'util';
 
+
+
 import { type LogData, type LogFn, type LogOptions } from './log_fn.js';
+
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 
@@ -36,12 +39,25 @@ export type Logger = { [K in Exclude<LogLevel, 'error'>]: LogFn } & { /** Error 
  */
 export type DebugLogger = Logger;
 
-export interface DebuggerLoggerOptions {
+export interface DebugLoggerOptions {
   fixedLogData?: LogData;
 }
 
-interface DebuggerLoggerState extends DebuggerLoggerOptions {
+interface DebugLoggerState extends DebugLoggerOptions {
   lastLogMessage?: string;
+  ignorePatterns: string[];
+}
+
+function extractNegativePatterns(debugString: string): string[] {
+  return (
+    debugString
+      .split(',')
+      .filter(p => p.startsWith('-'))
+      // Remove the leading '-' from the pattern
+      .map(p => p.slice(1))
+      // Remove any '*' from the pattern
+      .map(p => p.replace('*', ''))
+  );
 }
 
 /**
@@ -54,11 +70,10 @@ interface DebuggerLoggerState extends DebuggerLoggerOptions {
  * // will always add the validator address to the log labels
  * @returns A debug logger.
  */
-
-export function createDebugLogger(name: string, options?: DebuggerLoggerOptions): DebugLogger {
+export function createDebugLogger(name: string, options?: DebugLoggerOptions): DebugLogger {
   const debugLogger = debug(name);
   // Copied so we can be sure it is mutable
-  const logState = { ...options };
+  const logState: DebugLoggerState = { ...options, ignorePatterns: extractNegativePatterns(namespaces) };
 
   const logger = {
     silent: () => {},
@@ -104,7 +119,7 @@ function logWithDebug(
   level: LogLevel,
   msg: string,
   data: LogData | undefined,
-  logState: DebuggerLoggerState,
+  logState: DebugLoggerState,
   options?: LogOptions,
 ) {
   if (logState.fixedLogData) {
@@ -116,13 +131,16 @@ function logWithDebug(
     // Early exit as we are only configured to log on changes in logged data
     return;
   }
-  if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
-    for (const handler of logHandlers) {
-      handler(level, debug.namespace, msg, data);
-    }
-    debug('[%s] %s', level.toUpperCase(), msg);
-    logState.lastLogMessage = msg;
+  if (logState.ignorePatterns.some(pattern => debug.namespace.startsWith(pattern))) {
+    return false; // Skip logging this message
   }
+  for (const handler of logHandlers) {
+    handler(level, debug.namespace, msg, data);
+  }
+  if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
+    debug('[%s] %s', level.toUpperCase(), msg);
+  }
+  logState.lastLogMessage = msg;
 }
 
 /**
