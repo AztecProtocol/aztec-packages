@@ -47,17 +47,21 @@ export class L2BlockStream {
       const sourceTips = await this.l2BlockSource.getL2Tips();
       const localTips = await this.localData.getL2Tips();
 
-      this.log.debug(`Running L2 block stream`, {
-        sourceLatest: sourceTips.latest.number,
-        localLatest: localTips.latest,
-        sourceFinalized: sourceTips.finalized.number,
-        localFinalized: localTips.finalized,
-        sourceProven: sourceTips.proven.number,
-        localProven: localTips.proven,
-        sourceLatestHash: sourceTips.latest.hash,
-        sourceProvenHash: sourceTips.proven.hash,
-        sourceFinalizedHash: sourceTips.finalized.hash,
-      }, {ignoreImmediateDuplicates: true});
+      this.log.debug(
+        `Running L2 block stream`,
+        {
+          sourceLatest: sourceTips.latest.number,
+          localLatest: localTips.latest,
+          sourceFinalized: sourceTips.finalized.number,
+          localFinalized: localTips.finalized,
+          sourceProven: sourceTips.proven.number,
+          localProven: localTips.proven,
+          sourceLatestHash: sourceTips.latest.hash,
+          sourceProvenHash: sourceTips.proven.hash,
+          sourceFinalizedHash: sourceTips.finalized.hash,
+        },
+        { ignoreImmediateDuplicates: true },
+      );
 
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.latest;

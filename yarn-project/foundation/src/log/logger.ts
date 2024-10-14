@@ -1,10 +1,7 @@
 import debug from 'debug';
 import { inspect } from 'util';
 
-
-
-import { type LogData, type LogFn, LogOptions } from './log_fn.js';
-
+import { type LogData, type LogFn, type LogOptions } from './log_fn.js';
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 
@@ -76,10 +73,7 @@ export function createDebugLogger(name: string, options?: DebuggerLoggerOptions)
     debug: (msg: string, data?: LogData, options?: LogOptions) =>
       logWithDebug(debugLogger, 'debug', msg, data, logState, options),
   };
-  return Object.assign(
-    (msg: string, data?: LogData, options?: LogOptions) => logger.debug(msg, data, options),
-    logger,
-  );
+  return Object.assign((msg: string, data?: LogData, options?: LogOptions) => logger.debug(msg, data, options), logger);
 }
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
@@ -111,7 +105,7 @@ function logWithDebug(
   msg: string,
   data: LogData | undefined,
   logState: DebuggerLoggerState,
-  options?: LogOptions
+  options?: LogOptions,
 ) {
   if (logState.fixedLogData) {
     // Attach fixed log data that will be bundled in every message, providing context on this logger
