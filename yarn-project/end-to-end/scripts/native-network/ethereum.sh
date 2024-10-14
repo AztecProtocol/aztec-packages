@@ -3,6 +3,7 @@ set -eu
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
+PORT=8545
 
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
@@ -16,7 +17,7 @@ function report_when_anvil_up() {
   echo "Starting anvil."
   until curl -s -X POST -H 'Content-Type: application/json' \
     --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-    http://127.0.0.1:8545 2>/dev/null | grep -q 'result' ; do
+    http://127.0.0.1:$PORT 2>/dev/null | grep -q 'result' ; do
     sleep 1
   done
   echo "Anvil has started."
@@ -41,7 +42,7 @@ if [ -f "$STATE_FILE" ]; then
     --chain-id 31337 \
     --gas-limit 1000000000 \
     --accounts 3 \
-    -p 8545 2>&1 | filter_noise
+    -p $PORT 2>&1 | filter_noise
 else
   echo "No state file found. Starting with a fresh state and enabling state dumping."
   anvil \
@@ -51,5 +52,5 @@ else
     --chain-id 31337 \
     --gas-limit 1000000000 \
     --accounts 3 \
-    -p 8545 2>&1 | filter_noise
+    -p $PORT 2>&1 | filter_noise
 fi
