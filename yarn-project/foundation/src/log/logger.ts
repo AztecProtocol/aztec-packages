@@ -111,16 +111,15 @@ function logWithDebug(
     // Attach fixed log data that will be bundled in every message, providing context on this logger
     data = { ...logState.fixedLogData, ...data };
   }
-  for (const handler of logHandlers) {
-    handler(level, debug.namespace, msg, data);
-  }
-
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
   if (options?.ignoreImmediateDuplicates && logState.lastLogMessage === msg) {
     // Early exit as we are only configured to log on changes in logged data
     return;
   }
   if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
+    for (const handler of logHandlers) {
+      handler(level, debug.namespace, msg, data);
+    }
     debug('[%s] %s', level.toUpperCase(), msg);
     logState.lastLogMessage = msg;
   }
