@@ -23,7 +23,7 @@ contract DocsExample {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{storage::{storage, storage_no_init}, functions::{public, private, internal, view}}
+        macros::{storage::storage, functions::{public, private, internal, view}}
     };
 
     // how to import methods from other files/folders within your workspace

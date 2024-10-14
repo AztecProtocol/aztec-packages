@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 contract AuthRegistry {
     use dep::aztec::{
         state_vars::{PublicMutable, Map}, protocol_types::address::AztecAddress,
-        macros::{storage::storage, functions::{private, public, internal, view}}
+        macros::{storage::storage, functions::{private, public, internal}}
     };
     use dep::authwit::auth::{IS_VALID_SELECTOR, compute_authwit_message_hash, assert_current_call_valid_authwit};
 
