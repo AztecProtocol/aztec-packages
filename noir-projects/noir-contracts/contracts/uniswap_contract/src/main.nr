@@ -191,7 +191,8 @@ contract Uniswap {
     #['public]
     #[internal]
     #['internal]
-        #['view]
+    #[view]
+    #['view]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
             token.eq(TokenBridge::at(token_bridge).get_token().view(&mut context)), "input_asset address is not the same as seen in the bridge contract"
