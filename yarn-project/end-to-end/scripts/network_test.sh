@@ -50,15 +50,9 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-function cleanup() {
-  set +x
-  kill $(jobs -p) 2>/dev/null || true
-}
-trap cleanup EXIT SIGINT SIGTERM
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 function show_status_until_pxe_ready() {
-  # trap pattern: https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
-  trap cleanup EXIT SIGINT SIGTERM
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100} ; do
@@ -71,8 +65,6 @@ function show_status_until_pxe_ready() {
 }
 
 function show_logs() {
-  # trap pattern: https://stackoverflow.com/questions/28238952/how-to-kill-a-running-bash-function-from-terminal
-  trap cleanup EXIT SIGINT SIGTERM
   stern spartan -n "$NAMESPACE"
 }
 

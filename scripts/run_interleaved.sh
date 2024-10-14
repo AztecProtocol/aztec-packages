@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# propagate errors inside while loop pipe
+set -o pipefail
 
 # Usage: run_interleaved.sh <main command> <background commands>...
 # Runs the main command with output logging and background commands without logging.
@@ -27,17 +27,33 @@ colors=(
   "\e[91m" # Bright Red
 )
 
+FINISHED=false
 main_cmd="$1"
 shift
 
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+function cleanup() {
+  # kill everything in our process group except our process
+  kill $(pgrep -g $$ | grep -v $$) 2>/dev/null || true
+}
+
+trap cleanup SIGINT SIGTERM EXIT
+
+# Function to run a command and prefix the output with color
+function run_command() {
+  local cmd="$1"
+  local color="$2"
+  $cmd 2>&1 | while IFS= read -r line; do
+    echo -e "${color}[$cmd]\e[0m $line"
+  done
+}
 
 # Run background commands without logging output
 i=0
 for cmd in "$@"; do
-  ("$SCRIPT_DIR"/run_colored.sh "$cmd" "${colors[$((i % ${#colors[@]}))]}" || exit 1) &
+  (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || kill -- -$$) &
   ((i++)) || true # annoyingly considered a failure based on result
 done
 
 # Run the main command synchronously, piping output through the run_command function with green color
-"$SCRIPT_DIR"/run_colored.sh "$main_cmd" "\e[32m"
+run_command "$main_cmd" "\e[32m"
+FINISHED=true
