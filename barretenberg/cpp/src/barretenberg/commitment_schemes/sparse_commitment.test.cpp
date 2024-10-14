@@ -1,4 +1,5 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
@@ -13,8 +14,63 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
 
+    struct StructuredPolyData {
+        Polynomial polynomial;
+        std::vector<std::pair<size_t, size_t>> active_range_endpoints;
+    };
+
   public:
     template <class CK> inline std::shared_ptr<CK> create_commitment_key(size_t num_points);
+
+    // Construct a random poly with the prescribed block structure; complement is zero/constant if non_zero_complement =
+    // false/true (to mimic wire/z_perm)
+    StructuredPolyData create_structured_test_polynomial(std::vector<uint32_t> fixed_sizes,
+                                                         std::vector<uint32_t> actual_sizes,
+                                                         bool non_zero_complement = false)
+    {
+        // Add zero row offset to mimic actual structure of wire/z_perm
+        const size_t ZERO_ROW_OFFSET = 1;
+
+        uint32_t full_size = ZERO_ROW_OFFSET;
+        for (auto size : fixed_sizes) {
+            full_size += size;
+        }
+        // In practice the polynomials will have a power-of-2 size
+        auto log2_n = static_cast<size_t>(numeric::get_msb(full_size));
+        if ((1UL << log2_n) != (full_size)) {
+            ++log2_n;
+        }
+        full_size = 1 << log2_n;
+
+        // Construct polynomial with the specified form and track active range endpoints
+        Polynomial polynomial(full_size - 1, full_size, 1);
+        uint32_t start_idx = ZERO_ROW_OFFSET;
+        uint32_t end_idx = 0;
+        std::vector<std::pair<size_t, size_t>> active_range_endpoints;
+        for (auto [fixed_size, actual_size] : zip_view(fixed_sizes, actual_sizes)) {
+            end_idx = start_idx + actual_size;
+            active_range_endpoints.emplace_back(start_idx, end_idx);
+            for (size_t idx = start_idx; idx < end_idx; ++idx) {
+                polynomial.at(idx) = Fr::random_element();
+            }
+            start_idx += fixed_size;
+            if (non_zero_complement) { // fill complement with random constant value
+                Fr const_val = Fr::random_element();
+                for (size_t idx = end_idx; idx < start_idx; ++idx) {
+                    polynomial.at(idx) = const_val;
+                }
+            }
+        }
+        // fill complement region between end of last fixed block and end of polynomial
+        if (non_zero_complement) {
+            Fr const_val = polynomial[active_range_endpoints.back().second];
+            for (size_t i = active_range_endpoints.back().second; i < polynomial.end_index(); ++i) {
+                polynomial.at(i) = const_val;
+            }
+        }
+
+        return { polynomial, active_range_endpoints };
+    }
 };
 
 template <>
@@ -154,6 +210,63 @@ TYPED_TEST(CommitmentKeyTest, CommitSparseMediumNonZeroStartIndex)
     G1 sparse_commit_result = key->commit_sparse(poly);
 
     EXPECT_EQ(sparse_commit_result, commit_result);
+}
+
+/**
+ * @brief Test commit_structured on polynomial with blocks of non-zero values (like wires when using structured trace)
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitStructuredWire)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+
+    // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
+    std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
+    std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
+
+    // Construct a random polynomial resembling the wires in the structured trace setting
+    const bool non_zero_complement = false;
+    auto [polynomial, active_range_endpoints] =
+        TestFixture::create_structured_test_polynomial(fixed_sizes, actual_sizes, non_zero_complement);
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
+
+    G1 expected_result = key->commit(polynomial);
+    G1 result = key->commit_structured(polynomial, active_range_endpoints);
+
+    EXPECT_EQ(result, expected_result);
+}
+
+/**
+ * @brief Test the method for committing to structured polynomials with a constant nonzero complement (i.e. the
+ * permutation grand product polynomial z_perm in the structured trace setting).
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+
+    // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
+    std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
+    std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
+
+    // Construct a random polynomial resembling z_perm in the structured trace setting
+    const bool non_zero_complement = true;
+    auto [polynomial, active_range_endpoints] =
+        TestFixture::create_structured_test_polynomial(fixed_sizes, actual_sizes, non_zero_complement);
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
+
+    G1 expected_result = key->commit(polynomial);
+    G1 result = key->commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
+
+    EXPECT_EQ(result, expected_result);
 }
 
 } // namespace bb

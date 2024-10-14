@@ -1,13 +1,13 @@
 import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  type ContractInstanceWithAddress,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';

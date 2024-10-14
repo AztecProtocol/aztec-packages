@@ -132,7 +132,6 @@ contract TokenBridge {
         Token::at(token).burn(context.msg_sender(), amount, nonce).call(&mut context);
     }
     /// docs:end:exit_to_l1_private
-
     // docs:start:get_token
     #[public]
     #[view]

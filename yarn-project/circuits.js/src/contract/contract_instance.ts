@@ -6,7 +6,8 @@ import {
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { computeContractClassId } from '../contract/contract_class_id.js';
@@ -15,6 +16,80 @@ import {
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
+import { type ContractInstance, type ContractInstanceWithAddress } from './interfaces/contract_instance.js';
+
+const VERSION = 1 as const;
+
+export class SerializableContractInstance {
+  public readonly version = VERSION;
+  public readonly salt: Fr;
+  public readonly deployer: AztecAddress;
+  public readonly contractClassId: Fr;
+  public readonly initializationHash: Fr;
+  public readonly publicKeysHash: Fr;
+
+  constructor(instance: ContractInstance) {
+    if (instance.version !== VERSION) {
+      throw new Error(`Unexpected contract class version ${instance.version}`);
+    }
+    this.salt = instance.salt;
+    this.deployer = instance.deployer;
+    this.contractClassId = instance.contractClassId;
+    this.initializationHash = instance.initializationHash;
+    this.publicKeysHash = instance.publicKeysHash;
+  }
+
+  public toBuffer() {
+    return serializeToBuffer(
+      numToUInt8(this.version),
+      this.salt,
+      this.deployer,
+      this.contractClassId,
+      this.initializationHash,
+      this.publicKeysHash,
+    );
+  }
+
+  /** Returns a copy of this object with its address included. */
+  withAddress(address: AztecAddress): ContractInstanceWithAddress {
+    return { ...this, address };
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(bufferOrReader);
+    return new SerializableContractInstance({
+      version: reader.readUInt8() as typeof VERSION,
+      salt: reader.readObject(Fr),
+      deployer: reader.readObject(AztecAddress),
+      contractClassId: reader.readObject(Fr),
+      initializationHash: reader.readObject(Fr),
+      publicKeysHash: reader.readObject(Fr),
+    });
+  }
+
+  static random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
+    return new SerializableContractInstance({
+      version: VERSION,
+      salt: Fr.random(),
+      deployer: AztecAddress.random(),
+      contractClassId: Fr.random(),
+      initializationHash: Fr.random(),
+      publicKeysHash: Fr.random(),
+      ...opts,
+    });
+  }
+
+  static empty() {
+    return new SerializableContractInstance({
+      version: VERSION,
+      salt: Fr.zero(),
+      deployer: AztecAddress.zero(),
+      contractClassId: Fr.zero(),
+      initializationHash: Fr.zero(),
+      publicKeysHash: Fr.zero(),
+    });
+  }
+}
 
 /**
  * Generates a Contract Instance from the deployment params.

@@ -189,7 +189,9 @@ TYPED_TEST(BoolTest, And)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 1));
         bool_ct b = witness_ct(&builder, (bool)(i % 2 == 1));
+        // clang-format off
         a& b;
+        // clang-format on
     }
 
     bool result = CircuitChecker::check(builder);
@@ -204,17 +206,23 @@ TYPED_TEST(BoolTest, AndConstants)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 2));
         bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
+        // clang-format off
         a& b;
+        // clang-format on
     }
     for (size_t i = 0; i < 32; ++i) {
         if (i % 2 == 0) {
             bool_ct a = witness_ct(&builder, (bool)(i % 2));
             bool_ct b(&builder, (bool)(i % 3 == 1));
+            // clang-format off
             a& b;
+            // clang-format on
         } else {
             bool_ct a(&builder, (bool)(i % 2));
             bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
+            // clang-format off
             a& b;
+            // clang-format on
         }
     }
 

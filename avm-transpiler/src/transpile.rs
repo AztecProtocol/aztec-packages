@@ -88,7 +88,7 @@ pub fn brillig_to_avm(
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: Some(AvmTypeTag::FIELD),
+                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
@@ -181,7 +181,7 @@ pub fn brillig_to_avm(
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
+                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
@@ -229,12 +229,12 @@ pub fn brillig_to_avm(
                             .build(),
                     ),
                     operands: vec![
-                        AvmOperand::U32 {
-                            value: offset_address.to_usize() as u32, // cdOffset (calldata offset)
+                        AvmOperand::U16 {
+                            value: offset_address.to_usize() as u16, // cdOffset (calldata offset)
                         },
-                        AvmOperand::U32 { value: size_address.to_usize() as u32 }, // sizeOffset
-                        AvmOperand::U32 {
-                            value: destination_address.to_usize() as u32, // dstOffset
+                        AvmOperand::U16 { value: size_address.to_usize() as u16 }, // sizeOffset
+                        AvmOperand::U16 {
+                            value: destination_address.to_usize() as u16, // dstOffset
                         },
                     ],
                     ..Default::default()
@@ -308,7 +308,7 @@ pub fn brillig_to_avm(
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::U32 { value: avm_loc as u32 }],
+                    operands: vec![AvmOperand::U16 { value: avm_loc as u16 }],
                     ..Default::default()
                 });
             }
@@ -319,8 +319,8 @@ pub fn brillig_to_avm(
                     opcode: AvmOpcode::RETURN,
                     indirect: Some(AddressingModeBuilder::default().build()),
                     operands: vec![
-                        AvmOperand::U32 { value: *return_data_offset as u32 },
-                        AvmOperand::U32 { value: *return_data_size as u32 },
+                        AvmOperand::U16 { value: *return_data_offset as u16 },
+                        AvmOperand::U16 { value: *return_data_size as u16 },
                     ],
                     ..Default::default()
                 });
@@ -516,14 +516,14 @@ fn handle_external_call(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: gas_offset_ptr.to_usize() as u32 },
-            AvmOperand::U32 { value: address_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: args_offset_ptr.to_usize() as u32 },
-            AvmOperand::U32 { value: args_size_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: ret_offset_ptr.to_usize() as u32 },
-            AvmOperand::U32 { value: ret_size },
-            AvmOperand::U32 { value: success_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: function_selector_offset.to_usize() as u32 },
+            AvmOperand::U16 { value: gas_offset_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: address_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: ret_offset_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: ret_size as u16 },
+            AvmOperand::U16 { value: success_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: function_selector_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -571,9 +571,9 @@ fn handle_note_hash_exists(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: note_hash_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: leaf_index_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: exists_offset_operand.to_usize() as u32 },
+            AvmOperand::U16 { value: note_hash_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: leaf_index_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: exists_offset_operand.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -608,8 +608,8 @@ fn handle_emit_unencrypted_log(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: message_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: message_size_offset.to_usize() as u32 },
+            AvmOperand::U16 { value: message_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: message_size_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -644,7 +644,7 @@ fn handle_emit_note_hash_or_nullifier(
     avm_instrs.push(AvmInstruction {
         opcode: if is_nullifier { AvmOpcode::EMITNULLIFIER } else { AvmOpcode::EMITNOTEHASH },
         indirect: Some(AddressingModeBuilder::default().direct_operand(offset_operand).build()),
-        operands: vec![AvmOperand::U32 { value: offset_operand.to_usize() as u32 }],
+        operands: vec![AvmOperand::U16 { value: offset_operand.to_usize() as u16 }],
         ..Default::default()
     });
 }
@@ -682,9 +682,9 @@ fn handle_nullifier_exists(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: nullifier_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: address_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: exists_offset_operand.to_usize() as u32 },
+            AvmOperand::U16 { value: nullifier_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: address_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: exists_offset_operand.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -733,9 +733,9 @@ fn handle_l1_to_l2_msg_exists(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: msg_hash_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: msg_leaf_index_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: exists_offset_operand.to_usize() as u32 },
+            AvmOperand::U16 { value: msg_hash_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: msg_leaf_index_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: exists_offset_operand.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -777,8 +777,8 @@ fn handle_send_l2_to_l1_msg(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: recipient_offset_operand.to_usize() as u32 },
-            AvmOperand::U32 { value: content_offset_operand.to_usize() as u32 },
+            AvmOperand::U16 { value: recipient_offset_operand.to_usize() as u16 },
+            AvmOperand::U16 { value: content_offset_operand.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -982,9 +982,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U32 { value: output_offset as u32 },
-                    AvmOperand::U32 { value: state_offset as u32 },
-                    AvmOperand::U32 { value: inputs_offset as u32 },
+                    AvmOperand::U16 { value: output_offset as u16 },
+                    AvmOperand::U16 { value: state_offset as u16 },
+                    AvmOperand::U16 { value: inputs_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1034,31 +1034,8 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U32 { value: input_state_offset as u32 },
-                    AvmOperand::U32 { value: output_state_offset as u32 },
-                ],
-                ..Default::default()
-            });
-        }
-        BlackBoxOp::Keccak256 { message, output } => {
-            let message_offset = message.pointer.to_usize();
-            let message_size_offset = message.size.to_usize();
-            let dest_offset = output.pointer.to_usize();
-            assert_eq!(output.size, 32, "Keccak256 output size must be 32!");
-
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::KECCAK,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .indirect_operand(&output.pointer)
-                        .indirect_operand(&message.pointer)
-                        .direct_operand(&message.size)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
+                    AvmOperand::U16 { value: input_state_offset as u16 },
+                    AvmOperand::U16 { value: output_state_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1079,9 +1056,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
+                    AvmOperand::U16 { value: dest_offset as u16 },
+                    AvmOperand::U16 { value: message_offset as u16 },
+                    AvmOperand::U16 { value: message_size_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1103,10 +1080,10 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ),
                 tag: None,
                 operands: vec![
-                    AvmOperand::U32 { value: input_offset },
-                    AvmOperand::U32 { value: output_offset },
-                    AvmOperand::U32 { value: radix_offset },
-                    AvmOperand::U32 { value: num_limbs },
+                    AvmOperand::U16 { value: input_offset as u16 },
+                    AvmOperand::U16 { value: output_offset as u16 },
+                    AvmOperand::U16 { value: radix_offset as u16 },
+                    AvmOperand::U16 { value: num_limbs as u16 },
                     AvmOperand::U8 { value: *output_bits as u8 },
                 ],
             });
@@ -1135,13 +1112,13 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     .build(),
             ),
             operands: vec![
-                AvmOperand::U32 { value: p1_x_offset.to_usize() as u32 },
-                AvmOperand::U32 { value: p1_y_offset.to_usize() as u32 },
-                AvmOperand::U32 { value: p1_infinite_offset.to_usize() as u32 },
-                AvmOperand::U32 { value: p2_x_offset.to_usize() as u32 },
-                AvmOperand::U32 { value: p2_y_offset.to_usize() as u32 },
-                AvmOperand::U32 { value: p2_infinite_offset.to_usize() as u32 },
-                AvmOperand::U32 { value: result.pointer.to_usize() as u32 },
+                AvmOperand::U16 { value: p1_x_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: p1_y_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: p1_infinite_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: p2_x_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: p2_y_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: p2_infinite_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: result.pointer.to_usize() as u16 },
             ],
             ..Default::default()
         }),
@@ -1166,10 +1143,10 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U32 { value: points_offset as u32 },
-                    AvmOperand::U32 { value: scalars_offset as u32 },
-                    AvmOperand::U32 { value: outputs_offset as u32 },
-                    AvmOperand::U32 { value: num_points as u32 },
+                    AvmOperand::U16 { value: points_offset as u16 },
+                    AvmOperand::U16 { value: scalars_offset as u16 },
+                    AvmOperand::U16 { value: outputs_offset as u16 },
+                    AvmOperand::U16 { value: num_points as u16 },
                 ],
                 ..Default::default()
             });
@@ -1240,12 +1217,10 @@ fn handle_debug_log(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: message_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: message_size },
-            // indirect
-            AvmOperand::U32 { value: fields_offset_ptr.to_usize() as u32 },
-            // indirect
-            AvmOperand::U32 { value: fields_size_ptr.to_usize() as u32 },
+            AvmOperand::U16 { value: message_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: message_size as u16 },
+            AvmOperand::U16 { value: fields_offset_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: fields_size_ptr.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1286,13 +1261,9 @@ fn handle_calldata_copy(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 {
-                value: cd_offset.to_usize() as u32, // cdOffset (calldata offset)
-            },
-            AvmOperand::U32 { value: copy_size_offset.to_usize() as u32 }, // copy size
-            AvmOperand::U32 {
-                value: dest_offset.to_usize() as u32, // dstOffset
-            },
+            AvmOperand::U16 { value: cd_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: copy_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1320,8 +1291,8 @@ fn handle_return(
             AddressingModeBuilder::default().indirect_operand(&return_data_offset).build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: return_data_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: return_data_size },
+            AvmOperand::U16 { value: return_data_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: return_data_size as u16 },
         ],
         ..Default::default()
     });
@@ -1358,8 +1329,8 @@ fn handle_storage_write(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: src_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: slot_offset.to_usize() as u32 },
+            AvmOperand::U16 { value: src_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: slot_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1433,8 +1404,8 @@ fn handle_storage_read(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: slot_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: dest_offset.to_usize() as u32 },
+            AvmOperand::U16 { value: slot_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });

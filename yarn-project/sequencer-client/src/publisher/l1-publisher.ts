@@ -23,7 +23,7 @@ import { areArraysEqual, compactArray, times } from '@aztec/foundation/collectio
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -265,7 +265,7 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
-      this.log.verbose(JSON.stringify(err));
+      this.log.verbose(toFriendlyJSON(err as object));
       const errorName = tryGetCustomErrorName(err);
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;

@@ -5,11 +5,15 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
+import {
+  type CompleteAddress,
+  type ContractInstance,
+  type Header,
+  type KeyValidationRequest,
+} from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db_interfaces.js';

@@ -10,12 +10,12 @@ import {
   type ProverCoordination,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';

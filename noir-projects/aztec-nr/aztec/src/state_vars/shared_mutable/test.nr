@@ -267,7 +267,7 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
     assert_eq(private_state_var.context.max_block_number.unwrap(), historical_block_number + new_delay);
 }
 
-#[test(should_fail_with="Hint values do not match hash")]
+#[test(should_fail_with = "Hint values do not match hash")]
 unconstrained fn test_get_current_value_in_private_bad_value_hints() {
     let mut env = setup();
 
@@ -287,7 +287,7 @@ unconstrained fn test_get_current_value_in_private_bad_value_hints() {
     let _ = private_state_var.get_current_value_in_private();
 }
 
-#[test(should_fail_with="Hint values do not match hash")]
+#[test(should_fail_with = "Hint values do not match hash")]
 unconstrained fn test_get_current_value_in_private_bad_delay_hints() {
     let mut env = setup();
 
@@ -307,7 +307,7 @@ unconstrained fn test_get_current_value_in_private_bad_delay_hints() {
     let _ = private_state_var.get_current_value_in_private();
 }
 
-#[test(should_fail_with="Non-zero value change for zero hash")]
+#[test(should_fail_with = "Non-zero value change for zero hash")]
 unconstrained fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let mut env = setup();
 
@@ -324,7 +324,7 @@ unconstrained fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let _ = state_var.get_current_value_in_private();
 }
 
-#[test(should_fail_with="Non-zero delay change for zero hash")]
+#[test(should_fail_with = "Non-zero delay change for zero hash")]
 unconstrained fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
     let mut env = setup();
 

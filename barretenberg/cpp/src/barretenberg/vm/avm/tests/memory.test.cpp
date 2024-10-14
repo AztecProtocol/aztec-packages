@@ -37,14 +37,12 @@ class AvmMemoryTests : public ::testing::Test {
 // The proof must pass and we check that the AVM error is raised.
 TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
 {
-    std::vector<FF> const calldata = { 98, 12 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                        .set_full_precomputed_tables(false)
-                        .set_range_check_required(false);
-    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
-    trace_builder.op_calldata_copy(0, 0, 1, 0);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0, {}).set_full_precomputed_tables(false).set_range_check_required(false);
+    trace_builder.op_set(0, 98, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 12, 1, AvmMemoryTag::U16);
 
-    trace_builder.op_add(0, 0, 1, 4, AvmMemoryTag::U8);
+    trace_builder.op_add(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -66,9 +64,9 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
 
     EXPECT_TRUE(row != trace.end());
 
-    EXPECT_EQ(row->mem_tag_err, FF(1)); // Error is raised
-    EXPECT_EQ(row->mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
-    EXPECT_EQ(row->mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::FF)));
+    EXPECT_EQ(row->mem_tag_err, FF(0)); // No error on the first operand
+    EXPECT_EQ(row->mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U32)));
+    EXPECT_EQ(row->mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U32)));
 
     // Find the memory trace position corresponding to the add sub-operation of register ib.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
@@ -78,10 +76,10 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
     EXPECT_TRUE(row != trace.end());
 
     EXPECT_EQ(row->mem_tag_err, FF(1)); // Error is raised
-    EXPECT_EQ(row->mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
-    EXPECT_EQ(row->mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::FF)));
+    EXPECT_EQ(row->mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U32)));
+    EXPECT_EQ(row->mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U16)));
 
-    validate_trace(std::move(trace), public_inputs, calldata, {});
+    validate_trace(std::move(trace), public_inputs);
 }
 
 // Testing an equality operation with a mismatched memory tag.
@@ -91,7 +89,7 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     trace_builder.op_set(0, 3, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 5, 1, AvmMemoryTag::U16);
 
-    trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::U32);
+    trace_builder.op_eq(0, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -135,7 +133,7 @@ TEST_F(AvmMemoryTests, mLastAccessViolation)
     trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:     [4,9,0,0,0,0,....]
-    trace_builder.op_sub(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,5,0,0,0.....]
+    trace_builder.op_sub(0, 1, 0, 2); // [4,9,5,0,0,0.....]
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -166,8 +164,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyValViolation)
     trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
-    trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
-    trace_builder.op_return(0, 2, 1);                   // Return single memory word at position 2 (36)
+    trace_builder.op_mul(0, 1, 0, 2); // [4,9,36,0,0,0.....]
+    trace_builder.op_return(0, 2, 1); // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
@@ -196,8 +194,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
     trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
-    trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
-    trace_builder.op_return(0, 2, 1);                   // Return single memory word at position 2 (36)
+    trace_builder.op_mul(0, 1, 0, 2); // [4,9,36,0,0,0.....]
+    trace_builder.op_return(0, 2, 1); // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
@@ -234,13 +232,12 @@ TEST_F(AvmMemoryTests, readUninitializedMemoryViolation)
 // must raise a VM error.
 TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 {
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 98, 12 })
-                        .set_full_precomputed_tables(false)
-                        .set_range_check_required(false);
-    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
-    trace_builder.op_calldata_copy(0, 0, 1, 0);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0, {}).set_full_precomputed_tables(false).set_range_check_required(false);
+    trace_builder.op_set(0, 98, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 12, 1, AvmMemoryTag::U16);
 
-    trace_builder.op_sub(0, 0, 1, 4, AvmMemoryTag::U8);
+    trace_builder.op_sub(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -251,21 +248,15 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 
     auto clk = row->main_clk;
 
-    // Find the memory trace position corresponding to the subtraction sub-operation of register ia.
+    // Find the memory trace position corresponding to the subtraction sub-operation of register ib.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.mem_tsp == FF(AvmMemTraceBuilder::NUM_SUB_CLK) * clk + AvmMemTraceBuilder::SUB_CLK_LOAD_A;
+        return r.mem_tsp == FF(AvmMemTraceBuilder::NUM_SUB_CLK) * clk + AvmMemTraceBuilder::SUB_CLK_LOAD_B;
     });
 
+    // Wrongly set the error to 0 to trigger an inconsistency failure.
     row->mem_tag_err = FF(0);
-    auto index = static_cast<uint32_t>(row - trace.begin());
-    auto trace2 = trace;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_IN_TAG_CONSISTENCY_1");
-
-    // More sophisticated attempt by adapting witness "on_min_inv" to make pass the above constraint
-    trace2[index].mem_one_min_inv = FF(1);
-
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace2)), "MEM_IN_TAG_CONSISTENCY_2");
 }
 
 // Testing violation that an operation with a consistent memory tag
@@ -277,7 +268,7 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
                         .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_fdiv(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -306,7 +297,7 @@ TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
                         .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_fdiv(0, 0, 1, 4);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -338,7 +329,7 @@ TEST_F(AvmMemoryTests, directRelativeMemory)
 
     // Addition with direct relative addressing on the 2 input operands and direct addressing on the output
     // indirect byte: 00011000 = 24
-    trace_builder.op_add(24, 10, 100, 10, AvmMemoryTag::U16);
+    trace_builder.op_add(24, 10, 100, 10);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -369,7 +360,7 @@ TEST_F(AvmMemoryTests, indirectRelativeMemory)
 
     // Output c = a + b = 8 is stored at direct relative offset 2, i.e., address 102.
     // indirect byte: 00111011 = 1 + 2 + 8 + 16 + 32 = 59
-    trace_builder.op_add(59, 23, 47, 2, AvmMemoryTag::U8);
+    trace_builder.op_add(59, 23, 47, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 

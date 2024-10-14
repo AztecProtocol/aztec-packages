@@ -16,10 +16,10 @@ export class MultiScalarMul extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8 /* opcode */,
     OperandType.UINT8 /* indirect */,
-    OperandType.UINT32 /* points vector offset */,
-    OperandType.UINT32 /* scalars vector offset */,
-    OperandType.UINT32 /* output offset (fixed triplet) */,
-    OperandType.UINT32 /* points length offset */,
+    OperandType.UINT16 /* points vector offset */,
+    OperandType.UINT16 /* scalars vector offset */,
+    OperandType.UINT16 /* output offset (fixed triplet) */,
+    OperandType.UINT16 /* points length offset */,
   ];
 
   constructor(

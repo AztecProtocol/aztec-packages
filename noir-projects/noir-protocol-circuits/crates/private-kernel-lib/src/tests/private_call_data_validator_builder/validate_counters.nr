@@ -3,7 +3,6 @@ use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorB
 /**
  * Private call.
  */
-
 #[test]
 fn validate_counters_private_call_succeeds() {
     let builder = PrivateCallDataValidatorBuilder::new_from_counter(23);
@@ -16,7 +15,7 @@ fn validate_counters_private_call_from_0_counter_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="private call has incorrect counter range")]
+#[test(should_fail_with = "private call has incorrect counter range")]
 fn validate_counters_private_call_no_counter_range_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -25,7 +24,7 @@ fn validate_counters_private_call_no_counter_range_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="private call has incorrect counter range")]
+#[test(should_fail_with = "private call has incorrect counter range")]
 fn validate_counters_private_call_negative_call_counter_range_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -37,7 +36,6 @@ fn validate_counters_private_call_negative_call_counter_range_fails() {
 /**
  * Note hashes
  */
-
 #[test]
 fn validate_counters_note_hashes_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
@@ -47,7 +45,7 @@ fn validate_counters_note_hashes_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="counter must be larger than the counter of the previous item")]
+#[test(should_fail_with = "counter must be larger than the counter of the previous item")]
 fn validate_counters_note_hash_counter_same_as_call_counter_start_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -58,7 +56,7 @@ fn validate_counters_note_hash_counter_same_as_call_counter_start_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="counter must be larger than the counter of the previous item")]
+#[test(should_fail_with = "counter must be larger than the counter of the previous item")]
 fn validate_counters_note_hash_counter_smaller_than_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -69,7 +67,7 @@ fn validate_counters_note_hash_counter_smaller_than_call_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="counter must be larger than the counter of the previous item")]
+#[test(should_fail_with = "counter must be larger than the counter of the previous item")]
 fn validate_counters_note_hash_identical_counters_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -82,7 +80,7 @@ fn validate_counters_note_hash_identical_counters_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="counter must be larger than the counter of the previous item")]
+#[test(should_fail_with = "counter must be larger than the counter of the previous item")]
 fn validate_counters_note_hash_unordered_counters_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -95,7 +93,7 @@ fn validate_counters_note_hash_unordered_counters_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="counter must be smaller than the end counter of the call")]
+#[test(should_fail_with = "counter must be smaller than the end counter of the call")]
 fn validate_counters_note_hash_counter_larger_than_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -106,7 +104,7 @@ fn validate_counters_note_hash_counter_larger_than_call_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="counter must be smaller than the end counter of the call")]
+#[test(should_fail_with = "counter must be smaller than the end counter of the call")]
 fn validate_counters_note_hash_counter_same_as_call_counter_end_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -120,7 +118,6 @@ fn validate_counters_note_hash_counter_same_as_call_counter_end_fails() {
 /**
  * Private call requests.
  */
-
 #[test]
 fn validate_counters_private_call_requests_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
@@ -130,7 +127,7 @@ fn validate_counters_private_call_requests_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="start counter must be larger than the end counter of the previous call")]
+#[test(should_fail_with = "start counter must be larger than the end counter of the previous call")]
 fn validate_counters_private_call_requests_less_than_call_start_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -142,7 +139,7 @@ fn validate_counters_private_call_requests_less_than_call_start_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="start counter must be larger than the end counter of the previous call")]
+#[test(should_fail_with = "start counter must be larger than the end counter of the previous call")]
 fn validate_counters_private_call_requests_equal_call_start_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -154,7 +151,7 @@ fn validate_counters_private_call_requests_equal_call_start_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="start counter must be larger than the end counter of the previous call")]
+#[test(should_fail_with = "start counter must be larger than the end counter of the previous call")]
 fn validate_counters_private_call_requests_less_than_previous_end_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -166,7 +163,7 @@ fn validate_counters_private_call_requests_less_than_previous_end_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="start counter must be larger than the end counter of the previous call")]
+#[test(should_fail_with = "start counter must be larger than the end counter of the previous call")]
 fn validate_counters_private_call_requests_same_as_previous_end_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -178,7 +175,7 @@ fn validate_counters_private_call_requests_same_as_previous_end_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="nested call has incorrect counter range")]
+#[test(should_fail_with = "nested call has incorrect counter range")]
 fn validate_counters_private_call_requests_end_less_than_start_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -190,7 +187,7 @@ fn validate_counters_private_call_requests_end_less_than_start_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="nested call has incorrect counter range")]
+#[test(should_fail_with = "nested call has incorrect counter range")]
 fn validate_counters_private_call_requests_end_equal_start_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -202,7 +199,7 @@ fn validate_counters_private_call_requests_end_equal_start_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="end counter must be smaller than the end counter of the parent call")]
+#[test(should_fail_with = "end counter must be smaller than the end counter of the parent call")]
 fn validate_counters_private_call_requests_greater_than_call_end_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -214,7 +211,7 @@ fn validate_counters_private_call_requests_greater_than_call_end_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="end counter must be smaller than the end counter of the parent call")]
+#[test(should_fail_with = "end counter must be smaller than the end counter of the parent call")]
 fn validate_counters_private_call_requests_equal_call_end_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 

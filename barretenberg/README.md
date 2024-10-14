@@ -477,4 +477,4 @@ See Tracy manual linked here <https://github.com/wolfpld/tracy> for in-depth Tra
 The basic use of Tracy is to run a benchmark with the `cmake --preset tracy` build type, create a capture file, then
 transfer it to a local machine for interactive UI introspection.
 
-All the steps to do this effectively are included in cpp/scripts/benchmark_tracy.sh
+All the steps to do this effectively are included in various scripts in cpp/scripts/.

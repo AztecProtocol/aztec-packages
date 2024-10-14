@@ -123,6 +123,9 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
+    // Ranges over which the execution trace is "active"
+    std::vector<std::pair<size_t, size_t>> active_block_ranges;
+
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,
                 const size_t num_public_inputs,
