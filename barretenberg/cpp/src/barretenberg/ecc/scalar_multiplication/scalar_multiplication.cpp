@@ -917,6 +917,7 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
     // Pippenger
     const size_t threshold = get_num_cpus_pow2() * 8;
     auto scalars = scalars_.span;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): Optimize so it's only scalars.size().
     size_t num_initial_points = scalars_.start_index + scalars.size();
     if (num_initial_points == 0) {
         Element out = Group::one;
@@ -975,6 +976,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     if (scalars.start_index + scalars.size() <= threshold) {
         return pippenger_unsafe(scalars, points, state);
     }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
     // We need a padding of points.
     ASSERT((numeric::round_up_power_2(scalars.start_index + scalars.size())) * 2 <= points.size());
     // We do not optimize for the small case at all.
@@ -1011,6 +1013,7 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
     std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
     std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
     ASSERT(scalars.start_index + scalars.size() <= points.size());
     bb::scalar_multiplication::generate_pippenger_point_table<Curve>(

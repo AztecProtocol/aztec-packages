@@ -55,6 +55,7 @@ async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, 
 async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
   const api = await Barretenberg.new({ threads });
 
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraPlonk function
   const circuitSize = await getGatesUltra(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
@@ -82,6 +83,7 @@ async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSiz
 async function initUltraHonk(bytecodePath: string, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraHonk function
   const circuitSize = await getGatesUltra(bytecodePath, /*honkRecursion=*/ true, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const dyadicCircuitSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
