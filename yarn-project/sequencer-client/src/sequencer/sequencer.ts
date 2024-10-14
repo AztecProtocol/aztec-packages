@@ -36,7 +36,7 @@ export type ShouldProposeArgs = {
 };
 
 const log = createDebugLogger('aztec:archiver');
-const logChecks = createDebugLogger('aztec:archiver:checks');
+const logChecks = createDebugLogger('aztec:archiver_checks');
 
 /**
  * Sequencer client
