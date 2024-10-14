@@ -5,11 +5,12 @@ libs = ['lib']
 ffi = true
 optimizer_runs = 500
 gas_limit = 900000000000000000
+evm_version = "cancun"
 
 [fuzz]
 runs = 1
 
 
-solc = "0.8.21"
+solc = "0.8.26"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

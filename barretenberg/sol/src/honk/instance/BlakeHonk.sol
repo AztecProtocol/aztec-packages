@@ -17,7 +17,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "../HonkTypes.sol";
 
-import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
+import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, logFr, logG1} from "../utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "../Fr.sol";
@@ -25,6 +25,8 @@ import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "../Fr.sol";
 import {Transcript, TranscriptLib} from "../Transcript.sol";
 
 import {RelationsLib} from "../Relations.sol";
+
+import "forge-std/console.sol";
 
 // Errors
 error PublicInputsLengthWrong();
@@ -53,6 +55,8 @@ contract BlakeHonkVerifier is IVerifier {
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
+        uint256 gasAfter = gasleft();
+        console.log("Gas used until sumcheck: ", gasBefore - gasAfter);
 
         bool shpleminiVerified = verifyShplemini(p, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
@@ -163,7 +167,6 @@ contract BlakeHonkVerifier is IVerifier {
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
-
         // Calculate domain size N of inverses -- TODO: montgomery's trick
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
