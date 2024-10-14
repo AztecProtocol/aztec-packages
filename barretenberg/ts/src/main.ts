@@ -91,7 +91,7 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   debug(`circuit size: ${circuitSize}`);
   debug(`dyadic circuit size size: ${dyadicCircuitSize}`);
   debug('loading crs...');
-  const crs = await Crs.new(dyadicCircuitSize, crsPath);
+  const crs = await Crs.new(dyadicCircuitSize + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -103,8 +103,8 @@ async function initClientIVC(bytecodePath: string, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
   debug('loading BN254 and Grumpkin crs...');
-  const crs = await Crs.new(2 ** 19, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 14, crsPath);
+  const crs = await Crs.new(2 ** 18 + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(2 ** 13 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
