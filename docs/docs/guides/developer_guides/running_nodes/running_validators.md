@@ -197,11 +197,6 @@ brew install helm
 
 - Docker Desktop includes Kubernetes; enable it in the Docker settings.
 
-**Additional Steps**:
-
-- Verify that Docker Engine is running.
-- (Optional) Configure your Kubernetes context if necessary.
-
 ### Windows
 
 **Installing Docker Desktop**:
