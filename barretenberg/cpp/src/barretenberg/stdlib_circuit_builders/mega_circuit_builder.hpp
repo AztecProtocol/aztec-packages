@@ -48,6 +48,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         : UltraCircuitBuilder_<MegaArith<FF>>(size_hint)
         , op_queue(op_queue_in)
     {
+        PROFILE_THIS();
+
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };

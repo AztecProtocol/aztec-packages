@@ -1,4 +1,4 @@
-#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
+#include "barretenberg/vm/avm/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -7,7 +7,7 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
 #include "barretenberg/vm/avm/generated/composer.hpp"
-#include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
@@ -52,7 +52,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
-        trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
+        trace_builder.op_add(0, 1, 2, 3);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 

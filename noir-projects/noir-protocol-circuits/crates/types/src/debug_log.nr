@@ -17,7 +17,7 @@ pub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
     };
 }
 
-unconstrained pub fn debug_log_oracle_wrapper<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
+pub unconstrained fn debug_log_oracle_wrapper<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
     debug_log_oracle(msg, args.as_slice());
 }
 

@@ -96,7 +96,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         *self
     }
 
-    unconstrained pub fn sort_ordered_values(&mut self) {
+    pub unconstrained fn sort_ordered_values(&mut self) {
         // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage = sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
         self.public_inputs.end.unencrypted_logs_hashes.storage = sort_by_counter_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);

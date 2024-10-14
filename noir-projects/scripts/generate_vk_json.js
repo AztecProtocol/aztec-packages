@@ -56,6 +56,9 @@ async function removeFunctionArtifact(artifactPath) {
 
 async function getBytecodeHash(artifactPath) {
   const { bytecode } = JSON.parse(await fs.readFile(artifactPath));
+  if (!bytecode) {
+    throw new Error("No bytecode found in artifact: " + artifactPath);
+  }
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
@@ -110,11 +113,9 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
 }
 
 function isMegaHonkCircuit(artifactName) {
-  // TODO Uncomment when mega honk vks are supported in the protocol
-  // return megaHonkPatterns.some((pattern) =>
-  //   artifactName.match(new RegExp(pattern))
-  // );
-  return false;
+  return megaHonkPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  );
 }
 
 async function processArtifact(

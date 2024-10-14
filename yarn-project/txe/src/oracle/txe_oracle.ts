@@ -13,6 +13,8 @@ import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
   CombinedConstantData,
+  type ContractInstance,
+  type ContractInstanceWithAddress,
   Gas,
   Header,
   type KeyValidationRequest,
@@ -63,7 +65,6 @@ import {
   witnessMapToFields,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { type TXEDatabase } from '../util/txe_database.js';

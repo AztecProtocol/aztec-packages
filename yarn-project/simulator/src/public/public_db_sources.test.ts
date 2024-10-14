@@ -1,8 +1,7 @@
 import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import { AztecAddress, Fr, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { AztecAddress, type ContractDataSource, Fr, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

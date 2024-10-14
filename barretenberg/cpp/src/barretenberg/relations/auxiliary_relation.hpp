@@ -110,7 +110,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("Auxiliary::accumulate");
+        PROFILE_THIS_NAME("Auxiliary::accumulate");
         // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
         // whereas in ZK Flavors, the accumulator corresponding to RAM consistency sub-relation 1 is the longest
         using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
