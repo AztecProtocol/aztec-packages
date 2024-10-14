@@ -23,7 +23,6 @@ contract Router {
     #['public]
     #[internal]
     #['internal]
-    #[view]
     #['view]
     fn _check_timestamp(operation: u8, value: u64) {
         let lhs_field = context.timestamp() as Field;
@@ -44,7 +43,6 @@ contract Router {
     #['public]
     #[internal]
     #['internal]
-    #[view]
     #['view]
     fn _check_block_number(operation: u8, value: Field) {
         assert(compare(context.block_number(), operation, value), "Block number mismatch.");

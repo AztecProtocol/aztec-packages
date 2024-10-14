@@ -17,7 +17,6 @@ contract Counter {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[initializer]
     #['initializer]
     #[private]
     #['private]

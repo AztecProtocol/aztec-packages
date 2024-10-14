@@ -19,7 +19,6 @@ contract FPC {
 
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(other_asset: AztecAddress) {
         storage.other_asset.initialize(other_asset);

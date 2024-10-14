@@ -41,7 +41,6 @@ contract TokenBlacklist {
     // docs:start:constructor
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(admin: AztecAddress) {
         let admin_roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false };
@@ -50,7 +49,6 @@ contract TokenBlacklist {
 
     #[public]
     #['public]
-    #[view]
     #['view]
     fn total_supply() -> pub Field {
         storage.total_supply.read().to_field()
@@ -58,7 +56,6 @@ contract TokenBlacklist {
 
     #[public]
     #['public]
-    #[view]
     #['view]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.public_balances.at(owner).read().to_field()
@@ -66,7 +63,6 @@ contract TokenBlacklist {
 
     #[public]
     #['public]
-    #[view]
     #['view]
     fn get_roles(user: AztecAddress) -> UserFlags {
         storage.roles.at(user).get_current_value_in_public()

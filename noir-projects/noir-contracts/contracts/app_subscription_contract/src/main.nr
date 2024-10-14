@@ -66,7 +66,6 @@ contract AppSubscription {
 
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(
         target_address: AztecAddress,

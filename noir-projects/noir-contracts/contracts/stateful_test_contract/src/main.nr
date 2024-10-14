@@ -18,7 +18,6 @@ contract StatefulTest {
 
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
         StatefulTest::at(context.this_address()).create_note_no_init_check(owner, outgoing_viewer, value).call(&mut context);
@@ -26,7 +25,6 @@ contract StatefulTest {
 
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn wrong_constructor() {
         let selector = FunctionSelector::from_signature("not_exists(Field)");
@@ -37,7 +35,6 @@ contract StatefulTest {
     // contract_class_registration tests way less cluttered. This is a test contract. Don't judge me.
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn public_constructor(owner: AztecAddress, _ignored_arg: AztecAddress, value: Field) {
         StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
@@ -115,7 +112,6 @@ contract StatefulTest {
     #[public]
     #['public]
     #['noinitcheck]
-    #[view]
     #['view]
     fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()

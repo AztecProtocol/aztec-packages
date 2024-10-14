@@ -24,7 +24,6 @@ contract Uniswap {
 
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(portal_address: EthAddress) {
         storage.portal_address.initialize(portal_address);
@@ -191,7 +190,6 @@ contract Uniswap {
     #['public]
     #[internal]
     #['internal]
-    #[view]
     #['view]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(

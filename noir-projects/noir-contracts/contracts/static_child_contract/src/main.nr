@@ -22,7 +22,6 @@ contract StaticChild {
     // Returns base_value + chain_id + version + block_number + timestamp statically
     #[public]
     #['public]
-    #[view]
     #['view]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
@@ -109,7 +108,6 @@ contract StaticChild {
     // View function that attempts to modify state. Should always fail regardless how it's called.
     #[public]
     #['public]
-    #[view]
     #['view]
     fn pub_illegal_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();

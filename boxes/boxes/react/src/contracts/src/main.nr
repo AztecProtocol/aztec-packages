@@ -17,7 +17,6 @@ contract BoxReact {
 
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(
         number: Field,

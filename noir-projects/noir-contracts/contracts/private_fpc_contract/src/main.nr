@@ -19,7 +19,6 @@ contract PrivateFPC {
 
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(other_asset: AztecAddress, admin: AztecAddress) {
         let settings = Settings { other_asset, admin };

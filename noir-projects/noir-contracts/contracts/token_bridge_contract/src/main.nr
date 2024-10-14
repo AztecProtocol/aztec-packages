@@ -29,7 +29,6 @@ contract TokenBridge {
     // Constructs the contract.
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(token: AztecAddress, portal_address: EthAddress) {
         storage.token.write(token);
@@ -143,7 +142,6 @@ contract TokenBridge {
     // docs:start:get_token
     #[public]
     #['public]
-    #[view]
     #['view]
     fn get_token() -> AztecAddress {
         storage.token.read()

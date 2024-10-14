@@ -22,7 +22,6 @@ contract EasyPrivateVoting {
     // docs:start:constructor
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {

@@ -22,7 +22,6 @@ contract InclusionProofs {
 
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(public_value: Field) {
         storage.public_value.write(public_value);

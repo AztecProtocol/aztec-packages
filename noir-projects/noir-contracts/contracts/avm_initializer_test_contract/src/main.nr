@@ -15,7 +15,6 @@ contract AvmInitializerTest {
      ************************************************************************/
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor() {
         storage.immutable.initialize(42);

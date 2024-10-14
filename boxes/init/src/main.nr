@@ -5,7 +5,6 @@ use dep::aztec::macros::aztec;
 contract Main {
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor() { }
 }

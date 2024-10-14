@@ -17,7 +17,6 @@ contract Vanilla {
 
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(
         number: Field,

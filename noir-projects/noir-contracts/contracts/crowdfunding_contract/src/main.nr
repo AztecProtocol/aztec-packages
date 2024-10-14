@@ -48,7 +48,6 @@ contract Crowdfunding {
     // docs:start:init-header-error
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     // this-will-error:init-header-error
     fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {

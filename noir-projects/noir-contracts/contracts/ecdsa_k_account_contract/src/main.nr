@@ -26,7 +26,6 @@ contract EcdsaKAccount {
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
@@ -50,7 +49,6 @@ contract EcdsaKAccount {
     #[private]
     #['private]
     #['noinitcheck]
-    #[view]
     #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);

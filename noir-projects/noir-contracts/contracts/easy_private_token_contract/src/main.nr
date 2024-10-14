@@ -18,7 +18,6 @@ contract EasyPrivateToken {
      */
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(initial_supply: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;

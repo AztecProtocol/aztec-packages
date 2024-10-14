@@ -22,7 +22,6 @@ contract Escrow {
     // Creates a new instance
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(owner: AztecAddress) {
         let owner_keys = get_public_keys(owner);

@@ -112,7 +112,6 @@ contract AuthRegistry {
      */
     #[public]
     #['public]
-    #[view]
     #['view]
     fn is_reject_all(on_behalf_of: AztecAddress) -> bool {
         storage.reject_all.at(on_behalf_of).read()
@@ -127,7 +126,6 @@ contract AuthRegistry {
      */
     #[public]
     #['public]
-    #[view]
     #['view]
     fn is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> bool {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()

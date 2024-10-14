@@ -28,7 +28,6 @@ contract SchnorrAccount {
     // Constructs the contract
     #[private]
     #['private]
-    #[initializer]
     #['initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
@@ -53,7 +52,6 @@ contract SchnorrAccount {
     #[private]
     #['private]
     #['noinitcheck]
-    #[view]
     #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);

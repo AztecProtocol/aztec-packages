@@ -20,7 +20,6 @@ contract Claim {
 
     #[public]
     #['public]
-    #[initializer]
     #['initializer]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         storage.target_contract.initialize(target_contract);
