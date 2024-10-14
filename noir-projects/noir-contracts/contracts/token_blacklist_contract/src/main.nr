@@ -18,7 +18,7 @@ contract TokenBlacklist {
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note_unconstrained, encode_and_encrypt_note},
         utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public, initializer, internal}},
+        macros::{storage::storage, functions::{private, public, initializer, view, internal}},
         keys::getters::get_public_keys
     };
 

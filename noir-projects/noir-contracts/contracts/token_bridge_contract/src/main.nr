@@ -15,7 +15,7 @@ contract TokenBridge {
 
     use dep::token::Token;
 
-    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal, view}};
+    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal}};
     // docs:end:token_bridge_imports
 
     // docs:start:token_bridge_storage_and_constructor
