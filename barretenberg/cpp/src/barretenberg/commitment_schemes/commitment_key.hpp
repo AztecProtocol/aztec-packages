@@ -87,11 +87,18 @@ template <class Curve> class CommitmentKey {
     {
         PROFILE_THIS();
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
-        // just pick a starting index so that it doesn't go over the dyadic_circuit_size
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
-        size_t relative_start_index =
-            polynomial.end_index() > dyadic_poly_size ? dyadic_poly_size - polynomial.size() : polynomial.start_index;
-        size_t actual_start_index = polynomial.start_index - relative_start_index;
+        // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
+        // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
+        // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
+        // that ends at the end of the polynomial, which would be polynomial.end_index() - dyadic_poly_size. However,
+        // our polynomial might defined too close to 0, so we set the start_index to 0 in that case.
+        size_t actual_start_index =
+            polynomial.end_index() > dyadic_poly_size ? polynomial.end_index() - dyadic_poly_size : 0;
+        // The relative start index is the offset of the scalars from the start of the points window, i.e.
+        // [actual_start_index, actual_start_index + dyadic_poly_size), so we subtract actual_start_index from the start
+        // index.
+        size_t relative_start_index = polynomial.start_index - actual_start_index;
         const size_t consumed_srs = actual_start_index + dyadic_poly_size;
         auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
         // We only need the
