@@ -176,7 +176,7 @@ This function sets the creator of the contract (passed as `msg_sender` from the 
 
 ### Public function implementations
 
-Public functions are declared with the `#[aztec(public)]` macro above the function name.
+Public functions are declared with the `#[public]` macro above the function name.
 
 As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
 
@@ -244,10 +244,10 @@ After storage is initialized, the [authorization flow specified above](#authoriz
 
 ### Private function implementations
 
-Private functions are declared with the `#[aztec(private)]` macro above the function name like so:
+Private functions are declared with the `#[private]` macro above the function name like so:
 
 ```rust
-    #[aztec(private)]
+    #[private]
     fn redeem_shield(
 ```
 

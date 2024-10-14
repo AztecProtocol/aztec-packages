@@ -6,6 +6,8 @@ tags: [accounts, keys]
 The goal of this section is to give app developer a good idea what keys there are used in the system.
 For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/index.md).
 
+In short, there is a **nullifier key** (to spend your notes), an **incoming viewing key** (to view any notes or logs that were sent to you), an **outgoing viewing key** (to view any logs or notes you sent to another entity), a **tagging key** (to quickly find notes relevant to you) and oftentimes a signing key. A signing key is not strictly required by the protocol, but are often used with specific account contracts for authorization purposes.
+
 Each account in Aztec is backed by 4 key pairs:
 
 - A **nullifier key pair** used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
