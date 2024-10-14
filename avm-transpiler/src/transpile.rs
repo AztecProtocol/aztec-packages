@@ -88,7 +88,7 @@ pub fn brillig_to_avm(
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: Some(AvmTypeTag::FIELD),
+                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
@@ -181,7 +181,7 @@ pub fn brillig_to_avm(
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
+                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),

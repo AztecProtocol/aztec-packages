@@ -85,7 +85,7 @@ impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInt
 
 impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote {
     // docs:start:view_notes
-    unconstrained pub fn view_notes(
+    pub unconstrained fn view_notes(
         self,
         options: NoteViewerOptions<Note, N>
     ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> {

@@ -155,7 +155,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFakeHonk(),
     );
   }
 
@@ -276,7 +276,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
     await this.delay();
     return {
-      tubeVK: VerificationKeyData.makeFake(),
+      tubeVK: VerificationKeyData.makeFakeHonk(),
       tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
     };
   }

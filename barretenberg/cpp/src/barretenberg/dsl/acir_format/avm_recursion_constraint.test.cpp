@@ -51,9 +51,9 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         trace_builder.op_set(0, 15, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 12, 2, AvmMemoryTag::U8);
-        trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
-        trace_builder.op_sub(0, 3, 2, 3, AvmMemoryTag::U8);
-        trace_builder.op_mul(0, 1, 1, 3, AvmMemoryTag::U8);
+        trace_builder.op_add(0, 1, 2, 3);
+        trace_builder.op_sub(0, 3, 2, 3);
+        trace_builder.op_mul(0, 1, 1, 3);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 

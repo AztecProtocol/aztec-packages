@@ -67,9 +67,8 @@ template <typename Flavor> class SumcheckProverRound {
         : round_size(initial_round_size)
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("SumcheckProverRound constructor");
-#endif
+        PROFILE_THIS_NAME("SumcheckProverRound constructor");
+
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
     }
@@ -164,11 +163,7 @@ template <typename Flavor> class SumcheckProverRound {
         const RelationSeparator alpha,
         std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt) // only submitted when Flavor HasZK
     {
-
-#ifdef TRACY_MEMORY
-        ZoneScopedN("compute_univariate");
-#endif
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS_NAME("compute_univariate");
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based

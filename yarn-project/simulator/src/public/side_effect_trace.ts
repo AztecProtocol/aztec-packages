@@ -6,6 +6,7 @@ import {
   AvmKeyValueHint,
   AztecAddress,
   CallContext,
+  type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -30,7 +31,6 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';

@@ -85,7 +85,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         // just pick a starting index so that it doesn't go over the dyadic_circuit_size
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
@@ -126,7 +126,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
         const size_t poly_size = polynomial.size();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 

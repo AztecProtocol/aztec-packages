@@ -286,8 +286,7 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
  * @param dst_offset An index in memory pointing to the output of the addition.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_add(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -295,6 +294,8 @@ void AvmTraceBuilder::op_add(
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -354,8 +355,7 @@ void AvmTraceBuilder::op_add(
  * @param dst_offset An index in memory pointing to the output of the subtraction.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_sub(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -363,6 +363,8 @@ void AvmTraceBuilder::op_sub(
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -422,8 +424,7 @@ void AvmTraceBuilder::op_sub(
  * @param dst_offset An index in memory pointing to the output of the multiplication.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_mul(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -431,6 +432,8 @@ void AvmTraceBuilder::op_mul(
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -490,14 +493,15 @@ void AvmTraceBuilder::op_mul(
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_div(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_dst] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -571,8 +575,7 @@ void AvmTraceBuilder::op_div(
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_fdiv(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, [[maybe_unused]] AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -596,7 +599,6 @@ void AvmTraceBuilder::op_fdiv(
     FF error;
 
     if (!b.is_zero()) {
-
         inv = b.invert();
         c = a * inv;
         error = 0;
@@ -656,14 +658,15 @@ void AvmTraceBuilder::op_fdiv(
  * @param dst_offset An index in memory pointing to the output of the equality.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_eq(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, AvmMemoryTag::U1, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
@@ -713,14 +716,15 @@ void AvmTraceBuilder::op_eq(
     });
 }
 
-void AvmTraceBuilder::op_lt(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, AvmMemoryTag::U1, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
@@ -766,14 +770,15 @@ void AvmTraceBuilder::op_lt(
     });
 }
 
-void AvmTraceBuilder::op_lte(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, AvmMemoryTag::U1, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
@@ -824,14 +829,15 @@ void AvmTraceBuilder::op_lte(
  *                            COMPUTE - BITWISE
  **************************************************************************************************/
 
-void AvmTraceBuilder::op_and(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -878,13 +884,14 @@ void AvmTraceBuilder::op_and(
     });
 }
 
-void AvmTraceBuilder::op_or(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -931,14 +938,15 @@ void AvmTraceBuilder::op_or(
     });
 }
 
-void AvmTraceBuilder::op_xor(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -1044,14 +1052,15 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
     });
 }
 
-void AvmTraceBuilder::op_shl(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -1096,14 +1105,15 @@ void AvmTraceBuilder::op_shl(
     });
 }
 
-void AvmTraceBuilder::op_shr(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_a, resolved_b, resolved_c] =
         Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);

@@ -10,7 +10,7 @@ unconstrained fn enqueue_public_function_call_oracle(
     _is_delegate_call: bool
 ) -> Field {}
 
-unconstrained pub fn enqueue_public_function_call_internal(
+pub unconstrained fn enqueue_public_function_call_internal(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args_hash: Field,
@@ -38,7 +38,7 @@ unconstrained fn set_public_teardown_function_call_oracle(
     _is_delegate_call: bool
 ) -> Field {}
 
-unconstrained pub fn set_public_teardown_function_call_internal(
+pub unconstrained fn set_public_teardown_function_call_internal(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args_hash: Field,
@@ -62,7 +62,7 @@ pub fn notify_set_min_revertible_side_effect_counter(counter: u32) {
     };
 }
 
-unconstrained pub fn notify_set_min_revertible_side_effect_counter_oracle_wrapper(counter: u32) {
+pub unconstrained fn notify_set_min_revertible_side_effect_counter_oracle_wrapper(counter: u32) {
     notify_set_min_revertible_side_effect_counter_oracle(counter);
 }
 

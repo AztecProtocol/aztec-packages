@@ -1,6 +1,10 @@
-import { type CombinedConstantData, type Gas, type VMCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  type CombinedConstantData,
+  type ContractInstanceWithAddress,
+  type Gas,
+  type VMCircuitPublicInputs,
+} from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { assert } from 'console';
 

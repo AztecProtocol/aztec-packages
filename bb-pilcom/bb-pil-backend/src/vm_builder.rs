@@ -132,6 +132,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     // ----------------------- Create the Verifier files -----------------------
     bb_files.create_verifier_cpp(vm_name, &public_inputs);
     bb_files.create_verifier_hpp(vm_name);
+    bb_files.create_recursive_verifier_cpp(vm_name, &public_inputs);
 
     // ----------------------- Create the Prover files -----------------------
     bb_files.create_prover_cpp(vm_name);

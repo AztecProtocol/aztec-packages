@@ -10,11 +10,11 @@ pub fn pack_returns(returns: [Field]) {
     };
 }
 
-unconstrained pub fn pack_returns_oracle_wrapper(returns: [Field]) {
+pub unconstrained fn pack_returns_oracle_wrapper(returns: [Field]) {
     let _ = pack_returns_oracle(returns);
 }
 
-unconstrained pub fn unpack_returns<let N: u32>(return_hash: Field) -> [Field; N] {
+pub unconstrained fn unpack_returns<let N: u32>(return_hash: Field) -> [Field; N] {
     unpack_returns_oracle(return_hash)
 }
 

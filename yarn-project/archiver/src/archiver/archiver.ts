@@ -17,12 +17,18 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type ContractClassPublic,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
   PrivateFunctionBroadcastedEvent,
+  type PublicFunction,
   UnconstrainedFunctionBroadcastedEvent,
+  type UnconstrainedFunctionWithMembershipProof,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
@@ -37,14 +43,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PublicFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
 import {
@@ -405,11 +403,10 @@ export class Archiver implements ArchiveSource {
 
     const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
 
-    this.log.debug(
-      `Processing retrieved blocks ${retrievedBlocks
-        .map(b => b.data.number)
-        .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
-    );
+    this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
+    for (const block of retrievedBlocks) {
+      this.log.debug(`ingesting new L2 block`, block.data.header.globalVariables.toFriendlyJSON());
+    }
 
     const timer = new Timer();
     await this.store.addBlocks(retrievedBlocks);
