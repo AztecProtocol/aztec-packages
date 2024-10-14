@@ -263,7 +263,7 @@ void compute_wnaf_states(uint64_t* point_schedule,
             wnaf_second_half(PADDING_ZEROES, j);
         }
         for (size_t j = defined_left_endpoint; j < defined_right_endpoint; j++) {
-            Fr T0 = scalars[scalar_offset + j].from_montgomery_form();
+            Fr T0 = scalars[scalar_offset + j - scalars_.start_index].from_montgomery_form();
             Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
 
             wnaf_first_half(&T0.data[0], j);
@@ -948,8 +948,8 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
         if (num_slice_points <= scalars_.start_index) {
             remaining_span.start_index -= num_slice_points;
         } else {
+            remaining_span.span = scalars_.span.subspan(num_slice_points - scalars_.start_index);
             remaining_span.start_index = 0;
-            remaining_span.span = scalars_.subspan(num_slice_points - scalars_.start_index).span;
         }
         return result + pippenger(remaining_span, points.subspan(num_slice_points * 2), state, handle_edge_cases);
     }
