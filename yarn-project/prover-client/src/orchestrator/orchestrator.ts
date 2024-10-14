@@ -28,6 +28,7 @@ import {
   EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
+  type Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -299,7 +300,7 @@ export class ProvingOrchestrator implements EpochProver {
       [Attributes.BLOCK_TXS_COUNT]: block.transactionsReceived,
     };
   })
-  public async setBlockCompleted(): Promise<L2Block> {
+  public async setBlockCompleted(expectedHeader?: Header): Promise<L2Block> {
     const provingState = this.provingState?.currentBlock;
     if (!provingState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
@@ -347,7 +348,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // And build the block header
     logger.verbose(`Block ${provingState.globalVariables.blockNumber} completed. Assembling header.`);
-    await this.buildBlock(provingState);
+    await this.buildBlock(provingState, expectedHeader);
 
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
     this.checkAndEnqueueBlockRootRollup(provingState);
@@ -424,7 +425,7 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  private async buildBlock(provingState: BlockProvingState) {
+  private async buildBlock(provingState: BlockProvingState, expectedHeader?: Header) {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
     const gasFees = provingState.globalVariables.gasFees;
     const nonEmptyTxEffects: TxEffect[] = provingState!.allTxs
@@ -440,6 +441,11 @@ export class ProvingOrchestrator implements EpochProver {
       provingState.newL1ToL2Messages,
       this.db,
     );
+
+    if (expectedHeader && !header.equals(expectedHeader)) {
+      logger.error(`Block header mismatch: header=${header} expectedHeader=${expectedHeader}`);
+      throw new Error('Block header mismatch');
+    }
 
     logger.verbose(`Updating archive tree with block ${provingState.blockNumber} header ${header.hash().toString()}`);
     await this.db.updateArchive(header);

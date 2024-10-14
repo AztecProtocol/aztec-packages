@@ -49,6 +49,11 @@ template <typename... TArgs> bool call_lmdb_func(int (*f)(TArgs...), TArgs... ar
     return error == 0;
 }
 
+template <typename... TArgs> int call_lmdb_func_with_return(int (*f)(TArgs...), TArgs... args)
+{
+    return f(args...);
+}
+
 template <typename... TArgs> void call_lmdb_func(const std::string& errorString, int (*f)(TArgs...), TArgs... args)
 {
     int error = f(args...);

@@ -443,7 +443,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
+    #[test(should_fail_with = "Value of the nullifier does not match read request")]
     unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
@@ -456,7 +456,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the nullifier")]
     unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
@@ -485,7 +485,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value exists in pending set")]
+    #[test(should_fail_with = "Value exists in pending set")]
     unconstrained fn nullifier_non_existent_read_request_failed_read_exist() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_nullifier_tree();
 
@@ -540,7 +540,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="value in OverridablePublicDataTreeLeaf does not match read request")]
+    #[test(should_fail_with = "value in OverridablePublicDataTreeLeaf does not match read request")]
     unconstrained fn reading_uninitialized_public_data_non_zero_value_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
 

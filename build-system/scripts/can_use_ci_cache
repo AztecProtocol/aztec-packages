@@ -1,3 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-type docker &> /dev/null && docker ps 2>&1 > /dev/null && [ -f ~/.aws/credentials ] && ecr_login > /dev/null || exit 1
+if [ ! -z ${AWS_ACCESS_KEY_ID:-} ] && [ ! -z ${AWS_SECRET_ACCESS_KEY:-} ]; then
+  exit 0
+elif [ -f ~/.aws/credentials ]; then
+  exit 0
+else
+  exit 1
+fi

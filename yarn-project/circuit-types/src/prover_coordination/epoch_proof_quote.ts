@@ -69,4 +69,12 @@ export class EpochProofQuote extends Gossipable {
       signature: this.signature.toViemSignature(),
     };
   }
+
+  /**
+   * Get the size of the epoch proof quote in bytes.
+   * @returns The size of the epoch proof quote in bytes.
+   */
+  getSize(): number {
+    return this.payload.getSize() + this.signature.getSize();
+  }
 }

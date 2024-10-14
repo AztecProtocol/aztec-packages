@@ -1,3 +1,4 @@
+{{- if not .Values.validator.external }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -21,6 +22,32 @@ spec:
       # We expect the validators to have already been added to the smart contract by this point - but this container still needs
       # to be run in order to get the values
       initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
+              echo "Boot node is ready!"
+
         - name: configure-validator-env
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
@@ -50,7 +77,7 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
+            - "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
@@ -84,20 +111,29 @@ spec:
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
-              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pPort }}"
+              {{- if .Values.validator.externalTcpHost }}
+              value: "{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.p2pTcpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pTcpPort }}"
+              {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
-              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pPort }}"
+              {{- if .Values.validator.externalUdpHost }}
+              value: "{{ .Values.validator.externalUdpHost }}:{{ .Values.validator.service.p2pUdpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pUdpPort }}"
+              {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.validator.service.p2pPort }}"
+              value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.validator.service.p2pPort }}"
+              value: "0.0.0.0:{{ .Values.validator.service.p2pUdpPort }}"
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
-            - containerPort: {{ .Values.validator.service.p2pPort }}
+            - containerPort: {{ .Values.validator.service.p2pTcpPort }}
+            - containerPort: {{ .Values.validator.service.p2pUdpPort }}
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
       volumes:
@@ -140,8 +176,11 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pPort }}
-      name: p2p
+    - port: {{ .Values.validator.service.p2pTcpPort }}
+      name: p2p-tcp
+    - port: {{ .Values.validator.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}
       name: node
 ---
@@ -149,7 +188,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-validator-lb
+  name: {{ include "aztec-network.fullname" . }}-validator-lb-tcp
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -158,8 +197,29 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pPort }}
-      name: p2p
+    - port: {{ .Values.validator.service.p2pTcpPort }}
+      name: p2p-tcp
     - port: {{ .Values.validator.service.nodePort }}
       name: node
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-lb-udp
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
+    - port: {{ .Values.validator.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
+{{ end }}
 {{ end }}

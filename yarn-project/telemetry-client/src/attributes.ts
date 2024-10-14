@@ -38,8 +38,12 @@ export const APP_CIRCUIT_NAME = 'aztec.circuit.app_circuit_name';
  */
 export const APP_CIRCUIT_TYPE = 'aztec.circuit.app_circuit_type';
 
+/** The block archive */
+export const BLOCK_ARCHIVE = 'aztec.block.archive';
 /** The block number */
 export const BLOCK_NUMBER = 'aztec.block.number';
+/** The slot number */
+export const SLOT_NUMBER = 'aztec.slot.number';
 /** The parent's block number */
 export const BLOCK_PARENT = 'aztec.block.parent';
 /** How many txs are being processed to build this block */
@@ -70,3 +74,6 @@ export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
 export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
 /** Whether the proof submission was timed out (delayed more than 20 min) */
 export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
+
+export const P2P_ID = 'aztec.p2p.id';
+export const POOL_NAME = 'aztec.pool.name';

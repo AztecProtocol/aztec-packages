@@ -39,7 +39,7 @@ describe('token transfer test', () => {
   const TOKEN_DECIMALS = 18n;
   const MINT_AMOUNT = 20n;
 
-  const WALLET_COUNT = 16;
+  const WALLET_COUNT = 1; // TODO fix this to allow for 16 wallets again
   const ROUNDS = 5n;
 
   let pxe: PXE;

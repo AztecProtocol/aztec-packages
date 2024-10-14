@@ -10,6 +10,7 @@ import {
 import {
   type AztecAddress,
   type CompleteAddress,
+  type ContractInstance,
   type Fr,
   type FunctionSelector,
   type Header,
@@ -20,7 +21,6 @@ import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/ab
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';

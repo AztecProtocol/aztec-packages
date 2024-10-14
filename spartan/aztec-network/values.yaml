@@ -1,6 +1,13 @@
+nameOverride: ""
+fullnameOverride: ""
+
 network:
   public: false
-  enableBots: true
+  setupL2Contracts: true
+
+telemetry:
+  enabled: false
+  otelCollectorEndpoint:
 
 images:
   aztec:
@@ -14,9 +21,13 @@ images:
     pullPolicy: IfNotPresent
 
 bootNode:
+  external: false
+  externalTcpHost: ""
+  externalUdpHost: ""
   replicas: 1
   service:
-    p2pPort: 40400
+    p2pTcpPort: 40400
+    p2pUdpPort: 40401
     nodePort: 8080
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
@@ -31,15 +42,20 @@ bootNode:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "4"
   storage: "8Gi"
 
 validator:
+  external: false
+  externalTcpHost: ""
+  externalUdpHost: ""
   replicas: 1
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
-    p2pPort: 40400
+    p2pTcpPort: 40400
+    p2pUdpPort: 40401
     nodePort: 8080
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
@@ -54,12 +70,11 @@ validator:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "28Gi"
-      cpu: "7"
   storage: "8Gi"
 
 proverNode:
+  external: false
+  externalHost: ""
   replicas: 1
   service:
     nodePort: 8080
@@ -71,18 +86,18 @@ proverNode:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "120Gi"
-      cpu: "15"
   storage: "8Gi"
 
 pxe:
+  external: false
+  externalHost: ""
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   service:
     port: 8080
     targetPort: 8080
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -93,11 +108,9 @@ pxe:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "1"
 
 bot:
+  enabled: true
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
@@ -114,6 +127,7 @@ bot:
     type: ClusterIP
     port: 8080
     targetPort: 8080
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -124,11 +138,10 @@ bot:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "1"
 
 ethereum:
+  external: false
+  externalHost: ""
   replicas: 1
   chainId: 31337
   blockTime: 12
@@ -142,6 +155,7 @@ ethereum:
     type: ClusterIP
     port: 8545
     targetPort: 8545
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -152,7 +166,4 @@ ethereum:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "1"
   storage: "8Gi"

@@ -13,7 +13,7 @@ export enum WorldStateRunningState {
 /**
  * Defines the status of the world state synchronizer.
  */
-export interface WorldStateStatus {
+export interface WorldStateSynchronizerStatus {
   /**
    * The current state of the world state synchronizer.
    */
@@ -38,7 +38,7 @@ export interface WorldStateSynchronizer {
    * Returns the current status of the synchronizer.
    * @returns The current status of the synchronizer.
    */
-  status(): Promise<WorldStateStatus>;
+  status(): Promise<WorldStateSynchronizerStatus>;
 
   /**
    * Stops the synchronizer.
@@ -51,14 +51,6 @@ export interface WorldStateSynchronizer {
    * @returns A promise that resolves with the block number the world state was synced to
    */
   syncImmediate(minBlockNumber?: number): Promise<number>;
-
-  /**
-   * Pauses the synchronizer, syncs to the target block number, forks world state, and resumes.
-   * @param targetBlockNumber - The block number to sync to.
-   * @param forkIncludeUncommitted - Whether to include uncommitted data in the fork.
-   * @returns The db forked at the requested target block number.
-   */
-  syncImmediateAndFork(targetBlockNumber: number): Promise<MerkleTreeWriteOperations>;
 
   /**
    * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
