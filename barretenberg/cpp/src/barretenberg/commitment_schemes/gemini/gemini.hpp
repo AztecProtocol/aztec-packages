@@ -189,6 +189,7 @@ template <typename Curve> class GeminiVerifier_ {
         GroupElement batched_concatenated_neg = GroupElement::zero();
 
         Fr r_inv = r.invert(); // r⁻¹
+        Fr r_minus = -r;
 
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
@@ -200,7 +201,7 @@ template <typename Curve> class GeminiVerifier_ {
             auto current_r_shift_pos = Fr(1);
             auto current_r_shift_neg = Fr(1);
             auto r_to_minicircuit_n_pos = r.pow(MINICIRCUIT_N);
-            auto r_to_minicircuit_n_neg = r_inv.pow(MINICIRCUIT_N);
+            auto r_to_minicircuit_n_neg = r_minus.pow(MINICIRCUIT_N);
             for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
                 r_shifts_pos.emplace_back(current_r_shift_pos);
                 r_shifts_neg.emplace_back(current_r_shift_neg);
