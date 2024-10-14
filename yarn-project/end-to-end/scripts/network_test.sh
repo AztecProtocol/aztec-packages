@@ -51,6 +51,7 @@ if [ "$FRESH_INSTALL" = "true" ]; then
 fi
 
 function cleanup() {
+  set +x
   kill $(jobs -p) 2>/dev/null || true
 }
 trap cleanup EXIT SIGINT SIGTERM
@@ -77,19 +78,18 @@ function show_logs() {
 
 show_status_until_pxe_ready &
 show_logs &
-
-DEBUG="${DEBUG:-'aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database'}"
+DEBUG="${DEBUG:-aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database}"
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
-      --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set bootNode.debug="$DEBUG" \
-      --set validator.debug="$DEBUG" \
-      --set proverNode.debug="$DEBUG" \
-      --set pxe.debug="$DEBUG" \
-      --set bot.debug="$DEBUG" \
+      --set iimages.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
+      --set-literal bootNode.debug="$DEBUG" \
+      --set-literal validator.debug="$DEBUG" \
+      --set-literal proverNode.debug="$DEBUG" \
+      --set-literal pxe.debug="$DEBUG" \
+      --set-literal bot.debug="$DEBUG" \
       --wait \
       --wait-for-jobs=true \
       --timeout=30m
