@@ -34,8 +34,7 @@ impl Function {
             assert_eq!(reachable_blocks.len(), 1, "Expected there to be 1 block remaining in Acir function for array_set optimization");
         }
 
-        let mut context =
-            Context::new(&self.dfg, matches!(self.runtime(), RuntimeType::Brillig(_)));
+        let mut context = Context::new(&self.dfg, matches!(self.runtime(), RuntimeType::Brillig(_)));
 
         for block in reachable_blocks.iter() {
             context.analyze_last_uses(*block);
