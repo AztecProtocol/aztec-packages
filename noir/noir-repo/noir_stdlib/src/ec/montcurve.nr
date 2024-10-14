@@ -16,16 +16,16 @@ pub mod affine {
 
     // Curve specification
     pub struct Curve { // Montgomery Curve configuration (ky^2 = x^3 + j*x^2 + x)
-        pub j: Field,
-        pub k: Field,
+        j: Field,
+        k: Field,
         // Generator as point in Cartesian coordinates
-        pub gen: Point
+        gen: Point
     }
     // Point in Cartesian coordinates
     pub struct Point {
-        pub x: Field,
-        pub y: Field,
-        pub infty: bool // Indicator for point at infinity
+        x: Field,
+        y: Field,
+        infty: bool // Indicator for point at infinity
     }
 
     impl Point {
@@ -223,16 +223,16 @@ pub mod curvegroup {
     use crate::cmp::Eq;
 
     pub struct Curve { // Montgomery Curve configuration (ky^2 z = x*(x^2 + j*x*z + z*z))
-        pub j: Field,
-        pub k: Field,
+        j: Field,
+        k: Field,
         // Generator as point in projective coordinates
-        pub gen: Point
+        gen: Point
     }
     // Point in projective coordinates
     pub struct Point {
-        pub x: Field,
-        pub y: Field,
-        pub z: Field
+        x: Field,
+        y: Field,
+        z: Field
     }
 
     impl Point {
