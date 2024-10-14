@@ -44,7 +44,7 @@ contract SchnorrAccount {
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
     #[private]
     #['private]
-    #[noinitcheck]
+    #['noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
@@ -52,8 +52,9 @@ contract SchnorrAccount {
 
     #[private]
     #['private]
-    #[noinitcheck]
-        #['view]
+    #['noinitcheck]
+    #[view]
+    #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)
