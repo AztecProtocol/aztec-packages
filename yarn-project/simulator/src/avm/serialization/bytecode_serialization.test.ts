@@ -72,14 +72,8 @@ describe('Bytecode Serialization', () => {
 
   it('Should deserialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.ADD_8,
-        Add.wireFormat8,
-      ),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.SUB_8,
-        Sub.wireFormat8,
-      ),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
       new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
         Opcode.GETENVVAR_16,
         GetEnvVar.wireFormat16,
@@ -116,14 +110,8 @@ describe('Bytecode Serialization', () => {
 
   it('Should serialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.ADD_8,
-        Add.wireFormat8,
-      ),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.SUB_8,
-        Sub.wireFormat8,
-      ),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
       new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
         Opcode.GETENVVAR_16,
         GetEnvVar.wireFormat16,

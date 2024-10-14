@@ -1,4 +1,4 @@
-{{- if .Values.network.enableBots }}
+{{- if not .Values.pxe.external }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -76,3 +76,4 @@ export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
 export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
 
 export const P2P_ID = 'aztec.p2p.id';
+export const POOL_NAME = 'aztec.pool.name';

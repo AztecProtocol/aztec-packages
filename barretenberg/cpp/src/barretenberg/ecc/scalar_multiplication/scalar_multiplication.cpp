@@ -204,6 +204,8 @@ void compute_wnaf_states(uint64_t* point_schedule,
                          const std::span<const typename Curve::ScalarField> scalars,
                          const size_t num_initial_points)
 {
+    PROFILE_THIS();
+
     using Fr = typename Curve::ScalarField;
     const size_t num_points = num_initial_points * 2;
     constexpr size_t MAX_NUM_ROUNDS = 256;
@@ -283,6 +285,8 @@ void compute_wnaf_states(uint64_t* point_schedule,
  **/
 void organize_buckets(uint64_t* point_schedule, const size_t num_points)
 {
+    PROFILE_THIS();
+
     const size_t num_rounds = get_num_rounds(num_points);
 
     parallel_for(num_rounds, [&](size_t i) {
@@ -446,6 +450,8 @@ void evaluate_addition_chains(affine_product_runtime_state<Curve>& state,
                               const size_t max_bucket_bits,
                               bool handle_edge_cases)
 {
+    PROFILE_THIS();
+
     size_t end = state.num_points;
     size_t start = 0;
     for (size_t i = 0; i < max_bucket_bits; ++i) {
@@ -483,6 +489,7 @@ typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve
                                               bool first_round,
                                               bool handle_edge_cases)
 {
+    PROFILE_THIS();
 
     // std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
     // This method sorts our points into our required base-2 sequences.
@@ -562,6 +569,8 @@ typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve
 template <typename Curve>
 uint32_t construct_addition_chains(affine_product_runtime_state<Curve>& state, bool empty_bucket_counts)
 {
+    PROFILE_THIS();
+
     using Group = typename Curve::Group;
     // if this is the first call to `construct_addition_chains`, we need to count up our buckets
     if (empty_bucket_counts) {
@@ -763,6 +772,8 @@ typename Curve::Element evaluate_pippenger_rounds(pippenger_runtime_state<Curve>
                                                   const size_t num_points,
                                                   bool handle_edge_cases)
 {
+    PROFILE_THIS();
+
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
     const size_t num_rounds = get_num_rounds(num_points);
@@ -881,6 +892,7 @@ typename Curve::Element pippenger_internal(std::span<const typename Curve::Affin
                                            pippenger_runtime_state<Curve>& state,
                                            bool handle_edge_cases)
 {
+    PROFILE_THIS();
     // multiplication_runtime_state state;
     compute_wnaf_states<Curve>(state.point_schedule, state.skew_table, state.round_counts, scalars, num_initial_points);
     organize_buckets(state.point_schedule, num_initial_points * 2);
@@ -895,7 +907,7 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases)
 {
-    BB_OP_COUNT_TIME_NAME("pippenger");
+    PROFILE_THIS();
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
 
@@ -912,6 +924,8 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
     }
 
     if (num_initial_points <= threshold) {
+        PROFILE_THIS_NAME("handle num_initial_points <= threshold");
+
         std::vector<Element> exponentiation_results(num_initial_points);
         // might as well multithread this...
         // Possible optimization: use group::batch_mul_with_endomorphism here.
@@ -947,7 +961,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state)
 {
-    BB_OP_COUNT_TIME();
+    PROFILE_THIS();
 
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     const size_t threshold = get_num_cpus_pow2() * 8;

@@ -423,7 +423,6 @@ mod tests {
     /**
      * validate_pending_read_requests
      */
-
     #[test]
     fn validate_pending_read_requests_succeeds() {
         let builder = TestBuilder::new();
@@ -439,7 +438,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="Hinted test value does not match")]
+    #[test(should_fail_with = "Hinted test value does not match")]
     fn validate_pending_read_requests_wrong_hint_fails() {
         let mut builder = TestBuilder::new();
 
@@ -448,7 +447,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="Hinted test value does not match")]
+    #[test(should_fail_with = "Hinted test value does not match")]
     fn validate_pending_read_requests_wrong_hint_after_nada_fails() {
         let mut builder = TestBuilder::new();
 
@@ -461,7 +460,6 @@ mod tests {
     /**
      * validate_settled_read_requests
      */
-
     #[test]
     fn validate_settled_read_requests_succeeds() {
         let builder = TestBuilder::new();
@@ -478,7 +476,7 @@ mod tests {
         builder.validate_settled_read_requests_with_hints(settled_hints, tree_root);
     }
 
-    #[test(should_fail_with="membership check failed")]
+    #[test(should_fail_with = "membership check failed")]
     fn validate_settled_read_requests_wrong_leaf_index_fails() {
         let mut builder = TestBuilder::new();
 
@@ -488,7 +486,7 @@ mod tests {
         builder.validate_settled_read_requests_with_hints(settled_hints, tree_root);
     }
 
-    #[test(should_fail_with="Provided leaf preimage is not for target value")]
+    #[test(should_fail_with = "Provided leaf preimage is not for target value")]
     fn validate_settled_read_requests_wrong_preimage_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -498,7 +496,7 @@ mod tests {
         builder.validate_settled_read_requests_with_hints(settled_hints, tree_root);
     }
 
-    #[test(should_fail_with="membership check failed")]
+    #[test(should_fail_with = "membership check failed")]
     fn validate_settled_read_requests_wrong_path_after_nada_fails() {
         let mut builder = TestBuilder::new();
 
@@ -512,7 +510,6 @@ mod tests {
     /**
      * verify_reset_read_requests
      */
-
     #[test]
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
@@ -548,7 +545,7 @@ mod tests {
         builder.verify_with_settled_hints(settled_hints);
     }
 
-    #[test(should_fail_with="Hinted pending read request does not match status")]
+    #[test(should_fail_with = "Hinted pending read request does not match status")]
     fn verify_reset_read_requests_wrong_pending_read_status_fails() {
         let mut builder = TestBuilder::new();
 
@@ -557,7 +554,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Hinted settled read request does not match status")]
+    #[test(should_fail_with = "Hinted settled read request does not match status")]
     fn verify_reset_read_requests_wrong_settled_read_status_fails() {
         let mut builder = TestBuilder::new();
 

@@ -110,7 +110,7 @@ unconstrained fn burn_private_on_behalf_of_other() {
     utils::check_private_balance(token_contract_address, owner, mint_amount - burn_amount);
 }
 
-#[test(should_fail_with="Balance too low")]
+#[test(should_fail_with = "Balance too low")]
 unconstrained fn burn_private_failure_more_than_balance() {
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
@@ -120,7 +120,7 @@ unconstrained fn burn_private_failure_more_than_balance() {
     // Private doesnt revert, so we cannot check balances here since notes have already been nullified. Test is done.
 }
 
-#[test(should_fail_with="invalid nonce")]
+#[test(should_fail_with = "invalid nonce")]
 unconstrained fn burn_private_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 

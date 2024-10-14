@@ -81,7 +81,7 @@ unconstrained fn mint_private_success() {
     utils::check_private_balance(token_contract_address, owner, mint_amount);
 }
 
-#[test(should_fail_with="note not popped")]
+#[test(should_fail_with = "note not popped")]
 unconstrained fn mint_private_failure_double_spend() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
@@ -148,7 +148,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     // Mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 

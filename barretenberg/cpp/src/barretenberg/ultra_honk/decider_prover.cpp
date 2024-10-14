@@ -31,9 +31,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("sumcheck.prove");
-#endif
+        PROFILE_THIS_NAME("sumcheck.prove");
+
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                          proving_key->relation_parameters,
                                          proving_key->alphas,
@@ -76,7 +75,7 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
+    PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     vinfo("executing relation checking rounds...");
