@@ -18,7 +18,7 @@ pub fn assert_combined_array<T, let N: u32>(
     )
 }
 
-unconstrained pub fn combine_arrays<T, let N: u32>(
+pub unconstrained fn combine_arrays<T, let N: u32>(
     original_array_lt: [T; N],
     original_array_gte: [T; N]
 ) -> [T; N] where T: Empty + Eq {

@@ -8,7 +8,7 @@ use crate::test::helpers::test_environment::TestEnvironment;
 #[oracle(getHeader)]
 unconstrained fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
-unconstrained pub fn get_header_at_internal(block_number: u32) -> Header {
+pub unconstrained fn get_header_at_internal(block_number: u32) -> Header {
     let header = get_header_at_oracle(block_number);
     Header::deserialize(header)
 }

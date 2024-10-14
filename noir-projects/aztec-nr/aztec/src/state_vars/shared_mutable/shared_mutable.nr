@@ -215,7 +215,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
 }
 
 impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
-    unconstrained pub fn get_current_value_in_unconstrained(self) -> T {
+    pub unconstrained fn get_current_value_in_unconstrained(self) -> T {
         let block_number = self.context.block_number() as u32;
         self.read_value_change().get_current_at(block_number)
     }

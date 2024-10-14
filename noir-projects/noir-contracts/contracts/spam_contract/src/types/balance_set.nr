@@ -19,11 +19,11 @@ impl<T, Context> BalanceSet<T, Context> {
 }
 
 impl<T> BalanceSet<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
+    pub unconstrained fn balance_of<let T_SERIALIZED_LEN: u32>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
         self.balance_of_with_offset(0)
     }
 
-    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
+    pub unconstrained fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
         self: Self,
         offset: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
