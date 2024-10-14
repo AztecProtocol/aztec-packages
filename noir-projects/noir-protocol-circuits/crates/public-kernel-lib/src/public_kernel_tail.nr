@@ -108,7 +108,8 @@ mod tests {
         MAX_PUBLIC_DATA_HINTS, NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX,
+        BASE_ROLLUP_INDEX
     },
         data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
         hash::{compute_siloed_nullifier, silo_note_hash},
@@ -633,11 +634,11 @@ mod tests {
 
         let _res = builder.execute();
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        let _res = builder.execute();
+    }
 }

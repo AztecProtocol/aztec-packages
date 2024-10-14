@@ -85,7 +85,7 @@ mod tests {
     use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
-        constants::PRIVATE_KERNEL_INIT_INDEX,
+        constants::{PRIVATE_KERNEL_INIT_INDEX, BASE_ROLLUP_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
 
@@ -155,11 +155,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PrivateKernelInnerInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        let _res = builder.execute();
+    }
 }

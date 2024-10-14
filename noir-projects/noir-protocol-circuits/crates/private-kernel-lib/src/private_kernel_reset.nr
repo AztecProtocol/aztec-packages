@@ -132,7 +132,7 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX
+        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
@@ -609,11 +609,11 @@ mod tests {
         // The 2nd nullifier has been siloed
         assert(output_nullifiers[2].value() != nullifiers[2].value());
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PrivateKernelResetInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelResetInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        let _res = builder.execute();
+    }
 }
