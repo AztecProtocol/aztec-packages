@@ -449,7 +449,7 @@ contract Test {
 
     // TODO(4840): add AVM opcodes for getting header (members)
     //#[public]
-    #['public]
+    //#['public]
     //fn assert_header_public(header_hash: Field) {
     //    assert(context.historical_header.hash() == header_hash, "Invalid header hash");
     //}

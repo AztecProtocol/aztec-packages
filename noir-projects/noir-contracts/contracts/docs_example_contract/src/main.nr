@@ -29,7 +29,7 @@ contract DocsExample {
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::CardNote, leader::Leader};
 
-    #[storage_no_init]
+    #['storage_no_init]
     struct Storage<Context> {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
