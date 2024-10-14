@@ -28,9 +28,7 @@ contract BlakeOptTest is Test {
         publicInputs[3] = 0x0000000000000000000000000000000000000000000000000000000000000004;
 
         bool baseVerified = referenceVerifier.verify(proof, publicInputs);
-        console.log("baseVerified", baseVerified);
         bool optVerified = optVerifier.verify(proof, publicInputs);
-        console.log("optVerified", optVerified);
 
         assertEq(baseVerified, optVerified);
     }

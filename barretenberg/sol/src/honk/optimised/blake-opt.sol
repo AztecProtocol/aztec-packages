@@ -22,6 +22,14 @@ import "forge-std/console.sol";
 
 import {logAsmG1, logFr, bytes32ToString} from "../utils.sol";
 
+
+error PUBLIC_INPUT_TOO_LARGE();
+error SUMCHECK_FAILED();
+error PAIRING_FAILED();
+error BATCH_ACCUMULATION_FAILED();
+error MODEXP_FAILED();
+error PROOF_POINT_NOT_ON_CURVE();
+
 // The plan
 // Write an optimised version of the add2 circuit
 contract BlakeOptHonkVerifier is IVerifier {
@@ -862,13 +870,27 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
     uint256 internal constant  BATCH_SCALAR_72_LOC  =  0x6d20 ;
     uint256 internal constant  BATCH_SCALAR_73_LOC  =  0x6d40 ;
 
+    // TODO: PROSE
+    // LOG_N inverted values, used in calculating inversions
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_0_LOC = 0x6d60;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_1_LOC = 0x6d80;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_2_LOC = 0x6da0;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_3_LOC = 0x6dc0;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_4_LOC = 0x6de0;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_5_LOC = 0x6e00;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_6_LOC = 0x6e20;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_7_LOC = 0x6e40;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_8_LOC = 0x6e60;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_9_LOC = 0x6e80;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_10_LOC = 0x6ea0;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_11_LOC = 0x6ec0;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_12_LOC = 0x6ee0;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_13_LOC = 0x6f00;
+    uint256 internal constant BATCHED_EVALUATION_ACCUMULATOR_INVERSION_14_LOC = 0x6f20;
+
     // WORKTODO: could another place be reused here?
-    uint256 internal constant BATCHED_EVALUATION_LOC = 0x6d60;
-    uint256 internal constant CONSTANT_TERM_ACCUMULATOR_LOC = 0x6d80;
-
-
-
-
+    uint256 internal constant BATCHED_EVALUATION_LOC =  0x6f40;
+    uint256 internal constant CONSTANT_TERM_ACCUMULATOR_LOC = 0x6f60;
 
     // Aliases
     // Aliases for wire values (Elliptic curve gadget)
@@ -909,6 +931,15 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
     uint256 internal constant G1_LOCATION = 0x60;
     uint256 internal constant SCALAR_LOCATION = 0xa0;
 
+
+    // Error selectors
+    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x01;
+    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x02;
+    uint256 internal constant PAIRING_FAILED_SELECTOR = 0x03;
+    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0x04;
+    uint256 internal constant MODEXP_FAILED_SELECTOR = 0x05;
+    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x06;
+
     constructor() {
         // TODO: verify the points are on the curve in the constructor
     }
@@ -926,8 +957,13 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
             // Inline the verification key code here for the meantime
             // will be in it's own library
             // Note the split committments here will make a difference to costs in the end
+            /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+            /*                   LOAD VERIFCATION KEY                     */
+            /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+            // Write the verification key into memory
             function loadVk() {
-                // TODO: in the vk swap the location of l and m
+                // TODO: in the vk GENERATOR swap the location of l and m
+
                 mstore(q_l_x_loc, 0x2e5f133c25f7e05bd6660196c892121f7fa686cb9a8717a5deea6cd0881e618e)
                 mstore(q_l_y_loc, 0x1189bba9eeea96ba8935052434f4b0a60b0a481e3464dd81dfcd89e23def001b)
                 mstore(q_r_x_loc, 0x2a93ffb34002da94f5b156ba5a212ac3616c848bd9c44c9821bbdd64cfd848af)
@@ -986,6 +1022,13 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
             }
 
+
+            /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+            /*                     Split Challenge                        */
+            /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+            /**We can reduce the amount of hashing done in the verifier by splitting the output of
+             * hash functions into two 128 bit values
+             */
             function splitChallenge(challenge) -> first, second {
                 first := and(challenge, LOWER_128_MASK)
                 second := shr(128, challenge)
@@ -1002,26 +1045,55 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
             // rather than copying the entire section over to the lower registers
             loadVk()
             {
-                let proof_ptr := add(calldataload(0x04), 0x24)
 
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                  LOAD PROOF INTO MEMORY                    */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // As all of our proof points are written in contiguous parts of memory, we call use a single
                 // calldatacopy to place all of our proof into the correct memory regions
+                // We copy the entire proof into memory as we must hash each proof section for challenge
+                // evaluation
+                let proof_ptr := add(calldataload(0x04), 0x24)
 
-                // Load the proof into memory
                 // TODO: make sure this is evaluated as const before shipping
                 // The last item in the proof, and the first item in the proof
-                let proof_size := sub(KZG_QUOTIENT_Y1_LOC, proof_circuit_size_loc)
+                let proof_size := sub(ETA_CHALLENGE, proof_circuit_size_loc)
                 calldatacopy(proof_circuit_size_loc, proof_ptr, proof_size)
 
                 // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
                 // for the sake of testing we are assuming that these are correct
 
-                // Generate challenges
-
-                // TODO: nice section headers ASCII
-                /**
-                 * Generate Eta Challenges
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                    GENERATE CHALLENGES                     */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                /*
+                 * Proof points (affine coordinates) in the proof are in the following format, where offset is
+                 * the offset in the entire proof until the first bit of the x coordinate
+                 * offset + 0x00: x - lower bits
+                 * offset + 0x20: x - higher bits
+                 * offset + 0x40: y - lower bits
+                 * offset + 0x60: y - higher bits
+                 *
+                 * Proof points are in this extended format at the moment as the proofs are optimised for
+                 * consumption by recursive verifiers
+                 * In the future, it is expect that these proofs will be shortened to be 64 bytes
                  */
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                   GENERATE ETA CHALLENGE                   */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                /* Eta challenge participants
+                 * - circuit size
+                 * - number of public inputs
+                 * - public inputs offset
+                 * - w1
+                 * - w2
+                 * - w3
+                 *
+                 * Where circuit size, number of public inputs and public inputs offset are all 32 byte values
+                 * and w1,w2,w3 are all proof points values
+                 */
+
 
                 // The use of mcpy will be a life saver here
                 // TODO: make sure that we have enough of a scratch space to work with here
@@ -1031,11 +1103,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 // Note: can be mcpyed from proof
                 // TODO: work what memory can be used here - if we use 0 solidity at all we can get
                 // away with ignoring free memory practices entirely
-
-                // TODO(md): This section could be an mcpy
-                mstore(0x00, mload(proof_circuit_size_loc))
-                mstore(0x20, number_of_public_inputs)
-                mstore(0x40, mload(proof_pub_inputs_offset_loc))
+                mcopy(0x00, proof_circuit_size_loc, 0x60)
 
                 let public_inputs_start := add(calldataload(0x24), 0x24)
                 let public_inputs_size := mul(number_of_public_inputs, 0x20)
@@ -1060,11 +1128,13 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
                 prev_challenge := mod(keccak256(0x00, 0x20), p)
 
-                // TODO: update memory pointer
                 mstore(0x00, prev_challenge)
                 let eta_three := and(prev_challenge, LOWER_128_MASK)
-
                 mstore(ETA_THREE_CHALLENGE, eta_three)
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*             GENERATE BETA and GAMMAA  CHALLENGE            */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
                 // Generate Beta and Gamma Chalenges
                 mcopy(0x20, lookup_read_counts_x0_loc, 0x180)
@@ -1076,7 +1146,19 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 mstore(BETA_CHALLENGE, beta)
                 mstore(GAMMA_CHALLENGE, gamma)
 
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                      ALPHA CHALLENGES                      */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Generate Alpha challenges - non-linearise the gate contributions
+                //
+                // There are 26 total subrelations in this honk relation, we do not need to non linearise the first sub relation.
+                // There are 25 total gate contributions, a gate contribution is analogous to
+                // a custom gate, it is an expression which must evaluate to zero for each
+                // row in the constraint matrix
+                //
+                // If we do not non-linearise sub relations, then sub relations which rely
+                // on the same wire will interact with each other's sums.
+
                 mcopy(0x20, lookup_inverses_x0_loc, 0x100)
 
                 prev_challenge := mod(keccak256(0x00, 0x120), p)
@@ -1105,7 +1187,11 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 let alpha_24 := and(prev_challenge, LOWER_128_MASK)
                 mstore(ALPHA_CHALLENGE_24, alpha_24)
 
-                // GENERATE GATE Challenges
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                       GATE CHALLENGES                      */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // TODO: PROSE
+                //
                 i := 0
                 for {} lt(i, CONST_PROOF_SIZE_LOG_N) {} {
                     prev_challenge := mod(keccak256(0x00, 0x20), p)
@@ -1121,7 +1207,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 // TODO: I think that the order of the values taken from the univariates is wrong
                 // it should be [proof_size, batched length]
                 // rather than as written above [batched_size]{proof_size}
-                // Total nuber of iterations is 28 , with 8 for each univariate
+                // Total nuber of iterations is 28 ,with 8 for each univariate
                 i := 0
                 for {} lt(i, CONST_PROOF_SIZE_LOG_N) {} {
                     // Increase by 20 * batched relation length (8)
@@ -1143,8 +1229,56 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     i := add(i, 1)
                 }
 
-                // Generate Rho Challenge
-                // Hash all of the sumcheck evaluations
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                        RHO CHALLENGES                      */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // The RHO challenge is the hash of the evaluations of all of the wire values
+                // As per usual, it includes the previous challenge
+                // Evaluations of the following wires and their shifts (for relevant wires):
+                // - QM
+                // - QC
+                // - Q1 (QL)
+                // - Q2 (QR)
+                // - Q3 (QO)
+                // - Q4
+                // - QARITH
+                // - QRANGE
+                // - QELLIPTIC
+                // - QAUX
+                // - QLOOKUP
+                // - QPOSEIDON2_EXTERNAL
+                // - QPOSEIDON2_INTERNAL
+                // - SIGMA1
+                // - SIGMA2
+                // - SIGMA3
+                // - SIGMA4
+                // - ID1
+                // - ID2
+                // - ID3
+                // - ID4
+                // - TABLE1
+                // - TABLE2
+                // - TABLE3
+                // - TABLE4
+                // - W1 (WL)
+                // - W2 (WR)
+                // - W3 (WO)
+                // - W4
+                // - Z_PERM
+                // - LOOKUP_INVERSES
+                // - LOOKUP_READ_COUNTS
+                // - LOOKUP_READ_TAGS
+                // - TABLE1_SHIFT
+                // - TABLE2_SHIFT
+                // - TABLE3_SHIFT
+                // - TABLE4_SHIFT
+                // - W1_SHIFT
+                // - W2_SHIFT
+                // - W3_SHIFT
+                // - W4_SHIFT
+                // - Z_PERM_SHIFT
+                //
+                // Hash of all of the above evaluations
                 // Number of bytes to copy = 0x20 * NUMBER_OF_ENTITIES (44) = 0x580
                 mcopy(0x20, QM_EVAL_LOC, 0x580)
                 prev_challenge := mod(keccak256(0x00, 0x5a0), p)
@@ -1154,9 +1288,14 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
                 mstore(RHO_CHALLENGE, rho)
 
-                // Generate ZMY Challenge
-                // This is a hash of all of the zm cq's
-                // Each cq is a proof g1 point (0x80 bytes) for log n of circuit size
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                      GEMINI R CHALLENGE                    */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // The Gemini R challenge contains a of all of commitments to all of the univariates
+                // evaluated in the Gemini Protocol
+                // So for multivariate polynomials in l variables, we will hash l - 1 commitments.
+                // For this implementation, we have a fixed number of of rounds and thus 27 committments
+                // The format of these commitments are proof points, which are explained above
                 // 0x80 * 27 = 0xd80
                 mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X0_LOC, 0xd80)
 
@@ -1168,8 +1307,10 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
                 mstore(GEMINI_R_CHALLENGE, geminiR)
 
-                // Generate Shplonk NU
-                // 28 field elements
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                    SHPLONK NU CHALLENGE                    */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // The shplonk nu challenge hashes the evaluations of the above gemini univariates
                 // 0x20 * 28 = 0x380
                 mcopy(0x20, GEMINI_A_EVAL_0, 0x380)
                 prev_challenge := mod(keccak256(0x00, 0x3a0), p)
@@ -1179,18 +1320,47 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 mstore(SHPLONK_NU_CHALLENGE, shplonkNu)
 
 
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                    SHPLONK Z CHALLENGE                    */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Generate Shplonk Z
-                // Hash of the shplonk Q commitment
+                // Hash of the single shplonk Q commitment
                 mcopy(0x20, SHPLONK_Q_X0_LOC, 0x80)
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
 
                 let shplonkZ := and(prev_challenge, LOWER_128_MASK)
                 mstore(SHPLONK_Z_CHALLENGE, shplonkZ)
 
-                // All challenges have been generated
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                     CHALLENGES COMPLETE                    */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
             }
 
-            // Generate public inputa delta
+            /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+            /*                     PUBLIC INPUT DELTA                     */
+            /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+            /**Generate public inputa delta
+             *
+             * The public inputs delta leverages plonk's copy constraints in order to
+             * evaluate public inputs.
+             *
+             * For each row of the execution trace, the prover will calculate the following value
+             * There are 4 witness wires, 4 id wires and 4 sigma wires in this instantiation of the proof system
+             * So there will be 4 groups of wires (w_i, id_i and sigma_i)
+             *
+             *   (w_0 + β(id_0) + γ) * ∏(w_1 + β(id_1) + γ) * ∏(w_2 + β(id_2) + γ) * ∏(w_3 + β(id_3) + γ)
+             * ∏------------------------------------------------------------------------------------------ * public_inputs_delta
+             *   (w_0 + β(σ_0) + γ) * ∏(w_1 + β(σ_1) + γ) * ∏(w_2 + β(σ_2) + γ) * ∏(w_3 + β(σ_3) + γ)
+             *
+             * The above product is accumulated for all rows in the trace.
+             *
+             * The above equation enforces that for each cell in the trace, if the id and sigma pair are equal, then the
+             * witness value in that cell is equal.
+             *
+             * We extra terms to add to this product that correspond to public input values
+             *
+             */
+
             // TODO: think about how to optimize this further
             {
                 let beta := mload(BETA_CHALLENGE)
@@ -1234,12 +1404,10 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
                 // Revert if not all public inputs are field elements (i.e. < p)
                 if iszero(valid_inputs) {
-                    // TODO: custom errors
-                    // mstore(0x00, PUBLIC_INPUT_GE_P_SELECTOR)
-                    revert(0x00, 0x0)
+                    mstore(0x00, PUBLIC_INPUT_TOO_LARGE_SELECTOR)
+                    revert(0x00, 0x04)
                 }
 
-                // TODO(md): do not need to store these if inverting now????
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR, numerator_value)
                 mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR, denominator_value)
 
@@ -1253,8 +1421,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     mstore(0x80, sub(p, 2))
                     mstore(0xa0, p)
                     if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        // TODO: custom error
-                        mstore(0x0, 0x69696969)
+                        mstore(0x00, MOD_EXP_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
                     // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
@@ -1381,8 +1548,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                         mstore(0x80, sub(p_clone, 2))
                         mstore(0xa0, p_clone)
                         if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                            // TODO: custom error
-                            mstore(0x0, 0x69696969)
+                            mstore(0x00, MOD_EXP_FAILED_SELECTOR)
                             revert(0x00, 0x04)
                         }
                         // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
@@ -1541,8 +1707,8 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 }
 
                 if iszero(valid) {
-                    // TODO: custom error
-                    revert(0x00, 0x00)
+                    mstore(0x00, SUMCHECK_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
                 }
 
 
@@ -2489,8 +2655,6 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
             let eval_challenge := mload(SHPLONK_Z_CHALLENGE)
             mstore(INVERTED_GEMINI_DENOMINATOR_0_LOC, addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p))
 
-            // log2(0x00, 0x00, 0, mload(INVERTED_GEMINI_DENOMINATOR_0_LOC))
-
             let vanishing_eval_off := INVERTED_GEMINI_DENOMINATOR_1_LOC
             let eval_challenge_powers_off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
             for {let i := 0} lt(i, add(LOG_N, 2)) {i := add(i, 1)} {
@@ -2503,10 +2667,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 // TODO: measure - is an addmod + stack operations cheaper than a jump???
 
                 // TODO: add(CONSTANT, CONSTANT) is evaluated at comptime
-
-                // tODO(md): remove both temp and logigng
                 let temp := addmod(eval_challenge, mload(eval_challenge_powers_off), p)
-                // log2(0x00, 0x00, i, temp)
 
                 mstore(vanishing_eval_off, addmod(eval_challenge, mload(eval_challenge_powers_off), p))
 
@@ -2609,8 +2770,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     mstore(0x80, sub(p, 2))
                     mstore(0xa0, p)
                     if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        // TODO: custom error
-                        mstore(0x0, 0x69696969)
+                        mstore(0x00, MOD_EXP_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
                     // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
@@ -2763,9 +2923,6 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
            }
 
-            // log2(0x00, 0x00, 0x20, unshifted_scalar)
-            // log2(0x00, 0x00, 0x40, shifted_scalar)
-
             // This function takes a proof point from its field element representaiton into its
             // functional bytes representation
             //
@@ -2873,11 +3030,13 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
             mstore(BATCH_SCALAR_0_LOC, 1)
             for {let i := 1} lt(i, add(NUMBER_OF_UNSHIFTED_ENTITIES, 1)) {i := add(i, 1)} {
                 let arr_index_off := mul(i, 0x20)
+                // TODO: opt this - redundant comp here
+                let index_minus_one := mul(sub(i, 1), 0x20)
 
                 // We write into the scalars offset
                 let scalars_off := add(BATCH_SCALAR_0_LOC, arr_index_off)
                 // Sumcheck evaluations offset
-                let evaluation_off := add(QM_EVAL_LOC, arr_index_off)
+                let evaluation_off := add(QM_EVAL_LOC, index_minus_one)
 
                 mstore(scalars_off, mulmod(neg_unshifted_scalar, batchingChallenge, p) )
 
@@ -2887,17 +3046,21 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
             for {let i:= add(NUMBER_OF_UNSHIFTED_ENTITIES, 1)} lt(i, add(NUMBER_OF_ENTITIES, 1)) {i := add(i, 1)} {
                 let arr_index_off := mul(i, 0x20)
+                // TODO: opt this - redundant comp here
+                let index_minus_one := mul(sub(i, 1), 0x20)
 
                 // We write into the scalars offset
                 let scalars_off := add(BATCH_SCALAR_0_LOC, arr_index_off)
                 // Sumcheck evaluations offset
-                let evaluation_off := add(QM_EVAL_LOC, arr_index_off)
+                let evaluation_off := add(QM_EVAL_LOC, index_minus_one)
 
                 mstore(scalars_off, mulmod(neg_shifted_scalar, batchingChallenge, p) )
 
                 batchedEvaluation := addmod(batchedEvaluation, mulmod(mload(evaluation_off), batchingChallenge, p), p)
                 batchingChallenge := mulmod(batchingChallenge, mload(RHO_CHALLENGE), p)
             }
+
+            mstore(BATCHED_EVALUATION_LOC, batchedEvaluation)
 
             // Validate the proof points are on the curve
             {
@@ -2913,10 +3076,8 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 success_flag := validateProofPointOnCurve(success_flag, z_perm_x0_loc, p, q)
 
                 if iszero(success_flag) {
-                    log1(0x00, 0x420, 0x420)
-                    // TODO: error code
-                    mstore(0x00, 0x01)
-                    revert(0x00, 0x20)
+                    mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
                 }
             }
 
@@ -2935,6 +3096,8 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
             // Accumulate vk points
             // TODO: this method of copying into scrath space could be avoided?
+            // OPT: An alternative i can think of is storing the location the scalar need to go onto the stack,
+            // then call the precompile with the proof point in place.
             // WORKTODO: I may have overridden the vk by this point
             // although we only use it from this point onwards -
             // WARNING: DUPLICATED
@@ -2943,25 +3106,8 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 // Acumulator = acumulator + scalar[1] * vk[0]
                 mcopy(G1_LOCATION, q_m_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_1_LOC))
-                log4(
-                    0x00,0x00,
-                    0x69,
-                    mload(G1_LOCATION),
-                    mload(add(0x20, G1_LOCATION)),
-                    mload(SCALAR_LOCATION)
-                )
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                log1(0x00, 0x00, 0x2)
-                // WORKTODO: log accumulator 1
-                log3(
-                    0x00,
-                    0x00,
-                    0x01,
-                    mload(ACCUMULATOR),
-                    mload(add(ACCUMULATOR, 0x20))
-                )
 
                 // Accumulator = accumulator + scalar[2] * vk[1]
                 mcopy(G1_LOCATION, q_c_x_loc, 0x40)
@@ -2969,16 +3115,11 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x3)
-
-
                 // Accumulator = accumulator + scalar[3] * vk[2]
                 mcopy(G1_LOCATION, q_l_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_3_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                log1(0x00, 0x00, 0x4)
 
                 // Accumulator = accumulator + scalar[4] * vk[3]
                 mcopy(G1_LOCATION, q_r_x_loc, 0x40)
@@ -2986,15 +3127,11 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x5)
-
                 // Accumulator = accumulator + scalar[5] * vk[4]
                 mcopy(G1_LOCATION, q_o_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_5_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                log1(0x00, 0x00, 0x6)
 
                 // Accumulator = accumulator + scalar[6] * vk[5]
                 mcopy(G1_LOCATION, q_4_x_loc, 0x40)
@@ -3002,15 +3139,11 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x7)
-
                 // Accumulator = accumulator + scalar[7] * vk[6]
                 mcopy(G1_LOCATION, q_arith_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_7_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                log1(0x00, 0x00, 0x8)
 
                 // Accumulator = accumulator + scalar[8] * vk[7]
                 mcopy(G1_LOCATION, q_delta_range_x_loc, 0x40)
@@ -3018,15 +3151,11 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x9)
-
                 // Accumulator = accumulator + scalar[9] * vk[8]
                 mcopy(G1_LOCATION, q_elliptic_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_9_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                log1(0x00, 0x00, 0xa)
 
                 // Accumulator = accumulator + scalar[10] * vk[9]
                 mcopy(G1_LOCATION, q_aux_x_loc, 0x40)
@@ -3034,30 +3163,23 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0xb)
-
                 // Accumulator = accumulator + scalar[11] * vk[10]
                 mcopy(G1_LOCATION, q_lookup_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_11_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0xc)
-
                 // Accumulator = accumulator + scalar[12] * vk[11]
                 mcopy(G1_LOCATION, q_poseidon_2_external_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_12_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                log1(0x00, 0x00, 0xd)
 
                 // Accumulator = accumulator + scalar[13] * vk[12]
                 mcopy(G1_LOCATION, q_poseidon_2_internal_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_13_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                log1(0x00, 0x00, 0xe)
-
 
                 // Accumulator = accumulator + scalar[14] * vk[13]
                 mcopy(G1_LOCATION, sigma_1_x_loc, 0x40)
@@ -3065,16 +3187,11 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0xf)
-
-
                 // Accumulator = accumulator + scalar[15] * vk[14]
                 mcopy(G1_LOCATION, sigma_2_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_15_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                log1(0x00, 0x00, 0x10)
 
                 // Accumulator = accumulator + scalar[16] * vk[15]
                 mcopy(G1_LOCATION, sigma_3_x_loc, 0x40)
@@ -3082,16 +3199,12 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x11)
-
                 // Accumulator = accumulator + scalar[17] * vk[16]
                 mcopy(G1_LOCATION, sigma_4_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_17_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-
-                log1(0x00, 0x00, 0x12)
                 // Accumulator = accumulator + scalar[18] * vk[17]
                 mcopy(G1_LOCATION, id_1_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_18_LOC))
@@ -3099,71 +3212,59 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[19] * vk[18]
-
-                log1(0x00, 0x00, 0x13)
                 mcopy(G1_LOCATION, id_2_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_19_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x14)
                 // Accumulator = accumulator + scalar[20] * vk[19]
                 mcopy(G1_LOCATION, id_3_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_20_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x15)
                 // Accumulator = accumulator + scalar[21] * vk[20]
                 mcopy(G1_LOCATION, id_4_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_21_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x16)
-                // Accumulator = accumulator + scalar[21] * vk[20]
                 // Accumulator = accumulator + scalar[22] * vk[21]
                 mcopy(G1_LOCATION, table_1_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_22_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x17)
                 // Accumulator = accumulator + scalar[23] * vk[22]
                 mcopy(G1_LOCATION, table_2_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_23_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x18)
                 // Accumulator = accumulator + scalar[24] * vk[23]
                 mcopy(G1_LOCATION, table_3_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_24_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x19)
                 // Accumulator = accumulator + scalar[25] * vk[24]
                 mcopy(G1_LOCATION, table_4_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_25_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x1a)
                 // Accumulator = accumulator + scalar[26] * vk[25]
                 mcopy(G1_LOCATION, lagrange_first_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_26_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x1b)
                 // Accumulator = accumulator + scalar[27] * vk[26]
                 mcopy(G1_LOCATION, lagrange_last_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_27_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x1c)
                 // Accumulate proof points
                 // Accumulator = accumulator + scalar[28] * w_l
                 writeProofPointIntoScratchSpace(w_l_x0_loc)
@@ -3171,56 +3272,48 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x1d)
                 // Accumulator = accumulator + scalar[28] * w_l
                 writeProofPointIntoScratchSpace(w_r_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_29_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x1e)
                 // Accumulator = accumulator + scalar[30] * w_o
                  writeProofPointIntoScratchSpace(w_o_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_30_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x1f)
                 // Accumulator = accumulator + scalar[31] * w_4
                 writeProofPointIntoScratchSpace(w_4_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_31_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x20)
                 // Accumulator = accumulator + scalar[32] * z_perm
                  writeProofPointIntoScratchSpace(z_perm_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_32_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x21)
                 // Accumulator = accumulator + scalar[33] * lookup_inverses
                 writeProofPointIntoScratchSpace(lookup_inverses_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_33_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x22)
                 // Accumulator = accumulator + scalar[34] * lookup_read_counts
                 writeProofPointIntoScratchSpace(lookup_read_counts_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_34_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x23)
                 // Accumulator = accumulator + scalar[35] * lookup_read_tags
                 writeProofPointIntoScratchSpace(lookup_read_tags_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_35_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x24)
                 // To be shifted accumulators
                 // Accumulator = accumulator + scalar[36] * table_1
                 mcopy(G1_LOCATION, table_1_x_loc, 0x40)
@@ -3228,56 +3321,48 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x25)
                 // Accumulator = accumulator + scalar[37] * table_2
                 mcopy(G1_LOCATION, table_2_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_37_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x26)
                 // Accumulator = accumulator + scalar[38] * table_3
                 mcopy(G1_LOCATION, table_3_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_38_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x27)
                 // Accumulator = accumulator + scalar[39] * table_4
                 mcopy(G1_LOCATION, table_4_x_loc, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_39_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x28)
                 // Accumulator = accumulator + scalar[40] * w_l
                 writeProofPointIntoScratchSpace(w_l_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_40_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x29)
                 // Accumulator = accumulator + scalar[41] * w_r
                 writeProofPointIntoScratchSpace(w_r_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_41_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x2a)
                 // Accumulator = accumulator + scalar[42] * w_o
                 writeProofPointIntoScratchSpace(w_o_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_42_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x2b)
                 // Accumulator = accumulator + scalar[43] * w_4
                 writeProofPointIntoScratchSpace(w_4_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_43_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                log1(0x00, 0x00, 0x2c)
                 // accumulator = accumulator + scalar[44] * z_perm
                 writeProofPointIntoScratchSpace(z_perm_x0_loc)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_44_LOC))
@@ -3303,7 +3388,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 off := mul(i, 0x20)
                 let vanishing_evals_off := add(INVERTED_GEMINI_DENOMINATOR_2_LOC, off)
                 let scalarOff := add(BATCH_SCALAR_0_LOC, off)
-                let evaluationsOff := add(GEMINI_A_EVAL_0, off)
+                let evaluationsOff := add(GEMINI_A_EVAL_1, off)
 
                 // i >= LOG_N -1
                 let scalingFactor := 0 // update
@@ -3318,9 +3403,8 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
                 constantTermAcc := addmod(constantTermAcc, mulmod(scalingFactor, mload(evaluationsOff), p), p)
                 batchingChallenge2  := mulmod(batchingChallenge2, shplonkNu, p)
-
-                mstore(CONSTANT_TERM_ACCUMULATOR_LOC, constantTermAcc)
             }
+            mstore(CONSTANT_TERM_ACCUMULATOR_LOC, constantTermAcc)
         }
 
             // Accumulate these LOG_N scalars with the gemini fold univariates
@@ -3501,13 +3585,10 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_26_LOC))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
             }
 
         }
 
-
-//         //
 
             // TODO: bundle this batch inversion with the other batch inversions
             // Yet another batched inversion
@@ -3518,275 +3599,260 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
 
             // Batch invert the (1 - u) + u for each LOG_N u values - LOG_N is 15 for this program
             {
+                let p_plus_one := add(p, 1)
                 // WARNING: We overwrite the SUM_U_CHALLENGES HERE
                 // TODO: write aliases for these variables
                 // Explain at the top of the file why we have used an alias for the value
-                let u := mload(SUM_U_CHALLENGE_27)
-                let pow := mload(POWERS_OF_EVALUATION_CHALLENGE_27_LOC)
-                let product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_27, product)
+                let u := mload(SUM_U_CHALLENGE_14)
+                let pow := mload(POWERS_OF_EVALUATION_CHALLENGE_14_LOC)
+                // OPT: P + 1 in here should be a constant
+                let product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_14_LOC, product)
                 accumulator := product
 
                 mstore(BATCH_ACCUMULATOR_0_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_26)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_26_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_26, product)
+                u := mload(SUM_U_CHALLENGE_13)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_13_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_13_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_1_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_25)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_25_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_25, product)
+                u := mload(SUM_U_CHALLENGE_12)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_12_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_12_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_2_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_24)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_24_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_24, product)
+                u := mload(SUM_U_CHALLENGE_11)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_11_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_11_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_3_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_23)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_23_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_23, product)
+                u := mload(SUM_U_CHALLENGE_10)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_10_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_10_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_4_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_22)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_22_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_22, product)
+                u := mload(SUM_U_CHALLENGE_9)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_9_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_9_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_5_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_21)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_21_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_21, product)
+                u := mload(SUM_U_CHALLENGE_8)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_8_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_8_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_6_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_20)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_20_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_20, product)
+                u := mload(SUM_U_CHALLENGE_7)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_7_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_7_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_7_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_19)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_19_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_19, product)
+                u := mload(SUM_U_CHALLENGE_6)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_6_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_6_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 mstore(BATCH_ACCUMULATOR_8_LOC, accumulator)
-                u := mload(SUM_U_CHALLENGE_18)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_18_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_18, product)
+                u := mload(SUM_U_CHALLENGE_5)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_5_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_5_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 let t9 := accumulator
-                u := mload(SUM_U_CHALLENGE_17)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_17_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_17, product)
+                u := mload(SUM_U_CHALLENGE_4)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_4_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_4_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 let t10 := accumulator
-                u := mload(SUM_U_CHALLENGE_16)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_16_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_16, product)
+                u := mload(SUM_U_CHALLENGE_3)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_3_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_3_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 let t11 := accumulator
-                u := mload(SUM_U_CHALLENGE_15)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_15_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_15, product)
+                u := mload(SUM_U_CHALLENGE_2)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_2_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_2_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 let t12 := accumulator
-                u := mload(SUM_U_CHALLENGE_14)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_14_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_14, product)
+                u := mload(SUM_U_CHALLENGE_1)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_1_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_1_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 let t13 := accumulator
-                u := mload(SUM_U_CHALLENGE_13)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_13_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_13, product)
-                accumulator := mulmod(accumulator, product, p)
-
-                let t14 := accumulator
-                u := mload(SUM_U_CHALLENGE_12)
-                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_12_LOC)
-                product := mulmod(addmod(sub(1, u), u, p), pow, p)
-                mstore(SUM_U_CHALLENGE_12, product)
+                u := mload(SUM_U_CHALLENGE_0)
+                pow := mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)
+                product := addmod(mulmod(sub(p_plus_one, u), pow, p), u, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_0_LOC, product)
                 accumulator := mulmod(accumulator, product, p)
 
                 {
-                    mstore(0, 0x20)
-                    mstore(0x20, 0x20)
+                    // There is an accumulator for batchMUL stored within 0x00 -> 0x3f
                     mstore(0x40, 0x20)
-                    mstore(0x60, accumulator)
-                    mstore(0x80, sub(p, 2))
-                    mstore(0xa0, p)
-                    if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        // TODO: custom error
-                        mstore(0x0, 0x69696969)
+                    mstore(0x60, 0x20)
+                    mstore(0x80, 0x20)
+                    mstore(0xa0, accumulator)
+                    mstore(0xc0, sub(p, 2))
+                    mstore(0xe0, p)
+                    if iszero(staticcall(gas(), 0x05, 0x40, 0xe0, 0x40, 0x20)) {
+                        mstore(0x00, MOD_EXP_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
-                    accumulator := mload(0x00)
+                    accumulator := mload(0x40)
                 }
 
                 // TODO: as noted above - alias the sum us
-                t14 := mulmod(accumulator, t14, p)
-                let temp := mload(SUM_U_CHALLENGE_12)
-                mstore(SUM_U_CHALLENGE_12, t14)
-
-                accumulator := mulmod(accumulator, temp, p)
-
                 t13 := mulmod(accumulator, t13, p)
-                temp := mload(SUM_U_CHALLENGE_13)
-                mstore(SUM_U_CHALLENGE_13, t13)
+                let temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_0_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_0_LOC, t13)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 t12 := mulmod(accumulator, t12, p)
-                temp := mload(SUM_U_CHALLENGE_14)
-                mstore(SUM_U_CHALLENGE_14, t12)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_1_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_1_LOC, t12)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 t11 := mulmod(accumulator, t11, p)
-                temp := mload(SUM_U_CHALLENGE_15)
-                mstore(SUM_U_CHALLENGE_15, t11)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_2_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_2_LOC, t11)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 t10 := mulmod(accumulator, t10, p)
-                temp := mload(SUM_U_CHALLENGE_16)
-                mstore(SUM_U_CHALLENGE_16, t10)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_3_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_3_LOC, t10)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 t9 := mulmod(accumulator, t9, p)
-                temp := mload(SUM_U_CHALLENGE_17)
-                mstore(SUM_U_CHALLENGE_17, t9)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_4_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_4_LOC, t9)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t8 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_8_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_18)
-                mstore(SUM_U_CHALLENGE_18, t8)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_5_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_5_LOC, t8)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t7 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_7_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_19)
-                mstore(SUM_U_CHALLENGE_19, t7)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_6_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_6_LOC, t7)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t6 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_6_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_20)
-                mstore(SUM_U_CHALLENGE_20, t6)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_7_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_7_LOC, t6)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t5 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_5_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_21)
-                mstore(SUM_U_CHALLENGE_21, t5)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_8_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_8_LOC, t5)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t4 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_4_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_22)
-                mstore(SUM_U_CHALLENGE_22, t4)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_9_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_9_LOC, t4)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t3 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_3_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_23)
-                mstore(SUM_U_CHALLENGE_23, t3)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_10_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_10_LOC, t3)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t2 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_2_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_24)
-                mstore(SUM_U_CHALLENGE_24, t2)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_11_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_11_LOC, t2)
 
                 accumulator := mulmod(accumulator, temp, p)
 
                 let t1 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_1_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_25)
-                mstore(SUM_U_CHALLENGE_25, t1)
-
-                let t0 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_0_LOC), p)
-                temp := mload(SUM_U_CHALLENGE_27)
-                mstore(SUM_U_CHALLENGE_27, t0)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_12_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_12_LOC, t1)
 
                 accumulator := mulmod(accumulator, temp, p)
-                mstore(SUM_U_CHALLENGE_27, accumulator)
 
-            }
+                let t0 := mulmod(accumulator, mload(BATCH_ACCUMULATOR_0_LOC), p)
+                temp := mload(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_13_LOC)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_13_LOC, t0)
 
-            for {let i := sub(CONST_PROOF_SIZE_LOG_N, 1)} gt(i, 0) {i := sub(i, 1)} {
-                off := mul(i, 0x20)
-                log2(0x00, 0x00, i, mload(add(SUM_U_CHALLENGE_0, off)))
+                accumulator := mulmod(accumulator, temp, p)
+                mstore(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_14_LOC, accumulator)
             }
 
             {
-                // TODO(md): this memory locatoin is incorrect
-                let batchedEvalAccumulator := mload(BATCHED_EVALUATION_LOC)
+                let batchedEvalRoundAcc := mload(BATCHED_EVALUATION_LOC)
+
                 // Compute Gemini Batched Univariate Evaluation
-                for {let i := CONST_PROOF_SIZE_LOG_N} gt(i, 0) {i := sub(i, 1)} {
+                for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
+                    // TODO: opt
+                    let p_plus_one := add(p, 1)
+
                     // TODO: remove the sub 1 here
-                    off := mul(sub(CONST_PROOF_SIZE_LOG_N, 1), 0x20)
+                    off := mul(sub(i, 1), 0x20)
 
                     // TODO: think about how pow is used here: it is used in the above batch inversion
                     // so we probabaly want to avoid loading it to often
+
                     let challPower := mload(add(POWERS_OF_EVALUATION_CHALLENGE_0_LOC, off))
                     let u := mload(add(SUM_U_CHALLENGE_0, off))
-                    let inversion := mload(add(SUM_U_CHALLENGE_0, off))
+                    let inversion := mload(add(BATCHED_EVALUATION_ACCUMULATOR_INVERSION_0_LOC, off))
                     let evalNeg := mload(add(GEMINI_A_EVAL_0, off))
 
-                    let batchedEvalRoundAcc := mulmod(challPower,
+                    batchedEvalRoundAcc := mulmod(challPower,
                         mulmod(
-                            batchedEvalAccumulator,
+                            batchedEvalRoundAcc,
                             2,
                             p
                         ),
                         p
                     )
-                    batchedEvalRoundAcc := sub(p,
+                    batchedEvalRoundAcc := addmod(batchedEvalRoundAcc, sub(p,
                         mulmod(
                             evalNeg,
                             sub(
-                                mulmod(challPower, sub(1, u), p),
+                                mulmod(challPower, sub(p_plus_one, u), p),
                                 u
                             ),
                             p
                         )
-                    )
+                    ),p)
 
                     batchedEvalRoundAcc := mulmod(batchedEvalRoundAcc, inversion, p)
-
-                    let dummy := gt(i, LOG_N)
-                    if iszero(dummy) {
-                        batchedEvalAccumulator := batchedEvalRoundAcc
-                    }
                 }
 
-                let a0Pos := batchedEvalAccumulator
+                let a0Pos := batchedEvalRoundAcc
 
                 let constantTermAcc := addmod(mload(CONSTANT_TERM_ACCUMULATOR_LOC),
                     mulmod(
@@ -3800,7 +3866,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     mulmod(
                         mload(GEMINI_A_EVAL_0),
                         mulmod(
-                            mload(SUM_U_CHALLENGE_27),
+                            mload(SHPLONK_NU_CHALLENGE),
                             mload(INVERTED_GEMINI_DENOMINATOR_1_LOC),
                             p
                         ),
@@ -3809,44 +3875,44 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     p
                 )
 
-
-            // Accumulate the constant term accumulator
+                // Accumulate the constant term accumulator
                 // Accumulator = accumulator + 1 * costant term accumulator
-                mstore(G1_LOCATION, 1)
-                mstore(add(G1_LOCATION, 0x20), 2)
+                mstore(G1_LOCATION, 0x01)
+                mstore(add(G1_LOCATION, 0x20), 0x02)
                 mstore(SCALAR_LOCATION, constantTermAcc)
-                precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x40, ACCUMULATOR, 0x40))
+                precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
 
                 // Accumlate final quotient commitment into shplonk check
                 // Accumulator = accumulator + shplonkZ * quotient commitment
                 writeProofPointIntoScratchSpace(KZG_QUOTIENT_X0_LOC)
+                let x := mload(0x60)
+                let y := mload(0x80)
 
                 mstore(SCALAR_LOCATION, mload(SHPLONK_Z_CHALLENGE))
-                precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x40, ACCUMULATOR, 0x40))
+                precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag := and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
             }
 
-            // TODO: custom error
             if iszero(precomp_success_flag) {
-                mstore(0x0, 0x69696969)
+                mstore(0x00, BATCH_ACCUMULATION_FAILED_SELECTOR)
                 revert(0x00, 0x04)
             }
 
             {
                 let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
-                writeProofPointIntoScratchSpace(KZG_QUOTIENT_X0_LOC)
-                mstore(0x80, sub(q, mload(0x80)))
+                // NOTE: this was written to scratch space above, OPT?
+                // P_1
+                let x, y := writeProofPointOntoStack(KZG_QUOTIENT_X0_LOC)
+                mstore(0xc0, x)
+                mstore(0xe0, sub(q, y))
 
                 // Move values around for the pairing check
                 // pairing check - layout TODO and prose
 
                 // p_0
                 mcopy(0x00, ACCUMULATOR, 0x40)
-                // p_1
-                mcopy(0xc0, 0x60, 0x40)
-
 
                 // G2 [1]
                 mstore(0x40, 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2)
@@ -3855,17 +3921,16 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                 mstore(0xa0, 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa)
 
                 // G2 [x]
-                mstore(0xe0, 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1)
-                mstore(0x100, 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0)
-                mstore(0x120, 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4)
-                mstore(0x140, 0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55)
+                mstore(0x100, 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1)
+                mstore(0x120, 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0)
+                mstore(0x140, 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4)
+                mstore(0x160, 0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55)
 
                 let pairing_success := staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20)
                 if iszero(and(pairing_success, mload(0x00))) {
-                    mstore(0x0, 0x69696969)
+                    mstore(0x00, PAIRING_FAILED_SELECTOR)
                     revert(0x00, 0x04)
                 }
-
 
             }
             {

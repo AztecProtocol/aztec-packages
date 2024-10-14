@@ -17,7 +17,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "../HonkTypes.sol";
 
-import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, logFr, logG1} from "../utils.sol";
+import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "../Fr.sol";
@@ -272,8 +272,6 @@ contract BlakeHonkVerifier is IVerifier {
             // scalars[i] = mem.unshiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
-
-            logFr("scalars", i, scalars[i]);
         }
         // g commitments are accumulated at r
         // mem.shiftedScalarNeg = mem.unshiftedScalar.neg();
@@ -282,8 +280,6 @@ contract BlakeHonkVerifier is IVerifier {
             // scalars[i] = mem.shiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
-
-            logFr("scalars", i, scalars[i]);
         }
 
         commitments[1] = vk.qm;
@@ -417,10 +413,6 @@ contract BlakeHonkVerifier is IVerifier {
         inverse_vanishing_evals[0] = (eval_challenge - eval_challenge_powers[0]).invert();
 
         Fr temp = eval_challenge - eval_challenge_powers[0];
-        logFr("before inversion", 0, temp);
-
-
-        logFr("inversion ", 0, inverse_vanishing_evals[0]);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             Fr round_inverted_denominator = Fr.wrap(0);
@@ -428,12 +420,10 @@ contract BlakeHonkVerifier is IVerifier {
 
                 // TOOD(md): remove both lines
                 temp = (eval_challenge + eval_challenge_powers[i]);
-                logFr("before inversion ", i + 1, temp);
 
                 round_inverted_denominator = (eval_challenge + eval_challenge_powers[i]).invert();
             }
             inverse_vanishing_evals[i + 1] = round_inverted_denominator;
-            logFr("inverted gemini denominator ", i, inverse_vanishing_evals[i + 1]);
         }
     }
 
@@ -445,25 +435,17 @@ contract BlakeHonkVerifier is IVerifier {
     ) internal view returns (Fr a_0_pos) {
         // OTP: this does not need to iterate more than LOG_N times
         // There is no benefit - the current code is CONST_PROOF_SIZE_LOG_N
-        for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
+        for (uint256 i = LOG_N; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = tp.sumCheckUChallenges[i - 1];
             Fr evalNeg = geminiEvaluations[i - 1];
 
-            Fr batchedEvalRoundAcc = (
+            batchedEvalAccumulator  = (
                 (challengePower * batchedEvalAccumulator * Fr.wrap(2))
                     - evalNeg * (challengePower * (Fr.wrap(1) - u) - u)
             );
             // Divide by the denominator
-            Fr sum = challengePower * (Fr.wrap(1) - u) + u;
-            logFr("b4  inversion ", i, u);
-            logFr("The inversion ", sum.invert());
-            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
-
-            bool is_dummy_round = (i > LOG_N);
-            if (!is_dummy_round) {
-                batchedEvalAccumulator = batchedEvalRoundAcc;
-            }
+            batchedEvalAccumulator = batchedEvalAccumulator * (challengePower * (Fr.wrap(1) - u) + u).invert();
         }
 
         a_0_pos = batchedEvalAccumulator;
