@@ -115,7 +115,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
     )
 }
 
-unconstrained pub fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS: u32>(
+pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS: u32>(
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -175,7 +175,7 @@ unconstrained pub fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 /// nullifier, but a `false` value should not be relied upon since other transactions may emit this nullifier before the
 /// current transaction is included in a block. While this might seem of little use at first, certain design patterns
 /// benefit from this abstraction (see e.g. `PrivateMutable`).
-unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {
+pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier) == 1
 }
 

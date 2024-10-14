@@ -176,7 +176,7 @@ pub fn verify_reset_read_requests<
     );
 }
 
-unconstrained pub fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
+pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN]
 ) -> [ScopedReadRequest; READ_REQUEST_LEN] {
@@ -362,7 +362,7 @@ mod tests {
             TestSettledReadHint::nada(self.read_requests.len())
         }
 
-        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        pub unconstrained fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 

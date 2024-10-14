@@ -22,7 +22,7 @@ unconstrained fn get_membership_witness_oracle<let M: u32>(
     _leaf_value: Field
 ) -> [Field; M] {}
 
-unconstrained pub fn get_membership_witness<let N: u32, let M: u32>(
+pub unconstrained fn get_membership_witness<let N: u32, let M: u32>(
     block_number: u32,
     tree_id: Field,
     leaf_value: Field
@@ -33,7 +33,7 @@ unconstrained pub fn get_membership_witness<let N: u32, let M: u32>(
 
 // Note: get_nullifier_membership_witness function is implemented in get_nullifier_membership_witness.nr
 
-unconstrained pub fn get_note_hash_membership_witness(
+pub unconstrained fn get_note_hash_membership_witness(
     block_number: u32,
     leaf_value: Field
 ) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
@@ -43,7 +43,7 @@ unconstrained pub fn get_note_hash_membership_witness(
 // There is no `get_public_data_membership_witness` function because it doesn't make sense to be getting a membership
 // witness for a value in the public data tree.
 
-unconstrained pub fn get_archive_membership_witness(
+pub unconstrained fn get_archive_membership_witness(
     block_number: u32,
     leaf_value: Field
 ) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {

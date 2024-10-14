@@ -3393,6 +3393,7 @@ __metadata:
     "@noir-lang/acvm_js": 0.51.0
     "@noir-lang/noirc_abi": 0.35.0
     "@noir-lang/types": 0.35.0
+  checksum: 785c9cabed8bc7d13231f1437cd667f07746380bed88b9e75091bb35df6913b50aae86dad054e7a1bf83fdfc5689b3c9b7aed1a44172de5056a81b24527caf41
   languageName: node
   linkType: hard
 

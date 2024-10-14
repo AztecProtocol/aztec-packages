@@ -115,6 +115,7 @@ global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
 global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
 global ROOT_ROLLUP_INDEX: u32 = 16;
 global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
+global TUBE_INDEX: u32 = 18;
 global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -319,7 +320,9 @@ global RECURSIVE_PROOF_LENGTH: u32= 463;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32= 463;
 global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+
+global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 145;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)

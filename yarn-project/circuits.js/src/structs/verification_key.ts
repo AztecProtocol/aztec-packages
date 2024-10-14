@@ -5,7 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 
-import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -124,16 +124,20 @@ export class VerificationKeyAsFields {
    * Builds a fake verification key that should be accepted by circuits.
    * @returns A fake verification key.
    */
-  static makeFake(seed = 1): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+  static makeFake(size: number, seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(size, Fr.random, seed), Fr.random());
+  }
+
+  static makeFakeHonk(seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
   }
 
   /**
    * Builds an 'empty' verification key
    * @returns An 'empty' verification key
    */
-  static makeEmpty(): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.zero), Fr.zero());
+  static makeEmpty(size: number): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(size, Fr.zero), Fr.zero());
   }
 }
 
@@ -292,8 +296,8 @@ export class VerificationKeyData {
     return this.keyAsFields.isRecursive;
   }
 
-  static makeFake(): VerificationKeyData {
-    return new VerificationKeyData(VerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
+  static makeFakeHonk(): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }
 
   /**

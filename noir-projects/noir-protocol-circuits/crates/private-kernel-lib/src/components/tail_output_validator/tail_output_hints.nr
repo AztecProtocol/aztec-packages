@@ -12,7 +12,7 @@ pub struct TailOutputHints {
     sorted_unencrypted_log_hash_hints: [OrderHint; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
-unconstrained pub fn generate_tail_output_hints(previous_kernel: PrivateKernelCircuitPublicInputs) -> TailOutputHints {
+pub unconstrained fn generate_tail_output_hints(previous_kernel: PrivateKernelCircuitPublicInputs) -> TailOutputHints {
     // l2_to_l1_msgs
     let sorted_l2_to_l1_msg_hints = get_order_hints_asc(previous_kernel.end.l2_to_l1_msgs);
 
