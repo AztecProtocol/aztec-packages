@@ -19,6 +19,7 @@ export AZTEC_IMAGE=given
 export ETHEREUM_HOST=given
 export BOOT_NODE_URL=given
 export PUBLIC_IP=given
+export OTEL_URL=given
 ```
 
 ## When you win a validator
