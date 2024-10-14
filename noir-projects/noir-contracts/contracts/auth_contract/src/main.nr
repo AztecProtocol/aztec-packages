@@ -88,7 +88,7 @@ contract Auth {
 
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn get_authorized_in_private() -> AztecAddress {
         storage.authorized.get_current_value_in_private()
     }

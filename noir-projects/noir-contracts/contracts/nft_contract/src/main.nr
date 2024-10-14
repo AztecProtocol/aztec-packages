@@ -97,7 +97,7 @@ contract NFT {
 
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_get_name() -> pub FieldCompressedString {
         storage.name.read_private()
     }
@@ -111,7 +111,7 @@ contract NFT {
 
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
     }

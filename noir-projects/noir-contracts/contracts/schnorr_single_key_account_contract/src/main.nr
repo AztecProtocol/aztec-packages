@@ -23,7 +23,7 @@ contract SchnorrSingleKeyAccount {
 
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)

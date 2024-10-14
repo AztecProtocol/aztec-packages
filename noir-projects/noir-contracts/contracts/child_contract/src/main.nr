@@ -29,7 +29,7 @@ contract Child {
     // Can only be called from this contract.
     #[private]
     #['private]
-        #['internal]
+    #['internal]
     fn value_internal(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }

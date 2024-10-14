@@ -45,7 +45,7 @@ contract StaticChild {
     // View function that attempts to modify state. Should always fail regardless how it's called.
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let msg_sender_keys = get_public_keys(context.msg_sender());
         let owner_keys = get_public_keys(owner);
@@ -82,7 +82,7 @@ contract StaticChild {
     // Retrieve note value statically
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut options = NoteGetterOptions::new();

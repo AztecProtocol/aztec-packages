@@ -155,7 +155,7 @@ contract DocsExample {
 
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn get_shared_immutable_constrained_private() -> Leader {
         storage.shared_immutable.read_private()
     }
@@ -296,7 +296,7 @@ contract DocsExample {
     }
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }

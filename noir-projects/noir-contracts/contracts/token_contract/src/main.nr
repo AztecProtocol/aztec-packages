@@ -115,7 +115,7 @@ contract Token {
 
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_get_name() -> FieldCompressedString {
         storage.name.read_private()
     }
@@ -127,7 +127,7 @@ contract Token {
     }
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
     }
@@ -141,7 +141,7 @@ contract Token {
     }
     #[private]
     #['private]
-        #['view]
+    #['view]
     fn private_get_decimals() -> pub u8 {
         // docs:start:read_decimals_private
         storage.decimals.read_private()
@@ -398,7 +398,7 @@ contract Token {
     }
     // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to
     // serialization issues.
-        #['internal]
+    #['internal]
     #[private]
     #['private]
     fn _recurse_subtract_balance(account: AztecAddress, amount: Field) -> U128 {

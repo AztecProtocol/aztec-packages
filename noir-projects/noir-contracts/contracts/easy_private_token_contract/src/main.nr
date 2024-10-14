@@ -37,12 +37,7 @@ contract EasyPrivateToken {
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[private]
     #['private]
-    fn transfer(
-        amount: u64,
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        outgoing_viewer: AztecAddress
-    ) {
+    fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender, outgoing_viewer);
