@@ -403,11 +403,12 @@ export class Archiver implements ArchiveSource {
 
     const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
 
-    this.log.debug(
-      `Processing retrieved blocks ${retrievedBlocks
-        .map(b => b.data.number)
-        .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
-    );
+    this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
+    for (const block of retrievedBlocks) {
+      this.log.debug(
+        `ingesting new L2 block [${block.data.number}] published by [${block.data.header.globalVariables.coinbase}]`,
+      );
+    }
 
     const timer = new Timer();
     await this.store.addBlocks(retrievedBlocks);
