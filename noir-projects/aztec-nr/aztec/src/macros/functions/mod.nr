@@ -9,24 +9,17 @@ use protocol_types::meta::flatten_to_fields;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 
-// Functions can have multiple attributes applied to them, e.g. a single function can have #[public]
-    #['public],     #['view] and
-//     #['internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.
+// Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
+// #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.
 //
-// Our strategy is to have two mutually exclusive attributes, #[private]
-    #['private] and #[public]
-    #['public] (technically unconstrained is a
+// Our strategy is to have two mutually exclusive attributes, #[private] and #[public] (technically unconstrained is a
 // hidden third kind), and make it so all functions must have one of them. These contain the code for all other
 // attributes, but they only run it if the corresponding attribute has been applied to the function in question.
 //
-// For example, `#[private]
-    #['private]` knows about `    #['internal]` and what it should do, but it only does it if it sees that the
-// private function in question also has the `internal` attribute applied. `    #['internal]` itself does nothing - it is
-// what we call a 'marker' attribute, that only exists for `#[private]
-    #['private]` or `#[public]
-    #['public]` to check if it's been applied.
-// Therefore, the execution order of `    #['internal]` and `#[private]
-    #['private]` is irrelevant.
+// For example, `#[private]` knows about `#[internal]` and what it should do, but it only does it if it sees that the
+// private function in question also has the `internal` attribute applied. `#[internal]` itself does nothing - it is
+// what we call a 'marker' attribute, that only exists for `#[private]` or `#[public]` to check if it's been applied.
+// Therefore, the execution order of `#[internal]` and `#[private]` is irrelevant.
 
 /// Internal functions can only be called by the contract itself, typically from private into public.
 pub comptime fn internal(_f: FunctionDefinition) {
