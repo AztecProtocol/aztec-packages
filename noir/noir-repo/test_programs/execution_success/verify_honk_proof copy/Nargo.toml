@@ -1,5 +1,5 @@
 [package]
-name = "double_verify_honk_proof_recursive"
+name = "verify_honk_proof"
 type = "bin"
 authors = [""]
 
