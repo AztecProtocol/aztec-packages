@@ -1,4 +1,4 @@
-#['outer_attribute]
+#[outer_attribute]
 mod foo {
     #!['some_attribute]
     pub fn x() {}
@@ -12,7 +12,7 @@ mod foo {
 
 contract bar {}
 
-#['some_attribute]
+#[some_attribute]
 mod another_module {}
 
 #[outer_attribute_func]
