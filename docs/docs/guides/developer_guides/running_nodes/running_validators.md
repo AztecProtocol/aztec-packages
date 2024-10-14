@@ -186,21 +186,21 @@ Ensure that each validator instance uses unique ports to avoid conflicts.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-**Installing Kind and Helm**:
+** (Optional) Installing Kind and Helm**:
 
 ```bash
 brew install kind
 brew install helm
 ```
 
-**Setting Up Kubernetes**:
+** (Optional) Setting Up Kubernetes**:
 
 - Docker Desktop includes Kubernetes; enable it in the Docker settings.
 
 **Additional Steps**:
 
 - Verify that Docker Engine is running.
-- Configure your Kubernetes context if necessary.
+- (Optional) Configure your Kubernetes context if necessary.
 
 ### Windows
 
@@ -222,7 +222,7 @@ brew install helm
   iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
   ```
 
-**Installing Kind and Helm**:
+** (Optional) Installing Kind and Helm**:
 
 ```powershell
 choco install kind
@@ -274,6 +274,7 @@ After running the script:
 3. In the `oitavos` namespace, restart the prover node pod to apply the new configuration.
 
 **Note**: In future releases, the pods may be able to dynamically grab the addresses without manual intervention.
+**Note**: Name subject to change.
 
 ## Troubleshooting
 
