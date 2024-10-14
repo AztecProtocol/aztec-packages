@@ -90,7 +90,6 @@ contract Child {
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();

@@ -98,7 +98,6 @@ contract AuthRegistry {
      */
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
         storage.approved_actions.at(approver).at(message_hash).write(authorize);

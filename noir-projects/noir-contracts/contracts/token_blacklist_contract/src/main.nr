@@ -265,7 +265,6 @@ contract TokenBlacklist {
     /// Internal ///
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
@@ -274,7 +273,6 @@ contract TokenBlacklist {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.

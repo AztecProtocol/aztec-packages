@@ -65,7 +65,6 @@ contract FeeJuice {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.balances.at(to).read().add(U128::from_integer(amount));

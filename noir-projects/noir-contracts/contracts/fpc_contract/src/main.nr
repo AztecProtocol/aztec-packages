@@ -59,7 +59,6 @@ contract FPC {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
         // docs:start:public_call
@@ -69,7 +68,6 @@ contract FPC {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn pay_refund(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         // Just do public refunds for the present
@@ -79,7 +77,6 @@ contract FPC {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn pay_refund_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
         let refund = compute_rebate(context, amount);

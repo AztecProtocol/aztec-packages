@@ -63,7 +63,6 @@ contract Spam {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn public_spam(start: u32, end: u32) {
         let one = U128::from_integer(1);

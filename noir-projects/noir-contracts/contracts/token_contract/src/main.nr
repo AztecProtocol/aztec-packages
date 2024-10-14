@@ -230,7 +230,6 @@ contract Token {
     }
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
@@ -570,7 +569,6 @@ contract Token {
     // docs:start:complete_refund
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
         // TODO(#7728): Remove the next line
@@ -605,7 +603,6 @@ contract Token {
     // docs:start:increase_public_balance
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
@@ -615,7 +612,6 @@ contract Token {
     // docs:start:reduce_total_supply
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.

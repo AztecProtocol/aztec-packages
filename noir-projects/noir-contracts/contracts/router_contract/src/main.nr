@@ -21,7 +21,6 @@ contract Router {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     #['view]
     fn _check_timestamp(operation: u8, value: u64) {
@@ -41,7 +40,6 @@ contract Router {
 
     #[public]
     #['public]
-    #[internal]
     #['internal]
     #['view]
     fn _check_block_number(operation: u8, value: Field) {

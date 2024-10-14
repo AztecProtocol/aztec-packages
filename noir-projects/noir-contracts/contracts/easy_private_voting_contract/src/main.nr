@@ -48,7 +48,6 @@ contract EasyPrivateVoting {
     // docs:start:add_to_tally_public
     #[public]
     #['public]
-    #[internal]
     #['internal]
     fn add_to_tally_public(candidate: Field) {
         assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
