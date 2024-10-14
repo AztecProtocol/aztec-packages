@@ -64,6 +64,8 @@ export const OK = 'aztec.ok';
 export const STATUS = 'aztec.status';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
+/** The L1 address of the entity that sent a transaction to L1 */
+export const L1_SENDER = 'aztec.l1.sender';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 /** The proving job type */

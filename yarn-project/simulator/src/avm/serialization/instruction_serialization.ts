@@ -158,7 +158,7 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
-  if (cursor instanceof Buffer) {
+  if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 
