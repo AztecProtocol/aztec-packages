@@ -4,7 +4,7 @@
 
 This guide provides step-by-step instructions on how to set up an Aztec Layer 2 validator node. Running a node allows you to participate in the Aztec network as a validator (also known as a sequencer or proposer), contributing to the network's security and decentralization.
 
-The use of Kubernetes means that these steps apply smoothly to a local KIND instance or a cloud deployment. The benefit of using Kubernetes is that load balancing is handled for you, making validator redundancy easy and ensuring critical slots are not missed. Note that if you only intend to deploy to the cloud, the KIND tool setup can be skipped.
+The use of Docker means that the environment is set up in a way that works in a variety of environments. For complex deployments with load balancing (for validator redundancy to maximize liveness) there are helm charts available for use with kubernetes (with the same images).
 
 ## Table of Contents
 
