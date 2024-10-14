@@ -132,7 +132,7 @@ function logWithDebug(
     return;
   }
   if (logState.ignorePatterns.some(pattern => debug.namespace.startsWith(pattern))) {
-    return false; // Skip logging this message
+    return; // Skip logging this message
   }
   for (const handler of logHandlers) {
     handler(level, debug.namespace, msg, data);
