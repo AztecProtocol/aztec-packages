@@ -263,7 +263,7 @@ export async function computeVerificationKey(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
-  flavor: UltraHonkFlavor,
+  flavor: UltraHonkFlavor | 'mega_honk',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists

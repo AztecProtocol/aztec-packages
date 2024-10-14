@@ -37,7 +37,7 @@ export class KernelData {
     return new this(
       KernelCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFakeHonk(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
     );
