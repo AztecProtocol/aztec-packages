@@ -232,61 +232,6 @@ library TranscriptLib {
         gR[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            gR[1 + i * 4] = proof.geminiFoldUnivariates[i].x_0;
-            gR[2 + i * 4] = proof.geminiFoldUnivariates[i].x_1;
-            gR[3 + i * 4] = proof.geminiFoldUnivariates[i].y_0;
-            gR[4 + i * 4] = proof.geminiFoldUnivariates[i].y_1;
-        }
-
-        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
-        Fr unused;
-        (geminiR, unused) = splitChallenge(nextPreviousChallenge);
-    }
-
-    function generateShplonkNuChallenge(Honk.Proof memory proof, Fr prevChallenge)
-        internal
-        pure
-        returns (Fr shplonkNu, Fr nextPreviousChallenge)
-    {
-        uint256[(CONST_PROOF_SIZE_LOG_N) + 1] memory shplonkNuChallengeElements;
-        shplonkNuChallengeElements[0] = Fr.unwrap(prevChallenge);
-
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            shplonkNuChallengeElements[i + 1] = Fr.unwrap(proof.geminiAEvaluations[i]);
-        }
-
-        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
-        Fr unused;
-        (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
-    }
-
-    function generateShplonkZChallenge(Honk.Proof memory proof, Fr prevChallenge)
-        internal
-        pure
-        returns (Fr shplonkZ, Fr nextPreviousChallenge)
-    {
-        uint256[5] memory shplonkZChallengeElements;
-        shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
-
-        shplonkZChallengeElements[1] = proof.shplonkQ.x_0;
-        shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
-        shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
-        shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
-
-        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
-        Fr unused;
-        (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
-    }
-
-    function generateGeminiRChallenge(Honk.Proof memory proof, Fr prevChallenge)
-        internal
-        pure
-        returns (Fr geminiR, Fr nextPreviousChallenge)
-    {
-        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
-        gR[0] = Fr.unwrap(prevChallenge);
-
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
             gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
             gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
             gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;

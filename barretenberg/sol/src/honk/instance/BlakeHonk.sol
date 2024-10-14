@@ -37,9 +37,12 @@ error ShpleminiFailed();
 contract BlakeHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public
-    // view  WORKTODO: bring back
-    override returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs)
+        public
+        // view  WORKTODO: bring back
+        override
+        returns (bool)
+    {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
@@ -213,8 +216,10 @@ contract BlakeHonkVerifier is IVerifier {
 
     function verifyShplemini(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
         internal
-        // WORKTODO: reinstantiate view func
-        returns (bool verified)
+        returns (
+            // WORKTODO: reinstantiate view func
+            bool verified
+        )
     {
         ShpleminiIntermediates memory mem; // stack
 
@@ -417,7 +422,6 @@ contract BlakeHonkVerifier is IVerifier {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             Fr round_inverted_denominator = Fr.wrap(0);
             if (i <= LOG_N + 1) {
-
                 // TOOD(md): remove both lines
                 temp = (eval_challenge + eval_challenge_powers[i]);
 
@@ -440,7 +444,7 @@ contract BlakeHonkVerifier is IVerifier {
             Fr u = tp.sumCheckUChallenges[i - 1];
             Fr evalNeg = geminiEvaluations[i - 1];
 
-            batchedEvalAccumulator  = (
+            batchedEvalAccumulator = (
                 (challengePower * batchedEvalAccumulator * Fr.wrap(2))
                     - evalNeg * (challengePower * (Fr.wrap(1) - u) - u)
             );
@@ -484,14 +488,7 @@ contract BlakeHonkVerifier is IVerifier {
             success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, free, 0x40))
 
             // TEMPLOG: Initial accumualtor
-            log3(
-                0x00,
-                0x00,
-                0x00,
-                mload(free),
-                mload(add(free, 0x20))
-            )
-
+            log3(0x00, 0x00, 0x00, mload(free), mload(add(free, 0x20)))
 
             let count := 0x01
             for {} lt(count, limit) { count := add(count, 1) } {
@@ -504,17 +501,16 @@ contract BlakeHonkVerifier is IVerifier {
                 // Add scalar
                 mstore(add(free, 0x80), mload(scalar_base))
 
-            log4(
-                0x00,
-                0x00,
-                count,
-                // The point
-                mload(add(free, 0x40)),
-                mload(add(free, 0x60)),
-                // The scalar
-                mload(add(free, 0x80))
-            )
-
+                log4(
+                    0x00,
+                    0x00,
+                    count,
+                    // The point
+                    mload(add(free, 0x40)),
+                    mload(add(free, 0x60)),
+                    // The scalar
+                    mload(add(free, 0x80))
+                )
 
                 success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
                 // accumulator = accumulator + accumulator_2

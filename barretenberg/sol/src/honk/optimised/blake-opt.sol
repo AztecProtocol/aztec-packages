@@ -1421,7 +1421,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     mstore(0x80, sub(p, 2))
                     mstore(0xa0, p)
                     if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        mstore(0x00, MOD_EXP_FAILED_SELECTOR)
+                        mstore(0x00, MODEXP_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
                     // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
@@ -1548,7 +1548,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                         mstore(0x80, sub(p_clone, 2))
                         mstore(0xa0, p_clone)
                         if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                            mstore(0x00, MOD_EXP_FAILED_SELECTOR)
+                            mstore(0x00, MODEXP_FAILED_SELECTOR)
                             revert(0x00, 0x04)
                         }
                         // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
@@ -2770,7 +2770,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     mstore(0x80, sub(p, 2))
                     mstore(0xa0, p)
                     if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        mstore(0x00, MOD_EXP_FAILED_SELECTOR)
+                        mstore(0x00, MODEXP_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
                     // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
@@ -3718,7 +3718,7 @@ uint256 internal constant  AUX_MEMORY_CHECK_IDENTITY  =  0x5bc0 ;
                     mstore(0xc0, sub(p, 2))
                     mstore(0xe0, p)
                     if iszero(staticcall(gas(), 0x05, 0x40, 0xe0, 0x40, 0x20)) {
-                        mstore(0x00, MOD_EXP_FAILED_SELECTOR)
+                        mstore(0x00, MODEXP_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
                     accumulator := mload(0x40)
