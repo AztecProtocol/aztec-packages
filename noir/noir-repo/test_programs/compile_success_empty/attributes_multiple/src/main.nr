@@ -3,5 +3,5 @@ fn main() {
 }
 
 #['aztec(private)]
-#['internal]
+    #['internal]
 fn another_func() {}

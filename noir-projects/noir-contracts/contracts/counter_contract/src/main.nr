@@ -18,7 +18,9 @@ contract Counter {
 
     // docs:start:constructor
     #[initializer]
+    #['initializer]
     #[private]
+    #['private]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let counters = storage.counters;
@@ -28,6 +30,7 @@ contract Counter {
 
     // docs:start:increment
     #[private]
+    #['private]
     fn increment(owner: AztecAddress, outgoing_viewer: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);

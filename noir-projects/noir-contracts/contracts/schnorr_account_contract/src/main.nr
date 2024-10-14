@@ -27,7 +27,9 @@ contract SchnorrAccount {
 
     // Constructs the contract
     #[private]
+    #['private]
     #[initializer]
+    #['initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
         let this_keys = get_public_keys(this);
@@ -41,6 +43,7 @@ contract SchnorrAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
     #[private]
+    #['private]
     #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
@@ -48,8 +51,9 @@ contract SchnorrAccount {
     }
 
     #[private]
+    #['private]
     #[noinitcheck]
-    #[view]
+        #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)

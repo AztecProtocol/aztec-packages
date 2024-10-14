@@ -19,13 +19,16 @@ contract Claim {
     }
 
     #[public]
+    #['public]
     #[initializer]
+    #['initializer]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         storage.target_contract.initialize(target_contract);
         storage.reward_token.initialize(reward_token);
     }
 
     #[private]
+    #['private]
     fn claim(proof_note: ValueNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read_private();

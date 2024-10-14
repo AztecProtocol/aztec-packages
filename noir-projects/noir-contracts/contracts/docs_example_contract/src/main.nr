@@ -99,12 +99,14 @@ contract DocsExample {
     }
 
     #[public]
+    #['public]
     fn initialize_shared_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender(), points };
         storage.shared_immutable.initialize(new_leader);
     }
 
     #[private]
+    #['private]
     fn match_shared_immutable(account: AztecAddress, points: u8) {
         let expected = Leader { account, points };
         let read = storage.shared_immutable.read_private();
@@ -114,6 +116,7 @@ contract DocsExample {
     }
 
     #[private]
+    #['private]
     fn get_shared_immutable_constrained_private_indirect() -> Leader {
         // This is a private function that calls another private function
         // and returns the response.
@@ -125,6 +128,7 @@ contract DocsExample {
     }
 
     #[public]
+    #['public]
     fn get_shared_immutable_constrained_public_indirect() -> Leader {
         // This is a public function that calls another public function
         // and returns the response.
@@ -136,19 +140,22 @@ contract DocsExample {
     }
 
     #[public]
-    #[view]
+    #['public]
+        #['view]
     fn get_shared_immutable_constrained_public() -> Leader {
         storage.shared_immutable.read_public()
     }
 
     #[public]
+    #['public]
     fn get_shared_immutable_constrained_public_multiple() -> [Leader; 5] {
         let a = storage.shared_immutable.read_public();
         [a, a, a, a, a]
     }
 
     #[private]
-    #[view]
+    #['private]
+        #['view]
     fn get_shared_immutable_constrained_private() -> Leader {
         storage.shared_immutable.read_private()
     }
@@ -158,6 +165,7 @@ contract DocsExample {
     }
 
     #[public]
+    #['public]
     fn initialize_public_immutable(points: u8) {
         // docs:start:initialize_public_immutable
         let mut new_leader = Leader { account: context.msg_sender(), points };
@@ -173,6 +181,7 @@ contract DocsExample {
 
     // docs:start:initialize-private-mutable
     #[private]
+    #['private]
     fn initialize_private_immutable(randomness: Field, points: u8) {
         let msg_sender_keys = get_public_keys(context.msg_sender());
 
@@ -189,6 +198,7 @@ contract DocsExample {
     // docs:end:initialize-private-mutable
 
     #[private]
+    #['private]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
         let msg_sender_keys = get_public_keys(context.msg_sender());
@@ -206,6 +216,7 @@ contract DocsExample {
     }
 
     #[private]
+    #['private]
     fn insert_notes(amounts: [u8; 3]) {
         let msg_sender_keys = get_public_keys(context.msg_sender());
 
@@ -222,6 +233,7 @@ contract DocsExample {
         }
     }
     #[private]
+    #['private]
     fn insert_note(amount: u8, randomness: Field) {
         let msg_sender_keys = get_public_keys(context.msg_sender());
 
@@ -242,6 +254,7 @@ contract DocsExample {
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[private]
+    #['private]
     fn update_legendary_card(randomness: Field, points: u8) {
         let msg_sender_keys = get_public_keys(context.msg_sender());
 
@@ -257,6 +270,7 @@ contract DocsExample {
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
     #[private]
+    #['private]
     fn increase_legendary_points() {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
@@ -281,16 +295,19 @@ contract DocsExample {
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
     #[private]
-    #[view]
+    #['private]
+        #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }
     #[public]
+    #['public]
     fn spend_public_authwit(inner_hash: Field) -> Field {
         1
     }
     #[public]
-    #[internal]
+    #['public]
+        #['internal]
     fn update_leader(account: AztecAddress, points: u8) {
         let new_leader = Leader { account, points };
         storage.leader.write(new_leader);
@@ -308,6 +325,7 @@ contract DocsExample {
     // docs:end:private_mutable_is_initialized
     // docs:start:get_note-private-immutable
     #[private]
+    #['private]
     fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
@@ -323,6 +341,7 @@ contract DocsExample {
     use dep::aztec::context::inputs::PrivateContextInputs;
     // docs:start:simple_macro_example
     #[private]
+    #['private]
     fn simple_macro_example(a: Field, b: Field) -> Field {
         a + b
     }

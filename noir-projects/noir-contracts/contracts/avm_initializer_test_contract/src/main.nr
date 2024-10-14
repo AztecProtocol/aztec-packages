@@ -14,12 +14,15 @@ contract AvmInitializerTest {
      * Storage
      ************************************************************************/
     #[public]
+    #['public]
     #[initializer]
+    #['initializer]
     fn constructor() {
         storage.immutable.initialize(42);
     }
 
     #[public]
+    #['public]
     fn read_storage_immutable() -> pub Field {
         storage.immutable.read()
     }

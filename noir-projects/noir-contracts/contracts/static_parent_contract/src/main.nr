@@ -10,6 +10,7 @@ contract StaticParent {
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
     #[public]
+    #['public]
     fn public_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -25,6 +26,7 @@ contract StaticParent {
 
     // Private function to directly call another private function to the target_contract using the selector and args provided
     #[private]
+    #['private]
     fn private_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -35,6 +37,7 @@ contract StaticParent {
 
     // Just like function above but with 3 args.
     #[private]
+    #['private]
     fn private_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -45,6 +48,7 @@ contract StaticParent {
 
     // Private function to enqueue a call to a public function of another contract, passing the target arguments provided
     #[private]
+    #['private]
     fn enqueue_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -54,6 +58,7 @@ contract StaticParent {
     }
 
     #[private]
+    #['private]
     fn private_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -64,6 +69,7 @@ contract StaticParent {
 
     // Private function to statically call another private function to the target_contract using the selector and values provided
     #[private]
+    #['private]
     fn private_static_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -74,6 +80,7 @@ contract StaticParent {
 
     // Same as above but using a specific function from the interface
     #[private]
+    #['private]
     fn private_get_value_from_child(
         target_contract: AztecAddress,
         value: Field,
@@ -84,6 +91,7 @@ contract StaticParent {
 
     // Private function to set a static context and verify correct propagation for nested private calls
     #[private]
+    #['private]
     fn private_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -94,6 +102,7 @@ contract StaticParent {
 
     // Just like function above but with 3 args.
     #[private]
+    #['private]
     fn private_nested_static_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -104,6 +113,7 @@ contract StaticParent {
 
     // Public function to statically call another public function to the target_contract using the selector and value provided
     #[public]
+    #['public]
     fn public_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -119,12 +129,14 @@ contract StaticParent {
 
     // Same as above but using a specific function from the interface
     #[public]
+    #['public]
     fn public_get_value_from_child(target_contract: AztecAddress, value: Field) -> Field {
         StaticChild::at(target_contract).pub_get_value(value).view(&mut context)
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls
     #[public]
+    #['public]
     fn public_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -136,6 +148,7 @@ contract StaticParent {
 
     // Private function to enqueue a static call to a public function of another contract, passing the target arguments provided
     #[private]
+    #['private]
     fn enqueue_static_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -146,12 +159,14 @@ contract StaticParent {
 
     // Same as above but using a specific function from the interface
     #[private]
+    #['private]
     fn enqueue_public_get_value_from_child(target_contract: AztecAddress, value: Field) {
         StaticChild::at(target_contract).pub_get_value(value).enqueue_view(&mut context);
     }
 
     // Private function to set a static context and verify correct propagation of nested enqueuing of public calls
     #[private]
+    #['private]
     fn enqueue_static_nested_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
