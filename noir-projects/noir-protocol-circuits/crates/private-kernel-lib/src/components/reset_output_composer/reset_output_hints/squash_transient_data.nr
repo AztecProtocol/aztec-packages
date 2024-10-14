@@ -1,7 +1,7 @@
 use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash};
 
-unconstrained pub fn squash_transient_data<let M: u32, let N: u32, let P: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
+pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
     note_hashes: [ScopedNoteHash; M],
     nullifiers: [ScopedNullifier; N],
     logs: [NoteLogHash; P],

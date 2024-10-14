@@ -124,7 +124,7 @@ pub fn verify_squashed_transient_data_with_hint_indexes<
     }
 }
 
-unconstrained pub fn get_squashed_note_hash_hints<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32>(transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS]) -> [bool; NUM_NOTE_HASHES] {
+pub unconstrained fn get_squashed_note_hash_hints<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32>(transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS]) -> [bool; NUM_NOTE_HASHES] {
     let mut hints = [false; NUM_NOTE_HASHES];
     for i in 0..transient_data_index_hints.len() {
         let note_hash_index = transient_data_index_hints[i].note_hash_index;
@@ -135,7 +135,7 @@ unconstrained pub fn get_squashed_note_hash_hints<let NUM_INDEX_HINTS: u32, let 
     hints
 }
 
-unconstrained pub fn get_squashed_nullifier_hints<let NUM_INDEX_HINTS: u32, let NUM_NULLIFIERS: u32>(transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS]) -> [bool; NUM_NULLIFIERS] {
+pub unconstrained fn get_squashed_nullifier_hints<let NUM_INDEX_HINTS: u32, let NUM_NULLIFIERS: u32>(transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS]) -> [bool; NUM_NULLIFIERS] {
     let mut hints = [false; NUM_NULLIFIERS];
     for i in 0..transient_data_index_hints.len() {
         let nullifier_index = transient_data_index_hints[i].nullifier_index;

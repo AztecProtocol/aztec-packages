@@ -6,6 +6,7 @@ import {
   VerificationKeyAsFields,
   VerificationKeyData,
 } from '@aztec/circuits.js';
+import { hashVk } from '@aztec/noir-protocol-circuits-types';
 
 import { strict as assert } from 'assert';
 import * as fs from 'fs/promises';
@@ -25,8 +26,8 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   ]);
   const fieldsJson = JSON.parse(rawFields);
   const fields = fieldsJson.map(Fr.fromString);
-  // The first item is the hash, this is not part of the actual VK
-  const vkHash = fields[0];
+  // The hash is not included in the BB response
+  const vkHash = hashVk(fields);
   const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
   return new VerificationKeyData(vkAsFields, rawBinary);
 }

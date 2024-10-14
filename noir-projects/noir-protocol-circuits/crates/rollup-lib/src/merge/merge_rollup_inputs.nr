@@ -27,12 +27,10 @@ impl MergeRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
@@ -66,7 +64,7 @@ impl MergeRollupInputs {
 mod tests {
     use crate::{tests::merge_rollup_inputs::default_merge_rollup_inputs};
     use dep::types::hash::accumulate_sha256;
-    use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX};
+    use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX, ROOT_PARITY_INDEX};
 
     #[test(should_fail_with = "The rollup should be filled greedily from L to R, but received a L base and R merge")]
     fn different_rollup_type_fails() {
@@ -201,14 +199,14 @@ mod tests {
 
         let _outputs = inputs.merge_rollup_circuit();
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_circuit() {
-    //     let mut inputs = default_merge_rollup_inputs();
-    //     let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
-    //     inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[ROOT_PARITY_INDEX];
-    //     inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
-    //     inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
-    //     let _outputs = inputs.merge_rollup_circuit();
-    // }
+
+    #[test(should_fail_with="Invalid vk index")]
+    fn invalid_previous_circuit() {
+        let mut inputs = default_merge_rollup_inputs();
+        let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
+        inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[ROOT_PARITY_INDEX];
+        inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
+        inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
+        let _outputs = inputs.merge_rollup_circuit();
+    }
 }

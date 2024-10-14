@@ -48,6 +48,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ProtocolCircuitVkIndexes,
+  ProtocolCircuitVks,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -529,7 +530,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
     //info(`proof: ${proof.proof}`);
-    const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
+    const verificationKey = ProtocolCircuitVks['PrivateKernelEmptyArtifact'];
     await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
