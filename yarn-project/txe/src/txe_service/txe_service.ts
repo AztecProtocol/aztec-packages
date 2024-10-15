@@ -273,11 +273,6 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
-  setIsStaticCall(isStaticCall: ForeignCallSingle) {
-    (this.typedOracle as TXE).setIsStaticCall(fromSingle(isStaticCall).toBool());
-    return toForeignCallResult([]);
-  }
-
   async packArgumentsArray(args: ForeignCallArray) {
     const packed = await this.typedOracle.packArgumentsArray(fromArray(args));
     return toForeignCallResult([toSingle(packed)]);

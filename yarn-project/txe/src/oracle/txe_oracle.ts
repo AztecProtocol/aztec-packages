@@ -7,6 +7,7 @@ import {
   PublicDataWitness,
   PublicDataWrite,
   PublicExecutionRequest,
+  SimulationError,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
@@ -67,6 +68,7 @@ import {
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
+import { enrichPublicSimulationError } from '../util/simulation_error.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
@@ -184,6 +186,8 @@ export class TXE implements TypedOracle {
 
     const stateReference = await db.getStateReference();
     const inputs = PrivateContextInputs.empty();
+    inputs.txContext.chainId = this.chainId;
+    inputs.txContext.version = this.version;
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -642,9 +646,27 @@ export class TXE implements TypedOracle {
     );
     const execution = new PublicExecutionRequest(targetContractAddress, callContext, args);
 
+    const db = await this.trees.getLatest();
+    const previousBlockState = await this.#getTreesAt(this.blockNumber - 1);
+
+    const combinedConstantData = CombinedConstantData.empty();
+    combinedConstantData.globalVariables.chainId = this.chainId;
+    combinedConstantData.globalVariables.version = this.version;
+    combinedConstantData.globalVariables.blockNumber = new Fr(this.blockNumber);
+    combinedConstantData.historicalHeader.globalVariables.chainId = this.chainId;
+    combinedConstantData.historicalHeader.globalVariables.version = this.version;
+    combinedConstantData.historicalHeader.globalVariables.blockNumber = new Fr(this.blockNumber - 1);
+    combinedConstantData.historicalHeader.state = await db.getStateReference();
+    combinedConstantData.historicalHeader.lastArchive.root = Fr.fromBuffer(
+      (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
+    );
+
+    combinedConstantData.txContext.chainId = this.chainId;
+    combinedConstantData.txContext.version = this.version;
+
     const executionResult = executor.simulate(
       execution,
-      CombinedConstantData.empty(),
+      combinedConstantData,
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],
@@ -736,7 +758,17 @@ export class TXE implements TypedOracle {
     );
 
     if (executionResult.reverted) {
-      throw new Error(`Execution reverted with reason: ${executionResult.revertReason}`);
+      if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
+        await enrichPublicSimulationError(
+          executionResult.revertReason,
+          this.txeDatabase,
+          this.contractDataOracle,
+          this.logger,
+        );
+        throw new Error(executionResult.revertReason.message);
+      } else {
+        throw new Error(`Public function call reverted: ${executionResult.revertReason}`);
+      }
     }
 
     // Apply side effects

@@ -44,8 +44,14 @@ impl TestEnvironment {
         PublicContext::new(|| 0)
     }
 
+    unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
+        let mut context = PublicContext::new(|| {panic(f"Provide args hash manually")});
+        context.args_hash = Option::some(hash_args(args));
+        context
+    }
+
     unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(get_block_number())
+        self.private_at(get_block_number() - 1)
     }
 
     // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
@@ -94,20 +100,20 @@ impl TestEnvironment {
         Deployer { path: "", name, public_keys_hash: 0 }
     }
 
-    unconstrained fn assert_public_call_fails<C, let M: u32, T>(
+    unconstrained fn assert_public_call_fails<C, let M: u32>(
         _self: Self,
         call_interface: C
-    ) where C: CallInterface<M, T> {
+    ) where C: CallInterface<M> {
         // Public functions are routed through the dispatch function.
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
         let calldata = &[call_interface.get_selector().to_field()].append(call_interface.get_args());
         cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
     }
 
-    unconstrained fn assert_private_call_fails<C, let M: u32, T>(
+    unconstrained fn assert_private_call_fails<C, let M: u32>(
         _self: Self,
         call_interface: C
-    ) where C: CallInterface<M, T> {
+    ) where C: CallInterface<M> {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),

@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, traits::Deserialize
-};
+use dep::protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress, traits::Deserialize};
 
 use crate::context::{
     private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
@@ -11,7 +8,7 @@ use crate::context::{
 use crate::oracle::arguments::pack_arguments;
 use crate::hash::hash_args;
 
-pub trait CallInterface<let N: u32, T> {
+pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -32,8 +29,6 @@ pub trait CallInterface<let N: u32, T> {
         self.is_static
     }
 }
-
-impl<let N: u32, T, P> CallInterface<N, T> for PrivateCallInterface<N, T> {}
 
 pub struct PrivateCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
@@ -72,7 +67,7 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, ()> for PrivateVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {}
 
 pub struct PrivateVoidCallInterface<let N: u32> {
     target_contract: AztecAddress,
@@ -107,7 +102,7 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, T> for PrivateStaticCallInterface<N, T> {}
+impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {}
 
 pub struct PrivateStaticCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
@@ -127,7 +122,7 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, ()> for PrivateStaticVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {}
 
 pub struct PrivateStaticVoidCallInterface<let N: u32> {
     target_contract: AztecAddress,
@@ -146,7 +141,7 @@ impl<let N: u32> PrivateStaticVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, T> for PublicCallInterface<N, T> {}
+impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {}
 
 pub struct PublicCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
@@ -216,7 +211,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, ()> for PublicVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {}
 
 pub struct PublicVoidCallInterface<let N: u32> {
     target_contract: AztecAddress,
@@ -286,7 +281,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, T> for PublicStaticCallInterface<N, T> {}
+impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {}
 
 pub struct PublicStaticCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
@@ -323,7 +318,7 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T, P> CallInterface<N, ()> for PublicStaticVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {}
 
 pub struct PublicStaticVoidCallInterface<let N: u32> {
     target_contract: AztecAddress,
