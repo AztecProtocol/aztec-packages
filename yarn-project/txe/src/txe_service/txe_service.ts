@@ -9,7 +9,7 @@ import {
   computePartialAddress,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';

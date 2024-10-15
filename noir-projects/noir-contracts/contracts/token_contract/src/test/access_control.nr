@@ -29,9 +29,11 @@ unconstrained fn access_control() {
     assert(is_minter == false);
     // Impersonate original admin
     env.impersonate(owner);
+    // docs:start:assert_public_fail
     // Try to set ourselves as admin, fail miserably
     let set_admin_call_interface = Token::at(token_contract_address).set_admin(recipient);
     env.assert_public_call_fails(set_admin_call_interface);
+    // docs:end:assert_public_fail
     // Try to revoke minter status to recipient, fail miserably
     let set_minter_call_interface = Token::at(token_contract_address).set_minter(recipient, false);
     env.assert_public_call_fails(set_minter_call_interface);

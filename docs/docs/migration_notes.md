@@ -16,6 +16,7 @@ This ensures every single test runs in a consistent environment and allows for c
 -env.call_private(my_contract_interface)
 +MyContract::at(address).my_function(args).call(&mut env.private());
 ```
+This implies every contract has to be deployed before it can be tested (via `env.deploy` or `env.deploy_self`) and of course it has to be recompiled if its code was changed before TXE can use the modified bytecode.
 
 ## 0.58.0
 ### [l1-contracts] Inbox's MessageSent event emits global tree index
