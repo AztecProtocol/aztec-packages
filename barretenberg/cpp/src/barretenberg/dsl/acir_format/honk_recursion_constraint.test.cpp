@@ -104,7 +104,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .blake3_constraints = {},
             .keccak_permutations = {},
             .pedersen_constraints = {},
-            .pedersen_hash_constraints = {},
             .poseidon2_constraints = {},
             .multi_scalar_mul_constraints = {},
             .ec_add_constraints = {},
