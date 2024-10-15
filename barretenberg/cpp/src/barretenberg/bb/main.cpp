@@ -77,7 +77,7 @@ void init_bn254_crs(size_t dyadic_circuit_size)
  */
 void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
+    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size + 1);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
