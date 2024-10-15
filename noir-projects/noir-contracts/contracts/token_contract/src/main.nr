@@ -213,7 +213,7 @@ contract Token {
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
     #[public]
-    #['internal]
+    #[internal]
     fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
         let supply = storage.total_supply.read() + U128::from_integer(amount);
@@ -375,7 +375,7 @@ contract Token {
     }
     // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to
     // serialization issues.
-    #['internal]
+    #[internal]
     #[private]
     fn _recurse_subtract_balance(account: AztecAddress, amount: Field) -> U128 {
         subtract_balance(
@@ -540,7 +540,7 @@ contract Token {
     // to serialization issues.
     // docs:start:complete_refund
     #[public]
-    #['internal]
+    #[internal]
     fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
         // TODO(#7728): Remove the next line
         let funded_amount = U128::from_integer(funded_amount);
@@ -573,7 +573,7 @@ contract Token {
     /// Internal ///
     // docs:start:increase_public_balance
     #[public]
-    #['internal]
+    #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
         storage.public_balances.at(to).write(new_balance);
@@ -581,7 +581,7 @@ contract Token {
     // docs:end:increase_public_balance
     // docs:start:reduce_total_supply
     #[public]
-    #['internal]
+    #[internal]
     fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));

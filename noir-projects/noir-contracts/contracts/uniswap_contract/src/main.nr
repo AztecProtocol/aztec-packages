@@ -155,7 +155,7 @@ contract Uniswap {
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
     #[public]
-    #['internal]
+    #[internal]
     fn _approve_bridge_and_exit_input_asset_to_L1(
         token: AztecAddress,
         token_bridge: AztecAddress,
@@ -186,7 +186,7 @@ contract Uniswap {
 
     // docs:start:assert_token_is_same
     #[public]
-    #['internal]
+    #[internal]
     #[view]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(

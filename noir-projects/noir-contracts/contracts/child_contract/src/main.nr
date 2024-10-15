@@ -27,7 +27,7 @@ contract Child {
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     // Can only be called from this contract.
     #[private]
-    #['internal]
+    #[internal]
     fn value_internal(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
@@ -82,7 +82,7 @@ contract Child {
 
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[public]
-    #['internal]
+    #[internal]
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);

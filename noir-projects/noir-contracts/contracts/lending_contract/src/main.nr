@@ -124,7 +124,7 @@ contract Lending {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn _deposit(owner: AztecAddress, amount: Field, collateral_asset: AztecAddress) {
         let _asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
 
@@ -148,7 +148,7 @@ contract Lending {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
         let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
@@ -196,7 +196,7 @@ contract Lending {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
         let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
@@ -251,7 +251,7 @@ contract Lending {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
 

@@ -93,7 +93,7 @@ contract AuthRegistry {
      * @param authorize True if the caller is authorized to perform the message hash, false otherwise
      */
     #[public]
-    #['internal]
+    #[internal]
     fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
         storage.approved_actions.at(approver).at(message_hash).write(authorize);
     }

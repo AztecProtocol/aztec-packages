@@ -325,7 +325,6 @@ contract PendingNoteHashes {
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
     // #[private]
-    // #['private]
     // fn test_bad_get_in_nested_call_then_insert(
     //    amount: Field,
     //    owner: AztecAddress,

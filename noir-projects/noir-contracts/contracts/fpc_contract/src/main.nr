@@ -55,7 +55,7 @@ contract FPC {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
         // docs:start:public_call
         Token::at(asset).transfer_public(from, context.this_address(), amount, nonce).call(&mut context);
@@ -63,7 +63,7 @@ contract FPC {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn pay_refund(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         // Just do public refunds for the present
         let refund = compute_rebate(context, amount);
@@ -71,7 +71,7 @@ contract FPC {
     }
 
     #[public]
-    #['internal]
+    #[internal]
     fn pay_refund_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
         let refund = compute_rebate(context, amount);
         Token::at(asset).shield(context.this_address(), refund, secret_hash, 0).call(&mut context);
