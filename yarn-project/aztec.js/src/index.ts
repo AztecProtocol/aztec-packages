@@ -52,9 +52,11 @@ export {
   computeInnerAuthWitHashFromAction,
   computeInnerAuthWitHash,
   generatePublicKey,
+  readFieldCompressedString,
   waitForAccountSynch,
   waitForPXE,
 } from './utils/index.js';
+
 export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createPXEClient, createCompatibleClient } from './rpc_clients/index.js';
