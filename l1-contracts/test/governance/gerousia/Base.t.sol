@@ -6,18 +6,18 @@ import {Test} from "forge-std/Test.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Gerousia} from "@aztec/governance/Gerousia.sol";
 
-import {IApella} from "@aztec/governance/interfaces/IApella.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-contract FakeApella is IApella {
-  address public gerousia;
+contract FakeApella {
+  address immutable GEROUSIA;
 
-  mapping(address => bool) public proposals;
+  mapping(IPayload => bool) public proposals;
 
-  function setGerousia(address _gerousia) external {
-    gerousia = _gerousia;
+  constructor(address _gerousia) {
+    GEROUSIA = _gerousia;
   }
 
-  function propose(address _proposal) external override(IApella) returns (bool) {
+  function propose(IPayload _proposal) external returns (bool) {
     proposals[_proposal] = true;
     return true;
   }
@@ -30,10 +30,10 @@ contract GerousiaBase is Test {
 
   function setUp() public virtual {
     registry = new Registry(address(this));
-    apella = new FakeApella();
 
-    gerousia = new Gerousia(apella, registry, 667, 1000);
+    gerousia = new Gerousia(registry, 667, 1000);
+    apella = new FakeApella(address(gerousia));
 
-    apella.setGerousia(address(gerousia));
+    registry.transferOwnership(address(apella));
   }
 }
