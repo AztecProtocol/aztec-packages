@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728746174666,
+  "lastUpdate": 1728985032386,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ed1e23edff04ea026a94ffc22b29b6ef520cdf55",
-          "message": "feat: Origin Tags part 1 (#8787)\n\nCreates the Origin Tag mechanism and implements it for the bool and\r\nfield stdlib primitives with tests.\r\nThe mechanism preserves the origin of a particular element, which will\r\nallow us to detect bad interactions of transcript elements",
-          "timestamp": "2024-09-30T13:59:09Z",
-          "tree_id": "52b8c2358d5972510b9f831cb314ad28164b9ca5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed1e23edff04ea026a94ffc22b29b6ef520cdf55"
-        },
-        "date": 1727706002836,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31438.24954099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29138.560251000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4993.152302999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4687.819371 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93209.18359199999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93209185000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14526.573803999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14526574000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8182467376,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8182467376 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153491092,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153491092 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6653015305,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6653015305 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126591970,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126591970 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3572,6 +3500,66 @@ window.BENCHMARK_DATA = {
             "value": 126363947,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126363947 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c857cd9167f696fc237b64ff579952001eba7d40",
+          "message": "feat: Replace Zeromorph with Shplemini in ECCVM (#9102)\n\nThis PR switches ECCVM to Shplemini which shaves off ~300k in the tube\r\ncircuit. Now, on the verifier side, we first execute Shplemini, then\r\nreduce the BatchOpeningClaim to a single OpeningClaim by performing the\r\nbatch_mul delayed by Shplemini. Then, we construct the translation\r\nOpeningClaim, and the two are being reduced to a single OpeningClaim by\r\nexecuting a second iteration of Shplonk. Finally, we verify the\r\nOpeningClaim via PCS. This could be further optimised as we currently\r\nperform 4 batch_muls.",
+          "timestamp": "2024-10-15T09:47:16+01:00",
+          "tree_id": "bb565a572a53cf1ac2db289bcb0be0a8a5c229a0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c857cd9167f696fc237b64ff579952001eba7d40"
+        },
+        "date": 1728985025455,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29604.541609999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28114.01506 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5500.81342899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5204.295326 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87391.325026,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87391327000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15521.631061999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15521632000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2843649671,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2843649671 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126839075,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126839075 ns\nthreads: 1"
           }
         ]
       }
