@@ -1,6 +1,1 @@
-export {
-  deployL1Contract,
-  deployL1Contracts,
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
-} from '@aztec/ethereum';
+export { deployL1Contract, deployL1Contracts, DeployL1Contracts } from '@aztec/ethereum';

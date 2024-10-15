@@ -1,32 +1,11 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
-import {
-  type DeployL1Contracts,
-  type L1ContractArtifactsForDeployment,
-  NULL_KEY,
-  createEthereumChain,
-  deployL1Contracts,
-} from '@aztec/ethereum';
+import { type DeployL1Contracts, NULL_KEY, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import {
-  FeeJuicePortalAbi,
-  FeeJuicePortalBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-  TestERC20Abi,
-  TestERC20Bytecode,
-} from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -90,39 +69,12 @@ export async function deployContractsToL1(
   contractDeployLogger = logger,
   opts: { assumeProvenThroughBlockNumber?: number; salt?: number } = {},
 ) {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: TestERC20Abi,
-      contractBytecode: TestERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
-
   const chain = aztecNodeConfig.l1RpcUrl
     ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
     : { chainInfo: localAnvil };
 
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, l1Artifacts, {
+    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, {
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,

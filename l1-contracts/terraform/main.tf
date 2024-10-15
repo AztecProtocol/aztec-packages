@@ -65,3 +65,39 @@ variable "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
 output "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
   value = var.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 }
+
+variable "NOMISMATOKOPIO_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "NOMISMATOKOPIO_CONTRACT_ADDRESS" {
+  value = var.NOMISMATOKOPIO_CONTRACT_ADDRESS
+}
+
+variable "SYSSTIA_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "SYSSTIA_CONTRACT_ADDRESS" {
+  value = var.SYSSTIA_CONTRACT_ADDRESS
+}
+
+variable "GEROUSIA_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "GEROUSIA_CONTRACT_ADDRESS" {
+  value = var.GEROUSIA_CONTRACT_ADDRESS
+}
+
+variable "APELLA_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "APELLA_CONTRACT_ADDRESS" {
+  value = var.APELLA_CONTRACT_ADDRESS
+}
