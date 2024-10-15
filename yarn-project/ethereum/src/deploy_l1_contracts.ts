@@ -2,6 +2,28 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
+import {
+  ApellaAbi,
+  ApellaBytecode,
+  FeeJuicePortalAbi,
+  FeeJuicePortalBytecode,
+  GerousiaAbi,
+  GerousiaBytecode,
+  InboxAbi,
+  InboxBytecode,
+  NomismatokopioAbi,
+  NomismatokopioBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  RegistryAbi,
+  RegistryBytecode,
+  RollupAbi,
+  RollupBytecode,
+  SysstiaAbi,
+  SysstiaBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
+} from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
 import {
@@ -89,7 +111,66 @@ export interface L1ContractArtifactsForDeployment {
    * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
+  /**
+   * Nomismatokopio contract artifacts.
+   */
+  nomismatokopio: ContractArtifacts;
+  /**
+   * Sysstia contract artifacts.
+   */
+  sysstia: ContractArtifacts;
+  /**
+   * Gerousia contract artifacts.
+   */
+  gerousia: ContractArtifacts;
+  /**
+   * Apella contract artifacts.
+   */
+  apella: ContractArtifacts;
 }
+
+export const l1Artifacts: L1ContractArtifactsForDeployment = {
+  registry: {
+    contractAbi: RegistryAbi,
+    contractBytecode: RegistryBytecode,
+  },
+  inbox: {
+    contractAbi: InboxAbi,
+    contractBytecode: InboxBytecode,
+  },
+  outbox: {
+    contractAbi: OutboxAbi,
+    contractBytecode: OutboxBytecode,
+  },
+  rollup: {
+    contractAbi: RollupAbi,
+    contractBytecode: RollupBytecode,
+  },
+  feeJuice: {
+    contractAbi: TestERC20Abi,
+    contractBytecode: TestERC20Bytecode,
+  },
+  feeJuicePortal: {
+    contractAbi: FeeJuicePortalAbi,
+    contractBytecode: FeeJuicePortalBytecode,
+  },
+  sysstia: {
+    contractAbi: SysstiaAbi,
+    contractBytecode: SysstiaBytecode,
+  },
+  nomismatokopio: {
+    contractAbi: NomismatokopioAbi,
+    contractBytecode: NomismatokopioBytecode,
+  },
+  gerousia: {
+    contractAbi: GerousiaAbi,
+    contractBytecode: GerousiaBytecode,
+  },
+  apella: {
+    contractAbi: ApellaAbi,
+    contractBytecode: ApellaBytecode,
+  },
+};
 
 export interface DeployL1ContractsArgs {
   /**
@@ -161,7 +242,6 @@ export function createL1Clients(
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
- * @param contractsToDeploy - The set of L1 artifacts to be deployed
  * @param args - Arguments for initialization of L1 contracts
  * @returns A list of ETH addresses of the deployed contracts.
  */
@@ -170,7 +250,6 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
   logger: DebugLogger,
-  contractsToDeploy: L1ContractArtifactsForDeployment,
   args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
@@ -186,7 +265,7 @@ export const deployL1Contracts = async (
     return await (await fetch(rpcUrl, content)).json();
   };
   if (isAnvilTestChain(chain.id)) {
-    const interval = 12;
+    const interval = 12; // @todo  #8084
     const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
@@ -198,15 +277,51 @@ export const deployL1Contracts = async (
 
   const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  // Governance stuff
+  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
 
-  const registryAddress = await deployer.deploy(contractsToDeploy.registry, [account.address.toString()]);
+  const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
+  const feeJuiceAddress = await govDeployer.deploy(l1Artifacts.feeJuice);
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [
+  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
+    feeJuiceAddress.toString(),
+    1n * 10n ** 18n, // @todo  #8084
+    account.address.toString(),
+  ]);
+  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
+
+  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
+    feeJuiceAddress.toString(),
+    registryAddress.toString(),
+  ]);
+  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
+
+  // @todo  #8084
+  // @note These numbers are just chosen to make testing simple.
+  const quorumSize = 6n;
+  const roundSize = 10n;
+  const gerousiaAddress = await govDeployer.deploy(l1Artifacts.gerousia, [
+    registryAddress.toString(),
+    quorumSize,
+    roundSize,
+  ]);
+  logger.info(`Deployed Gerousia at ${gerousiaAddress}`);
+
+  const apellaAddress = await govDeployer.deploy(l1Artifacts.apella, [
+    feeJuiceAddress.toString(),
+    gerousiaAddress.toString(),
+  ]);
+  logger.info(`Deployed Apella at ${apellaAddress}`);
+
+  await govDeployer.waitForDeployments();
+  logger.info(`All governance contracts deployed`);
+
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+
+  const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
     account.address.toString(),
     registryAddress.toString(),
     feeJuiceAddress.toString(),
@@ -214,7 +329,7 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
-  const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
+  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
@@ -224,23 +339,23 @@ export const deployL1Contracts = async (
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 
   await deployer.waitForDeployments();
-  logger.info(`All contracts deployed`);
+  logger.info(`All core contracts deployed`);
 
   const feeJuicePortal = getContract({
     address: feeJuicePortalAddress.toString(),
-    abi: contractsToDeploy.feeJuicePortal.contractAbi,
+    abi: l1Artifacts.feeJuicePortal.contractAbi,
     client: walletClient,
   });
 
   const feeJuice = getContract({
     address: feeJuiceAddress.toString(),
-    abi: contractsToDeploy.feeJuice.contractAbi,
+    abi: l1Artifacts.feeJuice.contractAbi,
     client: walletClient,
   });
 
   const rollup = getContract({
     address: getAddress(rollupAddress.toString()),
-    abi: contractsToDeploy.rollup.contractAbi,
+    abi: l1Artifacts.rollup.contractAbi,
     client: walletClient,
   });
 
@@ -310,7 +425,7 @@ export const deployL1Contracts = async (
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
-    abi: contractsToDeploy.registry.contractAbi,
+    abi: l1Artifacts.registry.contractAbi,
     client: walletClient,
   });
   if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
@@ -321,6 +436,19 @@ export const deployL1Contracts = async (
     txHashes.push(upgradeTxHash);
   } else {
     logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
+  }
+
+  {
+    const transferOwnershipTxHash = await registryContract.write.transferOwnership(
+      [getAddress(apellaAddress.toString())],
+      {
+        account,
+      },
+    );
+    logger.verbose(
+      `Transferring the ownership of the registry contract at ${registryAddress} to the Apella ${apellaAddress} in tx ${transferOwnershipTxHash}`,
+    );
+    txHashes.push(transferOwnershipTxHash);
   }
 
   // Wait for all actions to be mined
@@ -334,6 +462,10 @@ export const deployL1Contracts = async (
     outboxAddress,
     feeJuiceAddress,
     feeJuicePortalAddress,
+    nomismatokopioAddress,
+    sysstiaAddress,
+    gerousiaAddress,
+    apellaAddress,
   };
 
   return {

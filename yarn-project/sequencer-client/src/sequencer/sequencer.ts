@@ -137,6 +137,10 @@ export class Sequencer {
     if (config.allowedInTeardown) {
       this.allowedInTeardown = config.allowedInTeardown;
     }
+    if (config.gerousiaPayload) {
+      this.publisher.setPayload(config.gerousiaPayload);
+    }
+
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
     this.config = config;
   }
@@ -223,6 +227,15 @@ export class Sequencer {
       return;
     }
 
+    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+      new Fr(newBlockNumber),
+      this._coinbase,
+      this._feeRecipient,
+      slot,
+    );
+
+    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt());
+
     if (!this.shouldProposeBlock(historicalHeader, {})) {
       return;
     }
@@ -236,13 +249,6 @@ export class Sequencer {
       return;
     }
     this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
-
-    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-      new Fr(newBlockNumber),
-      this._coinbase,
-      this._feeRecipient,
-      slot,
-    );
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new Header(

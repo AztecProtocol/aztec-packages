@@ -611,6 +611,7 @@ __metadata:
   resolution: "@aztec/ethereum@workspace:ethereum"
   dependencies:
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.14.6
