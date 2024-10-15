@@ -374,7 +374,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct b = 3;
         field_ct c = 7;
         bool_ct r = a * c == b * c + c && b + 1 == a;
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         a = witness_ct(&builder, 4);
         r = a * c == b * c + c && b + 1 == a;
 
