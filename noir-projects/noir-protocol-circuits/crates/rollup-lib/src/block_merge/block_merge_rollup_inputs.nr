@@ -162,7 +162,7 @@ mod tests {
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="Invalid vk index")]
+    #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_circuit() {
         let mut inputs = default_block_merge_rollup_inputs();
         let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();

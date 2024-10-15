@@ -16,7 +16,8 @@ contract BoxReact {
     }
 
     #[private]
-    #[initializer]
+    #['private]
+    #['initializer]
     fn constructor(
         number: Field,
         owner: AztecAddress,
@@ -30,6 +31,7 @@ contract BoxReact {
     }
 
     #[private]
+    #['private]
     fn setNumber(
         number: Field,
         owner: AztecAddress,

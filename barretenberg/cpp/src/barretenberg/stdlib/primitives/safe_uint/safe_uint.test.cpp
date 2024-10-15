@@ -11,6 +11,7 @@
 using namespace bb;
 
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
