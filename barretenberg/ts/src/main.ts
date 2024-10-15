@@ -104,7 +104,7 @@ async function initClientIVC(bytecodePath: string, crsPath: string) {
 
   debug('loading BN254 and Grumpkin crs...');
   const crs = await Crs.new(2 ** 18 + 1, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 13 + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
