@@ -23,7 +23,7 @@ function getLogLevel() {
 export let currentLevel = getLogLevel();
 
 const namespaces = process.env.DEBUG ?? 'aztec:*';
-debug.enable(namespaces);
+debug.enable(filterNegativePatterns(namespaces));
 
 /** Log function that accepts an exception object */
 type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData, options?: LogOptions) => void;
@@ -48,6 +48,14 @@ interface DebugLoggerState extends DebugLoggerOptions {
   ignorePatterns: string[];
 }
 
+function filterNegativePatterns(debugString: string): string {
+  return (
+    debugString
+      .split(',')
+      .filter(p => !p.startsWith('-'))
+      .join(',')
+  );
+}
 function extractNegativePatterns(debugString: string): string[] {
   return (
     debugString
@@ -55,8 +63,6 @@ function extractNegativePatterns(debugString: string): string[] {
       .filter(p => p.startsWith('-'))
       // Remove the leading '-' from the pattern
       .map(p => p.slice(1))
-      // Remove any '*' from the pattern
-      .map(p => p.replace('*', ''))
   );
 }
 
@@ -131,7 +137,7 @@ function logWithDebug(
     // Early exit as we are only configured to log on changes in logged data
     return;
   }
-  if (logState.ignorePatterns.some(pattern => debug.namespace.startsWith(pattern))) {
+  if (logState.ignorePatterns.some(pattern => debug.namespace.match(pattern))) {
     return; // Skip logging this message
   }
   for (const handler of logHandlers) {
