@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728985032386,
+  "lastUpdate": 1729014359901,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d8d04f6f0b9ca0aa36008dc53dde2562dc3afa63",
-          "message": "feat: ultra honk on Shplemini (#8886)\n\nSwitch UltraHonk to Shplemini, ensure recursive verifier are entirely\r\nthe same by resolving `conditional_assign` usage that was causing\r\ndifferent sigma polynomials for different circuit sizes, update\r\nnecessary constants and Prover.toml file for e2e.\r\n\r\nProof size goes from 439 to 463 Frs (Zeromorph had 28 + 1 commitments as\r\npart of the proof, each representing 4 Frs, Shplemini has 27 commitments\r\nand 28 evaluations from Gemini and 1 commitment from Shplonk)\r\n\r\nUltraHonk recursive verifier size goes from 1370662 to 953211 with\r\nconstant proofs",
-          "timestamp": "2024-10-01T13:03:43Z",
-          "tree_id": "4bcbc3c7d6893e754ffe18af5e5c906805b5bf82",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d8d04f6f0b9ca0aa36008dc53dde2562dc3afa63"
-        },
-        "date": 1727789406322,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31138.485177999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28706.887753 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5381.946073999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5011.4008189999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92495.310726,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92495313000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15208.748772999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15208749000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8279163612,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8279163612 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151756802,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151756802 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6782291979,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6782291979 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126219431,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126219431 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3560,6 +3488,66 @@ window.BENCHMARK_DATA = {
             "value": 126839075,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126839075 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a306ea5ffeb13019427a96d8152e5642b717c5f6",
+          "message": "fix: Reduce SRS size back to normal (#9098)\n\nResolves https://github.com/AztecProtocol/barretenberg/issues/1097.\r\n\r\nPreviously, we had to bump up SRS sizes to 1.5x the dyadic circuit size\r\nbecause structured polynomials meant that we could commit starting from\r\nthe start_index of the polynomial, but because pippenger likes a power\r\nof 2 points, that meant that we sometimes exceeded the\r\ndyadic_circuit_size during a roundup to a power of 2.\r\n\r\nThis PR fixes this by using PolynomialSpans to store the scalars. Note\r\nthat these scalars do not necessarily represent polynomials anymore, so\r\nmaybe this object can be renamed. The PolynomialSpan allows us to store\r\na start_index with the scalars, where the start_index here means the\r\noffset into the span of points that the scalars start at. For example,\r\nif we are committing to a polynomial which starts at index 13, and has\r\n13 length. The points we will use will now be [10, 26) instead of [13,\r\n29) previously. The start_index here would be 3 because the scalars\r\nstart at 13, which is 3 after the points start.\r\n\r\nThe range for the points is chosen to the be the earliest power of 2\r\nwindow that fits the scalars, meaning we try to shift it as left as\r\npossible. This means that will never exceed the dyadic_circuit_size as a\r\nresult, so we can keep the old (and good) SRS sizes.",
+          "timestamp": "2024-10-15T17:17:38Z",
+          "tree_id": "ef19d62029020b54fd1da6758cd3f4dc32573a3f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a306ea5ffeb13019427a96d8152e5642b717c5f6"
+        },
+        "date": 1729014352241,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29513.839836999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27760.377947 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5389.744848000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5061.229837999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87124.68346500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87124686000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15195.443389000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15195442000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2719181079,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2719181079 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127244347,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127244347 ns\nthreads: 1"
           }
         ]
       }
