@@ -386,6 +386,7 @@ contract Leonidas is Ownable, ILeonidas {
     Timestamp ts = getTimestampForSlot(_slot);
     address proposer = getProposerAt(ts);
 
+    // @todo Consider getting rid of this option.
     // If the proposer is open, we allow anyone to propose without needing any signatures
     if (proposer == address(0)) {
       return;
