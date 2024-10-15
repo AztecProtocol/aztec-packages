@@ -104,13 +104,13 @@ impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext> where Note: Not
 }
 
 impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote {
-    unconstrained pub fn is_initialized(self) -> bool {
+    pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
 
     // docs:start:view_note
-    unconstrained pub fn view_note(self) -> Note {
+    pub unconstrained fn view_note(self) -> Note {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

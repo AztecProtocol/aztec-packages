@@ -25,7 +25,7 @@ pub fn assert_combined_transformed_array<T, S, let N: u32, Env>(
     }
 }
 
-unconstrained pub fn combine_and_transform_arrays<T, S, let N: u32, Env>(
+pub unconstrained fn combine_and_transform_arrays<T, S, let N: u32, Env>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],
     transform: fn[Env](T) -> S

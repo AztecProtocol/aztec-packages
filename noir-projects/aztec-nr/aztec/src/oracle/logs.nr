@@ -46,7 +46,7 @@ unconstrained fn emit_unencrypted_log_private_oracle_wrapper<T>(contract_address
 
 /// Temporary substitute for `emit_unencrypted_log_private` that is used for handling contract class registration. This
 /// variant returns the log hash, which would be too large to compute inside a circuit.
-unconstrained pub fn emit_contract_class_unencrypted_log_private<let N: u32>(
+pub unconstrained fn emit_contract_class_unencrypted_log_private<let N: u32>(
     contract_address: AztecAddress,
     message: [Field; N],
     counter: u32

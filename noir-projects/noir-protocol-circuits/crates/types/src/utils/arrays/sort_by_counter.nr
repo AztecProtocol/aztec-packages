@@ -8,11 +8,11 @@ pub fn compare_by_counter_empty_padded_desc<T>(a: T, b: T) -> bool where T: Orde
     !is_empty(a) & (is_empty(b) | (a.counter() >= b.counter()))
 }
 
-unconstrained pub fn sort_by_counter_asc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
+pub unconstrained fn sort_by_counter_asc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
     sort_by(array, compare_by_counter_empty_padded_asc)
 }
 
-unconstrained pub fn sort_by_counter_desc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
+pub unconstrained fn sort_by_counter_desc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
     sort_by(array, compare_by_counter_empty_padded_desc)
 }
 

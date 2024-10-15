@@ -285,7 +285,7 @@ fn empty_body() -> BlockExpression {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{NoirFunction, UnresolvedTypeData, Visibility},
+        ast::{ItemVisibility, NoirFunction, UnresolvedTypeData, Visibility},
         parser::{
             parser::{
                 parse_program,
@@ -442,7 +442,7 @@ mod tests {
         assert_eq!(noir_function.parameters().len(), 1);
 
         let error = get_single_error(&errors, span);
-        assert_eq!(error.to_string(), "Expected a pattern but found 1");
+        assert_eq!(error.to_string(), "Expected a pattern but found '1'");
     }
 
     #[test]
@@ -478,6 +478,15 @@ mod tests {
         assert_eq!(noir_function.parameters().len(), 2);
 
         let error = get_single_error(&errors, span);
-        assert_eq!(error.to_string(), "Expected a type but found ,");
+        assert_eq!(error.to_string(), "Expected a type but found ','");
+    }
+
+    #[test]
+    fn parse_function_with_unconstrained_after_visibility() {
+        let src = "pub unconstrained fn foo() {}";
+        let noir_function = parse_function_no_error(src);
+        assert_eq!("foo", noir_function.def.name.to_string());
+        assert!(noir_function.def.is_unconstrained);
+        assert_eq!(noir_function.def.visibility, ItemVisibility::Public);
     }
 }

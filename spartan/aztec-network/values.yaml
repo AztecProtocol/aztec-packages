@@ -31,6 +31,7 @@ bootNode:
     nodePort: 8080
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
+  coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -42,6 +43,14 @@ bootNode:
     requests:
       memory: "2Gi"
       cpu: "200m"
+  deployContracts: true # Set to false to use manual contract addresses
+  contracts:
+    rollupAddress: ""
+    registryAddress: ""
+    inboxAddress: ""
+    outboxAddress: ""
+    feeJuiceAddress: ""
+    feeJuicePortalAddress: ""
   storage: "8Gi"
 
 validator:
@@ -115,7 +124,7 @@ bot:
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   botPrivateKey: "0xcafe"
-  txIntervalSeconds: 5
+  txIntervalSeconds: 24
   privateTransfersPerTx: 1
   publicTransfersPerTx: 0
   # Do not wait for transactions

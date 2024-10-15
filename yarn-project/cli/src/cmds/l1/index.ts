@@ -94,6 +94,37 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('remove-l1-validator')
+    .description('Removes a validator to the L1 rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--validator <addresse>', 'ethereum address of the validator', parseEthereumAddress)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .action(async options => {
+      const { removeL1Validator } = await import('./update_l1_validators.js');
+      await removeL1Validator({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        validatorAddress: options.validator,
+        rollupAddress: options.rollup,
+        log,
+        debugLogger,
+      });
+    });
+
+  program
     .command('fast-forward-epochs')
     .description('Fast forwards the epoch of the L1 rollup contract.')
     .requiredOption(
@@ -129,6 +160,35 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async options => {
       const { debugRollup } = await import('./update_l1_validators.js');
       await debugRollup({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        rollupAddress: options.rollup,
+        log,
+        debugLogger,
+      });
+    });
+
+  program
+    .command('prune-rollup')
+    .description('Prunes the pending chain on the rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .action(async options => {
+      const { pruneRollup } = await import('./update_l1_validators.js');
+      await pruneRollup({
         rpcUrl: options.rpcUrl,
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
