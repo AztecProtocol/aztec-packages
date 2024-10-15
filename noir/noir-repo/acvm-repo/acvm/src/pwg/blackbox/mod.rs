@@ -123,9 +123,6 @@ pub(crate) fn solve<F: AcirField>(
         BlackBoxFuncCall::PedersenCommitment { inputs, domain_separator, outputs } => {
             pedersen(backend, initial_witness, inputs, *domain_separator, *outputs)
         }
-        BlackBoxFuncCall::PedersenHash { inputs, domain_separator, output } => {
-            pedersen_hash(backend, initial_witness, inputs, *domain_separator, *output)
-        }
         BlackBoxFuncCall::EcdsaSecp256k1 {
             public_key_x,
             public_key_y,
