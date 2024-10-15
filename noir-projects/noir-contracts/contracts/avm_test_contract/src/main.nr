@@ -50,34 +50,40 @@ contract AvmTest {
      * Storage
      ************************************************************************/
     #[public]
+    #['public]
     fn set_storage_single(a: Field) {
         storage.single.write(a);
     }
 
     #[public]
+    #['public]
     fn read_storage_single() -> Field {
         storage.single.read()
     }
 
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
     #[public]
+    #['public]
     fn set_read_storage_single(a: Field) -> pub Field {
         storage.single.write(a);
         storage.single.read()
     }
 
     #[public]
+    #['public]
     fn set_storage_list(a: Field, b: Field) {
         storage.list.write(Note { a, b });
     }
 
     #[public]
+    #['public]
     fn read_storage_list() -> [Field; 2] {
         let note: Note = storage.list.read();
         note.serialize()
     }
 
     #[public]
+    #['public]
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
@@ -85,6 +91,7 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn add_storage_map(to: AztecAddress, amount: u32) -> Field {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
@@ -93,11 +100,13 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn read_storage_map(address: AztecAddress) -> u32 {
         storage.map.at(address).read()
     }
 
     #[public]
+    #['public]
     fn add_args_return(arg_a: Field, arg_b: Field) -> Field {
         arg_a + arg_b
     }
@@ -106,51 +115,61 @@ contract AvmTest {
      * General Opcodes
      ************************************************************************/
     #[public]
+    #['public]
     fn set_opcode_u8() -> u8 {
         8 as u8
     }
 
     #[public]
+    #['public]
     fn set_opcode_u32() -> u32 {
         1 << 30 as u8
     }
 
     #[public]
+    #['public]
     fn set_opcode_u64() -> u64 {
         1 << 60 as u8
     }
 
     #[public]
+    #['public]
     fn set_opcode_small_field() -> Field {
         big_field_128_bits
     }
 
     #[public]
+    #['public]
     fn set_opcode_big_field() -> Field {
         big_field_136_bits
     }
 
     #[public]
+    #['public]
     fn set_opcode_really_big_field() -> Field {
         big_field_254_bits
     }
 
     #[public]
+    #['public]
     fn add_u128(a: U128, b: U128) -> U128 {
         a + b
     }
 
     #[public]
+    #['public]
     fn modulo2(a: u64) -> u64 {
         a % 2
     }
 
     #[public]
+    #['public]
     fn elliptic_curve_add(lhs: Point, rhs: Point) -> Point {
         lhs + rhs
     }
 
     #[public]
+    #['public]
     fn elliptic_curve_add_and_double() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
@@ -160,6 +179,7 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn variable_base_msm() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
         let scalar = Scalar { lo: 3, hi: 0 };
@@ -169,6 +189,7 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
         let commitment = dep::std::hash::pedersen_commitment_with_separator([x, y], 20);
         commitment
@@ -179,6 +200,7 @@ contract AvmTest {
      ************************************************************************/
 
     #[public]
+    #['public]
     fn u128_addition_overflow() -> U128 {
         let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
         let one: U128 = U128::from_integer(1);
@@ -186,12 +208,14 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn u128_from_integer_overflow() -> U128 {
         let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
         U128::from_integer(should_overflow)
     }
 
     #[public]
+    #['public]
     fn to_radix_le(input: Field) -> [u8; 10] {
         input.to_le_radix(/*base=*/ 2)
     }
@@ -206,11 +230,13 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn assertion_failure() {
         helper_with_failed_assertion()
     }
 
     #[public]
+    #['public]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
@@ -219,12 +245,14 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         assert(arg_a == arg_b, "Values are not equal");
         1
     }
 
     #[public]
+    #['public]
     fn assert_calldata_copy(args: [Field; 3]) {
         let offset = 0;
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
@@ -232,6 +260,7 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn return_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
@@ -241,31 +270,37 @@ contract AvmTest {
      * Hashing functions
      ************************************************************************/
     #[public]
+    #['public]
     fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
         std::hash::keccak256(data, data.len() as u32)
     }
 
     #[public]
+    #['public]
     fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
         std::hash::keccak::keccakf1600(data)
     }
 
     #[public]
+    #['public]
     fn poseidon2_hash(data: [Field; 10]) -> Field {
         std::hash::poseidon2::Poseidon2::hash(data, data.len())
     }
 
     #[public]
+    #['public]
     fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
         std::hash::sha256(data)
     }
 
     #[public]
+    #['public]
     fn pedersen_hash(data: [Field; 10]) -> Field {
         std::hash::pedersen_hash(data)
     }
 
     #[public]
+    #['public]
     fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
         std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
@@ -274,6 +309,7 @@ contract AvmTest {
      * Contract instance
      ************************************************************************/
     #[public]
+    #['public]
     fn test_get_contract_instance_raw() {
         let fields = get_contract_instance_internal_avm(context.this_address());
         // The values here should match those in `avm_simulator.test.ts>Contract>GETCONTRACTINSTANCE deserializes correctly`
@@ -287,6 +323,7 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn test_get_contract_instance() {
         let ci = get_contract_instance_avm(context.this_address());
         assert(ci.is_some(), "Contract instance not found!");
@@ -296,77 +333,92 @@ contract AvmTest {
      * AvmContext functions
      ************************************************************************/
     #[public]
+    #['public]
     fn get_address() -> AztecAddress {
         context.this_address()
     }
 
     #[public]
+    #['public]
     fn get_storage_address() -> AztecAddress {
         context.storage_address()
     }
 
     #[public]
+    #['public]
     fn get_sender() -> AztecAddress {
         context.msg_sender()
     }
 
     #[public]
+    #['public]
     fn get_function_selector() -> FunctionSelector {
         context.selector()
     }
 
     #[public]
+    #['public]
     fn get_transaction_fee() -> Field {
         context.transaction_fee()
     }
 
     #[public]
+    #['public]
     fn get_chain_id() -> Field {
         context.chain_id()
     }
 
     #[public]
+    #['public]
     fn get_version() -> Field {
         context.version()
     }
 
     #[public]
+    #['public]
     fn get_block_number() -> Field {
         context.block_number()
     }
 
     #[public]
+    #['public]
     fn get_timestamp() -> u64 {
         context.timestamp()
     }
 
     #[public]
+    #['public]
     fn get_fee_per_l2_gas() -> Field {
         context.fee_per_l2_gas()
     }
 
     #[public]
+    #['public]
     fn get_fee_per_da_gas() -> Field {
         context.fee_per_da_gas()
     }
 
     #[public]
+    #['public]
     fn get_l2_gas_left() -> Field {
         context.l2_gas_left()
     }
 
     #[public]
+    #['public]
     fn get_da_gas_left() -> Field {
         context.da_gas_left()
     }
 
     #[public]
+    #['public]
     fn assert_timestamp(expected_timestamp: u64) {
         let timestamp = context.timestamp();
         assert(timestamp == expected_timestamp, "timestamp does not match");
     }
 
     #[public]
+    #['public]
     fn check_selector() {
         assert(
             context.selector() == comptime {
@@ -376,11 +428,13 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
 
     #[public]
+    #['public]
     fn emit_unencrypted_log() {
         context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
         context.emit_unencrypted_log(/*message=*/ "Hello, world!");
@@ -389,35 +443,41 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn note_hash_exists(note_hash: Field, leaf_index: Field) -> bool {
         context.note_hash_exists(note_hash, leaf_index)
     }
 
     // Use the standard context interface to emit a new note hash
     #[public]
+    #['public]
     fn new_note_hash(note_hash: Field) {
         context.push_note_hash(note_hash);
     }
 
     // Use the standard context interface to emit a new nullifier
     #[public]
+    #['public]
     fn new_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
     // Use the standard context interface to check for a nullifier
     #[public]
+    #['public]
     fn nullifier_exists(nullifier: Field) -> bool {
         context.nullifier_exists(nullifier, context.storage_address())
     }
 
     #[public]
+    #['public]
     fn assert_nullifier_exists(nullifier: Field) {
         assert(context.nullifier_exists(nullifier, context.storage_address()), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier
     #[public]
+    #['public]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_nullifier(nullifier);
         let exists = context.nullifier_exists(nullifier, context.storage_address());
@@ -426,6 +486,7 @@ contract AvmTest {
 
     // Create the same nullifier twice (shouldn't work!)
     #[public]
+    #['public]
     fn nullifier_collision(nullifier: Field) {
         context.push_nullifier(nullifier);
         // Can't do this twice!
@@ -433,11 +494,13 @@ contract AvmTest {
     }
 
     #[public]
+    #['public]
     fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> bool {
         context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
     }
 
     #[public]
+    #['public]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
     }
@@ -446,6 +509,7 @@ contract AvmTest {
      * Nested calls
      ************************************************************************/
     #[public]
+    #['public]
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
@@ -457,35 +521,41 @@ contract AvmTest {
 
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
     #[public]
+    #['public]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
     }
 
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
     #[public]
+    #['public]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).view(&mut context)
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
     #[public]
+    #['public]
     fn nested_static_call_to_set_storage() {
         AvmTest::at(context.this_address()).set_storage_single(20).view(&mut context);
     }
 
     #[public]
+    #['public]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
     #[public]
+    #['public]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 
     #[public]
+    #['public]
     fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
     }
@@ -494,6 +564,7 @@ contract AvmTest {
      * Enqueue a public call from private
      */
     #[private]
+    #['private]
     fn enqueue_public_from_private() {
         AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
@@ -506,6 +577,7 @@ contract AvmTest {
      * be optimized away.
      ************************************************************************/
     #[public]
+    #['public]
     fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);

@@ -22,7 +22,7 @@ pub fn assert_deduped_array<S, T, let N: u32>(
     }
 }
 
-unconstrained pub fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
+pub unconstrained fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
     let mut deduped = BoundedVec::new();
     for i in 0..original_array.len() {
         let original = original_array[i];

@@ -22,6 +22,7 @@ contract AuthRegistry {
      * @param authorize True if the caller is authorized to perform the message hash, false otherwise
      */
     #[public]
+    #['public]
     fn set_authorized(message_hash: Field, authorize: bool) {
         storage.approved_actions.at(context.msg_sender()).at(message_hash).write(authorize);
     }
@@ -34,6 +35,7 @@ contract AuthRegistry {
      * @param reject True if all actions should be rejected, false otherwise
      */
     #[public]
+    #['public]
     fn set_reject_all(reject: bool) {
         storage.reject_all.at(context.msg_sender()).write(reject);
     }
@@ -49,6 +51,7 @@ contract AuthRegistry {
      * @return `IS_VALID_SELECTOR` if the action was consumed, revert otherwise
      */
     #[public]
+    #['public]
     fn consume(on_behalf_of: AztecAddress, inner_hash: Field) -> Field {
         assert_eq(false, storage.reject_all.at(on_behalf_of).read(), "rejecting all");
 
@@ -79,6 +82,7 @@ contract AuthRegistry {
      * @param authorize True if the message hash should be authorized, false otherwise
      */
     #[private]
+    #['private]
     fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
         assert_current_call_valid_authwit(&mut context, approver);
         AuthRegistry::at(context.this_address())._set_authorized(approver, message_hash, authorize).enqueue(&mut context);
@@ -93,7 +97,8 @@ contract AuthRegistry {
      * @param authorize True if the caller is authorized to perform the message hash, false otherwise
      */
     #[public]
-    #[internal]
+    #['public]
+    #['internal]
     fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
         storage.approved_actions.at(approver).at(message_hash).write(authorize);
     }
@@ -105,7 +110,8 @@ contract AuthRegistry {
      * @return True if all actions are rejected, false otherwise
      */
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn is_reject_all(on_behalf_of: AztecAddress) -> bool {
         storage.reject_all.at(on_behalf_of).read()
     }
@@ -118,7 +124,8 @@ contract AuthRegistry {
      * @return True if the caller is authorized to perform the action, false otherwise
      */
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> bool {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }

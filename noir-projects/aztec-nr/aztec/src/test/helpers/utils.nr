@@ -1,7 +1,6 @@
 use dep::protocol_types::{
     traits::{Deserialize, Serialize}, address::AztecAddress,
-    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH},
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, abis::{function_selector::FunctionSelector},
     contract_instance::ContractInstance
 };
 

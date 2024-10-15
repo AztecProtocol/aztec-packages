@@ -47,7 +47,8 @@ contract Crowdfunding {
     // docs:start:init-header
     // docs:start:init-header-error
     #[public]
-    #[initializer]
+    #['public]
+    #['initializer]
     // this-will-error:init-header-error
     fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
         // docs:end:init-header
@@ -60,6 +61,7 @@ contract Crowdfunding {
 
     // docs:start:donate
     #[private]
+    #['private]
     fn donate(amount: u64) {
         // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
         // is performing the check.
@@ -87,6 +89,7 @@ contract Crowdfunding {
     // docs:start:operator-withdrawals
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.
     #[private]
+    #['private]
     fn withdraw(amount: u64) {
         // 1) Check that msg_sender() is the operator
         let operator_address = storage.operator.read_private();
@@ -100,7 +103,8 @@ contract Crowdfunding {
     // docs:end:operator-withdrawals
 
     #[public]
-    #[internal]
+    #['public]
+    #['internal]
     fn _publish_donation_receipts(amount: u64, to: AztecAddress) {
         WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
     }

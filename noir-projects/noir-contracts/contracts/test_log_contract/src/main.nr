@@ -36,6 +36,7 @@ contract TestLog {
     global EXAMPLE_EVENT_0_CIPHERTEXT_BYTES_LEN = 144;
 
     #[private]
+    #['private]
     fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
@@ -80,6 +81,7 @@ contract TestLog {
     }
 
     #[public]
+    #['public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 

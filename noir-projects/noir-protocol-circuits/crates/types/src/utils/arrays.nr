@@ -51,7 +51,7 @@ pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N> wh
     BoundedVec { storage: array, len }
 }
 
-unconstrained pub fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
+pub unconstrained fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
     let mut index = N;
     for i in 0..N {
         if (index == N) & find(array[i]) {

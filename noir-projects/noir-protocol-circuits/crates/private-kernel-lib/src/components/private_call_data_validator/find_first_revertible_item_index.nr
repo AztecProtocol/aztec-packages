@@ -1,6 +1,6 @@
 use dep::types::{abis::side_effect::Ordered, traits::Empty, utils::arrays::array_length};
 
-unconstrained pub fn find_first_revertible_item_index<T, let N: u32>(
+pub unconstrained fn find_first_revertible_item_index<T, let N: u32>(
     min_revertible_side_effect_counter: u32,
     items: [T; N]
 ) -> u32 where T: Ordered + Empty + Eq {
