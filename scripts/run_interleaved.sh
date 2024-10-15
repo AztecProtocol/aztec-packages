@@ -49,7 +49,7 @@ function run_command() {
 # Run background commands without logging output
 i=0
 for cmd in "$@"; do
-  (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || kill 0 ) &
+  (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || echo "$cmd causing terminate" && kill 0 ) &
   ((i++)) || true # annoyingly considered a failure based on result
 done
 

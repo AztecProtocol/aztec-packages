@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu
+set -o pipefail
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
@@ -12,9 +13,8 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 
 # Ensure anvil is installed
 command -v anvil >/dev/null 2>&1 || { echo >&2 "Anvil is not installed. Aborting."; exit 1; }
-
 function report_when_anvil_up() {
-  echo "Starting anvil."
+  echo "Starting anvil with port $PORT"
   until curl -s -X POST -H 'Content-Type: application/json' \
     --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
     http://127.0.0.1:$PORT 2>/dev/null | grep -q 'result' ; do
