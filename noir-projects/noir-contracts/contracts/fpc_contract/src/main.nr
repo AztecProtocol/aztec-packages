@@ -18,14 +18,12 @@ contract FPC {
     }
 
     #[public]
-    #['public]
-    #['initializer]
+    #[initializer]
     fn constructor(other_asset: AztecAddress) {
         storage.other_asset.initialize(other_asset);
     }
 
     #[private]
-    #['private]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
         Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
@@ -42,7 +40,6 @@ contract FPC {
     }
 
     #[private]
-    #['private]
     fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
         FPC::at(context.this_address()).prepare_fee(context.msg_sender(), amount, asset, nonce).enqueue(&mut context);
         context.set_as_fee_payer();
@@ -58,7 +55,6 @@ contract FPC {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
         // docs:start:public_call
@@ -67,7 +63,6 @@ contract FPC {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn pay_refund(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         // Just do public refunds for the present
@@ -76,7 +71,6 @@ contract FPC {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn pay_refund_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
         let refund = compute_rebate(context, amount);

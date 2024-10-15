@@ -32,7 +32,6 @@ contract ContractClassRegisterer {
     // docs:end:import_pop_capsule
 
     #[private]
-    #['private]
     fn register(
         artifact_hash: Field,
         private_functions_root: Field,
@@ -70,7 +69,6 @@ contract ContractClassRegisterer {
     }
 
     #[private]
-    #['private]
     fn broadcast_private_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -113,7 +111,6 @@ contract ContractClassRegisterer {
     }
 
     #[private]
-    #['private]
     fn broadcast_unconstrained_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,

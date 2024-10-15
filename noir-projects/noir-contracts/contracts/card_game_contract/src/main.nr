@@ -22,7 +22,6 @@ contract CardGame {
     }
 
     #[private]
-    #['private]
     fn buy_pack(seed: Field // The randomness used to generate the cards. Passed in for now.
     ) {
         let buyer = context.msg_sender();
@@ -33,7 +32,6 @@ contract CardGame {
     }
 
     #[private]
-    #['private]
     fn join_game(game: u32, cards_fields: [Field; 2]) {
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
@@ -48,7 +46,6 @@ contract CardGame {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
         let game_storage = storage.games.at(game as Field);
@@ -60,7 +57,6 @@ contract CardGame {
     }
 
     #[public]
-    #['public]
     fn start_game(game: u32) {
         let game_storage = storage.games.at(game as Field);
 
@@ -70,7 +66,6 @@ contract CardGame {
     }
 
     #[private]
-    #['private]
     fn play_card(game: u32, card: Card) {
         let player = context.msg_sender();
 
@@ -83,7 +78,6 @@ contract CardGame {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
         let game_storage = storage.games.at(game as Field);
@@ -99,7 +93,6 @@ contract CardGame {
     }
 
     #[private]
-    #['private]
     fn claim_cards(game: u32, cards_fields: [Field; PLAYABLE_CARDS]) {
         let player = context.msg_sender();
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
@@ -110,7 +103,6 @@ contract CardGame {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
         let game_storage = storage.games.at(game as Field);

@@ -22,8 +22,8 @@ use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 // Therefore, the execution order of `#[internal]` and `#[private]` is irrelevant.
 
 /// Internal functions can only be called by the contract itself, typically from private into public.
-pub comptime fn internal(_f: FunctionDefinition) {
-    // Marker attribute
+pub comptime fn internal(f: FunctionDefinition) {
+    f.add_attribute("internal")
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -33,8 +33,8 @@ comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
 }
 
 /// View functions can only be called in a static execution context.
-pub comptime fn view(_f: FunctionDefinition) {
-    // Marker attribute
+pub comptime fn view(f: FunctionDefinition) {
+    f.add_attribute("view")
 }
 
 comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
@@ -53,13 +53,13 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
 ///  - it can only be called once
 ///  - if there are multiple initializer functions, only one of them can be called
 ///  - no non-initializer functions can be called until an initializer has ben called (except `noinitcheck` functions)
-pub comptime fn initializer(_f: FunctionDefinition) {
-    // Marker attribute
+pub comptime fn initializer(f: FunctionDefinition) {
+    f.add_attribute("initializer")
 }
 
 /// Functions with noinitcheck can be called before contract initialization.
-pub comptime fn noinitcheck(_f: FunctionDefinition) {
-    // Marker attribute
+pub comptime fn noinitcheck(f: FunctionDefinition) {
+    f.add_attribute("noinitcheck")
 }
 
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
@@ -79,6 +79,8 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
 
 /// Private functions are executed client-side and preserve privacy.
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
+    f.add_attribute("private");
+
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
@@ -225,6 +227,8 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
 /// Public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
 pub comptime fn public(f: FunctionDefinition) -> Quoted {
+    f.add_attribute("public");
+
     // We don't want to transform the public_dispatch function.
     if f.name() == quote { public_dispatch } {
         quote {}

@@ -14,15 +14,13 @@ contract Router {
     /// Asserts that the current timestamp in the enqueued public call satisfies the `operation` with respect
     /// to the `value.
     #[private]
-    #['private]
     fn check_timestamp(operation: u8, value: u64) {
         Router::at(context.this_address())._check_timestamp(operation, value).enqueue_view(&mut context);
     }
 
     #[public]
-    #['public]
     #['internal]
-    #['view]
+    #[view]
     fn _check_timestamp(operation: u8, value: u64) {
         let lhs_field = context.timestamp() as Field;
         let rhs_field = value as Field;
@@ -33,15 +31,13 @@ contract Router {
     /// Asserts that the current block number in the enqueued public call satisfies the `operation` with respect
     /// to the `value.
     #[private]
-    #['private]
     fn check_block_number(operation: u8, value: Field) {
         Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(&mut context);
     }
 
     #[public]
-    #['public]
     #['internal]
-    #['view]
+    #[view]
     fn _check_block_number(operation: u8, value: Field) {
         assert(compare(context.block_number(), operation, value), "Block number mismatch.");
     }

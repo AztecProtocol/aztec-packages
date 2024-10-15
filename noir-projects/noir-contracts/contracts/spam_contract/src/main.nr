@@ -29,7 +29,6 @@ contract Spam {
     }
 
     #[private]
-    #['private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
         let caller_keys = get_public_keys(caller);
@@ -62,7 +61,6 @@ contract Spam {
     }
 
     #[public]
-    #['public]
     #['internal]
     fn public_spam(start: u32, end: u32) {
         let one = U128::from_integer(1);
