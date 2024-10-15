@@ -14,6 +14,7 @@ contract Delegator {
         a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
     }
     #[private]
+    #['private]
     fn private_delegate_set_value(
         target_contract: AztecAddress,
         value: Field,
@@ -23,14 +24,17 @@ contract Delegator {
         DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
     }
     #[private]
+    #['private]
     fn enqueued_delegate_set_value(target_contract: AztecAddress, value: Field) {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_enqueue(&mut context)
     }
     #[public]
+    #['public]
     fn public_delegate_set_value(target_contract: AztecAddress, value: Field) -> Field {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_call(&mut context)
     }
     #[private]
+    #['private]
     fn get_private_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);

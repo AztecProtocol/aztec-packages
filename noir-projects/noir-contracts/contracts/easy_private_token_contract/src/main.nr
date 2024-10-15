@@ -17,7 +17,8 @@ contract EasyPrivateToken {
      * initialize the contract's initial state variables.
      */
     #[private]
-    #[initializer]
+    #['private]
+    #['initializer]
     fn constructor(initial_supply: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;
 
@@ -26,6 +27,7 @@ contract EasyPrivateToken {
 
     // Mints `amount` of tokens to `owner`.
     #[private]
+    #['private]
     fn mint(amount: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;
 
@@ -34,12 +36,8 @@ contract EasyPrivateToken {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[private]
-    fn transfer(
-        amount: u64,
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        outgoing_viewer: AztecAddress
-    ) {
+    #['private]
+    fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender, outgoing_viewer);

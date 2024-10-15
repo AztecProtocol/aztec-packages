@@ -27,11 +27,8 @@ contract PendingNoteHashes {
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[private]
-    fn test_insert_then_get_then_nullify_flat(
-        amount: Field,
-        owner: AztecAddress,
-        outgoing_viewer: AztecAddress
-    ) -> Field {
+    #['private]
+    fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
         let owner_keys = get_public_keys(owner);
@@ -62,6 +59,7 @@ contract PendingNoteHashes {
 
     // Confirm cannot access note hashes inserted later in same function
     #[private]
+    #['private]
     fn test_bad_get_then_insert_flat(amount: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
@@ -82,10 +80,12 @@ contract PendingNoteHashes {
 
     // Dummy nested/inner function (to pass a function which does nothing)
     #[private]
+    #['private]
     fn dummy(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {}
 
     // Nested/inner function to create and insert a note
     #[private]
+    #['private]
     fn insert_note(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
@@ -109,6 +109,7 @@ contract PendingNoteHashes {
     // TESTING: inserts a static randomness value to test notes with
     // the same note hash are dealt with correctly
     #[private]
+    #['private]
     fn insert_note_static_randomness(
         amount: Field,
         owner: AztecAddress,
@@ -136,6 +137,7 @@ contract PendingNoteHashes {
     // Nested/inner function to create and insert a note
     // then emit another note log for the same note
     #[private]
+    #['private]
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let mut owner_balance = storage.balances.at(owner);
 
@@ -169,6 +171,7 @@ contract PendingNoteHashes {
 
     // Nested/inner function to get a note and confirm it matches the expected value
     #[private]
+    #['private]
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
@@ -182,6 +185,7 @@ contract PendingNoteHashes {
 
     // Nested/inner function to get a note and confirms that none is returned
     #[private]
+    #['private]
     fn get_note_zero_balance(owner: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
@@ -195,6 +199,7 @@ contract PendingNoteHashes {
     // and "read" / get of that pending note hash in another nested call
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[private]
+    #['private]
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -218,6 +223,7 @@ contract PendingNoteHashes {
 
     // same test as above, but insert 2, get 2, nullify 2
     #[private]
+    #['private]
     fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -258,6 +264,7 @@ contract PendingNoteHashes {
 
     // same test as above, but insert 2, get 1, nullify 1
     #[private]
+    #['private]
     fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -292,6 +299,7 @@ contract PendingNoteHashes {
     // one nullifier will be squashed with the pending note, one will become persistent.
     // ONLY WORKS IF THERE IS A PERSISTENT NOTE TO GET
     #[private]
+    #['private]
     fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -329,7 +337,8 @@ contract PendingNoteHashes {
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
     // #[private]
-    //fn test_bad_get_in_nested_call_then_insert(
+    // #['private]
+    // fn test_bad_get_in_nested_call_then_insert(
     //    amount: Field,
     //    owner: AztecAddress,
     //    get_then_nullify_fn_selector: FunctionSelector,
@@ -337,6 +346,7 @@ contract PendingNoteHashes {
     //}
 
     #[private]
+    #['private]
     fn test_recursively_create_notes(
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
@@ -348,11 +358,8 @@ contract PendingNoteHashes {
     }
 
     #[private]
-    fn recursively_destroy_and_create_notes(
-        owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
-        executions_left: u64
-    ) {
+    #['private]
+    fn recursively_destroy_and_create_notes(owner: AztecAddress, outgoing_viewer: AztecAddress, executions_left: u64) {
         assert(executions_left > 0);
 
         destroy_max_notes(owner, storage);
@@ -369,6 +376,7 @@ contract PendingNoteHashes {
     // by using an existing note's counter via its header. This is used to check that
     // the pxe rejects the note log later.
     #[private]
+    #['private]
     fn test_emit_bad_note_log(owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 

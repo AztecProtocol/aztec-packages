@@ -18,13 +18,15 @@ contract PrivateFPC {
     }
 
     #[public]
-    #[initializer]
+    #['public]
+    #['initializer]
     fn constructor(other_asset: AztecAddress, admin: AztecAddress) {
         let settings = Settings { other_asset, admin };
         storage.settings.initialize(settings);
     }
 
     #[private]
+    #['private]
     fn fund_transaction_privately(amount: Field, asset: AztecAddress) {
         // TODO: Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let settings = storage.settings.read_private();

@@ -1462,7 +1462,7 @@ mod tests {
         let _res = builder.execute();
     }
 
-    #[test(should_fail_with="Invalid vk index")]
+    #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = BaseRollupInputsBuilder::new();
         builder.kernel_data = builder.kernel_data.in_vk_tree(BASE_ROLLUP_INDEX);
