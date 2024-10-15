@@ -66,7 +66,7 @@ unconstrained fn setup_refund_success() {
 }
 
 //#[test(should_fail_with="funded amount not enough to cover tx fee")]
-#[test(should_fail_with="Balance too low")]
+#[test(should_fail_with = "Balance too low")]
 unconstrained fn setup_refund_insufficient_funded_amount() {
     let (env, token_contract_address, owner, recipient, _mint_amount) = utils::setup_and_mint(true);
 

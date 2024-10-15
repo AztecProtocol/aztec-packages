@@ -60,8 +60,7 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     utils::assert_owns_public_nft(env, nft_contract_address, AztecAddress::zero(), token_id);
 }
 
-//#[test(should_fail_with="transfer not prepared")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "transfer not prepared")]
 unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, _, _, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
@@ -74,8 +73,7 @@ unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public())
 }
 
-//#[test(should_fail_with="transfer not prepared")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "transfer not prepared")]
 unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, incorrect_sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
@@ -100,8 +98,7 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
     NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public());
 }
 
-//#[test(should_fail_with="invalid NFT owner")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "invalid NFT owner")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, _, not_owner, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);

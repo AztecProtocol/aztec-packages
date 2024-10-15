@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, PublicDataWrite } from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId, PublicDataWrite, SimulationError } from '@aztec/circuit-types';
 import {
   Fr,
   FunctionSelector,
@@ -31,6 +31,7 @@ import {
   toSingle,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
+import { enrichPublicSimulationError } from '../util/simulation_error.js';
 import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
@@ -611,7 +612,90 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  // AVM oracles (only to perform calls directly from the tests)
+  // AVM opcodes
+
+  avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
+    // TODO(#8811): Implement
+    return toForeignCallResult([]);
+  }
+
+  async avmOpcodeStorageRead(slot: ForeignCallSingle) {
+    const value = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot));
+    return toForeignCallResult([toSingle(value)]);
+  }
+
+  async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
+    await this.typedOracle.storageWrite(fromSingle(slot), [fromSingle(value)]);
+    return toForeignCallResult([]);
+  }
+
+  async avmOpcodeGetContractInstance(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toArray([
+        // AVM requires an extra boolean indicating the instance was found
+        new Fr(1),
+        instance.salt,
+        instance.deployer,
+        instance.contractClassId,
+        instance.initializationHash,
+        instance.publicKeysHash,
+      ]),
+    ]);
+  }
+
+  avmOpcodeSender() {
+    const sender = (this.typedOracle as TXE).getMsgSender();
+    return toForeignCallResult([toSingle(sender)]);
+  }
+
+  async avmOpcodeEmitNullifier(nullifier: ForeignCallSingle) {
+    await (this.typedOracle as TXE).avmOpcodeEmitNullifier(fromSingle(nullifier));
+    return toForeignCallResult([]);
+  }
+
+  async avmOpcodeEmitNoteHash(noteHash: ForeignCallSingle) {
+    await (this.typedOracle as TXE).avmOpcodeEmitNoteHash(fromSingle(noteHash));
+    return toForeignCallResult([]);
+  }
+
+  async avmOpcodeNullifierExists(innerNullifier: ForeignCallSingle, targetAddress: ForeignCallSingle) {
+    const exists = await (this.typedOracle as TXE).avmOpcodeNullifierExists(
+      fromSingle(innerNullifier),
+      AztecAddress.fromField(fromSingle(targetAddress)),
+    );
+    return toForeignCallResult([toSingle(new Fr(exists))]);
+  }
+
+  async avmOpcodeAddress() {
+    const contractAddress = await this.typedOracle.getContractAddress();
+    return toForeignCallResult([toSingle(contractAddress.toField())]);
+  }
+
+  async avmOpcodeBlockNumber() {
+    const blockNumber = await this.typedOracle.getBlockNumber();
+    return toForeignCallResult([toSingle(new Fr(blockNumber))]);
+  }
+
+  avmOpcodeFunctionSelector() {
+    const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
+    return toForeignCallResult([toSingle(functionSelector.toField())]);
+  }
+
+  avmOpcodeIsStaticCall() {
+    const isStaticCall = (this.typedOracle as TXE).getIsStaticCall();
+    return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
+  }
+
+  async avmOpcodeChainId() {
+    const chainId = await (this.typedOracle as TXE).getChainId();
+    return toForeignCallResult([toSingle(chainId)]);
+  }
+
+  async avmOpcodeVersion() {
+    const version = await (this.typedOracle as TXE).getVersion();
+    return toForeignCallResult([toSingle(version)]);
+  }
 
   async avmOpcodeCall(
     _gas: ForeignCallArray,
@@ -627,6 +711,21 @@ export class TXEService {
       /* isStaticCall */ false,
       /* isDelegateCall */ false,
     );
+
+    // Poor man's revert handling
+    if (result.reverted) {
+      if (result.revertReason && result.revertReason instanceof SimulationError) {
+        await enrichPublicSimulationError(
+          result.revertReason,
+          (this.typedOracle as TXE).getTXEDatabase(),
+          (this.typedOracle as TXE).getContractDataOracle(),
+          this.logger,
+        );
+        throw new Error(result.revertReason.message);
+      } else {
+        throw new Error(`Public function call reverted: ${result.revertReason}`);
+      }
+    }
 
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
   }
@@ -645,6 +744,21 @@ export class TXEService {
       /* isStaticCall */ true,
       /* isDelegateCall */ false,
     );
+
+    // Poor man's revert handling
+    if (result.reverted) {
+      if (result.revertReason && result.revertReason instanceof SimulationError) {
+        await enrichPublicSimulationError(
+          result.revertReason,
+          (this.typedOracle as TXE).getTXEDatabase(),
+          (this.typedOracle as TXE).getContractDataOracle(),
+          this.logger,
+        );
+        throw new Error(result.revertReason.message);
+      } else {
+        throw new Error(`Public function call reverted: ${result.revertReason}`);
+      }
+    }
 
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
   }

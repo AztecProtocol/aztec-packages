@@ -6,6 +6,17 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.X.X
+### [TXE] Single execution environment
+Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
+This ensures every single test runs in a consistent environment and allows for clearer test syntax:
+
+```diff
+-let my_call_interface = MyContract::at(address).my_function(args);
+-env.call_private(my_contract_interface)
++MyContract::at(address).my_function(args).call(&mut env.private());
+```
+
 ## 0.58.0
 ### [l1-contracts] Inbox's MessageSent event emits global tree index
 Earlier `MessageSent` event in Inbox emitted a subtree index (index of the message in the subtree of the l2Block). But the nodes and Aztec.nr expects the index in the global L1_TO_L2_MESSAGES_TREE. So to make it easier to parse this, Inbox now emits this global index.

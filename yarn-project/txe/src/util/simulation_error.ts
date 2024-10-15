@@ -1,10 +1,10 @@
-import { SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-import { Logger } from '@aztec/foundation/log';
-import { ContractDataOracle } from '@aztec/pxe';
+import { type Logger } from '@aztec/foundation/log';
+import { type ContractDataOracle } from '@aztec/pxe';
 import { resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
 
-import { TXEDatabase } from './txe_database.js';
+import { type TXEDatabase } from './txe_database.js';
 
 export async function enrichPublicSimulationError(
   err: SimulationError,

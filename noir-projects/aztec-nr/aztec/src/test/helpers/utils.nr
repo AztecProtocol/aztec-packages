@@ -22,7 +22,7 @@ pub struct Deployer<let N: u32, let M: u32> {
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
-    unconstrained pub fn with_private_initializer<C, let P: u32>(
+    pub unconstrained fn with_private_initializer<C, let P: u32>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P> {
@@ -50,7 +50,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    unconstrained pub fn with_public_void_initializer<let P: u32, C>(
+    pub unconstrained fn with_public_void_initializer<let P: u32, C>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P> {
@@ -75,7 +75,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    unconstrained pub fn with_public_initializer<let P: u32, T, C>(
+    pub unconstrained fn with_public_initializer<let P: u32, T, C>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P>, T: Deserialize<_> {
@@ -100,7 +100,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    unconstrained pub fn without_initializer(self) -> ContractInstance {
+    pub unconstrained fn without_initializer(self) -> ContractInstance {
         cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
     }
 }

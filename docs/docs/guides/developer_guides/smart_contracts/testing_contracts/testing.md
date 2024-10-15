@@ -107,7 +107,7 @@ let my_contract_instance = deployer.without_initializer();
 ```
 
 :::warning
-It is not always necessary to deploy a contract in order to test it, but sometimes it's inevitable (when testing functions that depend on the contract being initialized, or contracts that call others for example) **It is important to keep them up to date**, as TXE cannot recompile them on changes. Think of it as regenerating the bytecode and ABI so it becomes accessible externally.
+It is always necessary to deploy a contract in order to test it. **It is important to keep them up to date**, as TXE cannot recompile them on changes. Think of it as regenerating the bytecode and ABI so it becomes accessible externally.
 :::
 
 ### Calling functions

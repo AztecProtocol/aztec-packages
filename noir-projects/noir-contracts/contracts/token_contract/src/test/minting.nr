@@ -112,8 +112,7 @@ unconstrained fn mint_private_failure_double_spend() {
     Token::at(token_contract_address).redeem_shield(recipient, mint_amount, secret).call(&mut env.private());
 }
 
-//#[test(should_fail_with="caller is not minter")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "caller is not minter")]
 unconstrained fn mint_private_failure_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, recipient) = utils::setup(/* with_account_contracts */ false);
@@ -126,8 +125,7 @@ unconstrained fn mint_private_failure_non_minter() {
     Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
 
-//#[test(should_fail_with="call to assert_max_bit_size")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "call to assert_max_bit_size")]
 unconstrained fn mint_private_failure_overflow() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
@@ -139,8 +137,7 @@ unconstrained fn mint_private_failure_overflow() {
     Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
 
-//#[test(should_fail_with="attempt to add with overflow")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "attempt to add with overflow")]
 unconstrained fn mint_private_failure_overflow_recipient() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
@@ -171,8 +168,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
 
-//#[test(should_fail_with="attempt to add with overflow")]
-#[test(should_fail_with="Nested call failed!")]
+#[test(should_fail_with = "attempt to add with overflow")]
 unconstrained fn mint_private_failure_overflow_total_supply() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);

@@ -20,7 +20,7 @@ unconstrained fn test_check_block_number() {
     router.check_block_number(Comparator.LT, 11).call(&mut env.private());
 }
 
-#[test(should_fail_with="Block number mismatch.")]
+#[test(should_fail_with = "Block number mismatch.")]
 unconstrained fn test_fail_check_block_number() {
     let mut env = TestEnvironment::new();
 

@@ -676,54 +676,6 @@ export class TXE implements TypedOracle {
     return Promise.resolve(executionResult);
   }
 
-  async avmOpcodeCall(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    args: Fr[],
-    isStaticCall: boolean,
-    isDelegateCall: boolean,
-  ) {
-    // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
-    this.setMsgSender(this.contractAddress);
-    this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
-
-    const callContext = CallContext.empty();
-    callContext.msgSender = this.msgSender;
-    callContext.functionSelector = this.functionSelector;
-    callContext.storageContractAddress = targetContractAddress;
-    callContext.isStaticCall = isStaticCall;
-    callContext.isDelegateCall = isDelegateCall;
-
-    const executionResult = await this.executePublicFunction(
-      targetContractAddress,
-      args,
-      callContext,
-      this.sideEffectsCounter,
-    );
-
-    // Apply side effects
-    if (!executionResult.reverted) {
-      this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber() + 1;
-      await this.addNoteHashes(
-        targetContractAddress,
-        executionResult.noteHashes.map(noteHash => noteHash.value),
-      );
-      await this.addNullifiers(
-        targetContractAddress,
-        executionResult.nullifiers.map(nullifier => nullifier.value),
-      );
-    }
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
-
-    return executionResult;
-  }
-
   async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
@@ -757,6 +709,7 @@ export class TXE implements TypedOracle {
       sideEffectCounter,
     );
 
+    // Poor man's revert handling
     if (executionResult.reverted) {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
@@ -767,7 +720,7 @@ export class TXE implements TypedOracle {
         );
         throw new Error(executionResult.revertReason.message);
       } else {
-        throw new Error(`Public function call reverted: ${executionResult.revertReason}`);
+        throw new Error(`Enqueued public function call reverted: ${executionResult.revertReason}`);
       }
     }
 
@@ -825,5 +778,95 @@ export class TXE implements TypedOracle {
   ): void {
     this.sideEffectsCounter = counter + 1;
     return;
+  }
+
+  // AVM oracles
+
+  async avmOpcodeCall(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ) {
+    // Store and modify env
+    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
+    const currentMessageSender = AztecAddress.fromField(this.msgSender);
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    this.setMsgSender(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
+
+    const callContext = CallContext.empty();
+    callContext.msgSender = this.msgSender;
+    callContext.functionSelector = this.functionSelector;
+    callContext.storageContractAddress = targetContractAddress;
+    callContext.isStaticCall = isStaticCall;
+    callContext.isDelegateCall = isDelegateCall;
+
+    const executionResult = await this.executePublicFunction(
+      targetContractAddress,
+      args,
+      callContext,
+      this.sideEffectsCounter,
+    );
+
+    // Apply side effects
+    if (!executionResult.reverted) {
+      this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber() + 1;
+      await this.addNoteHashes(
+        targetContractAddress,
+        executionResult.noteHashes.map(noteHash => noteHash.value),
+      );
+      await this.addNullifiers(
+        targetContractAddress,
+        executionResult.nullifiers.map(nullifier => nullifier.value),
+      );
+    }
+
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    return executionResult;
+  }
+
+  async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
+    const nullifier = siloNullifier(targetAddress, innerNullifier!);
+    const db = await this.trees.getLatest();
+    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    return index !== undefined;
+  }
+
+  async avmOpcodeEmitNullifier(nullifier: Fr) {
+    const db = await this.trees.getLatest();
+    const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
+    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
+    return Promise.resolve();
+  }
+
+  async avmOpcodeEmitNoteHash(noteHash: Fr) {
+    const db = await this.trees.getLatest();
+    const siloedNoteHash = siloNoteHash(this.contractAddress, noteHash);
+    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
+    return Promise.resolve();
+  }
+
+  async avmOpcodeStorageRead(slot: Fr) {
+    const db = await this.trees.getLatest();
+
+    const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
+
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
+    }
+
+    const preimage = (await db.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+
+    return preimage.value;
   }
 }
