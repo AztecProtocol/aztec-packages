@@ -76,6 +76,18 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
         using Base::Base;
     };
 
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 27;
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 32;
+
+    static constexpr size_t SHIFTED_WITNESSES_START = 39;
+    static constexpr size_t SHIFTED_WITNESSES_END = 44;
+
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 21;
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 24;
+
+    static constexpr size_t SHIFTED_PRECOMPUTED_START = 35;
+    static constexpr size_t SHIFTED_PRECOMPUTED_END = 38;
+
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)

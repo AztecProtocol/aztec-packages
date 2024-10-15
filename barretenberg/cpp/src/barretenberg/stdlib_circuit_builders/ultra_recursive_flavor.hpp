@@ -88,7 +88,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 27;
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 5;
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 32;
 
     static constexpr size_t SHIFTED_WITNESSES_START = 39;

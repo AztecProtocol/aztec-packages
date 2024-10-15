@@ -616,6 +616,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto rho_pow = FF(1);
         for (auto& commitment : f_commitments) {
             scalars.emplace_back(x_challenge * rho_pow);
+            // info("commitment unshifted ", commitment);
+
             commitments.emplace_back(commitment);
             rho_pow *= rho;
         }
@@ -623,6 +625,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // Add contribution: \sum_{i=0}^{l-1} \rho^{m+i}*[g_i]
         for (auto& commitment : g_commitments) {
             scalars.emplace_back(rho_pow);
+            // info("commitment shifted ", commitment);
+
             commitments.emplace_back(commitment);
             rho_pow *= rho;
         }
