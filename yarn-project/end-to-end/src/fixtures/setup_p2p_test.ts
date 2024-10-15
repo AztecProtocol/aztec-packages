@@ -114,7 +114,6 @@ export async function createValidatorConfig(
     maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
     blockCheckIntervalMS: 1000,
-    l2QueueSize: 1,
     transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],

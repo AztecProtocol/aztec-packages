@@ -1,6 +1,5 @@
 import { type PXE, type Tx } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 
 import { type Wallet } from '../account/index.js';
 import { type Contract } from './contract.js';
@@ -25,7 +24,7 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
    */
   public override send(): DeploySentTx<TContract> {
     const promise = (() => {
-      return this.wallet.sendTx(this);
+      return this.wallet.sendTx(this.getPlainDataTx());
     })();
 
     return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instance);

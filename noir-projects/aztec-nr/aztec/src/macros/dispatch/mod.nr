@@ -93,7 +93,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // functions having this attribute. However, the public MACRO will
             // handle the public_dispatch function specially and do nothing.
             #[public]
-            unconstrained pub fn public_dispatch(selector: Field) {
+            #['public]
+            pub unconstrained fn public_dispatch(selector: Field) {
                 $dispatch
             }
         };

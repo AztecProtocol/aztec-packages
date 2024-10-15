@@ -8,10 +8,13 @@ import {
   Tx,
   type TxHash,
   type TxValidator,
-  type WorldStateStatus,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type AllowedElement, BlockProofError } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedElement,
+  BlockProofError,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -182,7 +185,9 @@ export class Sequencer {
 
   protected async initialSync() {
     // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
-    this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
+    this.lastPublishedBlock = await this.worldState
+      .status()
+      .then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block);
   }
 
   /**
@@ -279,15 +284,14 @@ export class Sequencer {
       // @note  It is very important that the following function will FAIL and not just return early
       //        if it have made any state changes. If not, we won't rollback the state, and you will
       //        be in for a world of pain.
-      await this.buildBlockAndPublish(validTxs, proposalHeader, historicalHeader);
+      await this.buildBlockAndAttemptToPublish(validTxs, proposalHeader, historicalHeader);
     } catch (err) {
       if (BlockProofError.isBlockProofError(err)) {
         const txHashes = err.txHashes.filter(h => !h.isZero());
         this.log.warn(`Proving block failed, removing ${txHashes.length} txs from pool`);
         await this.p2pClient.deleteTxs(txHashes);
       }
-      this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
-      await this.worldState.getLatest().rollback();
+      this.log.error(`Error assembling block`, (err as any).stack);
     }
   }
 
@@ -395,10 +399,10 @@ export class Sequencer {
    * @param proposalHeader - The partial header constructed for the proposal
    * @param historicalHeader - The historical header of the parent
    */
-  @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
+  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndPublish(
+  private async buildBlockAndAttemptToPublish(
     validTxs: Tx[],
     proposalHeader: Header,
     historicalHeader: Header | undefined,
@@ -419,85 +423,90 @@ export class Sequencer {
       `Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newGlobalVariables.blockNumber.toNumber()}`,
     );
 
-    // We create a fresh processor each time to reset any cached state (eg storage writes)
-    const processor = this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
-
     const numRealTxs = validTxs.length;
     const blockSize = Math.max(2, numRealTxs);
 
-    const blockBuildingTimer = new Timer();
-    const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
-    await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
-
-    const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
-    );
-    if (failedTxs.length > 0) {
-      const failedTxData = failedTxs.map(fail => fail.tx);
-      this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
-      await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
-    }
-
-    await this.publisher.validateBlockForSubmission(proposalHeader);
-
-    if (
-      !this.shouldProposeBlock(historicalHeader, {
-        validTxsCount: validTxs.length,
-        processedTxsCount: processedTxs.length,
-      })
-    ) {
-      // TODO: Roll back changes to world state
-      throw new Error('Should not propose the block');
-    }
-
-    // All real transactions have been added, set the block as full and complete the proving.
-    const block = await blockBuilder.setBlockCompleted();
-
-    // TODO(@PhilWindle) We should probably periodically check for things like another
-    // block being published before ours instead of just waiting on our block
-
-    await this.publisher.validateBlockForSubmission(block.header);
-
-    const workDuration = workTimer.ms();
-    this.log.verbose(
-      `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
-        'hex',
-      )})`,
-      {
-        eventName: 'l2-block-built',
-        duration: workDuration,
-        publicProcessDuration: publicProcessorDuration,
-        rollupCircuitsDuration: blockBuildingTimer.ms(),
-        ...block.getStats(),
-      } satisfies L2BlockBuiltStats,
-    );
-
-    if (this.isFlushing) {
-      this.log.verbose(`Flushing completed`);
-    }
-
-    const txHashes = validTxs.map(tx => tx.getTxHash());
-
-    this.isFlushing = false;
-    this.log.verbose('Collecting attestations');
-    const attestations = await this.collectAttestations(block, txHashes);
-    this.log.verbose('Attestations collected');
-
-    this.log.verbose('Collecting proof quotes');
-    const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
-    this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
-
+    const fork = await this.worldState.fork();
     try {
-      await this.publishL2Block(block, attestations, txHashes, proofQuote);
-      this.metrics.recordPublishedBlock(workDuration);
-      this.log.info(
-        `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
-          workDuration,
-        )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+      // We create a fresh processor each time to reset any cached state (eg storage writes)
+      const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
+      const blockBuildingTimer = new Timer();
+      const blockBuilder = this.blockBuilderFactory.create(fork);
+      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+        processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(fork)),
       );
-    } catch (err) {
-      this.metrics.recordFailedBlock();
-      throw err;
+      if (failedTxs.length > 0) {
+        const failedTxData = failedTxs.map(fail => fail.tx);
+        this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
+        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+      }
+
+      await this.publisher.validateBlockForSubmission(proposalHeader);
+
+      if (
+        !this.shouldProposeBlock(historicalHeader, {
+          validTxsCount: validTxs.length,
+          processedTxsCount: processedTxs.length,
+        })
+      ) {
+        // TODO: Roll back changes to world state
+        throw new Error('Should not propose the block');
+      }
+
+      // All real transactions have been added, set the block as full and complete the proving.
+      const block = await blockBuilder.setBlockCompleted();
+
+      // TODO(@PhilWindle) We should probably periodically check for things like another
+      // block being published before ours instead of just waiting on our block
+
+      await this.publisher.validateBlockForSubmission(block.header);
+
+      const workDuration = workTimer.ms();
+      this.log.verbose(
+        `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
+          'hex',
+        )})`,
+        {
+          eventName: 'l2-block-built',
+          creator: this.publisher.getSenderAddress().toString(),
+          duration: workDuration,
+          publicProcessDuration: publicProcessorDuration,
+          rollupCircuitsDuration: blockBuildingTimer.ms(),
+          ...block.getStats(),
+        } satisfies L2BlockBuiltStats,
+      );
+
+      if (this.isFlushing) {
+        this.log.verbose(`Flushing completed`);
+      }
+
+      const txHashes = validTxs.map(tx => tx.getTxHash());
+
+      this.isFlushing = false;
+      this.log.verbose('Collecting attestations');
+      const attestations = await this.collectAttestations(block, txHashes);
+      this.log.verbose('Attestations collected');
+
+      this.log.verbose('Collecting proof quotes');
+      const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
+      this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
+
+      try {
+        await this.publishL2Block(block, attestations, txHashes, proofQuote);
+        this.metrics.recordPublishedBlock(workDuration);
+        this.log.info(
+          `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
+            workDuration,
+          )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+        );
+      } catch (err) {
+        this.metrics.recordFailedBlock();
+        throw err;
+      }
+    } finally {
+      await fork.close();
     }
   }
 
@@ -506,6 +515,11 @@ export class Sequencer {
     this.isFlushing = true;
   }
 
+  @trackSpan('Sequencer.collectAttestations', (block, txHashes) => ({
+    [Attributes.BLOCK_NUMBER]: block.number,
+    [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
+    [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
+  }))
   protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
@@ -643,7 +657,7 @@ export class Sequencer {
    */
   protected async isBlockSynced() {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
       this.p2pClient.getStatus().then(s => s.syncedToL2Block),
       this.l2BlockSource.getBlockNumber(),
       this.l1ToL2MessageSource.getBlockNumber(),

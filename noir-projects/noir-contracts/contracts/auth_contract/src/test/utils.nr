@@ -2,7 +2,7 @@ use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnv
 
 use crate::Auth;
 
-unconstrained pub fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
 
     let admin = env.create_account();

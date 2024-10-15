@@ -29,7 +29,7 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     auto builder = Builder();
 
     bool_ct a = witness_ct(&builder, bb::fr::one());
-    auto gates_before = builder.get_num_gates();
+    auto gates_before = builder.get_estimated_num_finalized_gates();
 
     a = witness_ct(&builder, bb::fr::one());
     bool_ct b = witness_ct(&builder, bb::fr::zero());
@@ -82,11 +82,9 @@ TYPED_TEST(BoolTest, TestBasicOperations)
 
     if (std::is_same_v<Builder, bb::StandardCircuitBuilder>) {
         auto gates_after = builder.get_num_gates();
+    } else if (!IsSimulator<Builder>) {
+        auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 6UL);
-    }
-    if (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
-        auto gates_after = builder.get_num_gates();
-        EXPECT_EQ(gates_after - gates_before, 5UL);
     }
 }
 
@@ -194,7 +192,9 @@ TYPED_TEST(BoolTest, And)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 1));
         bool_ct b = witness_ct(&builder, (bool)(i % 2 == 1));
+        // clang-format off
         a& b;
+        // clang-format on
     }
 
     bool result = CircuitChecker::check(builder);
@@ -209,17 +209,23 @@ TYPED_TEST(BoolTest, AndConstants)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 2));
         bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
+        // clang-format off
         a& b;
+        // clang-format on
     }
     for (size_t i = 0; i < 32; ++i) {
         if (i % 2 == 0) {
             bool_ct a = witness_ct(&builder, (bool)(i % 2));
             bool_ct b(&builder, (bool)(i % 3 == 1));
+            // clang-format off
             a& b;
+            // clang-format on
         } else {
             bool_ct a(&builder, (bool)(i % 2));
             bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
+            // clang-format off
             a& b;
+            // clang-format on
         }
     }
 
@@ -539,7 +545,7 @@ TYPED_TEST(BoolTest, ConditionalAssign)
 
         EXPECT_EQ(result.get_value(), condition ? left : right);
     }
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }

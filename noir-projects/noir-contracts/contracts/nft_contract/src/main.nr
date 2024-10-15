@@ -52,7 +52,8 @@ contract NFT {
     }
 
     #[public]
-    #[initializer]
+    #['public]
+    #['initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.write(admin);
@@ -62,18 +63,21 @@ contract NFT {
     }
 
     #[public]
+    #['public]
     fn set_admin(new_admin: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.admin.write(new_admin);
     }
 
     #[public]
+    #['public]
     fn set_minter(minter: AztecAddress, approve: bool) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.minters.at(minter).write(approve);
     }
 
     #[public]
+    #['public]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(token_id != 0, "zero token ID not supported");
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not a minter");
@@ -85,42 +89,49 @@ contract NFT {
     }
 
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
     }
 
     #[private]
-    #[view]
+    #['private]
+    #['view]
     fn private_get_name() -> pub FieldCompressedString {
         storage.name.read_private()
     }
 
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
     }
 
     #[private]
-    #[view]
+    #['private]
+    #['view]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
     }
 
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
 
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
 
     #[public]
+    #['public]
     fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
@@ -139,6 +150,7 @@ contract NFT {
     /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
     #[private]
+    #['private]
     fn prepare_transfer_to_private(
         from: AztecAddress,
         to: AztecAddress,
@@ -176,7 +188,8 @@ contract NFT {
     }
 
     #[public]
-    #[internal]
+    #['public]
+    #['internal]
     fn _store_point_in_transient_storage(point: Point, slot: Field) {
         // We don't perform check for the overwritten value to be non-zero because the slots are siloed to `to`
         // and hence `to` can interfere only with his own execution.
@@ -188,6 +201,7 @@ contract NFT {
     /// The `transfer_preparer_storage_slot_commitment` has to be computed off-chain the same way as was done
     /// in the preparation call.
     #[public]
+    #['public]
     fn finalize_transfer_to_private(
         token_id: Field,
         transfer_preparer_storage_slot_commitment: Field
@@ -231,6 +245,7 @@ contract NFT {
      * @param inner_hash The inner hash of the authwit to cancel.
      */
     #[private]
+    #['private]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
@@ -238,6 +253,7 @@ contract NFT {
     }
 
     #[private]
+    #['private]
     fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -260,6 +276,7 @@ contract NFT {
     }
 
     #[private]
+    #['private]
     fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -276,14 +293,16 @@ contract NFT {
     }
 
     #[public]
-    #[internal]
+    #['public]
+    #['internal]
     fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
         storage.public_owners.at(token_id).write(to);
     }
 
     // Returns zero address when the token does not have a public owner. Reverts if the token does not exist.
     #[public]
-    #[view]
+    #['public]
+    #['view]
     fn owner_of(token_id: Field) -> AztecAddress {
         assert(storage.nft_exists.at(token_id).read(), "token does not exist");
         storage.public_owners.at(token_id).read()

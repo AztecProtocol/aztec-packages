@@ -21,7 +21,9 @@ contract EasyPrivateVoting {
 
     // docs:start:constructor
     #[public]
-    #[initializer] // annotation to mark function as a constructor
+    #['public]
+    #['initializer]
+    // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {
         storage.admin.write(admin);
         storage.vote_ended.write(false);
@@ -30,7 +32,9 @@ contract EasyPrivateVoting {
     // docs:end:constructor
 
     // docs:start:cast_vote
-    #[private] // annotation to mark function as private and expose private context
+    #[private]
+    #['private]
+    // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
         let msg_sender_npk_m_hash = get_public_keys(context.msg_sender()).npk_m.hash();
 
@@ -43,7 +47,8 @@ contract EasyPrivateVoting {
 
     // docs:start:add_to_tally_public
     #[public]
-    #[internal]
+    #['public]
+    #['internal]
     fn add_to_tally_public(candidate: Field) {
         assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
         let new_tally = storage.tally.at(candidate).read() + 1;
@@ -53,6 +58,7 @@ contract EasyPrivateVoting {
 
     // docs:start:end_vote
     #[public]
+    #['public]
     fn end_vote() {
         assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
         storage.vote_ended.write(true);

@@ -8,11 +8,15 @@ import {
   type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type Header, type KeyValidationRequest, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  type ContractInstance,
+  type Header,
+  type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 /**
  * Information about a note needed during execution.

@@ -116,7 +116,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   followChain: {
     env: 'BOT_FOLLOW_CHAIN',
     description: 'Which chain the bot follows',
-    defaultValue: 'none',
+    defaultValue: 'NONE',
     parseEnv(val) {
       if (!botFollowChain.includes(val as any)) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);

@@ -12,8 +12,10 @@ import {
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   CallContext,
+  CombinedConstantData,
+  type ContractInstance,
+  type ContractInstanceWithAddress,
   Gas,
-  GlobalVariables,
   Header,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -22,7 +24,6 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
-  PrivateCircuitPublicInputs,
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -58,12 +59,12 @@ import {
   acvm,
   createSimulationError,
   extractCallStack,
+  extractPrivateCircuitPublicInputs,
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { type TXEDatabase } from '../util/txe_database.js';
@@ -105,7 +106,7 @@ export class TXE implements TypedOracle {
   async #getTreesAt(blockNumber: number) {
     const db =
       blockNumber === (await this.getBlockNumber())
-        ? this.trees.asLatest()
+        ? await this.trees.getLatest()
         : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
     return db;
   }
@@ -210,20 +211,20 @@ export class TXE implements TypedOracle {
 
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = siloNullifier(targetAddress, innerNullifier!);
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     return index !== undefined;
   }
 
   async avmOpcodeEmitNullifier(nullifier: Fr) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNullifier = siloNullifier(this.contractAddress, nullifier);
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()], NULLIFIER_SUBTREE_HEIGHT);
     return Promise.resolve();
   }
 
   async avmOpcodeEmitNoteHash(noteHash: Fr) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNoteHash = siloNoteHash(this.contractAddress, noteHash);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
     return Promise.resolve();
@@ -243,14 +244,14 @@ export class TXE implements TypedOracle {
   }
 
   async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier).toBuffer());
 
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, siloedNullifiers, NULLIFIER_SUBTREE_HEIGHT);
   }
 
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
@@ -454,7 +455,7 @@ export class TXE implements TypedOracle {
 
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
     const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     return index !== undefined;
   }
@@ -468,7 +469,7 @@ export class TXE implements TypedOracle {
   }
 
   async avmOpcodeStorageRead(slot: Fr) {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
 
     const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
@@ -514,7 +515,7 @@ export class TXE implements TypedOracle {
   }
 
   async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
-    const db = this.trees.asLatest();
+    const db = await this.trees.getLatest();
 
     const publicDataWrites = values.map((value, i) => {
       const storageSlot = startStorageSlot.add(new Fr(i));
@@ -598,8 +599,7 @@ export class TXE implements TypedOracle {
         throw createSimulationError(execError);
       });
       const duration = timer.ms();
-      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
-      const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+      const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
       const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
       this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
@@ -680,16 +680,21 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  executePublicFunction(targetContractAddress: AztecAddress, args: Fr[], callContext: CallContext, counter: number) {
+  async executePublicFunction(
+    targetContractAddress: AztecAddress,
+    args: Fr[],
+    callContext: CallContext,
+    counter: number,
+  ) {
     const executor = new PublicExecutor(
-      new TXEWorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
+      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
     );
     const execution = new PublicExecutionRequest(targetContractAddress, callContext, args);
 
     const executionResult = executor.simulate(
       execution,
-      GlobalVariables.empty(),
+      CombinedConstantData.empty(),
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],

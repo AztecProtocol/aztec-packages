@@ -6,7 +6,11 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.58.0
+### [l1-contracts] Inbox's MessageSent event emits global tree index
+Earlier `MessageSent` event in Inbox emitted a subtree index (index of the message in the subtree of the l2Block). But the nodes and Aztec.nr expects the index in the global L1_TO_L2_MESSAGES_TREE. So to make it easier to parse this, Inbox now emits this global index.
+
+## 0.57.0
 
 ### Changes to PXE API and `ContractFunctionInteraction``
 

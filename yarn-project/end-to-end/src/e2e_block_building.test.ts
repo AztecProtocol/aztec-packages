@@ -394,8 +394,7 @@ describe('e2e_block_building', () => {
       const txs = [];
       for (let i = 0; i < 30; i++) {
         const tx = token.methods.mint_public(owner.getAddress(), 10n);
-        await tx.create({ skipPublicSimulation: false });
-        txs.push(tx.send());
+        txs.push(tx.send({ skipPublicSimulation: false }));
       }
 
       logger.info('Waiting for txs to be mined');

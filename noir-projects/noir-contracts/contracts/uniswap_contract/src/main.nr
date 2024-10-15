@@ -23,7 +23,8 @@ contract Uniswap {
     }
 
     #[public]
-    #[initializer]
+    #['public]
+    #['initializer]
     fn constructor(portal_address: EthAddress) {
         storage.portal_address.initialize(portal_address);
     }
@@ -31,6 +32,7 @@ contract Uniswap {
 
     // docs:start:swap_public
     #[public]
+    #['public]
     fn swap_public(
         sender: AztecAddress,
         input_asset_bridge: AztecAddress,
@@ -92,6 +94,7 @@ contract Uniswap {
 
     // docs:start:swap_private
     #[private]
+    #['private]
     fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress,
@@ -155,8 +158,13 @@ contract Uniswap {
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
     #[public]
-    #[internal]
-    fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
+    #['public]
+    #['internal]
+    fn _approve_bridge_and_exit_input_asset_to_L1(
+        token: AztecAddress,
+        token_bridge: AztecAddress,
+        amount: Field
+    ) {
         // Since we will authorize and instantly spend the funds, all in public, we can use the same nonce
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
         let nonce = 0xdeadbeef;
@@ -182,8 +190,9 @@ contract Uniswap {
 
     // docs:start:assert_token_is_same
     #[public]
-    #[internal]
-    #[view]
+    #['public]
+    #['internal]
+    #['view]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
             token.eq(TokenBridge::at(token_bridge).get_token().view(&mut context)), "input_asset address is not the same as seen in the bridge contract"

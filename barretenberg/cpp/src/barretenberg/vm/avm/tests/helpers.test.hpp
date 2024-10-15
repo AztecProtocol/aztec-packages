@@ -25,7 +25,7 @@ using FF = bb::AvmFlavorSettings::FF;
 using Row = bb::AvmFullRow<bb::fr>;
 using ThreeOpParam = std::array<FF, 3>;
 using ThreeOpParamRow = std::tuple<ThreeOpParam, bb::avm_trace::AvmMemoryTag>;
-using VmPublicInputsNT = bb::avm_trace::VmPublicInputs<FF>;
+using VmPublicInputsNT = bb::avm_trace::VmPublicInputs_<FF>;
 
 // If the test is expecting a relation to fail, then use validate_trace_check_circuit.
 // Otherwise, use validate_trace with a single argument. If the proving needs to be

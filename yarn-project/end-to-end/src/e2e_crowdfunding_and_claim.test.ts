@@ -140,7 +140,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   afterAll(async () => {
     await teardownA();
-    await teardownB();
+    await teardownB?.();
   });
 
   const mintDNTToDonors = async () => {

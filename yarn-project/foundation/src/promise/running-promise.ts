@@ -1,4 +1,5 @@
 import { InterruptibleSleep } from '../sleep/index.js';
+import { type PromiseWithResolvers, promiseWithResolvers } from './utils.js';
 
 /**
  * RunningPromise is a utility class that helps manage the execution of an asynchronous function
@@ -9,6 +10,7 @@ export class RunningPromise {
   private running = false;
   private runningPromise = Promise.resolve();
   private interruptibleSleep = new InterruptibleSleep();
+  private requested: PromiseWithResolvers<void> | undefined = undefined;
 
   constructor(private fn: () => void | Promise<void>, private pollingIntervalMS = 10000) {}
 
@@ -20,8 +22,19 @@ export class RunningPromise {
 
     const poll = async () => {
       while (this.running) {
+        const hasRequested = this.requested !== undefined;
         await this.fn();
-        await this.interruptibleSleep.sleep(this.pollingIntervalMS);
+
+        // If an immediate run had been requested *before* the function started running, resolve the request.
+        if (hasRequested) {
+          this.requested!.resolve();
+          this.requested = undefined;
+        }
+
+        // If no immediate run was requested, sleep for the polling interval.
+        if (this.requested === undefined) {
+          await this.interruptibleSleep.sleep(this.pollingIntervalMS);
+        }
       }
     };
     this.runningPromise = poll();
@@ -43,6 +56,24 @@ export class RunningPromise {
    */
   public isRunning() {
     return this.running;
+  }
+
+  /**
+   * Triggers an immediate run of the function, bypassing the polling interval.
+   * If the function is currently running, it will be allowed to continue and then called again immediately.
+   */
+  public async trigger() {
+    if (!this.running) {
+      return this.fn();
+    }
+
+    let requested = this.requested;
+    if (!requested) {
+      requested = promiseWithResolvers<void>();
+      this.requested = requested;
+      this.interruptibleSleep.interrupt();
+    }
+    await requested!.promise;
   }
 
   /**

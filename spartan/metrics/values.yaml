@@ -88,6 +88,7 @@ opentelemetry-collector:
             # - debug
 
 # Enable and configure the Loki subchart
+# https://artifacthub.io/packages/helm/grafana/loki-simple-scalable
 loki:
   deploymentMode: SingleBinary
   loki:
@@ -115,6 +116,7 @@ loki:
     replicas: 0
 
 # Enable and configure the Tempo subchart
+# https://artifacthub.io/packages/helm/grafana/tempo
 tempo:
   minio:
     enabled: true
@@ -156,6 +158,7 @@ prometheus:
             - targets: ["metrics-opentelemetry-collector.metrics:8889"]
 
 # Enable and configure Grafana
+# https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
   datasources:
     datasources.yaml:

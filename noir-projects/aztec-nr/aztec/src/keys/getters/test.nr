@@ -12,7 +12,7 @@ unconstrained fn setup() -> TestAccount {
     account
 }
 
-#[test(should_fail_with="Invalid public keys hint for address")]
+#[test(should_fail_with = "Invalid public keys hint for address")]
 unconstrained fn test_get_public_keys_unknown() {
     let account = setup();
 

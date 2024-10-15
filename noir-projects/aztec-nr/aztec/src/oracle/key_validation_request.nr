@@ -14,7 +14,7 @@ unconstrained fn get_key_validation_request_internal(
     KeyValidationRequest::deserialize(result)
 }
 
-unconstrained pub fn get_key_validation_request(
+pub unconstrained fn get_key_validation_request(
     pk_m_hash: Field,
     key_index: Field
 ) -> KeyValidationRequest {

@@ -1,5 +1,5 @@
 // An integration test for the p2p client to test req resp protocols
-import { MockBlockSource } from '@aztec/archiver/test';
+import { MockL2BlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -13,13 +13,13 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { multiaddr } from '@multiformats/multiaddr';
 import { generatePrivateKey } from 'viem/accounts';
 
-import { type AttestationPool } from '../../attestation_pool/attestation_pool.js';
 import { createP2PClient } from '../../client/index.js';
 import { type P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
-import { type EpochProofQuotePool } from '../../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { type AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
+import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
-import { type TxPool } from '../../tx_pool/index.js';
 import { convertToMultiaddr } from '../../util.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
 import { createLibP2PPeerId } from '../index.js';
@@ -49,7 +49,7 @@ describe('Req Resp p2p client integration', () => {
   let txPool: Mockify<TxPool>;
   let attestationPool: Mockify<AttestationPool>;
   let epochProofQuotePool: Mockify<EpochProofQuotePool>;
-  let blockSource: MockBlockSource;
+  let blockSource: MockL2BlockSource;
   let kvStore: AztecKVStore;
   let worldStateSynchronizer: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
@@ -142,7 +142,9 @@ describe('Req Resp p2p client integration', () => {
         deleteQuotesToEpoch: jest.fn(),
       };
 
-      blockSource = new MockBlockSource();
+      blockSource = new MockL2BlockSource();
+      blockSource.createBlocks(100);
+
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();
       const deps = {

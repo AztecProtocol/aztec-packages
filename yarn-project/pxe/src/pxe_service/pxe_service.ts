@@ -36,7 +36,10 @@ import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   type CompleteAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NodeInfo,
   PUBLIC_DISPATCH_SELECTOR,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
@@ -56,13 +59,12 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import {
+  ProtocolContractAddress,
+  getCanonicalProtocolContract,
+  protocolContractNames,
+} from '@aztec/protocol-contracts';
 import { type AcirSimulator, resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -115,6 +117,7 @@ export class PXEService implements PXE {
     const { l2BlockPollingIntervalMS } = this.config;
     await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
+    await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
   }
@@ -133,7 +136,7 @@ export class PXEService implements PXE {
       }
 
       count++;
-      await this.synchronizer.addAccount(address.address, this.keyStore, this.config.l2StartingBlock);
+      await this.synchronizer.addAccount(address, this.keyStore, this.config.l2StartingBlock);
     }
 
     if (count > 0) {
@@ -192,7 +195,7 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      await this.synchronizer.addAccount(accountCompleteAddress.address, this.keyStore, this.config.l2StartingBlock);
+      await this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
@@ -660,12 +663,22 @@ export class PXEService implements PXE {
     return Promise.resolve({
       pxeVersion: this.packageVersion,
       protocolContractAddresses: {
-        classRegisterer: ClassRegistererAddress,
-        feeJuice: getCanonicalFeeJuice().address,
-        instanceDeployer: getCanonicalInstanceDeployer().address,
-        multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
+        classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+        feeJuice: ProtocolContractAddress.FeeJuice,
+        instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+        multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
       },
     });
+  }
+
+  async #registerProtocolContracts() {
+    for (const name of protocolContractNames) {
+      const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      await this.db.addContractArtifact(contractClass.id, artifact);
+      await this.db.addContractInstance(instance);
+      await this.synchronizer.reprocessDeferredNotesForContract(address);
+      this.log.info(`Added protocol contract ${name} at ${address.toString()}`);
+    }
   }
 
   /**
@@ -807,7 +820,10 @@ export class PXEService implements PXE {
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
+    // use the block the tx was simulated against
+    const block =
+      privateExecutionResult.callStackItem.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);

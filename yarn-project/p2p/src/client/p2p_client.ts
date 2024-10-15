@@ -11,15 +11,17 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 
-import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
-import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { type MemPools } from '../mem_pools/interface.js';
+import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
-import { type TxPool } from '../tx_pool/index.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -168,7 +170,7 @@ export interface P2P {
 /**
  * The P2P client implementation.
  */
-export class P2PClient implements P2P {
+export class P2PClient extends WithTracer implements P2P {
   /** L2 block download to stay in sync with latest blocks. */
   private latestBlockDownloader: L2BlockDownloader;
 
@@ -190,6 +192,10 @@ export class P2PClient implements P2P {
   private synchedLatestBlockNumber: AztecSingleton<number>;
   private synchedProvenBlockNumber: AztecSingleton<number>;
 
+  private txPool: TxPool;
+  private attestationPool: AttestationPool;
+  private epochProofQuotePool: EpochProofQuotePool;
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -202,13 +208,14 @@ export class P2PClient implements P2P {
   constructor(
     store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
-    private txPool: TxPool,
-    private attestationPool: AttestationPool,
-    private epochProofQuotePool: EpochProofQuotePool,
+    mempools: MemPools,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
+    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:p2p'),
   ) {
+    super(telemetryClient, 'P2PClient');
+
     const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
     // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
@@ -219,6 +226,10 @@ export class P2PClient implements P2P {
 
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+
+    this.txPool = mempools.txPool;
+    this.attestationPool = mempools.attestationPool;
+    this.epochProofQuotePool = mempools.epochProofQuotePool;
   }
 
   #assertIsReady() {
@@ -311,6 +322,12 @@ export class P2PClient implements P2P {
     this.log.info('P2P client stopped.');
   }
 
+  @trackSpan('p2pClient.broadcastProposal', proposal => ({
+    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
+    [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
+  }))
   public broadcastProposal(proposal: BlockProposal): void {
     this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
     return this.p2pService.propagate(proposal);

@@ -188,6 +188,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     create_dummy_gate(blocks.aux, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
+    this->one_idx = put_constant_variable(FF::one());
     create_big_add_gate({ this->zero_idx, this->zero_idx, this->zero_idx, this->one_idx, 0, 0, 0, 1, -1 });
 
     // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
@@ -2901,7 +2902,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
 
 template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetization>::hash_circuit()
 {
-    finalize_circuit();
+    finalize_circuit(/*ensure_nonzero=*/false);
 
     size_t sum_of_block_sizes(0);
     for (auto& block : blocks.get()) {

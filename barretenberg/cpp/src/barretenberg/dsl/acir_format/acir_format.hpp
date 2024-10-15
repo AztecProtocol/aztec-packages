@@ -47,7 +47,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ecdsa_r1_constraints;
     std::vector<size_t> blake2s_constraints;
     std::vector<size_t> blake3_constraints;
-    std::vector<size_t> keccak_constraints;
     std::vector<size_t> keccak_permutations;
     std::vector<size_t> pedersen_constraints;
     std::vector<size_t> pedersen_hash_constraints;
@@ -95,7 +94,6 @@ struct AcirFormat {
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
-    std::vector<KeccakConstraint> keccak_constraints;
     std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
@@ -147,7 +145,6 @@ struct AcirFormat {
                    ecdsa_r1_constraints,
                    blake2s_constraints,
                    blake3_constraints,
-                   keccak_constraints,
                    keccak_permutations,
                    pedersen_constraints,
                    pedersen_hash_constraints,
@@ -247,7 +244,7 @@ template <typename Builder> class GateCounter {
         if (!collect_gates_per_opcode) {
             return 0;
         }
-        size_t new_gate_count = builder->get_num_gates();
+        size_t new_gate_count = builder->get_estimated_num_finalized_gates();
         size_t diff = new_gate_count - prev_gate_count;
         prev_gate_count = new_gate_count;
         return diff;

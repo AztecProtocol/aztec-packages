@@ -24,7 +24,8 @@ contract EcdsaRAccount {
 
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[private]
-    #[initializer]
+    #['private]
+    #['initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
         let this_keys = get_public_keys(this);
@@ -38,14 +39,16 @@ contract EcdsaRAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]
+    #['private]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
 
     #[private]
-    #[noinitcheck]
-    #[view]
+    #['private]
+    #['noinitcheck]
+    #['view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)

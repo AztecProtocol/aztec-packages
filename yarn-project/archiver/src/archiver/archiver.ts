@@ -4,9 +4,11 @@ import {
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockId,
   type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
+  type L2Tips,
   type LogFilter,
   type LogType,
   type TxEffect,
@@ -15,12 +17,18 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type ContractClassPublic,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
   PrivateFunctionBroadcastedEvent,
+  type PublicFunction,
   UnconstrainedFunctionBroadcastedEvent,
+  type UnconstrainedFunctionWithMembershipProof,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
@@ -33,16 +41,8 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PublicFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
 import {
@@ -317,6 +317,7 @@ export class Archiver implements ArchiveSource {
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.
@@ -402,11 +403,10 @@ export class Archiver implements ArchiveSource {
 
     const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
 
-    this.log.debug(
-      `Processing retrieved blocks ${retrievedBlocks
-        .map(b => b.data.number)
-        .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
-    );
+    this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
+    for (const block of retrievedBlocks) {
+      this.log.debug(`ingesting new L2 block`, block.data.header.globalVariables.toFriendlyJSON());
+    }
 
     const timer = new Timer();
     await this.store.addBlocks(retrievedBlocks);
@@ -653,6 +653,32 @@ export class Archiver implements ArchiveSource {
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
   }
+
+  async getL2Tips(): Promise<L2Tips> {
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getBlockNumber(),
+      this.getProvenBlockNumber(),
+    ] as const);
+
+    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
+      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+    ] as const);
+
+    if (latestBlockNumber > 0 && !latestBlockHeader) {
+      throw new Error('Failed to retrieve latest block header');
+    }
+
+    if (provenBlockNumber > 0 && !provenBlockHeader) {
+      throw new Error('Failed to retrieve proven block header');
+    }
+
+    return {
+      latest: { number: latestBlockNumber, hash: latestBlockHeader?.hash().toString() } as L2BlockId,
+      proven: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+      finalized: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+    };
+  }
 }
 
 enum Operation {
@@ -688,9 +714,10 @@ class ArchiverStoreHelper
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
-    const contractClasses = ContractClassRegisteredEvent.fromLogs(allLogs, ClassRegistererAddress).map(e =>
-      e.toContractClassPublic(),
-    );
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    ).map(e => e.toContractClassPublic());
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
@@ -733,8 +760,14 @@ class ArchiverStoreHelper
    */
   async #storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
     // Filter out private and unconstrained function broadcast events
-    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
-    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(

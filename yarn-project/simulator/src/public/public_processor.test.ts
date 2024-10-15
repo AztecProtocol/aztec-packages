@@ -1,4 +1,5 @@
 import {
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
   PublicDataWrite,
@@ -39,7 +40,6 @@ import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { type PublicExecutor, WASMSimulator, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -52,7 +52,7 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let db: MockProxy<MerkleTreeOperations>;
+  let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
   let worldStateDB: MockProxy<WorldStateDB>;
   let handler: MockProxy<ProcessedTxHandler>;
@@ -63,7 +63,7 @@ describe('public_processor', () => {
   let processor: PublicProcessor;
 
   beforeEach(() => {
-    db = mock<MerkleTreeOperations>();
+    db = mock<MerkleTreeWriteOperations>();
     publicExecutor = mock<PublicExecutor>();
     worldStateDB = mock<WorldStateDB>();
     handler = mock<ProcessedTxHandler>();
@@ -724,8 +724,9 @@ describe('public_processor', () => {
       const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
       const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
-      const gasLimits = Gas.from({ l2Gas: 1e9, daGas: 1e9 });
-      const teardownGas = Gas.from({ l2Gas: 1e7, daGas: 1e7 });
+      // Keep gas numbers MAX_L2_GAS_PER_ENQUEUED_CALL or the logic below has to get weird
+      const gasLimits = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
+      const teardownGas = Gas.from({ l2Gas: 1e5, daGas: 1e5 });
       tx.data.constants.txContext.gasSettings = GasSettings.from({
         gasLimits: gasLimits,
         teardownGasLimits: teardownGas,
@@ -750,20 +751,26 @@ describe('public_processor', () => {
 
       let simulatorCallCount = 0;
 
+      // Keep gas numbers below MAX_L2_GAS_PER_ENQUEUED_CALL or we need
+      // to separately compute available start gas and "effective" start gas
+      // for each enqueued call after applying that max.
       const initialGas = gasLimits.sub(teardownGas);
-      const setupGasUsed = Gas.from({ l2Gas: 1e6 });
-      const appGasUsed = Gas.from({ l2Gas: 2e6, daGas: 2e6 });
-      const teardownGasUsed = Gas.from({ l2Gas: 3e6, daGas: 3e6 });
+      const setupGasUsed = Gas.from({ l2Gas: 1e4 });
+      const appGasUsed = Gas.from({ l2Gas: 2e4, daGas: 2e4 });
+      const teardownGasUsed = Gas.from({ l2Gas: 3e4, daGas: 3e4 });
       const afterSetupGas = initialGas.sub(setupGasUsed);
       const afterAppGas = afterSetupGas.sub(appGasUsed);
       const afterTeardownGas = teardownGas.sub(teardownGasUsed);
 
       // Total gas used is the sum of teardown gas allocation plus all expenditures along the way,
       // without including the gas used in the teardown phase (since that's consumed entirely up front).
-      const expectedTotalGasUsed = { l2Gas: 1e7 + 1e6 + 2e6, daGas: 1e7 + 2e6 };
+      const expectedTotalGasUsed = teardownGas.add(setupGasUsed).add(appGasUsed);
 
       // Inclusion fee plus block gas fees times total gas used
-      const expectedTxFee = 1e4 + (1e7 + 1e6 + 2e6) * 1 + (1e7 + 2e6) * 1;
+      const expectedTxFee =
+        tx.data.constants.txContext.gasSettings.inclusionFee.toNumber() +
+        expectedTotalGasUsed.l2Gas * 1 +
+        expectedTotalGasUsed.daGas * 1;
       const transactionFee = new Fr(expectedTxFee);
 
       const simulatorResults: PublicExecutionResult[] = [
@@ -848,6 +855,8 @@ describe('public_processor', () => {
         expect.anything(), // pendingNullifiers
         new Fr(txFee),
         expect.anything(), // SideEffectCounter
+        expect.anything(), // PublicValidationRequestArrayLengths
+        expect.anything(), // PublicAccumulatedDataArrayLengths
       ];
 
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
