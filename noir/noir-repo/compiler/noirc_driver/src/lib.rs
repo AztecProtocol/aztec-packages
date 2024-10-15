@@ -450,14 +450,16 @@ fn compile_contract_inner(
             .attributes
             .secondary
             .iter()
-            .filter_map(|attr| {
-                if let SecondaryAttribute::Tag(attribute) = attr {
-                    Some(&attribute.contents)
-                } else {
-                    None
-                }
+            .filter_map(|attr|
+                match attr {
+                 SecondaryAttribute::Tag(attribute) => {
+                    Some(attribute.contents.clone())
+                },
+                SecondaryAttribute::ContractLibraryMethod => {
+                    Some("contract_library_method".to_string())
+                },
+                 _ => None
             })
-            .cloned()
             .collect();
 
         functions.push(ContractFunction {
