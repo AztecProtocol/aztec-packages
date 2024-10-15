@@ -703,7 +703,7 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
     // The below part detects any changes in the join-split circuit
     constexpr size_t DYADIC_CIRCUIT_SIZE = 1 << 16;
 
-    constexpr uint256_t CIRCUIT_HASH("0x93a49ebea0c24474ce79c2eee9071d7e9a9f51c28a4255da7442106c03bac576");
+    constexpr uint256_t CIRCUIT_HASH("0xe4cb8b25fff1e298d34a2777ac2193b95f43fdf54fbbb61fd150e58daecbce13");
 
     const uint256_t circuit_hash = circuit.hash_circuit();
     // circuit is finalized now

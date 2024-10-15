@@ -85,7 +85,7 @@ TYPED_TEST(BoolTest, TestBasicOperations)
         EXPECT_EQ(gates_after - gates_before, 6UL);
     } else if (!IsSimulator<Builder>) {
         auto gates_after = builder.get_estimated_num_finalized_gates();
-        EXPECT_EQ(gates_after - gates_before, 6UL);
+        EXPECT_EQ(gates_after - gates_before, 5UL);
     }
 }
 
