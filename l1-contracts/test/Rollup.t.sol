@@ -68,9 +68,10 @@ contract RollupTest is DecoderBase {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
     feeJuicePortal = new FeeJuicePortal(
-      address(this), address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
+      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
     testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    feeJuicePortal.initialize();
     rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -498,6 +499,42 @@ contract RollupTest is DecoderBase {
 
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
+  }
+
+  function testNonZeroDaFee() public setUpFor("mixed_block_1") {
+    registry.upgrade(address(0xbeef));
+
+    DecoderBase.Full memory full = load("mixed_block_1");
+    DecoderBase.Data memory data = full.block;
+    bytes memory header = data.header;
+    assembly {
+      mstore(add(header, add(0x20, 0x0208)), 1)
+    }
+    bytes32[] memory txHashes = new bytes32[](0);
+
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
+    rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body);
+  }
+
+  function testNonZeroL2Fee() public setUpFor("mixed_block_1") {
+    registry.upgrade(address(0xbeef));
+
+    DecoderBase.Full memory full = load("mixed_block_1");
+    DecoderBase.Data memory data = full.block;
+    bytes memory header = data.header;
+    assembly {
+      mstore(add(header, add(0x20, 0x0228)), 1)
+    }
+    bytes32[] memory txHashes = new bytes32[](0);
+
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
+    rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body);
   }
 
   function testBlockFee() public setUpFor("mixed_block_1") {
