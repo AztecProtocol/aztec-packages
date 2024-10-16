@@ -30,17 +30,15 @@ import {
   TxSimulationResult,
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
-  isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
-  AztecAddress,
+  type AztecAddress,
   type CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
-  PUBLIC_DISPATCH_SELECTOR,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
   computeContractAddressFromInstance,
