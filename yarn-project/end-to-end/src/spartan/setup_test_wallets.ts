@@ -16,7 +16,6 @@ export interface TestWallets {
 
 export async function setupTestWalletsWithTokens(
   pxeUrl: string,
-  rounds: bigint,
   mintAmount: bigint,
   logger: Logger,
 ): Promise<TestWallets> {
@@ -27,8 +26,6 @@ export async function setupTestWalletsWithTokens(
   const WALLET_COUNT = 1; // TODO fix this to allow for 16 wallets again
 
   let recipientWallet: AccountWalletWithSecretKey;
-
-  expect(rounds).toBeLessThanOrEqual(mintAmount);
 
   const pxe = await createCompatibleClient(pxeUrl, logger);
 

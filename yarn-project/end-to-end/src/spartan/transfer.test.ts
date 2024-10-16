@@ -22,7 +22,7 @@ describe('token transfer test', () => {
   let testWallets: TestWallets;
 
   beforeAll(async () => {
-    testWallets = await setupTestWalletsWithTokens(PXE_URL, ROUNDS, MINT_AMOUNT, logger);
+    testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 
