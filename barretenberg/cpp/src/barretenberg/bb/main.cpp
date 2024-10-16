@@ -324,7 +324,8 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
 
 void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
                                          const std::string& witnessPath,
-                                         const std::string& outputDir)
+                                         const std::string& outputDir,
+                                         bool auto_verify)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -357,7 +358,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
-    ivc.auto_verify_mode = true;
+    ivc.auto_verify_mode = auto_verify;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
@@ -1454,7 +1455,8 @@ int main(int argc, char* argv[])
         // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
+            bool skip_auto_verify = flag_present(args, "--skip_auto_verify");
+            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir, !skip_auto_verify);
             return 0;
         }
         if (command == "verify_client_ivc") {

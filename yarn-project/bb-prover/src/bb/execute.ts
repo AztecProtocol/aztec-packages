@@ -196,6 +196,7 @@ export async function executeBbClientIvcProof(
   bytecodeStackPath: string,
   witnessStackPath: string,
   log: LogFn,
+  skipAutoVerify = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -220,6 +221,9 @@ export async function executeBbClientIvcProof(
     log(`bytecodePath ${bytecodeStackPath}`);
     log(`outputPath ${outputPath}`);
     const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
+    if (skipAutoVerify) {
+      args.push('--skip_auto_verify');
+    }
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`client ivc proof BB out - ${message}`);
