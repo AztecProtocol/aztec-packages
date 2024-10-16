@@ -324,8 +324,7 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
 
 void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
                                          const std::string& witnessPath,
-                                         const std::string& outputDir,
-                                         bool auto_verify)
+                                         const std::string& outputDir)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -358,7 +357,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
-    ivc.auto_verify_mode = auto_verify;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
@@ -374,6 +373,83 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
             circuit.databus_propagation_data.is_kernel = is_kernel;
         }
         is_kernel = !is_kernel;
+        ivc.accumulate(circuit);
+    }
+
+    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
+    // directory is passed by bb.js)
+    std::string vkPath = outputDir + "/final_decider_vk"; // the vk of the last circuit in the stack
+    std::string accPath = outputDir + "/pg_acc";
+    std::string proofPath = outputDir + "/client_ivc_proof";
+    std::string translatorVkPath = outputDir + "/translator_vk";
+    std::string eccVkPath = outputDir + "/ecc_vk";
+
+    auto proof = ivc.prove();
+    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
+
+    auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
+
+    vinfo("write proof and vk data to files..");
+    write_file(proofPath, to_buffer(proof));
+    write_file(vkPath, to_buffer(ivc.honk_vk));
+    write_file(accPath, to_buffer(ivc.verifier_accumulator));
+    write_file(translatorVkPath, to_buffer(translator_vk));
+    write_file(eccVkPath, to_buffer(eccvm_vk));
+}
+
+void client_ivc_prove_output_all_msgpack_no_auto_verify(const std::string& bytecodePath,
+                                                        const std::string& witnessPath,
+                                                        const std::string& outputDir)
+{
+    using Flavor = MegaFlavor; // This is the only option
+    using Builder = Flavor::CircuitBuilder;
+    using Program = acir_format::AcirProgram;
+    using ECCVMVK = ECCVMFlavor::VerificationKey;
+    using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
+
+    using namespace acir_format;
+
+    init_bn254_crs(1 << 24);
+    init_grumpkin_crs(1 << 15);
+
+    auto gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
+    auto witness_data = unpack_from_file<std::vector<std::string>>(witnessPath);
+    std::vector<Program> folding_stack;
+    for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
+        // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
+        // the future
+        std::vector<uint8_t> constraint_buf =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
+        std::vector<uint8_t> witness_buf =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
+
+        AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
+        WitnessVector witness = witness_buf_to_witness_data(witness_buf);
+
+        folding_stack.push_back(Program{ constraints, witness });
+    }
+    // TODO(#7371) dedupe this with the rest of the similar code
+    ClientIVC ivc;
+    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+
+    // Accumulate the entire program stack into the IVC
+    for (Program& program : folding_stack) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        MegaCircuitBuilder circuit;
+
+        // Use the presence of IVC recursion constraints to indicate whether or not the program is a kernel
+        bool is_kernel = !program.constraints.ivc_recursion_constraints.empty();
+        if (is_kernel) {
+            info("Creating circuit of type: KERNEL");
+            auto circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
+        } else {
+            info("Creating circuit of type: APP");
+            auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+        }
+
         ivc.accumulate(circuit);
     }
 
@@ -1456,7 +1532,11 @@ int main(int argc, char* argv[])
         if (command == "client_ivc_prove_output_all_msgpack") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
             bool skip_auto_verify = flag_present(args, "--skip_auto_verify");
-            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir, !skip_auto_verify);
+            if (skip_auto_verify) {
+                client_ivc_prove_output_all_msgpack_no_auto_verify(bytecode_path, witness_path, output_dir);
+            } else {
+                client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
+            }
             return 0;
         }
         if (command == "verify_client_ivc") {

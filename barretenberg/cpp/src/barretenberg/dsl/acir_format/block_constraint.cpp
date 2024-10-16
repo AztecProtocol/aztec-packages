@@ -87,6 +87,8 @@ void create_block_constraints(MegaCircuitBuilder& builder,
         // The presence of calldata is used to indicate that the present circuit is a kernel. This is needed in the
         // databus consistency checks to indicate that the corresponding return data belongs to a kernel (else an app).
         info("ACIR: Setting is_kernel to TRUE.");
+        // WORKTODO: this won't be sufficient since we currently need to distinguis between create_circuit and
+        // create_kernel_circuit
         builder.databus_propagation_data.is_kernel = true;
     } break;
     case BlockType::ReturnData: {
