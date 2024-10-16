@@ -385,16 +385,20 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (size_t i = TO_BE_SHIFTED_WITNESSES_START, j = SHIFTED_WITNESSES_START;
              i < TO_BE_SHIFTED_WITNESSES_END && j < SHIFTED_WITNESSES_END;
              ++i, ++j) {
+            info(i, "  ", j);
+            info(commitments[i]);
+            info(commitments[j]);
             // Update the to-be-shifted scalar: sum it with its corresponding shifted counterpart
             scalars[i] = scalars[i] + scalars[j];
         }
 
         // Step 2: Iterate over the to-be-shifted precomputed scalars and their shifted counterparts
         for (size_t i = TO_BE_SHIFTED_PRECOMPUTED_START, j = SHIFTED_PRECOMPUTED_START;
-             i <= TO_BE_SHIFTED_PRECOMPUTED_END && j <= SHIFTED_PRECOMPUTED_END;
+             i <= TO_BE_SHIFTED_PRECOMPUTED_END && j < SHIFTED_PRECOMPUTED_END;
              ++i, ++j) {
             info(i, "  ", j);
-
+            info(commitments[i]);
+            info(commitments[j]);
             // Update the to-be-shifted scalar with its corresponding shifted counterpart
             scalars[i] = scalars[i] + scalars[j];
         }
@@ -403,18 +407,27 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Erase from shifted witness indices
         ASSERT(SHIFTED_WITNESSES_END > SHIFTED_PRECOMPUTED_END);
 
-        for (size_t i = SHIFTED_WITNESSES_END - 1; i > SHIFTED_WITNESSES_START; --i) {
-            // Corrected the signedness issue using std::ptrdiff_t for erasing elements
-            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(i));
-            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(i));
-        }
-
         // Erase from shifted precomputed indices
-        for (size_t i = SHIFTED_PRECOMPUTED_END + 1; i > SHIFTED_PRECOMPUTED_START - 1; --i) {
+        const size_t NUM_SHIFTED_WITNESSES = TO_BE_SHIFTED_WITNESSES_END - TO_BE_SHIFTED_WITNESSES_START;
+        info("witnesses");
+        for (size_t i = 0; i < NUM_SHIFTED_WITNESSES; i++) {
             // Corrected the signedness issue using std::ptrdiff_t for erasing elements
-            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(i));
-            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(i));
+            info(i);
+            info(commitments[SHIFTED_WITNESSES_START]);
+            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START));
+            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START));
         }
+        info("precomputed");
+        const size_t NUM_SHIFTED_PRECOMPUTED = TO_BE_SHIFTED_PRECOMPUTED_END - TO_BE_SHIFTED_PRECOMPUTED_START;
+        info(NUM_SHIFTED_PRECOMPUTED);
+        for (size_t i = 0; i < NUM_SHIFTED_PRECOMPUTED; i++) {
+            // Corrected the signedness issue using std::ptrdiff_t for erasing elements
+            info(i);
+            info(commitments[SHIFTED_PRECOMPUTED_START]);
+            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START));
+            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START));
+        }
+        info("commitments shpl: ", commitments.size());
     }
 };
 } // namespace bb

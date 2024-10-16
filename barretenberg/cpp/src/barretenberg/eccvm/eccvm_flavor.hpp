@@ -55,6 +55,17 @@ class ECCVMFlavor {
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 113;
 
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 63;
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 89;
+
+    static constexpr size_t SHIFTED_WITNESSES_START = 90;
+    static constexpr size_t SHIFTED_WITNESSES_END = 116;
+
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 0;
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 0;
+
+    static constexpr size_t SHIFTED_PRECOMPUTED_START = 0;
+    static constexpr size_t SHIFTED_PRECOMPUTED_END = 0;
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>

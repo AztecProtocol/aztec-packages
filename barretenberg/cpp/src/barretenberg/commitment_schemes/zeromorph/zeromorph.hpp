@@ -651,6 +651,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 rho_pow *= rho;
             }
         }
+        // info("commitments size ", commitments.size());
 
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
         // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))

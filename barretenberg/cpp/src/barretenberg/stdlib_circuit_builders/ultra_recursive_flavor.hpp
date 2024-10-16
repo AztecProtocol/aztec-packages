@@ -69,6 +69,18 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
 
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = UltraFlavor::TO_BE_SHIFTED_WITNESSES_START;
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = UltraFlavor::TO_BE_SHIFTED_WITNESSES_END;
+
+    static constexpr size_t SHIFTED_WITNESSES_START = UltraFlavor::SHIFTED_WITNESSES_START;
+    static constexpr size_t SHIFTED_WITNESSES_END = UltraFlavor::SHIFTED_WITNESSES_END;
+
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = UltraFlavor::TO_BE_SHIFTED_PRECOMPUTED_START;
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = UltraFlavor::TO_BE_SHIFTED_PRECOMPUTED_END;
+
+    static constexpr size_t SHIFTED_PRECOMPUTED_START = UltraFlavor::SHIFTED_PRECOMPUTED_START;
+    static constexpr size_t SHIFTED_PRECOMPUTED_END = UltraFlavor::SHIFTED_PRECOMPUTED_END;
+
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
 
@@ -87,18 +99,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 5;
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 32;
-
-    static constexpr size_t SHIFTED_WITNESSES_START = 39;
-    static constexpr size_t SHIFTED_WITNESSES_END = 44;
-
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 21;
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 24;
-
-    static constexpr size_t SHIFTED_PRECOMPUTED_START = 35;
-    static constexpr size_t SHIFTED_PRECOMPUTED_END = 38;
 
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 

@@ -90,7 +90,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
-
+    info("verified ", sumcheck_verified.value());
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     auto opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
                                                                 commitments.get_unshifted(),
@@ -112,7 +112,18 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
                                               Flavor::SHIFTED_PRECOMPUTED_START + 1,
                                               Flavor::SHIFTED_PRECOMPUTED_END + 1);
     }
-
+    if constexpr (std::is_same_v<Flavor, MegaRecursiveFlavor_<UltraCircuitBuilder>>) {
+        info("am I here");
+        Shplemini::remove_shifted_commitments(opening_claim,
+                                              Flavor::TO_BE_SHIFTED_WITNESSES_START + 1,
+                                              Flavor::TO_BE_SHIFTED_WITNESSES_END + 1,
+                                              Flavor::SHIFTED_WITNESSES_START + 1,
+                                              Flavor::SHIFTED_WITNESSES_END + 1,
+                                              Flavor::TO_BE_SHIFTED_PRECOMPUTED_START + 1,
+                                              Flavor::TO_BE_SHIFTED_PRECOMPUTED_END + 1,
+                                              Flavor::SHIFTED_PRECOMPUTED_START + 1,
+                                              Flavor::SHIFTED_PRECOMPUTED_END + 1);
+    }
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();
