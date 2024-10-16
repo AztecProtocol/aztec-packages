@@ -311,6 +311,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   program
     .command('cheat-code-set-l1-balance')
     .description('Gets the balance of an ERC token in L1 for the given Ethereum address.')
+    .argument('<who>', 'Ethereum address to check.', parseEthereumAddress)
     .requiredOption(
       '--l1-rpc-url <string>',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
@@ -320,7 +321,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .argument('<amount>', 'The amount of ETH to mint.', parseBigint)
     .action(async (who, options) => {
       const { cheatCodeSetL1Balance } = await import('./cheat_code_set_l1_balance.js');
-      await cheatCodeSetL1Balance(who, options.l1RpcUrl, options.l1ChainId, options.amount, log);
+      await cheatCodeSetL1Balance(who, options.l1RpcUrl, options.amount, log);
     });
 
   program

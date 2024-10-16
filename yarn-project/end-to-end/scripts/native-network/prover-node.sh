@@ -33,9 +33,13 @@ export DEBUG="aztec:*"
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export PROVER_AGENT_ENABLED="true"
 export PROVER_PUBLISHER_PRIVATE_KEY="0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
+export PROVER_ADDRESS="0x23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f"
 export PROVER_COORDINATION_NODE_URL="http://127.0.0.1:8080"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export PROVER_JOB_SOURCE_URL="http://127.0.0.1:$PORT"
+LARGE_PROVER_ETH_BALANCE=10000000
 
+# Make sure we don't run out of funds
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js cheat-code-set-l1-balance --who $PROVER_ADDRESS --l1-rpc-url $ETHEREUM_HOST --amount $LARGE_PROVER_ETH_BALANCE
 # Start the Prover Node with the prover and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --prover-node --prover --archiver
