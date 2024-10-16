@@ -3,6 +3,8 @@ global MAX_COMMITMENTS_PER_TX = 4;
 global MAX_COMMITMENT_READ_REQUESTS_PER_CALL = 2;
 global MAX_COMMITMENT_READ_REQUESTS_PER_TX = 4;
 
+pub use protocol_types::constants::{PROOF_TYPE_OINK, PROOF_TYPE_PG, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS};
+
 struct TxRequest {
     number_of_calls: u32,
 }

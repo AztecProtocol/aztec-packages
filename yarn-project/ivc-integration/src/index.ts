@@ -1,7 +1,15 @@
+import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/circuits.js';
+
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' assert { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' assert { type: 'json' };
+import MockAppCreatorVk from '../artifacts/keys/app_creator.vk.data.json' assert { type: 'json' };
+import MockAppReaderVk from '../artifacts/keys/app_reader.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelTailVk from '../artifacts/keys/mock_private_kernel_tail.vk.data.json' assert { type: 'json' };
 import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' assert { type: 'json' };
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' assert { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
@@ -11,6 +19,7 @@ import type {
   AppCreatorInputType,
   AppPublicInputs,
   AppReaderInputType,
+  FixedLengthArray,
   KernelPublicInputs,
   MockPrivateKernelInitInputType,
   MockPrivateKernelInnerInputType,
@@ -30,6 +39,12 @@ export {
   MockPrivateKernelResetCircuit,
   MockPrivateKernelTailCircuit,
   MockPublicKernelCircuit,
+  MockAppCreatorVk,
+  MockAppReaderVk,
+  MockPrivateKernelInitVk,
+  MockPrivateKernelInnerVk,
+  MockPrivateKernelResetVk,
+  MockPrivateKernelTailVk,
 };
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
@@ -118,4 +133,8 @@ export async function witnessGenMockPublicKernelCircuit(
     witness,
     publicInputs: returnValue as u8,
   };
+}
+
+export function getVkAsFields(vk: any): FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
+  return vk.keyAsFields as FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 }
