@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Vanilla {
     use dep::aztec::{
-        keys::public_keys::{IvpkM, OvpkM},
+        protocol_types::public_keys::{IvpkM, OvpkM},
         prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader, Point},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         macros::{storage::storage, functions::{private, public, initializer}}
@@ -16,7 +16,8 @@ contract Vanilla {
     }
 
     #[private]
-    #[initializer]
+    #['private]
+    #['initializer]
     fn constructor(
         number: Field,
         owner: AztecAddress,
@@ -30,6 +31,7 @@ contract Vanilla {
     }
 
     #[private]
+    #['private]
     fn setNumber(
         number: Field,
         owner: AztecAddress,

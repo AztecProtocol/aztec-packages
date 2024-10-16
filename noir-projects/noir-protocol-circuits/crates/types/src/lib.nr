@@ -1,6 +1,7 @@
 mod utils;
 mod address;
 mod debug_log;
+pub mod public_keys;
 mod point;
 mod scalar;
 // This is intentionally spelled like this since contract is a reserved keyword, so it cannot be used as an ident.

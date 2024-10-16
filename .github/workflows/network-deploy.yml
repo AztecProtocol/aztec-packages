@@ -54,4 +54,4 @@ jobs:
       - name: Deploy Helm chart
         run: |
           helm dependency update ${{ env.CHART_PATH }}
-          helm upgrade --install ${{ env.NAMESPACE }} ${{ env.CHART_PATH }} --namespace ${{ env.NAMESPACE }} --set network.public=true --atomic
+          helm upgrade --install ${{ env.NAMESPACE }} ${{ env.CHART_PATH }} --namespace ${{ env.NAMESPACE }} --set network.public=true --atomic --create-namespace --timeout 20m

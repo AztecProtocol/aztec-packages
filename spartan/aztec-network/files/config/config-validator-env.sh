@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
 alias aztec='node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js'
 

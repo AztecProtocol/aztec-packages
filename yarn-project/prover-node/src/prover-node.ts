@@ -10,12 +10,12 @@ import {
   type ProverCoordination,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
@@ -228,13 +228,10 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     const fromBlock = blocks[0].number;
     const toBlock = blocks.at(-1)!.number;
 
-    if ((await this.worldState.status()).syncedToL2Block >= fromBlock) {
-      throw new Error(`Cannot create proving job for block ${fromBlock} as it is behind the current world state`);
-    }
-
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
-    const db = await this.worldState.syncImmediateAndFork(fromBlock - 1);
+    await this.worldState.syncImmediate(fromBlock - 1);
+    const db = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(

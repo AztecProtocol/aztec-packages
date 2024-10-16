@@ -24,7 +24,7 @@ export async function deployUltraHonkVerifier(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing bb-prover even in devDeps results in a circular dependency error through @aztec/simulator. Need to ignore because this line doesn't cause an error in a dev environment
   const { BBCircuitVerifier } = await import('@aztec/bb-prover');
-  const verifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });
+  const verifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory, bbSkipCleanup: false });
 
   const { publicClient, walletClient } = createL1Clients(
     ethRpcUrl,

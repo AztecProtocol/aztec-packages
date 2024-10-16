@@ -36,7 +36,10 @@ import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   type CompleteAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NodeInfo,
   PUBLIC_DISPATCH_SELECTOR,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
@@ -62,8 +65,6 @@ import {
   protocolContractNames,
 } from '@aztec/protocol-contracts';
 import { type AcirSimulator, resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -135,7 +136,7 @@ export class PXEService implements PXE {
       }
 
       count++;
-      await this.synchronizer.addAccount(address.address, this.keyStore, this.config.l2StartingBlock);
+      await this.synchronizer.addAccount(address, this.keyStore, this.config.l2StartingBlock);
     }
 
     if (count > 0) {
@@ -194,7 +195,7 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      await this.synchronizer.addAccount(accountCompleteAddress.address, this.keyStore, this.config.l2StartingBlock);
+      await this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }

@@ -6,6 +6,7 @@ import {
   PublicExecutionRequest,
 } from '@aztec/circuit-types';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   FunctionData,
   FunctionSelector,
   MAX_NOTE_HASHES_PER_CALL,
@@ -92,7 +93,7 @@ describe('Kernel Prover', () => {
     publicInputs.end.noteHashes = noteHashes;
     return {
       publicInputs,
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };
@@ -109,14 +110,14 @@ describe('Kernel Prover', () => {
     return {
       publicInputs,
       outputWitness: new Map(),
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       bytecode: Buffer.from([]),
     };
   };
 
   const computeAppCircuitVerificationKeyOutput = () => {
     return {
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     };
   };
 

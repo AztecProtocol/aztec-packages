@@ -19,14 +19,14 @@ pub struct TailOutputComposer {
 }
 
 impl TailOutputComposer {
-    unconstrained pub fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
+    pub unconstrained fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
         let mut output_composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
         output_composer.sort_ordered_values();
 
         TailOutputComposer { output_composer }
     }
 
-    unconstrained  pub fn finish(self) -> KernelCircuitPublicInputs {
+    pub unconstrained fn finish(self) -> KernelCircuitPublicInputs {
         let source = self.output_composer.finish();
         let mut output = KernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;

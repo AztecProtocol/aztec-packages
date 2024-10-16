@@ -40,7 +40,7 @@ impl EthAddress {
     }
 
     pub fn from_field(field: Field) -> Self {
-        field.assert_max_bit_size(160);
+        field.assert_max_bit_size::<160>();
         Self { inner: field }
     }
 

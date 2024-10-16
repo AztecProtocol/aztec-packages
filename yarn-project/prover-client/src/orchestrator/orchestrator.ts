@@ -28,6 +28,7 @@ import {
   EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
+  type Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -41,6 +42,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
   TubeInputs,
   type VMCircuitPublicInputs,
@@ -57,7 +59,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { TubeVk, getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
@@ -299,7 +301,7 @@ export class ProvingOrchestrator implements EpochProver {
       [Attributes.BLOCK_TXS_COUNT]: block.transactionsReceived,
     };
   })
-  public async setBlockCompleted(): Promise<L2Block> {
+  public async setBlockCompleted(expectedHeader?: Header): Promise<L2Block> {
     const provingState = this.provingState?.currentBlock;
     if (!provingState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
@@ -347,7 +349,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // And build the block header
     logger.verbose(`Block ${provingState.globalVariables.blockNumber} completed. Assembling header.`);
-    await this.buildBlock(provingState);
+    await this.buildBlock(provingState, expectedHeader);
 
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
     this.checkAndEnqueueBlockRootRollup(provingState);
@@ -424,7 +426,7 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  private async buildBlock(provingState: BlockProvingState) {
+  private async buildBlock(provingState: BlockProvingState, expectedHeader?: Header) {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
     const gasFees = provingState.globalVariables.gasFees;
     const nonEmptyTxEffects: TxEffect[] = provingState!.allTxs
@@ -440,6 +442,11 @@ export class ProvingOrchestrator implements EpochProver {
       provingState.newL1ToL2Messages,
       this.db,
     );
+
+    if (expectedHeader && !header.equals(expectedHeader)) {
+      logger.error(`Block header mismatch: header=${header} expectedHeader=${expectedHeader}`);
+      throw new Error('Block header mismatch');
+    }
 
     logger.verbose(`Updating archive tree with block ${provingState.blockNumber} header ${header.hash().toString()}`);
     await this.db.updateArchive(header);
@@ -708,7 +715,7 @@ export class ProvingOrchestrator implements EpochProver {
         makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
         provingState.globalVariables,
         this.db,
-        VerificationKeyData.makeFake(),
+        TubeVk,
       ),
     );
 
@@ -1225,7 +1232,10 @@ export class ProvingOrchestrator implements EpochProver {
               logger.warn(
                 `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
               );
-              return { proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() };
+              return {
+                proof: makeEmptyProof(),
+                verificationKey: VerificationKeyData.makeFakeHonk(),
+              };
             }
           }
         },
@@ -1278,7 +1288,12 @@ export class ProvingOrchestrator implements EpochProver {
       // Take the final proof and assign it to the base rollup inputs
       txProvingState.baseRollupInputs.kernelData.proof = proof;
       txProvingState.baseRollupInputs.kernelData.vk = verificationKey;
-      txProvingState.baseRollupInputs.kernelData.vkIndex = getVKIndex(verificationKey);
+      try {
+        txProvingState.baseRollupInputs.kernelData.vkIndex = getVKIndex(verificationKey);
+      } catch (_ignored) {
+        // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
+        txProvingState.baseRollupInputs.kernelData.vkIndex = TUBE_INDEX;
+      }
       txProvingState.baseRollupInputs.kernelData.vkPath = getVKSiblingPath(
         txProvingState.baseRollupInputs.kernelData.vkIndex,
       );

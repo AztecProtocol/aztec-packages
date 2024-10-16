@@ -3,7 +3,6 @@ use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorB
 /**
  * validate_public_call_requests
  */
-
 #[test]
 fn validate_public_call_requests_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
@@ -44,7 +43,7 @@ fn validate_public_call_requests_from_static_call_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect msg_sender for delegate call request")]
+#[test(should_fail_with = "incorrect msg_sender for delegate call request")]
 fn validate_public_call_requests_incorrect_msg_sender_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -55,7 +54,7 @@ fn validate_public_call_requests_incorrect_msg_sender_for_delegate_call_fails() 
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
+#[test(should_fail_with = "incorrect storage_contract_address for delegate call request")]
 fn validate_public_call_requests_incorrect_storage_contract_address_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -67,7 +66,7 @@ fn validate_public_call_requests_incorrect_storage_contract_address_for_delegate
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect msg_sender for call request")]
+#[test(should_fail_with = "incorrect msg_sender for call request")]
 fn validate_public_call_requests_incorrect_msg_sender_for_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -78,7 +77,7 @@ fn validate_public_call_requests_incorrect_msg_sender_for_regular_call_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect storage_contract_address for call request")]
+#[test(should_fail_with = "incorrect storage_contract_address for call request")]
 fn validate_public_call_requests_incorrect_storage_contract_address_for_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -89,7 +88,7 @@ fn validate_public_call_requests_incorrect_storage_contract_address_for_regular_
     builder.validate();
 }
 
-#[test(should_fail_with="static call cannot make non-static calls")]
+#[test(should_fail_with = "static call cannot make non-static calls")]
 fn validate_public_call_requests_static_call_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -103,7 +102,6 @@ fn validate_public_call_requests_static_call_regular_call_fails() {
 /**
  * validate_teardown_call_request
  */
-
 #[test]
 fn validate_teardown_call_request_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
@@ -140,7 +138,7 @@ fn validate_teardown_call_request_delegate_from_static_call_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect msg_sender for delegate call request")]
+#[test(should_fail_with = "incorrect msg_sender for delegate call request")]
 fn validate_teardown_call_request_incorrect_msg_sender_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -151,7 +149,7 @@ fn validate_teardown_call_request_incorrect_msg_sender_for_delegate_call_fails()
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
+#[test(should_fail_with = "incorrect storage_contract_address for delegate call request")]
 fn validate_teardown_call_request_incorrect_storage_contract_address_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -163,7 +161,7 @@ fn validate_teardown_call_request_incorrect_storage_contract_address_for_delegat
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect msg_sender for call request")]
+#[test(should_fail_with = "incorrect msg_sender for call request")]
 fn validate_teardown_call_request_incorrect_msg_sender_for_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -174,7 +172,7 @@ fn validate_teardown_call_request_incorrect_msg_sender_for_regular_call_fails() 
     builder.validate();
 }
 
-#[test(should_fail_with="incorrect storage_contract_address for call request")]
+#[test(should_fail_with = "incorrect storage_contract_address for call request")]
 fn validate_teardown_call_request_incorrect_storage_contract_address_for_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -185,7 +183,7 @@ fn validate_teardown_call_request_incorrect_storage_contract_address_for_regular
     builder.validate();
 }
 
-#[test(should_fail_with="static call cannot make non-static calls")]
+#[test(should_fail_with = "static call cannot make non-static calls")]
 fn validate_teardown_call_request_static_call_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 

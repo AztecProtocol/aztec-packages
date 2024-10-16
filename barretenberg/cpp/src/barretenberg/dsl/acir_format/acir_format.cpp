@@ -148,14 +148,7 @@ void build_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.blake3_constraints.at(i));
     }
 
-    // Add keccak constraints
-    for (size_t i = 0; i < constraint_system.keccak_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.keccak_constraints.at(i);
-        create_keccak_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.keccak_constraints.at(i));
-    }
-
+    // Add keccak permutations
     for (size_t i = 0; i < constraint_system.keccak_permutations.size(); ++i) {
         const auto& constraint = constraint_system.keccak_permutations[i];
         create_keccak_permutations(builder, constraint);
@@ -434,6 +427,8 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(
         builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
+
+    vinfo("created circuit");
 
     return builder;
 };

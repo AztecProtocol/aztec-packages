@@ -6,7 +6,7 @@ pub struct SortedResult<T, let N: u32> {
     original_index_hints: [u32; N],
 }
 
-unconstrained pub fn get_sorted_result<let N: u32, T>(
+pub unconstrained fn get_sorted_result<let N: u32, T>(
     values: [T; N],
     ordering: fn(T, T) -> bool
 ) -> SortedResult<T, N> {

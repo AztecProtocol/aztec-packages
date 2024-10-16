@@ -6,7 +6,7 @@ fn validate_call_is_regular_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="call stack storage address does not match expected contract address")]
+#[test(should_fail_with = "call stack storage address does not match expected contract address")]
 fn validate_call_is_regular_mismatch_storage_contract_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -28,7 +28,7 @@ fn validate_call_is_delegate_static_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="current contract address must not match storage contract address for delegate calls")]
+#[test(should_fail_with = "current contract address must not match storage contract address for delegate calls")]
 fn validate_call_is_delegate_call_from_same_contract_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_delegate_call();
 
@@ -38,7 +38,7 @@ fn validate_call_is_delegate_call_from_same_contract_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="function selector in call context does not match call stack item")]
+#[test(should_fail_with = "function selector in call context does not match call stack item")]
 fn validate_call_mismatch_function_selector_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -55,7 +55,7 @@ fn validate_call_is_static_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="call stack storage address does not match expected contract address")]
+#[test(should_fail_with = "call stack storage address does not match expected contract address")]
 fn validate_call_is_static_mismatch_storage_contract_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -65,7 +65,7 @@ fn validate_call_is_static_mismatch_storage_contract_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="note_hashes must be empty for static calls")]
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
 fn validate_call_is_static_creating_note_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -74,7 +74,7 @@ fn validate_call_is_static_creating_note_hashes_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="nullifiers must be empty for static calls")]
+#[test(should_fail_with = "nullifiers must be empty for static calls")]
 fn validate_call_is_static_creating_nullifiers_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -83,7 +83,7 @@ fn validate_call_is_static_creating_nullifiers_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="l2_to_l1_msgs must be empty for static calls")]
+#[test(should_fail_with = "l2_to_l1_msgs must be empty for static calls")]
 fn validate_call_is_static_creating_l2_to_l1_msgs_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -92,7 +92,7 @@ fn validate_call_is_static_creating_l2_to_l1_msgs_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="note_encrypted_logs_hashes must be empty for static calls")]
+#[test(should_fail_with = "note_encrypted_logs_hashes must be empty for static calls")]
 fn validate_call_is_static_creating_note_encrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -101,7 +101,7 @@ fn validate_call_is_static_creating_note_encrypted_logs_hashes_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="encrypted_logs_hashes must be empty for static calls")]
+#[test(should_fail_with = "encrypted_logs_hashes must be empty for static calls")]
 fn validate_call_is_static_creating_encrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
@@ -110,7 +110,7 @@ fn validate_call_is_static_creating_encrypted_logs_hashes_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="unencrypted_logs_hashes must be empty for static calls")]
+#[test(should_fail_with = "unencrypted_logs_hashes must be empty for static calls")]
 fn validate_call_is_static_creating_unencrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 

@@ -5,23 +5,27 @@ import { BlockAttestation } from './block_attestation.js';
 import { makeBlockAttestation } from './mocks.js';
 
 describe('Block Attestation serialization / deserialization', () => {
+  const checkEquivalence = (serialized: BlockAttestation, deserialized: BlockAttestation) => {
+    expect(deserialized.getSize()).toEqual(serialized.getSize());
+    expect(deserialized).toEqual(serialized);
+  };
+
   it('Should serialize / deserialize', () => {
     const attestation = makeBlockAttestation();
 
     const serialized = attestation.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
-
-    expect(deserialized).toEqual(attestation);
+    checkEquivalence(attestation, deserialized);
   });
 
   it('Should serialize / deserialize + recover sender', () => {
     const account = Secp256k1Signer.random();
 
-    const proposal = makeBlockAttestation(account);
-    const serialized = proposal.toBuffer();
+    const attestation = makeBlockAttestation({ signer: account });
+    const serialized = attestation.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
 
-    expect(deserialized).toEqual(proposal);
+    checkEquivalence(attestation, deserialized);
 
     // Recover signature
     const sender = deserialized.getSender();

@@ -55,21 +55,21 @@ mod tests {
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_valid_low_leaf_failed_wrong_low_leaf() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 13, next_value: 15 };
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_valid_low_leaf_failed_is_low_leaf() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 12, next_value: 15 };
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not less than the next leaf")]
+    #[test(should_fail_with = "Key is not less than the next leaf")]
     fn test_assert_check_valid_low_leaf_failed_wrong_next_key() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 9, next_value: 11 };

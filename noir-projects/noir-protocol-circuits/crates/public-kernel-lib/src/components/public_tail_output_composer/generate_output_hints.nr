@@ -48,7 +48,7 @@ pub struct OutputHints<let NUM_PUBLIC_DATA_LEAVES: u32> {
     public_data_linked_index_hints: [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
-unconstrained pub fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
+pub unconstrained fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
     previous_kernel: PublicKernelCircuitPublicInputs,
     public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES]
 ) -> OutputHints<NUM_PUBLIC_DATA_LEAVES> {

@@ -3,12 +3,12 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { type ContractClassPublic, type PublicFunction } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 
 import { PUBLIC_DISPATCH_SELECTOR, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE } from '../../constants.gen.js';
 import { computeContractClassId, computePublicBytecodeCommitment } from '../contract_class_id.js';
+import { type ContractClassPublic, type PublicFunction } from '../interfaces/index.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class ContractClassRegisteredEvent {
