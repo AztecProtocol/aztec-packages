@@ -16,6 +16,7 @@ import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { enrichPublicSimulationError } from '@aztec/pxe';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -31,7 +32,6 @@ import {
   toSingle,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
-import { enrichPublicSimulationError } from '../util/simulation_error.js';
 import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
@@ -717,8 +717,8 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getTXEDatabase(),
           (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
         throw new Error(result.revertReason.message);
@@ -750,8 +750,8 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getTXEDatabase(),
           (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
         throw new Error(result.revertReason.message);

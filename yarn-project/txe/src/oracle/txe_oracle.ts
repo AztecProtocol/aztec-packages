@@ -47,7 +47,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
-import { ContractDataOracle } from '@aztec/pxe';
+import { ContractDataOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionError,
   type ExecutionNoteCache,
@@ -68,7 +68,6 @@ import {
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
-import { enrichPublicSimulationError } from '../util/simulation_error.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
@@ -714,8 +713,8 @@ export class TXE implements TypedOracle {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           executionResult.revertReason,
-          this.txeDatabase,
           this.contractDataOracle,
+          this.txeDatabase,
           this.logger,
         );
         throw new Error(executionResult.revertReason.message);
