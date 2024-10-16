@@ -1,10 +1,11 @@
-import { readFieldCompressedString } from '@aztec/aztec.js';
+import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 
 const { PXE_URL } = process.env;
 if (!PXE_URL) {
@@ -32,6 +33,16 @@ describe('token transfer test', () => {
   });
 
   it('can transfer 1 token privately and publicly', async () => {
+    if (!process.env.ETHEREUM_HOST) {
+      throw new Error('ETHEREUM_HOST env variable must be set');
+    }
+    const ethCheatCodes = new EthCheatCodes(process.env.ETHEREUM_HOST);
+    // Get 4 epochs
+    const rollupCheatCodes = new RollupCheatCodes(
+      ethCheatCodes,
+      await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+    );
+    const epoch = await rollupCheatCodes.getEpoch();
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 

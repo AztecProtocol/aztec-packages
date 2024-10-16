@@ -30,6 +30,5 @@ mkdir -p build
 cp -r $TMP/barretenberg-preset-release/build/* build/
 cp -r $TMP/barretenberg-preset-release-world-state/build/* build/
 
-
 mkdir -p ../../yarn-project/world-state/build/
 cp ./barretenberg-preset-release-world-state/build/lib/world_state_napi.node ../../yarn-project/world-state/build/
