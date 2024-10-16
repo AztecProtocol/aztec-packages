@@ -135,6 +135,9 @@ export async function witnessGenMockPublicKernelCircuit(
   };
 }
 
-export function getVkAsFields(vk: any): FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
+export function getVkAsFields(vk: {
+  keyAsBytes: string;
+  keyAsFields: string[];
+}): FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
   return vk.keyAsFields as FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 }
