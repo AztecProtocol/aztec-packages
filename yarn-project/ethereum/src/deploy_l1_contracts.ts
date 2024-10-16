@@ -322,7 +322,6 @@ export const deployL1Contracts = async (
   const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
 
   const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
-    account.address.toString(),
     registryAddress.toString(),
     feeJuiceAddress.toString(),
     args.l2FeeJuiceAddress.toString(),
@@ -374,7 +373,7 @@ export const deployL1Contracts = async (
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
   logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
-  if ((await feeJuicePortal.read.owner([])) !== zeroAddress) {
+  if (!(await feeJuicePortal.read.initialized([]))) {
     const initPortalTxHash = await feeJuicePortal.write.initialize([]);
     txHashes.push(initPortalTxHash);
     logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
