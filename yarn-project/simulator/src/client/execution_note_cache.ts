@@ -146,4 +146,27 @@ export class ExecutionNoteCache {
     notes.push(note);
     this.noteMap.set(note.note.contractAddress.toBigInt(), notes);
   }
+
+  public getAllNotes() {
+    return this.notes;
+  }
+
+  public removeNotesFromCache(amount: number) {
+    if (amount > this.notes.length) {
+      throw new Error(`Cannot remove more notes than existing in cache. Tried to remove ${amount} notes. Total note length: ${this.notes.length}`);
+    }
+
+    for (let i = 0; i < amount; i++) {
+      const noteToRemove = this.notes.pop();
+
+      const { contractAddress } = noteToRemove!.note;
+
+      const contractNotes = this.noteMap.get(contractAddress.toBigInt());
+      if (contractNotes === undefined) {
+        throw new Error(`Notes for contract ${contractAddress} not found`);
+      }
+
+      contractNotes.pop();
+    }
+  }
 }
