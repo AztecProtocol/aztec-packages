@@ -41,7 +41,6 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
-        info("accumulation ok");
         ivc.prove();
     }
 }

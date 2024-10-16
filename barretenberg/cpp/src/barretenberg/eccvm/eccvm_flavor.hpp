@@ -936,7 +936,6 @@ class ECCVMFlavor {
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
         FF libra_sum;
-        // FF libra_challenge;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::vector<FF> libra_evaluations;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -1152,13 +1151,12 @@ class ECCVMFlavor {
             }
 
             size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
-            sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < log_circuit_size; i++) {
                 libra_evaluations.emplace_back(
                     NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
             }
-
+            sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
+                NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
                 gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }

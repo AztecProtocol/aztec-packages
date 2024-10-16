@@ -407,7 +407,8 @@ polynomials that are sent in clear.
         EvalMaskingScalars eval_masking_scalars;
 
         for (size_t k = 0; k < NUM_ALL_WITNESS_ENTITIES; ++k) {
-            // TODO: Once Shplemini supports ZK, these constants must be random
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1136): Once Shplemini supports ZK, these
+            // constants must be generated in Oink
             eval_masking_scalars[k] = FF(0);
         };
         // Generate random scalars \f$ \rho_1,\ldots, \rho_{N_w}\f$ to mask the evaluations of witness polynomials and
