@@ -1,7 +1,10 @@
 import debug from 'debug';
 import { inspect } from 'util';
 
-import { type LogData, type LogFn } from './log_fn.js';
+
+
+import { type LogData, type LogFn, type LogOptions } from './log_fn.js';
+
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 
@@ -20,21 +23,48 @@ function getLogLevel() {
 export let currentLevel = getLogLevel();
 
 const namespaces = process.env.DEBUG ?? 'aztec:*';
-debug.enable(namespaces);
+debug.enable(filterNegativePatterns(namespaces));
 
 /** Log function that accepts an exception object */
-type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
+type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData, options?: LogOptions) => void;
 
 /**
  * Logger that supports multiple severity levels.
  */
-export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn };
+export type Logger = { [K in Exclude<LogLevel, 'error'>]: LogFn } & { /** Error log function */ error: ErrorLogFn };
 
 /**
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
  * Intended as a drop-in replacement for the debug module.
  */
 export type DebugLogger = Logger;
+
+export interface DebugLoggerOptions {
+  fixedLogData?: LogData;
+}
+
+interface DebugLoggerState extends DebugLoggerOptions {
+  lastLogMessage?: string;
+  ignorePatterns: string[];
+}
+
+function filterNegativePatterns(debugString: string): string {
+  return (
+    debugString
+      .split(',')
+      .filter(p => !p.startsWith('-'))
+      .join(',')
+  );
+}
+function extractNegativePatterns(debugString: string): string[] {
+  return (
+    debugString
+      .split(',')
+      .filter(p => p.startsWith('-'))
+      // Remove the leading '-' from the pattern
+      .map(p => p.slice(1))
+  );
+}
 
 /**
  * Creates a new DebugLogger for the current module, defaulting to the LOG_LEVEL env var.
@@ -46,25 +76,25 @@ export type DebugLogger = Logger;
  * // will always add the validator address to the log labels
  * @returns A debug logger.
  */
-
-export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
+export function createDebugLogger(name: string, options?: DebugLoggerOptions): DebugLogger {
   const debugLogger = debug(name);
-
-  const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
+  // Copied so we can be sure it is mutable
+  const logState: DebugLoggerState = { ...options, ignorePatterns: extractNegativePatterns(namespaces) };
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) =>
-      logWithDebug(debugLogger, 'error', fmtErr(msg, err), attatchFixedLogData(data)),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
+    error: (msg: string, err?: unknown, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'error', fmtErr(msg, err), data, logState, options),
+    warn: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'warn', msg, data, logState, options),
+    info: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'info', msg, data, logState, options),
+    verbose: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'verbose', msg, data, logState, options),
+    debug: (msg: string, data?: LogData, options?: LogOptions) =>
+      logWithDebug(debugLogger, 'debug', msg, data, logState, options),
   };
-  return Object.assign(
-    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
-    logger,
-  );
+  return Object.assign((msg: string, data?: LogData, options?: LogOptions) => logger.debug(msg, data, options), logger);
 }
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
@@ -90,15 +120,33 @@ export function setLevel(level: LogLevel) {
  * @param level - Intended log level.
  * @param args - Args to log.
  */
-function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?: LogData) {
+function logWithDebug(
+  debug: debug.Debugger,
+  level: LogLevel,
+  msg: string,
+  data: LogData | undefined,
+  logState: DebugLoggerState,
+  options?: LogOptions,
+) {
+  if (logState.fixedLogData) {
+    // Attach fixed log data that will be bundled in every message, providing context on this logger
+    data = { ...logState.fixedLogData, ...data };
+  }
+  msg = data ? `${msg} ${fmtLogData(data)}` : msg;
+  if (options?.ignoreImmediateDuplicates && logState.lastLogMessage === msg) {
+    // Early exit as we are only configured to log on changes in logged data
+    return;
+  }
+  if (logState.ignorePatterns.some(pattern => debug.namespace.match(pattern))) {
+    return; // Skip logging this message
+  }
   for (const handler of logHandlers) {
     handler(level, debug.namespace, msg, data);
   }
-
-  msg = data ? `${msg} ${fmtLogData(data)}` : msg;
   if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
     debug('[%s] %s', level.toUpperCase(), msg);
   }
+  logState.lastLogMessage = msg;
 }
 
 /**

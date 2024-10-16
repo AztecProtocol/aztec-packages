@@ -109,7 +109,7 @@ export class EnqueuedCallSimulator {
     private globalVariables: GlobalVariables,
     private historicalHeader: Header,
   ) {
-    this.log = createDebugLogger(`aztec:sequencer`);
+    this.log = createDebugLogger(`aztec:enqueued_call_simulator`);
   }
 
   async simulate(

@@ -5,6 +5,8 @@ export PROVER_REAL_PROOFS="$1"
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
 
+PORT="$1"
+
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
@@ -33,6 +35,7 @@ export PROVER_AGENT_ENABLED="true"
 export PROVER_PUBLISHER_PRIVATE_KEY="0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
 export PROVER_COORDINATION_NODE_URL="http://127.0.0.1:8080"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
+export PROVER_JOB_SOURCE_URL="http://127.0.0.1:$PORT"
 
 # Start the Prover Node with the prover and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port=8078 --prover-node --prover --archiver
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --prover-node --prover --archiver

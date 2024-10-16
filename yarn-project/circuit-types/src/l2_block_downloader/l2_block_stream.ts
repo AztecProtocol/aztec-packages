@@ -9,6 +9,7 @@ import { type L2BlockId, type L2BlockSource, type L2BlockTag } from '../l2_block
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
+  // We ignore duplicates to only print new work
   private readonly log = createDebugLogger('aztec:l2_block_stream');
 
   constructor(
@@ -45,17 +46,22 @@ export class L2BlockStream {
     try {
       const sourceTips = await this.l2BlockSource.getL2Tips();
       const localTips = await this.localData.getL2Tips();
-      this.log.debug(`Running L2 block stream`, {
-        sourceLatest: sourceTips.latest.number,
-        localLatest: localTips.latest,
-        sourceFinalized: sourceTips.finalized.number,
-        localFinalized: localTips.finalized,
-        sourceProven: sourceTips.proven.number,
-        localProven: localTips.proven,
-        sourceLatestHash: sourceTips.latest.hash,
-        sourceProvenHash: sourceTips.proven.hash,
-        sourceFinalizedHash: sourceTips.finalized.hash,
-      });
+
+      this.log.debug(
+        `Running L2 block stream`,
+        {
+          sourceLatest: sourceTips.latest.number,
+          localLatest: localTips.latest,
+          sourceFinalized: sourceTips.finalized.number,
+          localFinalized: localTips.finalized,
+          sourceProven: sourceTips.proven.number,
+          localProven: localTips.proven,
+          sourceLatestHash: sourceTips.latest.hash,
+          sourceProvenHash: sourceTips.proven.hash,
+          sourceFinalizedHash: sourceTips.finalized.hash,
+        },
+        { ignoreImmediateDuplicates: true },
+      );
 
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.latest;
