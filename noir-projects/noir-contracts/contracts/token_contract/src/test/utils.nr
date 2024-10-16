@@ -7,7 +7,7 @@ use dep::aztec::{
 
 use crate::{types::transparent_note::TransparentNote, Token};
 
-unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
@@ -36,7 +36,7 @@ unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
     (&mut env, token_contract_address, owner, recipient)
 }
 
-unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
@@ -69,7 +69,7 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
 }
 
 // docs:start:txe_test_read_public
-unconstrained pub fn check_public_balance(
+pub unconstrained fn check_public_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: Field
@@ -87,7 +87,7 @@ unconstrained pub fn check_public_balance(
 // docs:end:txe_test_read_public
 
 // docs:start:txe_test_call_unconstrained
-unconstrained pub fn check_private_balance(
+pub unconstrained fn check_private_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: Field

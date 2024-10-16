@@ -15,11 +15,10 @@ import {
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { TubeVk, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBaseRollupInput, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -57,7 +56,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       this.globalVariables!,
       this.db,
-      VerificationKeyData.makeFake(),
+      TubeVk,
     );
   }
 

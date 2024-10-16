@@ -88,7 +88,7 @@ pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS:
     }
 }
 
-unconstrained pub fn get_unverified_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS: u32>(
+pub unconstrained fn get_unverified_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS: u32>(
     key_validation_requests: [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN],
     hints: [KeyValidationHint; NUM_HINTS]
 ) -> [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN] {
