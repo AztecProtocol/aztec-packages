@@ -1,17 +1,14 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
+
+
 import { type Command } from 'commander';
 
-import {
-  ETHEREUM_HOST,
-  PRIVATE_KEY,
-  l1ChainIdOption,
-  parseAztecAddress,
-  parseBigint,
-  parseEthereumAddress,
-  pxeOption,
-} from '../../utils/commands.js';
+
+
+import { ETHEREUM_HOST, PRIVATE_KEY, l1ChainIdOption, parseAztecAddress, parseBigint, parseEthereumAddress, pxeOption } from '../../utils/commands.js';
+
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
@@ -309,6 +306,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (who, options) => {
       const { getL1Balance } = await import('./get_l1_balance.js');
       await getL1Balance(who, options.token, options.l1RpcUrl, options.l1ChainId, options.json, log);
+    });
+
+  program
+    .command('cheat-code-set-l1-balance')
+    .description('Gets the balance of an ERC token in L1 for the given Ethereum address.')
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(l1ChainIdOption)
+    .argument('<amount>', 'The amount of ETH to mint.', parseBigint)
+    .action(async (who, options) => {
+      const { cheatCodeSetL1Balance } = await import('./cheat_code_set_l1_balance.js');
+      await cheatCodeSetL1Balance(who, options.l1RpcUrl, options.l1ChainId, options.amount, log);
     });
 
   program
