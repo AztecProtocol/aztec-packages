@@ -40,10 +40,10 @@ fi
 
 TMP=$(mktemp -d)
 
-# function on_exit() {
-#   rm -rf "$TMP"
-# }
-# trap on_exit EXIT
+function on_exit() {
+  rm -rf "$TMP"
+}
+trap on_exit EXIT
 
 # Save each secret environment variable into a separate file in $TMP directory
 echo "${AWS_ACCESS_KEY_ID:-}" > "$TMP/aws_access_key_id.txt"
@@ -52,10 +52,13 @@ echo "${S3_BUILD_CACHE_MINIO_URL:-}" > "$TMP/s3_build_cache_minio_url.txt"
 echo "${S3_BUILD_CACHE_UPLOAD:-}" > "$TMP/s3_build_cache_upload.txt"
 echo "${S3_BUILD_CACHE_DOWNLOAD:-}" > "$TMP/s3_build_cache_download.txt"
 
-# Create a Dockerfile dynamically using git files list
+# Archive all Git-tracked files into a tar.gz file
+git archive --format=tar.gz -o git_files.tar.gz HEAD
+
+# Generate a Dockerfile that copies and extracts the tar archive
 DOCKERFILE_PATH="$TMP/Dockerfile"
 cat <<EOF > $DOCKERFILE_PATH
-# Auto-generated Dockerfile based on current git files
+# Auto-generated Dockerfile
 
 # Use an ARG to define the architecture, defaulting to amd64
 ARG ARCH=amd64
@@ -66,13 +69,11 @@ FROM aztecprotocol/build:1.0-\${ARCH}
 # Set working directory
 WORKDIR /usr/src
 
-# Copy all files from the git repository to the Docker image
-COPY $(git ls-files | tr '\n' ' ') .
+# Copy the tar archive and extract it
+COPY git_files.tar.gz /usr/src/
+RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
 
-# Initialize git to use git commands if necessary
 RUN git init -b master
-
-# Set caching environment variable
 ENV USE_CACHE=1
 
 # Mount secrets and execute bootstrap script
@@ -82,8 +83,6 @@ RUN --mount=type=secret,id=aws_access_key_id \\
     export AWS_SECRET_ACCESS_KEY=\$(cat /run/secrets/aws_secret_access_key) && \\
     cd barretenberg && ./bootstrap.sh
 EOF
-
-echo "$TMP/Dockerfile"
 
 # Generate .dockerignore from .gitignore
 npx gitignore-to-dockerignore
