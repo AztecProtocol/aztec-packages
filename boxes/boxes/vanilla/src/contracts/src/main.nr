@@ -16,8 +16,7 @@ contract Vanilla {
     }
 
     #[private]
-    #['private]
-    #['initializer]
+    #[initializer]
     fn constructor(
         number: Field,
         owner: AztecAddress,
@@ -31,7 +30,6 @@ contract Vanilla {
     }
 
     #[private]
-    #['private]
     fn setNumber(
         number: Field,
         owner: AztecAddress,

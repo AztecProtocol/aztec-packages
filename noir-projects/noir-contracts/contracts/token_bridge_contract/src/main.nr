@@ -15,7 +15,7 @@ contract TokenBridge {
 
     use dep::token::Token;
 
-    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal}};
+    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal, view}};
     // docs:end:token_bridge_imports
 
     // docs:start:token_bridge_storage_and_constructor
@@ -28,8 +28,7 @@ contract TokenBridge {
 
     // Constructs the contract.
     #[public]
-    #['public]
-    #['initializer]
+    #[initializer]
     fn constructor(token: AztecAddress, portal_address: EthAddress) {
         storage.token.write(token);
         storage.portal_address.initialize(portal_address);
@@ -37,13 +36,11 @@ contract TokenBridge {
     // docs:end:token_bridge_storage_and_constructor
 
     #[private]
-    #['private]
     fn get_portal_address() -> EthAddress {
         storage.portal_address.read_private()
     }
 
     #[public]
-    #['public]
     fn get_portal_address_public() -> EthAddress {
         storage.portal_address.read_public()
     }
@@ -51,7 +48,6 @@ contract TokenBridge {
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[public]
-    #['public]
     fn claim_public(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
         let content_hash = get_mint_public_content_hash(to, amount);
 
@@ -72,7 +68,6 @@ contract TokenBridge {
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message publicly
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[public]
-    #['public]
     fn exit_to_l1_public(
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
@@ -92,7 +87,6 @@ contract TokenBridge {
     // User needs to call token.redeem_shield() to get the private assets
     // TODO(#8416): Consider creating a truly private claim flow.
     #[private]
-    #['private]
     fn claim_private(
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         amount: Field,
@@ -118,7 +112,6 @@ contract TokenBridge {
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[private]
-    #['private]
     fn exit_to_l1_private(
         token: AztecAddress,
         recipient: EthAddress, // ethereum address to withdraw to
@@ -141,8 +134,7 @@ contract TokenBridge {
     /// docs:end:exit_to_l1_private
     // docs:start:get_token
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn get_token() -> AztecAddress {
         storage.token.read()
     }
@@ -153,8 +145,7 @@ contract TokenBridge {
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
     #[public]
-    #['public]
-    #['internal]
+    #[internal]
     fn _call_mint_on_token(amount: Field, secret_hash: Field) {
         Token::at(storage.token.read()).mint_private(amount, secret_hash).call(&mut context);
     }
@@ -162,8 +153,7 @@ contract TokenBridge {
 
     // docs:start:assert_token_is_same
     #[public]
-    #['public]
-    #['internal]
+    #[internal]
     fn _assert_token_is_same(token: AztecAddress) {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }

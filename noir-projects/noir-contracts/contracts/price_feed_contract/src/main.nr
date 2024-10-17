@@ -16,15 +16,13 @@ contract PriceFeed {
     }
 
     #[public]
-    #['public]
     fn set_price(asset_id: Field, price: Field) {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset { price: U128::from_integer(price) });
     }
 
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn get_price(asset_id: Field) -> Asset {
         storage.assets.at(asset_id).read()
     }

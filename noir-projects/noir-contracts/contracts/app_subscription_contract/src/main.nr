@@ -34,7 +34,6 @@ contract AppSubscription {
     global SUBSCRIPTION_TXS = 5;
 
     #[private]
-    #['private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
         assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
@@ -65,8 +64,7 @@ contract AppSubscription {
     }
 
     #[public]
-    #['public]
-    #['initializer]
+    #[initializer]
     fn constructor(
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
@@ -82,7 +80,6 @@ contract AppSubscription {
     }
 
     #[private]
-    #['private]
     fn subscribe(subscriber: AztecAddress, nonce: Field, expiry_block_number: Field, tx_count: Field) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 

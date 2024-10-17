@@ -15,7 +15,6 @@ contract ImportTest {
     // See yarn-project/simulator/src/client/private_execution.ts
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[private]
-    #['private]
     fn main_contract(target: AztecAddress) -> Field {
         Test::at(target).test_code_gen(
             1,
@@ -40,7 +39,6 @@ contract ImportTest {
     // Used for testing calling a function with no arguments
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[private]
-    #['private]
     fn call_no_args(target: AztecAddress) -> AztecAddress {
         Test::at(target).get_this_address().call(&mut context)
     }
@@ -49,7 +47,6 @@ contract ImportTest {
     // Used for testing calling a public function
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[private]
-    #['private]
     fn call_public_fn(target: AztecAddress) {
         Test::at(target).emit_nullifier_public(1).enqueue(&mut context);
     }
@@ -58,7 +55,6 @@ contract ImportTest {
     // Used for testing calling a public function from another public function
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[public]
-    #['public]
     fn pub_call_public_fn(target: AztecAddress) {
         Test::at(target).emit_nullifier_public(1).call(&mut context);
     }
