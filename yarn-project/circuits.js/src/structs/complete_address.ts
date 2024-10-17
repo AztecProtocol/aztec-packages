@@ -58,6 +58,10 @@ export class CompleteAddress {
     }
   }
 
+  public toPreaddress() {
+    return computeAddress(this.publicKeys.hash(), this.partialAddress).toField();
+  }
+
   /**
    * Gets a readable string representation of the complete address.
    * @returns A readable string representation of the complete address.
