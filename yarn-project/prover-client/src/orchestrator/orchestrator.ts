@@ -4,52 +4,52 @@ import {
   EncryptedTxL2Logs,
   L2Block,
   MerkleTreeId,
+  type PaddingProcessedTx,
+  type ProcessedTx,
   ProvingRequestType,
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  type TxEffect,
   UnencryptedTxL2Logs,
   makeEmptyProcessedTx,
   makePaddingProcessedTx,
   mapProvingRequestTypeToCircuitName,
   toTxEffect,
-  type PaddingProcessedTx,
-  type ProcessedTx,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  type TxEffect,
 } from '@aztec/circuit-types';
 import { type EpochProver, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AvmCircuitInputs,
+  type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
+  type BaseRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   Fr,
+  type GlobalVariables,
+  type Header,
+  type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   PrivateKernelEmptyInputData,
-  RootParityInputs,
-  TUBE_INDEX,
-  TubeInputs,
-  VerificationKeyData,
-  makeEmptyProof,
-  makeEmptyRecursiveProof,
-  type BaseOrMergeRollupPublicInputs,
-  type BaseRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type GlobalVariables,
-  type Header,
-  type KernelCircuitPublicInputs,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
+  RootParityInputs,
+  TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
+  TubeInputs,
   type VMCircuitPublicInputs,
-  type VerificationKeyAsFields
+  type VerificationKeyAsFields,
+  VerificationKeyData,
+  makeEmptyProof,
+  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -61,7 +61,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { TubeVk, getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { Attributes, trackSpan, wrapCallbackInSpan, type TelemetryClient, type Tracer } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
@@ -81,13 +81,13 @@ import {
 } from './block-building-helpers.js';
 import { type BlockProvingState, type MergeRollupInputData } from './block-proving-state.js';
 import {
-  EpochProvingState,
   type BlockMergeRollupInputData,
+  EpochProvingState,
   type ProvingResult,
   type TreeSnapshots,
 } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
-import { TX_PROVING_CODE, TxProvingState, type TxProvingInstruction } from './tx-proving-state.js';
+import { TX_PROVING_CODE, type TxProvingInstruction, TxProvingState } from './tx-proving-state.js';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
