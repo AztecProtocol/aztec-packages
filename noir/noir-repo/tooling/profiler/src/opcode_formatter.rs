@@ -17,7 +17,6 @@ fn format_blackbox_function<F>(call: &BlackBoxFuncCall<F>) -> String {
         BlackBoxFuncCall::Blake2s { .. } => "blake2s".to_string(),
         BlackBoxFuncCall::Blake3 { .. } => "blake3".to_string(),
         BlackBoxFuncCall::SchnorrVerify { .. } => "schnorr_verify".to_string(),
-        BlackBoxFuncCall::PedersenHash { .. } => "pedersen_hash".to_string(),
         BlackBoxFuncCall::EcdsaSecp256k1 { .. } => "ecdsa_secp256k1".to_string(),
         BlackBoxFuncCall::EcdsaSecp256r1 { .. } => "ecdsa_secp256r1".to_string(),
         BlackBoxFuncCall::MultiScalarMul { .. } => "multi_scalar_mul".to_string(),
