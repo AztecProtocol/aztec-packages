@@ -2,26 +2,26 @@ use std::static_assert;
 
 // Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 bytes.
 // This implies that M = ceil(N / 31).
-// 
+//
 // Each 31 byte chunk is converted into a Field as if the chunk was the Field's big endian representation. If the last chunk
 // is less than 31 bytes long, then only the relevant bytes are conisdered.
-// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3] 
+// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3]
 pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
     static_assert(N <= 31 * M, "Bytes do not fit into fields");
     let mut dst = [0; M];
 
-    for field_index in 0..M {
+    for dst_index in 0..M {
         let mut field_value = 0;
 
         for i in 0..31 {
-            let byte_index = field_index * 31 + i;
+            let byte_index = dst_index * 31 + i;
             if byte_index < N {
                 // Shift the existing value left by 8 bits and add the new byte
                 field_value = field_value * 256 + input[byte_index] as Field;
             }
         }
 
-        dst[field_index] = field_value;
+        dst[dst_index] = field_value;
     }
 
     dst
@@ -32,8 +32,8 @@ pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
 pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
     let mut dst = [0; N];
 
-    for field_index in 0..M {
-        let field = input[field_index];
+    for src_index in 0..M {
+        let field = input[src_index];
 
         // We expect that the field contains at most 31 bytes of information.
         field.assert_max_bit_size::<248>();
@@ -43,7 +43,7 @@ pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
 
         // Since some of the bytes might not be occupied (if the source value requiring less than 31 bytes),
         // we have to compute the start index from which to copy.
-        let remaining_bytes = N - field_index * 31;
+        let remaining_bytes = N - src_index * 31;
         let src_start_index = if remaining_bytes < 31 {
             // If the remaining bytes are less than 31, we only copy the remaining bytes
             31 - remaining_bytes
@@ -59,7 +59,7 @@ pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
         }
 
         for i in 0..31 {
-            let byte_index = field_index * 31 + i;
+            let byte_index = src_index * 31 + i;
             if byte_index < N {
                 dst[byte_index] = src[src_start_index + i];
             }
