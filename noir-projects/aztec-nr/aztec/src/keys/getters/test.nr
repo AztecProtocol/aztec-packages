@@ -18,9 +18,15 @@ unconstrained fn test_get_public_keys_unknown() {
 
     // Instead of querying for some unknown account, which would result in the oracle erroring out, we mock a bad oracle
     // response to check that the circuit properly checks the address derivation.
-    let _ = OracleMock::mock("getPublicKeysAndPartialAddress")
-        .returns([0; KEY_ORACLE_RESPONSE_LENGTH])
-        .times(1);
+    let original_keys = get_public_keys(account.address).serialize();
+
+    // We fill in all the keys but we leave partial address = 0
+    let mut bad_response = [0; KEY_ORACLE_RESPONSE_LENGTH];
+    for i in 0..12 {
+        bad_response[i] = original_keys[i];
+    }
+
+    let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns(bad_response.serialize()).times(1);
     let _ = get_public_keys(account.address);
 }
 

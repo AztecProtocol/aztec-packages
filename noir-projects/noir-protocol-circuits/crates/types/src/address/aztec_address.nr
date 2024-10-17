@@ -1,14 +1,28 @@
 use crate::{
     abis::function_selector::FunctionSelector,
+    public_keys::{ToPoint, PublicKeys, NpkM, IvpkM, OvpkM, TpkM},
     address::{
-        partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
-        salted_initialization_hash::SaltedInitializationHash,
-    },
-    constants::{AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
+    partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
+    salted_initialization_hash::SaltedInitializationHash
+},
+    constants::{
+    AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__PUBLIC_KEYS_HASH,
+    GENERATOR_INDEX__CONTRACT_ADDRESS_V1
+},
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
     traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils,
+};
+
+global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
+
+// We do below because `use crate::point::Point;` does not work
+use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+
+use std::{
+    ec::{sqrt, pow},
+    embedded_curve_ops::{fixed_base_scalar_mul as derive_public_key, EmbeddedCurveScalar}
 };
 
 // Aztec address
@@ -52,16 +66,53 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
+impl ToPoint for AztecAddress {
+    fn to_point(self) -> Point {
+        // Calculate y^2 = x^3 - 17
+        let y_squared = pow(self.inner, 3) - 17;
+
+        // TODO (#8970): Failure validation
+        // We can see if y is square first, or we can soft fail with just sqrt(y_squared);
+        // If y is not square, the x-coordinate is not on the curve
+        // Do we throw here or can we soft continue and this is fine ? Test this with points not on curve to see what happens.
+        // let y_is_square = is_square(y_squared);
+        // assert(y_is_square);
+
+        let mut y = sqrt(y_squared);
+
+        // If we get a negative y coordinate, we pin it to the positive one by subtracting it from the Field modulus
+        if (!(y.lt(BN254_FR_MODULUS_DIV_2) | y.eq(BN254_FR_MODULUS_DIV_2))) {
+            y = (BN254_FR_MODULUS_DIV_2 + BN254_FR_MODULUS_DIV_2 + 1) - y;
+        }
+
+        Point { x: self.inner, y, is_infinite: false }
+    }
+}
+
 impl AztecAddress {
     pub fn zero() -> Self {
         Self { inner: 0 }
     }
 
-    pub fn compute(pub_keys_hash: PublicKeysHash, partial_address: PartialAddress) -> AztecAddress {
-        AztecAddress::from_field(poseidon2_hash_with_separator(
-            [pub_keys_hash.to_field(), partial_address.to_field()],
-            GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        ))
+    pub fn compute_preaddress(pub_keys_hash: PublicKeysHash, partial_address: PartialAddress) -> AztecAddress {
+        AztecAddress::from_field(
+            poseidon2_hash_with_separator(
+                [pub_keys_hash.to_field(), partial_address.to_field()],
+                GENERATOR_INDEX__CONTRACT_ADDRESS_V1
+            )
+        )
+    }
+
+    pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
+        let public_keys_hash = public_keys.hash();
+
+        let pre_address = poseidon2_hash_with_separator(
+            [public_keys_hash.to_field(), partial_address.to_field()],
+            GENERATOR_INDEX__CONTRACT_ADDRESS_V1
+        );
+
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(public_keys.ivpk_m.to_point());
+        AztecAddress::from_field(address_point.x)
     }
 
     pub fn compute_from_private_function(
@@ -71,7 +122,7 @@ impl AztecAddress {
         contract_class_artifact_hash: Field,
         contract_class_public_bytecode_commitment: Field,
         salted_initialization_hash: SaltedInitializationHash,
-        public_keys_hash: PublicKeysHash,
+        public_keys: PublicKeys
     ) -> Self {
         let private_functions_root = private_functions_root_from_siblings(
             function_selector,
@@ -92,7 +143,7 @@ impl AztecAddress {
             salted_initialization_hash,
         );
 
-        AztecAddress::compute(public_keys_hash, partial_address)
+        AztecAddress::compute(public_keys, partial_address)
     }
 
     pub fn is_zero(self) -> bool {
@@ -110,14 +161,53 @@ impl AztecAddress {
 }
 
 #[test]
-fn compute_address_from_partial_and_pub_keys_hash() {
+fn compute_address_from_partial_and_pub_keys() {
+    let public_keys = PublicKeys {
+        npk_m: NpkM {
+            inner: Point {
+                x: 0x22f7fcddfa3ce3e8f0cc8e82d7b94cdd740afa3e77f8e4a63ea78a239432dcab,
+                y: 0x0471657de2b6216ade6c506d28fbc22ba8b8ed95c871ad9f3e3984e90d9723a7,
+                is_infinite: false
+            }
+        },
+        ivpk_m: IvpkM {
+            inner: Point {
+                x: 0x111223493147f6785514b1c195bb37a2589f22a6596d30bb2bb145fdc9ca8f1e,
+                y: 0x273bbffd678edce8fe30e0deafc4f66d58357c06fd4a820285294b9746c3be95,
+                is_infinite: false
+            }
+        },
+        ovpk_m: OvpkM {
+            inner: Point {
+                x: 0x09115c96e962322ffed6522f57194627136b8d03ac7469109707f5e44190c484,
+                y: 0x0c49773308a13d740a7f0d4f0e6163b02c5a408b6f965856b6a491002d073d5b,
+                is_infinite: false
+            }
+        },
+        tpk_m: TpkM {
+            inner: Point {
+                x: 0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a762,
+                y: 0x2f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a,
+                is_infinite: false
+            }
+        }
+    };
+
+    let partial_address = PartialAddress::from_field(0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de);
+
+    let address = AztecAddress::compute(public_keys, partial_address);
+    let expected_computed_address_from_partial_and_pubkey = 0x24e4646f58b9fbe7d38e317db8d5636c423fbbdfbe119fc190fe9c64747e0c62;
+    assert(address.to_field() == expected_computed_address_from_partial_and_pubkey);
+}
+
+#[test]
+fn compute_preaddress_from_partial_and_pub_keys_hash() {
     let pub_keys_hash = PublicKeysHash::from_field(1);
     let partial_address = PartialAddress::from_field(2);
 
-    let address = AztecAddress::compute(pub_keys_hash, partial_address);
-    let expected_computed_address_from_partial_and_pubkey =
-        0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
-    assert(address.to_field() == expected_computed_address_from_partial_and_pubkey);
+    let address = AztecAddress::compute_preaddress(pub_keys_hash, partial_address);
+    let expected_computed_preaddress_from_partial_and_pubkey = 0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
+    assert(address.to_field() == expected_computed_preaddress_from_partial_and_pubkey);
 }
 
 #[test]

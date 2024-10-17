@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { type Fq, type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
@@ -41,9 +41,45 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
-export function computeAddress(publicKeysHash: Fr, partialAddress: Fr) {
-  const addressFr = poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
-  return AztecAddress.fromField(addressFr);
+export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
+  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+}
+
+export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr) {
+  const preaddress = computePreaddress(publicKeys.hash(), partialAddress);
+  const address = computeAddressFromPreaddressAndIvpkM(preaddress, publicKeys.masterIncomingViewingPublicKey);
+
+  return address;
+}
+
+export function computeAddressFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Point) {
+  const addressPoint = computeAddressPointFromPreaddressAndIvpkM(preaddress, ivpkM);
+
+  return AztecAddress.fromField(addressPoint.x);
+}
+
+export function computeAddressPointFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Point) {
+  const preaddressPoint = derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt()));
+  const addressPoint = new Grumpkin().add(preaddressPoint, ivpkM);
+
+  return addressPoint;
+}
+
+export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
+  const addressSecretCandidate = ivsk.add(new Fq(preaddress.toBigInt()));
+  const addressPointCandidate = derivePublicKeyFromSecretKey(addressSecretCandidate);
+
+  // If our secret computes a point with a negative y-coordinate, we then negate the secret to produce the secret
+  // that can decrypt payloads encrypted with the point having a positive y-coordinate.
+  if (!addressPointCandidate.y.lt(new Fr((Fr.MODULUS - 1n) / 2n))) {
+    return new Fq(Fq.MODULUS - addressSecretCandidate.toBigInt());
+  }
+
+  return addressSecretCandidate;
+}
+
+export function computePoint(address: AztecAddress) {
+  return Point.fromXAndSign(address, true);
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {

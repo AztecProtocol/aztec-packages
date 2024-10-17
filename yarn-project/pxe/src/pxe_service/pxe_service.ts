@@ -41,6 +41,7 @@ import {
   type NodeInfo,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
+  computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
@@ -858,6 +859,7 @@ export class PXEService implements PXE {
     from: number,
     limit: number,
     eventMetadata: EventMetadata<T>,
+    // TODO: Fix this by allow it to pass only an address
     vpks: Point[],
   ): Promise<T[]> {
     if (vpks.length === 0) {
@@ -871,7 +873,24 @@ export class PXEService implements PXE {
 
     const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
 
-    const vsks = await Promise.all(vpks.map(vpk => this.keyStore.getMasterSecretKey(vpk)));
+    const vsks = await Promise.all(
+      vpks.map(async vpk => {
+        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        let secretKey = await this.keyStore.getMasterSecretKey(vpk);
+        if (keyPrefix === 'iv') {
+          const registeredAccount = await this.getRegisteredAccount(account);
+          if (!registeredAccount) {
+            throw new Error('No registered account');
+          }
+
+          const preaddress = registeredAccount.getPreaddress();
+
+          secretKey = computeAddressSecret(preaddress, secretKey);
+        }
+
+        return secretKey;
+      }),
+    );
 
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {

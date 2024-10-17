@@ -81,7 +81,7 @@ impl Hash for ContractInstance {
 impl ContractInstance {
     fn to_address(self) -> AztecAddress {
         AztecAddress::compute(
-            self.public_keys.hash(),
+            self.public_keys,
             PartialAddress::compute(
                 self.contract_class_id,
                 self.salt,

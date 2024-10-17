@@ -6,7 +6,7 @@ import {
   L1EventPayload,
   type PXE,
 } from '@aztec/aztec.js';
-import { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
+import { computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -57,7 +57,10 @@ describe('Logs', () => {
 
       const decryptedEvent0 = L1EventPayload.decryptAsIncoming(
         encryptedLogs[0],
-        deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
+        computeAddressSecret(
+          wallets[0].getCompleteAddress().getPreaddress(),
+          deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
+        ),
       )!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
@@ -77,7 +80,10 @@ describe('Logs', () => {
 
       const decryptedEvent1 = L1EventPayload.decryptAsIncoming(
         encryptedLogs[2],
-        deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
+        computeAddressSecret(
+          wallets[0].getCompleteAddress().getPreaddress(),
+          deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
+        ),
       )!;
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);

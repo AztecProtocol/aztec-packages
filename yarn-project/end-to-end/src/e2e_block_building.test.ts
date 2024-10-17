@@ -16,7 +16,11 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS } from '@aztec/circuits.js';
+import {
+  AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
+  computeAddressSecret,
+  deriveMasterIncomingViewingSecretKey,
+} from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
@@ -299,7 +303,13 @@ describe('e2e_block_building', () => {
       // compare logs
       expect(rct.status).toEqual('success');
       const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
-        const notePayload = L1NotePayload.decryptAsIncoming(l, keys.masterIncomingViewingSecretKey);
+        const notePayload = L1NotePayload.decryptAsIncoming(
+          l,
+          computeAddressSecret(
+            thisWallet.getCompleteAddress().getPreaddress(),
+            deriveMasterIncomingViewingSecretKey(thisWallet.getSecretKey()),
+          ),
+        );
         return notePayload?.note.items[0];
       });
       expect(noteValues[0]).toEqual(new Fr(10));
