@@ -55,10 +55,10 @@ echo "${S3_BUILD_CACHE_DOWNLOAD:-}" > "$TMP/s3_build_cache_download.txt"
 cd $(git rev-parse --show-toplevel)
 
 # Archive all Git-tracked files into a tar.gz file
-git archive --format=tar.gz -o git_files.tar.gz HEAD
+git archive --format=tar.gz -o "$TMP/git_files.tar.gz" HEAD
 
 # Generate a Dockerfile that copies and extracts the tar archive
-DOCKERFILE_PATH="Dockerfile.gen"
+DOCKERFILE_PATH="$TMP/Dockerfile.gen"
 cat <<EOF > $DOCKERFILE_PATH
 # Auto-generated Dockerfile
 
@@ -86,8 +86,6 @@ RUN --mount=type=secret,id=aws_access_key_id \\
     cd barretenberg && ./bootstrap.sh
 EOF
 
-cd $(git rev-parse --show-toplevel)
-
 # Run Docker build with secrets
 DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f $DOCKERFILE_PATH --progress=plain \
   --secret id=aws_access_key_id,src=$TMP/aws_access_key_id.txt \
@@ -95,4 +93,4 @@ DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f $DOCKERFILE_PATH --prog
   --secret id=s3_build_cache_minio_url,src=$TMP/s3_build_cache_minio_url.txt \
   --secret id=s3_build_cache_upload,src=$TMP/s3_build_cache_upload.txt \
   --secret id=s3_build_cache_download,src=$TMP/s3_build_cache_download.txt \
-  .
+  "$TMP"
