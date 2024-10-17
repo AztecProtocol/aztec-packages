@@ -1,0 +1,30 @@
+# TODO eventually rename this just Dockerfile when we've moved to it entirely
+# Use an ARG to define the architecture, defaulting to amd64
+ARG ARCH=amd64
+
+# Conditionally set the FROM image based on the ARCH argument
+FROM aztecprotocol/build:1.0-${ARCH}
+
+# Use ARG for credentials only at build time if needed; otherwise pass ENV at runtime
+ARG AWS_ACCESS_KEY_ID
+ARG AWS_SECRET_ACCESS_KEY
+# TODO unused start
+ARG S3_BUILD_CACHE_MINIO_URL
+ARG S3_BUILD_CACHE_UPLOAD
+ARG S3_BUILD_CACHE_DOWNLOAD
+# TODO unused end
+
+# Set working directory
+WORKDIR /usr/src
+
+# Copy the local repository to the Docker image
+COPY . .
+
+# Run with our AWS credentials
+RUN --mount=type=secret,id=s3_build_cache_minio_url \
+    --mount=type=secret,id=s3_build_cache_upload \
+    --mount=type=secret,id=s3_build_cache_download \
+    export S3_BUILD_CACHE_MINIO_URL=$(cat /run/secrets/s3_build_cache_minio_url) && \
+    export S3_BUILD_CACHE_UPLOAD=$(cat /run/secrets/s3_build_cache_upload) && \
+    export S3_BUILD_CACHE_DOWNLOAD=$(cat /run/secrets/s3_build_cache_download) && \
+    ./bootstrap.sh fast
