@@ -454,11 +454,8 @@ fn get_outputs_string(outputs: &[Witness]) -> String {
 
 impl<F: std::fmt::Display + Copy> std::fmt::Display for BlackBoxFuncCall<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlackBoxFuncCall::PedersenCommitment { .. } => {
-                return write!(f, "BLACKBOX::Deprecated")
-            }
-            _ => (),
+        if matches!(self, BlackBoxFuncCall::PedersenCommitment { .. }) {
+            return write!(f, "BLACKBOX::Deprecated");
         }
 
         let uppercase_name = self.name().to_uppercase();
