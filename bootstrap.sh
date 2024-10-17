@@ -71,7 +71,7 @@ function check_toolchains {
   fi
   # Check foundry version.
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep $tool > /dev/null; then # TODO revert this once build image is updated
+    if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
       encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
       echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.75)"
