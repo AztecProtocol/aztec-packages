@@ -452,13 +452,10 @@ fn compile_contract_inner(
             .iter()
             .filter_map(|attr|
                 match attr {
-                 SecondaryAttribute::Tag(attribute) => {
+                 SecondaryAttribute::Tag(attribute) | SecondaryAttribute::Meta(attribute) => {
                     Some(attribute.contents.clone())
                 },
-                SecondaryAttribute::ContractLibraryMethod => {
-                    Some("contract_library_method".to_string())
-                },
-                 _ => None
+                _ => None
             })
             .collect();
 
