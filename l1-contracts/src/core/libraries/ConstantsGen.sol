@@ -152,7 +152,7 @@ library Constants {
   uint256 internal constant GAS_SETTINGS_LENGTH = 7;
   uint256 internal constant CALL_CONTEXT_LENGTH = 5;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 4;
-  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 5;
+  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 16;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 3;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant ETH_ADDRESS_LENGTH = 1;

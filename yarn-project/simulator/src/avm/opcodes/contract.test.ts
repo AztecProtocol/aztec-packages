@@ -52,14 +52,15 @@ describe('Contract opcodes', () => {
       context.machineState.memory.set(0, new Field(address.toField()));
       await new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
 
-      const actual = context.machineState.memory.getSlice(1, 6);
+      const actual = context.machineState.memory.getSlice(1, 17);
+
       expect(actual).toEqual([
         new Field(1), // found
         new Field(contractInstance.salt),
         new Field(contractInstance.deployer),
         new Field(contractInstance.contractClassId),
         new Field(contractInstance.initializationHash),
-        new Field(contractInstance.publicKeysHash),
+        ...contractInstance.publicKeys.toFields().map(f => new Field(f)),
       ]);
 
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
