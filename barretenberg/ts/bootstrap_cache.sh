@@ -2,7 +2,6 @@
 set -eu
 
 cd "$(dirname "$0")"
-source ../../build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
 
 CACHE_SCRIPTS=../../build-system/s3-cache-scripts
 
