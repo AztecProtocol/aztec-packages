@@ -348,7 +348,7 @@ describe('Memory instructions', () => {
       const addressing = new Addressing([/*srcOffset*/ AddressingMode.DIRECT, /*dstOffset*/ AddressingMode.INDIRECT]);
       await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10).execute(context);
 
-      expect(context.machineState.memory.get(1)).toBeUndefined();
+      expect(context.machineState.memory.get(1)).toEqual(new Field(0));
       expect(context.machineState.memory.get(20)).toEqual(new Uint16(55n));
     });
 

@@ -1131,7 +1131,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
             /*ib=*/slot,
             /*mem_addr_b=*/0,
             /*ind_b=*/false,
-            /*r_in_tag=*/AvmMemoryTag::U0, // Kernel Sload is writing to memory
+            /*r_in_tag=*/AvmMemoryTag::FF, // Kernel Sload is writing to memory
             /*side_effect_counter=*/0,
             /*rwa=*/1,
             /*no_b=*/true);
