@@ -1,4 +1,5 @@
-# TODO eventually rename this just Dockerfile when we've moved to it entirely
+# Auto-generated Dockerfile
+
 # Use an ARG to define the architecture, defaulting to amd64
 ARG ARCH=amd64
 
@@ -8,14 +9,15 @@ FROM aztecprotocol/build:1.0-${ARCH}
 # Set working directory
 WORKDIR /usr/src
 
-# Copy the local repository to the Docker image
-COPY . .
+# Copy the tar archive and extract it
+COPY git_files.tar.gz .
+RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
 
-# Just enough to use git rev-parse --show-toplevel
-RUN git init -b master && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast."
-
+# Recreate the git to be able to do git ls-files, needed for computing content hash
+RUN git init -b master && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast." >/dev/null
 ENV USE_CACHE=1
-# Run with our AWS credentials
+
+# Mount secrets and execute bootstrap script
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
     export AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) && \

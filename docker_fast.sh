@@ -57,38 +57,8 @@ cd $(git rev-parse --show-toplevel)
 # Archive all Git-tracked files into a tar.gz file
 git archive --format=tar.gz -o "$TMP/git_files.tar.gz" HEAD
 
-# Generate a Dockerfile that copies and extracts the tar archive
-DOCKERFILE_PATH="Dockerfile.fast"
-cat <<EOF > $DOCKERFILE_PATH
-# Auto-generated Dockerfile
-
-# Use an ARG to define the architecture, defaulting to amd64
-ARG ARCH=amd64
-
-# Conditionally set the FROM image based on the ARCH argument
-FROM aztecprotocol/build:1.0-\${ARCH}
-
-# Set working directory
-WORKDIR /usr/src
-
-# Copy the tar archive and extract it
-COPY git_files.tar.gz .
-RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
-
-# Recreate the git to be able to do git ls-files, needed for computing content hash
-RUN git init -b master && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast." >/dev/null
-ENV USE_CACHE=1
-
-# Mount secrets and execute bootstrap script
-RUN --mount=type=secret,id=aws_access_key_id \\
-    --mount=type=secret,id=aws_secret_access_key \\
-    export AWS_ACCESS_KEY_ID=\$(cat /run/secrets/aws_access_key_id) && \\
-    export AWS_SECRET_ACCESS_KEY=\$(cat /run/secrets/aws_secret_access_key) && \\
-    cd barretenberg && ./bootstrap.sh
-EOF
-
-# Run Docker build with secrets
-DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f $DOCKERFILE_PATH --progress=plain \
+# Run Docker build with secrets in the folder with our archive
+DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f Dockerfile.fast --progress=plain \
   --secret id=aws_access_key_id,src=$TMP/aws_access_key_id.txt \
   --secret id=aws_secret_access_key,src=$TMP/aws_secret_access_key.txt \
   --secret id=s3_build_cache_minio_url,src=$TMP/s3_build_cache_minio_url.txt \
