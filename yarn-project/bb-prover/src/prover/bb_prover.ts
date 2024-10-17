@@ -1,6 +1,6 @@
 /* eslint-disable require-await */
 import {
-  ProofAndVerificationKey,
+  type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProofAndVerificationKey,
