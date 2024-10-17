@@ -17,14 +17,39 @@ RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
 RUN git init -b master && git config --global gc.auto 0 && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast." >/dev/null
 
 # Mount secrets and execute bootstrap scripts
-RUN --mount=type=secret,id=aws_access_key_id \
-    --mount=type=secret,id=aws_secret_access_key \
-    export AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) && \
-    export AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) && \
-    cd barretenberg/cpp && ./bootstrap_cache.sh && echo "barretenberg/cpp: Success"
+RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_access_key \
+  export AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) && \
+  export AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) && \
+  cd barretenberg/cpp && \
+    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
+    echo "barretenberg/cpp: Success"
 
-RUN --mount=type=secret,id=aws_access_key_id \
-    --mount=type=secret,id=aws_secret_access_key \
-    export AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) && \
-    export AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) && \
-    cd barretenberg/ts && ./bootstrap_cache.sh && echo "barretenberg/ts: Success"
+RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_access_key \
+  cd barretenberg/ts && \
+    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
+    echo "barretenberg/ts: Success"
+
+RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_access_key \
+  cd noir && \
+    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
+    echo "noir: Success"
+
+RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_access_key \
+  cd l1-contracts && \
+    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
+    echo "noir: Success"
+
+RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_access_key \
+  cd avm-transpiler && \
+    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
+    echo "avm-transpiler: Success"
+
+RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_access_key \
+  cd noir-projects && \
+    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
+    echo "noir-projects: Success"
+
+# yarn-project is big and not particularly slow to build/has no cache script, so we just build it directly
+RUN cd yarn-project && \
+  ./bootstrap.sh fast && \
+  echo "yarn-project: Success"
