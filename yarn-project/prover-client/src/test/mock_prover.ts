@@ -1,11 +1,12 @@
 import {
+  type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
-  type PublicInputsAndTubeProof,
   type ServerCircuitProver,
+  makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
-  AvmVerificationKeyData,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   type KernelCircuitPublicInputs,
@@ -13,6 +14,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootRollupPublicInputs,
+  TUBE_PROOF_LENGTH,
   type VMCircuitPublicInputs,
   VerificationKeyData,
   makeEmptyProof,
@@ -33,10 +35,10 @@ export class MockProver implements ServerCircuitProver {
 
   getAvmProof() {
     return Promise.resolve(
-      Promise.resolve({
-        proof: makeEmptyProof(),
-        verificationKey: AvmVerificationKeyData.makeFake(),
-      }),
+      makeProofAndVerificationKey(
+        makeEmptyProof(),
+        VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+      ),
     );
   }
 
@@ -108,7 +110,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyTubeProof(): Promise<PublicInputsAndTubeProof<KernelCircuitPublicInputs>> {
+  getEmptyTubeProof(): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeKernelCircuitPublicInputs(),
@@ -158,13 +160,9 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getTubeProof(): Promise<{
-    tubeVK: VerificationKeyData;
-    tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
-  }> {
-    return Promise.resolve({
-      tubeVK: VerificationKeyData.makeFakeHonk(),
-      tubeProof: makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-    });
+  getTubeProof(): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+    return Promise.resolve(
+      makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFake()),
+    );
   }
 }
