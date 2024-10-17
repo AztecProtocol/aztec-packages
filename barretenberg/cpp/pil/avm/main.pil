@@ -152,7 +152,7 @@ namespace main(256);
     // Helper selector to characterize a Binary chiplet selector
     pol commit sel_bin;
 
-    // Instruction memory tags read/write (1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7: field)
+    // Instruction memory tags read/write (enum defined in constants)
     pol commit r_in_tag;
     pol commit w_in_tag;
     pol commit alu_in_tag; // Copy of r_in_tag or w_in_tag depending of the operation. It is sent to ALU trace.

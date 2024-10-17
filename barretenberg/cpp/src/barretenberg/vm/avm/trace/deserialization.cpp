@@ -247,7 +247,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
             switch (opType) {
             case OperandType::TAG: {
                 uint8_t tag_u8 = bytecode.at(pos);
-                if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
+                if (tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
                                    " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
                 }

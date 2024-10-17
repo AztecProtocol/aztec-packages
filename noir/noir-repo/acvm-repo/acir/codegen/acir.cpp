@@ -145,12 +145,6 @@ namespace Program {
 
     struct IntegerBitSize {
 
-        struct U0 {
-            friend bool operator==(const U0&, const U0&);
-            std::vector<uint8_t> bincodeSerialize() const;
-            static U0 bincodeDeserialize(std::vector<uint8_t>);
-        };
-
         struct U1 {
             friend bool operator==(const U1&, const U1&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -187,7 +181,7 @@ namespace Program {
             static U128 bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        std::variant<U0, U1, U8, U16, U32, U64, U128> value;
+        std::variant<U1, U8, U16, U32, U64, U128> value;
 
         friend bool operator==(const IntegerBitSize&, const IntegerBitSize&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -6574,41 +6568,6 @@ Program::IntegerBitSize serde::Deserializable<Program::IntegerBitSize>::deserial
     Program::IntegerBitSize obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
-    return obj;
-}
-
-namespace Program {
-
-    inline bool operator==(const IntegerBitSize::U0 &lhs, const IntegerBitSize::U0 &rhs) {
-        return true;
-    }
-
-    inline std::vector<uint8_t> IntegerBitSize::U0::bincodeSerialize() const {
-        auto serializer = serde::BincodeSerializer();
-        serde::Serializable<IntegerBitSize::U0>::serialize(*this, serializer);
-        return std::move(serializer).bytes();
-    }
-
-    inline IntegerBitSize::U0 IntegerBitSize::U0::bincodeDeserialize(std::vector<uint8_t> input) {
-        auto deserializer = serde::BincodeDeserializer(input);
-        auto value = serde::Deserializable<IntegerBitSize::U0>::deserialize(deserializer);
-        if (deserializer.get_buffer_offset() < input.size()) {
-            throw serde::deserialization_error("Some input bytes were not read");
-        }
-        return value;
-    }
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::IntegerBitSize::U0>::serialize(const Program::IntegerBitSize::U0 &obj, Serializer &serializer) {
-}
-
-template <>
-template <typename Deserializer>
-Program::IntegerBitSize::U0 serde::Deserializable<Program::IntegerBitSize::U0>::deserialize(Deserializer &deserializer) {
-    Program::IntegerBitSize::U0 obj;
     return obj;
 }
 
