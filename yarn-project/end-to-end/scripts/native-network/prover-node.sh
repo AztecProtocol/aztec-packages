@@ -40,6 +40,6 @@ export PROVER_JOB_SOURCE_URL="http://127.0.0.1:$PORT"
 LARGE_PROVER_ETH_BALANCE=10000000
 
 # Make sure we don't run out of funds
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js cheat-code-set-l1-balance --who $PROVER_ADDRESS --l1-rpc-url $ETHEREUM_HOST --amount $LARGE_PROVER_ETH_BALANCE
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js cheat-code-set-l1-balance --l1-rpc-url $ETHEREUM_HOST $PROVER_ADDRESS $LARGE_PROVER_ETH_BALANCE
 # Start the Prover Node with the prover and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --prover-node --prover --archiver

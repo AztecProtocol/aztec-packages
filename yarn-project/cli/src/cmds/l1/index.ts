@@ -319,9 +319,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(l1ChainIdOption)
     .argument('<amount>', 'The amount of ETH to mint.', parseBigint)
-    .action(async (who, options) => {
+    .action(async (who, amount, options) => {
       const { cheatCodeSetL1Balance } = await import('./cheat_code_set_l1_balance.js');
-      await cheatCodeSetL1Balance(who, options.l1RpcUrl, options.amount, log);
+      await cheatCodeSetL1Balance(who, options.l1RpcUrl, amount, log);
     });
 
   program
