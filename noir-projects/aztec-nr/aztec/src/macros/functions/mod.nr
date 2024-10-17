@@ -79,8 +79,6 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
 
 /// Private functions are executed client-side and preserve privacy.
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
-    f.add_attribute("private");
-
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
@@ -227,8 +225,6 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
 /// Public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
 pub comptime fn public(f: FunctionDefinition) -> Quoted {
-    f.add_attribute("public");
-
     // We don't want to transform the public_dispatch function.
     if f.name() == quote { public_dispatch } {
         quote {}
