@@ -67,11 +67,10 @@ RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_a
 
 COPY yarn-project.tar.gz yarn-project-artifacts.tar.gz .
 RUN tar -xzf yarn-project.tar.gz && rm yarn-project.tar.gz && git commit -m "Update git metadata" >/dev/null
-RUN tar -xzf yarn-project-artifacts.tar.gz && rm yarn-project-artifacts.tar.gz && git commit -m "Update git metadata" >/dev/null
 
 # yarn-project is big and not particularly slow to build/has no cache script, so we just build it directly
 RUN cd yarn-project && \
-  ./bootstrap.sh fast && \
+  ./bootstrap.sh fast-only && \
   echo "yarn-project: Success"
 
 # Copied from yarn-project/Earthfile/+aztec
