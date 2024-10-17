@@ -12,7 +12,7 @@ WORKDIR /usr/src
 COPY . .
 
 # Just enough to use git rev-parse --show-toplevel
-RUN git init -b master
+RUN git init -b master && git add . && git commit -m "Commit for Dockerfile.fast."
 
 # Run with our AWS credentials
 RUN --mount=type=secret,id=aws_access_key_id \
