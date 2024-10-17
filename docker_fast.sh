@@ -56,7 +56,7 @@ echo "${S3_BUILD_CACHE_DOWNLOAD:-}" > "$TMP/s3_build_cache_download.txt"
 git archive --format=tar.gz -o git_files.tar.gz HEAD
 
 # Generate a Dockerfile that copies and extracts the tar archive
-DOCKERFILE_PATH="$TMP/Dockerfile"
+DOCKERFILE_PATH="Dockerfile.gen"
 cat <<EOF > $DOCKERFILE_PATH
 # Auto-generated Dockerfile
 
@@ -70,7 +70,7 @@ FROM aztecprotocol/build:1.0-\${ARCH}
 WORKDIR /usr/src
 
 # Copy the tar archive and extract it
-COPY git_files.tar.gz /usr/src/
+COPY git_files.tar.gz .
 RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
 
 RUN git init -b master
@@ -84,8 +84,6 @@ RUN --mount=type=secret,id=aws_access_key_id \\
     cd barretenberg && ./bootstrap.sh
 EOF
 
-# Generate .dockerignore from .gitignore
-npx gitignore-to-dockerignore
 cd $(git rev-parse --show-toplevel)
 
 # Run Docker build with secrets
