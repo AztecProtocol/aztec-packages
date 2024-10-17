@@ -58,7 +58,7 @@ cd $(git rev-parse --show-toplevel)
 git archive --format=tar.gz -o "$TMP/git_files.tar.gz" HEAD
 
 # Generate a Dockerfile that copies and extracts the tar archive
-DOCKERFILE_PATH="$TMP/Dockerfile.gen"
+DOCKERFILE_PATH="Dockerfile.fast"
 cat <<EOF > $DOCKERFILE_PATH
 # Auto-generated Dockerfile
 
@@ -75,7 +75,8 @@ WORKDIR /usr/src
 COPY git_files.tar.gz .
 RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
 
-RUN git init -b master && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast."
+# Recreate the git to be able to do git ls-files, needed for computing content hash
+RUN git init -b master && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast." >/dev/null
 ENV USE_CACHE=1
 
 # Mount secrets and execute bootstrap script
