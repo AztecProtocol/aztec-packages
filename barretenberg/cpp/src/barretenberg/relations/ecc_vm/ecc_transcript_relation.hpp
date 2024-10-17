@@ -34,15 +34,17 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };
     /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
-polynomials,
-     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * @brief Upper bound on the degrees of subrelations considered as polynomials only in
+witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does
+not
      * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
      */
     static constexpr std::array<size_t, 25> SUBRELATION_WITNESS_DEGREES{
         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
     };
-
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 15;
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
                            const AllEntities& in,
