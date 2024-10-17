@@ -1,7 +1,9 @@
+// docs:start:setup
 use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Counter {
+    // docs:end:setup
     // docs:start:imports
     use aztec::prelude::{AztecAddress, Map};
     use value_note::{balance_utils, value_note::ValueNote};

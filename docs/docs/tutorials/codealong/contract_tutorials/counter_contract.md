@@ -61,7 +61,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 Go to `main.nr` and start with this contract initialization:
 
 ```rust
-contract Counter {
+#include_code setup /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr raw
 }
 ```
 
@@ -159,4 +159,4 @@ Follow the private voting contract tutorial on the [next page](./private_voting_
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Functions and annotations like `#[aztec(private)]`](../../../aztec/smart_contracts/functions/inner_workings.md)
+- [Functions and annotations like `#[aztec(private)]`](../../../aztec/smart_contracts/functions/inner_workings.md)
