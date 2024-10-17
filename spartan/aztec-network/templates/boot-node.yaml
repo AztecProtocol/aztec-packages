@@ -145,6 +145,7 @@ spec:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
             - containerPort: {{ .Values.bootNode.service.p2pUdpPort }}
+              protocol: UDP
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
