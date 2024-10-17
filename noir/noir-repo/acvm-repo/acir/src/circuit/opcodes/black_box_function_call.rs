@@ -117,12 +117,6 @@ pub enum BlackBoxFuncCall<F> {
         message: Vec<FunctionInput<F>>,
         output: Witness,
     },
-    /// Will be deprecated
-    PedersenCommitment {
-        inputs: Vec<FunctionInput<F>>,
-        domain_separator: u32,
-        outputs: (Witness, Witness),
-    },
     EcdsaSecp256k1 {
         public_key_x: Box<[FunctionInput<F>; 32]>,
         public_key_y: Box<[FunctionInput<F>; 32]>,
@@ -253,7 +247,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             BlackBoxFuncCall::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
             BlackBoxFuncCall::Poseidon2Permutation { .. } => BlackBoxFunc::Poseidon2Permutation,
             BlackBoxFuncCall::Sha256Compression { .. } => BlackBoxFunc::Sha256Compression,
-            BlackBoxFuncCall::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
         }
     }
 
@@ -267,7 +260,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
             | BlackBoxFuncCall::BigIntFromLeBytes { inputs, .. }
-            | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
             | BlackBoxFuncCall::Poseidon2Permutation { inputs, .. } => inputs.to_vec(),
 
             BlackBoxFuncCall::Keccakf1600 { inputs, .. } => inputs.to_vec(),
@@ -381,7 +373,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::SchnorrVerify { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256k1 { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256r1 { output, .. } => vec![*output],
-            BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
             BlackBoxFuncCall::MultiScalarMul { outputs, .. }
             | BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => {
                 vec![outputs.0, outputs.1, outputs.2]
@@ -454,10 +445,6 @@ fn get_outputs_string(outputs: &[Witness]) -> String {
 
 impl<F: std::fmt::Display + Copy> std::fmt::Display for BlackBoxFuncCall<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if matches!(self, BlackBoxFuncCall::PedersenCommitment { .. }) {
-            return write!(f, "BLACKBOX::Deprecated");
-        }
-
         let uppercase_name = self.name().to_uppercase();
         write!(f, "BLACKBOX::{uppercase_name} ")?;
         // INPUTS
