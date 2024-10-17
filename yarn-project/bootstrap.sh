@@ -21,6 +21,7 @@ elif [ "$CMD" = "full" ]; then
   exit 0
 elif [ "$CMD" = "fast-only" ]; then
   # Unlike fast build below, we don't fall back to a normal build.
+  # This is used when we want to ensure that fast build works.
   yarn install --immutable
   yarn build:fast
   exit 0
