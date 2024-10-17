@@ -56,6 +56,7 @@ cd $(git rev-parse --show-toplevel)
 
 PROJECTS=(
   barretenberg
+  build-system
   noir
   l1-contracts
   avm-transpiler
