@@ -450,12 +450,11 @@ fn compile_contract_inner(
             .attributes
             .secondary
             .iter()
-            .filter_map(|attr|
-                match attr {
-                 SecondaryAttribute::Tag(attribute) | SecondaryAttribute::Meta(attribute) => {
+            .filter_map(|attr| match attr {
+                SecondaryAttribute::Tag(attribute) | SecondaryAttribute::Meta(attribute) => {
                     Some(attribute.contents.clone())
-                },
-                _ => None
+                }
+                _ => None,
             })
             .collect();
 
