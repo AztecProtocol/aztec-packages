@@ -1,14 +1,24 @@
 use crate::{
-    abis::function_selector::FunctionSelector,
+    abis::function_selector::FunctionSelector, public_keys::{ToPoint, PublicKeys},
     address::{
     partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
     salted_initialization_hash::SaltedInitializationHash
 },
-    constants::{AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
+    constants::{AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
     traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
+};
+
+global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
+
+// We do below because `use crate::point::Point;` does not work
+use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+
+use std::{
+    ec::{sqrt, pow},
+    embedded_curve_ops::{fixed_base_scalar_mul as derive_public_key, EmbeddedCurveScalar}
 };
 
 // Aztec address
@@ -52,6 +62,31 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
+impl ToPoint for AztecAddress {
+    pub fn to_point(self) -> Point {
+        // Calculate y^2 = x^3 - 17
+        let y_squared = pow(self.inner, 3) - 17;
+
+        // We can see if y is square first, or we can soft fail with just sqrt(y_squared);
+        // If y is not square, the x-coordinate is not on the curve
+        // Do we throw here or soft continue ?
+        // let y_is_square = is_square(y_squared);
+        // assert(y_is_square);
+
+        let mut y = sqrt(y_squared);
+
+        // We can NOT do a check like the below. We do not have access to the sign, and this derivation produces "both" points
+        // assert(y.lt(BN254_FR_MODULUS_DIV_2) | y.eq(BN254_FR_MODULUS_DIV_2));
+
+        // If we get a negative y coordinate, we pin it to the positive one by subtracting it from the Field modulus
+        if (!(y.lt(BN254_FR_MODULUS_DIV_2) | y.eq(BN254_FR_MODULUS_DIV_2))) {
+            y = (BN254_FR_MODULUS_DIV_2 + BN254_FR_MODULUS_DIV_2 + 1) - y;
+        }
+
+        Point { x: self.inner, y, is_infinite: false }
+    }
+}
+
 impl AztecAddress {
     pub fn zero() -> Self {
         Self { inner: 0 }
@@ -66,6 +101,18 @@ impl AztecAddress {
         )
     }
 
+    pub fn compute_from_public_keys(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
+        let public_keys_hash = public_keys.hash();
+
+        let pre_address = poseidon2_hash_with_separator(
+            [public_keys_hash.to_field(), partial_address.to_field()],
+            GENERATOR_INDEX__CONTRACT_ADDRESS_V1
+        );
+
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(public_keys.ivpk_m.to_point());
+        AztecAddress::from_field(address_point.x)
+    }
+
     pub fn compute_from_private_function(
         function_selector: FunctionSelector,
         functino_vk_hash: Field,
@@ -73,7 +120,7 @@ impl AztecAddress {
         contract_class_artifact_hash: Field,
         contract_class_public_bytecode_commitment: Field,
         salted_initialization_hash: SaltedInitializationHash,
-        public_keys_hash: PublicKeysHash
+        public_keys: PublicKeys
     ) -> Self {
         let private_functions_root = private_functions_root_from_siblings(
             function_selector,
@@ -91,7 +138,7 @@ impl AztecAddress {
         // Compute contract address using the preimage which includes the class_id.
         let partial_address = PartialAddress::compute_from_salted_initialization_hash(contract_class_id, salted_initialization_hash);
 
-        AztecAddress::compute(public_keys_hash, partial_address)
+        AztecAddress::compute_from_public_keys(public_keys, partial_address)
     }
 
     pub fn is_zero(self) -> bool {
