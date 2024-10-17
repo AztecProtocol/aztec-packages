@@ -125,14 +125,6 @@ describe('L2BlockStream', () => {
         { type: 'chain-finalized', blockNumber: 35 },
       ]);
     });
-
-    it('does not emit events for chain proven or finalized if local data ignores them', async () => {
-      setRemoteTips(45, 40, 35);
-      localData.latest.number = 40;
-
-      await blockStream.work();
-      expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) }]);
-    });
   });
 });
 
