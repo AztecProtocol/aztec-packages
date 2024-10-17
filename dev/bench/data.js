@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729189845262,
+  "lastUpdate": 1729203076481,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "670af8a158633d106a3f1df82dbd28ef9a9e4ceb",
-          "message": "chore!: keccak_ultra -> ultra_keccak (#8878)\n\nIn main.cpp there are instances that list ultra_keccak and some that\r\nlist keccak_ultra, for the sake of consistency\r\nthis pr replaces keccak_ultra with the more frequently occuring\r\nultra_keccak",
-          "timestamp": "2024-10-02T21:34:22+01:00",
-          "tree_id": "80640c15e22130f500368cdf8206fdb081202f9c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/670af8a158633d106a3f1df82dbd28ef9a9e4ceb"
-        },
-        "date": 1727903376500,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31047.319907,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29119.374086 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5305.789994999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4992.055525 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 94290.529824,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 94290532000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15115.077844999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15115078000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8310842082,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8310842082 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 156216831,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 156216831 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6791256500,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6791256500 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127630377,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127630377 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3512,6 +3440,66 @@ window.BENCHMARK_DATA = {
             "value": 127038151,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127038151 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152162806+sklppy88@users.noreply.github.com",
+            "name": "esau",
+            "username": "sklppy88"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "17c612740dc3563321bf69c1760de1ef88b22124",
+          "message": "feat: modify contract instance to include public keys (#9153)\n\nIn this PR we are doing the ground work for the new address scheme by\r\nmodifying the contract instance to include the full public keys instead\r\nof only the public keys hash. We need the full public keys because we\r\nneed to verify the preimage of the new address, which requires the ivpk,\r\nand we need to verify the ivpk's correctness by manually computing the\r\npublic keys hash.",
+          "timestamp": "2024-10-17T16:45:12-05:00",
+          "tree_id": "a808d71f357d7561b5ca75018984dab4d7d850c1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/17c612740dc3563321bf69c1760de1ef88b22124"
+        },
+        "date": 1729203069176,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29588.701966,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28107.555924 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5420.065596000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5075.373547000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87251.83216800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87251834000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15297.473012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15297474000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2726524051,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2726524051 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126683570,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126683570 ns\nthreads: 1"
           }
         ]
       }
