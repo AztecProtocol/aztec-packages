@@ -152,7 +152,11 @@ contract StaticParent {
 
     // Private function to set a static context and verify correct propagation of nested enqueuing of public calls
     #[private]
-    fn enqueue_static_nested_call_to_pub_function(target_contract: AztecAddress, target_selector: FunctionSelector, args: [Field; 1]) {
+    fn enqueue_static_nested_call_to_pub_function(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        args: [Field; 1]
+    ) {
         // Call the target public function through the pub entrypoint statically
         StaticParent::at(context.this_address()).public_call(target_contract, target_selector, args[0]).enqueue_view(&mut context)
     }

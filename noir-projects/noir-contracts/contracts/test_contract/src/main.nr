@@ -379,11 +379,7 @@ contract Test {
     }
 
     #[private]
-    fn consume_message_from_arbitrary_sender_private(
-        content: Field,
-        secret: Field,
-        sender: EthAddress
-    ) {
+    fn consume_message_from_arbitrary_sender_private(content: Field, secret: Field, sender: EthAddress) {
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content, secret, sender);
     }

@@ -156,11 +156,7 @@ contract Uniswap {
     // this method is used for both private and public swaps.
     #[public]
     #[internal]
-    fn _approve_bridge_and_exit_input_asset_to_L1(
-        token: AztecAddress,
-        token_bridge: AztecAddress,
-        amount: Field
-    ) {
+    fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
         // Since we will authorize and instantly spend the funds, all in public, we can use the same nonce
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
         let nonce = 0xdeadbeef;

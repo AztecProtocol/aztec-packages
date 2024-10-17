@@ -27,7 +27,11 @@ contract PendingNoteHashes {
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[private]
-    fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) -> Field {
+    fn test_insert_then_get_then_nullify_flat(
+        amount: Field,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress
+    ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
         let owner_keys = get_public_keys(owner);
@@ -344,7 +348,11 @@ contract PendingNoteHashes {
     }
 
     #[private]
-    fn recursively_destroy_and_create_notes(owner: AztecAddress, outgoing_viewer: AztecAddress, executions_left: u64) {
+    fn recursively_destroy_and_create_notes(
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        executions_left: u64
+    ) {
         assert(executions_left > 0);
 
         destroy_max_notes(owner, storage);

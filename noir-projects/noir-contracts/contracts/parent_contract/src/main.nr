@@ -59,7 +59,10 @@ contract Parent {
     // - one through a nested call to enqueue_call_to_child with value 10,
     // - followed by one issued directly from this function with value 20.
     #[private]
-    fn enqueue_calls_to_child_with_nested_first(target_contract: AztecAddress, target_selector: FunctionSelector) {
+    fn enqueue_calls_to_child_with_nested_first(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector
+    ) {
         let enqueue_call_to_child_selector = comptime {
             FunctionSelector::from_signature("enqueue_call_to_child((Field),(u32),Field)")
         };
@@ -74,7 +77,10 @@ contract Parent {
     // - one issued directly from this function with value 20,
     // - followed by one through a nested call to enqueue_call_to_child with value 10.
     #[private]
-    fn enqueue_calls_to_child_with_nested_last(target_contract: AztecAddress, target_selector: FunctionSelector) {
+    fn enqueue_calls_to_child_with_nested_last(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector
+    ) {
         context.call_public_function(target_contract, target_selector, [20]);
         let enqueue_call_to_child_selector = comptime {
             FunctionSelector::from_signature("enqueue_call_to_child((Field),(u32),Field)")
@@ -205,7 +211,11 @@ contract Parent {
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
     #[private]
-    fn enqueue_static_nested_call_to_pub_function(target_contract: AztecAddress, target_selector: FunctionSelector, args: [Field; 1]) {
+    fn enqueue_static_nested_call_to_pub_function(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        args: [Field; 1]
+    ) {
         // Call the target public function through the pub entrypoint statically
         let pub_entry_point_selector = FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
         let this_address = context.this_address();
