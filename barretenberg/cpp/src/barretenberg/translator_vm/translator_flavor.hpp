@@ -90,7 +90,8 @@ class TranslatorFlavor {
                                   TranslatorOpcodeConstraintRelation<FF>,
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>>;
+                                  TranslatorNonNativeFieldRelation<FF>,
+                                  TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -109,7 +110,8 @@ class TranslatorFlavor {
                    typename TranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
+                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorZeroConstraintsRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
