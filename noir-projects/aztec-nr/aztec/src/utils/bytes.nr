@@ -2,6 +2,10 @@ use std::static_assert;
 
 // Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 bytes.
 // This implies that M = ceil(N / 31).
+// 
+// Each 31 byte chunk is converted into a Field as if the chunk was the Field's big endian representation. If the last chunk
+// is less than 31 bytes long, then only the relevant bytes are conisdered.
+// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3] 
 pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
     static_assert(N <= 31 * M, "Bytes do not fit into fields");
     let mut dst = [0; M];
