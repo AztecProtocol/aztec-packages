@@ -65,7 +65,7 @@ RUN --mount=type=secret,id=aws_access_key_id --mount=type=secret,id=aws_secret_a
     AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) ./bootstrap_cache.sh && \
     echo "noir-projects: Success"
 
-COPY yarn-project.tar.gz yarn-project-artifacts.tar.gz .
+COPY yarn-project.tar.gz .
 RUN tar -xzf yarn-project.tar.gz && rm yarn-project.tar.gz && git commit -m "Update git metadata" >/dev/null
 
 # yarn-project is big and not particularly slow to build/has no cache script, so we just build it directly
@@ -79,6 +79,7 @@ ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
 ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
+ENV PORT=8080
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
 HEALTHCHECK --interval=10s --timeout=10s --retries=6 --start-period=120s \
     CMD curl -fsS http://127.0.0.1:$port/status
