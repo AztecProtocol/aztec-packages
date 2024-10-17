@@ -51,7 +51,7 @@ describe('benchmarks/process_history', () => {
         // Create a new node and measure how much time it takes it to sync
         const dataDirectory = makeDataDirectory(chainLength);
         context.logger.info(`Set up data directory at ${dataDirectory}`);
-        const nodeConfig: AztecNodeConfig = { ...context.config, disableSequencer: true, dataDirectory };
+        const nodeConfig: AztecNodeConfig = { ...context.config, disableValidator: true, dataDirectory };
         const [nodeSyncTime, node] = await elapsed(async () => {
           const node = await AztecNodeService.createAndSync(nodeConfig);
           // call getPublicStorageAt (which calls #getWorldState, which calls #syncWorldState) to force a sync with

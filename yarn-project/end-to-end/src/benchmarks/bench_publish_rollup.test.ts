@@ -36,7 +36,7 @@ describe('benchmarks/publish_rollup', () => {
       // and call getPublicStorageAt (which calls #getWorldState, which calls #syncWorldState) to force a sync with
       // world state to ensure the node has caught up
       context.logger.info(`Starting new aztec node`);
-      const node = await AztecNodeService.createAndSync({ ...context.config, disableSequencer: true });
+      const node = await AztecNodeService.createAndSync({ ...context.config, disableValidator: true });
       await node.getPublicStorageAt(AztecAddress.random(), Fr.random(), 'latest');
 
       // Spin up a new pxe and sync it, we'll use it to test sync times of new accounts for the last block
