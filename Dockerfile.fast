@@ -22,7 +22,7 @@ RUN git init -b master \
 # ---------- BUILD BARRETENBERG ----------
 COPY barretenberg.tar.gz .
 RUN tar -xzf barretenberg.tar.gz \
-    && rm barretenberg.tar.gz \
+    && rm barretenberg.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for barretenberg/cpp
@@ -48,7 +48,7 @@ RUN --mount=type=secret,id=aws_access_key_id \
 # ---------- BUILD NOIR ----------
 COPY noir.tar.gz .
 RUN tar -xzf noir.tar.gz \
-    && rm noir.tar.gz \
+    && rm noir.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for Noir
@@ -63,7 +63,7 @@ RUN --mount=type=secret,id=aws_access_key_id \
 # ---------- BUILD L1 CONTRACTS ----------
 COPY l1-contracts.tar.gz .
 RUN tar -xzf l1-contracts.tar.gz \
-    && rm l1-contracts.tar.gz \
+    && rm l1-contracts.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for L1 Contracts
@@ -78,7 +78,7 @@ RUN --mount=type=secret,id=aws_access_key_id \
 # ---------- BUILD AVM TRANSPILER ----------
 COPY avm-transpiler.tar.gz .
 RUN tar -xzf avm-transpiler.tar.gz \
-    && rm avm-transpiler.tar.gz \
+    && rm avm-transpiler.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for AVM Transpiler
@@ -93,7 +93,7 @@ RUN --mount=type=secret,id=aws_access_key_id \
 # ---------- BUILD NOIR PROJECTS ----------
 COPY noir-projects.tar.gz .
 RUN tar -xzf noir-projects.tar.gz \
-    && rm noir-projects.tar.gz \
+    && rm noir-projects.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for Noir Projects
@@ -108,7 +108,7 @@ RUN --mount=type=secret,id=aws_access_key_id \
 # ---------- BUILD YARN PROJECT ----------
 COPY yarn-project.tar.gz .
 RUN tar -xzf yarn-project.tar.gz \
-    && rm yarn-project.tar.gz \
+    && rm yarn-project.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Build yarn-project directly (no cache script)
