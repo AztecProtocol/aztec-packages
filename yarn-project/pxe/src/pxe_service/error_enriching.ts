@@ -6,10 +6,11 @@ import { resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulato
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 
 /**
- * Adds contract and function names to a simulation error.
+ * Adds contract and function names to a simulation error, if they
+ * can be found in the PXE database
  * @param err - The error to enrich.
  */
-export async function enrichSimulationError(err: SimulationError, db: PxeDatabase) {
+export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: DebugLogger) {
   // Maps contract addresses to the set of functions selectors that were in error.
   // Using strings because map and set don't use .equals()
   const mentionedFunctions: Map<string, Set<string>> = new Map();
@@ -35,8 +36,16 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
               FunctionSelector.fromNameAndParameters(functionArtifact),
               functionArtifact.name,
             );
+          } else {
+            logger.warn(
+              `Could not function artifact in contract ${contract.name} for selector ${selector} when enriching error callstack`,
+            );
           }
         });
+      } else {
+        logger.warn(
+          `Could not find contract in database for address: ${parsedContractAddress} when enriching error callstack`,
+        );
       }
     }),
   );
@@ -76,6 +85,6 @@ export async function enrichPublicSimulationError(
         );
       }
     }
-    await enrichSimulationError(err, db);
+    await enrichSimulationError(err, db, logger);
   }
 }

@@ -719,7 +719,7 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.db);
+        await enrichSimulationError(err, this.db, this.log);
       }
       throw err;
     }
@@ -745,7 +745,7 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.db);
+        await enrichSimulationError(err, this.db, this.log);
       }
       throw err;
     }
