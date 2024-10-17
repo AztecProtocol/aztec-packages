@@ -54,8 +54,21 @@ echo "${S3_BUILD_CACHE_DOWNLOAD:-}" > "$TMP/s3_build_cache_download.txt"
 
 cd $(git rev-parse --show-toplevel)
 
-# Archive all Git-tracked files into a tar.gz file
-git archive --format=tar.gz -o "$TMP/git_files.tar.gz" HEAD
+PROJECTS=(
+  barretenberg
+  noir
+  l1-contracts
+  avm-transpiler
+  noir-projects
+)
+
+for project in "${PROJECTS[@]}"; do
+  # Archive Git-tracked files per project into a tar.gz file
+  git archive --format=tar.gz -o "$TMP/$project.tar.gz" HEAD $project
+done
+
+# Treat yarn-project specially, instead copying all current build artifacts
+git ls-files --others --ignored --exclude-standard -z | tar -czf "$TMP/yarn-project-artifacts.tar.gz" --null -T -
 
 # Run Docker build with secrets in the folder with our archive
 DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f Dockerfile.fast --progress=plain \

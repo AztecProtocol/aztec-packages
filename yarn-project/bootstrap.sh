@@ -19,6 +19,11 @@ elif [ "$CMD" = "full" ]; then
   yarn install --immutable
   yarn build
   exit 0
+elif [ "$CMD" = "fast-only" ]; then
+  # Unlike fast build below, we don't fall back to a normal build.
+  yarn install --immutable
+  yarn build:fast
+  exit 0
 elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
   echo "Unknown command: $CMD"
   exit 1

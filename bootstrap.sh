@@ -160,12 +160,12 @@ PROJECTS=(
 )
 
 # Build projects locally
-for P in "${PROJECTS[@]}"; do
+for project in "${PROJECTS[@]}"; do
   echo "**************************************"
-  echo -e "\033[1mBootstrapping $P...\033[0m"
+  echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $P && ./bootstrap.sh)
+  (cd $project && ./bootstrap.sh)
   echo
   echo
 done
