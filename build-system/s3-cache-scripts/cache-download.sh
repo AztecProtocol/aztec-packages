@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 
 if [ "$#" -lt 1 ]; then
     echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
