@@ -1497,6 +1497,5 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
         BitSize::Integer(IntegerBitSize::U64) => AvmTypeTag::UINT64,
         BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
         BitSize::Field => AvmTypeTag::FIELD,
-        _ => panic!("The AVM doesn't support integer bit size {:?}", bit_size),
     }
 }

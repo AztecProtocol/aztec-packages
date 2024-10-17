@@ -180,6 +180,7 @@ export function getGasCostForTypeTag(tag: TypeTag, baseCost: Gas) {
 function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8
+      return 1;
     case TypeTag.UINT8:
       return 1;
     case TypeTag.UINT16:
@@ -193,7 +194,6 @@ function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
     case TypeTag.FIELD:
       return 32;
     case TypeTag.INVALID:
-    case TypeTag.UNINITIALIZED:
       throw new InstructionExecutionError(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
   }
 }

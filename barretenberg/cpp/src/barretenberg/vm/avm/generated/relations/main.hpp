@@ -23,8 +23,8 @@ template <typename FF_> class mainImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        const auto constants_MEM_TAG_FF = FF(0);
         const auto constants_MEM_TAG_U1 = FF(1);
-        const auto constants_MEM_TAG_FF = FF(7);
         const auto constants_misc_INTERNAL_CALL_SPACE_ID = FF(255);
         const auto main_KERNEL_INPUT_SELECTORS =
             (((((((((((new_term.main_sel_op_address + new_term.main_sel_op_storage_address) +
