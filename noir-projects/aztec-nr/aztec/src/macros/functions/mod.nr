@@ -8,7 +8,6 @@ use super::utils::{
 use protocol_types::meta::flatten_to_fields;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
-use super::utils::fn_requires_authwit;
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
 // #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.
