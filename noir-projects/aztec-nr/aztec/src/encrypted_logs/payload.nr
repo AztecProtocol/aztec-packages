@@ -24,10 +24,16 @@ pub fn compute_encrypted_log<let P: u32, let M: u32>(
 
     let header = EncryptedLogHeader::new(contract_address);
 
-    let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
+    let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, recipient);
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
-    let incoming_body_ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, ivpk);
-    let outgoing_body_ciphertext: [u8; 144] = compute_outgoing_body_ciphertext(recipient, ivpk, fr_to_fq(ovsk_app), eph_sk, eph_pk);
+    let incoming_body_ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, IvpkM { inner: recipient.to_point() });
+    let outgoing_body_ciphertext: [u8; 144] = compute_outgoing_body_ciphertext(
+        recipient,
+        IvpkM { inner: recipient.to_point() },
+        fr_to_fq(ovsk_app),
+        eph_sk,
+        eph_pk
+    );
 
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now

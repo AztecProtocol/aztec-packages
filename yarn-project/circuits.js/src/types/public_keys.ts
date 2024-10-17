@@ -3,8 +3,8 @@ import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex } from '../constants.gen.js';
-import { type PublicKey } from './public_key.js';
 import { derivePublicKeyFromSecretKey } from '../keys/derivation.js';
+import { type PublicKey } from './public_key.js';
 
 export class PublicKeys {
   public constructor(
@@ -48,7 +48,12 @@ export class PublicKeys {
 
   static default(): PublicKeys {
     // We use this because empty will produce a point not on the curve. We may want to replace this with some sort of hash to curve func.
-    return new PublicKeys(derivePublicKeyFromSecretKey(new Fq(1)), derivePublicKeyFromSecretKey(new Fq(2)), derivePublicKeyFromSecretKey(new Fq(3)), derivePublicKeyFromSecretKey(new Fq(4)));
+    return new PublicKeys(
+      derivePublicKeyFromSecretKey(new Fq(1)),
+      derivePublicKeyFromSecretKey(new Fq(2)),
+      derivePublicKeyFromSecretKey(new Fq(3)),
+      derivePublicKeyFromSecretKey(new Fq(4)),
+    );
   }
 
   static random(): PublicKeys {

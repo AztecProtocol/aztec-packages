@@ -43,8 +43,13 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
+  computeAddress,
+  computeAddressSecret,
   computeContractAddressFromInstance,
+  computeContractAddressFromInstanceNew,
   computeContractClassId,
+  computeNewAddress,
+  computePartialAddress,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
@@ -267,7 +272,7 @@ export class PXEService implements PXE {
       }
       if (
         // Computed address from the instance does not match address inside instance
-        !computeContractAddressFromInstance(instance).equals(instance.address)
+        !computeContractAddressFromInstanceNew(instance).equals(instance.address)
       ) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
@@ -926,6 +931,7 @@ export class PXEService implements PXE {
     from: number,
     limit: number,
     eventMetadata: EventMetadata<T>,
+    // TODO: Fix this by allow it to pass only an address
     vpks: Point[],
   ): Promise<T[]> {
     if (vpks.length === 0) {
@@ -939,7 +945,24 @@ export class PXEService implements PXE {
 
     const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
 
-    const vsks = await Promise.all(vpks.map(vpk => this.keyStore.getMasterSecretKey(vpk)));
+    const vsks = await Promise.all(
+      vpks.map(async vpk => {
+        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        let secretKey = await this.keyStore.getMasterSecretKey(vpk);
+        if (keyPrefix === 'iv') {
+          const registeredAccount = await this.getRegisteredAccount(account);
+          if (!registeredAccount) {
+            throw new Error('No registered account');
+          }
+
+          const preaddress = registeredAccount.getPreAddress();
+
+          secretKey = computeAddressSecret(preaddress, secretKey);
+        }
+
+        return secretKey;
+      }),
+    );
 
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {

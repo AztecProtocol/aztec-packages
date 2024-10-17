@@ -35,26 +35,29 @@ export class AccountManager {
   public readonly salt: Fr;
 
   // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
-  private completeAddress?: CompleteAddress;
-  private instance?: ContractInstanceWithAddress;
-  private publicKeys?: PublicKeys;
+  private completeAddress: CompleteAddress;
+  private instance: ContractInstanceWithAddress;
 
   constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
     this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
-  }
 
-  protected getPublicKeysHash() {
-    if (!this.publicKeys) {
-      this.publicKeys = deriveKeys(this.secretKey).publicKeys;
-    }
-    return this.publicKeys.hash();
+    const { publicKeys } = deriveKeys(secretKey);
+
+    this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
+      constructorArgs: this.accountContract.getDeploymentArgs(),
+      salt: this.salt,
+      publicKeys,
+    });
+
+    this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
   }
 
   protected getPublicKeys() {
-    if (!this.publicKeys) {
-      this.publicKeys = deriveKeys(this.secretKey).publicKeys;
-    }
-    return this.publicKeys;
+    return this.instance.publicKeys;
+  }
+
+  protected getPublicKeysHash() {
+    return this.getPublicKeys().hash();
   }
 
   /**
@@ -73,10 +76,6 @@ export class AccountManager {
    * @returns The address, partial address, and encryption public key.
    */
   public getCompleteAddress(): CompleteAddress {
-    if (!this.completeAddress) {
-      const instance = this.getInstance();
-      this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, instance);
-    }
     return this.completeAddress;
   }
 
@@ -95,13 +94,6 @@ export class AccountManager {
    * @returns ContractInstance instance.
    */
   public getInstance(): ContractInstanceWithAddress {
-    if (!this.instance) {
-      this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
-        constructorArgs: this.accountContract.getDeploymentArgs(),
-        salt: this.salt,
-        publicKeys: this.getPublicKeys(),
-      });
-    }
     return this.instance;
   }
 

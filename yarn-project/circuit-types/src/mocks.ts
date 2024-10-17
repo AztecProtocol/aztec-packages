@@ -19,6 +19,7 @@ import {
   ScopedLogHash,
   SerializableContractInstance,
   computeContractAddressFromInstance,
+  computeContractAddressFromInstanceNew,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -329,7 +330,7 @@ export const randomContractInstanceWithAddress = (
   address?: AztecAddress,
 ): ContractInstanceWithAddress => {
   const instance = SerializableContractInstance.random(opts);
-  return instance.withAddress(address ?? computeContractAddressFromInstance(instance));
+  return instance.withAddress(address ?? computeContractAddressFromInstanceNew(instance));
 };
 
 export const randomDeployedContract = () => {
