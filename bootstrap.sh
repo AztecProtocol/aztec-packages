@@ -20,7 +20,8 @@ RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-# source ./build-system/scripts/setup_env '' '' '' > /dev/null
+# setup env
+export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
