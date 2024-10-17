@@ -75,7 +75,7 @@ WORKDIR /usr/src
 COPY git_files.tar.gz .
 RUN tar -xzf git_files.tar.gz && rm git_files.tar.gz
 
-RUN git init -b master
+RUN git init -b master && git commit --allow-empty -m "Empty commit"
 ENV USE_CACHE=1
 
 # Mount secrets and execute bootstrap script
