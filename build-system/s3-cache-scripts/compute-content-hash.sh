@@ -17,7 +17,7 @@ AWK_PATTERN=$(cat $REBUILD_PATTERNS | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|
 cd $(git rev-parse --show-toplevel)
 # Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
 FILE_HASHES=$(git ls-tree -r HEAD | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}')
-
+git ls-tree -r HEAD | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $4}' >&2
 # Check if FILE_HASHES is empty
 if [ -z "$FILE_HASHES" ]; then
     echo "No files matched the rebuild patterns $REBUILD_PATTERNS."

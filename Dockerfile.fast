@@ -14,9 +14,10 @@ COPY . .
 # Just enough to use git rev-parse --show-toplevel
 RUN git init -b master && git add . && git config user.name 'AztecBot' && git config user.email 'tech@aztecprotocol.com' && git commit -m "Commit for Dockerfile.fast."
 
+ENV USE_CACHE=1
 # Run with our AWS credentials
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
     export AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) && \
     export AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) && \
-    ./bootstrap.sh fast
+    cd barretenberg && ./bootstrap.sh fast
