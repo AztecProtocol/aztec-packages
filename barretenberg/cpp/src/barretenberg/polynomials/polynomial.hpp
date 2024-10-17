@@ -19,6 +19,10 @@ namespace bb {
 template <typename Fr> struct PolynomialSpan {
     size_t start_index;
     std::span<Fr> span;
+    PolynomialSpan(size_t start_index, std::span<Fr> span)
+        : start_index(start_index)
+        , span(span)
+    {}
     size_t end_index() const { return start_index + size(); }
     Fr* data() { return span.data(); }
     size_t size() const { return span.size(); }
@@ -32,6 +36,13 @@ template <typename Fr> struct PolynomialSpan {
         ASSERT(index >= start_index && index < end_index());
         return span[index - start_index];
     }
+    PolynomialSpan subspan(size_t offset)
+    {
+        if (offset > span.size()) { // Return a null span
+            return { 0, span.subspan(span.size()) };
+        }
+        return { start_index + offset, span.subspan(offset) };
+    }
 };
 
 /**
@@ -44,8 +55,8 @@ template <typename Fr> struct PolynomialSpan {
  * Polynomials use the majority of the memory in proving, so caution should be used in making sure
  * unnecessary copies are avoided, both for avoiding unnecessary memory usage and performance
  * due to unnecessary allocations.
- * The polynomial has a maximum degree in the underlying SharedShiftedVirtualZeroesArray, dictated by the circuit size,
- * this is just used for debugging as we represent.
+ * The polynomial has a maximum degree in the underlying SharedShiftedVirtualZeroesArray, dictated by the circuit
+ * size, this is just used for debugging as we represent.
  *
  * @tparam Fr the finite field type.
  */
@@ -154,13 +165,12 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{n-1})
-     *        If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k,
-     *        we evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k.
-     *        We fold over k dimensions and then multiply the result by
-     *        (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). In this case, for any
-     *        i < 2^k, L_i is a multiple of (1 - X_k) * (1 - X_{k+1}) ... * (1 - X_{n-1}). Dividing
-     *        p by this monomial leads to a multilinear extension over variables X_0, X_1, ..X_{k-1}.
+     * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
+     * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
+     * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then
+     * multiply the result by (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). In this case, for any i < 2^k, L_i is a
+     * multiple of (1 - X_k) * (1 - X_{k+1}) ... * (1 - X_{n-1}). Dividing p by this monomial leads to a multilinear
+     * extension over variables X_0, X_1, ..X_{k-1}.
      *
      * @details this function allocates a temporary buffer of size 2^(k-1)
      *
@@ -173,13 +183,14 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
      *
-     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension p(X_0,…,X_{n-1}) =
-     * \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables X_n-m,…,X_{n-1}. The result
-     * is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
+     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension
+     * p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables
+     * X_n-m,…,X_{n-1}. The result is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) =
+     * p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
      *
      * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
-     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable (as
-     * is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
+     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable
+     * (as is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
      * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
      * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
      * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
@@ -416,7 +427,8 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     size_t n_l = 1 << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
+    // DontZeroMemory::FLAG
     auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
     auto tmp = tmp_ptr.get();
 

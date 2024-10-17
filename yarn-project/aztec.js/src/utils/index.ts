@@ -6,3 +6,4 @@ export * from './authwit.js';
 export * from './pxe.js';
 export * from './account.js';
 export * from './anvil_test_watcher.js';
+export * from './field_compressed_string.js';
