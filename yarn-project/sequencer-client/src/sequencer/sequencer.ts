@@ -661,7 +661,7 @@ export class Sequencer {
       (l2BlockSource.hash === undefined || worldState.hash === l2BlockSource.hash) &&
       // and p2p client and message source are at least at the same block
       // this should change to hashes once p2p client handles reorgs
-      // and once we stop pretending that hte l1tol2message source is not
+      // and once we stop pretending that the l1tol2message source is not
       // just the archiver under a different name
       p2p >= l2BlockSource.number &&
       l1ToL2MessageSource >= l2BlockSource.number;

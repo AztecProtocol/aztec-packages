@@ -89,11 +89,11 @@ describe('world-state integration', () => {
 
   const expectSynchedToBlock = async (latest: number, finalized?: number) => {
     const tips = await synchronizer.getL2Tips();
-    expect(tips.latest).toEqual(latest);
+    expect(tips.latest.number).toEqual(latest);
     await expectSynchedBlockHashMatches(latest);
 
     if (finalized !== undefined) {
-      expect(tips.finalized).toEqual(finalized);
+      expect(tips.finalized.number).toEqual(finalized);
       await expectSynchedBlockHashMatches(finalized);
     }
   };

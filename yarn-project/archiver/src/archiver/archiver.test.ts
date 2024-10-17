@@ -379,7 +379,7 @@ describe('Archiver', () => {
   }, 10_000);
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
-  it('handles an upcoming L2 prune');
+  xit('handles an upcoming L2 prune', () => {});
 
   // logs should be created in order of how archiver syncs.
   const mockGetLogs = (logs: {
