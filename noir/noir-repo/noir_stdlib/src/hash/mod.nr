@@ -61,7 +61,6 @@ pub fn pedersen_hash<let N: u32>(input: [Field; N]) -> Field
 }
 
 #[inline_always]
-#[no_predicates]
 pub fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {
     let mut scalars: Vec<EmbeddedCurveScalar> = Vec::from_slice([EmbeddedCurveScalar { lo: 0, hi: 0 }; N].as_slice()); //Vec::new();
 
