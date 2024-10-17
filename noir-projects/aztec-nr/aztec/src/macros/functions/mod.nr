@@ -22,8 +22,8 @@ use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 // Therefore, the execution order of `#[internal]` and `#[private]` is irrelevant.
 
 /// Internal functions can only be called by the contract itself, typically from private into public.
-pub comptime fn internal(f: FunctionDefinition) {
-    f.add_attribute("internal")
+pub comptime fn internal(_f: FunctionDefinition) {
+    // Marker attribute
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -33,8 +33,8 @@ comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
 }
 
 /// View functions can only be called in a static execution context.
-pub comptime fn view(f: FunctionDefinition) {
-    f.add_attribute("view")
+pub comptime fn view(_f: FunctionDefinition) {
+    // Marker attribute
 }
 
 comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
@@ -53,13 +53,13 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
 ///  - it can only be called once
 ///  - if there are multiple initializer functions, only one of them can be called
 ///  - no non-initializer functions can be called until an initializer has ben called (except `noinitcheck` functions)
-pub comptime fn initializer(f: FunctionDefinition) {
-    f.add_attribute("initializer")
+pub comptime fn initializer(_f: FunctionDefinition) {
+    // Marker attribute
 }
 
 /// Functions with noinitcheck can be called before contract initialization.
-pub comptime fn noinitcheck(f: FunctionDefinition) {
-    f.add_attribute("noinitcheck")
+pub comptime fn noinitcheck(_f: FunctionDefinition) {
+    // Marker attribute
 }
 
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
