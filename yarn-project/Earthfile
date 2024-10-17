@@ -296,7 +296,8 @@ network-test-fake-proofs:
         ./boot-node.sh \
         ./ethereum.sh \
         "./prover-node.sh false" \
-        ./pxe.sh
+        ./pxe.sh \
+        "./validator.sh 8081"
 
 publish-npm:
     FROM +build
