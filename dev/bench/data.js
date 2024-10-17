@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729081517103,
+  "lastUpdate": 1729189845262,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b8d87f12224ac7e1c4e0bf0e353ddc902bf82fd4",
-          "message": "chore: Protogalaxy only instantiated with Mega (#8949)\n\n* removed instantiations of Protogalaxy with Ultra\r\n* fixed CombinerOn2Keys test: now it's working with Mega",
-          "timestamp": "2024-10-02T10:52:33-04:00",
-          "tree_id": "99daafc05d93c052f012c026e37f0a4ff745ce8e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b8d87f12224ac7e1c4e0bf0e353ddc902bf82fd4"
-        },
-        "date": 1727882304444,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31250.15423800002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28750.195759000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5356.254743999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5045.897765999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93412.843842,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93412846000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15156.574219000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15156575000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8249261053,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8249261053 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152354623,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152354623 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6712830579,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6712830579 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128639205,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128639205 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3524,6 +3452,66 @@ window.BENCHMARK_DATA = {
             "value": 127327948,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127327948 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5861d4e5e8a72161dac910e0bc8e635e0d332793",
+          "message": "feat!: Brillig and AVM default all uninitialized memory cells to Field 0 (#9057)\n\nResolves (at least partially)\r\nhttps://github.com/AztecProtocol/aztec-packages/issues/7341\r\n\r\n---------\r\n\r\nCo-authored-by: TomAFrench <tom@tomfren.ch>\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2024-10-17T18:47:04+01:00",
+          "tree_id": "330b326523492992e2b19350574c8fcbfcea3ec6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5861d4e5e8a72161dac910e0bc8e635e0d332793"
+        },
+        "date": 1729189838219,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29460.31076700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27434.260087 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5353.530108000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5020.622063 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87407.416633,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87407419000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15324.423383,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15324423000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2719566163,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2719566163 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127038151,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127038151 ns\nthreads: 1"
           }
         ]
       }
