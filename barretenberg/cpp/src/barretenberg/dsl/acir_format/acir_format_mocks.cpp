@@ -14,7 +14,6 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .blake3_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -67,9 +66,6 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.pedersen_constraints.size(); i++) {
         constraint_system.original_opcode_indices.pedersen_constraints.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.pedersen_hash_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.pedersen_hash_constraints.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.poseidon2_constraints.size(); i++) {
         constraint_system.original_opcode_indices.poseidon2_constraints.push_back(current_opcode++);

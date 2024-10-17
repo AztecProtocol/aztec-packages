@@ -160,23 +160,6 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 unreachable!("ICE: Pedersen expects one array argument, a register for the domain separator, and one array result")
             }
         }
-        BlackBoxFunc::PedersenHash => {
-            if let (
-                [message, BrilligVariable::SingleAddr(domain_separator)],
-                [BrilligVariable::SingleAddr(result)],
-            ) = (function_arguments, function_results)
-            {
-                let inputs = convert_array_or_vector(brillig_context, *message, bb_func);
-                brillig_context.black_box_op_instruction(BlackBoxOp::PedersenHash {
-                    inputs,
-                    domain_separator: domain_separator.address,
-                    output: result.address,
-                });
-                brillig_context.deallocate_heap_vector(inputs);
-            } else {
-                unreachable!("ICE: Pedersen hash expects one array argument, a register for the domain separator, and one register result")
-            }
-        }
         BlackBoxFunc::SchnorrVerify => {
             if let (
                 [BrilligVariable::SingleAddr(public_key_x), BrilligVariable::SingleAddr(public_key_y), signature, message],

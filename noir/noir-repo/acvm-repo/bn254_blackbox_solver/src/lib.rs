@@ -60,17 +60,6 @@ impl BlackBoxFunctionSolver<FieldElement> for Bn254BlackBoxSolver {
         Ok(result)
     }
 
-    fn pedersen_hash(
-        &self,
-        inputs: &[FieldElement],
-        domain_separator: u32,
-    ) -> Result<FieldElement, BlackBoxResolutionError> {
-        let inputs: Vec<grumpkin::Fq> = inputs.iter().map(|input| input.into_repr()).collect();
-        let result = pedersen::hash::hash_with_index(&inputs, domain_separator);
-        let result = FieldElement::from_repr(result);
-        Ok(result)
-    }
-
     fn multi_scalar_mul(
         &self,
         points: &[FieldElement],

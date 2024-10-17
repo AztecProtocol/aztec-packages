@@ -27,21 +27,3 @@ pub(super) fn pedersen<F: AcirField>(
 
     Ok(())
 }
-
-pub(super) fn pedersen_hash<F: AcirField>(
-    backend: &impl BlackBoxFunctionSolver<F>,
-    initial_witness: &mut WitnessMap<F>,
-    inputs: &[FunctionInput<F>],
-    domain_separator: u32,
-    output: Witness,
-) -> Result<(), OpcodeResolutionError<F>> {
-    let scalars: Result<Vec<_>, _> =
-        inputs.iter().map(|input| input_to_value(initial_witness, *input, false)).collect();
-    let scalars: Vec<_> = scalars?.into_iter().collect();
-
-    let res = backend.pedersen_hash(&scalars, domain_separator)?;
-
-    insert_value(&output, res, initial_witness)?;
-
-    Ok(())
-}
