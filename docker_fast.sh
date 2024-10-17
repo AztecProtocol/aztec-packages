@@ -52,6 +52,8 @@ echo "${S3_BUILD_CACHE_MINIO_URL:-}" > "$TMP/s3_build_cache_minio_url.txt"
 echo "${S3_BUILD_CACHE_UPLOAD:-}" > "$TMP/s3_build_cache_upload.txt"
 echo "${S3_BUILD_CACHE_DOWNLOAD:-}" > "$TMP/s3_build_cache_download.txt"
 
+cd $(git rev-parse --show-toplevel)
+
 # Archive all Git-tracked files into a tar.gz file
 git archive --format=tar.gz -o git_files.tar.gz HEAD
 
