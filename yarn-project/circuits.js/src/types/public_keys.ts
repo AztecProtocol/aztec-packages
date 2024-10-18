@@ -1,9 +1,10 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { type PublicKey } from './public_key.js';
+import { derivePublicKeyFromSecretKey } from '../keys/derivation.js';
 
 export class PublicKeys {
   public constructor(
@@ -43,6 +44,11 @@ export class PublicKeys {
 
   static empty(): PublicKeys {
     return new PublicKeys(Point.ZERO, Point.ZERO, Point.ZERO, Point.ZERO);
+  }
+
+  static default(): PublicKeys {
+    // We use this because empty will produce a point not on the curve. We may want to replace this with some sort of hash to curve func.
+    return new PublicKeys(derivePublicKeyFromSecretKey(new Fq(1)), derivePublicKeyFromSecretKey(new Fq(2)), derivePublicKeyFromSecretKey(new Fq(3)), derivePublicKeyFromSecretKey(new Fq(4)));
   }
 
   static random(): PublicKeys {
