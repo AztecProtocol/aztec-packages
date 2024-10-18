@@ -78,8 +78,6 @@ pub enum BlackBoxFunc {
     SchnorrVerify,
     /// Will be deprecated
     PedersenCommitment,
-    /// Will be deprecated
-    PedersenHash,
     /// Verifies a ECDSA signature over the secp256k1 curve.
     /// - inputs:
     ///     - x coordinate of public key as 32 bytes
@@ -223,7 +221,6 @@ impl BlackBoxFunc {
             BlackBoxFunc::Poseidon2Permutation => "poseidon2_permutation",
             BlackBoxFunc::Sha256Compression => "sha256_compression",
             BlackBoxFunc::PedersenCommitment => "pedersen_commitment",
-            BlackBoxFunc::PedersenHash => "pedersen_hash",
         }
     }
 
@@ -251,7 +248,6 @@ impl BlackBoxFunc {
             "poseidon2_permutation" => Some(BlackBoxFunc::Poseidon2Permutation),
             "sha256_compression" => Some(BlackBoxFunc::Sha256Compression),
             "pedersen_commitment" => Some(BlackBoxFunc::PedersenCommitment),
-            "pedersen_hash" => Some(BlackBoxFunc::PedersenHash),
             _ => None,
         }
     }

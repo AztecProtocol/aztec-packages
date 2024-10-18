@@ -57,12 +57,6 @@ pub enum BlackBoxOp {
         domain_separator: MemoryAddress,
         output: HeapArray,
     },
-    /// Will be deprecated
-    PedersenHash {
-        inputs: HeapVector,
-        domain_separator: MemoryAddress,
-        output: MemoryAddress,
-    },
     /// Performs multi scalar multiplication over the embedded curve.
     MultiScalarMul {
         points: HeapVector,

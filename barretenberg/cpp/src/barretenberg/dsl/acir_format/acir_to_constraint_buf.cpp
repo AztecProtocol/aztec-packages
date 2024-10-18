@@ -582,14 +582,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.constrained_witness.insert(af.pedersen_constraints.back().result_x);
                 af.constrained_witness.insert(af.pedersen_constraints.back().result_y);
                 af.original_opcode_indices.pedersen_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenHash>) {
-                af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result = arg.output.value,
-                });
-                af.constrained_witness.insert(af.pedersen_hash_constraints.back().result);
-                af.original_opcode_indices.pedersen_hash_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =

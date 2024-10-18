@@ -24,14 +24,6 @@ impl BlackBoxFunctionSolver<acvm::FieldElement> for WrapperSolver {
         self.0.pedersen_commitment(inputs, domain_separator)
     }
 
-    fn pedersen_hash(
-        &self,
-        inputs: &[acvm::FieldElement],
-        domain_separator: u32,
-    ) -> Result<acvm::FieldElement, acvm::BlackBoxResolutionError> {
-        self.0.pedersen_hash(inputs, domain_separator)
-    }
-
     fn multi_scalar_mul(
         &self,
         points: &[acvm::FieldElement],
