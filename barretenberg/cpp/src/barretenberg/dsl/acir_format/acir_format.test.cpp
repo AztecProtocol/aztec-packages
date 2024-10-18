@@ -52,7 +52,6 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -174,7 +173,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -255,7 +253,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -362,7 +359,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -421,6 +417,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     auto verifier = composer.create_ultra_with_keccak_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
+
 TEST_F(AcirFormatTests, TestKeccakPermutation)
 {
     Keccakf1600
@@ -471,7 +468,6 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = { keccak_permutation },
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -546,7 +542,6 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -673,7 +668,6 @@ TEST_F(AcirFormatTests, TestBigAdd)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
