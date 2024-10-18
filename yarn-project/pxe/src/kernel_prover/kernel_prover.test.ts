@@ -17,6 +17,7 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PublicKeys,
   ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
@@ -147,7 +148,7 @@ describe('Kernel Prover', () => {
 
     oracle.getContractAddressPreimage.mockResolvedValue({
       contractClassId: Fr.random(),
-      publicKeysHash: Fr.random(),
+      publicKeys: PublicKeys.empty(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({

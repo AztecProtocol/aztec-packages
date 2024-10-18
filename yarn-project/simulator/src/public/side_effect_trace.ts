@@ -222,7 +222,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys,
       ),
     );
     this.logger.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);

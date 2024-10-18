@@ -29,9 +29,9 @@ echo "Done waiting."
 # Run the deploy-l1-contracts command and capture the output
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 if [ "$INIT_VALIDATORS" = "true" ]; then
-  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators "$VALIDATOR_ADDRESSES")
+  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators "$VALIDATOR_ADDRESSES" --salt 1337)
 else
-  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts)
+  output=$(node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --salt 1337)
 fi
 
 echo "$output"
@@ -55,8 +55,3 @@ export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 EOCONFIG
 
 echo "Contract addresses saved to l1-contracts.env"
-sleep 5
-function close_tmux_pane() {
-  tmux kill-pane -t $(tmux display -p '#{pane_id}')
-}
-close_tmux_pane 2>/dev/null || true

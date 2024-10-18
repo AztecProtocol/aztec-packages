@@ -136,7 +136,7 @@ impl<F: std::fmt::Display> std::fmt::Display for MemoryValue<F> {
 
 impl<F: AcirField> Default for MemoryValue<F> {
     fn default() -> Self {
-        MemoryValue::new_integer(0, IntegerBitSize::U0)
+        MemoryValue::new_field(F::zero())
     }
 }
 
