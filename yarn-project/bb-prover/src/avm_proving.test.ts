@@ -1,11 +1,11 @@
 import {
   AvmCircuitInputs,
-  AvmVerificationKeyData,
   FunctionSelector,
   Gas,
   GlobalVariables,
   PublicKeys,
   SerializableContractInstance,
+  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -137,7 +137,7 @@ const proveAndVerifyAvmTestContract = async (
   // Then we test VK extraction and serialization.
   const succeededRes = proofRes as BBSuccess;
   const vkData = await extractAvmVkData(succeededRes.vkPath!);
-  AvmVerificationKeyData.fromBuffer(vkData.toBuffer());
+  VerificationKeyData.fromBuffer(vkData.toBuffer());
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
