@@ -4,6 +4,7 @@ import {
   type EpochProofQuote,
   type L2Block,
   L2BlockDownloader,
+  type L2BlockId,
   type L2BlockSource,
   type Tx,
   type TxHash,
@@ -44,7 +45,7 @@ export interface P2PSyncState {
   /**
    * The block number that the p2p client is synced to.
    */
-  syncedToL2Block: number;
+  syncedToL2Block: L2BlockId;
 }
 
 /**
@@ -472,10 +473,15 @@ export class P2PClient extends WithTracer implements P2P {
    * Method to check the status the p2p client.
    * @returns Information about p2p client status: state & syncedToBlockNum.
    */
-  public getStatus(): Promise<P2PSyncState> {
+  public async getStatus(): Promise<P2PSyncState> {
+    const blockNumber = this.getSyncedLatestBlockNum();
+    const blockHash =
+      blockNumber == 0
+        ? ''
+        : await this.l2BlockSource.getBlockHeader(blockNumber).then(header => header?.hash().toString());
     return Promise.resolve({
       state: this.currentState,
-      syncedToL2Block: this.getSyncedLatestBlockNum(),
+      syncedToL2Block: { number: blockNumber, hash: blockHash },
     } as P2PSyncState);
   }
 

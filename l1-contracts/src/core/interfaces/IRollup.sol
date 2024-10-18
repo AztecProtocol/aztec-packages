@@ -32,6 +32,8 @@ interface IRollup {
 
   function prune() external;
 
+  function canPrune() external view returns (bool);
+
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
