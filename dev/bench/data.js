@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729203076481,
+  "lastUpdate": 1729247549126,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0be9f253238cc1453d07385ece565f946d4212a3",
-          "message": "feat: handle consecutive kernels in IVC (#8924)\n\nPrior to this PR, the IVC scheme made the assumption that every other\r\ncircuit was a kernel, i.e. app, kernel, app, kernel, ... etc. In\r\npractice, however, it will be common to have two or more consecutive\r\nkernels without a corresponding app, e.g. an inner kernel followed\r\nimmediately by a reset kernel. This PR updates the IVC so that whether\r\nor not a circuit is treated as a kernel is determined by the the already\r\nexisting tag `circuit.databus_propagation_data.is_kernel`.\r\n\r\nWhen constructing circuits from noir programs, the above flag is set to\r\ntrue if and only if the circuit has calldata (which apps never do). This\r\nallows us to reinstate the full set of circuits in the ivc integration\r\ntest suite which contains 3 consecutive kernels (inner, reset, tail).\r\n\r\nIn accordance with this change I had to add explicit setting of\r\n`is_kernel` to various test suites and flows which previously utilized\r\nthe default assumption that every other circuit was a kernel. (Many of\r\nthese cases will soon go away once we are ready to do away with the\r\n`auto_verify_mode` version of IVC which exists for testing convenience\r\nand does not have any practical use case).\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1111",
-          "timestamp": "2024-10-02T17:37:47-07:00",
-          "tree_id": "aff8bc75474670514ae549ec06fe1bd011eee530",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0be9f253238cc1453d07385ece565f946d4212a3"
-        },
-        "date": 1727917436050,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31229.453952,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28577.314629 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5390.564364,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5042.72941 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93358.21393,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93358216000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15252.08557,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15252086000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8346032354,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8346032354 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 157999174,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 157999174 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6847211625,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6847211625 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127829117,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127829117 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3500,6 +3428,66 @@ window.BENCHMARK_DATA = {
             "value": 126683570,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126683570 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1f0538f00cadcf4325d2aa17bdb098d11ca3840f",
+          "message": "chore!: remove pedersen hash opcode (#9245)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-10-18T05:38:11-04:00",
+          "tree_id": "d6fc7e9d951892750575baf0b68ef208cab4e08e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1f0538f00cadcf4325d2aa17bdb098d11ca3840f"
+        },
+        "date": 1729247542017,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29509.603806999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27869.237587 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5334.4843959999935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4990.720297999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87065.722212,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87065724000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15141.100145,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15141100000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2693538079,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2693538079 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128809704,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128809704 ns\nthreads: 1"
           }
         ]
       }
