@@ -76,7 +76,6 @@ TEST_F(MSMTests, TestMSM)
         .blake3_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = { msm_constrain },
         .ec_add_constraints = {},

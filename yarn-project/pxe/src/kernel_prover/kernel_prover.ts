@@ -208,7 +208,7 @@ export class KernelProver {
       contractAddress,
       functionData.selector,
     );
-    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
       contractAddress,
     );
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
@@ -225,7 +225,7 @@ export class KernelProver {
     return PrivateCallData.from({
       callStackItem,
       vk,
-      publicKeysHash,
+      publicKeysHash: publicKeys.hash(),
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
