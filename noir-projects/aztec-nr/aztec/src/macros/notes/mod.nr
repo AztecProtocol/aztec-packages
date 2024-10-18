@@ -1,8 +1,8 @@
 use std::{
     meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher, derive_generators}
 };
-use protocol_types::meta::{flatten_to_fields, pack_from_fields};
+use protocol_types::{meta::{flatten_to_fields, pack_from_fields}, point::Point};
 use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
@@ -294,7 +294,6 @@ comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> 
     let mut scalars_list = &[];
     let mut args_list = &[];
     let mut aux_vars_list = &[];
-    // TODO(#8648): Generate generators at comptime instead of importing here.
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
@@ -302,7 +301,12 @@ comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> 
         for j in 0..flattened_field.len() {
             let flattened_as_field = flattened_field[j];
             let generator_index = start_generator_index + j;
-            generators_list = generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
+
+            let generators: [Point; 1] = derive_generators("aztec_nr_generators".as_bytes(), generator_index);
+            let generator_x = generators[0].x;
+            let generator_y = generators[1].y;
+
+            generators_list = generators_list.push_back(f"aztec::protocol_types::point::Point {{ x: {generator_x}, y: {generator_y}, is_infinite: false }}".quoted_contents());
             scalars_list = scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
         }
         args_list = args_list.push_back(quote { $field_name: $typ });
@@ -573,7 +577,11 @@ comptime fn generate_finalization_payload(
 ///     }
 /// }
 /// ```
-comptime fn generate_partial_note_impl(s: StructDefinition, setup_payload_name: Quoted, finalization_payload_name: Quoted) -> Quoted {
+comptime fn generate_partial_note_impl(
+    s: StructDefinition,
+    setup_payload_name: Quoted,
+    finalization_payload_name: Quoted
+) -> Quoted {
     let name = s.name();
     quote {
         impl aztec::note::note_interface::PartialNote<$setup_payload_name, $finalization_payload_name> for $name {
