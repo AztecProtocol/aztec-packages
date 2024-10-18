@@ -26,22 +26,24 @@ Options:
   -v: Specify the number of validators (default: 3)
 '
 
+# Default values
+TEST_SCRIPT="\"./test.sh src/spartan/transfer.test.ts\""
+PROVER_SCRIPT="\"./prover-node.sh false\""
+NUM_VALIDATORS=3
+
 # Function to display help message
 display_help() {
     echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo "  -h     Display this help message"
-    echo "  -t     Specify the test script file (default: ./test-transfer.sh)"
-    echo "  -v     Specify the number of validators (default: 3)"
+    echo "  -t     Specify the test command (default: src/spartan/transfer.test.ts)"
+    echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
+    echo "  -v     Specify the number of validators (default: $NUM_VALIDATORS)"
     echo
     echo "Example:"
     echo "  $0 -t ./custom-test.sh -v 5"
 }
-
-# Default values
-TEST_SCRIPT="./test-transfer.sh"
-NUM_VALIDATORS=3
 
 # Parse command line arguments
 while getopts "ht:v:" opt; do
@@ -50,7 +52,9 @@ while getopts "ht:v:" opt; do
       display_help
       exit 0
       ;;
-    t) TEST_SCRIPT="$OPTARG"
+    t) TEST_SCRIPT="\"./test.sh $OPTARG\""
+      ;;
+    p) PROVER_SCRIPT="\"$OPTARG\""
       ;;
     v) NUM_VALIDATORS="$OPTARG"
       ;;
@@ -68,7 +72,7 @@ BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
-        \"./prover-node.sh false\" \
+        $PROVER_SCRIPT \
         ./pxe.sh \
         ./transaction-bot.sh"
 
