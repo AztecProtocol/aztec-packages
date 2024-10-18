@@ -1,0 +1,39 @@
+VoteTest
+├── when proposal hold no code
+│   └── it revert
+└── when proposal hold code
+    ├── given canonical rollup hold no code
+    │   └── it revert
+    └── given canonical rollup hold code
+        ├── given a vote already cast in the slot
+        │   └── it revert
+        └── given no vote already cast in the slot
+            ├── when caller is not proposer
+            │   └── it revert
+            └── when caller is proposer
+                ├── given new canonical instance
+                │   ├── it ignore votes from prior instance
+                │   ├── it increase the yea count
+                │   ├── it updates the leader to the proposal
+                │   ├── it emits {VoteCast} event
+                │   └── it returns true
+                ├── given round changed
+                │   ├── it ignore votes in prior round
+                │   ├── it increase the yea count
+                │   ├── it updates the leader to the proposal
+                │   ├── it emits {VoteCast} event
+                │   └── it returns true
+                └── given round and instance is stable
+                    ├── given proposal is leader
+                    │   ├── it increase the yea count
+                    │   ├── it emits {VoteCast} event
+                    │   └── it returns true
+                    ├── given proposal have fever votes than leader
+                    │   ├── it increase the yea count
+                    │   ├── it emits {VoteCast} event
+                    │   └── it returns true
+                    └── given proposal have more votes than leader
+                        ├── it increase the yea count
+                        ├── it updates the leader to the proposal
+                        ├── it emits {VoteCast} event
+                        └── it returns true
