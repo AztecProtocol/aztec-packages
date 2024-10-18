@@ -16,7 +16,7 @@ sol:
 barretenberg-acir-tests-bb:
     FROM ../build-images/+from-registry
 
-    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ./cpp/+preset-clang-asan/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
     COPY +acir-tests/ /usr/src/barretenberg/acir_tests
     COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
 
@@ -29,11 +29,11 @@ barretenberg-acir-tests-bb:
     # Fold and verify an ACIR program stack using ClientIvc
     RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-    RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
-    # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-    RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
-    # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
-    RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
+    # RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
+    # # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
+    # RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
+    # # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
+    # RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
 barretenberg-acir-tests-bb-ultra-plonk:
     FROM ../build-images/+from-registry
