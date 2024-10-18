@@ -7,9 +7,9 @@ SCRIPTS_PATH=../build-system/s3-cache-scripts/
 
 echo -e "\033[1mRetrieving noir projects from remote cache...\033[0m"
 
-PROTOCOL_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../barretenberg/cpp/.rebuild_patterns ./noir-protocol-circuits/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
-MOCK_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../barretenberg/cpp/.rebuild_patterns ./mock-protocol-circuits/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
-CONTRACTS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../avm-transpiler/.rebuild_patterns ../barretenberg/cpp/.rebuild_patterns noir-contracts/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
+PROTOCOL_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ./noir-protocol-circuits/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
+MOCK_CIRCUITS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ./mock-protocol-circuits/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
+CONTRACTS_HASH=$(AZTEC_CACHE_REBUILD_PATTERNS="../noir/.rebuild_patterns_native ../avm-transpiler/.rebuild_patterns noir-contracts/.rebuild_patterns" $SCRIPTS_PATH/compute-content-hash.sh)
 
 echo "
 noir-protocol-circuits $PROTOCOL_CIRCUITS_HASH
