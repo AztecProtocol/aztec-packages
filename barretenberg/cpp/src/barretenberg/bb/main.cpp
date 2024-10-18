@@ -444,10 +444,10 @@ void client_ivc_prove_output_all_msgpack_no_auto_verify(const std::string& bytec
         bool is_kernel = !program.constraints.ivc_recursion_constraints.empty();
         if (is_kernel) {
             info("Creating circuit of type: KERNEL");
-            auto circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
+            circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
         } else {
             info("Creating circuit of type: APP");
-            auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+            circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
         }
 
         ivc.accumulate(circuit);
