@@ -8,6 +8,6 @@ export * from './events/contract_instance_deployed_event.js';
 export * from './events/private_function_broadcasted_event.js';
 export * from './events/unconstrained_function_broadcasted_event.js';
 export * from './private_function.js';
-export * from './public_bytecode.js';
 export * from './private_function_membership_proof.js';
 export * from './unconstrained_function_membership_proof.js';
+export * from './interfaces/index.js';

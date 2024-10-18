@@ -1,4 +1,4 @@
-import type { MerkleTreeAdminOperations, MerkleTreeOperations } from './merkle_tree_operations.js';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
 /**
  * Defines the possible states of the world state synchronizer.
@@ -13,7 +13,7 @@ export enum WorldStateRunningState {
 /**
  * Defines the status of the world state synchronizer.
  */
-export interface WorldStateStatus {
+export interface WorldStateSynchronizerStatus {
   /**
    * The current state of the world state synchronizer.
    */
@@ -38,7 +38,7 @@ export interface WorldStateSynchronizer {
    * Returns the current status of the synchronizer.
    * @returns The current status of the synchronizer.
    */
-  status(): Promise<WorldStateStatus>;
+  status(): Promise<WorldStateSynchronizerStatus>;
 
   /**
    * Stops the synchronizer.
@@ -53,31 +53,18 @@ export interface WorldStateSynchronizer {
   syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
-   * Pauses the synchronizer, syncs to the target block number, forks world state, and resumes.
-   * @param targetBlockNumber - The block number to sync to.
-   * @param forkIncludeUncommitted - Whether to include uncommitted data in the fork.
-   * @returns The db forked at the requested target block number.
-   */
-  syncImmediateAndFork(targetBlockNumber: number, forkIncludeUncommitted: boolean): Promise<MerkleTreeAdminOperations>;
-
-  /**
    * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
    */
-  ephemeralFork(): Promise<MerkleTreeOperations>;
-
-  /**
-   * Returns an instance of MerkleTreeAdminOperations that will include uncommitted data.
-   */
-  getLatest(): MerkleTreeAdminOperations;
+  fork(block?: number): Promise<MerkleTreeWriteOperations>;
 
   /**
    * Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data.
    */
-  getCommitted(): MerkleTreeAdminOperations;
+  getCommitted(): MerkleTreeReadOperations;
 
   /**
    * Returns a readonly instance of MerkleTreeAdminOperations where the state is as it was at the given block number
    * @param block - The block number to look at
    */
-  getSnapshot(block: number): MerkleTreeOperations;
+  getSnapshot(block: number): MerkleTreeReadOperations;
 }

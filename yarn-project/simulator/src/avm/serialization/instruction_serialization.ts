@@ -55,7 +55,6 @@ export enum Opcode {
   SET_FF,
   MOV_8,
   MOV_16,
-  CMOV,
   // World state
   SLOAD,
   SSTORE,
@@ -94,7 +93,6 @@ export enum Opcode {
 // Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,
 // this one is parsed as UINT8.
 export enum OperandType {
-  UINT1,
   UINT8,
   UINT16,
   UINT32,
@@ -108,7 +106,6 @@ type OperandWriter = (value: any) => void;
 
 // Specifies how to read and write each operand type.
 const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, OperandWriter]>([
-  [OperandType.UINT1, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
@@ -161,7 +158,7 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
-  if (cursor instanceof Buffer) {
+  if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 

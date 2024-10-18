@@ -5,6 +5,10 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 
 export class EpochProofQuotePayload {
+  // Cached values
+  private asBuffer: Buffer | undefined;
+  private size: number | undefined;
+
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
@@ -24,7 +28,13 @@ export class EpochProofQuotePayload {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    // We cache the buffer to avoid recalculating it
+    if (this.asBuffer) {
+      return this.asBuffer;
+    }
+    this.asBuffer = serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    this.size = this.asBuffer.length;
+    return this.asBuffer;
   }
 
   static fromBuffer(buf: Buffer | BufferReader): EpochProofQuotePayload {
@@ -48,6 +58,26 @@ export class EpochProofQuotePayload {
     );
   }
 
+  toJSON() {
+    return {
+      epochToProve: this.epochToProve.toString(),
+      validUntilSlot: this.validUntilSlot.toString(),
+      bondAmount: this.bondAmount.toString(),
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
+  static fromJSON(obj: any) {
+    return new EpochProofQuotePayload(
+      BigInt(obj.epochToProve),
+      BigInt(obj.validUntilSlot),
+      BigInt(obj.bondAmount),
+      EthAddress.fromString(obj.prover),
+      obj.basisPointFee,
+    );
+  }
+
   toViemArgs(): {
     epochToProve: bigint;
     validUntilSlot: bigint;
@@ -62,6 +92,16 @@ export class EpochProofQuotePayload {
       prover: this.prover.toString(),
       basisPointFee: this.basisPointFee,
     };
+  }
+
+  getSize(): number {
+    // We cache size to avoid recalculating it
+    if (this.size) {
+      return this.size;
+    }
+    // Size is cached when calling toBuffer
+    this.toBuffer();
+    return this.size!;
   }
 
   [inspect.custom](): string {

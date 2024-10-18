@@ -6,6 +6,7 @@ import {
   Header,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
+  PublicKeys,
   computePartialAddress,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
@@ -15,6 +16,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -43,6 +45,12 @@ export class TXEService {
     const noteCache = new ExecutionNoteCache(txHash);
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
+    // Register protocol contracts.
+    for (const name of protocolContractNames) {
+      const { contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      await txeDatabase.addContractArtifact(contractClass.id, artifact);
+      await txeDatabase.addContractInstance(instance);
+    }
     logger.debug(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
@@ -108,7 +116,8 @@ export class TXEService {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: publicKeysHashFr,
+      // TODO: Modify this to allow for passing public keys.
+      publicKeys: PublicKeys.empty(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -122,7 +131,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -136,7 +145,7 @@ export class TXEService {
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = fromSingle(contractAddress);
-    const db = trees.asLatest();
+    const db = await trees.getLatest();
 
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
@@ -166,13 +175,12 @@ export class TXEService {
   async addAccount(secret: ForeignCallSingle) {
     const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-    const hash = keys.publicKeys.hash();
     const artifact = SchnorrAccountContractArtifact;
     const instance = getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: hash,
+      publicKeys: keys.publicKeys,
       constructorArtifact: 'constructor',
       deployer: AztecAddress.ZERO,
     });
@@ -501,7 +509,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -516,7 +524,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -618,6 +626,7 @@ export class TXEService {
     _encryptedLog: ForeignCallSingle,
     _counter: ForeignCallSingle,
   ) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
@@ -626,10 +635,12 @@ export class TXEService {
     _encryptedNote: ForeignCallArray,
     _counter: ForeignCallSingle,
   ) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
   emitEncryptedEventLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedEvent: Buffer, _counter: number) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
@@ -678,7 +689,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -686,7 +697,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public async setPublicTeardownFunctionCall(
@@ -697,7 +708,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -705,7 +716,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([]);
+    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
@@ -749,5 +760,15 @@ export class TXEService {
       );
     }
     return toForeignCallResult([toArray(witness)]);
+  }
+
+  emitUnencryptedLog(_contractAddress: ForeignCallSingle, _message: ForeignCallArray, _counter: ForeignCallSingle) {
+    // TODO(#8811): Implement
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
+    // TODO(#8811): Implement
+    return toForeignCallResult([]);
   }
 }

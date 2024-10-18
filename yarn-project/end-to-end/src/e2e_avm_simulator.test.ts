@@ -4,7 +4,7 @@ import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contrac
 
 import { jest } from '@jest/globals';
 
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 100_000;
 
@@ -15,8 +15,10 @@ describe('e2e_avm_simulator', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup());
-    await publicDeployAccounts(wallet, [wallet]);
+    ({ teardown, wallet } = await setup(undefined, {
+      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    }));
+    await ensureAccountsPubliclyDeployed(wallet, [wallet]);
   });
 
   afterAll(() => teardown());

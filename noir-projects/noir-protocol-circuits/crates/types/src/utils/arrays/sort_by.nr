@@ -3,7 +3,7 @@ use crate::utils::arrays::find_index_hint;
 // Copied from the stdlib Array.sort_via.
 // But this one doesn't use `ordering` to check that the array is sorted.
 // This is to allow preserving the order of equal values.
-unconstrained pub fn sort_by<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [T; N] {
+pub unconstrained fn sort_by<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [T; N] {
     let mut result = array;
     let sorted_index = unsafe {
         get_sorting_index(array, ordering)

@@ -13,7 +13,7 @@ const size_t CIRCUIT_SIZE = 1 << 19;
 
 void build_circuit(Builder& builder)
 {
-    while (builder.get_num_gates() <= CIRCUIT_SIZE / 2) {
+    while (builder.get_estimated_num_finalized_gates() <= CIRCUIT_SIZE / 2) {
         stdlib::pedersen_hash<Builder>::hash({ field_ct(witness_ct(&builder, 1)), field_ct(witness_ct(&builder, 1)) });
     }
 }
@@ -31,7 +31,7 @@ BuilderComposerPtrs create_builder_and_composer()
     }
 
     info("public inputs: ", builder->get_public_inputs().size());
-    info("composer gates: ", builder->get_num_gates());
+    info("composer gates: ", builder->get_estimated_num_finalized_gates());
 
     info("computing proving key...");
     auto composer = std::make_unique<Composer>();

@@ -2,6 +2,7 @@ import {
   AztecAddress,
   CallContext,
   ClientIvcProof,
+  type ContractInstanceWithAddress,
   EthAddress,
   GasSettings,
   LogHash,
@@ -12,9 +13,11 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
+  PrivateCallStackItem,
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedDataBuilder,
   ScopedLogHash,
+  SerializableContractInstance,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
@@ -31,16 +34,80 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
+import { CountedLog, CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
-import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
+
+export const mockPrivateExecutionResult = (
+  seed = 1,
+  hasLogs = false,
+  numberOfNonRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
+  numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
+  hasPublicTeardownCallRequest = false,
+) => {
+  const totalPublicCallRequests =
+    numberOfNonRevertiblePublicCallRequests +
+    numberOfRevertiblePublicCallRequests +
+    (hasPublicTeardownCallRequest ? 1 : 0);
+  const isForPublic = totalPublicCallRequests > 0;
+  let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
+  let publicTeardownFunctionCall = PublicExecutionRequest.empty();
+  if (isForPublic) {
+    const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
+    const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
+    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+
+    if (hasPublicTeardownCallRequest) {
+      const request = publicCallRequests.shift()!;
+      const args = publicFunctionArgs.shift()!;
+      publicTeardownFunctionCall = new PublicExecutionRequest(
+        request.contractAddress,
+        CallContext.fromFields(request.callContext.toFields()),
+        args,
+      );
+    }
+
+    enqueuedPublicFunctionCalls = publicCallRequests.map(
+      (r, i) =>
+        new PublicExecutionRequest(
+          r.contractAddress,
+          CallContext.fromFields(r.callContext.toFields()),
+          publicFunctionArgs[i],
+        ),
+    );
+  }
+  return new PrivateExecutionResult(
+    Buffer.from(''),
+    Buffer.from(''),
+    new Map(),
+    PrivateCallStackItem.empty(),
+    new Map(),
+    [],
+    new Map(),
+    [],
+    [],
+    enqueuedPublicFunctionCalls.map((call, index) => new CountedPublicExecutionRequest(call, index)),
+    publicTeardownFunctionCall,
+    [],
+    hasLogs
+      ? EncryptedTxL2Logs.random(2, 3)
+          .unrollLogs()
+          .map((log, index) => new CountedLog(log, index))
+      : [],
+    hasLogs
+      ? UnencryptedTxL2Logs.random(2, 3)
+          .unrollLogs()
+          .map((log, index) => new CountedLog(log, index))
+      : [],
+  );
+};
 
 export const mockTx = (
   seed = 1,
@@ -213,18 +280,18 @@ export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boole
   mockTx(seed, { hasLogs, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
 export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
+  const privateExecutionResult = mockPrivateExecutionResult(seed, hasLogs);
   const tx = mockTx(seed, { hasLogs });
-  const dec = new NestedProcessReturnValues([new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n)]);
   const output = new PublicSimulationOutput(
     tx.encryptedLogs,
     tx.unencryptedLogs,
     undefined,
     makeCombinedConstantData(),
     makeCombinedAccumulatedData(),
-    [dec],
+    [accumulatePrivateReturnValues(privateExecutionResult)],
     {},
   );
-  return new SimulatedTx(tx, dec, output);
+  return new TxSimulationResult(privateExecutionResult, tx.data, output);
 };
 
 export const mockEpochProofQuote = (

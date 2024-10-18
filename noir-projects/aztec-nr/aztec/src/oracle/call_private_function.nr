@@ -10,7 +10,7 @@ unconstrained fn call_private_function_oracle(
     _is_delegate_call: bool
 ) -> [Field; 2] {}
 
-unconstrained pub fn call_private_function_internal(
+pub unconstrained fn call_private_function_internal(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args_hash: Field,

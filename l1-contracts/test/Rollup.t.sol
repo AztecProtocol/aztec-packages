@@ -15,11 +15,12 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
-import {TestERC20} from "./TestERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -44,6 +45,7 @@ contract RollupTest is DecoderBase {
   TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
+  IProofCommitmentEscrow internal proofCommitmentEscrow;
 
   SignatureLib.Signature[] internal signatures;
 
@@ -65,14 +67,14 @@ contract RollupTest is DecoderBase {
 
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
-    feeJuicePortal = new FeeJuicePortal(address(this));
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize(
-      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
+    feeJuicePortal = new FeeJuicePortal(
+      address(this), address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
-    rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
+    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
+    proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
 
     registry.upgrade(address(rollup));
 
@@ -81,14 +83,22 @@ contract RollupTest is DecoderBase {
 
     uint256 privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
     address signer = vm.addr(privateKey);
+    uint256 bond = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
     quote = EpochProofQuoteLib.EpochProofQuote({
       epochToProve: Epoch.wrap(0),
       validUntilSlot: Slot.wrap(1),
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      bondAmount: bond,
       prover: signer,
       basisPointFee: 0
     });
     signedQuote = _quoteToSignedQuote(quote);
+
+    testERC20.mint(signer, bond * 10);
+    vm.prank(signer);
+    testERC20.approve(address(proofCommitmentEscrow), bond * 10);
+    vm.prank(signer);
+    proofCommitmentEscrow.deposit(bond * 10);
+
     _;
   }
 
@@ -855,7 +865,8 @@ contract RollupTest is DecoderBase {
       _proverId
     ];
 
-    bytes32[64] memory fees;
+    bytes32[] memory fees = new bytes32[](Constants.AZTEC_EPOCH_DURATION * 2);
+
     fees[0] = bytes32(uint256(uint160(_feeRecipient)));
     fees[1] = bytes32(_feeAmount);
 

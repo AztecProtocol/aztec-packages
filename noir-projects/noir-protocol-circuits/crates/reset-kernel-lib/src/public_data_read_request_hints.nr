@@ -10,7 +10,7 @@ pub struct PublicDataReadRequestHints<let NUM_READS: u32> {
     leaf_data_read_hints: [ReadIndexHint; NUM_READS],
 }
 
-unconstrained pub fn build_public_data_read_request_hints<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_LEAVES: u32>(
+pub unconstrained fn build_public_data_read_request_hints<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     reads: [PublicDataRead; NUM_READS],
     writes: [OverridablePublicDataWrite; NUM_WRITES],
     leaf_data: [OverridablePublicDataTreeLeaf; NUM_LEAVES]

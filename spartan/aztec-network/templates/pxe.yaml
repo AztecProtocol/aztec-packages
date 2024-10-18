@@ -1,4 +1,4 @@
-{{- if .Values.network.enableBots }}
+{{- if not .Values.pxe.external }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,8 +17,19 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: pxe
     spec:
+      initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
       containers:
-        - name: aztec
+        - name: pxe
           image: "{{ .Values.images.aztec.image }}"
           command:
             - "/bin/bash"

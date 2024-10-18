@@ -1,0 +1,17 @@
+# Enable and configure Grafana
+# https://artifacthub.io/packages/helm/grafana/grafana
+grafana:
+  service:
+    type: LoadBalancer
+  persistence:
+    type: pvc
+    enabled: true
+    size: "10Gi"
+
+opentelemetry-collector:
+  ports:
+    jaeger-compact:
+      enabled: false
+  service:
+    enabled: true
+    type: LoadBalancer

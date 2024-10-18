@@ -121,8 +121,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                            multivariate_challenge,
                                            Commitment::one(),
                                            transcript,
-                                           commitments.get_concatenation_groups(),
-                                           claimed_evaluations.get_concatenated_constraints());
+                                           commitments.get_groups_to_be_concatenated(),
+                                           claimed_evaluations.get_concatenated());
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

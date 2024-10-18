@@ -70,7 +70,7 @@ export class Oracle {
       instance.deployer,
       instance.contractClassId,
       instance.initializationHash,
-      instance.publicKeysHash,
+      ...instance.publicKeys.toFields(),
     ].map(toACVMField);
   }
 
@@ -380,8 +380,8 @@ export class Oracle {
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
-  ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+  ): Promise<ACVMField> {
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -389,6 +389,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
+    return toACVMField(newArgsHash);
   }
 
   async setPublicTeardownFunctionCall(
@@ -398,8 +399,8 @@ export class Oracle {
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
-  ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+  ): Promise<ACVMField> {
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -407,6 +408,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
+    return toACVMField(newArgsHash);
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {

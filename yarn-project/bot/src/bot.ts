@@ -75,10 +75,10 @@ export class Bot {
     await batch.simulate();
 
     this.log.verbose(`Proving transaction`, logCtx);
-    await batch.prove(opts);
+    const provenTx = await batch.prove(opts);
 
     this.log.verbose(`Sending tx`, logCtx);
-    const tx = batch.send(opts);
+    const tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
 
@@ -87,7 +87,10 @@ export class Bot {
       return;
     }
 
-    this.log.verbose(`Awaiting tx ${txHash} to be on the ${followChain} (timeout ${txMinedWaitSeconds}s)`, logCtx);
+    this.log.verbose(
+      `Awaiting tx ${txHash} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
+      logCtx,
+    );
     const receipt = await tx.wait({
       timeout: txMinedWaitSeconds,
       provenTimeout: txMinedWaitSeconds,

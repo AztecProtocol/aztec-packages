@@ -5,6 +5,7 @@ import {
 } from '@aztec/circuit-types';
 import type { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -111,7 +112,7 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     _appCircuitName?: string | undefined,
   ): Promise<AppCircuitSimulateOutput> {
     const appCircuitProofOutput: AppCircuitSimulateOutput = {
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     };
     return Promise.resolve(appCircuitProofOutput);
   }

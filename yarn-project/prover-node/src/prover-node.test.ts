@@ -6,22 +6,22 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeAdminOperations,
+  type MerkleTreeWriteOperations,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
@@ -41,6 +41,7 @@ describe('prover-node', () => {
   let simulator: MockProxy<SimulationProvider>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
+  let bondManager: MockProxy<BondManager>;
   let telemetryClient: NoopTelemetryClient;
   let config: ProverNodeOptions;
 
@@ -63,7 +64,7 @@ describe('prover-node', () => {
   let jobs: {
     job: MockProxy<EpochProvingJob>;
     cleanUp: (job: EpochProvingJob) => Promise<void>;
-    db: MerkleTreeAdminOperations;
+    db: MerkleTreeWriteOperations;
     epochNumber: bigint;
   }[];
 
@@ -77,6 +78,25 @@ describe('prover-node', () => {
     quote: Pick<EpochProofQuotePayload, 'basisPointFee' | 'bondAmount' | 'validUntilSlot'> = partialQuote,
   ) => expect.objectContaining({ payload: toQuotePayload(epoch, quote) });
 
+  const createProverNode = (claimsMonitor: ClaimsMonitor, epochMonitor: EpochMonitor) =>
+    new TestProverNode(
+      prover,
+      publisher,
+      l2BlockSource,
+      l1ToL2MessageSource,
+      contractDataSource,
+      worldState,
+      coordination,
+      simulator,
+      quoteProvider,
+      quoteSigner,
+      claimsMonitor,
+      epochMonitor,
+      bondManager,
+      telemetryClient,
+      config,
+    );
+
   beforeEach(() => {
     prover = mock<EpochProverManager>();
     publisher = mock<L1Publisher>();
@@ -88,12 +108,13 @@ describe('prover-node', () => {
     simulator = mock<SimulationProvider>();
     quoteProvider = mock<QuoteProvider>();
     quoteSigner = mock<QuoteSigner>();
+    bondManager = mock<BondManager>();
 
     telemetryClient = new NoopTelemetryClient();
     config = { maxPendingJobs: 3, pollingIntervalMs: 10 };
 
     // World state returns a new mock db every time it is asked to fork
-    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeAdminOperations>()));
+    worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
     worldState.status.mockResolvedValue({ syncedToL2Block: 1, state: WorldStateRunningState.RUNNING });
 
     // Publisher returns its sender address
@@ -129,28 +150,13 @@ describe('prover-node', () => {
       claimsMonitor = mock<ClaimsMonitor>();
       epochMonitor = mock<EpochMonitor>();
 
-      proverNode = new TestProverNode(
-        prover,
-        publisher,
-        l2BlockSource,
-        l1ToL2MessageSource,
-        contractDataSource,
-        worldState,
-        coordination,
-        simulator,
-        quoteProvider,
-        quoteSigner,
-        claimsMonitor,
-        epochMonitor,
-        telemetryClient,
-        config,
-      );
+      proverNode = createProverNode(claimsMonitor, epochMonitor);
     });
 
     it('sends a quote on a finished epoch', async () => {
       await proverNode.handleEpochCompleted(10n);
 
-      expect(quoteProvider.getQuote).toHaveBeenCalledWith(blocks);
+      expect(quoteProvider.getQuote).toHaveBeenCalledWith(10, blocks);
       expect(quoteSigner.sign).toHaveBeenCalledWith(expect.objectContaining(partialQuote));
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
 
@@ -169,14 +175,6 @@ describe('prover-node', () => {
       await proverNode.handleClaim(claim);
 
       expect(jobs[0].epochNumber).toEqual(10n);
-    });
-
-    it('fails to start proving if world state is synced past the first block in the epoch', async () => {
-      // This test will probably be no longer necessary once we have the proper world state
-      worldState.status.mockResolvedValue({ syncedToL2Block: 21, state: WorldStateRunningState.RUNNING });
-      await proverNode.handleClaim(claim);
-
-      expect(jobs.length).toEqual(0);
     });
 
     it('does not prove the same epoch twice', async () => {
@@ -240,22 +238,7 @@ describe('prover-node', () => {
         Promise.resolve(epochNumber <= lastEpochComplete),
       );
 
-      proverNode = new TestProverNode(
-        prover,
-        publisher,
-        l2BlockSource,
-        l1ToL2MessageSource,
-        contractDataSource,
-        worldState,
-        coordination,
-        simulator,
-        quoteProvider,
-        quoteSigner,
-        claimsMonitor,
-        epochMonitor,
-        telemetryClient,
-        config,
-      );
+      proverNode = createProverNode(claimsMonitor, epochMonitor);
     });
 
     it('sends a quote on initial sync', async () => {
@@ -295,7 +278,7 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      db: MerkleTreeAdminOperations,
+      db: MerkleTreeWriteOperations,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {

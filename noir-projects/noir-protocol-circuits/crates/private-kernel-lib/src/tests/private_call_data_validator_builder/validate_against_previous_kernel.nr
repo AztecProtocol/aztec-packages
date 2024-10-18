@@ -28,7 +28,7 @@ fn validate_against_previous_kernel_succeeds() {
     builder.validate_against_previous_kernel(previous_kernel);
 }
 
-#[test(should_fail_with="mismatch historical header")]
+#[test(should_fail_with = "mismatch historical header")]
 fn validate_against_previous_kernel_mismatch_header_version_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -38,7 +38,7 @@ fn validate_against_previous_kernel_mismatch_header_version_fails() {
     builder.validate_against_previous_kernel(previous_kernel);
 }
 
-#[test(should_fail_with="mismatch tx context")]
+#[test(should_fail_with = "mismatch tx context")]
 fn validate_against_previous_kernel_mismatch_chain_id_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 

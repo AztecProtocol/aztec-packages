@@ -47,9 +47,10 @@ impl<Note, let N: u32> NoteViewerOptions<Note, N> {
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_NOTES_PER_PAGE as u32);
         // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it, reducing
-        // gate counts when a limit has been set. This isn't required in unconstrained code, but we still keep this
-        // requirement here for API consistency.
-        assert_constant(limit);
+        // gate counts when a limit has been set.
+        if !dep::std::runtime::is_unconstrained() {
+            assert_constant(limit);
+        }
         self.limit = limit;
         *self
     }

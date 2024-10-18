@@ -18,7 +18,7 @@ pub fn assert_combined_array<T, let N: u32>(
     )
 }
 
-unconstrained pub fn combine_arrays<T, let N: u32>(
+pub unconstrained fn combine_arrays<T, let N: u32>(
     original_array_lt: [T; N],
     original_array_gte: [T; N]
 ) -> [T; N] where T: Empty + Eq {
@@ -107,7 +107,7 @@ mod tests {
         builder.check_and_execute();
     }
 
-    #[test(should_fail_with="hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the commbined array does not match")]
     fn assert_combined_array_extra_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -117,7 +117,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the commbined array does not match")]
     fn assert_combined_array_missing_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -127,7 +127,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the commbined array does not match")]
     fn assert_combined_array_unordered_fails() {
         let mut builder = TestBuilder::new();
 

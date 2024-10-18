@@ -1,9 +1,9 @@
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, NoteInterface, PrivateSet};
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
-    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
     note::{note_interface::NullifiableNote, note_getter::view_notes, note_emission::OuterNoteEmission},
-    keys::{getters::get_public_keys, public_keys::NpkM}
+    keys::getters::get_public_keys
 };
 use crate::types::token_note::OwnedNote;
 
@@ -19,11 +19,11 @@ impl<T, Context> BalanceSet<T, Context> {
 }
 
 impl<T> BalanceSet<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
+    pub unconstrained fn balance_of<let T_SERIALIZED_LEN: u32>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
         self.balance_of_with_offset(0)
     }
 
-    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
+    pub unconstrained fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
         self: Self,
         offset: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {

@@ -1,6 +1,17 @@
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
+  type PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/circuit-types';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Fr,
+  PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -12,18 +23,16 @@ import {
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import {
-  type ExecutionResult,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/simulator';
+  getProtocolContractSiblingPath,
+  isProtocolContract,
+  protocolContractTreeRoot,
+} from '@aztec/protocol-contracts';
 
 import { type WitnessMap } from '@noir-lang/types';
 
@@ -32,7 +41,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-  verificationKey: VerificationKeyAsFields.makeEmpty(),
+  verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   outputWitness: new Map(),
   bytecode: Buffer.from([]),
 };
@@ -60,7 +69,7 @@ export class KernelProver {
    */
   async prove(
     txRequest: TxRequest,
-    executionResult: ExecutionResult,
+    executionResult: PrivateExecutionResult,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
@@ -118,7 +127,12 @@ export class KernelProver {
       const privateCallData = await this.createPrivateCallData(currentExecution, appVk.verificationKey);
 
       if (firstIteration) {
-        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, getVKTreeRoot(), privateCallData);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(
+          txRequest,
+          getVKTreeRoot(),
+          protocolContractTreeRoot,
+          privateCallData,
+        );
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.simulateProofInit(proofInput);
         acirs.push(output.bytecode);
@@ -187,14 +201,14 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ callStackItem }: ExecutionResult, vk: VerificationKeyAsFields) {
+  private async createPrivateCallData({ callStackItem }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
     const { contractAddress, functionData } = callStackItem;
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
       functionData.selector,
     );
-    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
       contractAddress,
     );
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
@@ -204,14 +218,19 @@ export class KernelProver {
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
+    const protocolContractSiblingPath = isProtocolContract(contractAddress)
+      ? getProtocolContractSiblingPath(contractAddress)
+      : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
+
     return PrivateCallData.from({
       callStackItem,
       vk,
-      publicKeysHash,
+      publicKeysHash: publicKeys.hash(),
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
       functionLeafMembershipWitness,
+      protocolContractSiblingPath,
       acirHash,
     });
   }

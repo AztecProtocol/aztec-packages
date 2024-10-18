@@ -22,9 +22,19 @@ BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' 
 echo Using BB hash $BB_HASH
 mkdir -p "./target/keys"
 
-for pathname in "./target"/*.json; do    
-    BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
-done
+PARALLEL_VK=${PARALLEL_VK:-true}
+
+if [[ $PARALLEL_VK == "true" ]]; then
+  echo "Generating vks in parallel..."
+  for pathname in "./target"/*.json; do
+      BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
+  done
+else
+  echo "Generating vks sequentially..."
+  for pathname in "./target"/*.json; do
+      BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys"
+  done
+fi
 
 for job in $(jobs -p); do
   wait $job || exit 1

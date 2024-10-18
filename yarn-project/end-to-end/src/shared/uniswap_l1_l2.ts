@@ -28,7 +28,7 @@ import {
 } from 'viem';
 import type * as chains from 'viem/chains';
 
-import { publicDeployAccounts } from '../fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -119,7 +119,7 @@ export const uniswapL1L2TestSuite = (
       // sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
-      await publicDeployAccounts(ownerWallet, [ownerWallet, sponsorWallet]);
+      await ensureAccountsPubliclyDeployed(ownerWallet, [ownerWallet, sponsorWallet]);
 
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
