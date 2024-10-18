@@ -228,7 +228,7 @@ global GAS_LENGTH: u32 = 2;
 global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH + /* inclusion_fee */ 1;
 global CALL_CONTEXT_LENGTH: u32 = 5;
 global CONTENT_COMMITMENT_LENGTH: u32 = 4;
-global CONTRACT_INSTANCE_LENGTH: u32 = 5;
+global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 global ETH_ADDRESS_LENGTH: u32 = 1;
@@ -405,13 +405,13 @@ global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
 
 // AVM memory tags
+global MEM_TAG_FF = 0;
 global MEM_TAG_U1 = 1;
 global MEM_TAG_U8 = 2;
 global MEM_TAG_U16 = 3;
 global MEM_TAG_U32 = 4;
 global MEM_TAG_U64 = 5;
 global MEM_TAG_U128 = 6;
-global MEM_TAG_FF = 7;
 
 // AVM CIRCUIT - PUBLIC KERNEL INPUTS COLUMN OFFSETS
 // Keep the number of offsets aligned with KERNEL_INPUTS_LENGTH defined in constants.hpp

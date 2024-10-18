@@ -152,7 +152,7 @@ library Constants {
   uint256 internal constant GAS_SETTINGS_LENGTH = 7;
   uint256 internal constant CALL_CONTEXT_LENGTH = 5;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 4;
-  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 5;
+  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 16;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 3;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant ETH_ADDRESS_LENGTH = 1;
@@ -231,13 +231,13 @@ library Constants {
   uint256 internal constant TUBE_PROOF_LENGTH = 463;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 145;
+  uint256 internal constant MEM_TAG_FF = 0;
   uint256 internal constant MEM_TAG_U1 = 1;
   uint256 internal constant MEM_TAG_U8 = 2;
   uint256 internal constant MEM_TAG_U16 = 3;
   uint256 internal constant MEM_TAG_U32 = 4;
   uint256 internal constant MEM_TAG_U64 = 5;
   uint256 internal constant MEM_TAG_U128 = 6;
-  uint256 internal constant MEM_TAG_FF = 7;
   uint256 internal constant SENDER_KERNEL_INPUTS_COL_OFFSET = 0;
   uint256 internal constant ADDRESS_KERNEL_INPUTS_COL_OFFSET = 1;
   uint256 internal constant STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET = 1;

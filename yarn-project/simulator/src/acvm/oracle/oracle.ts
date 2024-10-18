@@ -70,7 +70,7 @@ export class Oracle {
       instance.deployer,
       instance.contractClassId,
       instance.initializationHash,
-      instance.publicKeysHash,
+      ...instance.publicKeys.toFields(),
     ].map(toACVMField);
   }
 

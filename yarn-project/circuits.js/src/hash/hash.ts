@@ -4,7 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex } from '../constants.gen.js';
-import { type ScopedL2ToL1Message, VerificationKey } from '../structs/index.js';
+import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
+import { VerificationKey } from '../structs/verification_key.js';
 
 /**
  * Computes a hash of a given verification key.
