@@ -290,7 +290,7 @@ network-test-fake-proofs:
     WORKDIR /usr/src/yarn-project
     # All script arguments are in the end-to-end/scripts/native-network folder
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-        ./test-transfer.sh \
+        "./test.sh src/spartan/transfer.test.ts" \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
