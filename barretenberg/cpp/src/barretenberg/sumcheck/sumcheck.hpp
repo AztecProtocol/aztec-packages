@@ -196,6 +196,7 @@ template <typename Flavor> class SumcheckProver {
         // the total sum, etc.
         if constexpr (Flavor::HasZK) {
             setup_zk_sumcheck_data(zk_sumcheck_data);
+            info("setup zk data ", zk_sumcheck_data.masking_terms_evaluations.size());
         };
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
