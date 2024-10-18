@@ -12,11 +12,17 @@ import { fileURLToPath } from 'url';
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
   MockAppCreatorCircuit,
+  MockAppCreatorVk,
   MockAppReaderCircuit,
+  MockAppReaderVk,
   MockPrivateKernelInitCircuit,
+  MockPrivateKernelInitVk,
   MockPrivateKernelInnerCircuit,
+  MockPrivateKernelInnerVk,
   MockPrivateKernelResetCircuit,
+  MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
+  getVkAsFields,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
@@ -54,6 +60,7 @@ describe('Client IVC Integration', () => {
       path.join(bbWorkingDirectory, 'acir.msgpack'),
       path.join(bbWorkingDirectory, 'witnesses.msgpack'),
       logger.info,
+      true,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -77,10 +84,12 @@ describe('Client IVC Integration', () => {
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
+      app_vk: getVkAsFields(MockAppCreatorVk),
     });
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
     // Create client IVC proof
     const bytecodes = [
@@ -115,10 +124,13 @@ describe('Client IVC Integration', () => {
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
       tx,
+      app_vk: getVkAsFields(MockAppCreatorVk),
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       app_inputs: readerAppWitnessGenResult.publicInputs,
+      app_vk: getVkAsFields(MockAppReaderVk),
+      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
 
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -129,10 +141,12 @@ describe('Client IVC Integration', () => {
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       ],
+      kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
     });
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
+      kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
     });
 
     // Create client IVC proof
