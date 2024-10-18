@@ -8,14 +8,11 @@ unconstrained fn mint_public_success() {
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let mint_amount = 10000;
-    let mint_public_call_interface = Token::at(token_contract_address).mint_public(owner, mint_amount);
-    env.call_public(mint_public_call_interface);
+    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
 
     utils::check_public_balance(token_contract_address, owner, mint_amount);
 
-    let total_supply_call_interface = Token::at(token_contract_address).total_supply();
-    let total_supply = env.call_public(total_supply_call_interface);
-
+    let total_supply = Token::at(token_contract_address).total_supply().view(&mut env.public());
     assert(total_supply == mint_amount);
 }
 
@@ -46,8 +43,7 @@ unconstrained fn mint_public_failures() {
 
     let mint_for_recipient_amount = 1000;
 
-    let mint_public_call_interface = Token::at(token_contract_address).mint_public(recipient, mint_for_recipient_amount);
-    env.call_public(mint_public_call_interface);
+    Token::at(token_contract_address).mint_public(recipient, mint_for_recipient_amount).call(&mut env.public());
 
     let mint_amount = 2.pow_32(128) - mint_for_recipient_amount;
     let mint_public_call_interface = Token::at(token_contract_address).mint_public(owner, mint_amount);
@@ -65,11 +61,9 @@ unconstrained fn mint_private_success() {
     // Mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 
-    let mint_public_call_interface = Token::at(token_contract_address).mint_public(owner, mint_amount);
-    env.call_public(mint_public_call_interface);
+    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
 
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
@@ -82,8 +76,7 @@ unconstrained fn mint_private_success() {
     );
 
     // Redeem our shielded tokens
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, owner, mint_amount);
 }
@@ -96,11 +89,9 @@ unconstrained fn mint_private_failure_double_spend() {
     // Mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 
-    let mint_public_call_interface = Token::at(token_contract_address).mint_public(owner, mint_amount);
-    env.call_public(mint_public_call_interface);
+    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
 
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
@@ -113,14 +104,12 @@ unconstrained fn mint_private_failure_double_spend() {
     );
 
     // Redeem our shielded tokens
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, owner, mint_amount);
 
     // Attempt to double spend
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(recipient, mint_amount, secret);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(recipient, mint_amount, secret).call(&mut env.private());
 }
 
 #[test(should_fail_with = "caller is not minter")]
@@ -133,8 +122,7 @@ unconstrained fn mint_private_failure_non_minter() {
 
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
 
 #[test(should_fail_with = "call to assert_max_bit_size")]
@@ -146,8 +134,7 @@ unconstrained fn mint_private_failure_overflow() {
     let mint_amount = 2.pow_32(128);
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
 
 #[test(should_fail_with = "attempt to add with overflow")]
@@ -158,9 +145,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     // Mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
-
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
@@ -172,8 +157,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     );
 
     // Redeem our shielded tokens
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, owner, mint_amount);
 
@@ -181,8 +165,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     // Mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
 
 #[test(should_fail_with = "attempt to add with overflow")]
@@ -196,10 +179,8 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     let secret_hash_owner = compute_secret_hash(secret_owner);
     let secret_hash_recipient = compute_secret_hash(secret_recipient);
 
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash_owner);
-    env.call_public(mint_private_call_interface);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash_recipient);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash_owner).call(&mut env.public());
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash_recipient).call(&mut env.public());
 
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
@@ -218,13 +199,11 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
 
     // Redeem owner's shielded tokens
     env.impersonate(owner);
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret_owner);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret_owner).call(&mut env.private());
 
     // Redeem recipient's shielded tokens
     env.impersonate(recipient);
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(recipient, mint_amount, secret_recipient);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(recipient, mint_amount, secret_recipient).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, owner, mint_amount);
     utils::check_private_balance(token_contract_address, recipient, mint_amount);
@@ -234,6 +213,5 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     // Try to mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
 }
