@@ -54,8 +54,8 @@ export class KeyStore {
       publicKeys,
     } = deriveKeys(sk);
 
-    const publicKeysHash = publicKeys.hash();
-    const account = computeAddress(publicKeysHash, partialAddress);
+    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
     await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
@@ -82,7 +82,7 @@ export class KeyStore {
     await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(new CompleteAddress(account, publicKeys, partialAddress));
+    return Promise.resolve(completeAddress);
   }
 
   /**
@@ -139,6 +139,22 @@ export class KeyStore {
     const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
     return Promise.resolve(new KeyValidationRequest(pkM, skApp));
+  }
+
+  /**
+   * Gets the master nullifier public key for a given account.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account address for which to retrieve the master nullifier public key.
+   * @returns The master nullifier public key for the account.
+   */
+  public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
+    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+    if (!masterNullifierPublicKeyBuffer) {
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
+    }
+    return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
 
   /**
