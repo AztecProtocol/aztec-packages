@@ -289,7 +289,7 @@ network-test-fake-proofs:
     COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
     WORKDIR /usr/src/yarn-project
     # All script arguments are in the end-to-end/scripts/native-network folder
-    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+    RUN INTERLEAVED=true end-to-end/scripts/run_native_testnet.sh \
         "./test.sh src/spartan/transfer.test.ts" \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
