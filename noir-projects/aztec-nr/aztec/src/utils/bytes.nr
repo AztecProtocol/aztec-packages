@@ -178,7 +178,7 @@ mod test {
         assert_eq(input, input_back);
     }
 
-    #[test(should_fail_with = "Bytes do not fit into fields")]
+    #[test(should_fail_with = "Argument is false")]
     fn test_too_few_destination_fields() {
         // This should fail because we need 2 fields to store 32 bytes but we only provide 1.
         let input = [0 as u8; 32];
