@@ -21,8 +21,7 @@ contract Escrow {
 
     // Creates a new instance
     #[private]
-    #['private]
-    #['initializer]
+    #[initializer]
     fn constructor(owner: AztecAddress) {
         let owner_keys = get_public_keys(owner);
         let msg_sender_keys = get_public_keys(context.msg_sender());
@@ -34,7 +33,6 @@ contract Escrow {
 
     // Withdraws balance. Requires that msg.sender is the owner.
     #[private]
-    #['private]
     fn withdraw(token: AztecAddress, amount: Field, recipient: AztecAddress) {
         let sender = context.msg_sender();
 

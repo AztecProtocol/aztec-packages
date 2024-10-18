@@ -21,8 +21,7 @@ contract StaticChild {
 
     // Returns base_value + chain_id + version + block_number + timestamp statically
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
             + context.chain_id()
@@ -35,7 +34,6 @@ contract StaticChild {
 
     // Sets `current_value` to `new_value`
     #[public]
-    #['public]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
         context.emit_unencrypted_log(new_value);
@@ -44,8 +42,7 @@ contract StaticChild {
 
     // View function that attempts to modify state. Should always fail regardless how it's called.
     #[private]
-    #['private]
-    #['view]
+    #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let msg_sender_keys = get_public_keys(context.msg_sender());
         let owner_keys = get_public_keys(owner);
@@ -58,7 +55,6 @@ contract StaticChild {
 
     // Modify a note
     #[private]
-    #['private]
     fn private_set_value(
         new_value: Field,
         owner: AztecAddress,
@@ -81,8 +77,7 @@ contract StaticChild {
 
     // Retrieve note value statically
     #[private]
-    #['private]
-    #['view]
+    #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut options = NoteGetterOptions::new();
@@ -97,7 +92,6 @@ contract StaticChild {
 
     // Increments `current_value` by `new_value`
     #[public]
-    #['public]
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
@@ -107,8 +101,7 @@ contract StaticChild {
 
     // View function that attempts to modify state. Should always fail regardless how it's called.
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn pub_illegal_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
