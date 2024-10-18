@@ -3,6 +3,7 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT } from '../../constants.gen.js';
+import { PublicKeys } from '../../types/public_keys.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
@@ -31,7 +32,7 @@ export class PrivateCallData {
     /**
      * Public keys hash of the contract instance.
      */
-    public publicKeysHash: Fr,
+    public publicKeys: PublicKeys,
     /**
      * Salted initialization hash of the contract instance.
      */
@@ -58,7 +59,7 @@ export class PrivateCallData {
       fields.vk,
       fields.contractClassArtifactHash,
       fields.contractClassPublicBytecodeCommitment,
-      fields.publicKeysHash,
+      fields.publicKeys,
       fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
       fields.protocolContractSiblingPath,
@@ -90,7 +91,7 @@ export class PrivateCallData {
       reader.readObject(VerificationKeyAsFields),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readObject(PublicKeys),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
       reader.readArray(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr),
