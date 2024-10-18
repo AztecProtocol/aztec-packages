@@ -107,18 +107,31 @@ template <typename Flavor> class SumcheckProverRound {
                       size_t edge_idx,
                       std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt)
     {
-
+        info("num extended edges", extended_edges.size());
+        info("has value? ", zk_sumcheck_data.has_value());
+        info("num multivar ", multivariates.size());
         if constexpr (!Flavor::HasZK) {
             for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+                // if (edge_idx + 1 >= multivariate.size())
+                //     info("WASMDBG ", multivariate.size(), "|", edge_idx);
+
                 bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
                 extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             }
         } else {
+            info("info which flavor? ", Flavor::HasZK);
             // extend edges of witness polynomials and add correcting terms
             for (auto [extended_edge, multivariate, masking_univariate] :
                  zip_view(extended_edges.get_all_witnesses(),
                           multivariates.get_all_witnesses(),
                           zk_sumcheck_data.value().masking_terms_evaluations)) {
+                if (edge_idx + 1 >= multivariate.size())
+                    info("WASMDBG Witness",
+                         multivariate.size(),
+                         "|",
+                         extended_edge.size(),
+                         " masking term size ",
+                         masking_univariate.size());
                 bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
                 extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
                 extended_edge += masking_univariate;
@@ -126,6 +139,8 @@ template <typename Flavor> class SumcheckProverRound {
             // extend edges of public polynomials
             for (auto [extended_edge, multivariate] :
                  zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
+                if (edge_idx + 1 >= multivariate.size())
+                    info("WASMDBG Non-Witness", multivariate.size(), "|", edge_idx);
                 bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
                 extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             };
@@ -165,6 +180,7 @@ template <typename Flavor> class SumcheckProverRound {
     {
         PROFILE_THIS_NAME("compute_univariate");
 
+        // info("sumcheck data has value ", zk_sumcheck_data.has_value());
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
