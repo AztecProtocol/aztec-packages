@@ -4,7 +4,7 @@
 
 namespace bb::avm_trace {
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-AvmBytecodeTraceBuilder::AvmBytecodeTraceBuilder(const std::vector<std::vector<uint8_t>>& all_contracts_bytecode)
+AvmBytecodeTraceBuilder::AvmBytecodeTraceBuilder(const std::vector<AvmContractBytecode>& all_contracts_bytecode)
     : all_contracts_bytecode(all_contracts_bytecode)
 {}
 
@@ -31,7 +31,7 @@ void AvmBytecodeTraceBuilder::build_bytecode_columns()
     // This is the main loop that will generate the bytecode trace
     for (auto& contract_bytecode : all_contracts_bytecode) {
         FF running_hash = FF::zero();
-        auto packed_bytecode = pack_bytecode(contract_bytecode);
+        auto packed_bytecode = pack_bytecode(contract_bytecode.bytecode);
         // This size is already based on the number of fields
         for (size_t i = 0; i < packed_bytecode.size(); ++i) {
             bytecode_trace.push_back(BytecodeTraceEntry{
