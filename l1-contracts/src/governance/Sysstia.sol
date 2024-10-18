@@ -16,11 +16,11 @@ contract Sysstia is ISysstia {
   // This value is pulled out my ass. Don't take it seriously
   uint256 public constant BLOCK_REWARD = 50e18;
 
-  IERC20 public immutable TST;
+  IERC20 public immutable ASSET;
   IRegistry public immutable REGISTRY;
 
-  constructor(IERC20 _tst, IRegistry _registry) {
-    TST = _tst;
+  constructor(IERC20 _asset, IRegistry _registry) {
+    ASSET = _asset;
     REGISTRY = _registry;
   }
 
@@ -29,16 +29,25 @@ contract Sysstia is ISysstia {
    *          Note especially that it can be called any number of times.
    *          Essentially a placeholder until more nuanced logic is designed.
    *
-   * @dev     Does not check if the tokens are actually available first.
-   *
    * @param _to - The address to receive the reward
    *
    * @return - the amount claimed
    */
   function claim(address _to) external override(ISysstia) returns (uint256) {
-    address canonical = REGISTRY.getRollup();
-    require(msg.sender == canonical, Errors.Sysstia__InvalidCaller(msg.sender, canonical));
-    TST.safeTransfer(_to, BLOCK_REWARD);
-    return BLOCK_REWARD;
+    require(
+      msg.sender == canonicalRollup(), Errors.Sysstia__InvalidCaller(msg.sender, canonicalRollup())
+    );
+    uint256 bal = ASSET.balanceOf(address(this));
+    uint256 reward = bal > BLOCK_REWARD ? BLOCK_REWARD : bal;
+
+    if (reward > 0) {
+      ASSET.safeTransfer(_to, reward);
+    }
+
+    return reward;
+  }
+
+  function canonicalRollup() public view returns (address) {
+    return REGISTRY.getRollup();
   }
 }

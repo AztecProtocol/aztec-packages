@@ -3,4 +3,5 @@ pragma solidity >=0.8.27;
 
 interface ISysstia {
   function claim(address _to) external returns (uint256);
+  function canonicalRollup() external view returns (address);
 }
