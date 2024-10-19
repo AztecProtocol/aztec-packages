@@ -54,5 +54,5 @@ for cmd in "$@"; do
 done
 
 # Run the main command synchronously, piping output through the run_command function with green color
-run_command "$main_cmd" "\e[32m"
+run_command "$main_cmd" "\e[32m" || (echo "$main_cmd causing terminate" && kill 0)
 FINISHED=true
