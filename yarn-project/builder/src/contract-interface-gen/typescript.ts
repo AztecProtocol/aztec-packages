@@ -84,7 +84,7 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(PublicKeys.empty(), wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
+    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
@@ -102,7 +102,7 @@ function generateDeploy(input: ContractArtifact) {
     ...args: Parameters<${contractName}['methods'][M]>
   ) {
     return new DeployMethod<${contractName}>(
-      opts.publicKeys ?? PublicKeys.empty(),
+      opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
       ${artifactName},
       ${contractName}.at,

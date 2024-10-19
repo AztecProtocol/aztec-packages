@@ -105,7 +105,7 @@ export async function addPXE(
         address,
         deployer: AztecAddress.ZERO,
         contractClassId: getContractClassFromArtifact(artifact!).id,
-        publicKeys: PublicKeys.empty(),
+        publicKeys: PublicKeys.default(),
       };
       userLog(`Registering ${name} at ${address.toString()}`);
       await pxe.registerContract({ artifact, instance });

@@ -23,7 +23,7 @@ export async function addContract(
     salt,
     initializationHash,
     contractClassId: getContractClassFromArtifact(artifact).id,
-    publicKeys: publicKeys ?? PublicKeys.empty(),
+    publicKeys: publicKeys ?? PublicKeys.default(),
     address,
     deployer: deployer ?? AztecAddress.ZERO,
   };
