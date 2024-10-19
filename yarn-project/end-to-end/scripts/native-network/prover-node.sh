@@ -17,6 +17,10 @@ echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env ] ; do
   sleep 1
 done
+echo "Waiting for Aztec Node..."
+until curl -s http://127.0.0.1:8080/status >/dev/null ; do
+  sleep 1
+done
 echo "Done waiting."
 
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
