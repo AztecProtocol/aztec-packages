@@ -22,7 +22,7 @@ Usage: Run with -h to see display_help output below.
 
 # Default values
 TEST_SCRIPT="\"./test.sh src/spartan/transfer.test.ts\""
-PROVER_SCRIPT="\"./prover-node.sh false 7900\""
+PROVER_SCRIPT="\"./prover-node.sh 7900 false\""
 NUM_VALIDATORS=3
 
 # Function to display help message
