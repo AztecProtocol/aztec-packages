@@ -23,7 +23,7 @@ until curl -s -X POST -H 'content-type: application/json' \
   sleep 1
 done
 echo "Waiting for l2 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l2-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ] ; do
   sleep 1
 done
 echo "Done waiting."

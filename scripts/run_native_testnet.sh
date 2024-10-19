@@ -21,7 +21,7 @@ Usage: Run with -h to see display_help output below.
 '
 
 # Default values
-TEST_SCRIPT="\"./test.sh src/spartan/transfer.test.ts\""
+TEST_FILE=src/spartan/transfer.test.ts
 PROVER_SCRIPT="\"./prover-node.sh 7900 false\""
 NUM_VALIDATORS=3
 
@@ -31,7 +31,7 @@ display_help() {
     echo
     echo "Options:"
     echo "  -h     Display this help message"
-    echo "  -t     Specify the test command (default: src/spartan/transfer.test.ts)"
+    echo "  -t     Specify the test file (default: src/spartan/transfer.test.ts)"
     echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
     echo "  -v     Specify the number of validators (default: $NUM_VALIDATORS)"
     echo
@@ -46,7 +46,7 @@ while getopts "ht:v:" opt; do
       display_help
       exit 0
       ;;
-    t) TEST_SCRIPT="\"./test.sh $OPTARG\""
+    t) TEST_FILE="$OPTARG"
       ;;
     p) PROVER_SCRIPT="\"$OPTARG\""
       ;;
@@ -59,23 +59,19 @@ while getopts "ht:v:" opt; do
   esac
 done
 
+# Go to repo root
+cd $(git rev-parse --show-toplevel)
 # Base command
 BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
-        $TEST_SCRIPT \
+        \"./test.sh $TEST_FILE\" \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
+        \"./validators.sh $NUM_VALIDATORS\" \
         $PROVER_SCRIPT \
         ./pxe.sh \
         ./transaction-bot.sh"
-
-# Generate validator commands
-for ((i=0; i<NUM_VALIDATORS; i++))
-do
-    PORT=$((8081 + i))
-    BASE_CMD+=" \"./validator.sh $PORT\""
-done
 
 # Execute the command
 eval $BASE_CMD

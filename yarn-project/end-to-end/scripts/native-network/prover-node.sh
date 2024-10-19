@@ -14,7 +14,7 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
   sleep 1
 done
 echo "Waiting for Aztec Node..."
@@ -23,7 +23,7 @@ until curl -s http://127.0.0.1:8080/status >/dev/null ; do
 done
 echo "Done waiting."
 
-source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 
 # Get node info from the boot node
 output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-node-info -u http://127.0.0.1:8080)

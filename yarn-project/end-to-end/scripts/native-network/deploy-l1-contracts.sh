@@ -44,8 +44,8 @@ OUTBOX_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K
 FEE_JUICE_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
 FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 
-# Save contract addresses to l1-contracts.env
-cat << EOCONFIG > $(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
+# Save contract addresses to state/l1-contracts.env
+cat << EOCONFIG > $(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 export ROLLUP_CONTRACT_ADDRESS=$ROLLUP_CONTRACT_ADDRESS
 export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
 export INBOX_CONTRACT_ADDRESS=$INBOX_CONTRACT_ADDRESS
@@ -54,4 +54,4 @@ export FEE_JUICE_CONTRACT_ADDRESS=$FEE_JUICE_CONTRACT_ADDRESS
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 EOCONFIG
 
-echo "Contract addresses saved to l1-contracts.env"
+echo "Contract addresses saved to state/l1-contracts.env"
