@@ -17,13 +17,7 @@ Steps:
    each with an incrementing port number starting from 8081.
 4. Execute the complete command to start the testnet.
 
-Usage:
-  ./run_native_testnet.sh [options]
-
-Options:
-  -h: Display help message
-  -t: Specify a custom test script (default: ./test-transfer.sh)
-  -v: Specify the number of validators (default: 3)
+Usage: Run with -h to see display_help output below.
 '
 
 # Default values
