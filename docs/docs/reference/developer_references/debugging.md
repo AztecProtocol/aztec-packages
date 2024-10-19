@@ -47,7 +47,7 @@ debug_log_array(my_array);
 
 ### Start Sandbox in debug mode
 
-Update the `DEBUG` and `LOG_LEVEL` environment variables in docker-compose.sandbox.yml to the following:
+Update the `DEBUG` environment variable in docker-compose.sandbox.yml to the following:
 
 ```yml
 # ~/.aztec/docker-compose.sandbox.yml
@@ -60,7 +60,7 @@ aztec:
     - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
   environment:
     DEBUG: aztec:simulator:client_execution_context, aztec:sandbox, aztec:avm_simulator:debug_log
-    LOG_LEVEL: debug
+    LOG_LEVEL: verbose # optionally add this for more logs
   # ...
 ```
 
