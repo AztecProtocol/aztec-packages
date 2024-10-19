@@ -5,7 +5,7 @@ export PROVER_REAL_PROOFS="$1"
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
 
-PORT="$1"
+PORT="$2"
 
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
