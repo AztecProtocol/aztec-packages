@@ -61,6 +61,11 @@ done
 
 # Go to repo root
 cd $(git rev-parse --show-toplevel)
+if [ $NUM_VALIDATORS = 1 ] ; then
+  VALIDATOR_CMD="\"./validator.sh 8081\""
+else
+  VALIDATOR_CMD="\"./validators.sh $NUM_VALIDATORS\""
+fi
 # Base command
 BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
         \"./test.sh $TEST_FILE\" \
@@ -68,7 +73,7 @@ BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
-        \"./validators.sh $NUM_VALIDATORS\" \
+        $VALIDATOR_CMD \
         $PROVER_SCRIPT \
         ./pxe.sh \
         ./transaction-bot.sh"
