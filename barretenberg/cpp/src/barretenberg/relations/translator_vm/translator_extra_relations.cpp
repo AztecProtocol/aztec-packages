@@ -4,6 +4,6 @@ namespace bb {
 template class TranslatorOpcodeConstraintRelationImpl<fr>;
 template class TranslatorAccumulatorTransferRelationImpl<fr>;
 
-DEFINE_SUMCHECK_RELATION_CLASS(TranslatorOpcodeConstraintRelationImpl, TranslatorFlavor);
-DEFINE_SUMCHECK_RELATION_CLASS(TranslatorAccumulatorTransferRelationImpl, TranslatorFlavor);
+DEFINE_ZK_SUMCHECK_RELATION_CLASS(TranslatorOpcodeConstraintRelationImpl, TranslatorFlavor);
+DEFINE_ZK_SUMCHECK_RELATION_CLASS(TranslatorAccumulatorTransferRelationImpl, TranslatorFlavor);
 } // namespace bb

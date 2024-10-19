@@ -28,6 +28,11 @@
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge)                            \
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EntityEdge)
 
+#define DEFINE_ZK_SUMCHECK_RELATION_CLASS(RelationImpl, Flavor)                                                        \
+    ACCUMULATE(RelationImpl, Flavor, ZKSumcheckTupleOfUnivariatesOverSubrelations, ExtendedEdge)                       \
+    ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge)                            \
+    ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EntityEdge)
+
 #define DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(RelationImpl, Flavor)                                                  \
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge)
 

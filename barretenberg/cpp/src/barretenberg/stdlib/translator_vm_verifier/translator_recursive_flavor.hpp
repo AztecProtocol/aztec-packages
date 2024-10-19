@@ -42,7 +42,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
-    static constexpr bool HasZK = false;
+    static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
@@ -89,7 +89,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     using Relations = TranslatorFlavor::Relations_<FF>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, true>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
