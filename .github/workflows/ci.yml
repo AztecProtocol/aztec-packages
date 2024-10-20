@@ -139,8 +139,8 @@ jobs:
         run: |
           earthly-ci --push ./build-images/+build
 
-  prime-cache:
-    needs: [build-images, configure]
+  # prime-cache:
+  #   needs: [build-images, configure]
 
 
   build:
