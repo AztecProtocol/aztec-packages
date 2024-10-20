@@ -65,10 +65,11 @@ build-cache:
     BUILD ./avm-transpiler+build
     BUILD ./noir+nargo
     BUILD ./noir+packages
-    BUILD ./barretenberg+preset-wasm
-    BUILD ./barretenberg+preset-wasm-threads
-    BUILD ./barretenberg+preset-release
-    BUILD ./barretenberg+preset-release-world-state
+    BUILD ./barretenberg/cpp+preset-wasm
+    BUILD ./barretenberg/cpp+preset-wasm-threads
+    BUILD ./barretenberg/cpp+preset-release
+    BUILD ./barretenberg/cpp+preset-release-world-state
+    BUILD ./barretenberg/ts+build
     BUILD ./l1-contracts+build
     BUILD ./noir-projects+build-contracts
     BUILD ./noir-projects+build-protocol-circuits
