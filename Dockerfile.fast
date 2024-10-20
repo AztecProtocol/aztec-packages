@@ -34,20 +34,11 @@ RUN tar -xzf barretenberg.tar.gz \
 # Bootstrap cache for barretenberg/cpp
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    cd barretenberg/cpp \
+    cd barretenberg \
     && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
     ./bootstrap_cache.sh \
-    && echo "barretenberg/cpp: Success"
-
-# Bootstrap cache for barretenberg/ts
-RUN --mount=type=secret,id=aws_access_key_id \
-    --mount=type=secret,id=aws_secret_access_key \
-    cd barretenberg/ts \
-    && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
-    AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
-    && echo "barretenberg/ts: Success"
+    && echo "barretenberg: Success"
 
 # # ---------- BUILD NOIR ----------
 # COPY noir.tar.gz .
