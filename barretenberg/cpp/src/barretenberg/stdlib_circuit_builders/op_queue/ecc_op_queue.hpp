@@ -488,6 +488,13 @@ class ECCOpQueue {
         auto x_256 = uint256_t(point.x);
         auto y_256 = uint256_t(point.y);
         ultra_op.return_is_infinity = point.is_point_at_infinity();
+        // if we have a point at infinity, set x/y to zero
+        // in the biggroup_goblin class we use `assert_equal` statements to validate
+        // the original in-circuit coordinate values are also zero
+        if (point.is_point_at_infinity()) {
+            x_256 = 0;
+            y_256 = 0;
+        }
         ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
         ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
         ultra_op.y_lo = Fr(y_256.slice(0, CHUNK_SIZE));
