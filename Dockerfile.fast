@@ -36,8 +36,8 @@ RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
     AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    && (cd barretenberg/cpp && ./bootstrap_cache.sh &) \
-    && (cd barretenberg/ts && ./bootstrap_cache.sh &) \
+    && (cd barretenberg/cpp && ./bootstrap_cache.sh) \
+    && (cd barretenberg/ts && ./bootstrap_cache.sh) \
     && wait && echo "barretenberg: Success"
 
 # # ---------- BUILD NOIR ----------
