@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # TODO eventually rename this docker.sh when we've moved to it entirely
-set -eux
+set -eu
 
 function start_minio() {
   if nc -z 127.0.0.1 12000 2>/dev/null >/dev/null ; then
