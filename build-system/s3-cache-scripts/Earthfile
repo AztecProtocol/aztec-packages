@@ -39,7 +39,7 @@ WITH_CACHE:
   ARG rebuild_patterns
   ARG build_artifacts
   # print a clean version as the one below will be obfuscated
-  # RUN echo "--> RUN WITH CACHE $command (start)"
+  RUN echo "--> RUN WITH CACHE $command (start)"
   DO +SETUP_CACHE
   DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
   # configure AWS access and S3 cache params (note these can be blank if not using S3 build cache)
@@ -51,4 +51,4 @@ WITH_CACHE:
       --secret S3_BUILD_CACHE_MINIO_URL \
       # Note, this should be edited in tandem with the ARGs above, but for clean logs we wrap this in a script
       /usr/src/build-system/s3-cache-scripts/earthly-s3-cache.sh
-  # RUN echo "--> RUN WITH CACHE $command (end)"
+  RUN echo "--> RUN WITH CACHE $command (end)"
