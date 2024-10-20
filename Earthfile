@@ -62,13 +62,13 @@ base-log-uploader:
 build-cache:
     # Build all steps (in parallel) that write to cache
     # If the cache already exists, they will be no-ops
-    BUILD ./avm-transpiler+build
-    BUILD ./noir+nargo
-    BUILD ./noir+packages
+    # BUILD ./avm-transpiler+build
+    # BUILD ./noir+nargo
+    # BUILD ./noir+packages
     BUILD ./barretenberg/cpp+preset-wasm
     BUILD ./barretenberg/cpp+preset-wasm-threads
     BUILD ./barretenberg/cpp+preset-release
     BUILD ./barretenberg/cpp+preset-release-world-state
     BUILD ./barretenberg/ts+build
-    BUILD ./l1-contracts+build
-    BUILD ./noir-projects+build
+    # BUILD ./l1-contracts+build
+    # BUILD ./noir-projects+build
