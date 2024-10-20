@@ -71,6 +71,4 @@ build-cache:
     BUILD ./barretenberg/cpp+preset-release-world-state
     BUILD ./barretenberg/ts+build
     BUILD ./l1-contracts+build
-    BUILD ./noir-projects+build-contracts
-    BUILD ./noir-projects+build-protocol-circuits
-    BUILD ./noir-projects+build-mock-protocol-circuits
+    BUILD ./noir-projects+build
