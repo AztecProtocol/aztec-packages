@@ -46,7 +46,7 @@ UPLOAD_LOGS:
     ENV BRANCH=$BRANCH
     ENV COMMIT_HASH=$COMMIT_HASH
     RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
-    
+
 base-log-uploader:
     # Install awscli on a fresh ubuntu, and copy the repo "scripts" folder, which we'll use to upload logs
     # Note that we cannot do this LOCALLY because Earthly does not support using secrets locally
@@ -58,3 +58,18 @@ base-log-uploader:
         ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
         rm -rf aws awscliv2.zip
     COPY +scripts/scripts /usr/src/scripts
+
+build-cache:
+    # Build all steps (in parallel) that write to cache
+    # If the cache already exists, they will be no-ops
+    BUILD ./avm-transpiler+build
+    BUILD ./noir+nargo
+    BUILD ./noir+packages
+    BUILD ./barretenberg+preset-wasm
+    BUILD ./barretenberg+preset-wasm-threads
+    BUILD ./barretenberg+preset-release
+    BUILD ./barretenberg+preset-release-world-state
+    BUILD ./l1-contracts+build
+    BUILD ./noir-projects+build-contracts
+    BUILD ./noir-projects+build-protocol-circuits
+    BUILD ./noir-projects+build-mock-protocol-circuits

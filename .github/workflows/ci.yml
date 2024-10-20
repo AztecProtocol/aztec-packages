@@ -139,6 +139,10 @@ jobs:
         run: |
           earthly-ci --push ./build-images/+build
 
+  prime-cache:
+    needs: [build-images, configure]
+
+
   build:
     needs: [build-images, configure]
     # NOTE: we don't skip this job here instead using if's below to avoid gotcha if dependent jobs have their own if's
