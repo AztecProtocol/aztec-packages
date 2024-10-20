@@ -31,14 +31,23 @@ RUN tar -xzf barretenberg.tar.gz \
     && rm barretenberg.tar.gz && git add . \
     && git commit -m "Update git metadata" >/dev/null
 
-# Bootstrap cache for barretenberg
+# Bootstrap cache for barretenberg/cpp
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
+    cd barretenberg/cpp \
+    && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    && (cd barretenberg/cpp && ./bootstrap_cache.sh) \
-    && (cd barretenberg/ts && ./bootstrap_cache.sh) \
-    && wait && echo "barretenberg: Success"
+    ./bootstrap_cache.sh \
+    && echo "barretenberg/cpp: Success"
+
+# Bootstrap cache for barretenberg/ts
+RUN --mount=type=secret,id=aws_access_key_id \
+    --mount=type=secret,id=aws_secret_access_key \
+    cd barretenberg/ts \
+    && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
+    AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
+    ./bootstrap_cache.sh \
+    && echo "barretenberg/ts: Success"
 
 # # ---------- BUILD NOIR ----------
 # COPY noir.tar.gz .
