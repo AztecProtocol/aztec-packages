@@ -64,10 +64,12 @@ PROJECTS=(
   yarn-project
 )
 
+# Write the git archives in parallel
 for project in "${PROJECTS[@]}"; do
   # Archive Git-tracked files per project into a tar.gz file
-  git archive --format=tar.gz -o "$TMP/$project.tar.gz" HEAD $project
+  git archive --format=tar.gz -o "$TMP/$project.tar.gz" HEAD $project &
 done
+wait
 
 # Run Docker build with secrets in the folder with our archive
 DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f Dockerfile.fast --progress=plain \
