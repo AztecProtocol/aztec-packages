@@ -10,9 +10,9 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 # Starts the Boot Node
 
 # Set environment variables
-export PORT="8080"
-export LOG_LEVEL="debug"
-export DEBUG="aztec:*,-aztec:avm_simulator:*"
+export PORT=${PORT:-"8080"}
+export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator:*"}
+export LOG_LEVEL=${LOG_LEVEL:-"debug"}
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="true"

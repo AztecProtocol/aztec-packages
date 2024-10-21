@@ -30,7 +30,7 @@ echo "Done waiting."
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export LOG_JSON="1"
-export LOG_LEVEL="debug"
+export LOG_LEVEL=${LOG_LEVEL:-"debug"}
 export DEBUG="aztec:*"
 export BOT_PRIVATE_KEY="0xcafe"
 export BOT_TX_INTERVAL_SECONDS="5"

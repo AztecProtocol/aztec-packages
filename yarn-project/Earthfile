@@ -295,9 +295,9 @@ network-test-fake-proofs:
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
-        "./prover-node.sh false" \
+        "./prover-node.sh 8078 false" \
         ./pxe.sh \
-        "./validator.sh 8081"
+        "./validator.sh 0"
 
 publish-npm:
     FROM +build

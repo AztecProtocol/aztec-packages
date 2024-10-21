@@ -32,8 +32,8 @@ output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-nod
 export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 
 # Set environment variables
-export LOG_LEVEL="debug"
-export DEBUG="aztec:*"
+export LOG_LEVEL=${LOG_LEVEL:-"debug"}
+export DEBUG=${DEBUG:-"aztec:*"}
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export PROVER_AGENT_ENABLED="true"
 export PROVER_PUBLISHER_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
