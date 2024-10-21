@@ -14,7 +14,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
+    "build": "yarn clean && yarn generate && tsc -b",
     "build:cpp": "./scripts/build.sh cpp",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest ./build .tsbuildinfo",
