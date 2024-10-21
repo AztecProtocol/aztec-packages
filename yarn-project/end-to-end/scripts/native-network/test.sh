@@ -31,6 +31,6 @@ echo "Done waiting."
 export DEBUG="aztec:*"
 export LOG_LEVEL=${LOG_LEVEL:-"debug"}
 export PXE_URL=http://localhost:8079
-export ETHEREUM_HOST=http://localhost:8545
+export ETHEREUM_HOST=http://127.0.0.1:8545
 cd $(git rev-parse --show-toplevel)/yarn-project/end-to-end
 yarn test "$TEST"

@@ -3,15 +3,10 @@ import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
-
-
 import { jest } from '@jest/globals';
-
-
 
 import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
-
 
 const { PXE_URL, ETHEREUM_HOST } = process.env;
 if (!PXE_URL) {
@@ -24,7 +19,7 @@ if (!ETHEREUM_HOST) {
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
-  const logger = createDebugLogger(`aztec:spartan-test:transfer`);
+  const logger = createDebugLogger(`aztec:spartan:4epochs`);
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
   const MINT_AMOUNT = 2000000n;
   const TEST_EPOCHS = 4;
@@ -75,7 +70,7 @@ describe('token transfer test', () => {
       const currentSlot = await rollupCheatCodes.getSlot();
       expect(currentSlot).toBe(startSlot + i);
       const startEpoch = await rollupCheatCodes.getEpoch();
-      logger.debug(`Successfully reached slot ${currentSlot}/${startSlot + ROUNDS} (Epoch ${startEpoch})`);
+      logger.debug(`Successfully reached slot ${currentSlot} (iteration ${currentSlot - startSlot}/${ROUNDS}) (Epoch ${startEpoch})`);
     }
 
     testWallets.wallets.forEach(async w => {
