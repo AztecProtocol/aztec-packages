@@ -1,6 +1,7 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::getters::get_ovsk_app, encrypted_logs::payload::compute_encrypted_log
+    keys::getters::get_ovsk_app, encrypted_logs::payload::compute_encrypted_log,
+    utils::bytes::bytes_to_fields
 };
 use dep::protocol_types::{
     address::AztecAddress, public_keys::{PublicKeys, OvpkM, IvpkM}, hash::sha256_to_field,
@@ -142,19 +143,20 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     }
 }
 
+// TODO(benesjan): Nuke the following
 /// Encrypts a partial log and emits it. Takes recipient keys on the input and encrypts both the outgoing and incoming
 /// logs for the recipient. This is necessary because in the partial notes flow the outgoing always has to be the same
 /// as the incoming to not leak any information (typically the `from` party finalizing the partial note in public does
 /// not know who the recipient is).
-pub fn encrypt_and_emit_partial_log<let M: u32>(
+pub fn encrypt_and_emit_partial_log<let P: u32>(
     context: &mut PrivateContext,
-    log_plaintext: [u8; M],
+    log_plaintext: [u8; P],
     recipient_keys: PublicKeys,
     recipient: AztecAddress
 ) {
     let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-    let encrypted_log: [u8; 353 + M] = compute_note_log(
+    let encrypted_log: [u8; 353 + P] = compute_encrypted_log(
         context.this_address(),
         ovsk_app,
         recipient_keys.ovpk_m,
@@ -171,4 +173,25 @@ pub fn encrypt_and_emit_partial_log<let M: u32>(
     context.push_note_hash(5);
 
     context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
+}
+
+pub fn encrypt_partial_log<let P: u32, let N: u32>(
+    context: &mut PrivateContext,
+    log_plaintext: [u8; P],
+    recipient_keys: PublicKeys,
+    recipient: AztecAddress
+) -> [Field; N] {
+    let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
+
+    let encrypted_log_bytes: [u8; 353 + P] = compute_encrypted_log(
+        context.this_address(),
+        ovsk_app,
+        recipient_keys.ovpk_m,
+        recipient_keys.ivpk_m,
+        recipient,
+        log_plaintext,
+        true
+    );
+
+    bytes_to_fields(encrypted_log_bytes)
 }
