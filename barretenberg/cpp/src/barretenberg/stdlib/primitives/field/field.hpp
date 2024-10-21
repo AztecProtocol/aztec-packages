@@ -131,6 +131,7 @@ template <typename Builder> class field_t {
     field_t divide_no_zero_check(const field_t& other) const;
 
     field_t sqr() const { return operator*(*this); }
+    void self_sqr() { *this = operator*(*this); }
 
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;

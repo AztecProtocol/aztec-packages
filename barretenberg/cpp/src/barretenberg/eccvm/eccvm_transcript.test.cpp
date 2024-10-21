@@ -3,8 +3,8 @@
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

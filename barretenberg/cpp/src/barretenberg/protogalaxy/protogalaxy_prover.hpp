@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 namespace bb {
 

@@ -4,7 +4,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
@@ -15,6 +14,7 @@
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 

@@ -6,9 +6,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -21,6 +19,8 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/univariate/barycentric.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 namespace bb {
 

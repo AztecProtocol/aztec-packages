@@ -1,5 +1,5 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;

@@ -4,7 +4,6 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 
 namespace bb::field_conversion {
 

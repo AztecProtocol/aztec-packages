@@ -1,4 +1,4 @@
-#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 #include "transcript_wrappers.hpp"
 #include <cstddef>
 #include <cstdint>

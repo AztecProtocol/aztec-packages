@@ -1,12 +1,12 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 #include <gtest/gtest.h>
 

@@ -73,10 +73,9 @@
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/univariate/barycentric.hpp"
 
 #include <array>
 #include <concepts>

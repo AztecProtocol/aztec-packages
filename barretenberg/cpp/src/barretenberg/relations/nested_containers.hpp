@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 #include <tuple>
 
 namespace bb {

@@ -7,7 +7,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -21,6 +20,7 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 namespace bb {
 

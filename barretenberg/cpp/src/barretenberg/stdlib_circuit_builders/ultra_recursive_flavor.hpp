@@ -4,9 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -15,6 +13,8 @@
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/univariate/barycentric.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 #include <array>
 #include <concepts>

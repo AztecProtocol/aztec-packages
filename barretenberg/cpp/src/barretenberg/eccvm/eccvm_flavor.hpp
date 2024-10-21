@@ -8,7 +8,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
@@ -17,6 +16,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 

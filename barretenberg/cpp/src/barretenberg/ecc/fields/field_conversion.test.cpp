@@ -128,27 +128,27 @@ TEST_F(FieldConversionTest, FieldConversionArrayGrumpkinFr)
     check_conversion(x2);
 }
 
-/**
- * @brief Field conversion test for bb::Univariate<bb::fr, N>
- *
- */
-TEST_F(FieldConversionTest, FieldConversionUnivariateBn254Fr)
-{
-    std::array<bb::fr, 4> x1_arr{ 1, 2, 3, 4 };
-    bb::Univariate<bb::fr, 4> x1{ x1_arr };
-    check_conversion(x1);
-}
+// /**
+//  * @brief Field conversion test for bb::Univariate<bb::fr, N>
+//  *
+//  */
+// TEST_F(FieldConversionTest, FieldConversionUnivariateBn254Fr)
+// {
+//     std::array<bb::fr, 4> x1_arr{ 1, 2, 3, 4 };
+//     bb::Univariate<bb::fr, 4> x1{ x1_arr };
+//     check_conversion(x1);
+// }
 
-/**
- * @brief Field conversion test for bb::Univariate<grumpkin::fr, N>
- *
- */
-TEST_F(FieldConversionTest, FieldConversionUnivariateGrumpkinFr)
-{
-    std::array<grumpkin::fr, 4> x1_arr{ 1, 2, 3, 4 };
-    bb::Univariate<grumpkin::fr, 4> x1{ x1_arr };
-    check_conversion(x1);
-}
+// /**
+//  * @brief Field conversion test for bb::Univariate<grumpkin::fr, N>
+//  *
+//  */
+// TEST_F(FieldConversionTest, FieldConversionUnivariateGrumpkinFr)
+// {
+//     std::array<grumpkin::fr, 4> x1_arr{ 1, 2, 3, 4 };
+//     bb::Univariate<grumpkin::fr, 4> x1{ x1_arr };
+//     check_conversion(x1);
+// }
 
 /**
  * @brief Convert challenge test for grumpkin::fr

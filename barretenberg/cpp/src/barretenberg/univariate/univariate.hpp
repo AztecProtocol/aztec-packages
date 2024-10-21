@@ -1,7 +1,9 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/univariate/barycentric.hpp"
 #include <span>
 
 namespace bb {
@@ -57,7 +59,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     bool operator==(const Univariate& other) const;
     Univariate& operator-=(const Univariate& other);
     Univariate& operator*=(const Univariate& other);
-    Univariate& self_sqr();
+    void self_sqr();
 
     Univariate operator+(const Univariate& other) const;
     Univariate operator-(const Univariate& other) const;
@@ -89,11 +91,15 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     bool is_zero() const;
     // Buffer methods
-    std::vector<uint8_t> to_buffer() const;
-    static Univariate serialize_from_buffer(uint8_t const* buffer);
-    static Univariate get_random();
+    std::vector<uint8_t> to_buffer() const
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
+    static Univariate serialize_from_buffer(uint8_t const* buffer)
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
+    static Univariate get_random()
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
     static Univariate zero() noexcept;
-    static Univariate random_element();
+    static Univariate random_element()
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
 
     // Extension and evaluation methods
 
@@ -149,6 +155,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
 template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
 inline void read(B& it, Univariate<Fr, domain_end, domain_start>& univariate)
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     using serialize::read;
     read(it, univariate.evaluations);
@@ -156,6 +163,7 @@ inline void read(B& it, Univariate<Fr, domain_end, domain_start>& univariate)
 
 template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
 inline void write(B& it, Univariate<Fr, domain_end, domain_start> const& univariate)
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     using serialize::write;
     write(it, univariate.evaluations);

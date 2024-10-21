@@ -3,7 +3,6 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
@@ -83,7 +82,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
+    static constexpr std::array<bool, NUM_BUS_COLUMNS * 2> SUBRELATION_LINEARLY_INDEPENDENT = {
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT,  INVERSE_SUBREL_LIN_INDEPENDENT,
         LOOKUP_SUBREL_LIN_INDEPENDENT,  INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT
     };

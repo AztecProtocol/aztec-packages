@@ -1,11 +1,11 @@
 #pragma once
 
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/goblin_field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 namespace bb::stdlib::field_conversion {
 

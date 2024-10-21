@@ -1,6 +1,6 @@
 #include "barretenberg/relations/nested_containers.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

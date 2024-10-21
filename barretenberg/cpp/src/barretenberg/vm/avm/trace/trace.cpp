@@ -19,7 +19,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"

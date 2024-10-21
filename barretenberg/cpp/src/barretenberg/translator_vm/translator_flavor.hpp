@@ -8,7 +8,6 @@
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp"
@@ -16,6 +15,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 namespace bb {
 

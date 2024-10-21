@@ -3,13 +3,13 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/univariate/univariate.hpp"
 
 namespace bb::stdlib::recursion::honk {
 

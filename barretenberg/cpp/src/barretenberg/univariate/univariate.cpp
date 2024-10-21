@@ -1,6 +1,10 @@
 #include "univariate.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
 
@@ -30,11 +34,20 @@ Univariate<Fr, domain_end, domain_start, skip_count>::Univariate(
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 bool Univariate<Fr, domain_end, domain_start, skip_count>::operator==(const Univariate& other) const
 {
-    if (!(evaluations[0] == other.evaluations[0])) {
+
+    const auto test_equality = []<typename T>(const auto& a, const auto& b) {
+        if constexpr (std::same_as<T, bb::fr> || std::same_as<T, bb::fq>) {
+            return a == b;
+        } else {
+            return (a == b).get_value();
+        }
+    };
+
+    if (!test_equality.template operator()<Fr>(evaluations[0], other.evaluations[0])) {
         return false;
     }
     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-        if (!(evaluations[i] == other.evaluations[i])) {
+        if (!test_equality.template operator()<Fr>(evaluations[i], other.evaluations[i])) {
             return false;
         }
     }
@@ -75,13 +88,12 @@ Univariate<Fr, domain_end, domain_start, skip_count>& Univariate<Fr, domain_end,
 }
 
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
-Univariate<Fr, domain_end, domain_start, skip_count>& Univariate<Fr, domain_end, domain_start, skip_count>::self_sqr()
+void Univariate<Fr, domain_end, domain_start, skip_count>::self_sqr()
 {
     evaluations[0].self_sqr();
     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
         evaluations[i].self_sqr();
     }
-    return *this;
 }
 
 // Add remaining member functions following the same pattern...
@@ -92,7 +104,7 @@ Univariate<Fr, domain_end, domain_start> Univariate<Fr, domain_end, domain_start
     Univariate<Fr, domain_end, domain_start, 0> result;
     result.evaluations[0] = evaluations[0];
     for (size_t i = 1; i < skip_count + 1; i++) {
-        result.evaluations[i] = Fr::zero();
+        result.evaluations[i] = Fr(0);
     }
     for (size_t i = skip_count + 1; i < LENGTH; i++) {
         result.evaluations[i] = evaluations[i];
@@ -250,7 +262,7 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 {
     Univariate result = *this;
     for (size_t i = 0; i < skip_count; ++i) {
-        result.evaluations[i] = Fr::zero(); // Zero-out the skipped elements
+        result.evaluations[i] = 0; // Zero-out the skipped elements
     }
     return result;
 }
@@ -262,7 +274,7 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 {
     Univariate result;
     for (size_t i = 0; i < LENGTH; ++i) {
-        result.evaluations[i] = Fr::zero();
+        result.evaluations[i] = 0;
     }
     return result;
 }
@@ -271,11 +283,19 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 bool Univariate<Fr, domain_end, domain_start, skip_count>::is_zero() const
 {
-    if (!evaluations[0].is_zero()) {
+    const auto is_zero = []<typename T>(const auto& a) {
+        if constexpr (std::same_as<T, bb::fr> || std::same_as<T, bb::fq>) {
+            return a.is_zero();
+        } else {
+            return a.is_zero().get_value();
+        }
+    };
+
+    if (!is_zero.template operator()<Fr>(evaluations[0])) {
         return false;
     }
     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-        if (!evaluations[i].is_zero()) {
+        if (!is_zero.template operator()<Fr>(evaluations[i])) {
             return false;
         }
     }
@@ -285,6 +305,7 @@ bool Univariate<Fr, domain_end, domain_start, skip_count>::is_zero() const
 // Definition for the to_buffer function
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 std::vector<uint8_t> Univariate<Fr, domain_end, domain_start, skip_count>::to_buffer() const
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     return ::to_buffer(evaluations);
 }
@@ -293,6 +314,7 @@ std::vector<uint8_t> Univariate<Fr, domain_end, domain_start, skip_count>::to_bu
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, domain_start, skip_count>::
     serialize_from_buffer(uint8_t const* buffer)
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     Univariate result;
     std::read(buffer, result.evaluations);
@@ -302,6 +324,7 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 // Definition for the serialize_from_buffer function
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, domain_start, skip_count>::get_random()
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     Univariate<Fr, domain_end, domain_start, skip_count> output;
     for (size_t i = 0; i != LENGTH; ++i) {
@@ -314,6 +337,7 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, domain_start, skip_count>::
     random_element()
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     return get_random();
 }
@@ -637,5 +661,10 @@ template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 3, 0, 0>::extend_to<12,
 template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 5, 0, 0>::extend_to<12, 0>() const;
 template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 6, 0, 0>::extend_to<12, 0>() const;
 template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 7, 0, 0>::extend_to<12, 0>() const;
+
+// stdlib
+template class Univariate<stdlib::field_t<MegaCircuitBuilder_<bb::fr>>, 8ul, 0ul, 0ul>;
+template class Univariate<stdlib::field_t<CircuitSimulatorBN254>, 8ul, 0ul, 0ul>;
+template class Univariate<stdlib::field_t<UltraCircuitBuilder_<UltraArith<bb::fr>>>, 8ul, 0ul, 0ul>;
 
 } // namespace bb
