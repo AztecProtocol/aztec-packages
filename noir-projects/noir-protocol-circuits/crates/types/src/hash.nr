@@ -102,12 +102,10 @@ pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddre
     } else if (scoped_log.log_hash.randomness == 0) {
         scoped_log.contract_address
     } else {
-        AztecAddress::from_field(
-            poseidon2_hash_with_separator(
-                [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
-                0,
-            ),
-        )
+        AztecAddress::from_field(poseidon2_hash_with_separator(
+            [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
+            0,
+        ))
     }
 }
 

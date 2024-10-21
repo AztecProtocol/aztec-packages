@@ -190,9 +190,12 @@ contract TokenBlacklist {
         // Add the token note to user's balances set
         let msg_sender_keys = get_public_keys(context.msg_sender());
         let to_keys = get_public_keys(to);
-        storage.balances.add(to, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, to_keys.ivpk_m, to),
-        );
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            msg_sender_keys.ovpk_m,
+            to_keys.ivpk_m,
+            to,
+        ));
     }
 
     #[private]
@@ -209,9 +212,12 @@ contract TokenBlacklist {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from),
-        );
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            from_keys.ovpk_m,
+            from_keys.ivpk_m,
+            from,
+        ));
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -236,22 +242,18 @@ contract TokenBlacklist {
         let to_keys = get_public_keys(to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
-        );
-        storage.balances.add(to, amount).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                to_keys.ivpk_m,
-                to,
-            ),
-        );
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_keys.ovpk_m,
+            from_keys.ivpk_m,
+            from,
+        ));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_keys.ovpk_m,
+            to_keys.ivpk_m,
+            to,
+        ));
     }
 
     #[private]
@@ -266,9 +268,12 @@ contract TokenBlacklist {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from),
-        );
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            from_keys.ovpk_m,
+            from_keys.ivpk_m,
+            from,
+        ));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

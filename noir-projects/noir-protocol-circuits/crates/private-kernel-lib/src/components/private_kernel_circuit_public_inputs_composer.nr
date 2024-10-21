@@ -161,9 +161,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..read_requests.len() {
             let request = read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.note_hash_read_requests.push(
-                    request.scope(source.storage_contract_address),
-                );
+                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
     }
@@ -173,9 +173,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_read_requests.push(
-                    request.scope(source.storage_contract_address),
-                );
+                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
     }
@@ -200,9 +200,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..note_hashes.len() {
             let note_hash = note_hashes[i];
             if note_hash.value != 0 {
-                self.public_inputs.end.note_hashes.push(
-                    note_hash.scope(source.storage_contract_address),
-                );
+                self.public_inputs.end.note_hashes.push(note_hash.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
     }
@@ -212,9 +212,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifiers.len() {
             let nullifier = nullifiers[i];
             if nullifier.value != 0 {
-                self.public_inputs.end.nullifiers.push(
-                    nullifier.scope(source.storage_contract_address),
-                );
+                self.public_inputs.end.nullifiers.push(nullifier.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
     }
@@ -224,7 +224,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs[i];
             if !is_empty(msg) {
-                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(source.storage_contract_address));
+                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
     }
@@ -234,9 +236,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..encrypted_logs.len() {
             let log = encrypted_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.encrypted_logs_hashes.push(
-                    log.scope(source.storage_contract_address),
-                );
+                self.public_inputs.end.encrypted_logs_hashes.push(log.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
 
@@ -244,9 +246,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..unencrypted_logs.len() {
             let log = unencrypted_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.unencrypted_logs_hashes.push(
-                    log.scope(source.storage_contract_address),
-                );
+                self.public_inputs.end.unencrypted_logs_hashes.push(log.scope(
+                    source.storage_contract_address,
+                ));
             }
         }
 

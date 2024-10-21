@@ -93,16 +93,11 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     // First we change the function signature so that it also receives `PrivateContextInputs`, which contain information
     // about the execution context (e.g. the caller).
     let original_params = f.parameters();
-    f.set_parameters(
-        &[
-            (
-                quote { inputs },
-                quote { crate::context::inputs::private_context_inputs::PrivateContextInputs }
-                    .as_type(),
-            ),
-        ]
-            .append(original_params),
-    );
+    f.set_parameters(&[(
+        quote { inputs },
+        quote { crate::context::inputs::private_context_inputs::PrivateContextInputs }.as_type(),
+    )]
+        .append(original_params));
 
     let mut body = f.body().as_block().unwrap();
 

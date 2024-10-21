@@ -46,12 +46,10 @@ contract Spam {
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {
             if (i < nullifier_count) {
-                context.push_nullifier(
-                    poseidon2_hash_with_separator(
-                        [nullifier_seed, i as Field],
-                        GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-                    ),
-                );
+                context.push_nullifier(poseidon2_hash_with_separator(
+                    [nullifier_seed, i as Field],
+                    GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                ));
             }
         }
 

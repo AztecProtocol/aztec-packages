@@ -20,18 +20,26 @@ unconstrained fn test_serde() {
     let post = 2;
     let block_of_change = 50;
 
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change),
-    );
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::some(pre), Option::none(), block_of_change),
-    );
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::none(), Option::some(post), block_of_change),
-    );
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::none(), Option::none(), block_of_change),
-    );
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::some(pre),
+        Option::some(post),
+        block_of_change,
+    ));
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::some(pre),
+        Option::none(),
+        block_of_change,
+    ));
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::none(),
+        Option::some(post),
+        block_of_change,
+    ));
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::none(),
+        Option::none(),
+        block_of_change,
+    ));
 }
 
 #[test]
@@ -42,18 +50,26 @@ unconstrained fn test_serde_large_values() {
     let post = (max_u32 - 1) as u32;
     let block_of_change = (max_u32 - 2) as u32;
 
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change),
-    );
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::some(pre), Option::none(), block_of_change),
-    );
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::none(), Option::some(post), block_of_change),
-    );
-    assert_equal_after_conversion(
-        ScheduledDelayChange::new(Option::none(), Option::none(), block_of_change),
-    );
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::some(pre),
+        Option::some(post),
+        block_of_change,
+    ));
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::some(pre),
+        Option::none(),
+        block_of_change,
+    ));
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::none(),
+        Option::some(post),
+        block_of_change,
+    ));
+    assert_equal_after_conversion(ScheduledDelayChange::new(
+        Option::none(),
+        Option::none(),
+        block_of_change,
+    ));
 }
 
 unconstrained fn get_non_initial_delay_change(

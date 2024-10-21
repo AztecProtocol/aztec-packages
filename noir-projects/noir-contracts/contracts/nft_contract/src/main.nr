@@ -258,20 +258,21 @@ contract NFT {
 
         let nfts = storage.private_nfts;
 
-        let notes = nfts.at(from).pop_notes(
-            NoteGetterOptions::new()
-                .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
-                .set_limit(1),
-        );
+        let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
+            .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+            .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
         let from_ovpk_m = get_public_keys(from).ovpk_m;
         let to_keys = get_public_keys(to);
 
         let mut new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
-        nfts.at(to).insert(&mut new_note).emit(
-            encode_and_encrypt_note(&mut context, from_ovpk_m, to_keys.ivpk_m, to),
-        );
+        nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(
+            &mut context,
+            from_ovpk_m,
+            to_keys.ivpk_m,
+            to,
+        ));
     }
 
     #[private]
@@ -282,11 +283,9 @@ contract NFT {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let notes = storage.private_nfts.at(from).pop_notes(
-            NoteGetterOptions::new()
-                .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
-                .set_limit(1),
-        );
+        let notes = storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new()
+            .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+            .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring to public");
 
         NFT::at(context.this_address())._finish_transfer_to_public(to, token_id).enqueue(

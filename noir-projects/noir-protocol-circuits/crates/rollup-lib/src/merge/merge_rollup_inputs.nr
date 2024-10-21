@@ -152,12 +152,10 @@ mod tests {
         let mut inputs = default_merge_rollup_inputs();
         let outputs = inputs.merge_rollup_circuit();
 
-        assert(
-            outputs.start.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start),
-        );
-        assert(
-            outputs.end.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end),
-        );
+        assert(outputs.start.eq(
+            inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start,
+        ));
+        assert(outputs.end.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end));
     }
 
     #[test]
@@ -174,16 +172,12 @@ mod tests {
         let mut inputs = default_merge_rollup_inputs();
         let outputs = inputs.merge_rollup_circuit();
 
-        assert(
-            inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.eq(
-                outputs.constants,
-            ),
-        );
-        assert(
-            inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.eq(
-                outputs.constants,
-            ),
-        );
+        assert(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.eq(
+            outputs.constants,
+        ));
+        assert(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.eq(
+            outputs.constants,
+        ));
     }
 
     #[test]

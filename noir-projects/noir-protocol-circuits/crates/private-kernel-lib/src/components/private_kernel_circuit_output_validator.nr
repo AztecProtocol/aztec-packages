@@ -55,7 +55,10 @@ impl PrivateKernelCircuitOutputValidator {
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
     ) {
         self.validate_aggregated_values(previous_kernel, private_call);
-        self.validate_propagated_from_previous_kernel(previous_kernel, previous_kernel_array_lengths);
+        self.validate_propagated_from_previous_kernel(
+            previous_kernel,
+            previous_kernel_array_lengths,
+        );
         self.validate_propagated_from_private_call(
             private_call,
             private_call_array_lengths,

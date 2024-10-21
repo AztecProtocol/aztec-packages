@@ -54,22 +54,20 @@ impl Deserialize<CONTRACT_INSTANCE_LENGTH> for ContractInstance {
             deployer: AztecAddress::from_field(serialized[1]),
             contract_class_id: ContractClassId::from_field(serialized[2]),
             initialization_hash: serialized[3],
-            public_keys: PublicKeys::deserialize(
-                [
-                    serialized[4],
-                    serialized[5],
-                    serialized[6],
-                    serialized[7],
-                    serialized[8],
-                    serialized[9],
-                    serialized[10],
-                    serialized[11],
-                    serialized[12],
-                    serialized[13],
-                    serialized[14],
-                    serialized[15],
-                ],
-            ),
+            public_keys: PublicKeys::deserialize([
+                serialized[4],
+                serialized[5],
+                serialized[6],
+                serialized[7],
+                serialized[8],
+                serialized[9],
+                serialized[10],
+                serialized[11],
+                serialized[12],
+                serialized[13],
+                serialized[14],
+                serialized[15],
+            ]),
         }
     }
 }

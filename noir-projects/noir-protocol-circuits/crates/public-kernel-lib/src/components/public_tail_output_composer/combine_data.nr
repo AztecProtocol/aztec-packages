@@ -11,41 +11,37 @@ pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
     revertible: PublicAccumulatedData,
     output_hints: OutputHints<NUM_PUBLIC_DATA_LEAVES>,
 ) -> CombinedAccumulatedData {
-    let nullifiers = sort_by_counter_asc(
-        array_merge(non_revertible.nullifiers, revertible.nullifiers),
-    )
+    let nullifiers = sort_by_counter_asc(array_merge(
+        non_revertible.nullifiers,
+        revertible.nullifiers,
+    ))
         .map(|n: Nullifier| n.value);
 
-    let l2_to_l1_msgs = sort_by_counter_asc(
-        array_merge(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs),
-    );
+    let l2_to_l1_msgs = sort_by_counter_asc(array_merge(
+        non_revertible.l2_to_l1_msgs,
+        revertible.l2_to_l1_msgs,
+    ));
 
     let public_data_update_requests = dedupe_array(output_hints.public_data_writes);
 
-    let note_encrypted_logs_hashes = sort_by_counter_asc(
-        array_merge(
-            non_revertible.note_encrypted_logs_hashes,
-            revertible.note_encrypted_logs_hashes,
-        ),
-    );
+    let note_encrypted_logs_hashes = sort_by_counter_asc(array_merge(
+        non_revertible.note_encrypted_logs_hashes,
+        revertible.note_encrypted_logs_hashes,
+    ));
     let note_encrypted_log_preimages_length =
         note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
 
-    let encrypted_logs_hashes = sort_by_counter_asc(
-        array_merge(
-            non_revertible.encrypted_logs_hashes,
-            revertible.encrypted_logs_hashes,
-        ),
-    );
+    let encrypted_logs_hashes = sort_by_counter_asc(array_merge(
+        non_revertible.encrypted_logs_hashes,
+        revertible.encrypted_logs_hashes,
+    ));
     let encrypted_log_preimages_length =
         encrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
 
-    let unencrypted_logs_hashes = sort_by_counter_asc(
-        array_merge(
-            non_revertible.unencrypted_logs_hashes,
-            revertible.unencrypted_logs_hashes,
-        ),
-    );
+    let unencrypted_logs_hashes = sort_by_counter_asc(array_merge(
+        non_revertible.unencrypted_logs_hashes,
+        revertible.unencrypted_logs_hashes,
+    ));
     let unencrypted_log_preimages_length =
         unencrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
 

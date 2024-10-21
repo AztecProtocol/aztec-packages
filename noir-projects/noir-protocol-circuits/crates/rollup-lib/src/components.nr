@@ -160,24 +160,20 @@ pub fn accumulate_blocks_fees(
  * @return out hash stored in 2 fields
  */
 pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256(
-        [
-            previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
-            previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
-        ],
-    )
+    accumulate_sha256([
+        previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
+    ])
 }
 // TODO(Miranda): combine fns?
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
     if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
         previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
     } else {
-        accumulate_sha256(
-            [
-                previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
-                previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash,
-            ],
-        )
+        accumulate_sha256([
+            previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
+            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash,
+        ])
     }
 }
 
@@ -194,12 +190,10 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
  * @return The hash of the transaction effects stored in 2 fields
  */
 pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256(
-        [
-            previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
-            previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash,
-        ],
-    )
+    accumulate_sha256([
+        previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash,
+    ])
 }
 
 fn silo_and_hash_unencrypted_logs(

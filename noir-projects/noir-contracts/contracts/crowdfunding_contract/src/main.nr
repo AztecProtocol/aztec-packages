@@ -81,9 +81,12 @@ contract Crowdfunding {
         // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
         // docs:end:valuenote_new
-        storage.donation_receipts.insert(&mut note).emit(
-            encode_and_encrypt_note(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor),
-        );
+        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            donor_keys.ovpk_m,
+            donor_keys.ivpk_m,
+            donor,
+        ));
     }
     // docs:end:donate
 

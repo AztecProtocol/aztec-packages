@@ -200,9 +200,11 @@ global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("
  */
 // docs:start:assert_current_call_valid_authwit
 pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress) {
-    let inner_hash = compute_inner_authwit_hash(
-        [context.msg_sender().to_field(), context.selector().to_field(), context.args_hash],
-    );
+    let inner_hash = compute_inner_authwit_hash([
+        context.msg_sender().to_field(),
+        context.selector().to_field(),
+        context.args_hash,
+    ]);
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit
@@ -252,13 +254,11 @@ pub fn assert_current_call_valid_authwit_public(
     context: &mut PublicContext,
     on_behalf_of: AztecAddress,
 ) {
-    let inner_hash = compute_inner_authwit_hash(
-        [
-            (*context).msg_sender().to_field(),
-            (*context).selector().to_field(),
-            (*context).get_args_hash(),
-        ],
-    );
+    let inner_hash = compute_inner_authwit_hash([
+        (*context).msg_sender().to_field(),
+        (*context).selector().to_field(),
+        (*context).get_args_hash(),
+    ]);
     assert_inner_hash_valid_authwit_public(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit_public

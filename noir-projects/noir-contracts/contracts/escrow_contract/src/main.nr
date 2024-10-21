@@ -29,14 +29,12 @@ contract Escrow {
         // docs:start:addressnote_new
         let mut note = AddressNote::new(owner, owner_keys.npk_m.hash());
         // docs:end:addressnote_new
-        storage.owner.initialize(&mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                msg_sender_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner,
-            ),
-        );
+        storage.owner.initialize(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            msg_sender_keys.ovpk_m,
+            owner_keys.ivpk_m,
+            owner,
+        ));
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.

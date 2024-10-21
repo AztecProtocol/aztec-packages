@@ -48,9 +48,12 @@ contract AppSubscription {
         // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
         // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
         let keys = get_public_keys(user_address);
-        storage.subscriptions.at(user_address).replace(&mut note).emit(
-            encode_and_encrypt_note(&mut context, keys.ovpk_m, keys.ivpk_m, user_address),
-        );
+        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            keys.ovpk_m,
+            keys.ivpk_m,
+            user_address,
+        ));
 
         context.set_as_fee_payer();
 

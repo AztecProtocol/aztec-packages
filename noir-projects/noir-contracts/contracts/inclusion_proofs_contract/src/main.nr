@@ -37,14 +37,12 @@ contract InclusionProofs {
         let owner_keys = get_public_keys(owner);
 
         let mut note = ValueNote::new(value, owner_keys.npk_m.hash());
-        storage.private_values.at(owner).insert(&mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                msg_sender_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner,
-            ),
-        );
+        storage.private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            msg_sender_keys.ovpk_m,
+            owner_keys.ivpk_m,
+            owner,
+        ));
     }
     // docs:end:create_note
 

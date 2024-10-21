@@ -62,9 +62,12 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     let token_id = random();
 
     // Try to transfer the NFT
-    env.call_public(
-        NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, random()),
-    );
+    env.call_public(NFT::at(nft_contract_address).transfer_in_public(
+        sender,
+        recipient,
+        token_id,
+        random(),
+    ));
 }
 
 #[test(should_fail_with = "invalid owner")]
@@ -88,9 +91,12 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval(
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens
-    env.assert_public_call_fails(
-        NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1),
-    );
+    env.assert_public_call_fails(NFT::at(nft_contract_address).transfer_in_public(
+        sender,
+        recipient,
+        token_id,
+        1,
+    ));
     // Check the sender stayed the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, sender, token_id);
 }

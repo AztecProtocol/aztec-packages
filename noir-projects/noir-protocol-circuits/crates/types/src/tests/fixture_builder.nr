@@ -326,17 +326,16 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: subarray(
-                self.note_hash_read_requests.storage.map(|r: ScopedReadRequest| r.read_request),
-            ),
-            nullifier_read_requests: subarray(
-                self.nullifier_read_requests.storage.map(|r: ScopedReadRequest| r.read_request),
-            ),
-            key_validation_requests_and_generators: subarray(
-                self.scoped_key_validation_requests_and_generators.storage.map(
-                    |r: ScopedKeyValidationRequestAndGenerator| r.request,
-                ),
-            ),
+            note_hash_read_requests: subarray(self.note_hash_read_requests.storage.map(
+                |r: ScopedReadRequest| r.read_request,
+            )),
+            nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(
+                |r: ScopedReadRequest| r.read_request,
+            )),
+            key_validation_requests_and_generators: subarray(self
+                .scoped_key_validation_requests_and_generators
+                .storage
+                .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
             note_hashes: subarray(
                 self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
             ),
@@ -346,18 +345,18 @@ impl FixtureBuilder {
             private_call_requests: subarray(self.private_call_requests.storage),
             public_call_requests: subarray(self.public_call_requests.storage),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(
-                self.l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message),
-            ),
+            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(
+                |r: ScopedL2ToL1Message| r.message,
+            )),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             note_encrypted_logs_hashes: subarray(self.note_encrypted_logs_hashes.storage),
-            encrypted_logs_hashes: subarray(
-                self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.log_hash),
-            ),
-            unencrypted_logs_hashes: subarray(
-                self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
-            ),
+            encrypted_logs_hashes: subarray(self.encrypted_logs_hashes.storage.map(
+                |l: ScopedEncryptedLogHash| l.log_hash,
+            )),
+            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(
+                |l: ScopedLogHash| l.log_hash,
+            )),
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -546,14 +545,13 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             returns_hash: self.returns_hash,
             note_hash_read_requests: subarray(self.note_hash_tree_leaf_read_requests.storage),
-            nullifier_read_requests: subarray(
-                self.nullifier_read_requests.storage.map(|r: ScopedReadRequest| r.read_request),
-            ),
-            nullifier_non_existent_read_requests: subarray(
-                self.nullifier_non_existent_read_requests.storage.map(
-                    |r: ScopedReadRequest| r.read_request,
-                ),
-            ),
+            nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(
+                |r: ScopedReadRequest| r.read_request,
+            )),
+            nullifier_non_existent_read_requests: subarray(self
+                .nullifier_non_existent_read_requests
+                .storage
+                .map(|r: ScopedReadRequest| r.read_request)),
             l1_to_l2_msg_read_requests: subarray(self.l1_to_l2_msg_read_requests.storage),
             contract_storage_update_requests: subarray(
                 self.contract_storage_update_requests.storage,
@@ -566,14 +564,14 @@ impl FixtureBuilder {
             nullifiers: subarray(
                 self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
             ),
-            l2_to_l1_msgs: subarray(
-                self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message),
-            ),
+            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(
+                |m: ScopedL2ToL1Message| m.message,
+            )),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            unencrypted_logs_hashes: subarray(
-                self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
-            ),
+            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(
+                |l: ScopedLogHash| l.log_hash,
+            )),
             historical_header: self.historical_header,
             global_variables: self.global_variables,
             prover_address: self.prover_address,
@@ -703,9 +701,9 @@ impl FixtureBuilder {
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
-        self.note_hashes.push(
-            NoteHash { value, counter: self.next_counter() }.scope(self.storage_contract_address),
-        );
+        self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(
+            self.storage_contract_address,
+        ));
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
@@ -714,11 +712,9 @@ impl FixtureBuilder {
         let index = self.note_hashes.len();
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.storage_contract_address);
         let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
-        self.note_hashes.push(
-            NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
-                AztecAddress::zero(),
-            ),
-        );
+        self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
+            AztecAddress::zero(),
+        ));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -767,11 +763,9 @@ impl FixtureBuilder {
     }
 
     pub fn add_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
-        self.nullifiers.push(
-            Nullifier { value, counter: self.next_counter(), note_hash }.scope(
-                self.storage_contract_address,
-            ),
-        );
+        self.nullifiers.push(Nullifier { value, counter: self.next_counter(), note_hash }.scope(
+            self.storage_contract_address,
+        ));
     }
 
     pub fn add_siloed_nullifier(&mut self, value: Field) {
@@ -781,11 +775,12 @@ impl FixtureBuilder {
 
     pub fn add_siloed_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
         let siloed_value = compute_siloed_nullifier(self.storage_contract_address, value);
-        self.nullifiers.push(
-            Nullifier { value: siloed_value, counter: self.next_counter(), note_hash }.scope(
-                AztecAddress::zero(),
-            ),
-        );
+        self.nullifiers.push(Nullifier {
+            value: siloed_value,
+            counter: self.next_counter(),
+            note_hash,
+        }
+            .scope(AztecAddress::zero()));
     }
 
     pub fn append_nullifiers(&mut self, num_extra_nullifier: u32) {
@@ -809,17 +804,14 @@ impl FixtureBuilder {
     }
 
     pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(
-            L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(
-                self.storage_contract_address,
-            ),
-        );
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: self.next_counter() }
+            .scope(self.storage_contract_address));
     }
 
     pub fn add_exposed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(
-            L2ToL1Message { recipient, content, counter: 0 }.scope(self.storage_contract_address),
-        );
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(
+            self.storage_contract_address,
+        ));
     }
 
     pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
@@ -1018,9 +1010,9 @@ impl FixtureBuilder {
         for i in 0..self.scoped_key_validation_requests_and_generators.max_len() {
             if i < num_requests {
                 let request = self.mock_key_validation_request(index_offset + i);
-                self.scoped_key_validation_requests_and_generators.push(
-                    request.scope(self.storage_contract_address),
-                );
+                self.scoped_key_validation_requests_and_generators.push(request.scope(
+                    self.storage_contract_address,
+                ));
             }
         }
     }

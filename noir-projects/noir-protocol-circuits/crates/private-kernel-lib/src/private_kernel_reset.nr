@@ -620,9 +620,11 @@ mod tests {
             output_note_logs,
         );
 
-        let output_logs = builder.compute_output_encrypted_logs(
-            [encrypted_logs[0], encrypted_logs[1], encrypted_logs[2]],
-        );
+        let output_logs = builder.compute_output_encrypted_logs([
+            encrypted_logs[0],
+            encrypted_logs[1],
+            encrypted_logs[2],
+        ]);
         assert_array_eq(public_inputs.end.encrypted_logs_hashes, output_logs);
     }
 

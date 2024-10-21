@@ -50,12 +50,10 @@ impl PartialAddress {
         contract_class_id: ContractClassId,
         salted_initialization_hash: SaltedInitializationHash,
     ) -> Self {
-        PartialAddress::from_field(
-            poseidon2_hash_with_separator(
-                [contract_class_id.to_field(), salted_initialization_hash.to_field()],
-                GENERATOR_INDEX__PARTIAL_ADDRESS,
-            ),
-        )
+        PartialAddress::from_field(poseidon2_hash_with_separator(
+            [contract_class_id.to_field(), salted_initialization_hash.to_field()],
+            GENERATOR_INDEX__PARTIAL_ADDRESS,
+        ))
     }
 
     pub fn to_field(self) -> Field {

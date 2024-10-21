@@ -317,9 +317,8 @@ comptime fn generate_multi_scalar_mul(
         for j in 0..flattened_field.len() {
             let flattened_as_field = flattened_field[j];
             let generator_index = start_generator_index + j;
-            generators_list = generators_list.push_back(
-                f"aztec::generators::Ga{generator_index}".quoted_contents(),
-            );
+            generators_list = generators_list.push_back(f"aztec::generators::Ga{generator_index}"
+                .quoted_contents());
             scalars_list =
                 scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
         }

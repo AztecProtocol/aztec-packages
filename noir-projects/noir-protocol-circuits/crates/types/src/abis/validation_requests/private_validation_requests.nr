@@ -35,9 +35,8 @@ impl Serialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationRequests
         }
 
         for i in 0..MAX_KEY_VALIDATION_REQUESTS_PER_TX {
-            fields.extend_from_array(
-                self.scoped_key_validation_requests_and_generators[i].serialize(),
-            );
+            fields.extend_from_array(self.scoped_key_validation_requests_and_generators[i]
+                .serialize());
         }
 
         fields.push(self.split_counter.is_some() as Field);

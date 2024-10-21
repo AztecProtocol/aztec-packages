@@ -26,21 +26,17 @@ mod tests {
         let inputs = default_block_root_rollup_inputs();
         let outputs = inputs.block_root_rollup_circuit();
 
-        assert(
-            outputs.previous_archive.eq(
-                inputs.previous_rollup_data[0]
-                    .base_or_merge_rollup_public_inputs
-                    .constants
-                    .last_archive,
-            ),
-        );
-        assert(
-            outputs.start_global_variables.eq(
-                inputs.previous_rollup_data[1]
-                    .base_or_merge_rollup_public_inputs
-                    .constants
-                    .global_variables,
-            ),
-        );
+        assert(outputs.previous_archive.eq(
+            inputs.previous_rollup_data[0]
+                .base_or_merge_rollup_public_inputs
+                .constants
+                .last_archive,
+        ));
+        assert(outputs.start_global_variables.eq(
+            inputs.previous_rollup_data[1]
+                .base_or_merge_rollup_public_inputs
+                .constants
+                .global_variables,
+        ));
     }
 }

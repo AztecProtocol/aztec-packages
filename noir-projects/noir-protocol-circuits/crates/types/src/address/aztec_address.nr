@@ -58,12 +58,10 @@ impl AztecAddress {
     }
 
     pub fn compute(pub_keys_hash: PublicKeysHash, partial_address: PartialAddress) -> AztecAddress {
-        AztecAddress::from_field(
-            poseidon2_hash_with_separator(
-                [pub_keys_hash.to_field(), partial_address.to_field()],
-                GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-            ),
-        )
+        AztecAddress::from_field(poseidon2_hash_with_separator(
+            [pub_keys_hash.to_field(), partial_address.to_field()],
+            GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+        ))
     }
 
     pub fn compute_from_private_function(

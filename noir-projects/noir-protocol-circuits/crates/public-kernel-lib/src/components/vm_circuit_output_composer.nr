@@ -108,9 +108,9 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_read_requests.push(
-                    request.scope(storage_contract_address),
-                );
+                self.validation_requests.nullifier_read_requests.push(request.scope(
+                    storage_contract_address,
+                ));
             }
         }
 
@@ -118,9 +118,9 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_non_existent_read_requests.push(
-                    request.scope(storage_contract_address),
-                );
+                self.validation_requests.nullifier_non_existent_read_requests.push(request.scope(
+                    storage_contract_address,
+                ));
             }
         }
 

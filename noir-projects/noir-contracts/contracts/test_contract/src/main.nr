@@ -103,14 +103,12 @@ contract Test {
         let owner_keys = get_public_keys(owner);
 
         let mut note = ValueNote::new(value, owner_keys.npk_m.hash());
-        create_note(&mut context, storage_slot, &mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner,
-            ),
-        );
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_keys.ovpk_m,
+            owner_keys.ivpk_m,
+            owner,
+        ));
     }
 
     #[private]
@@ -299,16 +297,14 @@ contract Test {
             value4: fields[4],
         };
 
-        event.emit(
-            encode_and_encrypt_event_with_randomness_unconstrained(
-                &mut context,
-                // testing only - a secret random value is passed in here to salt / mask the address
-                5,
-                outgoing_viewer_ovpk_m,
-                owner_ivpk_m,
-                owner,
-            ),
-        );
+        event.emit(encode_and_encrypt_event_with_randomness_unconstrained(
+            &mut context,
+            // testing only - a secret random value is passed in here to salt / mask the address
+            5,
+            outgoing_viewer_ovpk_m,
+            owner_ivpk_m,
+            owner,
+        ));
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -319,16 +315,14 @@ contract Test {
 
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
-            otherEvent.emit(
-                encode_and_encrypt_event_with_randomness_unconstrained(
-                    &mut context,
-                    // testing only - a randomness of 0 signals the kernels to not mask the address
-                    0,
-                    outgoing_viewer_ovpk_m,
-                    owner_ivpk_m,
-                    owner,
-                ),
-            );
+            otherEvent.emit(encode_and_encrypt_event_with_randomness_unconstrained(
+                &mut context,
+                // testing only - a randomness of 0 signals the kernels to not mask the address
+                0,
+                outgoing_viewer_ovpk_m,
+                owner_ivpk_m,
+                owner,
+            ));
         }
     }
 
@@ -348,14 +342,12 @@ contract Test {
         let owner_keys = get_public_keys(owner);
 
         let mut note = ValueNote::new(value + 1, owner_keys.npk_m.hash());
-        create_note(&mut context, storage_slot, &mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                msg_sender_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner,
-            ),
-        );
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            msg_sender_keys.ovpk_m,
+            owner_keys.ivpk_m,
+            owner,
+        ));
         storage_slot += 1;
         Test::at(context.this_address())
             .call_create_note(value + 2, owner, outgoing_viewer, storage_slot)

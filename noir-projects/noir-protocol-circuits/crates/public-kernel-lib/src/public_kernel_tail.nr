@@ -208,7 +208,9 @@ mod tests {
 
         pub fn with_nullifier_tree(&mut self) -> Self {
             let nullifier_tree = build_nullifier_tree();
-            self.nullifier_non_existent_read_request_hints_builder.set_nullifier_tree(nullifier_tree);
+            self.nullifier_non_existent_read_request_hints_builder.set_nullifier_tree(
+                nullifier_tree,
+            );
             self.start_state.nullifier_tree.root = nullifier_tree.get_root();
             self.previous_kernel.historical_header.state.partial.nullifier_tree.root = 22222;
             *self

@@ -62,9 +62,10 @@ pub unconstrained fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
     // Note hashes.
     let mut siloed_note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
     let mut siloed_note_hash_hints = [SiloedNoteHashHint::empty(); MAX_NOTE_HASHES_PER_TX];
-    let sorted_unsiloed_note_hashes = sort_by_counter_asc(
-        array_merge(non_revertible.note_hashes, revertible.note_hashes),
-    );
+    let sorted_unsiloed_note_hashes = sort_by_counter_asc(array_merge(
+        non_revertible.note_hashes,
+        revertible.note_hashes,
+    ));
     let tx_hash = non_revertible.nullifiers[0].value;
     for i in 0..sorted_unsiloed_note_hashes.len() {
         let note_hash = sorted_unsiloed_note_hashes[i];

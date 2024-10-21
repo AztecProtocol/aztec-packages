@@ -1012,14 +1012,12 @@ mod tests {
 
         let output = builder.execute();
 
-        assert(
-            output.end.nullifier_tree.eq(
-                AppendOnlyTreeSnapshot {
-                    root: end_nullifier_tree.get_root(),
-                    next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32,
-                },
-            ),
-        );
+        assert(output.end.nullifier_tree.eq(
+            AppendOnlyTreeSnapshot {
+                root: end_nullifier_tree.get_root(),
+                next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32,
+            },
+        ));
     }
 
     #[test]
@@ -1069,14 +1067,12 @@ mod tests {
             [0; NULLIFIER_SUBTREE_HEIGHT + 1],
         );
 
-        assert(
-            output.end.nullifier_tree.eq(
-                AppendOnlyTreeSnapshot {
-                    root: end_nullifier_tree.get_root(),
-                    next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32,
-                },
-            ),
-        );
+        assert(output.end.nullifier_tree.eq(
+            AppendOnlyTreeSnapshot {
+                root: end_nullifier_tree.get_root(),
+                next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32,
+            },
+        ));
     }
 
     #[test(should_fail_with = "Invalid low leaf")]
@@ -1314,9 +1310,9 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Set expected protocol data update
-        builder.protocol_public_data_writes.push(
-            (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }),
-        );
+        builder.protocol_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
+        ));
 
         let outputs = builder.execute();
 
@@ -1363,15 +1359,15 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Create an existing data update that corresponds to a claim
-        builder.public_data_writes.push(
-            (0, PublicDataTreeLeaf { slot: balance_slot, value: after_claim_balance }),
-        );
+        builder.public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: after_claim_balance },
+        ));
 
         // Set expected data updates after base rollup runs
         // Note that we tweak the final_public_data_writes directly, since we need to overwrite the output of the user public_data_writes
-        builder.final_public_data_writes.push(
-            (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }),
-        );
+        builder.final_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
+        ));
 
         let outputs = builder.execute();
 
@@ -1418,9 +1414,9 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Set expected protocol data update
-        builder.protocol_public_data_writes.push(
-            (0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 }),
-        );
+        builder.protocol_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 },
+        ));
 
         builder.fails();
     }
@@ -1460,9 +1456,9 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Set expected protocol data update
-        builder.protocol_public_data_writes.push(
-            (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }),
-        );
+        builder.protocol_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
+        ));
 
         builder.fails();
     }

@@ -20,12 +20,10 @@ impl SaltedInitializationHash {
     }
 
     pub fn compute(salt: Field, initialization_hash: Field, deployer: AztecAddress) -> Self {
-        SaltedInitializationHash::from_field(
-            poseidon2_hash_with_separator(
-                [salt, initialization_hash, deployer.to_field()],
-                GENERATOR_INDEX__PARTIAL_ADDRESS,
-            ),
-        )
+        SaltedInitializationHash::from_field(poseidon2_hash_with_separator(
+            [salt, initialization_hash, deployer.to_field()],
+            GENERATOR_INDEX__PARTIAL_ADDRESS,
+        ))
     }
 
     pub fn assert_is_zero(self) {
