@@ -348,6 +348,12 @@ describe('Note Processor', () => {
 
   function getRandomNoteLogPayload(app = AztecAddress.random()): EncryptedLogPayload {
     const publicValuesAppended = Math.random() > 0.5;
-    return new EncryptedLogPayload(Fr.random(), Fr.random(), publicValuesAppended, app, L1NotePayload.random(app).toIncomingBodyPlaintext());
+    return new EncryptedLogPayload(
+      Fr.random(),
+      Fr.random(),
+      publicValuesAppended,
+      app,
+      L1NotePayload.random(app).toIncomingBodyPlaintext(),
+    );
   }
 });
