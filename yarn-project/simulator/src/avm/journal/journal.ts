@@ -4,7 +4,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -212,20 +211,22 @@ export class AvmPersistableStateManager {
    * @param contractAddress - address of the contract instance to retrieve.
    * @returns the contract instance with an "exists" flag
    */
-  public async getContractInstance(contractAddress: Fr): Promise<TracedContractInstance> {
-    let exists = true;
+  public async getContractInstance(contractAddress: Fr): Promise<[boolean, SerializableContractInstance]> {
     const aztecAddress = AztecAddress.fromField(contractAddress);
-    let instance = await this.worldStateDB.getContractInstance(aztecAddress);
-    if (instance === undefined) {
-      instance = SerializableContractInstance.empty().withAddress(aztecAddress);
-      exists = false;
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(aztecAddress);
+
+    let exists = false;
+    let instance = SerializableContractInstance.empty();
+    if (instanceWithAddress !== undefined) {
+      exists = true;
+      instance = new SerializableContractInstance(instanceWithAddress);
     }
+
     this.log.debug(
       `Get Contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
     );
-    const tracedInstance = { ...instance, exists };
-    this.trace.traceGetContractInstance(tracedInstance);
-    return Promise.resolve(tracedInstance);
+    this.trace.traceGetContractInstance(contractAddress, exists, instance);
+    return Promise.resolve([exists, instance]);
   }
 
   /**

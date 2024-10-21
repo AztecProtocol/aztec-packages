@@ -33,7 +33,7 @@ contract AvmTest {
     use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
-    use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
+    use dep::aztec::oracle::get_contract_instance::{get_contract_instance_deployer_avm};
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
     use dep::compressed_string::CompressedString;
     use dep::aztec::macros::{storage::storage, functions::{public, private}};
@@ -274,33 +274,18 @@ contract AvmTest {
      * Contract instance
      ************************************************************************/
     #[public]
-    fn test_get_contract_instance_raw() {
-        let fields = get_contract_instance_internal_avm(context.this_address());
-        // The values here should match those in `avm_simulator.test.ts>Contract>GETCONTRACTINSTANCE deserializes correctly`
-        assert(fields.len() == CONTRACT_INSTANCE_LENGTH + 1);
-        assert(fields[0] == 0x1);
-        assert(fields[1] == 0x123);
-        assert(fields[2] == 0x456);
-        assert(fields[3] == 0x789);
-        assert(fields[4] == 0x101112);
-        assert(fields[5] == 0x131415);
-        assert(fields[6] == 0x161718);
-        assert(fields[7] == 0x00);
-        assert(fields[8] == 0x192021);
-        assert(fields[9] == 0x222324);
-        assert(fields[10] == 0x00);
-        assert(fields[11] == 0x252627);
-        assert(fields[12] == 0x282930);
-        assert(fields[13] == 0x00);
-        assert(fields[14] == 0x313233);
-        assert(fields[15] == 0x343536);
-        assert(fields[16] == 0x00);
-    }
-
-    #[public]
     fn test_get_contract_instance() {
-        let ci = get_contract_instance_avm(context.this_address());
-        assert(ci.is_some(), "Contract instance not found!");
+        let deployer = get_contract_instance_deployer_avm(context.this_address());
+        let class_id = get_contract_instance_class_id_avm(context.this_address());
+        let initialization_hash = get_contract_instance_initialization_hash_avm(context.this_address());
+
+        assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
+        assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
+        assert(initialization_hash.is_some(), "Contract instance not found when getting INIT_HASH!");
+        // The values here should match those in `avm_simulator.test.ts`
+        assert(deployer == 0x456);
+        assert(class_id == 0x789);
+        assert(initialization_hash == 0x101112);
     }
 
     /************************************************************************

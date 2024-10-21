@@ -2373,16 +2373,32 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
 }
 
-void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset)
 {
+    ASSERT(member_enum < static_cast<int>(ContractInstanceMember::MAX_MEMBER));
+    ContractInstanceMember chosen_member = static_cast<ContractInstanceMember>(member_enum);
+
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_address_offset, resolved_dst_offset] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ address_offset, dst_offset }, mem_trace_builder);
+    auto [resolved_address_offset, resolved_dst_offset, resolved_exists_offset] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ address_offset, dst_offset, exists_offset }, mem_trace_builder);
 
     auto read_address = constrained_read_from_memory(
         call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_address.tag_match;
+
+    // Read the contract instance
+    ContractInstanceHint instance = execution_hints.contract_instance_hints.at(read_address.val);
+
+    const FF member_value = chosen_member === ContractInstanceMember::DEPLOYER
+      ? instance.deployer
+      : chosen_member === ContractInstanceMember::CLASS_ID
+      ? instance.contractClassId
+      : chosen_member === ContractInstanceMember::INIT_HASH
+      ? instance.initializationHash;
+
+    auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst_offset, member_value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IB);
+    auto write_exists = constrained_write_to_memory(call_ptr, clk, resolved_dst_offset, member_value, AvmMemoryTag::U1, AvmMemoryTag::FF, IntermRegister::IC);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
@@ -2390,28 +2406,35 @@ void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t addres
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_ia = read_address.val,
+        .main_ib = write_dst.val,
+        .main_ic = write_exists.val,
         .main_ind_addr_a = FF(read_address.indirect_address),
+        .main_ind_addr_b = FF(write_dst.indirect_address),
+        .main_ind_addr_c = FF(write_exists.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_address.direct_address),
+        .main_mem_addr_b = FF(write_dst.direct_address),
+        .main_mem_addr_c = FF(write_exists.direct_address),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
+        .main_sel_mem_op_b = FF(1),
+        .main_sel_mem_op_c = FF(1),
         .main_sel_op_get_contract_instance = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
+        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_dst.is_indirect)),
+        .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_exists.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    // Read the contract instance
-    ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
-    std::vector<FF> public_key_fields = contract_instance.public_keys.to_fields();
-    // NOTE: we don't write the first entry (the contract instance's address/key) to memory
-    std::vector<FF> contract_instance_vec = { contract_instance.instance_found_in_address,
-                                              contract_instance.salt,
-                                              contract_instance.deployer_addr,
-                                              contract_instance.contract_class_id,
-                                              contract_instance.initialisation_hash };
-    contract_instance_vec.insert(contract_instance_vec.end(), public_key_fields.begin(), public_key_fields.end());
-    write_slice_to_memory(resolved_dst_offset, AvmMemoryTag::FF, contract_instance_vec);
+    //std::vector<FF> public_key_fields = contract_instance.public_keys.to_fields();
+    //// NOTE: we don't write the first entry (the contract instance's address/key) to memory
+    //std::vector<FF> contract_instance_vec = { contract_instance.instance_found_in_address,
+    //                                          contract_instance.salt,
+    //                                          contract_instance.deployer_addr,
+    //                                          contract_instance.contract_class_id,
+    //                                          contract_instance.initialisation_hash };
+    //contract_instance_vec.insert(contract_instance_vec.end(), public_key_fields.begin(), public_key_fields.end());
 
     debug("contract_instance cnt: ", side_effect_counter);
     side_effect_counter++;

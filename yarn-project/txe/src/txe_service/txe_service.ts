@@ -514,17 +514,36 @@ export class TXEService {
     ]);
   }
 
-  async avmOpcodeGetContractInstance(address: ForeignCallSingle) {
+  // TODO(dbanks12): fix
+  async avmOpcodeGetContractInstanceDeployer(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(fromSingle(address));
     return toForeignCallResult([
       toArray([
+        instance.deployer,
         // AVM requires an extra boolean indicating the instance was found
         new Fr(1),
-        instance.salt,
-        instance.deployer,
-        instance.contractClassId,
+      ]),
+    ]);
+  }
+
+  async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toArray([
+        instance.classId,
+        // AVM requires an extra boolean indicating the instance was found
+        new Fr(1),
+      ]),
+    ]);
+  }
+
+  async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toArray([
         instance.initializationHash,
-        ...instance.publicKeys.toFields(),
+        // AVM requires an extra boolean indicating the instance was found
+        new Fr(1),
       ]),
     ]);
   }
