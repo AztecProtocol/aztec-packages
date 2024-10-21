@@ -528,11 +528,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     if (blockNumber <= assumeProvenThroughBlockNumber) {
       fakeBlockNumberAsProven(blockNumber);
 
-      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+      bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+      bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
+
+      if (isFeeCanonical && header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
         //        which WILL happen for the old version after an upgrade where the bridge follow.
         //        Consider allowing a failure. See #7938.
         FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+      if (isSysstiaCanonical && header.globalVariables.coinbase != address(0)) {
+        SYSSTIA.claim(header.globalVariables.coinbase);
       }
 
       emit L2ProofVerified(blockNumber, "CHEAT");
