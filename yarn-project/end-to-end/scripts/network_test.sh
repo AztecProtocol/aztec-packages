@@ -62,6 +62,7 @@ function show_status_until_pxe_ready() {
 }
 
 show_status_until_pxe_ready &
+SHOW_STATUS_PID=$!
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
@@ -78,12 +79,15 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
 # tunnel in to get access directly to our PXE service in k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+PORT_FORWARD_PID=$!
 
-function cleanup() {
-  # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) 2>/dev/null || true
+cleanup() {
+  echo "Cleaning up..."
+  kill $PORT_FORWARD_PID || true
+  kill $SHOW_STATUS_PID || true
 }
-trap cleanup SIGINT SIGTERM EXIT
+
+trap cleanup EXIT SIGINT SIGTERM
 
 docker run --rm --network=host \
   -e PXE_URL=http://localhost:9082 \
