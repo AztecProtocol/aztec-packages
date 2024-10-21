@@ -369,8 +369,7 @@ describe('e2e_block_building', () => {
       await account.waitSetup();
     });
 
-    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
-    it.skip('can simulate public txs while building a block', async () => {
+    it('can simulate public txs while building a block', async () => {
       ({
         teardown,
         pxe,
