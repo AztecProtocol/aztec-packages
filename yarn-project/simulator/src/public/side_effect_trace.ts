@@ -27,6 +27,7 @@ import {
   Nullifier,
   type PublicInnerCallRequest,
   ReadRequest,
+  SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -210,14 +211,13 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractInstance(instance: TracedContractInstance) {
+  public traceGetContractInstance(contractAddress: Fr, exists: boolean, instance: SerializableContractInstance) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
-    // TODO(dbanks12): should emit a nullifier read request
 
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
-        instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        contractAddress,
+        new Fr(exists),
         instance.salt,
         instance.deployer,
         instance.contractClassId,

@@ -7,7 +7,6 @@ import {
   AztecAddress,
   CallContext,
   type CombinedConstantData,
-  type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -44,6 +43,7 @@ import {
   ScopedNoteHash,
   type ScopedNullifier,
   ScopedReadRequest,
+  SerializableContractInstance,
   TreeLeafReadRequest,
   VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -57,8 +57,6 @@ import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
-
-export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
 
 /**
  * A struct containing just the side effects as regular arrays
@@ -307,14 +305,13 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractInstance(instance: TracedContractInstance) {
+  public traceGetContractInstance(contractAddress: Fr, exists: boolean, instance: SerializableContractInstance) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
-    // TODO(dbanks12): should emit a nullifier read request
 
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
-        instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        contractAddress,
+        new Fr(exists),
         instance.salt,
         instance.deployer,
         instance.contractClassId,

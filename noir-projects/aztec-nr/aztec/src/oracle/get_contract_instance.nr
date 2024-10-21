@@ -6,16 +6,8 @@ use dep::protocol_types::{
 #[oracle(getContractInstance)]
 unconstrained fn get_contract_instance_oracle(_address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
-// Returns a ContractInstance plus a boolean indicating whether the instance was found.
-#[oracle(avmOpcodeGetContractInstance)]
-unconstrained fn get_contract_instance_oracle_avm(_address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH + 1] {}
-
 unconstrained fn get_contract_instance_internal(address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH] {
     get_contract_instance_oracle(address)
-}
-
-pub unconstrained fn get_contract_instance_internal_avm(address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH + 1] {
-    get_contract_instance_oracle_avm(address)
 }
 
 pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
@@ -29,12 +21,45 @@ pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
     instance
 }
 
-pub fn get_contract_instance_avm(address: AztecAddress) -> Option<ContractInstance> {
-    let mut reader = Reader::new(get_contract_instance_internal_avm(address));
-    let found = reader.read();
-    if found == 0 {
+// Returns a ContractInstance plus a boolean indicating whether the instance was found.
+#[oracle(avmOpcodeGetContractInstanceDeployer)]
+unconstrained fn get_contract_instance_deployer_oracle_avm(_address: AztecAddress) -> (Field, bool) {}
+#[oracle(avmOpcodeGetContractInstanceClassId)]
+unconstrained fn get_contract_instance_class_id_oracle_avm(_address: AztecAddress) -> (Field, bool) {}
+#[oracle(avmOpcodeGetContractInstanceInitializationHash)]
+unconstrained fn get_contract_instance_initialization_hash_oracle_avm(_address: AztecAddress) -> (Field, bool) {}
+
+pub unconstrained fn get_contract_instance_deployer_internal_avm(address: AztecAddress) -> (Field, bool) {
+    get_contract_instance_deployer_oracle_avm(address)
+}
+pub unconstrained fn get_contract_instance_class_id_internal_avm(address: AztecAddress) -> (Field, bool) {
+    get_contract_instance_class_id_oracle_avm(address)
+}
+pub unconstrained fn get_contract_instance_initialization_hash_internal_avm(address: AztecAddress) -> (Field, bool) {
+    get_contract_instance_initialization_hash_oracle_avm(address)
+}
+
+pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<Field> {
+    let (member, exists) = get_contract_instance_deployer_internal_avm(address);
+    if exists == 0 {
         Option::none()
     } else {
-        Option::some(reader.read_struct(ContractInstance::deserialize))
+        Option::some(member)
+    }
+}
+pub fn get_contract_instance_class_id_avm(address: AztecAddress) -> Option<Field> {
+    let (member, exists) = get_contract_instance_class_id_internal_avm(address);
+    if exists == 0 {
+        Option::none()
+    } else {
+        Option::some(member)
+    }
+}
+pub fn get_contract_instance_initialization_hash_avm(address: AztecAddress) -> Option<Field> {
+    let (member, exists) = get_contract_instance_initialization_hash_internal_avm(address);
+    if exists == 0 {
+        Option::none()
+    } else {
+        Option::some(member)
     }
 }
