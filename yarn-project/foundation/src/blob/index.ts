@@ -74,7 +74,7 @@ export class Blob {
 
   // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash
   getEthVersionedBlobHash(): Buffer {
-    let hash = sha256(this.commitment);
+    const hash = sha256(this.commitment);
     hash[0] = VERSIONED_HASH_VERSION_KZG;
     return hash;
   }

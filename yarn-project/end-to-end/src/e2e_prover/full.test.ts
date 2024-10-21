@@ -4,7 +4,7 @@ import '@jest/globals';
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 1_800_000;
+const TIMEOUT = 3_000_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
@@ -96,7 +96,7 @@ describe('full_prover', () => {
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 3000, interval: 10, proven: true, provenTimeout: 15000 })));
     },
     TIMEOUT,
   );

@@ -562,7 +562,7 @@ export class L1Publisher {
     }
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
+  private prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
     // We have to jump a few hoops because viem is not happy around estimating gas for view functions
     // TODO(Miranda): No clear way to estimate gas for a blob tx, since the publicClient fails
     const proposeGas = 300000n;
@@ -622,7 +622,7 @@ export class L1Publisher {
       return;
     }
     try {
-      const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
+      const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
 
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
@@ -655,10 +655,7 @@ export class L1Publisher {
       return;
     }
     try {
-      const { args, gasGuesstimate } = await this.prepareProposeTx(
-        encodedData,
-        L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
-      );
+      const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS);
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 

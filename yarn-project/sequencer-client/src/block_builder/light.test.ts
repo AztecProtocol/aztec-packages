@@ -34,10 +34,10 @@ import {
   RootParityInput,
   RootParityInputs,
   SpongeBlob,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   VK_TREE_HEIGHT,
   VerificationKeyData,
   makeEmptyRecursiveProof,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { Blob } from '@aztec/foundation/blob';

@@ -4,7 +4,7 @@ import {
   TxEffect,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
