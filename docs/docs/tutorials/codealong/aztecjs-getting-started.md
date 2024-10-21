@@ -346,5 +346,5 @@ Follow the [dapp tutorial](./simple_dapp/index.md).
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Authentication witness](../aztec/concepts/accounts/authwit.md)
+- [Authentication witness](../../aztec/concepts/accounts/authwit.md)
 - [Functions under the hood](../aztec/concepts/smart_contracts/functions/attributes.md)

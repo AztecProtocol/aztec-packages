@@ -3,7 +3,7 @@ title: Defining Functions
 tags: [functions]
 ---
 
-Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions).
+Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../concepts/pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions).
 
 For a more practical guide of using multiple types of functions, follow the [token tutorial](../../../tutorials/codealong/contract_tutorials/token_contract.md).
 

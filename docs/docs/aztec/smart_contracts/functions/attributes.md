@@ -358,7 +358,7 @@ Key things to keep in mind:
 
 ## Further reading
 
-- [Macros reference](../../../../reference/smart_contract_reference/macros.md)
+- [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
 - [How do macros work](./attributes.md)
 
 

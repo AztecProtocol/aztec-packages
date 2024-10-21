@@ -270,7 +270,7 @@ struct transfer_abi {
 Contract artifacts are important because:
 
 - They provide a machine-readable description of the contract
-- They can be used to generate bindings for interacting with the contract (read [here](../../../../guides/smart_contracts/how_to_compile_contract.md#typescript-interfaces) to learn how to create TypeScript bindings)
+- They can be used to generate bindings for interacting with the contract (read [here](../../../guides/developer_guides/smart_contracts/how_to_compile_contract.md) to learn how to create TypeScript bindings)
 - They help decode function return values in the simulator
 
 ## Further reading
