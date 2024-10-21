@@ -276,7 +276,10 @@ export class AvmPersistableStateManager {
     const contractClassPreimage = {
       artifactHash: contractClass.artifactHash,
       privateFunctionsRoot: contractClass.privateFunctionsRoot,
-      publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+      // This commitment includes the function selector - ideally we dont want to include that
+      // so we just hash the bytecode for now. N.B there is a disconnect between packedBytecode and the commitment
+      // publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+      publicBytecodeCommitment: computePublicBytecodeCommitment(bytecode ?? Buffer.alloc(1)),
     };
     this.trace.traceGetBytecode(bytecode!, { exists, ...contractInstance }, contractClassPreimage);
 
@@ -304,7 +307,7 @@ export class AvmPersistableStateManager {
       nestedEnvironment.calldata,
     );
 
-    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
+    this.log.debug(`[AVM] Calling nested function ${functionName}`);
 
     this.trace.traceNestedCall(
       nestedState.trace,

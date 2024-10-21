@@ -3,23 +3,24 @@ import {
   FunctionSelector,
   Gas,
   GlobalVariables,
+  type PublicFunction,
   PublicKeys,
   SerializableContractInstance,
   VerificationKeyData,
 } from '@aztec/circuits.js';
-import { makeContractClassPublic } from '@aztec/circuits.js/testing';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
 
-import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -63,10 +64,22 @@ const proveAndVerifyAvmTestContract = async (
   const functionSelector = FunctionSelector.random();
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
-  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
   const worldStateDB = mock<WorldStateDB>();
-  const contractInstance = new SerializableContractInstance({
+  // Top level contract call
+  const bytecode = getAvmTestContractBytecode(functionName);
+  const fnSelector = getAvmTestContractFunctionSelector(functionName);
+  const publicFn: PublicFunction = { bytecode, selector: fnSelector };
+  const contractClass = makeContractClassPublic(0, publicFn);
+  const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+
+  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
+  const nestedCallFnSelector = getAvmTestContractFunctionSelector('add_args_return');
+  const nestedCallPublicFn: PublicFunction = { bytecode: nestedCallBytecode, selector: nestedCallFnSelector };
+  const nestedCallContractClass = makeContractClassPublic(0, nestedCallPublicFn);
+  const nestedCallContractInstance = makeContractInstanceFromClassId(nestedCallContractClass.id);
+
+  const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
     deployer: new Fr(0x456),
@@ -78,20 +91,33 @@ const proveAndVerifyAvmTestContract = async (
       new Point(new Fr(0x252627), new Fr(0x282930), false),
       new Point(new Fr(0x313233), new Fr(0x343536), false),
     ),
-  }).withAddress(environment.address);
-  worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
+  }).withAddress(contractInstance.address);
 
-  const contractClass = makeContractClassPublic();
-  worldStateDB.getContractClass.mockResolvedValue(Promise.resolve(contractClass));
+  worldStateDB.getContractInstance
+    .mockResolvedValueOnce(contractInstance)
+    .mockResolvedValueOnce(instanceGet)
+    .mockResolvedValueOnce(nestedCallContractInstance)
+    .mockResolvedValueOnce(nestedCallContractInstance);
+  worldStateDB.getContractClass.mockResolvedValueOnce(contractClass).mockResolvedValue(nestedCallContractClass);
 
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
+  const environment = initExecutionEnvironment({
+    functionSelector,
+    calldata,
+    globals,
+    address: contractInstance.address,
+    storageAddress: contractInstance.address,
+  });
   const context = initContext({ env: environment, persistableState });
-  const bytecode = getAvmTestContractBytecode(functionName);
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(bytecode);
+
+  worldStateDB.getBytecode
+    .mockResolvedValueOnce(bytecode)
+    .mockResolvedValue(nestedCallBytecode)
+    .mockResolvedValue(nestedCallBytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
