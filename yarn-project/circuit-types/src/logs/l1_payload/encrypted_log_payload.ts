@@ -29,6 +29,7 @@ export class EncryptedLogPayload {
   constructor(
     public readonly incomingTag: Fr,
     public readonly outgoingTag: Fr,
+    public readonly publicValuesAppended: boolean,
     public readonly contractAddress: AztecAddress,
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
@@ -71,6 +72,7 @@ export class EncryptedLogPayload {
     return serializeToBuffer(
       this.incomingTag,
       this.outgoingTag,
+      this.publicValuesAppended,
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
@@ -101,6 +103,8 @@ export class EncryptedLogPayload {
       const incomingTag = reader.readObject(Fr);
       const outgoingTag = reader.readObject(Fr);
 
+      const publicValuesAppended = reader.readBoolean();
+
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
       const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
@@ -115,6 +119,7 @@ export class EncryptedLogPayload {
       return new EncryptedLogPayload(
         incomingTag,
         outgoingTag,
+        publicValuesAppended,
         AztecAddress.fromBuffer(incomingHeader),
         incomingBodyPlaintext,
       );
@@ -157,6 +162,8 @@ export class EncryptedLogPayload {
       const incomingTag = reader.readObject(Fr);
       const outgoingTag = reader.readObject(Fr);
 
+      const publicValuesAppended = reader.readBoolean();
+
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
       // We skip the incoming header
@@ -182,7 +189,7 @@ export class EncryptedLogPayload {
       // Now we decrypt the incoming body using the ephSk and recipientIvpk
       const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
 
-      return new EncryptedLogPayload(incomingTag, outgoingTag, contractAddress, incomingBody);
+      return new EncryptedLogPayload(incomingTag, outgoingTag, publicValuesAppended, contractAddress, incomingBody);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (
