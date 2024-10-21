@@ -46,7 +46,7 @@ display_help() {
     echo "  -i     Run interleaved (default: $INTERLEAVED)"
     echo
     echo "Example:"
-    echo "  $0 -t src/spartan/smoke.test.ts -val 5 -v"
+    echo "  $0 -t smoke.test.ts -val 5 -v"
 }
 
 # Parse command line arguments
