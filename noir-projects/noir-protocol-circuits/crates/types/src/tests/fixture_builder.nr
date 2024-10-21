@@ -47,10 +47,19 @@ use crate::{
     compute_l2_to_l1_hash, compute_tx_logs_hash, compute_siloed_nullifier, silo_note_hash,
     silo_unencrypted_log_hash, mask_encrypted_log_hash
 },
-    header::Header, merkle_tree::membership::MembershipWitness,
+    header::Header, merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
-    tests::{fixtures, fixtures::{contracts::ContractData, contract_functions::ContractFunction}},
+    tests::{
+    fixtures,
+    fixtures::{
+    contracts::ContractData, contract_functions::ContractFunction,
+    vk_tree::{
+    generate_fake_honk_vk_for_index, generate_fake_client_ivc_vk_for_index, get_vk_merkle_tree,
+    VK_TREE_WIDTH
+}
+}
+},
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
     recursion::{
     verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
@@ -201,11 +210,12 @@ impl FixtureBuilder {
 
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
         self.vk_index = vk_index;
-        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
+            fixtures::vk_tree::get_vk_merkle_tree()
+        };
 
-        let vk_hash = vk_tree.leaves[vk_index];
-        self.honk_vk.hash = vk_hash;
-        self.client_ivc_vk.hash = vk_hash;
+        self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index) ;
+        self.client_ivc_vk = fixtures::vk_tree::generate_fake_client_ivc_vk_for_index(vk_index);
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
 
