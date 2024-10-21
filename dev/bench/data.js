@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729526852054,
+  "lastUpdate": 1729535920662,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3e05e22d8d9fc73c1225570342392dda5661403f",
-          "message": "feat: Add support for unlimited width in ACIR (#8960)\n\nHandle ACIR AssertZero opcodes of any width, by creating intermediate\r\nquad gates using w4_omega.\r\n'fixes' https://github.com/noir-lang/noir/issues/6085, but we still need\r\nto have Noir using the unlimited width.",
-          "timestamp": "2024-10-03T16:58:53Z",
-          "tree_id": "59ad40e91ce1a2f7e8ca3ae7cc62c7c7a77939c2",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3e05e22d8d9fc73c1225570342392dda5661403f"
-        },
-        "date": 1727976070191,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31273.527811000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28827.375152 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5368.7198460000045,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5072.3152740000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 94026.864928,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 94026867000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15200.187321,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15200188000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8339660556,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8339660556 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153342757,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153342757 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6805550519,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6805550519 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126467280,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126467280 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3452,6 +3380,66 @@ window.BENCHMARK_DATA = {
             "value": 125200296,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125200296 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "523aa231acd22228fa6414fc8241cebdfa21eafa",
+          "message": "chore(avm): some cleaning in avm prover (#9311)\n\nThe AvmProver constructor body can be replaced by calling the\r\nconstructor for prover_polynomials.\r\nFurthermore, in execute_log_derivative_inverse_round() some temporary\r\nprover_polynomials are superfluous.",
+          "timestamp": "2024-10-21T20:14:50+02:00",
+          "tree_id": "559157c046becc07fed9ab368a0770a5f98e0e49",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/523aa231acd22228fa6414fc8241cebdfa21eafa"
+        },
+        "date": 1729535913375,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29460.341072999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27942.879940000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5324.454023000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5027.491238 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87471.383593,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87471385000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15299.117164,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15299117000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2709088876,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2709088876 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128532386,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128532386 ns\nthreads: 1"
           }
         ]
       }
