@@ -67,4 +67,4 @@ yarn node --experimental-vm-modules $(yarn bin jest) --testRegex '.*\.test\.mjs$
 
 ## Next steps
 
-Now that you have finished the tutorial, you can learn more about [writing contracts with Noir](../../../aztec/smart_contracts_overview.md) or read about the [fundamental concepts behind Aztec Network](../../../aztec/overview.md).
+Now that you have finished the tutorial, you can learn more about [writing contracts with Noir](../../../aztec/smart_contracts_overview.md) or read about the [fundamental concepts behind Aztec Network](../../../aztec/what_is_aztec.md).

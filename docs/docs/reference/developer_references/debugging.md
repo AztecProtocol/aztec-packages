@@ -1,5 +1,5 @@
 ---
-title: Debugging
+title: Logging
 sidebar_position: 2
 ---
 

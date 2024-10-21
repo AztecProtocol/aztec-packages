@@ -1,6 +1,6 @@
 ---
 title: Token Bridge
-sidebar_position: 2
+sidebar_position: 6
 ---
 
 import Image from "@theme/IdealImage";

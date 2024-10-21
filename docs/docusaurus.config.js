@@ -223,15 +223,21 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "aztec/overview",
+            docId: "aztec/what_is_aztec",
             position: "left",
             label: "Learn",
           },
           {
             type: "docSidebar",
-            sidebarId: "buildSidebar",
+            sidebarId: "guidesSidebar",
             position: "left",
-            label: "Build",
+            label: "Guides",
+          },
+          {
+            type: "docSidebar",
+            sidebarId: "referenceSidebar",
+            position: "left",
+            label: "Reference",
           },
           {
             type: "dropdown",

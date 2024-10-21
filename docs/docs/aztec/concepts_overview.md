@@ -1,8 +1,8 @@
 ---
-title: What is Aztec?
+title: Overview
 sidebar_position: 0
-id: overview
 tags: [protocol]
+draft: true
 ---
 
 import Image from "@theme/IdealImage";
