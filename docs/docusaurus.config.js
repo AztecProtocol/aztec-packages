@@ -225,25 +225,13 @@ const config = {
             type: "doc",
             docId: "aztec/overview",
             position: "left",
-            label: "Concepts",
+            label: "Learn",
           },
           {
             type: "docSidebar",
-            sidebarId: "guidesSidebar",
+            sidebarId: "buildSidebar",
             position: "left",
-            label: "Guides",
-          },
-          {
-            type: "docSidebar",
-            sidebarId: "tutorialsSidebar",
-            position: "left",
-            label: "Examples",
-          },
-          {
-            type: "docSidebar",
-            sidebarId: "referenceSidebar",
-            position: "left",
-            label: "References",
+            label: "Build",
           },
           {
             type: "dropdown",
