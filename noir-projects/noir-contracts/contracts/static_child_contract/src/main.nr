@@ -6,10 +6,10 @@ contract StaticChild {
     use dep::aztec::prelude::{AztecAddress, PublicMutable, PrivateSet};
 
     use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions},
+        note::note_getter_options::NoteGetterOptions,
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys, utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public, view}}
+        macros::{storage::storage, functions::{private, public, view}},
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -49,7 +49,14 @@ contract StaticChild {
 
         let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
 
-        storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, owner_keys.ivpk_m, owner));
+        storage.a_private_value.insert(&mut note).emit(
+            encode_and_encrypt_note(
+                &mut context,
+                msg_sender_keys.ovpk_m,
+                owner_keys.ivpk_m,
+                owner,
+            ),
+        );
         new_value
     }
 
@@ -58,7 +65,7 @@ contract StaticChild {
     fn private_set_value(
         new_value: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress
+        outgoing_viewer: AztecAddress,
     ) -> Field {
         let owner_keys = get_public_keys(owner);
         let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
@@ -69,8 +76,8 @@ contract StaticChild {
                 &mut context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,
-                owner
-            )
+                owner,
+            ),
         );
         new_value
     }
@@ -81,11 +88,10 @@ contract StaticChild {
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).select(
-            ValueNote::properties().npk_m_hash,
-            Comparator.EQ,
-            owner_npk_m_hash
-        ).set_limit(1);
+        options = options
+            .select(ValueNote::properties().value, Comparator.EQ, amount)
+            .select(ValueNote::properties().npk_m_hash, Comparator.EQ, owner_npk_m_hash)
+            .set_limit(1);
         let notes = storage.a_private_value.get_notes(options);
         notes.get(0).value
     }

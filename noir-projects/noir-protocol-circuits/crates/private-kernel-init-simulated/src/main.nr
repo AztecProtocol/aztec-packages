@@ -9,14 +9,14 @@ unconstrained fn main(
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
     private_call: PrivateCallDataWithoutPublicInputs,
-    app_public_inputs: PrivateCircuitPublicInputs
+    app_public_inputs: PrivateCircuitPublicInputs,
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
         tx_request,
         vk_tree_root,
         protocol_contract_tree_root,
         private_call,
-        app_public_inputs
+        app_public_inputs,
     );
     private_inputs.execute()
 }

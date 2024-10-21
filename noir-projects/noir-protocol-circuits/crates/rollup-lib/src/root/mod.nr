@@ -6,7 +6,7 @@ pub use root_rollup_inputs::RootRollupInputs;
 pub use root_rollup_public_inputs::RootRollupPublicInputs;
 
 mod tests {
-    use crate::{tests::root_rollup_inputs::default_root_rollup_inputs};
+    use crate::tests::root_rollup_inputs::default_root_rollup_inputs;
     use dep::types::hash::accumulate_sha256;
 
     #[test]
@@ -26,21 +26,34 @@ mod tests {
         let outputs = inputs.root_rollup_circuit();
 
         assert(
-            outputs.previous_archive.eq(inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.previous_archive)
+            outputs.previous_archive.eq(
+                inputs.previous_rollup_data[0]
+                    .block_root_or_block_merge_public_inputs
+                    .previous_archive,
+            ),
         );
 
         assert(
-            outputs.end_archive.eq(inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.new_archive)
+            outputs.end_archive.eq(
+                inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.new_archive,
+            ),
         );
 
         assert(
             outputs.end_timestamp.eq(
-                inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.timestamp
-            )
+                inputs.previous_rollup_data[1]
+                    .block_root_or_block_merge_public_inputs
+                    .end_global_variables
+                    .timestamp,
+            ),
         );
 
         assert(
-            outputs.end_block_hash.eq(inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_block_hash)
+            outputs.end_block_hash.eq(
+                inputs.previous_rollup_data[1]
+                    .block_root_or_block_merge_public_inputs
+                    .end_block_hash,
+            ),
         );
     }
 }

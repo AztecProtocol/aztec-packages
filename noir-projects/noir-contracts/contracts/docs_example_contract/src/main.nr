@@ -18,12 +18,12 @@ contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::prelude::{
         AztecAddress, NoteViewerOptions, PrivateContext, Map, PublicMutable, PublicImmutable,
-        PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable
+        PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable,
     };
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{storage::{storage, storage_no_init}, functions::{public, private, internal, view}}
+        macros::{storage::{storage, storage_no_init}, functions::{public, private, internal, view}},
     };
 
     // how to import methods from other files/folders within your workspace
@@ -73,9 +73,7 @@ contract DocsExample {
                 profiles: Map::new(
                     context,
                     4,
-                    |context, slot| {
-                        PrivateMutable::new(context, slot)
-                    }
+                    |context, slot| { PrivateMutable::new(context, slot) },
                 ),
                 // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
@@ -87,13 +85,11 @@ contract DocsExample {
                 minters: Map::new(
                     context,
                     8,
-                    |context, slot| {
-                        PublicMutable::new(context, slot)
-                    }
+                    |context, slot| { PublicMutable::new(context, slot) },
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
-                public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
+                public_immutable: PublicImmutable::new(context, 9), // docs:end:storage-public-immutable
             }
         }
     }
@@ -119,7 +115,9 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and
         // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().view(&mut context);
+        let mut leader = DocsExample::at(context.this_address())
+            .get_shared_immutable_constrained_private()
+            .view(&mut context);
         leader.points += 1;
         leader
     }
@@ -130,7 +128,9 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and
         // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().view(&mut context);
+        let mut leader = DocsExample::at(context.this_address())
+            .get_shared_immutable_constrained_public()
+            .view(&mut context);
         leader.points += 1;
         leader
     }
@@ -182,8 +182,8 @@ contract DocsExample {
                 &mut context,
                 msg_sender_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
     }
     // docs:end:initialize-private-mutable
@@ -200,8 +200,8 @@ contract DocsExample {
                 &mut context,
                 msg_sender_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
     }
 
@@ -216,8 +216,8 @@ contract DocsExample {
                     &mut context,
                     msg_sender_keys.ovpk_m,
                     msg_sender_keys.ivpk_m,
-                    context.msg_sender()
-                )
+                    context.msg_sender(),
+                ),
             );
         }
     }
@@ -231,8 +231,8 @@ contract DocsExample {
                 &mut context,
                 msg_sender_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
     }
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
@@ -251,16 +251,17 @@ contract DocsExample {
                 &mut context,
                 msg_sender_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
-        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(
+            &mut context,
+        );
     }
     #[private]
     fn increase_legendary_points() {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
-
         let msg_sender_keys = get_public_keys(context.msg_sender());
 
         // docs:start:state_vars-PrivateMutableGet
@@ -274,11 +275,13 @@ contract DocsExample {
                 &mut context,
                 msg_sender_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
         // docs:end:state_vars-PrivateMutableReplace
-        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(
+            &mut context,
+        );
     }
     #[private]
     #[view]
@@ -337,7 +340,7 @@ contract DocsExample {
         // ************************************************************
         // Our original inputs!
         a: Field,
-        b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the
+        b: Field, // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the
         // input to our kernel!
         // docs:start:context-example-return
     ) -> pub PrivateCircuitPublicInputs {

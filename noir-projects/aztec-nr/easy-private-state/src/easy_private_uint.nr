@@ -1,7 +1,8 @@
 use dep::aztec::{
-    context::PrivateContext, protocol_types::{address::AztecAddress},
+    context::PrivateContext, protocol_types::address::AztecAddress,
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, keys::getters::get_public_keys
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    keys::getters::get_public_keys,
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -35,8 +36,8 @@ impl EasyPrivateUint<&mut PrivateContext> {
                 self.context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,
-                owner
-            )
+                owner,
+            ),
         );
         // docs:end:insert
     }
@@ -50,7 +51,6 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let notes = self.set.pop_notes(options);
         // docs:end:pop_notes
-
         let mut minuend: u64 = 0;
         for i in 0..options.limit {
             if i < notes.len() {
@@ -70,8 +70,8 @@ impl EasyPrivateUint<&mut PrivateContext> {
                 self.context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,
-                owner
-            )
+                owner,
+            ),
         );
     }
 }

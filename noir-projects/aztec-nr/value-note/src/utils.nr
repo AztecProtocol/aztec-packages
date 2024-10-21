@@ -6,8 +6,13 @@ use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field, Field> {
-    NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(ValueNote::properties().value, SortOrder.DESC)
+pub fn create_note_getter_options_for_decreasing_balance(
+    amount: Field,
+) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field, Field> {
+    NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(
+        ValueNote::properties().value,
+        SortOrder.DESC,
+    )
 }
 
 // Creates a new note for the recipient.
@@ -17,7 +22,7 @@ pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     recipient: AztecAddress,
-    outgoing_viewer: AztecAddress // docs:end:increment_args
+    outgoing_viewer: AztecAddress, // docs:end:increment_args
 ) {
     let recipient_keys = get_public_keys(recipient);
     let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
@@ -29,8 +34,8 @@ pub fn increment(
             balance.context,
             outgoing_viewer_ovpk_m,
             recipient_keys.ivpk_m,
-            recipient
-        )
+            recipient,
+        ),
     );
 }
 
@@ -42,7 +47,7 @@ pub fn decrement(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     owner: AztecAddress,
-    outgoing_viewer: AztecAddress
+    outgoing_viewer: AztecAddress,
 ) {
     let sum = decrement_by_at_most(balance, amount, owner, outgoing_viewer);
     assert(sum == amount, "Balance too low");
@@ -60,7 +65,7 @@ pub fn decrement_by_at_most(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     max_amount: Field,
     owner: AztecAddress,
-    outgoing_viewer: AztecAddress
+    outgoing_viewer: AztecAddress,
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let notes = balance.pop_notes(options);

@@ -1,17 +1,16 @@
 use crate::{
     abis::{
-    max_block_number::MaxBlockNumber, read_request::ScopedReadRequest,
-    validation_requests::{
-    private_validation_requests::PrivateValidationRequests,
-    rollup_validation_requests::RollupValidationRequests,
-    scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator
-}
-},
+        max_block_number::MaxBlockNumber, read_request::ScopedReadRequest,
+        validation_requests::{
+            private_validation_requests::PrivateValidationRequests,
+            rollup_validation_requests::RollupValidationRequests,
+            scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
+        },
+    },
     constants::{
-    MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    MAX_KEY_VALIDATION_REQUESTS_PER_TX
-},
-    traits::Empty
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+    }, traits::Empty,
 };
 
 pub struct PrivateValidationRequestsBuilder {
@@ -28,8 +27,10 @@ impl PrivateValidationRequestsBuilder {
             for_rollup: self.for_rollup(),
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
-            scoped_key_validation_requests_and_generators: self.scoped_key_validation_requests_and_generators.storage,
-            split_counter: self.split_counter
+            scoped_key_validation_requests_and_generators: self
+                .scoped_key_validation_requests_and_generators
+                .storage,
+            split_counter: self.split_counter,
         }
     }
 
@@ -45,7 +46,7 @@ impl Empty for PrivateValidationRequestsBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
-            split_counter: Option::none()
+            split_counter: Option::none(),
         }
     }
 }

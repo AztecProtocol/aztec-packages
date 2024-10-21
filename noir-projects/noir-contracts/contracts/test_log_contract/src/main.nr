@@ -49,8 +49,8 @@ contract TestLog {
                 // outgoing is set to other, incoming is set to msg sender
                 other_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
 
         // We duplicate the emission, but specifying different incoming and outgoing parties
@@ -61,11 +61,14 @@ contract TestLog {
                 // outgoing is set to msg sender, incoming is set to other
                 msg_sender_keys.ovpk_m,
                 other_keys.ivpk_m,
-                other
-            )
+                other,
+            ),
         );
 
-        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
+        let event1 = ExampleEvent1 {
+            value2: AztecAddress::from_field(preimages[2]),
+            value3: preimages[3] as u8,
+        };
 
         event1.emit(
             encode_and_encrypt_event_with_randomness(
@@ -74,8 +77,8 @@ contract TestLog {
                 // outgoing is set to other, incoming is set to msg sender
                 other_keys.ovpk_m,
                 msg_sender_keys.ivpk_m,
-                context.msg_sender()
-            )
+                context.msg_sender(),
+            ),
         );
     }
 
@@ -85,7 +88,10 @@ contract TestLog {
 
         event0.emit(encode_event(&mut context));
 
-        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
+        let event1 = ExampleEvent1 {
+            value2: AztecAddress::from_field(preimages[2]),
+            value3: preimages[3] as u8,
+        };
 
         event1.emit(encode_event(&mut context));
     }

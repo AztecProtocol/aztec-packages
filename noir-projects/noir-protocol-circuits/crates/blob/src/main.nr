@@ -18,10 +18,9 @@ mod negative_roots;
 
 use crate::{
     config::{
-    BigNum, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-    FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS
-},
-    negative_roots::NEGATIVE_ROOTS
+        BigNum, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
+        FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS,
+    }, negative_roots::NEGATIVE_ROOTS,
 };
 
 //*********************************************************************************
@@ -61,11 +60,9 @@ unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_P
         denoms[i] = z.__add(NEGATIVE_ROOTS[i]); // (z - omega^i)
     }
     let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
-
     let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
-
         fracs[i] = ys[i].__mul(inv_denom); // y_i / (z - omega^i)
     }
     fracs
@@ -121,7 +118,7 @@ fn bignum_to_bytes(x: F) -> [u8] {
     let mut out: [u8; 32] = [0; 32];
     for i in 0..32 {
         out[i] = limb_0_bytes[i];
-        out[i+15] = limb_1_bytes[i];
+        out[i + 15] = limb_1_bytes[i];
     }
     for i in 0..1 {
         out[30 + i] = limb_2_bytes[i];
@@ -181,14 +178,14 @@ fn unsafe_extract_top_bit(x: F) -> (Field, F) {
 
 fn blob_to_fields__tightly_packed(blob: [F; FIELDS_PER_BLOB]) -> [Field; NOIR_FIELDS_PER_BLOB] {
     let mut blob_as_fields: [Field; NOIR_FIELDS_PER_BLOB] = [0; NOIR_FIELDS_PER_BLOB];
-    let mut top_bits: [Field; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB] = [0; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB];
+    let mut top_bits: [Field; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB] =
+        [0; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB];
 
     // We start with [F; 4096].
     // The first 4064 of these bls-fields have a 255th bit (counting from 1) which can contribute towards
     // new 254-bit noir fields. That is, we extract 4064 top-bits from the first 4064 of the 4096 bls-fields,
     // and reconstitute them into 4064 / 254 = 16 extra noir fields.
     // So we end up with 4096 + 16 = 4112 noir fields.
-
     // Here we compute top_bits[0:4064] and blob_as_fields[0:4064].
     for i in 0..FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB {
         let (top_bit, field_with_top_bit_removed): (Field, F) = unsafe_extract_top_bit(blob[i]);
@@ -248,11 +245,9 @@ fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
     // let y = challenge_z_as_bignum; // dummy constraint for when we want to skip the barycentric stuff in testing.
-
     // let challenge_z_as_bytes: [u8; 32] = challenge_z.to_be_bytes();
     // let y_as_bytes: [u8] = bignum_to_bytes(y);
     // let kzg_commitment_as_bytes: [u8] = ()
-
     // TODO: this return data needs to be TIGHTLY PACKED into bytes.
     // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification. On ethereum, the bytes will be sent along with the sha256-hash of the bytes. The bytes will be used in the point evaluation precompile. The sha256-hash will form a part of the public inputs of the zk-snark proof.
     (challenge_z, y, kzg_commitment)
@@ -281,7 +276,6 @@ fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // z ^ D:
-
     let mut t1 = z.__mul(z);
 
     BigNum::evaluate_quadratic_expression([[z]], [[false]], [[z]], [[false]], [t1], [true]);
@@ -306,7 +300,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     let z_pow_d = t1;
 
     // factor:
-
     let one: F = BigNum::one();
 
     t1 = z_pow_d.__sub(one);
@@ -324,7 +317,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         [[D_INV]],
         [[false]],
         [factor, D_INV],
-        [true, true]
+        [true, true],
     );
 
     // This version doesn't work:
@@ -336,14 +329,11 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //     [factor],
     //     [true]
     // );
-
     // sum:
-
     let mut sum: F = BigNum::new();
 
     // Making a call to this function causes a "stack too deep" error, so I've put the body of that function here, instead:
     // let fracs = __compute_fracs(z, ys); // { y_i / (z - omega^i) }
-
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
     //    \     /    y_i    \
@@ -362,12 +352,9 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //    i=0
     //
     // perhaps because all the omega^i terms are constant witnesses?
-
     //*****************************************************************
     // This section is only needed because `__compute_fracs` isn't working (stack too deep error).
-
     let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB]; // y_i / (z - omega^i), for all i
-
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__add(NEGATIVE_ROOTS[i]); // (z - omega^i)
@@ -376,13 +363,10 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // If you're seeing a `bug` warning for this line, I think it's fine.
     // Ideally, we'd be using `__compute_fracs`, anyway, but we're getting a "stack too deep" error.
     let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
-
     for i in 0..FIELDS_PER_BLOB {
         let num = ys[i];
         let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
-
         let frac = num.__mul(inv_denom); // y_i * (1 / (z - omega^i))
-
         fracs[i] = frac; // y_i / (z - omega^i)
         std::as_witness(fracs[i].limbs[0]);
         std::as_witness(fracs[i].limbs[1]);
@@ -390,7 +374,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         //End of section that is only needed because `__compute_fracs` isn't working
         //*****************************************************************
-
         // frac <-- ys[i] / (z + neg_roots[i])
         // frac * (z + neg_roots[i]) - ys[i] = 0
         BigNum::evaluate_quadratic_expression(
@@ -399,7 +382,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             [[z, NEGATIVE_ROOTS[i]]],
             [[false, false]],
             [ys[i]],
-            [true]
+            [true],
         );
     }
 
@@ -430,7 +413,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //      partial_sum = /   y_k . ---------
         //                   /____       z - omega^k
         //                    k=i*8 + 0
-
         for j in 0..8 {
             let k = i * 8 + j;
             lhs[j] = ROOTS[k]; // omega^k
@@ -471,7 +453,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
         //                          sum                   partial_sum
         //
-
         let mut sum_out = sum.__add(partial_sum);
 
         std::as_witness(sum_out.limbs[0]);
@@ -486,7 +467,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             [[rhs[0]], [rhs[1]], [rhs[2]], [rhs[3]], [rhs[4]], [rhs[5]], [rhs[6]], [rhs[7]]],
             [[false], [false], [false], [false], [false], [false], [false], [false]],
             [sum, sum_out],
-            [false, true]
+            [false, true],
         );
 
         sum = sum_out;
@@ -496,7 +477,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     }
 
     // y:
-
     let y = factor.__mul(sum);
 
     //    y <- factor * sum
@@ -517,7 +497,6 @@ fn test_main() {
     blob[2] = BigNum { limbs: [0x69, 0, 0] };
 
     let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-
     let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
 
     println(challenge_z);
@@ -556,21 +535,13 @@ fn test_barycentric() {
     let mut expected_y: [Field; 3] = [0; 3];
     if (FIELDS_PER_BLOB == 4096) {
         // Computed with the eth consensus specs py lib
-        expected_y = [
-            0x0c62e352a428e8e9842eadc1c106bd,
-            0x902c5b4968d755b6f49c0231e15af8,
-            0x00049a
-        ];
+        expected_y = [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
         // Also computed with cKzg, in the typescript tests:
         // 0x049a902c5b4968d755b6f49c0231e15af80c62e352a428e8e9842eadc1c106bd
     }
     if (FIELDS_PER_BLOB == 8) {
         // Computed with the eth consensus specs py lib (after hacking it to cope with blobs of size 8 instead of 4096):
-        expected_y = [
-            0xb04cdea4304000053abffffffb203a,
-            0x0000000002e30785c8afa4496f8e38,
-            0x000000
-        ];
+        expected_y = [0xb04cdea4304000053abffffffb203a, 0x0000000002e30785c8afa4496f8e38, 0x000000];
     }
     assert(y.limbs == expected_y);
 }

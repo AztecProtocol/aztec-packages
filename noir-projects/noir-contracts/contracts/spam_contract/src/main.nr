@@ -8,16 +8,15 @@ contract Spam {
 
     use dep::aztec::{
         prelude::{Map, AztecAddress, PublicMutable},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_unconstrained},
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
         keys::getters::get_public_keys,
         protocol_types::{
-        hash::poseidon2_hash_with_separator,
-        constants::{
-        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, GENERATOR_INDEX__NOTE_NULLIFIER,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
-    }
-    },
-        macros::{storage::storage, functions::{private, public, internal}}
+            hash::poseidon2_hash_with_separator,
+            constants::{
+                MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, GENERATOR_INDEX__NOTE_NULLIFIER,
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+            },
+        }, macros::{storage::storage, functions::{private, public, internal}},
     };
 
     use crate::types::{token_note::TokenNote, balance_set::BalanceSet};
@@ -36,7 +35,12 @@ contract Spam {
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-                encode_and_encrypt_note_unconstrained(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
+                encode_and_encrypt_note_unconstrained(
+                    &mut context,
+                    caller_keys.ovpk_m,
+                    caller_keys.ivpk_m,
+                    caller,
+                ),
             );
         }
 
@@ -45,18 +49,22 @@ contract Spam {
                 context.push_nullifier(
                     poseidon2_hash_with_separator(
                         [nullifier_seed, i as Field],
-                        GENERATOR_INDEX__NOTE_NULLIFIER as Field
-                    )
+                        GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                    ),
                 );
             }
         }
 
         if (call_public) {
-            Spam::at(context.this_address()).public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).enqueue(&mut context);
-            Spam::at(context.this_address()).public_spam(
-                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-            ).enqueue(&mut context);
+            Spam::at(context.this_address())
+                .public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL)
+                .enqueue(&mut context);
+            Spam::at(context.this_address())
+                .public_spam(
+                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+                )
+                .enqueue(&mut context);
         }
     }
 

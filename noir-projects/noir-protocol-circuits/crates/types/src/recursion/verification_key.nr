@@ -1,6 +1,8 @@
 use crate::{
     traits::{Serialize, Deserialize, Empty},
-    constants::{HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS}
+    constants::{
+        HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+    },
 };
 
 pub struct VerificationKey<let N: u32> {
@@ -20,7 +22,7 @@ impl<let N: u32> Serialize<N + 1> for VerificationKey<N> {
 }
 
 impl<let N: u32> Deserialize<N + 1> for VerificationKey<N> {
-    fn deserialize(fields: [Field; N+1]) -> Self {
+    fn deserialize(fields: [Field; N + 1]) -> Self {
         let mut key = VerificationKey::empty();
         for i in 0..N {
             key.key[i] = fields[i];

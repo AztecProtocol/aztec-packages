@@ -1,10 +1,9 @@
 use crate::{
     context::{PublicContext, PrivateContext, UnconstrainedContext},
     state_vars::shared_mutable::{
-    shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
-    scheduled_delay_change::ScheduledDelayChange
-},
-    test::helpers::test_environment::TestEnvironment
+        shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
+        scheduled_delay_change::ScheduledDelayChange,
+    }, test::helpers::test_environment::TestEnvironment,
 };
 
 use dep::std::{test::OracleMock, mem::zeroed};
@@ -21,18 +20,22 @@ unconstrained fn setup() -> TestEnvironment {
     TestEnvironment::new()
 }
 
-unconstrained fn in_public(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext> {
+unconstrained fn in_public(
+    env: TestEnvironment,
+) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext> {
     SharedMutable::new(&mut env.public(), storage_slot)
 }
 
 unconstrained fn in_private(
     env: &mut TestEnvironment,
-    historical_block_number: u32
+    historical_block_number: u32,
 ) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
     SharedMutable::new(&mut env.private_at(historical_block_number), storage_slot)
 }
 
-unconstrained fn in_unconstrained(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, UnconstrainedContext> {
+unconstrained fn in_unconstrained(
+    env: TestEnvironment,
+) -> SharedMutable<Field, TEST_INITIAL_DELAY, UnconstrainedContext> {
     SharedMutable::new(env.unkonstrained(), storage_slot)
 }
 
@@ -175,7 +178,10 @@ unconstrained fn test_get_current_value_in_private_initial() {
     let state_var = in_private(&mut env, historical_block_number);
 
     assert_eq(state_var.get_current_value_in_private(), zeroed());
-    assert_eq(state_var.context.max_block_number.unwrap(), historical_block_number + TEST_INITIAL_DELAY);
+    assert_eq(
+        state_var.context.max_block_number.unwrap(),
+        historical_block_number + TEST_INITIAL_DELAY,
+    );
 }
 
 #[test]
@@ -224,7 +230,8 @@ unconstrained fn test_get_current_value_in_private_at_change() {
     let private_state_var = in_private(&mut env, historical_block_number);
     assert_eq(private_state_var.get_current_value_in_private(), new_value);
     assert_eq(
-        private_state_var.context.max_block_number.unwrap(), historical_block_number + TEST_INITIAL_DELAY
+        private_state_var.context.max_block_number.unwrap(),
+        historical_block_number + TEST_INITIAL_DELAY,
     );
 }
 
@@ -241,7 +248,8 @@ unconstrained fn test_get_current_value_in_private_after_change() {
     let private_state_var = in_private(&mut env, historical_block_number);
     assert_eq(private_state_var.get_current_value_in_private(), new_value);
     assert_eq(
-        private_state_var.context.max_block_number.unwrap(), historical_block_number + TEST_INITIAL_DELAY
+        private_state_var.context.max_block_number.unwrap(),
+        historical_block_number + TEST_INITIAL_DELAY,
     );
 }
 
@@ -264,7 +272,10 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
 
     let private_state_var = in_private(&mut env, historical_block_number);
     assert_eq(private_state_var.get_current_value_in_private(), new_value);
-    assert_eq(private_state_var.context.max_block_number.unwrap(), historical_block_number + new_delay);
+    assert_eq(
+        private_state_var.context.max_block_number.unwrap(),
+        historical_block_number + new_delay,
+    );
 }
 
 #[test(should_fail_with = "Hint values do not match hash")]
@@ -277,12 +288,17 @@ unconstrained fn test_get_current_value_in_private_bad_value_hints() {
     let schedule_block_number = env.block_number();
     let private_state_var = in_private(&mut env, schedule_block_number);
 
-    let mocked: ScheduledValueChange<Field> = ScheduledValueChange::new(0, new_value + 1, schedule_block_number);
-    let _ = OracleMock::mock("storageRead").with_params(
-        (
-            env.contract_address().to_field(), private_state_var.get_value_change_storage_slot(), schedule_block_number, 3
+    let mocked: ScheduledValueChange<Field> =
+        ScheduledValueChange::new(0, new_value + 1, schedule_block_number);
+    let _ = OracleMock::mock("storageRead")
+        .with_params(
+            (
+                env.contract_address().to_field(),
+                private_state_var.get_value_change_storage_slot(), schedule_block_number, 3,
+            ),
         )
-    ).returns(mocked.serialize()).times(1);
+        .returns(mocked.serialize())
+        .times(1);
 
     let _ = private_state_var.get_current_value_in_private();
 }
@@ -297,12 +313,17 @@ unconstrained fn test_get_current_value_in_private_bad_delay_hints() {
     let schedule_block_number = env.block_number();
     let private_state_var = in_private(&mut env, schedule_block_number);
 
-    let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::none(), Option::some(42), schedule_block_number);
-    let _ = OracleMock::mock("storageRead").with_params(
-        (
-            env.contract_address().to_field(), private_state_var.get_delay_change_storage_slot(), schedule_block_number, 1
+    let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> =
+        ScheduledDelayChange::new(Option::none(), Option::some(42), schedule_block_number);
+    let _ = OracleMock::mock("storageRead")
+        .with_params(
+            (
+                env.contract_address().to_field(),
+                private_state_var.get_delay_change_storage_slot(), schedule_block_number, 1,
+            ),
         )
-    ).returns(mocked.serialize()).times(1);
+        .returns(mocked.serialize())
+        .times(1);
 
     let _ = private_state_var.get_current_value_in_private();
 }
@@ -315,11 +336,15 @@ unconstrained fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let state_var = in_private(&mut env, historical_block_number);
 
     let mocked: ScheduledValueChange<Field> = ScheduledValueChange::new(0, new_value, 0);
-    let _ = OracleMock::mock("storageRead").with_params(
-        (
-            env.contract_address().to_field(), state_var.get_value_change_storage_slot(), historical_block_number, 3
+    let _ = OracleMock::mock("storageRead")
+        .with_params(
+            (
+                env.contract_address().to_field(), state_var.get_value_change_storage_slot(),
+                historical_block_number, 3,
+            ),
         )
-    ).returns(mocked.serialize()).times(1);
+        .returns(mocked.serialize())
+        .times(1);
 
     let _ = state_var.get_current_value_in_private();
 }
@@ -331,12 +356,17 @@ unconstrained fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
     let historical_block_number = env.block_number();
     let state_var = in_private(&mut env, historical_block_number);
 
-    let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::none(), Option::some(new_delay), 0);
-    let _ = OracleMock::mock("storageRead").with_params(
-        (
-            env.contract_address().to_field(), state_var.get_delay_change_storage_slot(), historical_block_number, 1
+    let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> =
+        ScheduledDelayChange::new(Option::none(), Option::some(new_delay), 0);
+    let _ = OracleMock::mock("storageRead")
+        .with_params(
+            (
+                env.contract_address().to_field(), state_var.get_delay_change_storage_slot(),
+                historical_block_number, 1,
+            ),
         )
-    ).returns(mocked.serialize()).times(1);
+        .returns(mocked.serialize())
+        .times(1);
 
     let _ = state_var.get_current_value_in_private();
 }
