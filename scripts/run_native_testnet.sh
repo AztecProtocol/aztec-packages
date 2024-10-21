@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 : '
 This script sets up and runs a native testnet for the Aztec network.
 
