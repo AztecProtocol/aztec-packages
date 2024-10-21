@@ -103,7 +103,7 @@ BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_netw
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
-        $VALIDATOR_CMD \
+        \"./validators.sh $NUM_VALIDATORS\" \
         $PROVER_SCRIPT \
         ./pxe.sh \
         ./transaction-bot.sh"
