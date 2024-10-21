@@ -44,7 +44,7 @@ display_help() {
     echo "  -i     Run interleaved (default: $INTERLEAVED)"
     echo
     echo "Example:"
-    echo "  $0 -t ./custom-test.sh -val 5 -v"
+    echo "  $0 -t src/spartan/smoke.test.ts -val 5 -v"
 }
 
 # Parse command line arguments
@@ -95,11 +95,7 @@ export LOG_LEVEL
 
 # Go to repo root
 cd $(git rev-parse --show-toplevel)
-if [ $NUM_VALIDATORS = 1 ] ; then
-  VALIDATOR_CMD="\"./validator.sh 8081\""
-else
-  VALIDATOR_CMD="\"./validators.sh $NUM_VALIDATORS\""
-fi
+
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
         \"./test.sh $TEST_FILE\" \
