@@ -74,7 +74,7 @@ runs:
           mkdir -p ~/run-$RUN_ID-git &&
           cd ~/run-$RUN_ID-git && tar xzf - &&
           git config --global advice.detachedHead false &&
-          git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID &&
+          ([ -d ~/run-$RUN_ID ] || git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID) &&
           echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key &&
           chmod 600 ~/.ssh/build_instance_key
       run: |
