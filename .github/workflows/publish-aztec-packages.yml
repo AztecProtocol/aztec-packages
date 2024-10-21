@@ -71,6 +71,7 @@ jobs:
           else
             echo "Invalid tag format. Expected aztec-packages-v*"
             exit 1
+          fi
 
   setup-x86:
     needs: [configure]
