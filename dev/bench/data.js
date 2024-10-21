@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729260886916,
+  "lastUpdate": 1729526852054,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "39b9e78d008b0a3d8be89f4bc6837ac4e3c28b4f",
-          "message": "chore(avm)!: make indirects big enough for relative addressing (#9000)",
-          "timestamp": "2024-10-03T16:14:37+01:00",
-          "tree_id": "fdcec2ad5aa2a39a6368f3329e4f6ab4140b1aab",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/39b9e78d008b0a3d8be89f4bc6837ac4e3c28b4f"
-        },
-        "date": 1727970771897,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30967.540216999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28871.093901999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5335.790830999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5007.60569 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92874.988202,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92874990000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15180.05199,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15180051000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8256579763,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8256579763 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151584365,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151584365 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6761104404,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6761104404 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125831618,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125831618 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3464,6 +3392,66 @@ window.BENCHMARK_DATA = {
             "value": 126371290,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126371290 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ce20e95c1cc24b6da37cd93f4417e473a3656e5",
+          "message": "chore(master): Release 0.59.0 (#9281)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.59.0</summary>\r\n\r\n##\r\n[0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.58.0...aztec-package-v0.59.0)\r\n(2024-10-21)\r\n\r\n\r\n### ⚠ BREAKING CHANGES\r\n\r\n* **seq:** disable sequencer and disable validator as one env var,\r\nupdate p2p listen port names\r\n([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266))\r\n\r\n### Miscellaneous\r\n\r\n* **seq:** Disable sequencer and disable validator as one env var,\r\nupdate p2p listen port names\r\n([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266))\r\n([367c38c](https://github.com/AztecProtocol/aztec-packages/commit/367c38c02b6cda494e9d3c64ea27a1cf3465f082))\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.59.0</summary>\r\n\r\n##\r\n[0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.58.0...barretenberg.js-v0.59.0)\r\n(2024-10-21)\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Publish readme on bb.js NPM package\r\n([#9303](https://github.com/AztecProtocol/aztec-packages/issues/9303))\r\n([1d860a8](https://github.com/AztecProtocol/aztec-packages/commit/1d860a82c290d820b0fcc55b61ef68f5501f7c1b))\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.59.0</summary>\r\n\r\n##\r\n[0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.58.0...aztec-packages-v0.59.0)\r\n(2024-10-21)\r\n\r\n\r\n### ⚠ BREAKING CHANGES\r\n\r\n* **seq:** disable sequencer and disable validator as one env var,\r\nupdate p2p listen port names\r\n([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266))\r\n\r\n### Bug Fixes\r\n\r\n* **docs:** Dapp tutorial edits\r\n([#8695](https://github.com/AztecProtocol/aztec-packages/issues/8695))\r\n([f95bcff](https://github.com/AztecProtocol/aztec-packages/commit/f95bcff9902b7e28bffcf96fbd7159b2da88e89c))\r\n* **docs:** Update debugging docs\r\n([#9200](https://github.com/AztecProtocol/aztec-packages/issues/9200))\r\n([2a4188c](https://github.com/AztecProtocol/aztec-packages/commit/2a4188ca91a1341a3dca1d052a842b730b50fd91))\r\n* Publish readme on bb.js NPM package\r\n([#9303](https://github.com/AztecProtocol/aztec-packages/issues/9303))\r\n([1d860a8](https://github.com/AztecProtocol/aztec-packages/commit/1d860a82c290d820b0fcc55b61ef68f5501f7c1b))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Re-enable test fixed by Native World State\r\n([#9289](https://github.com/AztecProtocol/aztec-packages/issues/9289))\r\n([3fd1802](https://github.com/AztecProtocol/aztec-packages/commit/3fd18028a84f1eae6e7e9d2858d5875a6e47595f)),\r\ncloses\r\n[#8306](https://github.com/AztecProtocol/aztec-packages/issues/8306)\r\n* Replace relative paths to noir-protocol-circuits\r\n([ceeab4e](https://github.com/AztecProtocol/aztec-packages/commit/ceeab4e08240884e84f08e94b32f5350c3def606))\r\n* **seq:** Disable sequencer and disable validator as one env var,\r\nupdate p2p listen port names\r\n([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266))\r\n([367c38c](https://github.com/AztecProtocol/aztec-packages/commit/367c38c02b6cda494e9d3c64ea27a1cf3465f082))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.59.0</summary>\r\n\r\n##\r\n[0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.58.0...barretenberg-v0.59.0)\r\n(2024-10-21)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-10-21T15:25:03Z",
+          "tree_id": "4a76a126734ed0ebb0187002c959710545efe00f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6ce20e95c1cc24b6da37cd93f4417e473a3656e5"
+        },
+        "date": 1729526840684,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29716.861042999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27509.373063000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5347.117353999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5061.225337000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87341.657137,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87341658000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15151.157868000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15151157000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2696792989,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2696792989 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125200296,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125200296 ns\nthreads: 1"
           }
         ]
       }
