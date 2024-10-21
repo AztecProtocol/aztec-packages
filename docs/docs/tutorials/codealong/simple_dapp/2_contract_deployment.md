@@ -30,6 +30,10 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 
 ### Helper files
 
+:::info
+Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using TXE tests in this tutorial.
+:::
+
 The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
 ## Compile your contract
@@ -46,15 +50,15 @@ aztec-nargo compile
 
 Let's now write a script for deploying your contracts to the Sandbox. We'll create a Private eXecution Environment (PXE) client, and then use the `ContractDeployer` class to deploy our contracts, and store the deployment address to a local JSON file.
 
-Create a new file `src/deploy.mjs`:
+Create a new file `src/deploy.mjs`. We import the contract artifacts we have generated plus the dependencies we'll need, and then we can deploy the contracts by adding the following code to the `src/deploy.mjs` file.
 
 ```js
 // src/deploy.mjs
+#include_code deploy-imports yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
+import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
 import { writeFileSync } from 'fs';
-import { Contract, loadContractArtifact, createPXEClient } from '@aztec/aztec.js';
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import TokenContractJson from "../contracts/token/target/token_contract-Token.json" assert { type: "json" };
 
+const TokenContractArtifact = loadContractArtifact(TokenContractJson);
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
 
@@ -64,12 +68,12 @@ main().catch((err) => {
 });
 ```
 
-We import the contract artifacts we have generated plus the dependencies we'll need, and then we can deploy the contracts by adding the following code to the `src/deploy.mjs` file. Here, we are using the `ContractDeployer` class with the compiled artifact to send a new deployment transaction. The `wait` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address.
+Here, we are using the `Contract` class with the compiled artifact to send a new deployment transaction. The `deployed` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address.
 
-Note that the token's `_initialize()` method expects an `owner` address to mint an initial set of tokens to. We are using the first account from the Sandbox for this.
+Note that the token's `constructor()` method expects an `owner` address to set as the contract `admin`. We are using the first account from the Sandbox for this.
 
 :::info
-If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. SEe the [How to deploy a contract](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md) page for more info.
+If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. See the [How to deploy a contract](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md) page for more info.
 :::
 
 Run the snippet above as `node src/deploy.mjs`, and you should see the following output, along with a new `addresses.json` file in your project root:
