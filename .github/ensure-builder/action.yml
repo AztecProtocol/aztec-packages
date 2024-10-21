@@ -85,7 +85,7 @@ runs:
         # detect run folder
         if ! scripts/run_on_builder "[ -d ~/run-$RUN_ID ]" ; then
           echo "Copying local repo to spot"
-          tar czf - .git | scripts/run_on_builder \
+          (tar czf - .git || true) | scripts/run_on_builder \
             "flock ~/git.lock bash -c '$UNPACK'"
         fi
 
