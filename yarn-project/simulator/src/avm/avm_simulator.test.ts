@@ -1,4 +1,4 @@
-import { GasFees, PublicKeys } from '@aztec/circuits.js';
+import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
@@ -826,10 +826,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     describe('Contract Instance Retrieval', () => {
       it(`Can getContractInstance`, async () => {
-        const context = createContext();
+        const calldata = [address];
+        const context = createContext(calldata);
         // Contract instance must match noir
-        const contractInstance = {
-          address: AztecAddress.random(),
+        const contractInstance = new SerializableContractInstance({
           version: 1 as const,
           salt: new Fr(0x123),
           deployer: AztecAddress.fromBigInt(0x456n),
@@ -841,16 +841,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
             new Point(new Fr(0x252627), new Fr(0x282930), false),
             new Point(new Fr(0x313233), new Fr(0x343536), false),
           ),
-        };
-        mockGetContractInstance(worldStateDB, contractInstance);
+        });
+        mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
 
-        const bytecode = getAvmTestContractBytecode('test_get_contract_instance_raw');
+        const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-        expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: true, ...contractInstance });
+        expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(3); // called for each enum value
+        expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
       });
     });
 

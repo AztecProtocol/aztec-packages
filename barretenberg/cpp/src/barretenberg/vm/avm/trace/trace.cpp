@@ -1261,51 +1261,70 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
 
 void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
 {
-    ASSERT(env_var < static_cast<int>(EnvironmentVariable::MAX_ENV_VAR));
-    EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+    if (env_var >= static_cast<int>(EnvironmentVariable::MAX_ENV_VAR)) {
+        // Error, bad enum operand
+        // TODO(9395): constrain this via range check
+        auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+        const auto row = Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc++,
+            .main_sel_op_address = FF(1), // TODO(9407): what selector should this be?
+        };
 
-    switch (var) {
-    case EnvironmentVariable::ADDRESS:
-        op_address(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::SENDER:
-        op_sender(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FUNCTIONSELECTOR:
-        op_function_selector(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::TRANSACTIONFEE:
-        op_transaction_fee(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::CHAINID:
-        op_chain_id(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::VERSION:
-        op_version(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::BLOCKNUMBER:
-        op_block_number(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::TIMESTAMP:
-        op_timestamp(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FEEPERL2GAS:
-        op_fee_per_l2_gas(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FEEPERDAGAS:
-        op_fee_per_da_gas(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::ISSTATICCALL:
-        op_is_static_call(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::L2GASLEFT:
-        op_l2gasleft(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::DAGASLEFT:
-        op_dagasleft(indirect, dst_offset);
-        break;
-    default:
-        throw std::runtime_error("Invalid environment variable");
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+
+        main_trace.push_back(row);
+    } else {
+        EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+
+        switch (var) {
+        case EnvironmentVariable::ADDRESS:
+            op_address(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::SENDER:
+            op_sender(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FUNCTIONSELECTOR:
+            op_function_selector(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::TRANSACTIONFEE:
+            op_transaction_fee(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::CHAINID:
+            op_chain_id(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::VERSION:
+            op_version(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::BLOCKNUMBER:
+            op_block_number(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::TIMESTAMP:
+            op_timestamp(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FEEPERL2GAS:
+            op_fee_per_l2_gas(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FEEPERDAGAS:
+            op_fee_per_da_gas(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::ISSTATICCALL:
+            op_is_static_call(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::L2GASLEFT:
+            op_l2gasleft(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::DAGASLEFT:
+            op_dagasleft(indirect, dst_offset);
+            break;
+        default:
+            throw std::runtime_error("Invalid environment variable");
+            break;
+        }
     }
 }
 
@@ -2359,48 +2378,100 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
 }
 
-void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_get_contract_instance(
+    uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    auto [resolved_address_offset, resolved_dst_offset] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ address_offset, dst_offset }, mem_trace_builder);
-
-    auto read_address = constrained_read_from_memory(
-        call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    bool tag_match = read_address.tag_match;
-
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
 
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ia = read_address.val,
-        .main_ind_addr_a = FF(read_address.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(read_address.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-        .main_sel_mem_op_a = FF(1),
-        .main_sel_op_get_contract_instance = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-    });
+    if (member_enum >= static_cast<int>(ContractInstanceMember::MAX_MEMBER)) {
+        // Error, bad enum operand
+        // TODO(9393): constrain this via range check
+        const auto row = Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc++,
+            .main_sel_op_get_contract_instance = FF(1),
+        };
+        main_trace.push_back(row);
 
-    // Read the contract instance
-    ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
-    std::vector<FF> public_key_fields = contract_instance.public_keys.to_fields();
-    // NOTE: we don't write the first entry (the contract instance's address/key) to memory
-    std::vector<FF> contract_instance_vec = { contract_instance.exists ? FF::one() : FF::zero(),
-                                              contract_instance.salt,
-                                              contract_instance.deployer_addr,
-                                              contract_instance.contract_class_id,
-                                              contract_instance.initialisation_hash };
-    contract_instance_vec.insert(contract_instance_vec.end(), public_key_fields.begin(), public_key_fields.end());
-    write_slice_to_memory(resolved_dst_offset, AvmMemoryTag::FF, contract_instance_vec);
+    } else {
 
-    debug("contract_instance cnt: ", side_effect_counter);
-    side_effect_counter++;
+        ContractInstanceMember chosen_member = static_cast<ContractInstanceMember>(member_enum);
+
+        auto [resolved_address_offset, resolved_dst_offset, resolved_exists_offset] =
+            Addressing<3>::fromWire(indirect, call_ptr)
+                .resolve({ address_offset, dst_offset, exists_offset }, mem_trace_builder);
+
+        auto read_address = constrained_read_from_memory(
+            call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+        bool tag_match = read_address.tag_match;
+
+        // Read the contract instance
+        ContractInstanceHint instance = execution_hints.contract_instance_hints.at(read_address.val);
+
+        FF member_value;
+        switch (chosen_member) {
+        case ContractInstanceMember::DEPLOYER:
+            member_value = instance.deployer_addr;
+            break;
+        case ContractInstanceMember::CLASS_ID:
+            member_value = instance.contract_class_id;
+            break;
+        case ContractInstanceMember::INIT_HASH:
+            member_value = instance.initialisation_hash;
+            break;
+        default:
+            member_value = 0;
+            break;
+        }
+
+        // TODO:(8603): once instructions can have multiple different tags for writes, write dst as FF and exists as U1
+        // auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst_offset, member_value,
+        // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC); auto write_exists =
+        // constrained_write_to_memory(call_ptr, clk, resolved_exists_offset, instance.instance_found_in_address,
+        // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
+
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ia = read_address.val,
+            // TODO:(8603): uncomment this and below blocks once instructions can have multiple different tags for
+            // writes
+            //.main_ic = write_dst.val,
+            //.main_id = write_exists.val,
+            .main_ind_addr_a = FF(read_address.indirect_address),
+            //.main_ind_addr_c = FF(write_dst.indirect_address),
+            //.main_ind_addr_d = FF(write_exists.indirect_address),
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_mem_addr_a = FF(read_address.direct_address),
+            //.main_mem_addr_c = FF(write_dst.direct_address),
+            //.main_mem_addr_d = FF(write_exists.direct_address),
+            .main_pc = FF(pc++),
+            .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .main_sel_mem_op_a = FF(1),
+            //.main_sel_mem_op_c = FF(1),
+            //.main_sel_mem_op_d = FF(1),
+            .main_sel_op_get_contract_instance = FF(1),
+            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
+            //.main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_dst.is_indirect)),
+            //.main_sel_resolve_ind_addr_d = FF(static_cast<uint32_t>(write_exists.is_indirect)),
+            .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        });
+
+        // TODO:(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
+        // writes
+        write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
+        write_to_memory(resolved_exists_offset, FF(static_cast<uint32_t>(instance.exists)), AvmMemoryTag::U1);
+
+        // TODO(dbanks12): compute contract address nullifier from instance preimage and perform membership check
+
+        debug("contract_instance cnt: ", side_effect_counter);
+        side_effect_counter++;
+    }
 }
 
 /**************************************************************************************************
