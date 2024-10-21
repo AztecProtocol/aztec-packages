@@ -13,7 +13,8 @@ fn compute_raw_note_log<Note, let N: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
-    recipient: AztecAddress
+    recipient: AztecAddress,
+    public_values_appended: bool // Indicates whether there are values to be appended to the log in public (used in partial note flow).
 ) -> (u32, [u8; 416 + N * 32], Field) where Note: NoteInterface<N> {
     let note_header = note.get_header();
     let note_hash_counter = note_header.note_hash_counter;
@@ -26,7 +27,15 @@ fn compute_raw_note_log<Note, let N: u32>(
     let contract_address: AztecAddress = context.this_address();
 
     let plaintext = note.to_be_bytes(storage_slot);
-    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(
+        contract_address,
+        ovsk_app,
+        ovpk,
+        ivpk,
+        recipient,
+        plaintext,
+        public_values_appended
+    );
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
@@ -37,10 +46,19 @@ unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32>(
     note: Note,
     ovpk: OvpkM,
     ivpk: IvpkM,
-    recipient: AztecAddress
+    recipient: AztecAddress,
+    public_values_appended: bool // Indicates whether there are values to be appended to the log in public (used in partial note flow).
 ) -> (u32, [u8; 416 + N * 32], Field) where Note: NoteInterface<N> {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_raw_note_log(context, note, ovsk_app, ovpk, ivpk, recipient)
+    compute_raw_note_log(
+        context,
+        note,
+        ovsk_app,
+        ovpk,
+        ivpk,
+        recipient,
+        public_values_appended
+    )
 }
 
 // This function seems to be affected by the following Noir bug:
@@ -55,7 +73,7 @@ pub fn encode_and_encrypt_note<Note, let N: u32>(
     | e: NoteEmission<Note> | {
         let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
-        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, recipient);
+        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, recipient, false);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -87,7 +105,7 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
         // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
         // for a note that doesn't exist).
         let (note_hash_counter, encrypted_log, log_hash) = unsafe {
-            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient)
+            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient, false)
         };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
@@ -111,7 +129,8 @@ pub fn encrypt_and_emit_partial_log<let M: u32>(
         recipient_keys.ovpk_m,
         recipient_keys.ivpk_m,
         recipient,
-        log_plaintext
+        log_plaintext,
+        true
     );
     let log_hash = sha256_to_field(encrypted_log);
 
