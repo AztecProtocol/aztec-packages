@@ -1,10 +1,9 @@
 use crate::{
     abis::side_effect::{Ordered, OrderedValue, Scoped}, address::AztecAddress,
     constants::{
-    LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
-    SCOPED_ENCRYPTED_LOG_HASH_LENGTH
-},
-    traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader}
+        LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
+        SCOPED_ENCRYPTED_LOG_HASH_LENGTH,
+    }, traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct LogHash {
@@ -103,7 +102,10 @@ impl Empty for ScopedLogHash {
 
 impl Serialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
     fn serialize(self) -> [Field; SCOPED_LOG_HASH_LENGTH] {
-        array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
+        array_concat(
+            self.log_hash.serialize(),
+            [self.contract_address.to_field()],
+        )
     }
 }
 
@@ -112,7 +114,7 @@ impl Deserialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
         let mut reader = Reader::new(values);
         let res = Self {
             log_hash: reader.read_struct(LogHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize)
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
@@ -123,8 +125,12 @@ impl ScopedLogHash {
     pub fn expose_to_public(self) -> Self {
         // Hide the counter when exposing to public.
         Self {
-            log_hash: LogHash { value: self.log_hash.value, counter: 0, length: self.log_hash.length },
-            contract_address: self.contract_address
+            log_hash: LogHash {
+                value: self.log_hash.value,
+                counter: 0,
+                length: self.log_hash.length,
+            },
+            contract_address: self.contract_address,
         }
     }
 }
@@ -174,7 +180,12 @@ impl Serialize<ENCRYPTED_LOG_HASH_LENGTH> for EncryptedLogHash {
 
 impl Deserialize<ENCRYPTED_LOG_HASH_LENGTH> for EncryptedLogHash {
     fn deserialize(values: [Field; ENCRYPTED_LOG_HASH_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32, length: values[2], randomness: values[3] }
+        Self {
+            value: values[0],
+            counter: values[1] as u32,
+            length: values[2],
+            randomness: values[3],
+        }
     }
 }
 
@@ -204,7 +215,11 @@ impl ScopedEncryptedLogHash {
         // Expose as a ScopedLogHash. The contract address is assumed to be masked before calling this.
         ScopedLogHash {
             contract_address: self.contract_address,
-            log_hash: LogHash { value: self.log_hash.value, counter: 0, length: self.log_hash.length }
+            log_hash: LogHash {
+                value: self.log_hash.value,
+                counter: 0,
+                length: self.log_hash.length,
+            },
         }
     }
 }
@@ -232,13 +247,19 @@ impl Eq for ScopedEncryptedLogHash {
 
 impl Empty for ScopedEncryptedLogHash {
     fn empty() -> Self {
-        ScopedEncryptedLogHash { log_hash: EncryptedLogHash::empty(), contract_address: AztecAddress::empty() }
+        ScopedEncryptedLogHash {
+            log_hash: EncryptedLogHash::empty(),
+            contract_address: AztecAddress::empty(),
+        }
     }
 }
 
 impl Serialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
     fn serialize(self) -> [Field; SCOPED_ENCRYPTED_LOG_HASH_LENGTH] {
-        array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
+        array_concat(
+            self.log_hash.serialize(),
+            [self.contract_address.to_field()],
+        )
     }
 }
 
@@ -247,7 +268,7 @@ impl Deserialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
         let mut reader = Reader::new(values);
         let res = Self {
             log_hash: reader.read_struct(EncryptedLogHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize)
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
@@ -308,6 +329,11 @@ impl Serialize<NOTE_LOG_HASH_LENGTH> for NoteLogHash {
 
 impl Deserialize<NOTE_LOG_HASH_LENGTH> for NoteLogHash {
     fn deserialize(values: [Field; NOTE_LOG_HASH_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32, length: values[2], note_hash_counter: values[3] as u32 }
+        Self {
+            value: values[0],
+            counter: values[1] as u32,
+            length: values[2],
+            note_hash_counter: values[3] as u32,
+        }
     }
 }

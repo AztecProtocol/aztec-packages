@@ -13,7 +13,7 @@ use crate::{hash::merkle_hash, merkle_tree::merkle_tree::MerkleTree};
 pub fn root_from_sibling_path<let N: u32>(
     leaf: Field,
     leaf_index: Field,
-    sibling_path: [Field; N]
+    sibling_path: [Field; N],
 ) -> Field {
     let mut node = leaf;
     let indices: [u1; N] = leaf_index.to_le_bits();

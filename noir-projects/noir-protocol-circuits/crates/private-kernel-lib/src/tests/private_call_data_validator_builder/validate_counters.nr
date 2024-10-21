@@ -51,7 +51,8 @@ fn validate_counters_note_hash_counter_same_as_call_counter_start_fails() {
 
     builder.private_call.append_note_hashes(1);
     // Tweak the counter of the first note hash to EQUAL the start counter of the call.
-    builder.private_call.note_hashes.storage[0].note_hash.counter = builder.private_call.counter_start;
+    builder.private_call.note_hashes.storage[0].note_hash.counter =
+        builder.private_call.counter_start;
 
     builder.validate();
 }
@@ -62,7 +63,8 @@ fn validate_counters_note_hash_counter_smaller_than_call_fails() {
 
     builder.private_call.append_note_hashes(1);
     // Tweak the counter of the first note hash to be LESS than the start counter of the call.
-    builder.private_call.note_hashes.storage[0].note_hash.counter = builder.private_call.counter_start - 1;
+    builder.private_call.note_hashes.storage[0].note_hash.counter =
+        builder.private_call.counter_start - 1;
 
     builder.validate();
 }
@@ -99,7 +101,8 @@ fn validate_counters_note_hash_counter_larger_than_call_fails() {
 
     builder.private_call.append_note_hashes(2);
     // Tweak the counter of the second note hash to be GREATER than the end counter of the call.
-    builder.private_call.note_hashes.storage[1].note_hash.counter = builder.private_call.counter + 1;
+    builder.private_call.note_hashes.storage[1].note_hash.counter =
+        builder.private_call.counter + 1;
 
     builder.validate();
 }
@@ -134,7 +137,8 @@ fn validate_counters_private_call_requests_less_than_call_start_fails() {
     builder.private_call.append_private_call_requests(1);
     // Tweak the start counter of the first nested call to be LESS than the start counter of the call.
     let counter_start = builder.private_call.counter_start;
-    builder.private_call.private_call_requests.storage[0].start_side_effect_counter = counter_start - 1;
+    builder.private_call.private_call_requests.storage[0].start_side_effect_counter =
+        counter_start - 1;
 
     builder.validate();
 }
@@ -158,7 +162,8 @@ fn validate_counters_private_call_requests_less_than_previous_end_fails() {
     builder.private_call.append_private_call_requests(2);
     // Tweak the start counter of the second nested call to be LESS than the end counter of the first nested call.
     let counter_end = builder.private_call.private_call_requests.get(0).end_side_effect_counter;
-    builder.private_call.private_call_requests.storage[1].start_side_effect_counter = counter_end - 1;
+    builder.private_call.private_call_requests.storage[1].start_side_effect_counter =
+        counter_end - 1;
 
     builder.validate();
 }
@@ -182,7 +187,8 @@ fn validate_counters_private_call_requests_end_less_than_start_fails() {
     builder.private_call.append_private_call_requests(1);
     // Tweak the end counter of the first nested call to be LESS than its start counter.
     let counter_start = builder.private_call.private_call_requests.get(0).start_side_effect_counter;
-    builder.private_call.private_call_requests.storage[0].end_side_effect_counter = counter_start - 1;
+    builder.private_call.private_call_requests.storage[0].end_side_effect_counter =
+        counter_start - 1;
 
     builder.validate();
 }
@@ -217,7 +223,8 @@ fn validate_counters_private_call_requests_equal_call_end_fails() {
 
     builder.private_call.append_private_call_requests(1);
     // Tweak the end counter of the nested call to EQUAL the end counter of the call.
-    builder.private_call.private_call_requests.storage[0].end_side_effect_counter = builder.private_call.counter;
+    builder.private_call.private_call_requests.storage[0].end_side_effect_counter =
+        builder.private_call.counter;
 
     builder.validate();
 }

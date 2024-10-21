@@ -13,8 +13,10 @@ impl PrivateCallDataValidatorBuilder {
     pub fn add_private_call_request(&mut self, counter_start: u32, counter_end: u32) {
         let index = self.private_call.private_call_requests.len();
         self.private_call.append_private_call_requests(1);
-        self.private_call.private_call_requests.storage[index].start_side_effect_counter = counter_start;
-        self.private_call.private_call_requests.storage[index].end_side_effect_counter = counter_end;
+        self.private_call.private_call_requests.storage[index].start_side_effect_counter =
+            counter_start;
+        self.private_call.private_call_requests.storage[index].end_side_effect_counter =
+            counter_end;
         self.private_call.counter = counter_end + 1;
     }
 }
@@ -65,7 +67,8 @@ fn validate_private_call_requests_incorrect_msg_sender_for_delegate_call_fails()
 
     builder.private_call.append_private_call_requests_delegate(1);
     // Change the msg_sender to be the contract address.
-    builder.private_call.private_call_requests.storage[0].call_context.msg_sender = builder.private_call.contract_address;
+    builder.private_call.private_call_requests.storage[0].call_context.msg_sender =
+        builder.private_call.contract_address;
 
     builder.validate();
 }
@@ -77,7 +80,8 @@ fn validate_private_call_requests_incorrect_storage_contract_address_for_delegat
     builder.private_call.append_private_call_requests_delegate(1);
     // Change the storage_contract_address to be the target contract address.
     let target_contract = builder.private_call.private_call_requests.storage[0].contract_address;
-    builder.private_call.private_call_requests.storage[0].call_context.storage_contract_address = target_contract;
+    builder.private_call.private_call_requests.storage[0].call_context.storage_contract_address =
+        target_contract;
 
     builder.validate();
 }
@@ -88,7 +92,8 @@ fn validate_private_call_requests_incorrect_msg_sender_for_regular_call_fails() 
 
     builder.private_call.append_private_call_requests(1);
     // Change the msg_sender to be the caller's msg_sender.
-    builder.private_call.private_call_requests.storage[0].call_context.msg_sender = builder.private_call.msg_sender;
+    builder.private_call.private_call_requests.storage[0].call_context.msg_sender =
+        builder.private_call.msg_sender;
 
     builder.validate();
 }
@@ -99,7 +104,8 @@ fn validate_private_call_requests_incorrect_storage_contract_address_for_regular
 
     builder.private_call.append_private_call_requests(1);
     // Change the storage_contract_address to be the caller's storage contract address.
-    builder.private_call.private_call_requests.storage[0].call_context.storage_contract_address = builder.private_call.storage_contract_address;
+    builder.private_call.private_call_requests.storage[0].call_context.storage_contract_address =
+        builder.private_call.storage_contract_address;
 
     builder.validate();
 }

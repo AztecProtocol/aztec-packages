@@ -27,7 +27,7 @@ fn split_to_public_succeeds() {
     let (non_revertible, revertible) = unsafe {
         split_to_public(
             builder.to_private_accumulated_data_builder(),
-            builder.min_revertible_side_effect_counter
+            builder.min_revertible_side_effect_counter,
         )
     };
 
@@ -36,7 +36,7 @@ fn split_to_public_succeeds() {
     assert_array_eq(non_revertible.note_hashes, [expected[0], expected[1]]);
     assert_array_eq(
         revertible.note_hashes,
-        [expected[2], expected[3], expected[4]]
+        [expected[2], expected[3], expected[4]],
     );
 
     // nullifiers
@@ -53,7 +53,7 @@ fn split_to_public_succeeds() {
     let expected = combined_data.note_encrypted_logs_hashes;
     assert_array_eq(
         non_revertible.note_encrypted_logs_hashes,
-        [expected[0], expected[1], expected[2]]
+        [expected[0], expected[1], expected[2]],
     );
     assert_array_eq(revertible.note_encrypted_logs_hashes, [expected[3]]);
 
@@ -61,7 +61,7 @@ fn split_to_public_succeeds() {
     let expected = combined_data.encrypted_logs_hashes;
     assert_array_eq(
         non_revertible.encrypted_logs_hashes,
-        [expected[0], expected[1]]
+        [expected[0], expected[1]],
     );
     assert_array_eq(revertible.encrypted_logs_hashes, [expected[2], expected[3]]);
 

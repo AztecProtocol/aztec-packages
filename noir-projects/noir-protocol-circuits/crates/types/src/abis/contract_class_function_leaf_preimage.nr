@@ -4,18 +4,15 @@ use crate::traits::Hash;
 use crate::hash::poseidon2_hash_with_separator;
 
 pub struct ContractClassFunctionLeafPreimage {
-    selector : FunctionSelector,
-    vk_hash : Field,
+    selector: FunctionSelector,
+    vk_hash: Field,
 }
 
 impl Hash for ContractClassFunctionLeafPreimage {
     fn hash(self) -> Field {
         poseidon2_hash_with_separator(
-            [
-            self.selector.to_field(),
-            self.vk_hash
-        ],
-            GENERATOR_INDEX__FUNCTION_LEAF
+            [self.selector.to_field(), self.vk_hash],
+            GENERATOR_INDEX__FUNCTION_LEAF,
         )
     }
 }

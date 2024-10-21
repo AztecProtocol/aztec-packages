@@ -2,7 +2,7 @@ use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{PRIVATE_KERNEL_RESET_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
-    recursion::{verification_key::ClientIVCVerificationKey}, utils::arrays::find_index_hint
+    recursion::verification_key::ClientIVCVerificationKey, utils::arrays::find_index_hint,
 };
 
 pub struct PrivateKernelData {
@@ -30,7 +30,7 @@ impl PrivateKernelData {
             self.vk.hash,
             self.vk_index as Field,
             self.vk_path,
-            self.public_inputs.constants.vk_tree_root
+            self.public_inputs.constants.vk_tree_root,
         );
     }
 }
@@ -42,7 +42,15 @@ pub struct PrivateKernelDataWithoutPublicInputs {
 }
 
 impl PrivateKernelDataWithoutPublicInputs {
-    pub fn to_private_kernel_data(self, public_inputs: PrivateKernelCircuitPublicInputs) -> PrivateKernelData {
-        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+    pub fn to_private_kernel_data(
+        self,
+        public_inputs: PrivateKernelCircuitPublicInputs,
+    ) -> PrivateKernelData {
+        PrivateKernelData {
+            public_inputs,
+            vk: self.vk,
+            vk_index: self.vk_index,
+            vk_path: self.vk_path,
+        }
     }
 }

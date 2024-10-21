@@ -20,17 +20,15 @@ impl Empty for KeyValidationRequest {
 
 impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn serialize(self) -> [Field; KEY_VALIDATION_REQUEST_LENGTH] {
-        [
-            self.pk_m.x,
-            self.pk_m.y,
-            self.pk_m.is_infinite as Field,
-            self.sk_app
-        ]
+        [self.pk_m.x, self.pk_m.y, self.pk_m.is_infinite as Field, self.sk_app]
     }
 }
 
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
-        Self { pk_m: Point { x: fields[0], y: fields[1], is_infinite: fields[2] as bool }, sk_app: fields[3] }
+        Self {
+            pk_m: Point { x: fields[0], y: fields[1], is_infinite: fields[2] as bool },
+            sk_app: fields[3],
+        }
     }
 }

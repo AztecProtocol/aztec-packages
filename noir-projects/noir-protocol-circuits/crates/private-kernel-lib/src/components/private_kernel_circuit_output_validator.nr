@@ -1,15 +1,17 @@
 use crate::components::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
-    max_block_number::MaxBlockNumber,
-    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths}
-},
-    address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
+        kernel_circuit_public_inputs::{
+            PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
+        }, max_block_number::MaxBlockNumber,
+        private_circuit_public_inputs::{
+            PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths,
+        },
+    }, address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
     utils::arrays::{
-    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
-    assert_array_prepended
-}
+        assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+        assert_array_prepended,
+    },
 };
 
 pub struct PrivateKernelCircuitOutputValidator {
@@ -27,13 +29,13 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCircuitPublicInputs,
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field
+        protocol_contract_tree_root: Field,
     ) {
         self.validate_initial_values(
             tx_request,
             private_call,
             vk_tree_root,
-            protocol_contract_tree_root
+            protocol_contract_tree_root,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
         offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
@@ -41,7 +43,7 @@ impl PrivateKernelCircuitOutputValidator {
             private_call,
             private_call_array_lengths,
             offsets,
-            0 // num_popped_call
+            0, // num_popped_call
         );
     }
 
@@ -50,15 +52,18 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         previous_kernel_array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
         private_call: PrivateCircuitPublicInputs,
-        private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths
+        private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
     ) {
         self.validate_aggregated_values(previous_kernel, private_call);
-        self.validate_propagated_from_previous_kernel(previous_kernel, previous_kernel_array_lengths);
+        self.validate_propagated_from_previous_kernel(
+            previous_kernel,
+            previous_kernel_array_lengths,
+        );
         self.validate_propagated_from_private_call(
             private_call,
             private_call_array_lengths,
             previous_kernel_array_lengths,
-            1 // num_popped_call
+            1, // num_popped_call
         );
     }
 
@@ -67,34 +72,49 @@ impl PrivateKernelCircuitOutputValidator {
         tx_request: TxRequest,
         private_call: PrivateCircuitPublicInputs,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field
+        protocol_contract_tree_root: Field,
     ) {
         // Constants.
         assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
-            self.output.constants.historical_header, private_call.historical_header, "mismatch historical_header"
+            self.output.constants.historical_header,
+            private_call.historical_header,
+            "mismatch historical_header",
         );
-        assert(is_empty(self.output.constants.global_variables), "constants.global_variables must be empty");
+        assert(
+            is_empty(self.output.constants.global_variables),
+            "constants.global_variables must be empty",
+        );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
-            self.output.constants.protocol_contract_tree_root, protocol_contract_tree_root, "mismatch protocol_contract_tree_root"
+            self.output.constants.protocol_contract_tree_root,
+            protocol_contract_tree_root,
+            "mismatch protocol_contract_tree_root",
         );
 
         // First nullifier.
         let first_nullifier = create_first_nullifier(tx_request);
         assert_eq(
-            self.output.end.nullifiers[0], first_nullifier, "first nullifier must be the tx request nullifier"
+            self.output.end.nullifiers[0],
+            first_nullifier,
+            "first nullifier must be the tx request nullifier",
         );
 
         // Others.
         assert_eq(
-            self.output.min_revertible_side_effect_counter, private_call.min_revertible_side_effect_counter, "incorrect initial min_revertible_side_effect_counter"
+            self.output.min_revertible_side_effect_counter,
+            private_call.min_revertible_side_effect_counter,
+            "incorrect initial min_revertible_side_effect_counter",
         );
         assert_eq(
-            self.output.validation_requests.for_rollup.max_block_number, private_call.max_block_number, "incorrect initial max_block_number"
+            self.output.validation_requests.for_rollup.max_block_number,
+            private_call.max_block_number,
+            "incorrect initial max_block_number",
         );
         assert_eq(
-            self.output.public_teardown_call_request, private_call.public_teardown_call_request, "incorrect initial public_teardown_call_request"
+            self.output.public_teardown_call_request,
+            private_call.public_teardown_call_request,
+            "incorrect initial public_teardown_call_request",
         );
         let initial_fee_payer = if private_call.is_fee_payer {
             private_call.call_context.storage_contract_address
@@ -107,41 +127,53 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_aggregated_values(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        private_call: PrivateCircuitPublicInputs
+        private_call: PrivateCircuitPublicInputs,
     ) {
         // min_revertible_side_effect_counter
-        let propagated_min_revertible_counter = if previous_kernel.min_revertible_side_effect_counter != 0 {
+        let propagated_min_revertible_counter = if previous_kernel
+            .min_revertible_side_effect_counter
+            != 0 {
             assert(
-                private_call.min_revertible_side_effect_counter == 0, "cannot overwrite min_revertible_side_effect_counter"
+                private_call.min_revertible_side_effect_counter == 0,
+                "cannot overwrite min_revertible_side_effect_counter",
             );
             previous_kernel.min_revertible_side_effect_counter
         } else {
             private_call.min_revertible_side_effect_counter
         };
         assert_eq(
-            self.output.min_revertible_side_effect_counter, propagated_min_revertible_counter, "incorrect output min_revertible_side_effect_counter"
+            self.output.min_revertible_side_effect_counter,
+            propagated_min_revertible_counter,
+            "incorrect output min_revertible_side_effect_counter",
         );
 
         // max_block_number
         let max_block_number = MaxBlockNumber::min(
             previous_kernel.validation_requests.for_rollup.max_block_number,
-            private_call.max_block_number
+            private_call.max_block_number,
         );
         assert_eq(
-            self.output.validation_requests.for_rollup.max_block_number, max_block_number, "incorrect output max_block_number"
+            self.output.validation_requests.for_rollup.max_block_number,
+            max_block_number,
+            "incorrect output max_block_number",
         );
 
         // public_teardown_call_request
-        let propagated_public_teardown_call_request = if !is_empty(previous_kernel.public_teardown_call_request) {
+        let propagated_public_teardown_call_request = if !is_empty(
+            previous_kernel.public_teardown_call_request,
+        ) {
             assert(
-                is_empty(private_call.public_teardown_call_request), "cannot overwrite public_teardown_call_request"
+                is_empty(private_call.public_teardown_call_request),
+                "cannot overwrite public_teardown_call_request",
             );
             previous_kernel.public_teardown_call_request
         } else {
             private_call.public_teardown_call_request
         };
         assert_eq(
-            self.output.public_teardown_call_request, propagated_public_teardown_call_request, "incorrect output public_teardown_call_request"
+            self.output.public_teardown_call_request,
+            propagated_public_teardown_call_request,
+            "incorrect output public_teardown_call_request",
         );
 
         // fee_payer
@@ -159,70 +191,72 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_propagated_from_previous_kernel(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        array_lengths: PrivateKernelCircuitPublicInputsArrayLengths
+        array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
     ) {
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 
         assert_eq(
-            self.output.validation_requests.split_counter, previous_kernel.validation_requests.split_counter, "mismatch validation requests split counter"
+            self.output.validation_requests.split_counter,
+            previous_kernel.validation_requests.split_counter,
+            "mismatch validation requests split counter",
         );
 
         assert_array_prepended(
             self.output.validation_requests.note_hash_read_requests,
             previous_kernel.validation_requests.note_hash_read_requests,
-            array_lengths.note_hash_read_requests
+            array_lengths.note_hash_read_requests,
         );
         assert_array_prepended(
             self.output.validation_requests.nullifier_read_requests,
             previous_kernel.validation_requests.nullifier_read_requests,
-            array_lengths.nullifier_read_requests
+            array_lengths.nullifier_read_requests,
         );
         assert_array_prepended(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
             previous_kernel.validation_requests.scoped_key_validation_requests_and_generators,
-            array_lengths.scoped_key_validation_requests_and_generators
+            array_lengths.scoped_key_validation_requests_and_generators,
         );
         assert_array_prepended(
             self.output.end.note_hashes,
             previous_kernel.end.note_hashes,
-            array_lengths.note_hashes
+            array_lengths.note_hashes,
         );
         assert_array_prepended(
             self.output.end.nullifiers,
             previous_kernel.end.nullifiers,
-            array_lengths.nullifiers
+            array_lengths.nullifiers,
         );
         assert_array_prepended(
             self.output.end.l2_to_l1_msgs,
             previous_kernel.end.l2_to_l1_msgs,
-            array_lengths.l2_to_l1_msgs
+            array_lengths.l2_to_l1_msgs,
         );
         assert_array_prepended(
             self.output.end.note_encrypted_logs_hashes,
             previous_kernel.end.note_encrypted_logs_hashes,
-            array_lengths.note_encrypted_logs_hashes
+            array_lengths.note_encrypted_logs_hashes,
         );
         assert_array_prepended(
             self.output.end.encrypted_logs_hashes,
             previous_kernel.end.encrypted_logs_hashes,
-            array_lengths.encrypted_logs_hashes
+            array_lengths.encrypted_logs_hashes,
         );
         assert_array_prepended(
             self.output.end.unencrypted_logs_hashes,
             previous_kernel.end.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes
+            array_lengths.unencrypted_logs_hashes,
         );
         assert_array_prepended(
             self.output.end.public_call_requests,
             previous_kernel.end.public_call_requests,
-            array_lengths.public_call_requests
+            array_lengths.public_call_requests,
         );
         // array_lengths.private_call_stack is guaranteed to be greater than 0.
         // It's checked in private_kernel_inner when comparing the top item in the stack with the current private call.
         assert_array_prepended(
             self.output.end.private_call_stack,
             previous_kernel.end.private_call_stack,
-            array_lengths.private_call_stack - 1 // Do not copy the top item in the stack.
+            array_lengths.private_call_stack - 1, // Do not copy the top item in the stack.
         );
     }
 
@@ -231,7 +265,7 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCircuitPublicInputs,
         array_lengths: PrivateCircuitPublicInputsArrayLengths,
         offsets: PrivateKernelCircuitPublicInputsArrayLengths,
-        num_popped_call: u32
+        num_popped_call: u32,
     ) {
         let storage_contract_address = private_call.call_context.storage_contract_address;
         assert_array_appended_scoped(
@@ -239,74 +273,74 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.note_hash_read_requests,
             array_lengths.note_hash_read_requests,
             offsets.note_hash_read_requests,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended_scoped(
             self.output.validation_requests.nullifier_read_requests,
             private_call.nullifier_read_requests,
             array_lengths.nullifier_read_requests,
             offsets.nullifier_read_requests,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
             private_call.key_validation_requests_and_generators,
             array_lengths.key_validation_requests_and_generators,
             offsets.scoped_key_validation_requests_and_generators,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.note_hashes,
             private_call.note_hashes,
             array_lengths.note_hashes,
             offsets.note_hashes,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.nullifiers,
             private_call.nullifiers,
             array_lengths.nullifiers,
             offsets.nullifiers,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.l2_to_l1_msgs,
             private_call.l2_to_l1_msgs,
             array_lengths.l2_to_l1_msgs,
             offsets.l2_to_l1_msgs,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended(
             self.output.end.note_encrypted_logs_hashes,
             private_call.note_encrypted_logs_hashes,
             array_lengths.note_encrypted_logs_hashes,
-            offsets.note_encrypted_logs_hashes
+            offsets.note_encrypted_logs_hashes,
         );
         assert_array_appended_scoped(
             self.output.end.encrypted_logs_hashes,
             private_call.encrypted_logs_hashes,
             array_lengths.encrypted_logs_hashes,
             offsets.encrypted_logs_hashes,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.unencrypted_logs_hashes,
             private_call.unencrypted_logs_hashes,
             array_lengths.unencrypted_logs_hashes,
             offsets.unencrypted_logs_hashes,
-            storage_contract_address
+            storage_contract_address,
         );
         assert_array_appended(
             self.output.end.public_call_requests,
             private_call.public_call_requests,
             array_lengths.public_call_requests,
-            offsets.public_call_requests
+            offsets.public_call_requests,
         );
         assert_array_appended_reversed(
             self.output.end.private_call_stack,
             private_call.private_call_requests,
             array_lengths.private_call_requests,
-            offsets.private_call_stack - num_popped_call
+            offsets.private_call_stack - num_popped_call,
         );
     }
 }

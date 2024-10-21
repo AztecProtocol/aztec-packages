@@ -1,12 +1,12 @@
 use crate::{
     constants::TX_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
-    abis::gas_settings::GasSettings
+    abis::gas_settings::GasSettings,
 };
 
 // docs:start:tx-context
 pub struct TxContext {
-    chain_id : Field,
-    version : Field,
+    chain_id: Field,
+    version: Field,
     gas_settings: GasSettings,
 }
 // docs:end:tx-context
@@ -53,7 +53,7 @@ impl Deserialize<TX_CONTEXT_LENGTH> for TxContext {
         let context = Self {
             chain_id: reader.read(),
             version: reader.read(),
-            gas_settings: reader.read_struct(GasSettings::deserialize)
+            gas_settings: reader.read_struct(GasSettings::deserialize),
         };
 
         reader.finish();

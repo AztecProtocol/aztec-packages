@@ -2,7 +2,7 @@ use crate::{
     abis::side_effect::Ordered, address::AztecAddress, constants::PUBLIC_DATA_READ_LENGTH,
     contrakt::storage_read::StorageRead,
     data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
-    traits::{Empty, Serialize, Deserialize}
+    traits::{Empty, Serialize, Deserialize},
 };
 
 pub struct PublicDataRead {
@@ -12,11 +12,14 @@ pub struct PublicDataRead {
 }
 
 impl PublicDataRead {
-    pub fn from_contract_storage_read(contract_address: AztecAddress, read_request: StorageRead) -> PublicDataRead {
+    pub fn from_contract_storage_read(
+        contract_address: AztecAddress,
+        read_request: StorageRead,
+    ) -> PublicDataRead {
         PublicDataRead {
             leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
             value: compute_public_data_tree_value(read_request.current_value),
-            counter: read_request.counter
+            counter: read_request.counter,
         }
     }
 }

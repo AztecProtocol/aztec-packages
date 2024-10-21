@@ -1,7 +1,7 @@
 use dep::aztec::prelude::PrivateContext;
 use dep::aztec::protocol_types::{
     constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::poseidon2_hash_with_separator,
-    traits::{Hash, Serialize}
+    traits::{Hash, Serialize},
 };
 use crate::entrypoint::function_call::FunctionCall;
 
@@ -15,9 +15,9 @@ global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
 // docs:start:fee-payload-struct
 pub struct FeePayload {
-  function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
-  nonce: Field,
-  is_fee_payer: bool,
+    function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
+    nonce: Field,
+    is_fee_payer: bool,
 }
 // docs:end:fee-payload-struct
 
@@ -62,7 +62,7 @@ impl FeePayload {
                         call.function_selector,
                         call.args_hash,
                         call.is_static,
-                        false
+                        false,
                     );
                 } else {
                     let _result = context.call_private_function_with_packed_args(
@@ -70,7 +70,7 @@ impl FeePayload {
                         call.function_selector,
                         call.args_hash,
                         call.is_static,
-                        false
+                        false,
                     );
                 }
             }

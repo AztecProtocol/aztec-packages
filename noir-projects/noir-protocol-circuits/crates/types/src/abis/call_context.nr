@@ -1,6 +1,6 @@
 use crate::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, constants::CALL_CONTEXT_LENGTH,
-    traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    constants::CALL_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
 };
 
 // docs:start:call-context
@@ -45,7 +45,7 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
             storage_contract_address: AztecAddress::from_field(reader.read()),
             function_selector: FunctionSelector::from_field(reader.read()),
             is_delegate_call: reader.read() as bool,
-            is_static_call: reader.read() as bool
+            is_static_call: reader.read() as bool,
         }
     }
 }
@@ -57,7 +57,7 @@ impl Empty for CallContext {
             storage_contract_address: AztecAddress::empty(),
             function_selector: FunctionSelector::empty(),
             is_delegate_call: false,
-            is_static_call: false
+            is_static_call: false,
         }
     }
 }

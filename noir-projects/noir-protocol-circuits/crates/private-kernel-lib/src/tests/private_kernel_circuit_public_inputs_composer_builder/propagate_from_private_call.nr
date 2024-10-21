@@ -1,10 +1,10 @@
 use crate::{
     components::private_kernel_circuit_public_inputs_composer::create_first_nullifier,
-    tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder
+    tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
 use dep::types::{
-    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths, traits::is_empty,
-    tests::utils::assert_array_eq
+    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
+    traits::is_empty, tests::utils::assert_array_eq,
 };
 
 #[test]
@@ -63,7 +63,7 @@ fn propagate_from_private_call_note_hash_read_requests_succeeds() {
 
     assert_array_eq(
         output.validation_requests.note_hash_read_requests,
-        [res[0], res[1]]
+        [res[0], res[1]],
     );
 }
 
@@ -78,7 +78,7 @@ fn propagate_from_private_call_nullifier_read_requests_succeeds() {
 
     assert_array_eq(
         output.validation_requests.nullifier_read_requests,
-        [res[0], res[1]]
+        [res[0], res[1]],
     );
 }
 
@@ -93,7 +93,7 @@ fn propagate_from_private_call_key_validation_requests_succeeds() {
 
     assert_array_eq(
         output.validation_requests.scoped_key_validation_requests_and_generators,
-        [res[0], res[1]]
+        [res[0], res[1]],
     );
 }
 

@@ -4,24 +4,24 @@ mod validate_unique_leaf_slots;
 
 use crate::components::{
     public_tail_output_validator::{
-    validate_linked_public_data_writes::validate_linked_public_data_writes,
-    validate_public_data_leaf_memberships::validate_public_data_leaf_memberships,
-    validate_unique_leaf_slots::validate_unique_leaf_slots
-},
-    public_tail_output_composer::{OutputHints, SiloedNoteHashHint}
+        validate_linked_public_data_writes::validate_linked_public_data_writes,
+        validate_public_data_leaf_memberships::validate_public_data_leaf_memberships,
+        validate_unique_leaf_slots::validate_unique_leaf_slots,
+    }, public_tail_output_composer::{OutputHints, SiloedNoteHashHint},
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    log_hash::{LogHash, ScopedLogHash}, note_hash::ScopedNoteHash, nullifier::Nullifier,
-    public_data_update_request::PublicDataUpdateRequest, public_data_write::OverridablePublicDataWrite
-},
-    data::PublicDataLeafHint, hash::silo_note_hash, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
+        log_hash::{LogHash, ScopedLogHash}, note_hash::ScopedNoteHash, nullifier::Nullifier,
+        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::OverridablePublicDataWrite,
+    }, data::PublicDataLeafHint, hash::silo_note_hash,
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
     utils::arrays::{
-    assert_combined_sorted_transformed_value_array_asc, assert_combined_transformed_array,
-    assert_deduped_array
-}
+        assert_combined_sorted_transformed_value_array_asc, assert_combined_transformed_array,
+        assert_deduped_array,
+    },
 };
 
 pub struct PublicTailOutputValidator<let NUM_PUBLIC_DATA_LEAVES: u32> {
@@ -38,9 +38,15 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
         previous_kernel: PublicKernelCircuitPublicInputs,
         start_state: PartialStateReference,
         hints: OutputHints<NUM_PUBLIC_DATA_LEAVES>,
-        public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES]
+        public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES],
     ) -> Self {
-        PublicTailOutputValidator { output, previous_kernel, start_state, hints, public_data_leaf_hints }
+        PublicTailOutputValidator {
+            output,
+            previous_kernel,
+            start_state,
+            hints,
+            public_data_leaf_hints,
+        }
     }
 
     pub fn validate(self) {
@@ -55,11 +61,17 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
 
     fn validate_aggregated_data(self) {
         assert_eq(
-            self.output.rollup_validation_requests, self.previous_kernel.validation_requests.for_rollup, "mismatch rollup_validation_requests"
+            self.output.rollup_validation_requests,
+            self.previous_kernel.validation_requests.for_rollup,
+            "mismatch rollup_validation_requests",
         );
         assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
         assert_eq(self.output.start_state, self.start_state, "mismatch start_state");
-        assert_eq(self.output.revert_code, self.previous_kernel.revert_code, "mismatch revert_code");
+        assert_eq(
+            self.output.revert_code,
+            self.previous_kernel.revert_code,
+            "mismatch revert_code",
+        );
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
     }
 
@@ -90,7 +102,7 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
                 };
                 out.siloed_note_hash == siloed_value
             },
-            self.hints.sorted_note_hash_hints
+            self.hints.sorted_note_hash_hints,
         );
     }
 
@@ -104,7 +116,7 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
             revertible.nullifiers,
             self.output.end.nullifiers,
             |prev: Nullifier, out: Field| out == prev.value,
-            self.hints.sorted_nullifier_hints
+            self.hints.sorted_nullifier_hints,
         );
 
         // l2_to_l1_msgs
@@ -113,7 +125,7 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
             revertible.l2_to_l1_msgs,
             self.output.end.l2_to_l1_msgs,
             |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev,
-            self.hints.sorted_l2_to_l1_msg_hints
+            self.hints.sorted_l2_to_l1_msg_hints,
         );
 
         // note_encrypted_logs_hashes
@@ -122,11 +134,15 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
             revertible.note_encrypted_logs_hashes,
             self.output.end.note_encrypted_logs_hashes,
             |prev: LogHash, out: LogHash| out == prev,
-            self.hints.sorted_note_encrypted_log_hash_hints
+            self.hints.sorted_note_encrypted_log_hash_hints,
         );
 
-        let note_encrypted_log_preimages_length = self.output.end.note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
-        assert_eq(self.output.end.note_encrypted_log_preimages_length, note_encrypted_log_preimages_length);
+        let note_encrypted_log_preimages_length =
+            self.output.end.note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
+        assert_eq(
+            self.output.end.note_encrypted_log_preimages_length,
+            note_encrypted_log_preimages_length,
+        );
 
         // encrypted_logs_hashes
         assert_combined_sorted_transformed_value_array_asc(
@@ -134,10 +150,13 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
             revertible.encrypted_logs_hashes,
             self.output.end.encrypted_logs_hashes,
             |prev: ScopedLogHash, out: ScopedLogHash| out == prev,
-            self.hints.sorted_encrypted_log_hash_hints
+            self.hints.sorted_encrypted_log_hash_hints,
         );
 
-        let encrypted_log_preimages_length = self.output.end.encrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
+        let encrypted_log_preimages_length = self.output.end.encrypted_logs_hashes.fold(
+            0,
+            |a, b: ScopedLogHash| a + b.log_hash.length,
+        );
         assert_eq(self.output.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
 
         // unencrypted_logs_hashes
@@ -146,18 +165,24 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
             revertible.unencrypted_logs_hashes,
             self.output.end.unencrypted_logs_hashes,
             |prev: ScopedLogHash, out: ScopedLogHash| out == prev,
-            self.hints.sorted_unencrypted_log_hash_hints
+            self.hints.sorted_unencrypted_log_hash_hints,
         );
 
-        let unencrypted_log_preimages_length = self.output.end.unencrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
-        assert_eq(self.output.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length);
+        let unencrypted_log_preimages_length = self.output.end.unencrypted_logs_hashes.fold(
+            0,
+            |a, b: ScopedLogHash| a + b.log_hash.length,
+        );
+        assert_eq(
+            self.output.end.unencrypted_log_preimages_length,
+            unencrypted_log_preimages_length,
+        );
     }
 
     fn validate_deduped_public_data_writes(self) {
         validate_public_data_leaf_memberships(
             self.hints.public_data_leaves,
             self.public_data_leaf_hints,
-            self.start_state.public_data_tree.root
+            self.start_state.public_data_tree.root,
         );
 
         // Check that public_data_writes are simply the writes in the two accumulated data arrays combined,
@@ -167,31 +192,32 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
             self.previous_kernel.end_non_revertible.public_data_update_requests,
             self.previous_kernel.end.public_data_update_requests,
             self.hints.public_data_writes,
-            |from: PublicDataUpdateRequest, to: OverridablePublicDataWrite| to.write == from
+            |from: PublicDataUpdateRequest, to: OverridablePublicDataWrite| to.write == from,
         );
 
         // All non-zero slots in leaves must be unique, ensuring that writes with the same leaf slot are grouped into a single linked list.
         validate_unique_leaf_slots(
             self.hints.public_data_leaves,
-            self.hints.unique_slot_index_hints
+            self.hints.unique_slot_index_hints,
         );
 
         // Validate the override_counter of writes, ensuring that they in the correct list in the correct order.
         validate_linked_public_data_writes(
             self.hints.public_data_writes,
             self.hints.public_data_leaves,
-            self.hints.public_data_linked_index_hints
+            self.hints.public_data_linked_index_hints,
         );
 
         // Check that the output contains the last write in each linked list.
         assert_deduped_array(
             self.hints.public_data_writes,
-            self.output.end.public_data_update_requests
+            self.output.end.public_data_update_requests,
         );
     }
 
     fn validate_gas(self) {
-        let gas_used = self.previous_kernel.end_non_revertible.gas_used + self.previous_kernel.end.gas_used;
+        let gas_used =
+            self.previous_kernel.end_non_revertible.gas_used + self.previous_kernel.end.gas_used;
         assert_eq(self.output.end.gas_used, gas_used, "incorrect output gas_used");
     }
 }

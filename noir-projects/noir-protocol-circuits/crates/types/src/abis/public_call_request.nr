@@ -1,7 +1,7 @@
 use crate::{
     abis::{call_context::CallContext, side_effect::Ordered}, address::AztecAddress,
     constants::PUBLIC_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    utils::reader::Reader,
 };
 
 pub struct PublicCallRequest {
@@ -28,7 +28,12 @@ impl Eq for PublicCallRequest {
 
 impl Empty for PublicCallRequest {
     fn empty() -> Self {
-        PublicCallRequest { contract_address: AztecAddress::empty(), call_context: CallContext::empty(), args_hash: 0, counter: 0 }
+        PublicCallRequest {
+            contract_address: AztecAddress::empty(),
+            call_context: CallContext::empty(),
+            args_hash: 0,
+            counter: 0,
+        }
     }
 }
 
@@ -38,7 +43,7 @@ impl PublicCallRequest {
             contract_address: self.contract_address,
             call_context: self.call_context,
             args_hash: self.args_hash,
-            counter: 0
+            counter: 0,
         }
     }
 }
@@ -66,7 +71,7 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
             contract_address: reader.read_struct(AztecAddress::deserialize),
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
-            counter: reader.read_u32()
+            counter: reader.read_u32(),
         };
         reader.finish();
         request

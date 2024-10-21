@@ -3,15 +3,18 @@ mod get_combined_order_hints;
 use crate::{
     abis::side_effect::Ordered, traits::{Empty, is_empty},
     utils::arrays::{
-    array_length,
-    assert_combined_sorted_transformed_value_array::get_combined_order_hints::{CombinedOrderHint, count_private_items}
-}
+        array_length,
+        assert_combined_sorted_transformed_value_array::get_combined_order_hints::{
+            CombinedOrderHint, count_private_items,
+        },
+    },
 };
 
-fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
-    let length = unsafe {
-        count_private_items(array)
-    };
+fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Ordered + Empty + Eq,
+{
+    let length = unsafe { count_private_items(array) };
     if length != 0 {
         let last_private_item = array[length - 1];
         assert(!is_empty(last_private_item) & (last_private_item.counter() == 0));
@@ -32,8 +35,12 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
     original_array_gte: [T; N],
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
-    hints: [CombinedOrderHint; N]
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+    hints: [CombinedOrderHint; N],
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq,
+{
     let num_private_lt = get_num_private_items(original_array_lt);
     let num_private_gte = get_num_private_items(original_array_gte);
     let total_private = num_private_lt + num_private_gte;
@@ -59,7 +66,11 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
             assert_eq(hint.original_index, i, "items with a counter of 0 should be prepended");
             from_lt
         } else if should_be_private {
-            assert_eq(hint.original_index, i - num_private_lt, "items with a counter of 0 should be prepended");
+            assert_eq(
+                hint.original_index,
+                i - num_private_lt,
+                "items with a counter of 0 should be prepended",
+            );
             from_gte
         } else if should_be_public_gte {
             from_gte
@@ -73,7 +84,8 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
         if !should_be_empty {
             if !should_be_private {
                 assert(
-                    dest_counter > prev_counter, "value array must be sorted by counter in ascending order"
+                    dest_counter > prev_counter,
+                    "value array must be sorted by counter in ascending order",
                 );
             }
         } else {
@@ -86,15 +98,16 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
 mod tests {
     use crate::{
         tests::utils::pad_end,
-        tests::types::{combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues},
+        tests::types::{
+            combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues,
+        },
         utils::arrays::{
-        array_merge,
-        assert_combined_sorted_transformed_value_array::{
-        assert_combined_sorted_transformed_value_array_asc,
-        get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
-    },
-        sort_by_counter::sort_by_counter_asc
-    }
+            array_merge,
+            assert_combined_sorted_transformed_value_array::{
+                assert_combined_sorted_transformed_value_array_asc,
+                get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
+            }, sort_by_counter::sort_by_counter_asc,
+        },
     };
 
     struct TestDataBuilder<let N: u32> {
@@ -108,38 +121,38 @@ mod tests {
         pub fn new() -> Self {
             let original_array_lt = pad_end(
                 [
-                TestTwoValues { value_1: 40, value_2: 7, counter: 0 },
-                TestTwoValues { value_1: 70, value_2: 6, counter: 0 },
-                TestTwoValues { value_1: 80, value_2: 1, counter: 22 },
-                TestTwoValues { value_1: 30, value_2: 4, counter: 11 }
-            ],
-                TestTwoValues::empty()
+                    TestTwoValues { value_1: 40, value_2: 7, counter: 0 },
+                    TestTwoValues { value_1: 70, value_2: 6, counter: 0 },
+                    TestTwoValues { value_1: 80, value_2: 1, counter: 22 },
+                    TestTwoValues { value_1: 30, value_2: 4, counter: 11 },
+                ],
+                TestTwoValues::empty(),
             );
 
             let original_array_gte = pad_end(
                 [
-                TestTwoValues { value_1: 20, value_2: 2, counter: 0 },
-                TestTwoValues { value_1: 90, value_2: 3, counter: 0 },
-                TestTwoValues { value_1: 50, value_2: 9, counter: 55 },
-                TestTwoValues { value_1: 60, value_2: 8, counter: 33 },
-                TestTwoValues { value_1: 10, value_2: 5, counter: 44 }
-            ],
-                TestTwoValues::empty()
+                    TestTwoValues { value_1: 20, value_2: 2, counter: 0 },
+                    TestTwoValues { value_1: 90, value_2: 3, counter: 0 },
+                    TestTwoValues { value_1: 50, value_2: 9, counter: 55 },
+                    TestTwoValues { value_1: 60, value_2: 8, counter: 33 },
+                    TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
+                ],
+                TestTwoValues::empty(),
             );
 
             let sorted_transformed_value_array = pad_end(
                 [
-                TestCombinedValue { value: 47 },
-                TestCombinedValue { value: 76 },
-                TestCombinedValue { value: 22 },
-                TestCombinedValue { value: 93 },
-                TestCombinedValue { value: 34 },
-                TestCombinedValue { value: 81 },
-                TestCombinedValue { value: 68 },
-                TestCombinedValue { value: 15 },
-                TestCombinedValue { value: 59 }
-            ],
-                TestCombinedValue::empty()
+                    TestCombinedValue { value: 47 },
+                    TestCombinedValue { value: 76 },
+                    TestCombinedValue { value: 22 },
+                    TestCombinedValue { value: 93 },
+                    TestCombinedValue { value: 34 },
+                    TestCombinedValue { value: 81 },
+                    TestCombinedValue { value: 68 },
+                    TestCombinedValue { value: 15 },
+                    TestCombinedValue { value: 59 },
+                ],
+                TestCombinedValue::empty(),
             );
 
             let hints = [
@@ -154,10 +167,15 @@ mod tests {
                 CombinedOrderHint { counter: 55, original_index: 2 },
                 CombinedOrderHint { counter: 0, original_index: 5 },
                 CombinedOrderHint { counter: 0, original_index: 6 },
-                CombinedOrderHint { counter: 0, original_index: 7 }
+                CombinedOrderHint { counter: 0, original_index: 7 },
             ];
 
-            TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
+            TestDataBuilder {
+                original_array_lt,
+                original_array_gte,
+                sorted_transformed_value_array,
+                hints,
+            }
         }
     }
 
@@ -165,30 +183,30 @@ mod tests {
         pub fn new_without_prepended() -> Self {
             let original_array_lt = pad_end(
                 [
-                TestTwoValues { value_1: 80, value_2: 1, counter: 22 },
-                TestTwoValues { value_1: 30, value_2: 4, counter: 11 }
-            ],
-                TestTwoValues::empty()
+                    TestTwoValues { value_1: 80, value_2: 1, counter: 22 },
+                    TestTwoValues { value_1: 30, value_2: 4, counter: 11 },
+                ],
+                TestTwoValues::empty(),
             );
 
             let original_array_gte = pad_end(
                 [
-                TestTwoValues { value_1: 50, value_2: 9, counter: 55 },
-                TestTwoValues { value_1: 60, value_2: 8, counter: 33 },
-                TestTwoValues { value_1: 10, value_2: 5, counter: 44 }
-            ],
-                TestTwoValues::empty()
+                    TestTwoValues { value_1: 50, value_2: 9, counter: 55 },
+                    TestTwoValues { value_1: 60, value_2: 8, counter: 33 },
+                    TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
+                ],
+                TestTwoValues::empty(),
             );
 
             let sorted_transformed_value_array = pad_end(
                 [
-                TestCombinedValue { value: 34 },
-                TestCombinedValue { value: 81 },
-                TestCombinedValue { value: 68 },
-                TestCombinedValue { value: 15 },
-                TestCombinedValue { value: 59 }
-            ],
-                TestCombinedValue::empty()
+                    TestCombinedValue { value: 34 },
+                    TestCombinedValue { value: 81 },
+                    TestCombinedValue { value: 68 },
+                    TestCombinedValue { value: 15 },
+                    TestCombinedValue { value: 59 },
+                ],
+                TestCombinedValue::empty(),
             );
 
             let hints = [
@@ -199,10 +217,15 @@ mod tests {
                 CombinedOrderHint { counter: 55, original_index: 0 },
                 CombinedOrderHint { counter: 0, original_index: 3 },
                 CombinedOrderHint { counter: 0, original_index: 4 },
-                CombinedOrderHint { counter: 0, original_index: 5 }
+                CombinedOrderHint { counter: 0, original_index: 5 },
             ];
 
-            TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
+            TestDataBuilder {
+                original_array_lt,
+                original_array_gte,
+                sorted_transformed_value_array,
+                hints,
+            }
         }
     }
 
@@ -225,7 +248,7 @@ mod tests {
                 self.original_array_gte,
                 self.sorted_transformed_value_array,
                 is_combined_from_two_values,
-                self.hints
+                self.hints,
             );
         }
 
@@ -236,7 +259,8 @@ mod tests {
             assert_eq(hints, self.hints);
 
             let sorted = unsafe {
-                sort_by_counter_asc(array_merge(self.original_array_lt, self.original_array_gte)).map(combine_two_values)
+                sort_by_counter_asc(array_merge(self.original_array_lt, self.original_array_gte))
+                    .map(combine_two_values)
             };
             assert_eq(sorted, self.sorted_transformed_value_array);
 

@@ -1,11 +1,13 @@
 use dep::protocol_types::{
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, traits::Deserialize
+    abis::{
+        function_selector::FunctionSelector,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    }, address::AztecAddress, traits::Deserialize,
 };
 
 use crate::context::{
     private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
-    inputs::PrivateContextInputs
+    inputs::PrivateContextInputs,
 };
 
 use crate::oracle::arguments::pack_arguments;
@@ -48,32 +50,53 @@ pub struct PrivateCallInterface<let N: u32, T, Env> {
     args_hash: Field,
     args: [Field],
     original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
+    is_static: bool,
 }
 
 impl<let N: u32, T, Env> PrivateCallInterface<N, T, Env> {
-    pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
+    pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
         pack_arguments(self.args);
         let returns = context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
             self.args_hash,
             false,
-            false
+            false,
         );
         let unpacked: T = returns.unpack_into();
         unpacked
     }
 
-    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
+    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
         pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+        let returns = context.call_private_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            true,
+            false,
+        );
         returns.unpack_into()
     }
 
-    pub fn delegate_call<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
+    pub fn delegate_call<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
         pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
+        let returns = context.call_private_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            false,
+            true,
+        );
         returns.unpack_into()
     }
 }
@@ -91,29 +114,47 @@ pub struct PrivateVoidCallInterface<let N: u32, Env> {
     args_hash: Field,
     args: [Field],
     original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
+    is_static: bool,
 }
 
 impl<let N: u32, Env> PrivateVoidCallInterface<N, Env> {
     pub fn call(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
-        context.call_private_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        ).assert_empty();
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                false,
+                false,
+            )
+            .assert_empty();
     }
 
     pub fn view(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                true,
+                false,
+            )
+            .assert_empty();
     }
 
     pub fn delegate_call(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true).assert_empty();
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                false,
+                true,
+            )
+            .assert_empty();
     }
 }
 
@@ -130,13 +171,22 @@ pub struct PrivateStaticCallInterface<let N: u32, T, Env> {
     args_hash: Field,
     args: [Field],
     original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
+    is_static: bool,
 }
 
 impl<let N: u32, T, Env> PrivateStaticCallInterface<N, T, Env> {
-    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
+    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
         pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+        let returns = context.call_private_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            true,
+            false,
+        );
         returns.unpack_into()
     }
 }
@@ -154,13 +204,21 @@ pub struct PrivateStaticVoidCallInterface<let N: u32, Env> {
     args_hash: Field,
     args: [Field],
     original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
+    is_static: bool,
 }
 
 impl<let N: u32, Env> PrivateStaticVoidCallInterface<N, Env> {
     pub fn view(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                true,
+                false,
+            )
+            .assert_empty();
     }
 }
 
@@ -177,7 +235,7 @@ pub struct PublicCallInterface<let N: u32, T, Env> {
     args: [Field],
     gas_opts: GasOpts,
     original: fn[Env](()) -> T,
-    is_static: bool
+    is_static: bool,
 }
 
 impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
@@ -186,18 +244,38 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
         self
     }
 
-    pub fn call<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
+    pub fn call<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns = context.call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
         returns.deserialize_into()
     }
 
-    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
+    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
         returns.deserialize_into()
     }
 
-    pub fn delegate_call<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
+    pub fn delegate_call<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns =
+            context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.deserialize_into()
     }
 
@@ -208,8 +286,10 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
-            /*delegate=*/ false
+            /*static=*/
+            false,
+            /*delegate=*/
+            false,
         )
     }
 
@@ -220,8 +300,10 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/
+            true,
+            /*delegate=*/
+            false,
         )
     }
 
@@ -232,8 +314,10 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
-            /*delegate=*/ true
+            /*static=*/
+            false,
+            /*delegate=*/
+            true,
         )
     }
 }
@@ -251,7 +335,7 @@ pub struct PublicVoidCallInterface<let N: u32, Env> {
     args: [Field],
     original: fn[Env](()) -> (),
     is_static: bool,
-    gas_opts: GasOpts
+    gas_opts: GasOpts,
 }
 
 impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
@@ -261,17 +345,28 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
     }
 
     pub fn call(self, context: &mut PublicContext) {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
+        let returns = context.call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
         returns.assert_empty()
     }
 
     pub fn view(self, context: &mut PublicContext) {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
         returns.assert_empty()
     }
 
     pub fn delegate_call(self, context: &mut PublicContext) {
-        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
+        let returns =
+            context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.assert_empty()
     }
 
@@ -282,8 +377,10 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
-            /*delegate=*/ false
+            /*static=*/
+            false,
+            /*delegate=*/
+            false,
         )
     }
 
@@ -294,8 +391,10 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/
+            true,
+            /*delegate=*/
+            false,
         )
     }
 
@@ -306,8 +405,10 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
-            /*delegate=*/ true
+            /*static=*/
+            false,
+            /*delegate=*/
+            true,
         )
     }
 }
@@ -325,7 +426,7 @@ pub struct PublicStaticCallInterface<let N: u32, T, Env> {
     args: [Field],
     original: fn[Env](()) -> T,
     is_static: bool,
-    gas_opts: GasOpts
+    gas_opts: GasOpts,
 }
 
 impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
@@ -334,8 +435,16 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
         self
     }
 
-    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
+    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
         let unpacked: T = returns.deserialize_into();
         unpacked
     }
@@ -347,8 +456,10 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/
+            true,
+            /*delegate=*/
+            false,
         )
     }
 }
@@ -366,7 +477,7 @@ pub struct PublicStaticVoidCallInterface<let N: u32, Env> {
     args: [Field],
     original: fn[Env](()) -> (),
     is_static: bool,
-    gas_opts: GasOpts
+    gas_opts: GasOpts,
 }
 
 impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
@@ -376,7 +487,12 @@ impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
     }
 
     pub fn view(self, context: &mut PublicContext) {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
         returns.assert_empty()
     }
 
@@ -387,8 +503,10 @@ impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/
+            true,
+            /*delegate=*/
+            false,
         )
     }
 }
