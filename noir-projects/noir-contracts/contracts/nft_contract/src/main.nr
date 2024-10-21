@@ -218,7 +218,7 @@ contract NFT {
 
     #[public]
     #[internal]
-    fn  _finalize_transfer_to_private_unsafe(from: AztecAddress, token_id: Field, hiding_point_slot: Field) {
+    fn _finalize_transfer_to_private_unsafe(from: AztecAddress, token_id: Field, hiding_point_slot: Field) {
         _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
     }
 
