@@ -69,6 +69,14 @@ runs:
     # Set up a context for this run
     - name: Copy Repo to Builder
       shell: bash
+      env:
+        UNPACK:
+          mkdir -p ~/run-$RUN_ID-git &&
+          cd ~/run-$RUN_ID-git && tar xzf - &&
+          git config --global advice.detachedHead false &&
+          git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID &&
+          echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key &&
+          chmod 600 ~/.ssh/build_instance_key
       run: |
         sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
         set -x
@@ -76,14 +84,7 @@ runs:
         if ! scripts/run_on_builder "[ -d ~/run-$RUN_ID ]" ; then
           echo "Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
-            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
-          scripts/run_on_builder "
-            echo "Unpacking repo"
-            git config --global advice.detachedHead false
-            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
-            echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-            chmod 600 ~/.ssh/build_instance_key
-          " || true
+            "flock ~/git.lock bash -c '$UNPACK'"
         fi
 
     - name: Attach EBS Cache Disk
