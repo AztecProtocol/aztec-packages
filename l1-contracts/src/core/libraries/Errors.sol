@@ -72,6 +72,8 @@ library Errors {
   error Rollup__TimestampTooOld(); // 0x72ed9c81
   error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
+  error Rollup__NonZeroDaFee();
+  error Rollup__NonZeroL2Fee();
 
   //TxsDecoder
   error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
