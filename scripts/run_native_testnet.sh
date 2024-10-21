@@ -27,7 +27,7 @@ Options:
 '
 
 # Default values
-TEST_FILE=src/spartan/transfer.test.ts
+TEST_SCRIPT=./test-transfer.sh
 PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
@@ -46,7 +46,7 @@ display_help() {
     echo "  -i     Run interleaved (default: $INTERLEAVED)"
     echo
     echo "Example:"
-    echo "  $0 -t smoke.test.ts -val 5 -v"
+    echo "  $0 -t ./test-4epochs.sh -val 5 -v"
 }
 
 # Parse command line arguments
@@ -57,7 +57,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     -t)
-      TEST_FILE="$2"
+      TEST_SCRIPT="$2"
       shift 2
       ;;
     -p)
@@ -100,7 +100,7 @@ cd $(git rev-parse --show-toplevel)
 
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
-        \"./test.sh $TEST_FILE\" \
+        $TEST_SCRIPT \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
