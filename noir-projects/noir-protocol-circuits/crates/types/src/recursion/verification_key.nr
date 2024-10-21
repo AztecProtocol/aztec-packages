@@ -1,11 +1,17 @@
 use crate::{
     traits::{Serialize, Deserialize, Empty},
-    constants::{HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS}
+    constants::{HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS},
 };
 
 pub struct VerificationKey<let N: u32> {
     key: [Field; N],
     hash: Field,
+}
+
+impl<let N: u32> VerificationKey<N> {
+    pub fn check_hash(self) {
+        assert_eq(self.hash, crate::hash::verification_key_hash(self.key), "Invalid VK hash");
+    }
 }
 
 impl<let N: u32> Serialize<N + 1> for VerificationKey<N> {

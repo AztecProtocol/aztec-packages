@@ -40,6 +40,7 @@ impl Verifiable for RootRollupParityInput {
 
 impl RootRollupParityInput {
     fn validate_in_vk_tree(self) {
+        self.verification_key.check_hash();
         assert_check_membership(
             self.verification_key.hash,
             ROOT_PARITY_INDEX as Field,
