@@ -28,6 +28,8 @@ export type L2BlockStats = {
 
 /** Stats logged for each L1 publish tx.*/
 export type L1PublishStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Effective gas price of the tx. */
   gasPrice: bigint;
   /** Effective gas used in the tx. */
@@ -177,6 +179,8 @@ export type CircuitVerificationStats = {
 
 /** Stats for an L2 block built by a sequencer. */
 export type L2BlockBuiltStats = {
+  /** The creator of the block */
+  creator: string;
   /** Name of the event. */
   eventName: 'l2-block-built';
   /** Total duration in ms. */
@@ -193,8 +197,12 @@ export type L2BlockHandledStats = {
   eventName: 'l2-block-handled';
   /** Total duration in ms. */
   duration: number;
-  /** Whether the block was produced by this node. */
-  isBlockOurs: boolean;
+  /** Pending block number. */
+  unfinalisedBlockNumber: bigint;
+  /** Proven block number. */
+  finalisedBlockNumber: bigint;
+  /** Oldest historic block number. */
+  oldestHistoricBlock: bigint;
 } & L2BlockStats;
 
 /** Stats for a note processor that has caught up with the chain. */

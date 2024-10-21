@@ -47,6 +47,7 @@ export class BlockProvingState {
   public block: L2Block | undefined;
   public spongeBlobState: SpongeBlob | undefined = undefined;
   private txs: TxProvingState[] = [];
+  public error: string | undefined;
 
   constructor(
     public readonly index: number,
@@ -215,6 +216,7 @@ export class BlockProvingState {
   }
 
   public reject(reason: string) {
+    this.error = reason;
     this.parentEpoch.reject(reason);
   }
 }

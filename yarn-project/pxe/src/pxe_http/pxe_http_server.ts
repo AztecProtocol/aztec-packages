@@ -1,6 +1,10 @@
 import {
   AuthWitness,
   CompleteAddress,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
@@ -9,17 +13,20 @@ import {
   Note,
   NullifierMembershipWitness,
   type PXE,
+  PrivateExecutionResult,
   SiblingPath,
-  SimulatedTx,
   Tx,
   TxEffect,
   TxExecutionRequest,
   TxHash,
+  TxProvingResult,
   TxReceipt,
+  TxSimulationResult,
   UnencryptedL2BlockL2Logs,
+  UnencryptedL2Log,
   UniqueNote,
 } from '@aztec/circuit-types';
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, PrivateCallStackItem, PublicKeys } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -50,6 +57,7 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       GrumpkinScalar,
       Note,
       ExtendedNote,
+      PublicKeys,
       UniqueNote,
       SiblingPath,
       AuthWitness,
@@ -59,9 +67,17 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
     },
     {
       EncryptedNoteL2BlockL2Logs,
+      EncryptedL2NoteLog,
+      EncryptedL2Log,
+      UnencryptedL2Log,
       NoteSelector,
       NullifierMembershipWitness,
-      SimulatedTx,
+      TxSimulationResult,
+      TxProvingResult,
+      PrivateExecutionResult,
+      PrivateCallStackItem,
+      CountedPublicExecutionRequest,
+      CountedNoteLog,
       Tx,
       TxReceipt,
       UnencryptedL2BlockL2Logs,

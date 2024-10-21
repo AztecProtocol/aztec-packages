@@ -146,6 +146,11 @@ contract AvmTest {
     }
 
     #[public]
+    fn elliptic_curve_add(lhs: Point, rhs: Point) -> Point {
+        lhs + rhs
+    }
+
+    #[public]
     fn elliptic_curve_add_and_double() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
@@ -278,7 +283,18 @@ contract AvmTest {
         assert(fields[2] == 0x456);
         assert(fields[3] == 0x789);
         assert(fields[4] == 0x101112);
-        assert(fields[5] == 0x161718);
+        assert(fields[5] == 0x131415);
+        assert(fields[6] == 0x161718);
+        assert(fields[7] == 0x00);
+        assert(fields[8] == 0x192021);
+        assert(fields[9] == 0x222324);
+        assert(fields[10] == 0x00);
+        assert(fields[11] == 0x252627);
+        assert(fields[12] == 0x282930);
+        assert(fields[13] == 0x00);
+        assert(fields[14] == 0x313233);
+        assert(fields[15] == 0x343536);
+        assert(fields[16] == 0x00);
     }
 
     #[public]

@@ -1,0 +1,11 @@
+MintTest
+├── given caller is not owner
+│   └── it reverts
+└── given caller is owner
+    ├── given amount larger than maxMint
+    │   └── it reverts
+    └── given amount less than or equal maxMint
+        ├── it updates timeOfLastMint
+        ├── it mints amount
+        ├── it emits a {Transfer} event
+        └── it will return 0 for mintAvailable in same block

@@ -3,7 +3,6 @@ import {
   EncryptedTxL2Logs,
   PublicDataWrite,
   type PublicInputsAndRecursiveProof,
-  type PublicInputsAndTubeProof,
   type PublicKernelInnerRequest,
   type PublicKernelMergeRequest,
   type PublicKernelTailRequest,
@@ -198,7 +197,7 @@ export function makePaddingProcessedTx(
  * @returns A valid padding processed tx.
  */
 export function makePaddingProcessedTxFromTubeProof(
-  kernelOutput: PublicInputsAndTubeProof<KernelCircuitPublicInputs>,
+  kernelOutput: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof TUBE_PROOF_LENGTH>,
 ): PaddingProcessedTxFromTube {
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
@@ -222,12 +221,19 @@ export function makePaddingProcessedTxFromTubeProof(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr, vkTreeRoot: Fr): ProcessedTx {
+export function makeEmptyProcessedTx(
+  header: Header,
+  chainId: Fr,
+  version: Fr,
+  vkTreeRoot: Fr,
+  protocolContractTreeRoot: Fr,
+): ProcessedTx {
   const emptyKernelOutput = KernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   emptyKernelOutput.constants.vkTreeRoot = vkTreeRoot;
+  emptyKernelOutput.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {

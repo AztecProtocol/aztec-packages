@@ -51,17 +51,18 @@ import {
   mapBlockRootRollupInputsToNoir,
   mapEmptyBlockRootRollupInputsToNoir,
   mapEmptyKernelInputsToNoir,
+  mapFieldToNoir,
   mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
+  mapPrivateCallDataToNoir,
+  mapPrivateCircuitPublicInputsToNoir,
   mapPrivateKernelCircuitPublicInputsFromNoir,
-  mapPrivateKernelInitCircuitPrivateInputsToNoir,
-  mapPrivateKernelInnerCircuitPrivateInputsToNoir,
-  mapPrivateKernelResetCircuitPrivateInputsToNoir,
-  mapPrivateKernelTailCircuitPrivateInputsToNoir,
+  mapPrivateKernelCircuitPublicInputsToNoir,
+  mapPrivateKernelDataToNoir,
+  mapPrivateKernelResetHintsToNoir,
   mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir,
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
-  mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
   mapPublicKernelInnerCircuitPrivateInputsToNoir,
@@ -69,6 +70,7 @@ import {
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
+  mapTxRequestToNoir,
   mapVMCircuitPublicInputsFromNoir,
 } from './type_conversion.js';
 import {
@@ -98,6 +100,9 @@ export * from './artifacts.js';
 export { maxPrivateKernelResetDimensions, privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
 export * from './utils/private_kernel_reset.js';
 export * from './vks.js';
+export { hashVk } from './utils/vk_json.js';
+
+/* eslint-disable camelcase */
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -123,7 +128,11 @@ export async function executeInit(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
   const returnType = await executePrivateKernelInitWithACVM(
-    mapPrivateKernelInitCircuitPrivateInputsToNoir(privateKernelInitCircuitPrivateInputs),
+    mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
+    mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
+    mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
+    mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    mapPrivateCircuitPublicInputsToNoir(privateKernelInitCircuitPrivateInputs.privateCall.callStackItem.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -140,7 +149,10 @@ export async function executeInner(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
   const returnType = await executePrivateKernelInnerWithACVM(
-    mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
+    mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
+    mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs),
+    mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
+    mapPrivateCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.privateCall.callStackItem.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelInnerArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -174,7 +186,11 @@ export async function executeReset<
   const artifact = SimulatedClientCircuitArtifacts[getPrivateKernelResetArtifactName(dimensions)];
   const program = new Noir(artifact as CompiledCircuit);
   const args: InputMap = {
-    input: mapPrivateKernelResetCircuitPrivateInputsToNoir(privateKernelResetCircuitPrivateInputs),
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnValue as any);
@@ -189,7 +205,8 @@ export async function executeTail(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
   const returnType = await executePrivateKernelTailWithACVM(
-    mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
+    mapPrivateKernelDataToNoir(privateInputs.previousKernel),
+    mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelTailArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -206,7 +223,8 @@ export async function executeTailForPublic(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
   const returnType = await executePrivateKernelTailToPublicWithACVM(
-    mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(privateInputs),
+    mapPrivateKernelDataToNoir(privateInputs.previousKernel),
+    mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelTailToPublicArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -222,9 +240,14 @@ export async function executeTailForPublic(
 export function convertPrivateKernelInitInputsToWitnessMap(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
 ): WitnessMap {
-  const mapped = mapPrivateKernelInitCircuitPrivateInputsToNoir(privateKernelInitCircuitPrivateInputs);
   const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelInitArtifact.abi, {
-    input: mapped as any,
+    tx_request: mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
+    vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
+    private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
+      privateKernelInitCircuitPrivateInputs.privateCall.callStackItem.publicInputs,
+    ),
   });
   return initialWitnessMap;
 }
@@ -237,8 +260,16 @@ export function convertPrivateKernelInitInputsToWitnessMap(
 export function convertPrivateKernelInnerInputsToWitnessMap(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
 ): WitnessMap {
-  const mapped = mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs);
-  const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelInnerArtifact.abi, { input: mapped as any });
+  const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelInnerArtifact.abi, {
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    private_call: mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
+    app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
+      privateKernelInnerCircuitPrivateInputs.privateCall.callStackItem.publicInputs,
+    ),
+  });
   return initialWitnessMap;
 }
 
@@ -265,9 +296,15 @@ export function convertPrivateKernelResetInputsToWitnessMap<
   >,
   artifactName: PrivateResetArtifact,
 ): WitnessMap {
-  const mapped = mapPrivateKernelResetCircuitPrivateInputsToNoir(privateKernelResetCircuitPrivateInputs);
+  const args: InputMap = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
+  };
   const artifact = ClientCircuitArtifacts[artifactName];
-  const initialWitnessMap = abiEncode(artifact.abi as Abi, { input: mapped as any });
+  const initialWitnessMap = abiEncode(artifact.abi as Abi, args);
   return initialWitnessMap;
 }
 
@@ -279,8 +316,13 @@ export function convertPrivateKernelResetInputsToWitnessMap<
 export function convertPrivateKernelTailInputsToWitnessMap(
   privateKernelTailCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): WitnessMap {
-  const mapped = mapPrivateKernelTailCircuitPrivateInputsToNoir(privateKernelTailCircuitPrivateInputs);
-  const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelTailArtifact.abi, { input: mapped as any });
+  const args: InputMap = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+  };
+  const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelTailArtifact.abi, args);
   return initialWitnessMap;
 }
 
@@ -292,10 +334,13 @@ export function convertPrivateKernelTailInputsToWitnessMap(
 export function convertPrivateKernelTailToPublicInputsToWitnessMap(
   privateKernelTailToPublicCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): WitnessMap {
-  const mapped = mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(privateKernelTailToPublicCircuitPrivateInputs);
-  const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.abi, {
-    input: mapped as any,
-  });
+  const args: InputMap = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailToPublicCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+  };
+  const initialWitnessMap = abiEncode(ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.abi, args);
   return initialWitnessMap;
 }
 

@@ -23,7 +23,12 @@ template <typename FF> struct AvmFullRow {
     FF gas_dyn_l2_gas_fixed_table{};
     FF gas_sel_gas_cost{};
     FF main_clk{};
+    FF main_sel_da_end_gas_kernel_input{};
+    FF main_sel_da_start_gas_kernel_input{};
     FF main_sel_first{};
+    FF main_sel_l2_end_gas_kernel_input{};
+    FF main_sel_l2_start_gas_kernel_input{};
+    FF main_sel_start_exec{};
     FF main_zeroes{};
     FF powers_power_of_2{};
     FF main_kernel_inputs{};
@@ -180,10 +185,10 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_alu{};
     FF main_sel_bin{};
     FF main_sel_calldata{};
+    FF main_sel_execution_end{};
     FF main_sel_execution_row{};
     FF main_sel_kernel_inputs{};
     FF main_sel_kernel_out{};
-    FF main_sel_last{};
     FF main_sel_mem_op_a{};
     FF main_sel_mem_op_b{};
     FF main_sel_mem_op_c{};
@@ -197,7 +202,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_calldata_copy{};
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
-    FF main_sel_op_cmov{};
     FF main_sel_op_dagasleft{};
     FF main_sel_op_div{};
     FF main_sel_op_ecadd{};
@@ -280,7 +284,6 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
     FF mem_sel_op_poseidon_read_a{};
     FF mem_sel_op_poseidon_read_b{};
@@ -646,6 +649,10 @@ template <typename FF> struct AvmFullRow {
     FF perm_cmp_alu_inv{};
     FF perm_rng_gas_l2_inv{};
     FF perm_rng_gas_da_inv{};
+    FF perm_l2_start_gas_inv{};
+    FF perm_da_start_gas_inv{};
+    FF perm_l2_end_gas_inv{};
+    FF perm_da_end_gas_inv{};
     FF perm_pos_mem_read_a_inv{};
     FF perm_pos_mem_read_b_inv{};
     FF perm_pos_mem_read_c_inv{};
@@ -715,7 +722,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 701;
+    static constexpr size_t SIZE = 708;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

@@ -27,7 +27,7 @@ contract Token {
         encrypted_event_emission::encode_and_encrypt_event_unconstrained
     },
         keys::getters::get_public_keys,
-        macros::{storage::storage, events::event, functions::{initializer, private, view, public}},
+        macros::{storage::storage, events::event, functions::{initializer, private, view, public, internal}},
         utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize}
     };
 
@@ -590,7 +590,7 @@ contract Token {
     // docs:end:reduce_total_supply
     /// Unconstrained ///
     // docs:start:balance_of_private
-    unconstrained pub(crate) fn balance_of_private(owner: AztecAddress) -> pub Field {
+    pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.at(owner).balance_of().to_field()
     }
     // docs:end:balance_of_private

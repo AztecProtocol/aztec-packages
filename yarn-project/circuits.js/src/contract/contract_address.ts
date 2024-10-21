@@ -2,11 +2,11 @@ import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foun
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
+import { type ContractInstance } from './interfaces/contract_instance.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
@@ -22,10 +22,10 @@ import { computeAddress } from '../keys/index.js';
 export function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
+    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): AztecAddress {
   const partialAddress = computePartialAddress(instance);
-  const publicKeysHash = instance.publicKeysHash;
+  const publicKeysHash = instance.publicKeys.hash();
   return computeAddress(publicKeysHash, partialAddress);
 }
 

@@ -26,12 +26,10 @@ impl BlockMergeRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].block_root_or_block_merge_public_inputs;
@@ -68,6 +66,7 @@ impl BlockMergeRollupInputs {
             out_hash,
             fees,
             vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
             blob_public_inputs
         }
@@ -77,23 +76,23 @@ impl BlockMergeRollupInputs {
 mod tests {
     use crate::{tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs};
     use dep::types::{hash::accumulate_sha256};
-    use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX};
+    use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, ROOT_PARITY_INDEX};
 
-    #[test(should_fail_with="input blocks have different chain id")]
+    #[test(should_fail_with = "input blocks have different chain id")]
     fn constants_different_chain_id_fails() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.chain_id = 1;
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input blocks have different chain version")]
+    #[test(should_fail_with = "input blocks have different chain version")]
     fn constants_different_ver_fails() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.version = 1;
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input blocks have different archive tree snapshots")]
+    #[test(should_fail_with = "input blocks have different archive tree snapshots")]
     fn previous_rollups_dont_follow_archive() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.new_archive.root = 0;
@@ -101,7 +100,7 @@ mod tests {
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input block hashes do not follow on from each other")]
+    #[test(should_fail_with = "input block hashes do not follow on from each other")]
     fn previous_rollups_dont_follow_block_hash() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_block_hash = 0;
@@ -109,7 +108,7 @@ mod tests {
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test(should_fail_with="input block numbers do not follow on from each other")]
+    #[test(should_fail_with = "input block numbers do not follow on from each other")]
     fn previous_rollups_dont_follow_block_number() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.block_number = 2;
@@ -170,14 +169,14 @@ mod tests {
         inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(BLOCK_MERGE_ROLLUP_INDEX);
         let _outputs = inputs.block_merge_rollup_circuit();
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_circuit() {
-    //     let mut inputs = default_block_merge_rollup_inputs();
-    //     let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
-    //     inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[ROOT_PARITY_INDEX];
-    //     inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
-    //     inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
-    //     let _outputs = inputs.block_merge_rollup_circuit();
-    // }
+
+    #[test(should_fail_with = "Invalid vk index")]
+    fn invalid_previous_circuit() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
+        inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[ROOT_PARITY_INDEX];
+        inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
+        inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
+        let _outputs = inputs.block_merge_rollup_circuit();
+    }
 }

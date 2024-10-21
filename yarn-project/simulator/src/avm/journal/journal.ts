@@ -1,7 +1,6 @@
-import { AztecAddress, type FunctionSelector, type Gas } from '@aztec/circuits.js';
+import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { SerializableContractInstance } from '@aztec/types/contracts';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
@@ -22,7 +21,7 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class AvmPersistableStateManager {
-  private readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:state_manager');
+  private readonly log = createDebugLogger('aztec:avm_simulator:state_manager');
 
   constructor(
     /** Reference to node storage */

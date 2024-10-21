@@ -27,11 +27,14 @@ export class ConstantRollupData {
   constructor(
     /** Archive tree snapshot at the very beginning of the entire rollup. */
     public lastArchive: AppendOnlyTreeSnapshot,
-
     /**
      * Root of the verification key tree.
      */
     public vkTreeRoot: Fr,
+    /**
+     * Root of the protocol contract tree.
+     */
+    public protocolContractTreeRoot: Fr,
     /**
      * Global variables for the block
      */
@@ -47,16 +50,17 @@ export class ConstantRollupData {
     return new ConstantRollupData(
       reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
     );
   }
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
-    return [fields.lastArchive, fields.vkTreeRoot, fields.globalVariables] as const;
+    return [fields.lastArchive, fields.vkTreeRoot, fields.protocolContractTreeRoot, fields.globalVariables] as const;
   }
 
   static empty() {
-    return new ConstantRollupData(AppendOnlyTreeSnapshot.zero(), Fr.ZERO, GlobalVariables.empty());
+    return new ConstantRollupData(AppendOnlyTreeSnapshot.zero(), Fr.ZERO, Fr.ZERO, GlobalVariables.empty());
   }
 
   toBuffer() {

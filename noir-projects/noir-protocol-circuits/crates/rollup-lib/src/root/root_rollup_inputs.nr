@@ -2,11 +2,15 @@ use crate::{
     abis::previous_rollup_block_data::PreviousRollupBlockData, components,
     root::root_rollup_public_inputs::RootRollupPublicInputs
 };
-use types::{traits::Empty, constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX}};
+use types::{
+    traits::Empty,
+    constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX}
+};
 // TODO(#7346): Currently unused! Will be used when batch rollup circuits are integrated.
 global ALLOWED_PREVIOUS_CIRCUITS = [
     BLOCK_ROOT_ROLLUP_INDEX,
     BLOCK_MERGE_ROLLUP_INDEX,
+    BLOCK_ROOT_ROLLUP_EMPTY_INDEX
 ];
 
 pub struct RootRollupInputs {
@@ -25,12 +29,10 @@ impl RootRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].block_root_or_block_merge_public_inputs;
@@ -67,6 +69,7 @@ impl RootRollupInputs {
             out_hash,
             fees,
             vk_tree_root: left.vk_tree_root,
+            protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: self.prover_id,
             blob_public_inputs
         }

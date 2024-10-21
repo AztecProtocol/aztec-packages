@@ -1,6 +1,6 @@
 use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    constants::{BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH},
+    constants::{AZTEC_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH},
     traits::{Empty, Serialize, Deserialize}, utils::reader::Reader, address::EthAddress
 };
 use blob::blob_public_inputs::BlobPublicInputs;
@@ -45,8 +45,9 @@ pub struct BlockRootOrBlockMergePublicInputs {
   start_global_variables: GlobalVariables, // Global variables for the first block in the range
   end_global_variables: GlobalVariables, // Global variables for the last block in the range
   out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
-  fees: [FeeRecipient; 32], // Concatenation of all coinbase and fees for the block range
+  fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
   vk_tree_root: Field, // Root of allowed vk tree
+  protocol_contract_tree_root: Field, // Root of protocol contract tree
   prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
   blob_public_inputs: [BlobPublicInputs; 32] // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
@@ -67,8 +68,9 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             start_global_variables: GlobalVariables::empty(),
             end_global_variables: GlobalVariables::empty(),
             out_hash: 0,
-            fees: [FeeRecipient::empty(); 32],
+            fees: [FeeRecipient::empty(); AZTEC_EPOCH_DURATION],
             vk_tree_root: 0,
+            protocol_contract_tree_root: 0,
             prover_id: 0,
             blob_public_inputs: [BlobPublicInputs::empty(); 32]
         }
@@ -86,6 +88,8 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
             & (self.out_hash == other.out_hash)
             & (self.fees.eq(other.fees))
             & (self.vk_tree_root == other.vk_tree_root)
+            & (self.protocol_contract_tree_root
+                                                == other.protocol_contract_tree_root)
             & (self.prover_id == other.prover_id)
             & (self.blob_public_inputs.eq(other.blob_public_inputs))
     }
@@ -102,10 +106,11 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.extend_from_array(self.start_global_variables.serialize());
         fields.extend_from_array(self.end_global_variables.serialize());
         fields.push(self.out_hash as Field);
-        for i in 0..32 {
+        for i in 0..AZTEC_EPOCH_DURATION {
             fields.extend_from_array(self.fees[i].serialize());
         }
-        fields.push(self.vk_tree_root as Field);
+        fields.push(self.vk_tree_root);
+        fields.push(self.protocol_contract_tree_root);
         fields.push(self.prover_id as Field);
         for i in 0..32 {
             fields.extend_from_array(self.blob_public_inputs[i].serialize());
@@ -127,8 +132,12 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             start_global_variables: reader.read_struct(GlobalVariables::deserialize),
             end_global_variables: reader.read_struct(GlobalVariables::deserialize),
             out_hash: reader.read(),
-            fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
+            fees: reader.read_struct_array(
+                FeeRecipient::deserialize,
+                [FeeRecipient::empty(); AZTEC_EPOCH_DURATION]
+            ),
             vk_tree_root: reader.read(),
+            protocol_contract_tree_root: reader.read(),
             prover_id: reader.read(),
             blob_public_inputs: reader.read_struct_array(
                 BlobPublicInputs::deserialize,

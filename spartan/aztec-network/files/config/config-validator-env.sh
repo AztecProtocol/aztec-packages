@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
 alias aztec='node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js'
 
@@ -17,16 +17,11 @@ outbox_address=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F
 fee_juice_address=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
 fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 
-# Generate a private key for the validator
-json_account=$(aztec generate-l1-account)
+# We assume that there is an env var set for validator keys from the config map
+# We get the index in the config map from the pod name, which will have the validator index within it
 
-echo "$json_account"
-address=$(echo $json_account | jq -r '.address')
-private_key=$(echo $json_account | jq -r '.privateKey')
-
-aztec add-l1-validator --validator $address --rollup $rollup_address
-
-aztec fast-forward-epochs --rollup $rollup_address --count 1
+INDEX=$(echo $POD_NAME | awk -F'-' '{print $NF}')
+private_key=$(jq -r ".[$INDEX]" /app/config/keys.json)
 
 
 # Write the addresses to a file in the shared volume

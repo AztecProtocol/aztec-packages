@@ -7,8 +7,8 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
-  type MerkleTreeAdminOperations,
   MerkleTreeId,
+  type MerkleTreeReadOperations,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
@@ -22,6 +22,7 @@ import {
 import {
   AZTEC_EPOCH_DURATION,
   AztecAddress,
+  type ContractDataSource,
   EthAddress,
   Fr,
   GasFees,
@@ -37,7 +38,6 @@ import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
@@ -55,7 +55,7 @@ describe('sequencer', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let blockBuilder: MockProxy<BlockBuilder>;
-  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -108,6 +108,7 @@ describe('sequencer', () => {
     );
 
     publisher = mock<L1Publisher>();
+    publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
       block.header.globalVariables.slotNumber.toBigInt(),
@@ -116,7 +117,7 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue();
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeAdminOperations>();
+    merkleTreeOps = mock<MerkleTreeReadOperations>();
     blockBuilder = mock<BlockBuilder>();
 
     p2p = mock<P2P>({
@@ -124,7 +125,7 @@ describe('sequencer', () => {
     });
 
     worldState = mock<WorldStateSynchronizer>({
-      getLatest: () => merkleTreeOps,
+      getCommitted: () => merkleTreeOps,
       status: mockFn().mockResolvedValue({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
     });
 

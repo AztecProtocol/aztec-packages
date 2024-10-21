@@ -74,4 +74,13 @@ export class ContentCommitment {
     const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
     return ContentCommitment.fromBuffer(buffer);
   }
+
+  public equals(other: this): boolean {
+    return (
+      this.inHash.equals(other.inHash) &&
+      this.outHash.equals(other.outHash) &&
+      this.numTxs.equals(other.numTxs) &&
+      this.txsEffectsHash.equals(other.txsEffectsHash)
+    );
+  }
 }

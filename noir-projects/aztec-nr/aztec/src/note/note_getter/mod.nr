@@ -222,7 +222,7 @@ unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
 }
 
-unconstrained pub fn view_notes<Note, let N: u32>(
+pub unconstrained fn view_notes<Note, let N: u32>(
     storage_slot: Field,
     options: NoteViewerOptions<Note, N>
 ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> where Note: NoteInterface<N> {

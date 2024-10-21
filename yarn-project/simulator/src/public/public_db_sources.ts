@@ -1,9 +1,18 @@
-import { MerkleTreeId, NullifierMembershipWitness, type Tx } from '@aztec/circuit-types';
+import {
+  MerkleTreeId,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  NullifierMembershipWitness,
+  type Tx,
+} from '@aztec/circuit-types';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
+  type ContractClassPublic,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
   Fr,
   FunctionSelector,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -14,19 +23,13 @@ import {
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   type CommitmentsDB,
   MessageLoadOracleInputs,
   type PublicContractsDB,
   type PublicStateDB,
 } from '@aztec/simulator';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-} from '@aztec/types/contracts';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
@@ -47,7 +50,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   public addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.unencryptedLogs.unrollLogs();
-    ContractClassRegisteredEvent.fromLogs(logs, ClassRegistererAddress).forEach(e => {
+    ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e => {
       this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
       this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
     });
@@ -70,7 +73,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
     const logs = tx.unencryptedLogs.unrollLogs();
-    ContractClassRegisteredEvent.fromLogs(logs, ClassRegistererAddress).forEach(e =>
+    ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e =>
       this.classCache.delete(e.contractClassId.toString()),
     );
     ContractInstanceDeployedEvent.fromLogs(logs).forEach(e => this.instanceCache.delete(e.address.toString()));
@@ -124,7 +127,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
   private publicCheckpointedWriteCache: Map<bigint, Fr> = new Map();
   private publicUncommittedWriteCache: Map<bigint, Fr> = new Map();
 
-  constructor(private db: MerkleTreeOperations, dataSource: ContractDataSource) {
+  constructor(private db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
     super(dataSource);
   }
 
@@ -149,17 +152,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
       return committed;
     }
 
-    const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return Fr.ZERO;
-    }
-
-    const preimage = (await this.db.getLeafPreimage(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      lowLeafResult.index,
-    )) as PublicDataTreeLeafPreimage;
-
-    return preimage.value;
+    return await readPublicState(this.db, contract, slot);
   }
 
   /**
@@ -324,4 +317,20 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     this.publicUncommittedWriteCache = new Map<bigint, Fr>();
     return Promise.resolve();
   }
+}
+
+export async function readPublicState(db: MerkleTreeReadOperations, contract: AztecAddress, slot: Fr): Promise<Fr> {
+  const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+
+  const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+  if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+    return Fr.ZERO;
+  }
+
+  const preimage = (await db.getLeafPreimage(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    lowLeafResult.index,
+  )) as PublicDataTreeLeafPreimage;
+
+  return preimage.value;
 }

@@ -4,11 +4,11 @@ import { type EscrowContract } from './escrow-contract.js';
 import { type TokenContract } from './token-contract.js';
 
 export class BondManager {
-  private logger = createDebugLogger('aztec:prover-node:bond-manager');
+  private readonly logger = createDebugLogger('aztec:prover-node:bond-manager');
 
   constructor(
-    public readonly tokenContract: TokenContract,
-    public readonly escrowContract: EscrowContract,
+    private readonly tokenContract: TokenContract,
+    private readonly escrowContract: EscrowContract,
     /** Minimum escrowed bond. A top-up will be issued once this threshold is hit. */
     public minimumAmount: bigint,
     /** Target escrowed bond. Top-up will target this value. */
@@ -25,7 +25,7 @@ export class BondManager {
 
     try {
       const current = await this.escrowContract.getProverDeposit();
-      if (current > minimum) {
+      if (current >= minimum) {
         this.logger.debug(`Current prover bond ${current} is above minimum ${minimum}`);
         return;
       }

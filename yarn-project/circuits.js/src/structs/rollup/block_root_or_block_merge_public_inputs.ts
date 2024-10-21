@@ -4,6 +4,7 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { BlobPublicInputs } from '../blob_public_inputs.js';
+import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
@@ -44,11 +45,15 @@ export class BlockRootOrBlockMergePublicInputs {
     /**
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
-    public fees: Tuple<FeeRecipient, 32>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
     /**
      * Root of the verification key tree.
      */
     public vkTreeRoot: Fr,
+    /**
+     * Root of the protocol contract tree.
+     */
+    public protocolContractTreeRoot: Fr,
     /**
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
@@ -74,7 +79,8 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
-      reader.readArray(32, FeeRecipient),
+      reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(32, BlobPublicInputs),
@@ -96,6 +102,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.outHash,
       this.fees,
       this.vkTreeRoot,
+      this.protocolContractTreeRoot,
       this.proverId,
       this.blobPublicInputs,
     );

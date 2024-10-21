@@ -35,7 +35,7 @@ build:
     BUILD ../barretenberg/cpp/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+nargo
-    BUILD ../noir-projects/+build
+    BUILD --pass-args ../noir-projects/+build
     BUILD ../l1-contracts/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+packages
@@ -159,7 +159,6 @@ aztec:
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
     RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
     LET port=8080
     ENV PORT=$port
@@ -228,7 +227,6 @@ end-to-end:
 
     COPY +anvil/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
@@ -267,9 +265,6 @@ format-check:
 
 test:
     FROM +build
-
-    RUN mkdir -p /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     RUN yarn test
 
 run-e2e:
@@ -284,9 +279,31 @@ prover-client-test:
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
 
+# NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
+# Running this inside the main builder as the point is not to run this through dockerization.
+network-test-fake-proofs:
+    FROM +build
+    WORKDIR /usr/src/
+    # Bare minimum git setup to run 'git rev-parse --show-toplevel'
+    RUN git init -b master
+    COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
+    WORKDIR /usr/src/yarn-project
+    # All script arguments are in the end-to-end/scripts/native-network folder
+    ENV LOG_LEVEL=verbose
+    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+        ./test-transfer.sh \
+        ./deploy-l1-contracts.sh \
+        ./deploy-l2-contracts.sh \
+        ./boot-node.sh \
+        ./ethereum.sh \
+        "./prover-node.sh 8078 false" \
+        ./pxe.sh \
+        "./validator.sh 8081 40401"
+
 publish-npm:
     FROM +build
     ARG DIST_TAG="latest"
     ARG VERSION
     ARG DRY_RUN=0
-    RUN --secret NPM_TOKEN ./.github/scripts/publish_npm.sh $DIST_TAG $VERSION $DRY_RUN
+    WORKDIR /usr/src/yarn-project
+    RUN --secret NPM_TOKEN ./publish_npm.sh $DIST_TAG $VERSION $DRY_RUN

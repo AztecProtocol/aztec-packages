@@ -14,11 +14,9 @@ import {
   Fr,
   GrumpkinScalar,
   type PXE,
-  SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
@@ -40,13 +38,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import {
-  type SetupOptions,
-  deployCanonicalAuthRegistry,
-  deployCanonicalRouter,
-  getPrivateKeyFromIndex,
-  startAnvil,
-} from './utils.js';
+import { type SetupOptions, getPrivateKeyFromIndex, startAnvil } from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -56,7 +48,7 @@ export type SubsystemsContext = {
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
   deployL1ContractsValues: DeployL1Contracts;
-  proverNode: ProverNode;
+  proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
 };
@@ -251,7 +243,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
-  await context.proverNode.stop();
+  await context.proverNode?.stop();
   await context.aztecNode.stop();
   await context.pxe.stop();
   await context.acvmConfig?.cleanup();
@@ -259,7 +251,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.watcher.stop();
 }
 
-export async function createAndSyncProverNode(
+async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
@@ -281,8 +273,8 @@ export async function createAndSyncProverNode(
     proverNodePollingIntervalMs: 200,
     quoteProviderBasisPointFee: 100,
     quoteProviderBondAmount: 1000n,
-    proverMinimumStakeAmount: 0n,
-    proverTargetStakeAmount: 0n,
+    proverMinimumEscrowAmount: 1000n,
+    proverTargetEscrowAmount: 2000n,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,
@@ -309,7 +301,7 @@ async function setupFromFresh(
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...opts };
+  const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
@@ -367,12 +359,15 @@ async function setupFromFresh(
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
-  logger.verbose('Creating and syncing a simulated prover node...');
-  const proverNode = await createAndSyncProverNode(
-    `0x${proverNodePrivateKey!.toString('hex')}`,
-    aztecNodeConfig,
-    aztecNode,
-  );
+  let proverNode: ProverNode | undefined = undefined;
+  if (opts.startProverNode) {
+    logger.verbose('Creating and syncing a simulated prover node...');
+    proverNode = await createAndSyncProverNode(
+      `0x${proverNodePrivateKey!.toString('hex')}`,
+      aztecNodeConfig,
+      aztecNode,
+    );
+  }
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -380,15 +375,6 @@ async function setupFromFresh(
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
-
-  logger.verbose('Deploying auth registry...');
-  await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-  );
-  logger.verbose('Deploying router...');
-  await deployCanonicalRouter(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-  );
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
@@ -416,7 +402,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Load config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = JSON.parse(
+  const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
     reviver,
   );
@@ -459,11 +445,13 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
-  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-  const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-
-  logger.verbose('Creating and syncing a simulated prover node...');
-  const proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, aztecNodeConfig, aztecNode);
+  let proverNode: ProverNode | undefined = undefined;
+  if (aztecNodeConfig.startProverNode) {
+    logger.verbose('Creating and syncing a simulated prover node...');
+    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
+    proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, aztecNodeConfig, aztecNode);
+  }
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -504,24 +492,23 @@ export const addAccounts =
     ]);
 
     logger.verbose('Simulating account deployment...');
-    const accountManagers = await asyncMap(accountKeys, async ([secretKey, signPk]) => {
-      const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
-      // Unfortunately the function below is not stateless and we call it here because it takes a long time to run and
-      // the results get stored within the account object. By calling it here we increase the probability of all the
-      // accounts being deployed in the same block because it makes the deploy() method basically instant.
-      await account.getDeployMethod().then(d =>
-        d.prove({
+    const provenTxs = await Promise.all(
+      accountKeys.map(async ([secretKey, signPk]) => {
+        const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
+        const deployMethod = await account.getDeployMethod();
+
+        const provenTx = await deployMethod.prove({
           contractAddressSalt: account.salt,
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
-        }),
-      );
-      return account;
-    });
+        });
+        return provenTx;
+      }),
+    );
 
     logger.verbose('Deploying accounts...');
-    const txs = await Promise.all(accountManagers.map(account => account.deploy()));
+    const txs = await Promise.all(provenTxs.map(provenTx => provenTx.send()));
     await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: waitUntilProven })));
 
     return { accountKeys };

@@ -168,11 +168,10 @@ impl TestEnvironment {
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, (), T, Env> {
-        cheatcodes::assert_public_call_fails(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args()
-        );
+        // Public functions are routed through the dispatch function.
+        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
+        let calldata = &[call_interface.get_selector().to_field()].append(call_interface.get_args());
+        cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
     }
 
     unconstrained fn assert_private_call_fails<C, let M: u32, T, Env>(
@@ -191,7 +190,7 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
-    unconstrained pub fn add_note<Note, let N: u32>(
+    pub unconstrained fn add_note<Note, let N: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,

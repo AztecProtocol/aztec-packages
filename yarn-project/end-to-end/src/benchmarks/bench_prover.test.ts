@@ -4,7 +4,7 @@ import { type AccountWallet } from '@aztec/aztec.js/wallet';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
 import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
@@ -60,7 +60,6 @@ describe('benchmarks/proving', () => {
         minTxsPerBlock: 1,
       },
       {},
-      true, // enable gas
     );
 
     schnorrWalletSalt = Fr.random();
@@ -89,7 +88,7 @@ describe('benchmarks/proving', () => {
     )
       .send()
       .deployed();
-    initialGasContract = await FeeJuiceContract.at(FeeJuiceAddress, initialSchnorrWallet);
+    initialGasContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, initialSchnorrWallet);
     initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address).send().deployed();
 
     const feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
@@ -154,7 +153,6 @@ describe('benchmarks/proving', () => {
       await pxe.registerContract(initialTokenContract);
       await pxe.registerContract(initialTestContract);
       await pxe.registerContract(initialFpContract);
-      await pxe.registerContract(initialGasContract);
 
       await pxe.registerRecipient(recipient);
 

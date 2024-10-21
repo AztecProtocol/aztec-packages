@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
-import { getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
+import { type Gas, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import { type BufferCursor } from '../serialization/buffer_cursor.js';
 import { type Serializable } from '../serialization/bytecode_serialization.js';
 import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
@@ -87,7 +87,7 @@ export abstract class Instruction {
    * Computes gas cost for the instruction based on its base cost and memory operations.
    * @returns Gas cost.
    */
-  protected gasCost(dynMultiplier: number = 0) {
+  protected gasCost(dynMultiplier: number = 0): Gas {
     const baseGasCost = getBaseGasCost(this.opcode);
     const dynGasCost = mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
     return sumGas(baseGasCost, dynGasCost);

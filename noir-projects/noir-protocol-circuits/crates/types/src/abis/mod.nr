@@ -27,10 +27,10 @@ mod validation_requests;
 
 mod max_block_number;
 
-mod private_kernel;
-mod kernel_circuit_public_inputs;
+pub mod private_kernel;
+pub mod kernel_circuit_public_inputs;
 mod kernel_data;
-mod private_kernel_data;
+pub mod private_kernel_data;
 mod public_kernel_data;
 mod public_kernel_inner_data;
 
@@ -46,7 +46,7 @@ mod enqueued_call_data;
 mod public_call_data;
 
 mod public_circuit_public_inputs;
-mod private_circuit_public_inputs;
+pub mod private_circuit_public_inputs;
 
 mod sponge_blob;
 

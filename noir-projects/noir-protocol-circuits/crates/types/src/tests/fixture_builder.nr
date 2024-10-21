@@ -40,7 +40,7 @@ use crate::{
     MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
     MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
-    PUBLIC_CALL_REQUEST_LENGTH
+    PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
@@ -49,9 +49,14 @@ use crate::{
 },
     header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    partial_state_reference::PartialStateReference, tests::fixtures,
+    partial_state_reference::PartialStateReference,
+    tests::{fixtures, fixtures::{contracts::ContractData, contract_functions::ContractFunction}},
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}, point::Point
+    recursion::{
+    verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
+    proof::NestedRecursiveProof
+},
+    point::Point
 };
 
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
@@ -146,10 +151,15 @@ pub struct FixtureBuilder {
 
     // Proof.
     proof: NestedRecursiveProof,
-    vk: VerificationKey,
+    honk_vk: HonkVerificationKey,
+    client_ivc_vk: ClientIVCVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     vk_tree_root: Field,
+
+    // Protocol contracts.
+    protocol_contract_tree_root: Field,
+    protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -171,25 +181,15 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
-        let contract_data = fixtures::contracts::default_contract;
-        let contract_function = fixtures::contract_functions::default_private_function;
-        let contract_address = contract_data.address;
-
         builder.tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::empty() };
-        builder.contract_address = contract_address;
-        builder.storage_contract_address = contract_address;
         builder.msg_sender = fixtures::contracts::parent_contract.address;
-        builder.function_data = contract_function.data;
-        builder.function_leaf_membership_witness = contract_function.membership_witness;
-        builder.salted_initialization_hash = contract_data.salted_initialization_hash;
-        builder.public_keys_hash = contract_data.public_keys_hash;
-        builder.contract_class_artifact_hash = contract_data.artifact_hash;
-        builder.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
-        builder.acir_hash = contract_function.acir_hash;
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
 
-        builder
+        let contract_data = fixtures::contracts::default_contract;
+        let contract_function = fixtures::contract_functions::default_private_function;
+
+        builder.use_contract(contract_data).use_function(contract_function)
     }
 
     pub fn as_parent_contract(&mut self) -> Self {
@@ -204,12 +204,53 @@ impl FixtureBuilder {
         let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
 
         let vk_hash = vk_tree.leaves[vk_index];
-        self.vk.hash = vk_hash;
+        self.honk_vk.hash = vk_hash;
+        self.client_ivc_vk.hash = vk_hash;
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
 
         self.vk_tree_root = vk_tree.get_root();
 
+        *self
+    }
+
+    pub fn set_protocol_contract_root(&mut self) {
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        self.protocol_contract_tree_root = tree.get_root();
+    }
+
+    pub fn use_protocol_contract(&mut self) -> Self {
+        let contract_index = 1;
+
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        self.protocol_contract_tree_root = tree.get_root();
+        self.protocol_contract_sibling_path = tree.get_sibling_path(contract_index);
+
+        let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
+        let function_data = fixtures::contract_functions::get_protocol_contract_function(contract_index);
+
+        let _ = self.use_contract(contract_data);
+        self.contract_address = AztecAddress::from_field(contract_index as Field);
+        self.storage_contract_address = self.contract_address;
+
+        self.use_function(function_data)
+    }
+
+    pub fn use_contract(&mut self, contract_data: ContractData) -> Self {
+        self.contract_address = contract_data.address;
+        self.storage_contract_address = self.contract_address;
+        self.salted_initialization_hash = contract_data.salted_initialization_hash;
+        self.public_keys_hash = contract_data.public_keys_hash;
+        self.contract_class_artifact_hash = contract_data.artifact_hash;
+        self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
+
+        *self
+    }
+
+    pub fn use_function(&mut self, function_data: ContractFunction) -> Self {
+        self.function_data = function_data.data;
+        self.function_leaf_membership_witness = function_data.membership_witness;
+        self.acir_hash = function_data.acir_hash;
         *self
     }
 
@@ -242,6 +283,7 @@ impl FixtureBuilder {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables
         }
     }
@@ -316,12 +358,13 @@ impl FixtureBuilder {
     pub fn to_private_call_data(self) -> PrivateCallData {
         PrivateCallData {
             call_stack_item: self.to_private_call_stack_item(),
-            vk: self.vk,
+            vk: self.client_ivc_vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
             public_keys_hash: self.public_keys_hash,
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
+            protocol_contract_sibling_path: self.protocol_contract_sibling_path,
             acir_hash: self.acir_hash
         }
     }
@@ -440,7 +483,7 @@ impl FixtureBuilder {
 
     pub fn to_private_kernel_data(self) -> PrivateKernelData {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
-        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PrivateKernelData { public_inputs, vk: self.client_ivc_vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_circuit_public_inputs(self) -> PublicCircuitPublicInputs {
@@ -549,7 +592,7 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.honk_vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
@@ -576,7 +619,7 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: self.vk,
+            vk: self.honk_vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -1227,10 +1270,13 @@ impl Empty for FixtureBuilder {
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            honk_vk: VerificationKey::empty(),
+            client_ivc_vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
             vk_tree_root: FixtureBuilder::vk_tree_root(),
+            protocol_contract_tree_root: 0,
+            protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

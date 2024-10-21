@@ -3,6 +3,7 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { BlobPublicInputs } from '../blob_public_inputs.js';
+import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
@@ -95,8 +96,9 @@ export class RootRollupPublicInputs {
     public endTimestamp: Fr,
     public endBlockNumber: Fr,
     public outHash: Fr,
-    public fees: Tuple<FeeRecipient, 32>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
     public vkTreeRoot: Fr,
+    public protocolContractTreeRoot: Fr,
     public proverId: Fr,
     public blobPublicInputs: Tuple<BlobPublicInputs, 32>,
   ) {}
@@ -112,6 +114,7 @@ export class RootRollupPublicInputs {
       fields.outHash,
       fields.fees,
       fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
       fields.proverId,
       fields.blobPublicInputs,
     ] as const;
@@ -144,7 +147,8 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(32, FeeRecipient),
+      reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(32, BlobPublicInputs),

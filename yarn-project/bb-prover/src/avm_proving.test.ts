@@ -1,5 +1,13 @@
-import { AvmCircuitInputs, AvmVerificationKeyData, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import {
+  AvmCircuitInputs,
+  FunctionSelector,
+  Gas,
+  GlobalVariables,
+  PublicKeys,
+  SerializableContractInstance,
+  VerificationKeyData,
+} from '@aztec/circuits.js';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
@@ -9,7 +17,6 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -64,7 +71,12 @@ const proveAndVerifyAvmTestContract = async (
     deployer: new Fr(0x456),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
-    publicKeysHash: new Fr(0x161718),
+    publicKeys: new PublicKeys(
+      new Point(new Fr(0x131415), new Fr(0x161718), false),
+      new Point(new Fr(0x192021), new Fr(0x222324), false),
+      new Point(new Fr(0x252627), new Fr(0x282930), false),
+      new Point(new Fr(0x313233), new Fr(0x343536), false),
+    ),
   }).withAddress(environment.address);
   worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
 
@@ -125,7 +137,7 @@ const proveAndVerifyAvmTestContract = async (
   // Then we test VK extraction and serialization.
   const succeededRes = proofRes as BBSuccess;
   const vkData = await extractAvmVkData(succeededRes.vkPath!);
-  AvmVerificationKeyData.fromBuffer(vkData.toBuffer());
+  VerificationKeyData.fromBuffer(vkData.toBuffer());
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');

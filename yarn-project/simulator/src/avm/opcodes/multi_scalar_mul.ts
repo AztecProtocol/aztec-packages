@@ -16,10 +16,10 @@ export class MultiScalarMul extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8 /* opcode */,
     OperandType.UINT8 /* indirect */,
-    OperandType.UINT32 /* points vector offset */,
-    OperandType.UINT32 /* scalars vector offset */,
-    OperandType.UINT32 /* output offset (fixed triplet) */,
-    OperandType.UINT32 /* points length offset */,
+    OperandType.UINT16 /* points vector offset */,
+    OperandType.UINT16 /* scalars vector offset */,
+    OperandType.UINT16 /* output offset (fixed triplet) */,
+    OperandType.UINT16 /* points length offset */,
   ];
 
   constructor(
@@ -69,10 +69,8 @@ export class MultiScalarMul extends Instruction {
     // Now we need to reconstruct the points and scalars into something we can operate on.
     const grumpkinPoints: Point[] = [];
     for (let i = 0; i < numPoints; i++) {
-      const p: Point = new Point(pointsVector[3 * i].toFr(), pointsVector[3 * i + 1].toFr(), false);
-      // Include this later when we have a standard for representing infinity
-      // const isInf = pointsVector[i + 2].toBoolean();
-
+      const isInf = pointsVector[3 * i + 2].toNumber() === 1;
+      const p: Point = new Point(pointsVector[3 * i].toFr(), pointsVector[3 * i + 1].toFr(), isInf);
       if (!p.isOnGrumpkin()) {
         throw new InstructionExecutionError(`Point ${p.toString()} is not on the curve.`);
       }
@@ -93,10 +91,20 @@ export class MultiScalarMul extends Instruction {
     const [firstBaseScalarPair, ...rest]: Array<[Point, Fq]> = grumpkinPoints.map((p, idx) => [p, scalarFqVector[idx]]);
     // Fold the points and scalars into a single point
     // We have to ensure get the first point, since the identity element (point at infinity) isn't quite working in ts
-    const outputPoint = rest.reduce(
-      (acc, curr) => grumpkin.add(acc, grumpkin.mul(curr[0], curr[1])),
-      grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]),
-    );
+    const outputPoint = rest.reduce((acc, curr) => {
+      if (curr[1] === Fq.ZERO) {
+        // If we multiply by 0, the result will the point at infinity - so we ignore it
+        return acc;
+      } else if (curr[0].inf) {
+        // If we multiply the point at infinity by a scalar, it's still the point at infinity
+        return acc;
+      } else if (acc.inf) {
+        // If we accumulator is the point at infinity, we can just return the current point
+        return curr[0];
+      } else {
+        return grumpkin.add(acc, grumpkin.mul(curr[0], curr[1]));
+      }
+    }, grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]));
     const output = outputPoint.toFields().map(f => new Field(f));
 
     memory.setSlice(outputOffset, output);

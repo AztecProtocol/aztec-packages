@@ -220,8 +220,8 @@ export async function retrieveL1ToL2Messages(
     }
 
     for (const log of messageSentLogs) {
-      const { l2BlockNumber, index, hash } = log.args;
-      retrievedL1ToL2Messages.push(new InboxLeaf(l2BlockNumber!, index!, Fr.fromString(hash!)));
+      const { index, hash } = log.args;
+      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromString(hash!)));
     }
 
     // handles the case when there are no new messages:

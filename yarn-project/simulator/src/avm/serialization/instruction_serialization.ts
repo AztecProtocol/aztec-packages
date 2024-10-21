@@ -55,7 +55,6 @@ export enum Opcode {
   SET_FF,
   MOV_8,
   MOV_16,
-  CMOV,
   // World state
   SLOAD,
   SSTORE,
@@ -159,7 +158,7 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
-  if (cursor instanceof Buffer) {
+  if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 
