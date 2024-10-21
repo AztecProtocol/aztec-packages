@@ -27,6 +27,11 @@ bool check_in_vector(const std::vector<field_pt>& input_vector, const uint32_t& 
     return false;
 }
 
+/**
+ * @brief this test checks graph description of circuit for AES128CBC
+ * graph must be consist from one connected component
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_aes_64_bytes)
 {
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
@@ -65,6 +70,12 @@ TEST(ultra_circuit_constructor, test_graph_for_aes_64_bytes)
     bool graph_result = num_connected_components == 1;
     EXPECT_EQ(graph_result, true);
 }
+
+/**
+ * @brief this test checks variables gate counts for variables in circuit for AES128CBC
+ * Some variables can be from input/output vectors, or they are key and iv, and they have variable
+ * gates count = 1, because it's the circuit for test. So, we can ignore these variables
+ */
 
 TEST(ultra_circuit_constructor, test_variable_gates_count_for_aes128cbc)
 {
@@ -106,9 +117,6 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_aes128cbc)
         bool result2 = check_in_vector(result, elem);
         bool check =
             (result1 == 1) || (result2 == 1) || (elem == key_field.witness_index) || (elem == iv_field.witness_index);
-        if (check == false) {
-            info("elem == ", elem);
-        }
         EXPECT_EQ(check, true);
     }
 }

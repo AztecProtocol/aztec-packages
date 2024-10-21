@@ -12,10 +12,13 @@
 
 using namespace bb;
 
+/**
+ * @brief this test checks graph description of the circuit with arithmetic gates
+    the number of connected components = the number of pair (i, j), 0<=i, j <16, i.e 256
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 {
-    // this test checks graph description for the circuit with arithmetic gates
-    // the number of connected components = the number of pair (i, j), 0<=i, j <16, i.e 256
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
     for (size_t i = 0; i < 16; ++i) {
@@ -40,6 +43,11 @@ TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates)
     bool result = num_connected_components == 256;
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief This test checks graph description of Ultra Circuit Builder with arithmetic gates with shifts
+ * It must be one connected component, cause all gates have shifts
+ */
 
 TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_shifts)
 {
@@ -66,11 +74,13 @@ TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_shifts)
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test checks graph description of the circuit with boolean gates.
+    all variables must be isolated and the number of connected components = 0, all variables in one gate
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_boolean_gates)
 {
-    // this test checks graph description for the circuit with boolean gates.
-    //  all variables must be isolated and the number of connected components = 0
-    //  and variables in one gate = 20.
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
     for (size_t i = 0; i < 20; ++i) {
@@ -88,11 +98,14 @@ TEST(ultra_circuit_constructor, test_graph_for_boolean_gates)
     EXPECT_EQ(variables_in_one_gate.size(), 20);
 }
 
+/**
+ * @brief  this test checks graph decription for the circuit with one elliptic addition gate.
+ *  The result is one connected component for 6 variables:
+ *  x1, y1, x2, y2, x3, y3
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
 {
-    // this test checks graph decription for the circuit with one elliptic addition gate.
-    // The result is one connected component for 6 variables:
-    // x1, y1, x2, y2, x3, y3
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -118,11 +131,14 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test checks graph description of the circuit with one elliptic double gate.
+   The result is one connected component for 4 variables:
+   x1, y1, x3, y3
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
 {
-    // this test checks graph description for the circuit with one elliptic double gate.
-    // The result is one connected component for 4 variables:
-    // x1, y1, x3, y3
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -144,12 +160,15 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test checks the graph description of the circuit has elliptic addition and multiplication
+   gates together. The result is 2 connected components:
+   x1, y1, x2, y2, x3, y3, x4, y4
+   x5, y5, x6, y6, x7, y7, x8, y8
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_elliptic_together)
 {
-    // this test checks the graph description for the circuit has elliptic addition and multiplication
-    // gates together. The result is 2 connected components:
-    // x1, y1, x2, y2, x3, y3, x4, y4
-    // x5, y5, x6, y6, x7, y7, x8, y8
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
     typedef grumpkin::g1::affine_element affine_element;
@@ -196,11 +215,14 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_together)
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test check graph description of the circuit with 2 sort_constraint. The result is 2 connected components:
+   a_idx, b_idx, c_idx, d_idx
+   e_idx, f_idx, g_idx, h_idx
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_sort_constraints)
 {
-    // this test check graph description for the circuit with 2 sort_constraint. The result is 2 connected components:
-    // a_idx, b_idx, c_idx, d_idx
-    // e_idx, f_idx, g_idx, h_idx
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     fr a = fr::one();
     fr b = fr(2);
@@ -230,12 +252,15 @@ TEST(ultra_circuit_constructor, test_graph_for_sort_constraints)
     EXPECT_EQ(connected_components.size(), 2);
 }
 
+/**
+ * @brief this test checks graph description of the circuit with 2 sorted_constraints with edges.
+    The result is 2 connected components:
+    a_idx, b_idx, ... , h_idx
+    a1_idx, b1_idx, ..., h1_idx
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_sort_constraints_with_edges)
 {
-    // this test checks graph description for the circuit with 2 sorted_constraints with edges.
-    // The result is 2 connected components:
-    // a_idx, b_idx, ... , h_idx
-    // a1_idx, b1_idx, ..., h1_idx
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -284,10 +309,13 @@ TEST(ultra_circuit_constructor, test_graph_for_sort_constraints_with_edges)
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test checks graph decription for circuit with gates that were created from plookup accumulators
+   the result is one connected component
+ */
+
 TEST(ultra_circuit_constructor, test_graph_with_plookup_accumulators)
 {
-    // this test checks graph decription for circuit with grate that were created from plookup accumulators
-    // the result is one connected component
     UltraCircuitBuilder circuit_builder = UltraCircuitBuilder();
 
     fr input_value = fr::random_element();
@@ -309,6 +337,11 @@ TEST(ultra_circuit_constructor, test_graph_with_plookup_accumulators)
     bool result = num_connected_components == 1;
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief this test checks variable gates counts for variable from arithmetic gates without shifts
+    in circuit
+ */
 
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate)
 {
@@ -337,6 +370,12 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate)
     }
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief this test checks variables gates count for variable in circuit with gates with shifts.
+ * All variables except for zero index, which index == 0 mod 4 and index != 4 have gates count == 2.
+ * Other variables have gates count = 1.
+ */
 
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate_with_shifts)
 {
@@ -370,6 +409,11 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate_
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test checks variables gates count for variables in circuit with boolean gates
+ * all variables except for zero index must have gates count = 1.
+ */
+
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_boolean_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -388,6 +432,11 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_boolean_gates)
     }
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief this test checks variables gate counts in circuit with sorted constraints.
+ * all variables in 2 connected components must have gates count = 1
+ */
 
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints)
 {
@@ -426,6 +475,11 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constrain
     }
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief this test checks variable gates count for variables in circuit with sorted constraints with edges
+ * all variables in 2 connected components must have gates count = 1
+ */
 
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints_with_edges)
 {
@@ -485,6 +539,11 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constrain
     EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief this test checks variables gates count for variables in circuit with 1 elliptic addition gates
+ * all variables in connected components must have gates count = 1
+ */
+
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_ecc_add_gates)
 {
     typedef grumpkin::g1::affine_element affine_element;
@@ -517,6 +576,11 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_ecc_add_gates)
     EXPECT_EQ(connected_components.size(), 1);
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief this test checks variables gates count for variables in circuit with 1 elliptic double gates
+ * all variables in connected components must have gates count = 1.
+ */
 
 TEST(ultra_circuit_constructor, test_variables_gates_counts_for_ecc_dbl_gate)
 {
@@ -556,6 +620,11 @@ std::vector<uint32_t> add_variables(UltraCircuitBuilder& circuit_constructor, st
     return res;
 }
 
+/**
+ * @brief this test checks graph description of circuit with range constraints.
+ * all variables must be in one connected component.
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_range_constraints)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -568,6 +637,11 @@ TEST(ultra_circuit_constructor, test_graph_for_range_constraints)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
 }
+
+/**
+ * @brief this checks graph description of circuit with decompose function.
+ * all variables must be in one connected component
+ */
 
 TEST(ultra_circuit_constructor, composed_range_constraint)
 {

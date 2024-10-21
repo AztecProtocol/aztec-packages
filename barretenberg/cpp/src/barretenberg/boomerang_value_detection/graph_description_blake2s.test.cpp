@@ -19,6 +19,11 @@ using byte_array_ct = byte_array<Builder>;
 using byte_array_plookup = byte_array<Builder>;
 using public_witness_t = public_witness_t<Builder>;
 
+/**
+ * @brief this tests check graph description of circuit for blake2s for one and two blocks.
+ * all graphs must have one connected component.
+ */
+
 TEST(ultra_circuit_constructor, test_graph_for_blake2s_single_block_plookup)
 {
     Builder builder;

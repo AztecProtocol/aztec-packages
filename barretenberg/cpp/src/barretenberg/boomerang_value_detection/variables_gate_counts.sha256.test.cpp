@@ -49,6 +49,12 @@ bool check_in_range_lists(const uint32_t& real_var_index, const uint64_t& target
     return false;
 }
 
+/**
+ * @brief all these tests check circuits for sha256 NIST VECTORS to find variables that won't properly constrained,
+ * i.e. have variable gates count = 1. Some variables can be from input/output vectors or from range_constraints,
+ * and they are not dangerous.
+ */
+
 TEST(ultra_circuit_constructor, test_variables_gate_counts_for_sha256_55_bytes)
 {
     // 55 bytes is the largest number of bytes that can be hashed in a single block,

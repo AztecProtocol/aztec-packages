@@ -16,6 +16,11 @@ using byte_array_plookup = stdlib::byte_array<bb::UltraCircuitBuilder>;
 using public_witness_t_plookup = stdlib::public_witness_t<bb::UltraCircuitBuilder>;
 using UltraBuilder = UltraCircuitBuilder;
 
+/**
+ * @brief this tests check that graph description of circuit for blake3s for different blocks.
+ * All graphs must have one connected component
+ */
+
 TEST(stdlib_blake3s, test_single_block_plookup)
 {
     auto builder = UltraBuilder();

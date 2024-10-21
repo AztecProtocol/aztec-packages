@@ -21,6 +21,10 @@ using byte_array_ct = byte_array<Builder>;
 using packed_byte_array_ct = packed_byte_array<Builder>;
 using field_ct = field_t<Builder>;
 
+/**
+ all these tests check graph description for sha256 circuits. All circuits have to consist from 1 connected component
+ */
+
 TEST(ultra_circuit_constructor, test_sha256_55_bytes)
 {
     // 55 bytes is the largest number of bytes that can be hashed in a single block,

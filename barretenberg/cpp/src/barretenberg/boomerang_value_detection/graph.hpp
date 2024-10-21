@@ -30,7 +30,10 @@ template <typename FF> class Graph_ {
                                                                   size_t index);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
-    std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index);
+    std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
+    {
+        return variable_adjacency_lists[variable_index];
+    };
 
     void depth_first_search(const uint32_t& variable_index,
                             std::unordered_set<uint32_t>& is_used,
@@ -89,9 +92,13 @@ template <typename FF> class Graph_ {
     ~Graph_() = default;
 
   private:
-    std::unordered_map<uint32_t, std::vector<uint32_t>> variable_adjacency_lists;
-    std::unordered_map<uint32_t, size_t> variables_gate_counts;
-    std::unordered_map<uint32_t, size_t> variables_degree;
+    std::unordered_map<uint32_t, std::vector<uint32_t>>
+        variable_adjacency_lists; // we use this data structure to contain information about variables and their
+                                  // connections between each other
+    std::unordered_map<uint32_t, size_t>
+        variables_gate_counts; // we use this data structure to count, how many gates used every variable
+    std::unordered_map<uint32_t, size_t>
+        variables_degree; // we use this data structure to count, how many edges have every variable
 };
 
 using Graph = Graph_<bb::fr>;
