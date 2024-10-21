@@ -95,8 +95,8 @@ BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
         ./ethereum.sh \
         \"./prover-node.sh 8078 false\" \
         ./pxe.sh \
-        ./transaction-bot.sh" \
-        "./validators.sh $NUM_VALIDATORS"
+        ./transaction-bot.sh \
+        \"./validators.sh $NUM_VALIDATORS\""
 
 # Execute the command
 eval $BASE_CMD
