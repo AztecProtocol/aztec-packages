@@ -1,5 +1,6 @@
 use dep::protocol_types::{
     traits::{Deserialize, Serialize}, address::AztecAddress,
+    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH},
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     contract_instance::ContractInstance
 };
@@ -7,12 +8,11 @@ use dep::protocol_types::{
 use crate::context::inputs::PrivateContextInputs;
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
-use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
 use crate::oracle::{execution::{get_block_number, get_contract_address}};
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
-unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
+pub unconstrained fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
     for nullifier in public_inputs.nullifiers {
         if nullifier.value != 0 {
@@ -36,7 +36,7 @@ pub struct Deployer<let N: u32, let M: u32> {
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
-    unconstrained pub fn with_private_initializer<C, let P: u32, Env>(
+    pub unconstrained fn with_private_initializer<C, let P: u32, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -66,7 +66,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    unconstrained pub fn with_public_initializer<C, let P: u32, T, Env>(
+    pub unconstrained fn with_public_initializer<C, let P: u32, T, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P, (), T, Env> {
@@ -102,7 +102,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    unconstrained pub fn without_initializer(self) -> ContractInstance {
+    pub unconstrained fn without_initializer(self) -> ContractInstance {
         cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
     }
 }

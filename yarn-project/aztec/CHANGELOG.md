@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.57.0...aztec-package-v0.58.0) (2024-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* protocol contracts ([#9025](https://github.com/AztecProtocol/aztec-packages/issues/9025))
+
+### Features
+
+* Modify contract instance to include public keys ([#9153](https://github.com/AztecProtocol/aztec-packages/issues/9153)) ([17c6127](https://github.com/AztecProtocol/aztec-packages/commit/17c612740dc3563321bf69c1760de1ef88b22124))
+* Native tmux-based network e2e ([#9036](https://github.com/AztecProtocol/aztec-packages/issues/9036)) ([f9fc73a](https://github.com/AztecProtocol/aztec-packages/commit/f9fc73a40f5b9d11ad92a6cee3e29d3fcc80425e))
+* Protocol contracts ([#9025](https://github.com/AztecProtocol/aztec-packages/issues/9025)) ([f3bcff0](https://github.com/AztecProtocol/aztec-packages/commit/f3bcff0c0943d190261de366301ed8f9267543f3))
+* World state synchronizer reorgs ([#9091](https://github.com/AztecProtocol/aztec-packages/issues/9091)) ([ba63b43](https://github.com/AztecProtocol/aztec-packages/commit/ba63b43c6e5c09ecda0ed94bdd3b875546400d27))
+
+
+### Miscellaneous
+
+* Added healthcheck and startup check ([#9112](https://github.com/AztecProtocol/aztec-packages/issues/9112)) ([ffa012f](https://github.com/AztecProtocol/aztec-packages/commit/ffa012ffb1d0e72ddab68c066ca9e923bd1c0c2b))
+* Default logging level to debug if debug set ([#9173](https://github.com/AztecProtocol/aztec-packages/issues/9173)) ([febf744](https://github.com/AztecProtocol/aztec-packages/commit/febf7449c80ffe44eaadb88c088e35fa419ed443))
+* Rename some prover env vars ([#9032](https://github.com/AztecProtocol/aztec-packages/issues/9032)) ([e27ead8](https://github.com/AztecProtocol/aztec-packages/commit/e27ead85403d3f21ebc406e7d1a7e18190085603))
+
 ## [0.57.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.56.0...aztec-package-v0.57.0) (2024-10-07)
 
 

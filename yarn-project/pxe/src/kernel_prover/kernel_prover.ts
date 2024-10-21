@@ -9,6 +9,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Fr,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
@@ -40,7 +41,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-  verificationKey: VerificationKeyAsFields.makeEmpty(),
+  verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   outputWitness: new Map(),
   bytecode: Buffer.from([]),
 };
@@ -207,7 +208,7 @@ export class KernelProver {
       contractAddress,
       functionData.selector,
     );
-    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
       contractAddress,
     );
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
@@ -224,7 +225,7 @@ export class KernelProver {
     return PrivateCallData.from({
       callStackItem,
       vk,
-      publicKeysHash,
+      publicKeysHash: publicKeys.hash(),
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,

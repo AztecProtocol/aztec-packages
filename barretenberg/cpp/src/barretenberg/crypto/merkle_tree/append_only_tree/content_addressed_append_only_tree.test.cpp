@@ -1,6 +1,7 @@
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "../fixtures.hpp"
 #include "../memory_tree.hpp"
+#include "../test_fixtures.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
@@ -13,12 +14,16 @@
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "gtest/gtest.h"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 using namespace bb;
@@ -61,7 +66,19 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
     signal.wait_for_level();
 }
 
-void check_unfinalised_block_height(TreeType& tree, index_t expected_block_height)
+void check_finalised_block_height(TreeType& tree, index_t expected_finalised_block)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_finalised_block);
+        signal.signal_level();
+    };
+    tree.get_meta_data(false, completion);
+    signal.wait_for_level();
+}
+
+void check_block_height(TreeType& tree, index_t expected_block_height)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
@@ -106,12 +123,15 @@ void check_sibling_path(TreeType& tree,
 void check_historic_sibling_path(TreeType& tree,
                                  index_t index,
                                  fr_sibling_path expected_sibling_path,
-                                 index_t blockNumber)
+                                 index_t blockNumber,
+                                 bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
-        EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.path, expected_sibling_path);
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.path, expected_sibling_path);
+        }
         signal.signal_level();
     };
     tree.get_sibling_path(index, blockNumber, completion, false);
@@ -140,6 +160,28 @@ void rollback_tree(TreeType& tree)
     signal.wait_for_level();
 }
 
+void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.remove_historic_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
+void unwind_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.unwind_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
 void add_value(TreeType& tree, const fr& value)
 {
     Signal signal;
@@ -161,6 +203,20 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     };
 
     tree.add_values(values, completion);
+    signal.wait_for_level();
+}
+
+void finalise_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (!response.success && expected_success) {
+            std::cout << response.message << std::endl;
+        }
+        signal.signal_level();
+    };
+    tree.finalise_block(blockNumber, completion);
     signal.wait_for_level();
 }
 
@@ -275,13 +331,15 @@ void check_historic_leaf(TreeType& tree,
 
 void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_path sibling_path)
 {
-    fr left, right, hash = node;
-    for (size_t i = 0; i < sibling_path.size(); ++i) {
+    fr left;
+    fr right;
+    fr hash = node;
+    for (const auto& i : sibling_path) {
         if (index % 2 == 0) {
             left = hash;
-            right = sibling_path[i];
+            right = i;
         } else {
-            left = sibling_path[i];
+            left = i;
             right = hash;
         }
 
@@ -306,6 +364,45 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create)
 
     check_size(tree, 0);
     check_root(tree, memdb.root());
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, committing_with_no_changes_should_succeed)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    EXPECT_NO_THROW(Store store(name, depth, db));
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    add_value(tree, VALUES[0]);
+    memdb.update_element(0, VALUES[0]);
+
+    commit_tree(tree, true);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+    commit_tree(tree, true);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+    // rollbacks should do nothing
+    rollback_tree(tree);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
+    add_value(tree, VALUES[1]);
+
+    // committed should be the same
+    check_root(tree, memdb.root(), false);
+    check_size(tree, 1, false);
+
+    // rollback
+    rollback_tree(tree);
+    // commit should do nothing
+    commit_tree(tree, true);
+    check_root(tree, memdb.root());
+    check_size(tree, 1, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
@@ -372,13 +469,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 {
     // We use a deep tree with a small amount of storage (100 * 1024) bytes
     constexpr size_t depth = 16;
-    constexpr uint32_t numDbs = 4;
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
 
     {
-        auto environment = std::make_unique<LMDBEnvironment>(directory, 50, numDbs, 2);
         LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 50, _maxReaders);
         std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
@@ -438,7 +533,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
     }
 
     {
-        auto environment = std::make_unique<LMDBEnvironment>(directory, 500, numDbs, 2);
         LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 500, _maxReaders);
         std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
@@ -507,6 +601,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
 
         // commit the changes
         commit_tree(tree);
+
+        check_block_and_root_data(db, 1, memdb.root(), true);
         // now committed and uncommitted should be the same
 
         // check uncommitted state
@@ -532,6 +628,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
         check_size(tree, 1);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+
+        check_block_and_root_data(db, 1, memdb.root(), true);
 
         // check committed state
         check_size(tree, 1, false);
@@ -710,7 +808,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
 
     auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
         check_size(tree, expected_size);
-        check_unfinalised_block_height(tree, expected_unfinalised_block_height);
+        check_block_height(tree, expected_unfinalised_block_height);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
@@ -731,6 +829,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
         check(expected_size, i);
         commit_tree(tree);
         check(expected_size, i + 1);
+        check_block_and_root_data(db, 1 + i, memdb.root(), true);
     }
 }
 
@@ -746,7 +845,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_varying_size_blocks)
 
     auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
         check_size(tree, expected_size);
-        check_unfinalised_block_height(tree, expected_unfinalised_block_height);
+        check_block_height(tree, expected_unfinalised_block_height);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
@@ -768,6 +867,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_varying_size_blocks)
         check(expected_size, i);
         commit_tree(tree);
         check(expected_size, i + 1);
+        check_block_and_root_data(db, 1 + i, memdb.root(), true);
     }
 }
 
@@ -789,7 +889,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
 
     auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
         check_size(tree, expected_size);
-        check_unfinalised_block_height(tree, expected_unfinalised_block_height);
+        check_block_height(tree, expected_unfinalised_block_height);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
@@ -1043,6 +1143,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
 
     commit_tree(tree1);
 
+    check_block_and_root_data(db, 1, memdb.root(), true);
+
     fr_sibling_path block1SiblingPathIndex3 = memdb.get_sibling_path(3);
 
     values = { 15, 18, 26, 2 };
@@ -1052,6 +1154,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     }
 
     commit_tree(tree1);
+
+    check_block_and_root_data(db, 2, memdb.root(), true);
 
     fr block2Root = memdb.root();
 
@@ -1065,6 +1169,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     }
 
     commit_tree(tree1);
+
+    check_block_and_root_data(db, 3, memdb.root(), true);
 
     fr_sibling_path block3SiblingPathIndex11 = memdb.get_sibling_path(11);
     fr_sibling_path block3SiblingPathIndex7 = memdb.get_sibling_path(7);
@@ -1104,8 +1210,579 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     check_find_historic_leaf_index_from(treeAtBlock2, 1, 18, 3, 0, false, false);
     check_find_historic_leaf_index_from(treeAtBlock2, 1, 20, 0, 2, true, false);
 
-    check_unfinalised_block_height(treeAtBlock2, 2);
+    check_block_height(treeAtBlock2, 2);
 
     // It should be impossible to commit using the image
     commit_tree(treeAtBlock2, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_data)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    constexpr uint32_t numBlocks = 50;
+    constexpr uint32_t batchSize = 16;
+    constexpr uint32_t windowSize = 8;
+
+    std::vector<fr_sibling_path> historicPathsZeroIndex;
+    std::vector<fr_sibling_path> historicPathsMaxIndex;
+    std::vector<fr> roots;
+
+    auto check = [&](index_t expectedSize, index_t expectedBlockHeight) {
+        check_size(tree, expectedSize);
+        check_block_height(tree, expectedBlockHeight);
+        check_root(tree, memdb.root());
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, expectedSize - 1, memdb.get_sibling_path(expectedSize - 1));
+
+        for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
+            // retrieving historic data should fail if the block is outside of the window
+            const index_t blockNumber = i + 1;
+            const bool expectedSuccess =
+                expectedBlockHeight <= windowSize || blockNumber > (expectedBlockHeight - windowSize);
+            check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], blockNumber, expectedSuccess);
+            index_t maxSizeAtBlock = ((i + 1) * batchSize) - 1;
+            check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], blockNumber, expectedSuccess);
+
+            const index_t leafIndex = 6;
+            check_historic_leaf(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index_from(tree, blockNumber, VALUES[leafIndex], 0, leafIndex, expectedSuccess);
+        }
+    };
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batchSize; ++j) {
+            size_t ind = i * batchSize + j;
+            memdb.update_element(ind, VALUES[ind]);
+            to_add.push_back(VALUES[ind]);
+        }
+        index_t expected_size = (i + 1) * batchSize;
+        add_values(tree, to_add);
+        check(expected_size, i);
+        commit_tree(tree);
+
+        // immediately finalise the block
+        finalise_block(tree, i + 1);
+
+        historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
+        historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
+        roots.push_back(memdb.root());
+
+        // Now remove the oldest block if outside of the window
+        if (i >= windowSize) {
+            const index_t oldestBlock = (i + 1) - windowSize;
+            // trying to remove a block that is not the most historic should fail
+            remove_historic_block(tree, oldestBlock + 1, false);
+
+            fr rootToRemove = roots[oldestBlock - 1];
+            check_block_and_root_data(db, oldestBlock, rootToRemove, true);
+
+            // removing the most historic should succeed
+            remove_historic_block(tree, oldestBlock, true);
+
+            // the block data should have been removed
+            check_block_and_root_data(db, oldestBlock, rootToRemove, false);
+        }
+        check(expected_size, i + 1);
+    }
+
+    // Attempting to remove block 0 should fail as there isn't one
+    remove_historic_block(tree, 0, false);
+}
+
+void test_unwind(std::string directory,
+                 std::string name,
+                 uint64_t mapSize,
+                 uint64_t maxReaders,
+                 uint32_t depth,
+                 uint32_t blockSize,
+                 uint32_t numBlocks,
+                 uint32_t numBlocksToUnwind,
+                 std::vector<fr> values)
+{
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, mapSize, maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t batchSize = blockSize;
+
+    std::vector<fr_sibling_path> historicPathsZeroIndex;
+    std::vector<fr_sibling_path> historicPathsMaxIndex;
+    std::vector<fr> roots;
+
+    fr initialRoot = memdb.root();
+    fr_sibling_path initialPath = memdb.get_sibling_path(0);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batchSize; ++j) {
+            size_t ind = i * batchSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        index_t expected_size = (i + 1) * batchSize;
+        add_values(tree, to_add);
+
+        // attempting an unwind of the block being built should fail
+        unwind_block(tree, i + 1, false);
+
+        if (i > 0) {
+            // attemnpting an unwind of the most recent committed block should fail as we have uncommitted changes
+            unwind_block(tree, i, false);
+        }
+
+        commit_tree(tree);
+
+        historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
+        historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
+        roots.push_back(memdb.root());
+        check_root(tree, memdb.root());
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
+        check_size(tree, expected_size);
+        check_block_and_size_data(db, i + 1, expected_size, true);
+        check_block_and_root_data(db, i + 1, memdb.root(), true);
+    }
+
+    const uint32_t blocksToRemove = numBlocksToUnwind;
+    for (uint32_t i = 0; i < blocksToRemove; i++) {
+        const index_t blockNumber = numBlocks - i;
+
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
+        // attempting to unwind a block that is not the tip should fail
+        unwind_block(tree, blockNumber + 1, false);
+        unwind_block(tree, blockNumber);
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+
+        const index_t previousValidBlock = blockNumber - 1;
+        index_t deletedBlockStartIndex = previousValidBlock * batchSize;
+
+        check_block_height(tree, previousValidBlock);
+        check_size(tree, deletedBlockStartIndex);
+        check_root(tree, previousValidBlock == 0 ? initialRoot : roots[previousValidBlock - 1]);
+
+        // The zero index sibling path should be as it was at the previous block
+        check_sibling_path(tree,
+                           0,
+                           previousValidBlock == 0 ? initialPath : historicPathsZeroIndex[previousValidBlock - 1],
+                           false,
+                           true);
+
+        // Trying to find leaves appended in the block that was removed should fail
+        check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
+        check_find_leaf_index(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
+
+        for (index_t j = 0; j < numBlocks; j++) {
+            index_t historicBlockNumber = j + 1;
+            bool expectedSuccess = historicBlockNumber <= previousValidBlock;
+            check_historic_sibling_path(tree, 0, historicPathsZeroIndex[j], historicBlockNumber, expectedSuccess);
+            index_t maxSizeAtBlock = ((j + 1) * batchSize) - 1;
+            check_historic_sibling_path(
+                tree, maxSizeAtBlock, historicPathsMaxIndex[j], historicBlockNumber, expectedSuccess);
+
+            const index_t leafIndex = 1;
+            check_historic_leaf(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index_from(
+                tree, historicBlockNumber, values[leafIndex], 0, leafIndex, expectedSuccess);
+        }
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_blocks)
+{
+    std::vector<fr> first = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 8, first);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_all_blocks)
+{
+    std::vector<fr> first = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, first);
+    std::vector<fr> second = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, second);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_blocks_with_duplicate_leaves)
+{
+    constexpr size_t depth = 4;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    constexpr size_t blockSize = 2;
+    constexpr size_t numBlocks = 2;
+    constexpr size_t numBlocksToUnwind = 1;
+
+    std::vector<fr> values = create_values(blockSize);
+
+    // Add the same batch of values many times
+    for (size_t i = 0; i < numBlocks; i++) {
+        for (size_t j = 0; j < values.size(); j++) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[j]);
+        }
+        add_values(tree, values);
+        commit_tree(tree);
+        check_block_and_root_data(db, i + 1, memdb.root(), true);
+
+        for (size_t j = 0; j < values.size(); j++) {
+            size_t ind = i * blockSize + j;
+            // query the indices db directly
+            check_indices_data(db, values[j], ind, true, true);
+        }
+    }
+
+    for (size_t i = 0; i < numBlocks; i++) {
+        index_t startIndex = i * blockSize;
+        index_t expectedIndex = startIndex + 1;
+
+        // search for the leaf from start of each batch
+        check_find_leaf_index_from(tree, values[1], startIndex, expectedIndex, true);
+        // search for the leaf from start of the next batch
+        check_find_leaf_index_from(tree, values[1], startIndex + 2, expectedIndex + blockSize, i < (numBlocks - 1));
+    }
+
+    const uint32_t blocksToRemove = numBlocksToUnwind;
+    for (uint32_t i = 0; i < blocksToRemove; i++) {
+        const index_t blockNumber = numBlocks - i;
+        unwind_block(tree, blockNumber);
+
+        const index_t previousValidBlock = blockNumber - 1;
+        index_t deletedBlockStartIndex = previousValidBlock * blockSize;
+
+        check_block_height(tree, previousValidBlock);
+        check_size(tree, deletedBlockStartIndex);
+
+        for (size_t j = 0; j < numBlocks; j++) {
+            index_t startIndex = j * blockSize;
+            index_t expectedIndex = startIndex + 1;
+
+            // search for the leaf from start of each batch
+            check_find_leaf_index_from(tree, values[1], startIndex, expectedIndex, j < previousValidBlock);
+            // search for the leaf from start of the next batch
+            check_find_leaf_index_from(
+                tree, values[1], startIndex + 2, expectedIndex + blockSize, j < (previousValidBlock - 1));
+
+            for (size_t k = 0; k < values.size(); k++) {
+                size_t ind = j * blockSize + k;
+                // query the indices db directly. If block number == 1 that means the entry should not be present
+                check_indices_data(db, values[k], ind, blockNumber > 1, ind < deletedBlockStartIndex);
+            }
+        }
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
+{
+
+    constexpr uint32_t numBlocks = 4;
+    constexpr uint32_t numBlocksToUnwind = 2;
+    std::vector<uint32_t> blockSizes = { 2, 4, 8, 16, 32 };
+    for (const uint32_t& size : blockSizes) {
+        uint32_t actualSize = size * 1024;
+        std::vector<fr> values = create_values(actualSize * numBlocks);
+        std::stringstream ss;
+        ss << "DB " << actualSize;
+        test_unwind(_directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    uint32_t finalisedBlockDelay = 4;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+
+        index_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
+        check_finalised_block_height(tree, expectedFinalisedBlock);
+        index_t expectedPresentStart = i < finalisedBlockDelay ? 0 : (expectedFinalisedBlock * blockSize);
+        index_t expectedPresentEnd = ((i + 1) * blockSize) - 1;
+        std::vector<fr> toTest(values.begin() + static_cast<int64_t>(expectedPresentStart),
+                               values.begin() + static_cast<int64_t>(expectedPresentEnd + 1));
+        check_leaf_keys_are_present(db, expectedPresentStart, expectedPresentEnd, toTest);
+
+        if (i >= finalisedBlockDelay) {
+
+            index_t blockToFinalise = expectedFinalisedBlock + 1;
+
+            // attemnpting to finalise a block that doesn't exist should fail
+            finalise_block(tree, blockToFinalise + numBlocks, false);
+
+            finalise_block(tree, blockToFinalise, true);
+
+            index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
+            check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
+        }
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    index_t blockToFinalise = 8;
+
+    check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
+
+    finalise_block(tree, blockToFinalise);
+
+    index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
+    check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyond_pending_chain)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    // finalising block 1 should fail
+    finalise_block(tree, 1, false);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    // should fail
+    finalise_block(tree, numBlocks + 1, false);
+
+    // finalise the entire chain
+    index_t blockToFinalise = numBlocks;
+
+    check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
+
+    finalise_block(tree, blockToFinalise);
+
+    index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
+    check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_unwound_blocks)
+{
+    std::string name = random_string();
+    uint32_t depth = 20;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    for (uint32_t i = 0; i < 5; i++) {
+        std::vector<fr> values = create_values(1024);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    unwind_block(tree, 5);
+    unwind_block(tree, 4);
+
+    EXPECT_THROW(Store(name, depth, 5, db), std::runtime_error);
+    EXPECT_THROW(Store(name, depth, 4, db), std::runtime_error);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_expired_historical_blocks)
+{
+    std::string name = random_string();
+    uint32_t depth = 20;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    for (uint32_t i = 0; i < 5; i++) {
+        std::vector<fr> values = create_values(1024);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+    finalise_block(tree, 3);
+
+    remove_historic_block(tree, 1);
+    remove_historic_block(tree, 2);
+
+    EXPECT_THROW(Store(name, depth, 1, db), std::runtime_error);
+    EXPECT_THROW(Store(name, depth, 2, db), std::runtime_error);
+}
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_fork_from_block_zero_when_not_latest)
+{
+    std::string name = random_string();
+    uint32_t depth = 20;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t numBlocks = 5;
+
+    const fr initialRoot = memdb.root();
+    const fr_sibling_path path = memdb.get_sibling_path(0);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> values = create_values(1024);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    EXPECT_NO_THROW(Store(name, depth, 0, db));
+
+    std::unique_ptr<Store> store2 = std::make_unique<Store>(name, depth, 0, db);
+    TreeType tree2(std::move(store2), pool);
+
+    check_root(tree2, initialRoot, false);
+    check_sibling_path(tree2, 0, path, false, true);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalised_block)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    index_t blockToFinalise = 8;
+
+    finalise_block(tree, blockToFinalise);
+
+    for (uint32_t i = numBlocks; i > blockToFinalise; i--) {
+        unwind_block(tree, i);
+    }
+    unwind_block(tree, blockToFinalise, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_finalised_block)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    uint32_t blockSize = 16;
+    uint32_t numBlocks = 16;
+    std::vector<fr> values = create_values(blockSize * numBlocks);
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < blockSize; ++j) {
+            size_t ind = i * blockSize + j;
+            memdb.update_element(ind, values[ind]);
+            to_add.push_back(values[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    check_block_height(tree, numBlocks);
+
+    index_t blockToFinalise = 8;
+
+    finalise_block(tree, blockToFinalise);
+
+    for (uint32_t i = 0; i < blockToFinalise - 1; i++) {
+        remove_historic_block(tree, i + 1);
+    }
+    remove_historic_block(tree, blockToFinalise, false);
 }

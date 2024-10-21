@@ -1,5 +1,6 @@
 #include "file_crs_factory.hpp"
 #include "../io.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
@@ -56,6 +57,8 @@ FileCrsFactory<Curve>::FileCrsFactory(std::string path, size_t initial_degree)
 template <typename Curve>
 std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> FileCrsFactory<Curve>::get_prover_crs(size_t degree)
 {
+    PROFILE_THIS();
+
     if (prover_degree_ < degree || !prover_crs_) {
         prover_crs_ = std::make_shared<FileProverCrs<Curve>>(degree, path_);
         prover_degree_ = degree;

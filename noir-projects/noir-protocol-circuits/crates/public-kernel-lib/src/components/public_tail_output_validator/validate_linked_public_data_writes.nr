@@ -111,7 +111,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted leaf has different slot")]
+    #[test(should_fail_with = "hinted leaf has different slot")]
     fn validate_linked_public_data_writes_link_prev_to_empty_leaf_fails() {
         let mut builder = TestBuilder::new();
 
@@ -121,7 +121,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted leaf does not link to current write")]
+    #[test(should_fail_with = "hinted leaf does not link to current write")]
     fn validate_linked_public_data_writes_link_two_writes_to_same_leaf_fails() {
         let mut builder = TestBuilder::new();
 
@@ -131,7 +131,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted write has different slot")]
+    #[test(should_fail_with = "hinted write has different slot")]
     fn validate_linked_public_data_writes_link_prev_to_empty_write_fails() {
         let mut builder = TestBuilder::new();
 
@@ -141,7 +141,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="previous write must have a smaller counter")]
+    #[test(should_fail_with = "previous write must have a smaller counter")]
     fn validate_linked_public_data_writes_not_sorted_by_counter_fails() {
         let mut builder = TestBuilder::new();
 
@@ -163,7 +163,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted previous write does not link to current write")]
+    #[test(should_fail_with = "hinted previous write does not link to current write")]
     fn validate_linked_public_data_writes_link_two_writes_to_same_prev_write_fails() {
         let mut builder = TestBuilder::new();
 

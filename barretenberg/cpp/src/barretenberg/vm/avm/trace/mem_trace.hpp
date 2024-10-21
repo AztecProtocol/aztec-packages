@@ -56,7 +56,7 @@ class AvmMemTraceBuilder {
     // Structure representing an entry for the memory used in the simulation (not the trace).
     struct MemEntry {
         FF val{};
-        AvmMemoryTag tag = AvmMemoryTag::U0;
+        AvmMemoryTag tag = AvmMemoryTag::FF;
     };
 
     // Structure to return value and tag matching boolean after a memory read.

@@ -127,7 +127,7 @@ impl Deck<&mut PrivateContext> {
 }
 
 impl Deck<UnconstrainedContext> {
-    unconstrained pub fn view_cards(self, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    pub unconstrained fn view_cards(self, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
 

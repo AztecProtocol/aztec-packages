@@ -61,7 +61,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 Go to `main.nr` and start with this contract initialization:
 
 ```rust
-contract Counter {
+#include_code setup /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr raw
 }
 ```
 

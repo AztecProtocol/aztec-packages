@@ -28,10 +28,13 @@ impl DebugToString for MemoryAddress {
     fn debug_to_string(&self) -> String {
         if *self == ReservedRegisters::free_memory_pointer() {
             "FreeMem".into()
-        } else if *self == ReservedRegisters::previous_stack_pointer() {
-            "PrevStack".into()
+        } else if *self == ReservedRegisters::stack_pointer() {
+            "StackPointer".into()
         } else {
-            format!("R{}", self.to_usize())
+            match self {
+                MemoryAddress::Direct(address) => format!("M{}", address),
+                MemoryAddress::Relative(offset) => format!("S{}", offset),
+            }
         }
     }
 }
@@ -267,9 +270,6 @@ impl DebugShow {
                     outputs
                 );
             }
-            BlackBoxOp::Keccak256 { message, output } => {
-                debug_println!(self.enable_debug_trace, "  KECCAK256 {} -> {}", message, output);
-            }
             BlackBoxOp::Keccakf1600 { message, output } => {
                 debug_println!(self.enable_debug_trace, "  KECCAKF1600 {} -> {}", message, output);
             }
@@ -333,24 +333,6 @@ impl DebugShow {
                     input2_x,
                     input2_y,
                     result
-                );
-            }
-            BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  PEDERSEN {} {} -> {}",
-                    inputs,
-                    domain_separator,
-                    output
-                );
-            }
-            BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  PEDERSEN_HASH {} {} -> {}",
-                    inputs,
-                    domain_separator,
-                    output
                 );
             }
             BlackBoxOp::SchnorrVerify {

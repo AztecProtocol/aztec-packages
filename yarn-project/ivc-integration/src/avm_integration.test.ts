@@ -6,7 +6,14 @@ import {
   getPublicInputs,
   verifyProof,
 } from '@aztec/bb-prover';
-import { AvmCircuitInputs, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
+import {
+  AvmCircuitInputs,
+  FunctionSelector,
+  Gas,
+  GlobalVariables,
+  PublicKeys,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_PUBLIC_COLUMN_MAX_SIZE,
@@ -14,7 +21,7 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
@@ -26,7 +33,6 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs/promises';
@@ -41,7 +47,7 @@ import { MockPublicKernelCircuit, witnessGenMockPublicKernelCircuit } from './in
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
 
-jest.setTimeout(180_000);
+jest.setTimeout(240_000);
 
 const logger = createDebugLogger('aztec:avm-integration');
 
@@ -158,7 +164,12 @@ const proveAvmTestContract = async (
     deployer: new Fr(0x456),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
-    publicKeysHash: new Fr(0x161718),
+    publicKeys: new PublicKeys(
+      new Point(new Fr(0x131415), new Fr(0x161718), false),
+      new Point(new Fr(0x192021), new Fr(0x222324), false),
+      new Point(new Fr(0x252627), new Fr(0x282930), false),
+      new Point(new Fr(0x313233), new Fr(0x343536), false),
+    ),
   }).withAddress(environment.address);
   worldStateDB.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
 

@@ -33,6 +33,9 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   type Header,
@@ -43,6 +46,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
+  type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -69,12 +73,6 @@ import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client'
 import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ProtocolContractAddresses,
-} from '@aztec/types/contracts';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -163,7 +161,7 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const validatorClient = createValidatorClient(config, p2pClient);
+    const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
     const sequencer = config.disableSequencer

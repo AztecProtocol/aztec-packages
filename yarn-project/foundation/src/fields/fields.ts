@@ -47,7 +47,7 @@ abstract class BaseField {
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
-    if (value instanceof Buffer) {
+    if (Buffer.isBuffer(value)) {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
