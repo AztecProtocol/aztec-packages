@@ -4,7 +4,7 @@
 This script sets up and runs a native testnet for the Aztec network.
 
 Steps:
-1. Parse command-line arguments for custom test script and number of validators.
+1. Parse command-line arguments for custom test script, number of validators, and logging level.
 2. Set up the base command for running the native network test, including:
    - Running the specified test script
    - Deploying L1 and L2 contracts
@@ -17,13 +17,18 @@ Steps:
    each with an incrementing port number starting from 8081.
 4. Execute the complete command to start the testnet.
 
-Usage: Run with -h to see display_help output below.
+Usage:
+  ./run_native_testnet.sh [options]
+
+Options:
+  see display_help() below
 '
 
 # Default values
 TEST_FILE=src/spartan/transfer.test.ts
 PROVER_SCRIPT="\"./prover-node.sh 7900 false\""
 NUM_VALIDATORS=3
+INTERLEAVED=false
 
 # Function to display help message
 display_help() {
@@ -31,33 +36,62 @@ display_help() {
     echo
     echo "Options:"
     echo "  -h     Display this help message"
-    echo "  -t     Specify the test file (default: src/spartan/transfer.test.ts)"
+    echo "  -t     Specify the test file (default: $TEST_FILE)"
     echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
-    echo "  -v     Specify the number of validators (default: $NUM_VALIDATORS)"
+    echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
+    echo "  -v     Set logging level to verbose"
+    echo "  -vv    Set logging level to debug"
+    echo "  -i     Run interleaved (default: $INTERLEAVED)"
     echo
     echo "Example:"
-    echo "  $0 -t ./custom-test.sh -v 5"
+    echo "  $0 -t ./custom-test.sh -val 5 -v"
 }
 
 # Parse command line arguments
-while getopts "ht:v:" opt; do
-  case $opt in
-    h)
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h)
       display_help
       exit 0
       ;;
-    t) TEST_FILE="$OPTARG"
+    -t)
+      TEST_FILE="$2"
+      shift 2
       ;;
-    p) PROVER_SCRIPT="\"$OPTARG\""
+    -p)
+      PROVER_SCRIPT="$2"
+      shift 2
       ;;
-    v) NUM_VALIDATORS="$OPTARG"
+    -val)
+      NUM_VALIDATORS="$2"
+      shift 2
       ;;
-    \?) echo "Invalid option -$OPTARG" >&2
-        display_help
-        exit 1
+    -v)
+      if [[ $LOG_LEVEL == "info" ]]; then
+        LOG_LEVEL="verbose"
+      elif [[ $LOG_LEVEL == "verbose" ]]; then
+        LOG_LEVEL="debug"
+      fi
+      shift
+      ;;
+    -i)
+      INTERLEAVED=true
+      shift
+      ;;
+    -vv)
+      LOG_LEVEL="debug"
+      shift
+      ;;
+    *)
+      echo "Invalid option: $1" >&2
+      display_help
+      exit 1
       ;;
   esac
 done
+
+## Set log level for all child commands
+export LOG_LEVEL
 
 # Go to repo root
 cd $(git rev-parse --show-toplevel)
@@ -67,7 +101,7 @@ else
   VALIDATOR_CMD="\"./validators.sh $NUM_VALIDATORS\""
 fi
 # Base command
-BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
+BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
         \"./test.sh $TEST_FILE\" \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \

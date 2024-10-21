@@ -537,8 +537,14 @@ export class Archiver implements ArchiveSource {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    const headers = await this.store.getBlockHeaders(number, 1);
-    return headers.length === 0 ? undefined : headers[0];
+    try {
+      const headers = await this.store.getBlockHeaders(number, 1);
+      return headers.length === 0 ? undefined : headers[0];
+    } catch (e) {
+      // If the latest is 0, then getBlockHeaders will throw an error
+      this.log.error(`getBlockHeader: error fetching block number: ${number}`);
+      return undefined;
+    }
   }
 
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
