@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.59.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.59.0...barretenberg-v0.59.1) (2024-10-21)
+
+
+### Bug Fixes
+
+* Barretenberg readme scare warning ([#9313](https://github.com/AztecProtocol/aztec-packages/issues/9313)) ([f759d55](https://github.com/AztecProtocol/aztec-packages/commit/f759d55d956fc0133ddec0db284de12b552b4c89))
+
+
+### Miscellaneous
+
+* **avm:** Some cleaning in avm prover ([#9311](https://github.com/AztecProtocol/aztec-packages/issues/9311)) ([523aa23](https://github.com/AztecProtocol/aztec-packages/commit/523aa231acd22228fa6414fc8241cebdfa21eafa))
+
 ## [0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.58.0...barretenberg-v0.59.0) (2024-10-21)
 
 
