@@ -70,13 +70,15 @@ runs:
     - name: Copy Repo to Builder
       shell: bash
       env:
-        UNPACK:
-          mkdir -p ~/run-$RUN_ID-git &&
-          cd ~/run-$RUN_ID-git && tar xzf - &&
-          git config --global advice.detachedHead false &&
-          ([ -d ~/run-$RUN_ID ] || git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID) &&
-          echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key &&
-          chmod 600 ~/.ssh/build_instance_key
+        UNPACK: |
+          [ -d ~/run-$RUN_ID ] || (
+            mkdir -p ~/run-$RUN_ID-git &&
+            cd ~/run-$RUN_ID-git && tar xzf - &&
+            git config --global advice.detachedHead false &&
+            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID &&
+            echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key &&
+            chmod 600 ~/.ssh/build_instance_key
+          )
       run: |
         sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
         set -x
