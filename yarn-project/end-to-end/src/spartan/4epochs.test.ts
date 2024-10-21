@@ -70,7 +70,11 @@ describe('token transfer test', () => {
       const currentSlot = await rollupCheatCodes.getSlot();
       expect(currentSlot).toBe(startSlot + i);
       const startEpoch = await rollupCheatCodes.getEpoch();
-      logger.debug(`Successfully reached slot ${currentSlot} (iteration ${currentSlot - startSlot}/${ROUNDS}) (Epoch ${startEpoch})`);
+      logger.debug(
+        `Successfully reached slot ${currentSlot} (iteration ${
+          currentSlot - startSlot
+        }/${ROUNDS}) (Epoch ${startEpoch})`,
+      );
     }
 
     testWallets.wallets.forEach(async w => {
