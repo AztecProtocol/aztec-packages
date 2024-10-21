@@ -262,7 +262,7 @@ contract NFT {
         // the writes
         context.storage_write(hiding_point_slot, Point::empty());
 
-        // ############### HACKY NEW COED TO BE POLISHED LATER ###############
+        // ############### HACKY NEW CODE TO BE POLISHED LATER ###############
         let partial_log_fields: [Field; 16] = context.storage_read(hiding_point_slot + 3);
         let partial_log: [u8; 481] = fields_to_bytes(partial_log_fields);
 
@@ -280,6 +280,8 @@ contract NFT {
         for i in 0..finalization_log.len() {
             log[481 + i] = finalization_log[i];
         }
+
+        context.emit_unencrypted_log(log);
 
         context.storage_write(hiding_point_slot + 3, [0; 16]);
     }
