@@ -19,10 +19,9 @@ impl PreviousKernelValidator {
         PreviousKernelValidator { previous_kernel, hints }
     }
 
-    pub fn validate_proof<let N: u32>(_self: Self, _allowed_indices: [u32; N]) {
+    pub fn validate_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
         if !dep::std::runtime::is_unconstrained() {
-            // TODO(#7410) currently stubbed out until tube vk handled
-            // self.previous_kernel.validate_in_vk_tree(allowed_indices);
+            self.previous_kernel.validate_in_vk_tree(allowed_indices);
         }
     }
 

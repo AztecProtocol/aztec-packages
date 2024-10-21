@@ -47,7 +47,7 @@ impl <T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext> where
 }
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext>where T: Deserialize<T_SERIALIZED_LEN> {
-    unconstrained pub fn read(self) -> T {
+    pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }
 }

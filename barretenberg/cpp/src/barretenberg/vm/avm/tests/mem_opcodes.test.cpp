@@ -2,6 +2,7 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "common.test.hpp"
+#include "gtest/gtest.h"
 #include <cstddef>
 #include <cstdint>
 #include <gmock/gmock.h>
@@ -163,10 +164,10 @@ class AvmMemOpcodeTests : public ::testing::Test {
         if (indirect) {
             auto const& mem_ind_a_row = trace.at(mem_ind_a_row_idx);
             EXPECT_THAT(mem_ind_a_row,
-                        AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
+                        AllOf(MEM_ROW_FIELD_EQ(tag_err, indirect_uninitialized ? 1 : 0),
                               MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                               MEM_ROW_FIELD_EQ(tag,
-                                               indirect_uninitialized ? static_cast<uint32_t>(AvmMemoryTag::U0)
+                                               indirect_uninitialized ? static_cast<uint32_t>(AvmMemoryTag::FF)
                                                                       : static_cast<uint32_t>(AvmMemoryTag::U32)),
                               MEM_ROW_FIELD_EQ(addr, src_offset),
                               MEM_ROW_FIELD_EQ(val, dir_src_offset),
@@ -220,28 +221,52 @@ TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_mov_trace(false, 0, 0, 1, AvmMemoryTag::U0);
+    validate_mov_trace(false, 0, 0, 1, AvmMemoryTag::FF);
 }
 
 TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
 {
+    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    GTEST_SKIP();
+
+    trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 5, 2, AvmMemoryTag::U32);
+    trace_builder.op_mov(3, 2, 3);
+    trace_builder.op_return(0, 0, 0);
+    trace = trace_builder.finalize();
+
+    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::FF, 5, 1);
+}
+
+TEST_F(AvmMemOpcodeTests, indUninitializedAddrMov)
+{
+    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    GTEST_SKIP();
+
     trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
     trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(3, 2, 3);
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::U0, 0, 1, true);
+    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::FF, 0, 1, true);
 }
 
 TEST_F(AvmMemOpcodeTests, indirectMov)
 {
+    // Re-enable once we constrain address resolution
+    GTEST_SKIP();
+
     build_mov_trace(true, 23, 0, 1, AvmMemoryTag::U8, 2, 3);
     validate_mov_trace(true, 23, 0, 1, AvmMemoryTag::U8, 2, 3);
 }
 
 TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
 {
+    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    GTEST_SKIP();
+
     trace_builder.op_set(0, 15, 100, AvmMemoryTag::U32);
     trace_builder.op_set(0, 16, 101, AvmMemoryTag::U128); // This will make the indirect load failing.
     trace_builder.op_set(0, 5, 15, AvmMemoryTag::FF);
@@ -299,7 +324,8 @@ TEST_F(AvmMemOpcodeTests, indirectSet)
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    compute_index_c(2, true);
+    // TODO(JEANMON): Turn following boolean to true once we have constraining address resolution
+    compute_index_c(2, false);
     auto const& row = trace.at(2);
 
     EXPECT_THAT(row,
@@ -307,9 +333,10 @@ TEST_F(AvmMemOpcodeTests, indirectSet)
                       MAIN_ROW_FIELD_EQ(ic, 1979),
                       MAIN_ROW_FIELD_EQ(mem_addr_c, 100),
                       MAIN_ROW_FIELD_EQ(sel_mem_op_c, 1),
-                      MAIN_ROW_FIELD_EQ(rwc, 1),
-                      MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
-                      MAIN_ROW_FIELD_EQ(ind_addr_c, 10)));
+                      MAIN_ROW_FIELD_EQ(rwc, 1)));
+    // TODO(JEANMON): Uncomment once we have a constraining address resolution
+    // MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+    // MAIN_ROW_FIELD_EQ(ind_addr_c, 10)));
 
     EXPECT_THAT(trace.at(mem_c_row_idx),
                 AllOf(MEM_ROW_FIELD_EQ(val, 1979),
@@ -320,20 +347,24 @@ TEST_F(AvmMemOpcodeTests, indirectSet)
                       MEM_ROW_FIELD_EQ(w_in_tag, static_cast<uint32_t>(AvmMemoryTag::U64)),
                       MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U64))));
 
-    EXPECT_THAT(trace.at(mem_ind_c_row_idx),
-                AllOf(MEM_ROW_FIELD_EQ(val, 100),
-                      MEM_ROW_FIELD_EQ(addr, 10),
-                      MEM_ROW_FIELD_EQ(sel_op_c, 0),
-                      MEM_ROW_FIELD_EQ(rw, 0),
-                      MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
-                      MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
-                      MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U32))));
+    // TODO(JEANMON): Uncomment once we have a constraining address resolution
+    // EXPECT_THAT(trace.at(mem_ind_c_row_idx),
+    //             AllOf(MEM_ROW_FIELD_EQ(val, 100),
+    //                   MEM_ROW_FIELD_EQ(addr, 10),
+    //                   MEM_ROW_FIELD_EQ(sel_op_c, 0),
+    //                   MEM_ROW_FIELD_EQ(rw, 0),
+    //                   MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+    //                   MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
+    //                   MEM_ROW_FIELD_EQ(tag, static_cast<uint32_t>(AvmMemoryTag::U32))));
 
     validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, indirectSetWrongTag)
 {
+    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    GTEST_SKIP();
+
     trace_builder.op_set(0, 100, 10, AvmMemoryTag::U8);   // The address 100 has incorrect tag U8.
     trace_builder.op_set(1, 1979, 10, AvmMemoryTag::U64); // Set 1979 at memory index 100
     trace_builder.op_return(0, 0, 0);

@@ -67,4 +67,8 @@ export class StateReference {
   publicDataTree: ${inspect(this.partial.publicDataTree)},
 }`;
   }
+
+  public equals(other: this): boolean {
+    return this.l1ToL2MessageTree.root.equals(other.l1ToL2MessageTree.root) && this.partial.equals(other.partial);
+  }
 }

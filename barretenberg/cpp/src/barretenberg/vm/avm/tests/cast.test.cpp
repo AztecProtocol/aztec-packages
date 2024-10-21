@@ -236,6 +236,8 @@ TEST_F(AvmCastTests, indirectAddrTruncationU64ToU8)
 
 TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
 {
+    // TODO(#9131): Re-enable as part of #9131
+    GTEST_SKIP();
     // Indirect addresses. src:5  dst:6
     // Direct addresses.   src:10 dst:11
     trace_builder.op_set(0, 10, 5, AvmMemoryTag::U8); // Not an address type

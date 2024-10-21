@@ -26,7 +26,7 @@ import {
   UnencryptedL2Log,
   UniqueNote,
 } from '@aztec/circuit-types';
-import { FunctionSelector, PrivateCallStackItem } from '@aztec/circuits.js';
+import { FunctionSelector, PrivateCallStackItem, PublicKeys } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -57,6 +57,7 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       GrumpkinScalar,
       Note,
       ExtendedNote,
+      PublicKeys,
       UniqueNote,
       SiblingPath,
       AuthWitness,

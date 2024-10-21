@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';
@@ -11,7 +11,7 @@ import { getDeployerContract } from './protocol_contracts.js';
  */
 export function deployInstance(wallet: Wallet, instance: ContractInstanceWithAddress): ContractFunctionInteraction {
   const deployerContract = getDeployerContract(wallet);
-  const { salt, contractClassId, publicKeysHash, deployer } = instance;
+  const { salt, contractClassId, publicKeys, deployer } = instance;
   const isUniversalDeploy = deployer.isZero();
   if (!isUniversalDeploy && !wallet.getAddress().equals(deployer)) {
     throw new Error(
@@ -22,7 +22,7 @@ export function deployInstance(wallet: Wallet, instance: ContractInstanceWithAdd
     salt,
     contractClassId,
     instance.initializationHash,
-    publicKeysHash,
+    publicKeys,
     isUniversalDeploy,
   );
 }

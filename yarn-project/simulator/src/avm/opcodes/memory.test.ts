@@ -348,7 +348,7 @@ describe('Memory instructions', () => {
       const addressing = new Addressing([/*srcOffset*/ AddressingMode.DIRECT, /*dstOffset*/ AddressingMode.INDIRECT]);
       await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10).execute(context);
 
-      expect(context.machineState.memory.get(1)).toBeUndefined();
+      expect(context.machineState.memory.get(1)).toEqual(new Field(0));
       expect(context.machineState.memory.get(20)).toEqual(new Uint16(55n));
     });
 
@@ -369,15 +369,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // cdOffsetAddress
-        ...Buffer.from('23456789', 'hex'), // copysizeOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
+        ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
         /*indirect=*/ 0x01,
-        /*cdOffsetAddress=*/ 0x12345678,
-        /*copysizeOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
+        /*cdOffsetAddress=*/ 0x1234,
+        /*copysizeOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
       );
 
       expect(CalldataCopy.deserialize(buf)).toEqual(inst);

@@ -24,14 +24,14 @@ impl<T, Context> BalancesMap<T, Context> {
 }
 
 impl<T> BalancesMap<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32>(
+    pub unconstrained fn balance_of<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote {
         self.balance_of_with_offset(owner, 0)
     }
 
-    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
+    pub unconstrained fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         offset: u32

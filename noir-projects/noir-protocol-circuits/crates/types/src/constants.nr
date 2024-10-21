@@ -115,6 +115,7 @@ global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
 global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
 global ROOT_ROLLUP_INDEX: u32 = 16;
 global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
+global TUBE_INDEX: u32 = 18;
 global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -129,9 +130,11 @@ global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
-global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3;
-global AZTEC_EPOCH_DURATION: u32 = 48;
+global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
+global AZTEC_EPOCH_DURATION: u32 = 16;
 global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
+// The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
+global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
@@ -168,6 +171,7 @@ global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bd
 // GAS DEFAULTS
 global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 100_000_000;
+global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 6_000_000;
 global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
 global DEFAULT_INCLUSION_FEE: Field = 0;
 global DA_BYTES_PER_FIELD: u32 = 32;
@@ -224,7 +228,7 @@ global GAS_LENGTH: u32 = 2;
 global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH + /* inclusion_fee */ 1;
 global CALL_CONTEXT_LENGTH: u32 = 5;
 global CONTENT_COMMITMENT_LENGTH: u32 = 4;
-global CONTRACT_INSTANCE_LENGTH: u32 = 5;
+global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 global ETH_ADDRESS_LENGTH: u32 = 1;
@@ -316,7 +320,9 @@ global RECURSIVE_PROOF_LENGTH: u32= 463;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32= 463;
 global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+
+global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 145;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -399,13 +405,13 @@ global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
 
 // AVM memory tags
+global MEM_TAG_FF = 0;
 global MEM_TAG_U1 = 1;
 global MEM_TAG_U8 = 2;
 global MEM_TAG_U16 = 3;
 global MEM_TAG_U32 = 4;
 global MEM_TAG_U64 = 5;
 global MEM_TAG_U128 = 6;
-global MEM_TAG_FF = 7;
 
 // AVM CIRCUIT - PUBLIC KERNEL INPUTS COLUMN OFFSETS
 // Keep the number of offsets aligned with KERNEL_INPUTS_LENGTH defined in constants.hpp

@@ -23,7 +23,7 @@ import { areArraysEqual, compactArray, times } from '@aztec/foundation/collectio
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -68,6 +68,8 @@ import { prettyLogViemError } from './utils.js';
  * Stats for a sent transaction.
  */
 export type TransactionStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Hash of the transaction. */
   transactionHash: string;
   /** Size in bytes of the tx calldata */
@@ -263,8 +265,9 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
+      this.log.verbose(toFriendlyJSON(err as object));
       const errorName = tryGetCustomErrorName(err);
-      this.log.verbose(`Proof quote validation failed: ${errorName}`);
+      this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
     return quote;
@@ -326,6 +329,7 @@ export class L1Publisher {
     }
     const calldata = hexToBytes(tx.input);
     return {
+      sender: tx.from.toString(),
       transactionHash: tx.hash,
       calldataSize: calldata.length,
       calldataGas: getCalldataGasUsage(calldata),
@@ -402,7 +406,7 @@ export class L1Publisher {
       const tx = await this.getTransactionStats(txHash);
       const stats: L1PublishBlockStats = {
         ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-        ...pick(tx!, 'calldataGas', 'calldataSize'),
+        ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
       };
@@ -483,7 +487,7 @@ export class L1Publisher {
         const tx = await this.getTransactionStats(txHash);
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
           eventName: 'proof-published-to-l1',
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });

@@ -1,10 +1,10 @@
-import { GasFees } from '@aztec/circuits.js';
+import { GasFees, PublicKeys } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 
 import { randomInt } from 'crypto';
@@ -71,10 +71,7 @@ describe('AVM simulator: injected bytecode', () => {
       new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
       new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
-      new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.ADD_8,
-        Add.wireFormat8,
-      ),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
   });
@@ -842,7 +839,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           deployer: AztecAddress.fromBigInt(0x456n),
           contractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
-          publicKeysHash: new Fr(0x161718),
+          publicKeys: new PublicKeys(
+            new Point(new Fr(0x131415), new Fr(0x161718), false),
+            new Point(new Fr(0x192021), new Fr(0x222324), false),
+            new Point(new Fr(0x252627), new Fr(0x282930), false),
+            new Point(new Fr(0x313233), new Fr(0x343536), false),
+          ),
         };
         mockGetContractInstance(worldStateDB, contractInstance);
 
@@ -1012,7 +1014,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 1, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           createInstr(),
           // change value at memory offset 0 so each instr operates on a different value (important for nullifier emission)
-          new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(
+          new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(
             Opcode.ADD_8,
             Add.wireFormat8,
           ),

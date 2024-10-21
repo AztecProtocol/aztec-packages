@@ -7,7 +7,7 @@ contract FPC {
     use dep::aztec::{
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable,
-        macros::{storage::storage, functions::{private, public, initializer}}
+        macros::{storage::storage, functions::{private, public, initializer, internal}}
     };
     use dep::token::Token;
     use crate::lib::compute_rebate;

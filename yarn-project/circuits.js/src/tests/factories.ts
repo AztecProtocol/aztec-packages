@@ -4,15 +4,15 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
+
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   type ContractClassPublic,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
-
-import { SchnorrSignature } from '../barretenberg/index.js';
+} from '../contract/index.js';
 import {
   ARCHIVE_HEIGHT,
   AZTEC_EPOCH_DURATION,
@@ -116,6 +116,7 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
+  PublicKeys,
   RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   RevertCode,
@@ -600,8 +601,8 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  * Creates arbitrary/mocked verification key in fields format.
  * @returns A verification key as fields object
  */
-export function makeVerificationKeyAsFields(): VerificationKeyAsFields {
-  return VerificationKeyAsFields.makeFake();
+export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFields {
+  return VerificationKeyAsFields.makeFake(size);
 }
 
 /**
@@ -640,7 +641,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
   return new PublicKernelData(
     kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyData.makeFake(),
+    VerificationKeyData.makeFakeHonk(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -656,7 +657,7 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircui
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyData.makeFake(),
+    VerificationKeyData.makeFakeHonk(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -735,7 +736,7 @@ function makePublicKernelInnerData(seed = 1) {
   return new PublicKernelInnerData(
     makeVMCircuitPublicInputs(seed),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
-    VerificationKeyData.makeFake(),
+    VerificationKeyData.makeFakeHonk(),
   );
 }
 
@@ -994,7 +995,7 @@ export function makePreviousRollupData(
   return new PreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
-    VerificationKeyAsFields.makeFake(),
+    VerificationKeyAsFields.makeFakeHonk(),
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }
@@ -1012,7 +1013,7 @@ export function makePreviousRollupBlockData(
   return new PreviousRollupBlockData(
     makeBlockRootOrBlockMergeRollupPublicInputs(seed, globalVariables),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
-    VerificationKeyAsFields.makeFake(),
+    VerificationKeyAsFields.makeFakeHonk(),
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
 }
@@ -1427,7 +1428,12 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x3),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
-    new Fr(seed + 0x6),
+    new PublicKeys(
+      new Point(new Fr(seed + 0x6), new Fr(seed + 0x7), false),
+      new Point(new Fr(seed + 0x8), new Fr(seed + 0x9), false),
+      new Point(new Fr(seed + 0x10), new Fr(seed + 0x11), false),
+      new Point(new Fr(seed + 0x12), new Fr(seed + 0x13), false),
+    ),
   );
 }
 

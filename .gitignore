@@ -30,3 +30,4 @@ terraform.tfstate*
 
 # tmux
 tmux-client-*.log
+.supermavenignore

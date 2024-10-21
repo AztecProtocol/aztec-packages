@@ -6,6 +6,7 @@ import {
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types';
 import { EthAddress, Fr, GENESIS_ARCHIVE_ROOT, NullifierLeaf, PublicDataTreeLeaf } from '@aztec/circuits.js';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -15,9 +16,9 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { mockBlock } from '../test/utils.js';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { NativeWorldStateService } from './native_world_state.js';
-import { mockBlock } from './test_util.js';
 
 jest.setTimeout(60_000);
 
@@ -28,6 +29,8 @@ describe('NativeWorldState', () => {
   let nativeWS: NativeWorldStateService;
   let legacyWS: MerkleTrees;
 
+  let log: DebugLogger;
+
   const allTrees = Object.values(MerkleTreeId)
     .filter((x): x is MerkleTreeId => typeof x === 'number')
     .map(x => [MerkleTreeId[x], x] as const);
@@ -35,6 +38,8 @@ describe('NativeWorldState', () => {
   beforeAll(async () => {
     nativeDataDir = await mkdtemp(join(tmpdir(), 'native_world_state_test-'));
     legacyDataDir = await mkdtemp(join(tmpdir(), 'js_world_state_test-'));
+
+    log = createDebugLogger('aztec:world-state:test:native_world_state_cmp');
   });
 
   afterAll(async () => {
@@ -217,8 +222,7 @@ describe('NativeWorldState', () => {
       for (let i = 0; i < numBlocks; i++) {
         const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(blocks[i], messagesArray[i]));
         const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(blocks[i], messagesArray[i]));
-        // eslint-disable-next-line no-console
-        console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms.`);
+        log.info(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms.`);
       }
 
       await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, nativeWS.getCommitted(), legacyWS.getCommitted());

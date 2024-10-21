@@ -129,21 +129,21 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
+    #[test(should_fail_with = "Private call stack must be empty when executing the tail circuit")]
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_private_call_requests(1);
         builder.failed();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must not be 0")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must not be 0")]
     fn zero_min_revertible_side_effect_counter_fails() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.min_revertible_side_effect_counter = 0;
         builder.failed();
     }
 
-    #[test(should_fail_with="split_counter does not match min_revertible_side_effect_counter")]
+    #[test(should_fail_with = "split_counter does not match min_revertible_side_effect_counter")]
     fn mismatch_validation_requests_split_counter_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
@@ -153,7 +153,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
+    #[test(should_fail_with = "Must have public calls when exporting public kernel data from the tail circuit")]
     fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
@@ -250,7 +250,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Non empty note hash read requests")]
+    #[test(should_fail_with = "Non empty note hash read requests")]
     fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_note_hashes(3);
@@ -258,7 +258,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty nullifier read requests")]
+    #[test(should_fail_with = "Non empty nullifier read requests")]
     fn non_empty_nullifier_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_nullifiers(3);
@@ -266,7 +266,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty key validation requests")]
+    #[test(should_fail_with = "Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         let _void = builder.previous_kernel.add_request_for_key_validation(
@@ -358,7 +358,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="The gas used exceeds the gas limits")]
+    #[test(should_fail_with = "The gas used exceeds the gas limits")]
     fn gas_limits_are_enforced() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
@@ -390,7 +390,7 @@ mod tests {
             let _res = builder.execute();
         }
     }
-    // #[test(should_fail_with="Invalid vk index")]
+    // #[test(should_fail_with = "Invalid vk index")]
     // fn invalid_previous_kernel() {
     //     let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
     //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);

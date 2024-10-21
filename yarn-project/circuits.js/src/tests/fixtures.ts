@@ -26,7 +26,11 @@ export function getSampleContractClassRegisteredEventPayload(): Buffer {
   return Buffer.from(readFileSync(path).toString(), 'hex');
 }
 
-// Copied from the test 'deploying a contract instance' in end-to-end/src/e2e_deploy_contract.test.ts
+// This is generated with code like this:
+//   const tx = await StatefulTestContract.deploy(wallet, owner, owner, 42).send({ universalDeploy: true }).wait();
+//   const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+//   const logData = logs.logs[0].log.data;
+//   writeTestData('yarn-project/circuits.js/fixtures/ContractInstanceDeployedEventData.hex', logData);
 export function getSampleContractInstanceDeployedEventPayload(): Buffer {
   const path = getPathToFixture('ContractInstanceDeployedEventData.hex');
   return Buffer.from(readFileSync(path).toString(), 'hex');
