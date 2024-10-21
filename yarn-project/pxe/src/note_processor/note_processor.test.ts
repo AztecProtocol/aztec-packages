@@ -347,6 +347,13 @@ describe('Note Processor', () => {
   });
 
   function getRandomNoteLogPayload(app = AztecAddress.random()): EncryptedLogPayload {
-    return new EncryptedLogPayload(Fr.random(), Fr.random(), app, L1NotePayload.random(app).toIncomingBodyPlaintext());
+    const publicValuesAppended = Math.random() > 0.5;
+    return new EncryptedLogPayload(
+      Fr.random(),
+      Fr.random(),
+      publicValuesAppended,
+      app,
+      L1NotePayload.random(app).toIncomingBodyPlaintext(),
+    );
   }
 });

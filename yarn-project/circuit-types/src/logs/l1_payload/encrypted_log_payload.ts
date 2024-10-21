@@ -27,9 +27,25 @@ const OUTGOING_BODY_SIZE = 144;
  */
 export class EncryptedLogPayload {
   constructor(
+    /**
+     * Note discovery tag used by the recipient of the log.
+     */
     public readonly incomingTag: Fr,
+    /**
+     * Note discovery tag used by the sender of the log.
+     */
     public readonly outgoingTag: Fr,
+    /**
+     * Indicates whether there are values to be appended to the log in public (used in partial note flow).
+     */
+    public readonly publicValuesAppended: boolean,
+    /**
+     * Address of a contract that emitted the log.
+     */
     public readonly contractAddress: AztecAddress,
+    /**
+     * Decrypted incoming body.
+     */
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
@@ -71,6 +87,7 @@ export class EncryptedLogPayload {
     return serializeToBuffer(
       this.incomingTag,
       this.outgoingTag,
+      this.publicValuesAppended,
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
@@ -101,6 +118,8 @@ export class EncryptedLogPayload {
       const incomingTag = reader.readObject(Fr);
       const outgoingTag = reader.readObject(Fr);
 
+      const publicValuesAppended = reader.readBoolean();
+
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
       const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
@@ -115,6 +134,7 @@ export class EncryptedLogPayload {
       return new EncryptedLogPayload(
         incomingTag,
         outgoingTag,
+        publicValuesAppended,
         AztecAddress.fromBuffer(incomingHeader),
         incomingBodyPlaintext,
       );
@@ -157,6 +177,8 @@ export class EncryptedLogPayload {
       const incomingTag = reader.readObject(Fr);
       const outgoingTag = reader.readObject(Fr);
 
+      const publicValuesAppended = reader.readBoolean();
+
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
       // We skip the incoming header
@@ -182,7 +204,7 @@ export class EncryptedLogPayload {
       // Now we decrypt the incoming body using the ephSk and recipientIvpk
       const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
 
-      return new EncryptedLogPayload(incomingTag, outgoingTag, contractAddress, incomingBody);
+      return new EncryptedLogPayload(incomingTag, outgoingTag, publicValuesAppended, contractAddress, incomingBody);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (
