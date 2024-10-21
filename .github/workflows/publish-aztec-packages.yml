@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - "*/release-master*"
+      - ludamad-patch-2
   workflow_dispatch:
     inputs:
       tag:
@@ -22,11 +23,9 @@ permissions:
   issues: write
 
 env:
-  # Add any global environment variables here
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
-  USERNAME: ${{ github.actor }}
   GITHUB_TOKEN: ${{ github.token }}
   GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -35,10 +34,31 @@ env:
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   SHOULD_PUBLISH_DOCKER_IMAGES: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
   DEPLOY_TAG: ${{ github.event.inputs.tag }}
+
 jobs:
-  check-version:
+  configure:
     runs-on: ubuntu-latest
+    outputs:
+      username: ${{ steps.compute_username.outputs.username }}
     steps:
+      - name: Compute Username
+        id: compute_username
+        shell: bash
+        env:
+          REPO: "${{ github.repository }}"
+          BRANCH: "${{ github.ref_name }}"
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "username=${{ github.event.pull_request.user.login }}"
+            echo "username=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          else
+            GIT_HASH="${{ github.sha }}"
+            GIT_HASH_LAST8=${GIT_HASH: -8}
+            GIT_HASH_LAST8_DEC=$(printf "%d" 0x$GIT_HASH_LAST8)
+            GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
+            echo "username=master-${GIT_HASH_MODULO_8}"
+            echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
+          fi
       - name: Check if tag is valid
         id: check_tag
         if: github.event_name == 'workflow_dispatch'
@@ -54,31 +74,31 @@ jobs:
           fi
 
   setup-x86:
-    needs: check-version
+    needs: [configure]
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ github.actor }}
+      username: ${{ needs.configure.outputs.username }}
       runner_type: builder-x86
     secrets: inherit
 
   setup-arm:
-    needs: check-version
+    needs: [configure]
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ github.actor }}
+      username: ${{ needs.configure.outputs.username }}
       runner_type: builder-arm
     secrets: inherit
 
   build-aztec-x86:
-    needs: setup-x86
-    runs-on: ${{ github.actor }}-x86
+    needs: [configure, setup-x86]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-aztec-${{ github.actor }}
+          concurrency_key: build-aztec
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Build & Push Aztec x86_64
         timeout-minutes: 40
@@ -91,19 +111,20 @@ jobs:
             --ARCH=x86_64
 
   build-aztec-arm:
-    needs: setup-arm
-    runs-on: ${{ github.actor }}-arm
+    needs: [configure, setup-arm]
+    runs-on: ${{ needs.configure.outputs.username }}-arm
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-aztec-${{ github.actor }}
+          concurrency_key: build-aztec
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Build & Push Aztec arm64
-        timeout-minutes: 60
+        timeout-minutes: 80
         run: |
+          sudo shutdown -P 80
           earthly-ci \
             --no-output \
             --push \
@@ -112,71 +133,68 @@ jobs:
             --ARCH=arm64
 
   build-nargo-x86:
-    needs: [setup-x86, build-aztec-x86]
-    runs-on: ${{ github.actor }}-x86
+    needs: [configure, build-aztec-x86]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-aztec-nargo-${{ github.actor }}
+          concurrency_key: build-aztec-nargo
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
       - name: Build & push aztec nargo image
         run: |
           earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=x86_64
 
   build-nargo-arm:
-    needs: [setup-arm, build-aztec-arm]
-    runs-on: ${{ github.actor }}-arm
+    needs: [configure, build-aztec-arm]
+    runs-on: ${{ needs.configure.outputs.username }}-arm
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-aztec-nargo-${{ github.actor }}
+          concurrency_key: build-aztec-nargo
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
       - name: Build & push aztec nargo image
         run: |
           earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=arm64
 
   build-cli-wallet-x86:
-    needs: [setup-x86, build-aztec-x86]
-    runs-on: ${{ github.actor }}-x86
+    needs: [configure, build-aztec-x86]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-aztec-cli-wallet-${{ github.actor }}
+          concurrency_key: build-aztec-cli-wallet
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
       - name: Build & push aztec cli wallet image
         run: |
           earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=x86_64
 
   build-cli-wallet-arm:
-    needs: [setup-arm, build-aztec-arm]
-    runs-on: ${{ github.actor }}-arm
+    needs: [configure, build-aztec-arm]
+    runs-on: ${{ needs.configure.outputs.username }}-arm
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-aztec-cli-wallet-${{ github.actor }}
+          concurrency_key: build-aztec-cli-wallet
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
       - name: Build & push aztec cli wallet image
         run: |
           earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=arm64
 
   publish-manifests:
     needs:
+      - configure
       - build-aztec-x86
       - build-aztec-arm
       - build-nargo-x86
@@ -210,7 +228,6 @@ jobs:
           docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
 
-          # Create and push versioned manifest if a version is provided
           if [ -n "$VERSION" ]; then
             docker manifest create aztecprotocol/aztec:$VERSION \
               aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
@@ -245,8 +262,8 @@ jobs:
 
   publish-npm:
     if: github.event_name == 'workflow_dispatch'
-    needs: publish-manifests
-    runs-on: ${{ github.actor }}-x86
+    needs: [configure, publish-manifests]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
@@ -256,7 +273,7 @@ jobs:
           ref: ${{ env.GIT_COMMIT }}
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: publish-npm-${{ github.actor }}
+          concurrency_key: publish-npm
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish yarn-project NPM packages
         run: |
@@ -284,7 +301,7 @@ jobs:
 
   # Sometimes runners get killed because they can be spot, we try once more for good measure
   rerun-check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       actions: write
     needs:
@@ -302,12 +319,14 @@ jobs:
     steps:
       - name: Check for Rerun
         env:
-          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          RUN_ATTEMPT: ${{ env.RUN_ATTEMPT }}
         run: |
-          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
-            echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
+          # Retry first with failed and then with all, in case a runner snagged (e.g. ARM runner going down doesn't get rescued by a rescue script currently)
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT == 1 ]]; then
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          elif [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT == 2 ]]; then
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }} -F rerun_mode=all
           fi

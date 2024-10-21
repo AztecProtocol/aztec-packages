@@ -1,20 +1,21 @@
 mod utils;
 mod address;
 mod debug_log;
+pub mod public_keys;
 mod point;
 mod scalar;
 // This is intentionally spelled like this since contract is a reserved keyword, so it cannot be used as an ident.
 mod contrakt;
 mod transaction;
 mod abis;
-mod constants;
+pub mod constants;
 mod contract_class_id;
 mod merkle_tree;
 mod contract_instance;
 
 mod messaging;
-mod hash;
-mod traits;
+pub mod hash;
+pub mod traits;
 mod type_serialization;
 
 mod content_commitment;

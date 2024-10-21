@@ -572,24 +572,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 });
                 af.original_opcode_indices.schnorr_constraints.push_back(opcode_index);
                 af.constrained_witness.insert(af.schnorr_constraints.back().result);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenCommitment>) {
-                af.pedersen_constraints.push_back(PedersenConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result_x = arg.outputs[0].value,
-                    .result_y = arg.outputs[1].value,
-                });
-                af.constrained_witness.insert(af.pedersen_constraints.back().result_x);
-                af.constrained_witness.insert(af.pedersen_constraints.back().result_y);
-                af.original_opcode_indices.pedersen_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenHash>) {
-                af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result = arg.output.value,
-                });
-                af.constrained_witness.insert(af.pedersen_hash_constraints.back().result);
-                af.original_opcode_indices.pedersen_hash_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =
@@ -647,24 +629,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.constrained_witness.insert(af.ec_add_constraints.back().result_y);
                 af.constrained_witness.insert(af.ec_add_constraints.back().result_infinite);
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
-                auto input_var_message_size = get_witness_from_function_input(arg.var_message_size);
-                af.keccak_constraints.push_back(KeccakConstraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      auto input_witness = get_witness_from_function_input(e);
-                                      return HashInput{
-                                          .witness = input_witness,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
-                    .var_message_size = input_var_message_size,
-                });
-                for (auto& output : af.keccak_constraints.back().result) {
-                    af.constrained_witness.insert(output);
-                }
-                af.original_opcode_indices.keccak_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
                     .state = map(arg.inputs, [](auto& e) { return parse_input(e); }),

@@ -41,7 +41,7 @@ fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter
     assert_eq(output.min_revertible_side_effect_counter, 123);
 }
 
-#[test(should_fail_with="cannot overwrite non-zero min_revertible_side_effect_counter")]
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
 fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter_overwrite_fails() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
@@ -288,7 +288,7 @@ fn new_from_previous_kernel_with_private_call_public_teardown_call_request_succe
     assert_eq(output.public_teardown_call_request, request);
 }
 
-#[test(should_fail_with="Public teardown call request already set")]
+#[test(should_fail_with = "Public teardown call request already set")]
 fn new_from_previous_kernel_with_private_call_public_teardown_call_request_overwrite_fails() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
@@ -309,7 +309,7 @@ fn new_from_previous_kernel_with_private_call_fee_payer_succeeds() {
     assert_eq(output.fee_payer, fee_payer);
 }
 
-#[test(should_fail_with="Cannot overwrite non-empty fee_payer")]
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
 fn new_from_previous_kernel_with_private_call_fee_payer_overwrite_fails() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 

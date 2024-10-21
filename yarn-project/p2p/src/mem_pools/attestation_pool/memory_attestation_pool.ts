@@ -1,6 +1,7 @@
 import { type BlockAttestation } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { PoolInstrumentation } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
@@ -10,9 +11,9 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
 
-  constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:attestation_pool')) {
+  constructor(_telemetry: TelemetryClient, private log = createDebugLogger('aztec:attestation_pool')) {
     this.attestations = new Map();
-    this.metrics = new PoolInstrumentation(telemetry, 'InMemoryAttestationPool');
+    this.metrics = new PoolInstrumentation(new NoopTelemetryClient(), 'InMemoryAttestationPool');
   }
 
   public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {

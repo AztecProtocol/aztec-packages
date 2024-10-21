@@ -23,7 +23,7 @@ import { areArraysEqual, compactArray, times } from '@aztec/foundation/collectio
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -213,6 +213,9 @@ export class L1Publisher {
    * @return blockNumber - The L2 block number of the next L2 block
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
+    // FIXME: This should not throw if unable to propose but return a falsey value, so
+    // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
+    // which may require a retry, vs actually not being the turn for proposing.
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
@@ -265,7 +268,7 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
-      this.log.verbose(JSON.stringify(err));
+      this.log.verbose(toFriendlyJSON(err as object));
       const errorName = tryGetCustomErrorName(err);
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;

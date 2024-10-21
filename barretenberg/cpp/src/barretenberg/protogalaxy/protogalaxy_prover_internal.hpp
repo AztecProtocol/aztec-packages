@@ -110,7 +110,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     {
 
-        BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
+        PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         std::vector<FF> aggregated_relation_evaluations(polynomial_size);
@@ -205,7 +205,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     static Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
                                               const std::vector<FF>& deltas)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
         auto full_honk_evaluations = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
@@ -316,7 +316,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                                 const UnivariateRelationSeparator& alphas,
                                                                 TupleOfTuples& univariate_accumulators)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS();
 
         // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
         constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;

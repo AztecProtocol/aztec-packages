@@ -19,8 +19,8 @@ use rustc_hash::FxHashMap as HashMap;
 use crate::{
     ast::{
         ArrayLiteral, BlockExpression, ConstrainKind, Expression, ExpressionKind, ForRange,
-        FunctionKind, FunctionReturnType, Ident, IntegerBitSize, LValue, Literal, Pattern,
-        Signedness, Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
+        FunctionKind, FunctionReturnType, Ident, IntegerBitSize, ItemVisibility, LValue, Literal,
+        Pattern, Signedness, Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
         Visibility,
     },
     hir::{
@@ -34,8 +34,9 @@ use crate::{
     },
     hir_def::expr::{HirExpression, HirLiteral},
     hir_def::function::FunctionBody,
+    hir_def::{self},
     node_interner::{DefinitionKind, NodeInterner, TraitImplKind},
-    parser::Parser,
+    parser::{Parser, StatementOrExpressionOrLValue},
     token::{Attribute, SecondaryAttribute, Token},
     Kind, QuotedType, ResolvedGeneric, Shared, Type, TypeVariable,
 };
@@ -317,7 +318,7 @@ fn str_as_bytes(
 
     let bytes: im::Vector<Value> = string.bytes().map(Value::U8).collect();
     let byte_array_type = Type::Array(
-        Box::new(Type::Constant(bytes.len() as u32, Kind::u32())),
+        Box::new(Type::Constant(bytes.len().into(), Kind::u32())),
         Box::new(Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight)),
     );
     Ok(Value::Array(bytes, byte_array_type))
@@ -499,9 +500,9 @@ fn struct_def_fields(
 
     let mut fields = im::Vector::new();
 
-    for (name, typ) in struct_def.get_fields_as_written() {
-        let name = Value::Quoted(Rc::new(vec![Token::Ident(name)]));
-        let typ = Value::Type(typ);
+    for field in struct_def.get_fields_as_written() {
+        let name = Value::Quoted(Rc::new(vec![Token::Ident(field.name.to_string())]));
+        let typ = Value::Type(field.typ);
         fields.push_back(Value::Tuple(vec![name, typ]));
     }
 
@@ -568,7 +569,11 @@ fn struct_def_set_fields(
 
                 match name_tokens.first() {
                     Some(Token::Ident(name)) if name_tokens.len() == 1 => {
-                        Ok((Ident::new(name.clone(), field_location.span), typ))
+                        Ok(hir_def::types::StructField {
+                            visibility: ItemVisibility::Public,
+                            name: Ident::new(name.clone(), field_location.span),
+                            typ,
+                        })
                     }
                     _ => {
                         let value = name_value.display(interner).to_string();
@@ -688,23 +693,20 @@ fn quoted_as_expr(
     let argument = check_one_argument(arguments, location)?;
 
     let result =
-        parse(interner, argument.clone(), Parser::parse_expression_or_error, "an expression");
-    if let Ok(expr) = result {
-        return option(return_type, Some(Value::expression(expr.kind)));
-    }
+        parse(interner, argument, Parser::parse_statement_or_expression_or_lvalue, "an expression");
 
-    let result =
-        parse(interner, argument.clone(), Parser::parse_statement_or_error, "an expression");
-    if let Ok(stmt) = result {
-        return option(return_type, Some(Value::statement(stmt.kind)));
-    }
+    let value =
+        result.ok().map(
+            |statement_or_expression_or_lvalue| match statement_or_expression_or_lvalue {
+                StatementOrExpressionOrLValue::Expression(expr) => Value::expression(expr.kind),
+                StatementOrExpressionOrLValue::Statement(statement) => {
+                    Value::statement(statement.kind)
+                }
+                StatementOrExpressionOrLValue::LValue(lvalue) => Value::lvalue(lvalue),
+            },
+        );
 
-    let result = parse(interner, argument, Parser::parse_lvalue_or_error, "an expression");
-    if let Ok(lvalue) = result {
-        return option(return_type, Some(Value::lvalue(lvalue)));
-    }
-
-    option(return_type, None)
+    option(return_type, value)
 }
 
 // fn as_module(quoted: Quoted) -> Option<Module>
@@ -749,7 +751,7 @@ fn quoted_as_trait_constraint(
     )?;
     let bound = interpreter
         .elaborate_in_function(interpreter.current_function, |elaborator| {
-            elaborator.resolve_trait_bound(&trait_bound, Type::Unit)
+            elaborator.resolve_trait_bound(&trait_bound)
         })
         .ok_or(InterpreterError::FailedToResolveTraitBound { trait_bound, location })?;
 
@@ -806,8 +808,12 @@ fn to_le_radix(
     let value = get_field(value)?;
     let radix = get_u32(radix)?;
     let limb_count = if let Type::Array(length, _) = return_type {
-        if let Type::Constant(limb_count, _kind) = *length {
-            limb_count
+        if let Type::Constant(limb_count, kind) = *length {
+            if kind.unifies(&Kind::u32()) {
+                limb_count
+            } else {
+                return Err(InterpreterError::TypeAnnotationsNeededForMethodCall { location });
+            }
         } else {
             return Err(InterpreterError::TypeAnnotationsNeededForMethodCall { location });
         }
@@ -817,10 +823,11 @@ fn to_le_radix(
 
     // Decompose the integer into its radix digits in little endian form.
     let decomposed_integer = compute_to_radix_le(value, radix);
-    let decomposed_integer = vecmap(0..limb_count as usize, |i| match decomposed_integer.get(i) {
-        Some(digit) => Value::U8(*digit),
-        None => Value::U8(0),
-    });
+    let decomposed_integer =
+        vecmap(0..limb_count.to_u128() as usize, |i| match decomposed_integer.get(i) {
+            Some(digit) => Value::U8(*digit),
+            None => Value::U8(0),
+        });
     Ok(Value::Array(
         decomposed_integer.into(),
         Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight),
@@ -2245,7 +2252,10 @@ fn function_def_add_attribute(
         }
     }
 
-    if let Attribute::Secondary(SecondaryAttribute::Custom(attribute)) = attribute {
+    if let Attribute::Secondary(
+        SecondaryAttribute::Tag(attribute) | SecondaryAttribute::Meta(attribute),
+    ) = attribute
+    {
         let func_meta = interpreter.elaborator.interner.function_meta_mut(&func_id);
         func_meta.custom_attributes.push(attribute);
     }
@@ -2458,7 +2468,6 @@ fn function_def_set_parameters(
                 DefinitionKind::Local(None),
                 &mut parameter_idents,
                 true, // warn_if_unused
-                None,
             )
         });
 
@@ -2746,7 +2755,7 @@ fn trait_def_as_trait_constraint(
     let trait_id = get_trait_def(argument)?;
     let constraint = interner.get_trait(trait_id).as_constraint(location.span);
 
-    Ok(Value::TraitConstraint(trait_id, constraint.trait_generics))
+    Ok(Value::TraitConstraint(trait_id, constraint.trait_bound.trait_generics))
 }
 
 /// Creates a value that holds an `Option`.

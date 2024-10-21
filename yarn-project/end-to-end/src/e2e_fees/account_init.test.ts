@@ -183,7 +183,7 @@ describe('e2e_fees account_init', () => {
       const [alicesInitialGas] = await t.getGasBalanceFn(aliceAddress);
 
       // bob generates the private keys for his account on his own
-      const bobsPublicKeysHash = deriveKeys(bobsSecretKey).publicKeys.hash();
+      const bobsPublicKeys = deriveKeys(bobsSecretKey).publicKeys;
       const bobsSigningPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
       const bobsInstance = bobsAccountManager.getInstance();
 
@@ -192,8 +192,8 @@ describe('e2e_fees account_init', () => {
 
       // and deploys bob's account, paying the fee from her balance
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
-      const tx = await SchnorrAccountContract.deployWithPublicKeysHash(
-        bobsPublicKeysHash,
+      const tx = await SchnorrAccountContract.deployWithPublicKeys(
+        bobsPublicKeys,
         aliceWallet,
         bobsSigningPubKey.x,
         bobsSigningPubKey.y,

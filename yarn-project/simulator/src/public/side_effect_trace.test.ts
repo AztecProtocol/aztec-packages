@@ -14,9 +14,9 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
+  SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { randomBytes, randomInt } from 'crypto';
 

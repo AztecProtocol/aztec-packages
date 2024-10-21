@@ -7,6 +7,7 @@ import {
   AztecAddress,
   CallContext,
   type CombinedConstantData,
+  type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -51,7 +52,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
@@ -319,7 +319,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys,
       ),
     );
     this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);

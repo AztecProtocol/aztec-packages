@@ -16,10 +16,16 @@ namespace bb::avm_trace {
 namespace {
 
 const std::vector<OperandType> three_operand_format8 = {
-    OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT8, OperandType::UINT8, OperandType::UINT8,
+    OperandType::INDIRECT8,
+    OperandType::UINT8,
+    OperandType::UINT8,
+    OperandType::UINT8,
 };
 const std::vector<OperandType> three_operand_format16 = {
-    OperandType::INDIRECT8, OperandType::TAG, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16,
+    OperandType::INDIRECT8,
+    OperandType::UINT16,
+    OperandType::UINT16,
+    OperandType::UINT16,
 };
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT8, OperandType::UINT16 };
 
@@ -241,7 +247,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
             switch (opType) {
             case OperandType::TAG: {
                 uint8_t tag_u8 = bytecode.at(pos);
-                if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
+                if (tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
                                    " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
                 }

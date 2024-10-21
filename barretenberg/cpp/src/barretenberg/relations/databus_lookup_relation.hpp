@@ -282,7 +282,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const Parameters& params,
                                                      const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("DatabusRead::accumulate");
+        PROFILE_THIS_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 

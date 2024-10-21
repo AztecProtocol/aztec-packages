@@ -44,7 +44,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
         {
-            BB_OP_COUNT_TIME_NAME("construct_circuits");
+            PROFILE_THIS_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 

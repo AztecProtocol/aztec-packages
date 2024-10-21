@@ -11,14 +11,13 @@ import {
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -116,7 +115,10 @@ describe('prover-node', () => {
 
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
-    worldState.status.mockResolvedValue({ syncedToL2Block: 1, state: WorldStateRunningState.RUNNING });
+    worldState.status.mockResolvedValue({
+      syncedToL2Block: { number: 1, hash: '' },
+      state: WorldStateRunningState.RUNNING,
+    });
 
     // Publisher returns its sender address
     address = EthAddress.random();

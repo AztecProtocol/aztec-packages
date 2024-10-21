@@ -131,7 +131,7 @@ pub fn merkle_hash(left: Field, right: Field) -> Field {
     poseidon2_hash([left, right])
 }
 
-pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey) -> Field {
+pub fn stdlib_recursion_verification_key_compress_native_vk<let N: u32>(_vk: VerificationKey<N>) -> Field {
     // Original cpp code
     // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
     // The above cpp method is only ever called on verification key, so it has been special cased here
@@ -250,6 +250,10 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
         hash = 0;
     }
     hash
+}
+
+pub fn verification_key_hash<let N: u32>(key: [Field; N]) -> Field {
+    crate::hash::poseidon2_hash(key)
 }
 
 #[inline_always]

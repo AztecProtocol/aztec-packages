@@ -15,7 +15,7 @@ contract TokenBridge {
 
     use dep::token::Token;
 
-    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal}};
+    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal, view}};
     // docs:end:token_bridge_imports
 
     // docs:start:token_bridge_storage_and_constructor
@@ -132,7 +132,6 @@ contract TokenBridge {
         Token::at(token).burn(context.msg_sender(), amount, nonce).call(&mut context);
     }
     /// docs:end:exit_to_l1_private
-
     // docs:start:get_token
     #[public]
     #[view]

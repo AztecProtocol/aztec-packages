@@ -98,24 +98,25 @@ global MAX_PUBLIC_DATA_HINTS: u32 = 128;
 global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
 
 // VK TREE CONSTANTS
-global EMPTY_NESTED_INDEX: u32 = 0;
-global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
-global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
-global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
-global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
-global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
-global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
-global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
-global BASE_PARITY_INDEX: u32 = 10;
-global ROOT_PARITY_INDEX: u32 = 11;
-global BASE_ROLLUP_INDEX: u32 = 12;
-global MERGE_ROLLUP_INDEX: u32 = 13;
-global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
-global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
-global ROOT_ROLLUP_INDEX: u32 = 16;
-global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
-global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
+comptime global EMPTY_NESTED_INDEX: u32 = 0;
+comptime global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
+comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
+comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
+comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
+comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
+comptime global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
+comptime global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
+comptime global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
+comptime global BASE_PARITY_INDEX: u32 = 10;
+comptime global ROOT_PARITY_INDEX: u32 = 11;
+comptime global BASE_ROLLUP_INDEX: u32 = 12;
+comptime global MERGE_ROLLUP_INDEX: u32 = 13;
+comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
+comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
+comptime global ROOT_ROLLUP_INDEX: u32 = 16;
+comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
+comptime global TUBE_INDEX: u32 = 18;
+comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
 // MISC CONSTANTS
@@ -227,7 +228,7 @@ global GAS_LENGTH: u32 = 2;
 global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH + /* inclusion_fee */ 1;
 global CALL_CONTEXT_LENGTH: u32 = 5;
 global CONTENT_COMMITMENT_LENGTH: u32 = 4;
-global CONTRACT_INSTANCE_LENGTH: u32 = 5;
+global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 global ETH_ADDRESS_LENGTH: u32 = 1;
@@ -319,7 +320,9 @@ global RECURSIVE_PROOF_LENGTH: u32= 463;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32= 463;
 global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+
+global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 145;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -402,13 +405,13 @@ global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
 
 // AVM memory tags
+global MEM_TAG_FF = 0;
 global MEM_TAG_U1 = 1;
 global MEM_TAG_U8 = 2;
 global MEM_TAG_U16 = 3;
 global MEM_TAG_U32 = 4;
 global MEM_TAG_U64 = 5;
 global MEM_TAG_U128 = 6;
-global MEM_TAG_FF = 7;
 
 // AVM CIRCUIT - PUBLIC KERNEL INPUTS COLUMN OFFSETS
 // Keep the number of offsets aligned with KERNEL_INPUTS_LENGTH defined in constants.hpp

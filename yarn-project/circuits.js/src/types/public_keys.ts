@@ -45,6 +45,10 @@ export class PublicKeys {
     return new PublicKeys(Point.ZERO, Point.ZERO, Point.ZERO, Point.ZERO);
   }
 
+  static random(): PublicKeys {
+    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
+  }
+
   /**
    * Determines if this PublicKeys instance is equal to the given PublicKeys instance.
    * Equality is based on the content of their respective buffers.
@@ -123,6 +127,12 @@ export class PublicKeys {
       ...this.masterOutgoingViewingPublicKey.toFields(),
       ...this.masterTaggingPublicKey.toFields(),
     ];
+  }
+
+  // TOOD: This is used in foundation/src/abi/encoder. This is probably non-optimal but I did not want
+  // to spend too much time on the encoder now. It probably needs a refactor.
+  encodeToNoir(): Fr[] {
+    return this.toFields();
   }
 
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {

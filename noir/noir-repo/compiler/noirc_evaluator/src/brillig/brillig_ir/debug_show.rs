@@ -270,9 +270,6 @@ impl DebugShow {
                     outputs
                 );
             }
-            BlackBoxOp::Keccak256 { message, output } => {
-                debug_println!(self.enable_debug_trace, "  KECCAK256 {} -> {}", message, output);
-            }
             BlackBoxOp::Keccakf1600 { message, output } => {
                 debug_println!(self.enable_debug_trace, "  KECCAKF1600 {} -> {}", message, output);
             }
@@ -336,24 +333,6 @@ impl DebugShow {
                     input2_x,
                     input2_y,
                     result
-                );
-            }
-            BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  PEDERSEN {} {} -> {}",
-                    inputs,
-                    domain_separator,
-                    output
-                );
-            }
-            BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  PEDERSEN_HASH {} {} -> {}",
-                    inputs,
-                    domain_separator,
-                    output
                 );
             }
             BlackBoxOp::SchnorrVerify {

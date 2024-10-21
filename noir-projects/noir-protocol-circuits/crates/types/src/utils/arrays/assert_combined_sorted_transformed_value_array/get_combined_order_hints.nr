@@ -20,7 +20,7 @@ impl Eq for CombinedOrderHint {
     }
 }
 
-unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+pub unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
     let mut length = 0;
     for item in array {
         if !is_empty(item) & (item.counter() == 0) {
@@ -30,7 +30,7 @@ unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 wh
     length
 }
 
-unconstrained pub fn get_combined_order_hints_asc<T, let N: u32>(
+pub unconstrained fn get_combined_order_hints_asc<T, let N: u32>(
     array_lt: [T; N],
     array_gte: [T; N]
 ) -> [CombinedOrderHint; N] where T: Ordered + Eq + Empty {

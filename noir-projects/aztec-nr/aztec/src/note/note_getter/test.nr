@@ -106,7 +106,7 @@ unconstrained fn can_return_zero_notes() {
     assert_eq(returned.len(), 0);
 }
 
-#[test(should_fail_with="Got more notes than limit.")]
+#[test(should_fail_with = "Got more notes than limit.")]
 unconstrained fn rejects_mote_notes_than_limit() {
     let mut env = setup();
     let mut context = env.private();
@@ -155,7 +155,7 @@ unconstrained fn applies_filter_before_constraining() {
     assert_eq(context.note_hash_read_requests.len(), 1);
 }
 
-#[test(should_fail_with="Mismatch note header contract address.")]
+#[test(should_fail_with = "Mismatch note header contract address.")]
 unconstrained fn rejects_mismatched_address() {
     let mut env = setup();
     let mut context = env.private();
@@ -169,7 +169,7 @@ unconstrained fn rejects_mismatched_address() {
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Mismatch note header storage slot.")]
+#[test(should_fail_with = "Mismatch note header storage slot.")]
 unconstrained fn rejects_mismatched_storage_slot() {
     let mut env = setup();
     let mut context = env.private();
@@ -183,7 +183,7 @@ unconstrained fn rejects_mismatched_storage_slot() {
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Mismatch return note field.")]
+#[test(should_fail_with = "Mismatch return note field.")]
 unconstrained fn rejects_mismatched_selector() {
     let mut env = setup();
     let mut context = env.private();
@@ -204,7 +204,7 @@ unconstrained fn rejects_mismatched_selector() {
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Return notes not sorted in descending order.")]
+#[test(should_fail_with = "Return notes not sorted in descending order.")]
 unconstrained fn rejects_mismatched_desc_sort_order() {
     let mut env = setup();
     let mut context = env.private();
@@ -222,7 +222,7 @@ unconstrained fn rejects_mismatched_desc_sort_order() {
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Return notes not sorted in ascending order.")]
+#[test(should_fail_with = "Return notes not sorted in ascending order.")]
 unconstrained fn rejects_mismatched_asc_sort_order() {
     let mut env = setup();
     let mut context = env.private();
