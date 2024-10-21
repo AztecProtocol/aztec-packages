@@ -55,7 +55,6 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
         .poseidon2_constraints = { poseidon2_constraint },
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
