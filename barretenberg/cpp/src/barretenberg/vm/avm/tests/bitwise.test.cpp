@@ -64,9 +64,6 @@ void common_validate_op_not(std::vector<Row> const& trace,
     switch (tag) {
     // Handle the different mem_tags here since this is part of a
     // parameterised test
-    case AvmMemoryTag::U0:
-        FAIL() << "Unintialized Mem Tags Disallowed";
-        break;
     case AvmMemoryTag::U1:
         EXPECT_EQ(alu_row->alu_u1_tag, FF(1));
         break;

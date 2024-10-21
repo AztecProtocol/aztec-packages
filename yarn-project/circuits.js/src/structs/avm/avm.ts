@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { PublicKeys } from '../../types/public_keys.js';
 import { Gas } from '../gas.js';
 import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
@@ -176,7 +177,7 @@ export class AvmContractInstanceHint {
     public readonly deployer: Fr,
     public readonly contractClassId: Fr,
     public readonly initializationHash: Fr,
-    public readonly publicKeysHash: Fr,
+    public readonly publicKeys: PublicKeys,
   ) {}
   /**
    * Serializes the inputs to a buffer.
@@ -206,7 +207,7 @@ export class AvmContractInstanceHint {
       this.deployer.isZero() &&
       this.contractClassId.isZero() &&
       this.initializationHash.isZero() &&
-      this.publicKeysHash.isZero()
+      this.publicKeys.isEmpty()
     );
   }
 
@@ -232,7 +233,7 @@ export class AvmContractInstanceHint {
       fields.deployer,
       fields.contractClassId,
       fields.initializationHash,
-      fields.publicKeysHash,
+      fields.publicKeys,
     ] as const;
   }
 
@@ -250,7 +251,7 @@ export class AvmContractInstanceHint {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      PublicKeys.fromBuffer(reader),
     );
   }
 
