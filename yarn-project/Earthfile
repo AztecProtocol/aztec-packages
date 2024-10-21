@@ -289,6 +289,7 @@ network-test-fake-proofs:
     COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
     WORKDIR /usr/src/yarn-project
     # All script arguments are in the end-to-end/scripts/native-network folder
+    ENV LOG_LEVEL=verbose
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
         ./test-transfer.sh \
         ./deploy-l1-contracts.sh \
@@ -297,7 +298,7 @@ network-test-fake-proofs:
         ./ethereum.sh \
         "./prover-node.sh 8078 false" \
         ./pxe.sh \
-        "./validator.sh 0"
+        "./validators.sh 1"
 
 publish-npm:
     FROM +build

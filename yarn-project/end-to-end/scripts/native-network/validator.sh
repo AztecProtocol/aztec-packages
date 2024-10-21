@@ -7,18 +7,9 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
-## Ports
-# Ports are inferred based on the validator index provided as the first cli arg
-# e.g. ./validator.sh 0 will use port 8081 and p2p port 40401
-# ./validator.sh 1 will use port 8082 and p2p port 40402
-# and so on...
-
-# Validator Index
-VALIDATOR_INDEX="$1"
-
-# Derive Node Ports
-PORT=$((8081 + VALIDATOR_INDEX))
-P2P_PORT=$((40401 + VALIDATOR_INDEX))
+# PORTS
+PORT="$1"
+P2P_PORT="$2"
 
 # Starts the Validator Node
 REPO=$(git rev-parse --show-toplevel)

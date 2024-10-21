@@ -95,14 +95,8 @@ BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
         ./ethereum.sh \
         \"./prover-node.sh 8078 false\" \
         ./pxe.sh \
-        ./transaction-bot.sh"
-
-# Generate validator commands
-for ((i=0; i<NUM_VALIDATORS; i++))
-do
-    # Validator index is used to derive the node and p2p ports
-    BASE_CMD+=" \"./validator.sh $i\""
-done
+        ./transaction-bot.sh" \
+        "./validators.sh $NUM_VALIDATORS"
 
 # Execute the command
 eval $BASE_CMD

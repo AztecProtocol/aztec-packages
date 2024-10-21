@@ -18,7 +18,8 @@ CMD=()
 for ((i=0; i<NUM_VALIDATORS; i++))
 do
     PORT=$((8081 + i))
-    CMD+=("./validator.sh $PORT")
+    P2P_PORT=$((40401 + i))
+    CMD+=("./validator.sh $PORT $P2P_PORT")
 done
 
 # Execute the run_interleaved.sh script with the commands
