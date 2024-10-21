@@ -15,7 +15,7 @@ fn compute_raw_note_log<Note, let N: u32>(
     ivpk: IvpkM,
     recipient: AztecAddress,
     public_values_appended: bool // Indicates whether there are values to be appended to the log in public (used in partial note flow).
-) -> (u32, [u8; 416 + N * 32], Field) where Note: NoteInterface<N> {
+) -> (u32, [u8; 417 + N * 32], Field) where Note: NoteInterface<N> {
     let note_header = note.get_header();
     let note_hash_counter = note_header.note_hash_counter;
     let storage_slot = note_header.storage_slot;
@@ -27,7 +27,7 @@ fn compute_raw_note_log<Note, let N: u32>(
     let contract_address: AztecAddress = context.this_address();
 
     let plaintext = note.to_be_bytes(storage_slot);
-    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(
+    let encrypted_log: [u8; 417 + N * 32] = compute_encrypted_log(
         contract_address,
         ovsk_app,
         ovpk,
@@ -48,7 +48,7 @@ unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32>(
     ivpk: IvpkM,
     recipient: AztecAddress,
     public_values_appended: bool // Indicates whether there are values to be appended to the log in public (used in partial note flow).
-) -> (u32, [u8; 416 + N * 32], Field) where Note: NoteInterface<N> {
+) -> (u32, [u8; 417 + N * 32], Field) where Note: NoteInterface<N> {
     let ovsk_app = get_ovsk_app(ovpk.hash());
     compute_raw_note_log(
         context,
@@ -123,7 +123,7 @@ pub fn encrypt_and_emit_partial_log<let M: u32>(
 ) {
     let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-    let encrypted_log: [u8; 352 + M] = compute_encrypted_log(
+    let encrypted_log: [u8; 353 + M] = compute_encrypted_log(
         context.this_address(),
         ovsk_app,
         recipient_keys.ovpk_m,

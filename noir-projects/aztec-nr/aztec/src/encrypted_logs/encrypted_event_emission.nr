@@ -12,10 +12,10 @@ fn compute_raw_event_log<Event, let N: u32>(
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+) -> ([u8; 417 + N * 32], Field) where Event: EventInterface<N> {
     let contract_address: AztecAddress = context.this_address();
     let plaintext = event.private_to_be_bytes(randomness);
-    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(
+    let encrypted_log: [u8; 417 + N * 32] = compute_encrypted_log(
         contract_address,
         ovsk_app,
         ovpk,
@@ -35,7 +35,7 @@ unconstrained fn compute_raw_event_log_unconstrained<Event, let N: u32>(
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+) -> ([u8; 417 + N * 32], Field) where Event: EventInterface<N> {
     let ovsk_app = get_ovsk_app(ovpk.hash());
     compute_raw_event_log(context, event, randomness, ovsk_app, ovpk, ivpk, recipient)
 }
