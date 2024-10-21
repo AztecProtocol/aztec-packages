@@ -59,13 +59,15 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     bool operator==(const Univariate& other) const;
     Univariate& operator-=(const Univariate& other);
     Univariate& operator*=(const Univariate& other);
-    void self_sqr();
+    void self_sqr()
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
 
     Univariate operator+(const Univariate& other) const;
     Univariate operator-(const Univariate& other) const;
     Univariate operator*(const Univariate& other) const;
     Univariate operator-() const;
-    Univariate sqr() const;
+    Univariate sqr() const
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
 
     // Operations between Univariate and scalar
     Univariate& operator+=(const Fr& scalar);
@@ -89,7 +91,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Fr& value_at(size_t i);
     const Fr& value_at(size_t i) const;
 
-    bool is_zero() const;
+    bool is_zero() const
+        requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);
     // Buffer methods
     std::vector<uint8_t> to_buffer() const
         requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>);

@@ -1,6 +1,7 @@
 #include "univariate.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -89,6 +90,7 @@ Univariate<Fr, domain_end, domain_start, skip_count>& Univariate<Fr, domain_end,
 
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 void Univariate<Fr, domain_end, domain_start, skip_count>::self_sqr()
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     evaluations[0].self_sqr();
     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
@@ -145,6 +147,7 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 // Function to square a Univariate instance
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, domain_start, skip_count>::sqr() const
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
     Univariate result = *this;
     result.self_sqr(); // Reuse self_sqr for squaring in-place
@@ -282,20 +285,13 @@ Univariate<Fr, domain_end, domain_start, skip_count> Univariate<Fr, domain_end, 
 // Definition for the to_buffer function
 template <class Fr, size_t domain_end, size_t domain_start, size_t skip_count>
 bool Univariate<Fr, domain_end, domain_start, skip_count>::is_zero() const
+    requires(std::same_as<Fr, bb::fr> || std::same_as<Fr, bb::fq>)
 {
-    const auto is_zero = []<typename T>(const auto& a) {
-        if constexpr (std::same_as<T, bb::fr> || std::same_as<T, bb::fq>) {
-            return a.is_zero();
-        } else {
-            return a.is_zero().get_value();
-        }
-    };
-
-    if (!is_zero.template operator()<Fr>(evaluations[0])) {
+    if (!evaluations[0].is_zero()) {
         return false;
     }
     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-        if (!is_zero.template operator()<Fr>(evaluations[i])) {
+        if (!evaluations[i].is_zero()) {
             return false;
         }
     }
@@ -666,5 +662,6 @@ template Univariate<bb::fr, 12, 0, 0> Univariate<bb::fr, 7, 0, 0>::extend_to<12,
 template class Univariate<stdlib::field_t<MegaCircuitBuilder_<bb::fr>>, 8ul, 0ul, 0ul>;
 template class Univariate<stdlib::field_t<CircuitSimulatorBN254>, 8ul, 0ul, 0ul>;
 template class Univariate<stdlib::field_t<UltraCircuitBuilder_<UltraArith<bb::fr>>>, 8ul, 0ul, 0ul>;
+template class Univariate<stdlib::bigfield<UltraCircuitBuilder_<UltraArith<bb::fr>>, bb::fq>, 22ul, 0ul, 0ul>;
 
 } // namespace bb
