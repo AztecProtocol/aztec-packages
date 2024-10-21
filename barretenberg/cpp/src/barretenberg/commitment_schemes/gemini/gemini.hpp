@@ -230,7 +230,6 @@ template <typename Curve> class GeminiVerifier_ {
         // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
         GroupElement C0_r_pos;
 
-        // C₀ᵣ₊ = [F] + r⁻¹⋅[G] GroupElement C0_r_pos;
         // C₀ᵣ₋ = [F] - r⁻¹⋅[G]
         GroupElement C0_r_neg;
 

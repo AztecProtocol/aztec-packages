@@ -161,6 +161,57 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     // Collect multilinear evaluations for input to prover
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval3, eval1_shift, eval3_shift };
 
+    size_t concatenation_index = 2;
+    size_t N = n;
+    size_t MINI_CIRCUIT_N = N / concatenation_index;
+
+    // Polynomials "chunks" that are concatenated in the PCS
+    std::vector<std::vector<Polynomial>> concatenation_groups;
+
+    // Concatenated polynomials
+    std::vector<Polynomial> concatenated_polynomials;
+
+    // Evaluations of concatenated polynomials
+    std::vector<Fr> c_evaluations;
+    size_t NUM_CONCATENATED = 3;
+    // For each polynomial to be concatenated
+    for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
+        std::vector<Polynomial> concatenation_group;
+        Polynomial concatenated_polynomial(N);
+        // For each chunk
+        for (size_t j = 0; j < concatenation_index; j++) {
+            Polynomial chunk_polynomial(N);
+            // Fill the chunk polynomial with random values and appropriately fill the space in
+            // concatenated_polynomial
+            for (size_t k = 0; k < MINI_CIRCUIT_N; k++) {
+                // Chunks should be shiftable
+                auto tmp = Fr(0);
+                if (k > 0) {
+                    tmp = Fr::random_element(this->engine);
+                }
+                chunk_polynomial.at(k) = tmp;
+                concatenated_polynomial.at(j * MINI_CIRCUIT_N + k) = tmp;
+            }
+            concatenation_group.emplace_back(chunk_polynomial);
+        }
+        // Store chunks
+        concatenation_groups.emplace_back(concatenation_group);
+        // Store concatenated polynomial
+        concatenated_polynomials.emplace_back(concatenated_polynomial);
+        // Get evaluation
+        c_evaluations.emplace_back(concatenated_polynomial.evaluate_mle(mle_opening_point));
+    }
+
+    // Compute commitments of all polynomial chunks
+    std::vector<std::vector<Commitment>> concatenation_groups_commitments;
+    for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
+        std::vector<Commitment> concatenation_group_commitment;
+        for (size_t j = 0; j < concatenation_index; j++) {
+            concatenation_group_commitment.emplace_back(this->commit(concatenation_groups[i][j]));
+        }
+        concatenation_groups_commitments.emplace_back(concatenation_group_commitment);
+    }
+
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
@@ -173,7 +224,9 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
                                                      RefArray{ poly1, poly3 },
                                                      mle_opening_point,
                                                      this->ck(),
-                                                     prover_transcript);
+                                                     prover_transcript,
+                                                     RefVector(concatenated_polynomials),
+                                                     to_vector_of_ref_vectors(concatenation_groups));
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -198,7 +251,9 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
                                                        RefArray{ eval1_shift, eval3_shift },
                                                        mle_opening_point,
                                                        this->vk()->get_g1_identity(),
-                                                       verifier_transcript);
+                                                       verifier_transcript,
+                                                       to_vector_of_ref_vectors(concatenation_groups_commitments),
+                                                       RefVector(c_evaluations));
     const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 

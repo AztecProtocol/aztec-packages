@@ -123,9 +123,12 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
+        size_t circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
+            circuit_size = static_cast<uint32_t>(N.get_value());
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
+            circuit_size = static_cast<uint32_t>(N);
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
@@ -138,9 +141,11 @@ template <typename Curve> class ShpleminiVerifier_ {
             GeminiVerifier::get_fold_commitments(log_circuit_size, transcript);
         // - Get Gemini evaluation challenge for Aᵢ, i = 0, … , d−1
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
+
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
         const std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(log_circuit_size, transcript);
-        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size, I think this should be CONST_PROOF_SIZE
+        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size, I think this should be
+        // CONST_PROOF_SIZE
         const std::vector<Fr> gemini_eval_challenge_powers =
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);
 
@@ -150,10 +155,13 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
-        // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(Aₙ₋₁), [1]₁)
+        // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(Aₙ₋₁), [1]₁) where fᵢ are
+        // the k commitments to unshifted polynomials and gⱼ are the m commitments to shifted polynomials
         std::vector<Commitment> commitments{ Q_commitment };
+
         // Get Shplonk opening point z
         const Fr shplonk_evaluation_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
+
         // Start computing the scalar to be multiplied by [1]₁
         Fr constant_term_accumulator = Fr(0);
 
@@ -165,17 +173,45 @@ template <typename Curve> class ShpleminiVerifier_ {
         } else {
             scalars.emplace_back(Fr(1));
         }
-        // Compute 1/(z − r), 1/(z + r), 1/(z + r²), … , 1/(z + r²⁽ⁿ⁻¹⁾) needed for Shplonk batching
+
+        // Compute 1/(z − r), 1/(z + r), 1/(z + r²), … , 1/(z + r²⁽ⁿ⁻¹⁾)
+        // These represent the denominators of the summand terms in Shplonk partially evaluated polynomial Q_z
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
             log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+
+        // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
+        // reconstructing thec commitment of Q_z
 
         // i-th unshifted commitment is multiplied by −ρⁱ and the unshifted_scalar ( 1/(z−r) + ν/(z+r) )
         const Fr unshifted_scalar =
             inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];
-        // i-th shifted commitment is multiplied by −ρⁱ⁺ᵏ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
+
+        //  j-th shifted commitment is multiplied by −ρᵏ⁺ʲ⁻¹ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
         const Fr shifted_scalar =
             gemini_evaluation_challenge.invert() *
             (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
+
+        std::vector<Fr> concatenation_scalars;
+        if (!concatenation_group_commitments.empty()) {
+            const size_t concatenation_group_size = concatenation_group_commitments[0].size();
+            // The "real" size of each polynomial in concatenation groups (i.e. the nummber of non-zero values)
+            const size_t mini_circuit_size = circuit_size / concatenation_group_size;
+            auto r_shift_pos = Fr(1);
+            auto r_shift_neg = Fr(1);
+            auto r_pow_minicircuit = gemini_evaluation_challenge.pow(mini_circuit_size);
+            auto r_neg_pow_minicircuit = (-gemini_evaluation_challenge).pow(mini_circuit_size);
+
+            for (size_t i = 0; i < concatenation_group_size; ++i) {
+                // The commitments in the l-th concatenation group will be multiplied by  -ρᵏ⁺ᵐ⁺ˡ and
+                // ( r_shift_pos/(z−r) + ν ⋅ r_shift_neg /(z+r) )
+                concatenation_scalars.emplace_back(r_shift_pos * inverse_vanishing_evals[0] +
+                                                   r_shift_neg * shplonk_batching_challenge *
+                                                       inverse_vanishing_evals[1]);
+
+                r_shift_pos *= r_pow_minicircuit;
+                r_shift_neg *= r_neg_pow_minicircuit;
+            }
+        }
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
@@ -189,7 +225,10 @@ template <typename Curve> class ShpleminiVerifier_ {
                                           shifted_scalar,
                                           commitments,
                                           scalars,
-                                          batched_evaluation);
+                                          batched_evaluation,
+                                          concatenation_scalars,
+                                          concatenation_group_commitments,
+                                          concatenated_evaluations);
 
         // Place the commitments to Gemini Aᵢ to the vector of commitments, compute the contributions from
         // Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
@@ -262,25 +301,31 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param shifted_commitments Commitments to shifted polynomials.
      * @param claimed_evaluations Claimed evaluations of the corresponding polynomials.
      * @param multivariate_batching_challenge Random challenge used for batching of multivariate evaluation claims.
-     * @param unshifted_scalar Scaling factor for unshifted polynomials.
-     * @param shifted_scalar Scaling factor for shifted polynomials.
+     * @param unshifted_scalar Scaling factor for commitments to unshifted polynomials.
+     * @param shifted_scalar Scaling factor for commitments to shifted polynomials.
      * @param commitments The vector of commitments to be populated.
      * @param scalars The vector of scalars to be populated.
      * @param batched_evaluation The evaluation of the batched multilinear polynomial.
+     * @param concatenated_scalars Scaling factors for the commitments to polynomials in concatenation groups, one for
+     * each group.
+     * @param concatenation_group_commitments Commitments to polynomials to be concatenated.
+     * @param concatenated_evaluations Evaluations of the full concatenated polynomials.
      */
-    static void batch_multivariate_opening_claims(RefSpan<Commitment> unshifted_commitments,
-                                                  RefSpan<Commitment> shifted_commitments,
-                                                  RefSpan<Fr> unshifted_evaluations,
-                                                  RefSpan<Fr> shifted_evaluations,
-                                                  const Fr& multivariate_batching_challenge,
-                                                  const Fr& unshifted_scalar, // possibly these need to be modified
-                                                  const Fr& shifted_scalar,
-                                                  std::vector<Commitment>& commitments,
-                                                  std::vector<Fr>& scalars,
-                                                  Fr& batched_evaluation,
-                                                  [[maybe_unused]] RefSpan<Fr> concatenated_evaluations = {})
+    static void batch_multivariate_opening_claims(
+        RefSpan<Commitment> unshifted_commitments,
+        RefSpan<Commitment> shifted_commitments,
+        RefSpan<Fr> unshifted_evaluations,
+        RefSpan<Fr> shifted_evaluations,
+        const Fr& multivariate_batching_challenge,
+        const Fr& unshifted_scalar,
+        const Fr& shifted_scalar,
+        std::vector<Commitment>& commitments,
+        std::vector<Fr>& scalars,
+        Fr& batched_evaluation,
+        std::vector<Fr> concatenated_scalars = {},
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        RefSpan<Fr> concatenated_evaluations = {})
     {
-        // I think what needs to happen here is that i construct without doingt he MSM
         Fr current_batching_challenge = Fr(1);
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
@@ -296,20 +341,40 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
             // Move shifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(shifted_commitment));
-            // Compute −ρ⁽ⁱ⁺ᵏ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
+            // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-shifted_scalar * current_batching_challenge);
-            // Accumulate the evaluation of ∑ ρ⁽ⁱ⁺ᵏ⁾ ⋅ f_shift, i at the sumcheck challenge
+            // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
             batched_evaluation += shifted_evaluation * current_batching_challenge;
-            // Update the batching challenge
+            // Update the batching challenge ρ
             current_batching_challenge *= multivariate_batching_challenge;
         }
+
+        // If we are performing an opening verification for the translator, add the contributions from the concatenation
+        // commitments and evaluations to the result
+        ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
+        if (!concatenation_group_commitments.empty()) {
+            size_t concatenation_group_size = concatenation_group_commitments[0].size();
+            size_t group_idx = 0;
+            for (auto concatenation_group_commitment : concatenation_group_commitments) {
+                for (size_t i = 0; i < concatenation_group_size; ++i) {
+                    commitments.emplace_back(std::move(concatenation_group_commitment[i]));
+                    scalars.emplace_back(-current_batching_challenge * concatenated_scalars[i]);
+                }
+                // Accumulate the batched evaluations of concatenated polynomials
+                batched_evaluation += concatenated_evaluations[group_idx] * current_batching_challenge;
+                // Update the batching challenge ρ
+                current_batching_challenge *= multivariate_batching_challenge;
+                group_idx++;
+            }
+        }
     }
+
     /**
-     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$ A_i
-     * \f$.
+     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$
+     * A_i \f$.
      *
-     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i} \f$,
-     * where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
+     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i}
+     * \f$, where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
      *
      * 1. Moves the vector
      * \f[

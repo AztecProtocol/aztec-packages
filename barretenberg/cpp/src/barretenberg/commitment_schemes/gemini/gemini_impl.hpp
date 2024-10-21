@@ -73,31 +73,27 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     size_t num_groups = groups_to_be_concatenated.size();
     size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
-    // Concatenated polynomials
-    Polynomial batched_concatenated(n);
 
-    // construct concatention_groups_batched
-    std::vector<Polynomial> batched_groups_to_be_concatenated;
+    // Allocate space for the groups to be concatenated and for the concatenated polynomials
+    Polynomial batched_concatenated(n);
+    std::vector<Polynomial> batched_group;
     for (size_t i = 0; i < num_chunks_per_group; ++i) {
-        batched_groups_to_be_concatenated.push_back(Polynomial(n));
+        batched_group.push_back(Polynomial(n));
     }
-    // for each group
+
     for (size_t i = 0; i < num_groups; ++i) {
         batched_concatenated.add_scaled(concatenated_polynomials[i], rho_challenge);
-        // for each element in a group
-        // TODO: do sth with the concatenated groups
         for (size_t j = 0; j < num_chunks_per_group; ++j) {
-            batched_groups_to_be_concatenated[j].add_scaled(groups_to_be_concatenated[i][j], rho_challenge);
+            batched_group[j].add_scaled(groups_to_be_concatenated[i][j], rho_challenge);
         }
         rho_challenge *= rho;
     }
 
-    Polynomial batched_unshifted_copy = batched_unshifted;
-    batched_unshifted_copy += batched_concatenated;
+    Polynomial& batched_unshifted_and_concatenated = batched_concatenated;
+    batched_unshifted_and_concatenated += batched_unshifted;
 
-    // let's say we leave this as it is because the batched_concatenated are after all unshifted polynomials
     auto fold_polynomials = compute_fold_polynomials(
-        log_n, multilinear_challenge, std::move(batched_unshifted_copy), std::move(batched_to_be_shifted));
+        log_n, multilinear_challenge, std::move(batched_unshifted_and_concatenated), std::move(batched_to_be_shifted));
 
     for (size_t l = 0; l < CONST_PROOF_SIZE_LOG_N - 1; l++) {
         if (l < log_n - 1) {
@@ -108,12 +104,9 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
-    // here I need to calculate using the concatenated groups
-    std::vector<Claim> claims = compute_fold_polynomial_evaluations(log_n,
-                                                                    std::move(fold_polynomials),
-                                                                    std::move(batched_unshifted),
-                                                                    r_challenge,
-                                                                    std::move(batched_groups_to_be_concatenated));
+
+    std::vector<Claim> claims = compute_fold_polynomial_evaluations(
+        log_n, std::move(fold_polynomials), std::move(batched_unshifted), r_challenge, std::move(batched_group));
 
     for (size_t l = 1; l <= CONST_PROOF_SIZE_LOG_N; l++) {
         if (l <= log_n) {
@@ -129,8 +122,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 /**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
  *
+ * @details If proving the opening for translator, batch_unshifted contains the sum of unshifted ond concatenated
+ * polynomials, scaled by the appropriate power of ρ,  F(X) = ∑ⱼ ρʲ fⱼ(X) + ∑ₗ ρᵏ⁺ᵐ⁺ˡ concatenated_polynomials(X)
+ *
  * @param mle_opening_point multilinear opening point 'u'
- * @param batched_unshifted F(X) = ∑ⱼ ρʲ   fⱼ(X)
+ * @param batched_unshifted F(X) = ∑ⱼ ρʲ fⱼ(X) .
  * @param batched_to_be_shifted G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
  * @return std::vector<Polynomial>
  */
@@ -237,11 +233,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     Fr r_inv = r_challenge.invert();
 
     const size_t num_variables = log_N;
-    info(batched_unshifted);
     Polynomial& batched_F = fold_polynomials[0]; // F(X) = ∑ⱼ ρʲ   fⱼ(X)
-    info(fold_polynomials[0]);
     batched_F = batched_unshifted; // I made fold_polynomials[0] be just batch unshifted without concatenation
-    info(fold_polynomials[0]);
     Polynomial& batched_G = fold_polynomials[1]; // G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
@@ -255,7 +248,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     Polynomial& A_0_pos = fold_polynomials[0]; // already modified to only be the unshifted stuff
 
     // A₀₊(X) = F(X) + G(X)/r, s.t. A₀₊(r) = A₀(r)
-    // here
     A_0_pos += batched_G;
 
     // Perform a swap so that tmp = G(X)/r and A_0_neg = F(X)
@@ -263,18 +255,14 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     Polynomial& A_0_neg = fold_polynomials[1];
 
     // A₀₋(X) = F(X) - G(X)/r, s.t. A₀₋(-r) = A₀(-r)
-    // here
     A_0_neg -= tmp;
 
     if (!batched_groups_to_be_concatenated.empty()) {
-        size_t N = 1 << log_N;
-        size_t MINICIRCUIT_N = N / batched_groups_to_be_concatenated.size();
-        info("Prover side ", MINICIRCUIT_N);
-        auto r_minus = r_challenge;
+        size_t MINICIRCUIT_N = (1 << log_N) / batched_groups_to_be_concatenated.size();
         auto current_r_shift_pos = Fr(1);
         auto current_r_shift_neg = Fr(1);
         auto r_to_minicircuit_n_pos = r_challenge.pow(MINICIRCUIT_N);
-        auto r_to_minicircuit_n_neg = r_minus.pow(MINICIRCUIT_N);
+        auto r_to_minicircuit_n_neg = (-r_challenge).pow(MINICIRCUIT_N);
         for (size_t i = 0; i < batched_groups_to_be_concatenated.size(); i++) {
             A_0_pos.add_scaled(batched_groups_to_be_concatenated[i], current_r_shift_pos);
             A_0_neg.add_scaled(batched_groups_to_be_concatenated[i], current_r_shift_neg);
