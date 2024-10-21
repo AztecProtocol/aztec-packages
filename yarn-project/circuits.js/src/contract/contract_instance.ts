@@ -14,6 +14,7 @@ import { computeContractClassId } from '../contract/contract_class_id.js';
 import { PublicKeys } from '../types/public_keys.js';
 import {
   computeContractAddressFromInstance,
+  computeContractAddressFromInstanceNew,
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
@@ -133,7 +134,7 @@ export function getContractInstanceFromDeployParams(
     version: 1,
   };
 
-  return { ...instance, address: computeContractAddressFromInstance(instance) };
+  return { ...instance, address: computeContractAddressFromInstanceNew(instance) };
 }
 
 function getConstructorArtifact(
