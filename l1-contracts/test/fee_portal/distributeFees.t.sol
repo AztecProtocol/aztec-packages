@@ -11,9 +11,8 @@ import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Sysstia} from "@aztec/governance/Sysstia.sol";
 
 contract DistributeFees is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -23,6 +22,7 @@ contract DistributeFees is Test {
   TestERC20 internal token;
   FeeJuicePortal internal feeJuicePortal;
   Rollup internal rollup;
+  Sysstia internal sysstia;
 
   function setUp() public {
     registry = new Registry(OWNER);
@@ -32,7 +32,9 @@ contract DistributeFees is Test {
     token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
 
-    rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
+    sysstia = new Sysstia(token, registry);
+    rollup =
+      new Rollup(feeJuicePortal, sysstia, bytes32(0), bytes32(0), address(this), new address[](0));
 
     vm.prank(OWNER);
     registry.upgrade(address(rollup));
@@ -72,7 +74,7 @@ contract DistributeFees is Test {
     uint256 numberOfRollups = bound(_numberOfRollups, 1, 5);
     for (uint256 i = 0; i < numberOfRollups; i++) {
       Rollup freshRollup =
-        new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
+        new Rollup(feeJuicePortal, sysstia, bytes32(0), bytes32(0), address(this), new address[](0));
       vm.prank(OWNER);
       registry.upgrade(address(freshRollup));
     }
