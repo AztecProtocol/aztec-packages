@@ -82,87 +82,86 @@ global BLOCK_SIZE = 64;
 
 // Variable size SHA-256 hash
 pub fn sha256_var<let N: u32>(msg: [u8; N], message_size: u64) -> [u8; 32] {
-    if is_unconstrained() {
-        sha256_var_unconstrained(msg, message_size)
-    } else {
-        let message_size = message_size as u32;
-        let num_blocks = N / BLOCK_SIZE;
-        let mut msg_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-        let mut h: [u32; 8] = [
-            1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225
-        ]; // Intermediate hash, starting with the canonical initial value
-        let mut msg_byte_ptr = 0; // Pointer into msg_block
+    let message_size = message_size as u32;
+    let num_blocks = N / BLOCK_SIZE;
+    let mut msg_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    let mut h: [u32; 8] = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225]; // Intermediate hash, starting with the canonical initial value
+    let mut msg_byte_ptr = 0; // Pointer into msg_block
 
-        for i in 0..num_blocks {
-            let msg_start = BLOCK_SIZE * i;
-            let (new_msg_block, new_msg_byte_ptr) = unsafe {
-                build_msg_block_iter(msg, message_size, msg_start)
-            };
-            if msg_start < message_size {
-                msg_block = new_msg_block;
-            }
-
-            if !is_unconstrained() {
-                // Verify the block we are compressing was appropriately constructed
-                let new_msg_byte_ptr = verify_msg_block(msg, message_size, msg_block, msg_start);
-                if msg_start < message_size {
-                    msg_byte_ptr = new_msg_byte_ptr;
-                }
-            } else if msg_start < message_size {
-                msg_byte_ptr = new_msg_byte_ptr;
-            }
-
-            // If the block is filled, compress it.
-            // An un-filled block is handled after this loop.
-            if (msg_start < message_size) & (msg_byte_ptr == BLOCK_SIZE) {
-                h = sha256_compression(msg_u8_to_u32(msg_block), h);
-            }
-        }
-
-        let modulo = N % BLOCK_SIZE;
-        // Handle setup of the final msg block.
-        // This case is only hit if the msg is less than the block size,
-        // or our message cannot be evenly split into blocks.
-        if modulo != 0 {
-            let msg_start = BLOCK_SIZE * num_blocks;
-            let (new_msg_block, new_msg_byte_ptr) = unsafe {
-                build_msg_block_iter(msg, message_size, msg_start)
-            };
-
-            if msg_start < message_size {
-                msg_block = new_msg_block;
-            }
-
-            if !is_unconstrained() {
-                let new_msg_byte_ptr = verify_msg_block(msg, message_size, msg_block, msg_start);
-                if msg_start < message_size {
-                    msg_byte_ptr = new_msg_byte_ptr;
-                }
-            } else if msg_start < message_size {
-                msg_byte_ptr = new_msg_byte_ptr;
-            }
-        }
-
-        if msg_byte_ptr == BLOCK_SIZE {
-            msg_byte_ptr = 0;
-        }
-
-        // This variable is used to get around the compiler under-constrained check giving a warning.
-        // We want to check against a constant zero, but if it does not come from the circuit inputs
-        // or return values the compiler check will issue a warning.
-        let zero = msg_block[0] - msg_block[0];
-
-        // Pad the rest such that we have a [u32; 2] block at the end representing the length
-        // of the message, and a block of 1 0 ... 0 following the message (i.e. [1 << 7, 0, ..., 0]).
-        msg_block[msg_byte_ptr] = 1 << 7;
-        let last_block = msg_block;
-        msg_byte_ptr = msg_byte_ptr + 1;
-
-        unsafe {
-            let (new_msg_block, new_msg_byte_ptr) = pad_msg_block(msg_block, msg_byte_ptr);
+    for i in 0..num_blocks {
+        let msg_start = BLOCK_SIZE * i;
+        let (new_msg_block, new_msg_byte_ptr) = unsafe {
+            build_msg_block_iter(msg, message_size, msg_start)
+        };
+        if msg_start < message_size {
             msg_block = new_msg_block;
         }
 
+        if !is_unconstrained() {
+            // Verify the block we are compressing was appropriately constructed
+            let new_msg_byte_ptr = verify_msg_block(msg, message_size, msg_block, msg_start);
+            if msg_start < message_size {
+                msg_byte_ptr = new_msg_byte_ptr;
+            }
+        } else if msg_start < message_size {
+            msg_byte_ptr = new_msg_byte_ptr;
+        }
+
+        // If the block is filled, compress it.
+        // An un-filled block is handled after this loop.
+        if (msg_start < message_size) & (msg_byte_ptr == BLOCK_SIZE) {
+            h = sha256_compression(msg_u8_to_u32(msg_block), h);
+        }
+    }
+
+    let modulo = N % BLOCK_SIZE;
+    // Handle setup of the final msg block.
+    // This case is only hit if the msg is less than the block size,
+    // or our message cannot be evenly split into blocks.
+    if modulo != 0 {
+        let msg_start = BLOCK_SIZE * num_blocks;
+        let (new_msg_block, new_msg_byte_ptr) = unsafe {
+            build_msg_block_iter(msg, message_size, msg_start)
+        };
+
+        if msg_start < message_size {
+            msg_block = new_msg_block;
+        }
+
+        if !is_unconstrained() {
+            let new_msg_byte_ptr = verify_msg_block(msg, message_size, msg_block, msg_start);
+            if msg_start < message_size {
+                msg_byte_ptr = new_msg_byte_ptr;
+            }
+        } else if msg_start < message_size {
+            msg_byte_ptr = new_msg_byte_ptr;
+        }
+    }
+
+    if msg_byte_ptr == BLOCK_SIZE {
+        msg_byte_ptr = 0;
+    }
+
+    // This variable is used to get around the compiler under-constrained check giving a warning.
+    // We want to check against a constant zero, but if it does not come from the circuit inputs
+    // or return values the compiler check will issue a warning.
+    let zero = msg_block[0] - msg_block[0];
+
+    // Pad the rest such that we have a [u32; 2] block at the end representing the length
+    // of the message, and a block of 1 0 ... 0 following the message (i.e. [1 << 7, 0, ..., 0]).
+    msg_block[msg_byte_ptr] = 1 << 7;
+    let last_block = msg_block;
+    msg_byte_ptr = msg_byte_ptr + 1;
+
+    unsafe {
+        let (new_msg_block, new_msg_byte_ptr) = pad_msg_block(msg_block, msg_byte_ptr);
+        msg_block = new_msg_block;
+        if crate::runtime::is_unconstrained() {
+            msg_byte_ptr = new_msg_byte_ptr;
+        }
+    }
+
+    if !crate::runtime::is_unconstrained() {
         for i in 0..BLOCK_SIZE {
             assert_eq(msg_block[i], last_block[i]);
         }
@@ -176,17 +175,19 @@ pub fn sha256_var<let N: u32>(msg: [u8; N], message_size: u64) -> [u8; 32] {
                 msg_byte_ptr += 1;
             }
         }
+    }
 
-        if msg_byte_ptr >= 57 {
-            h = sha256_compression(msg_u8_to_u32(msg_block), h);
+    if msg_byte_ptr >= 57 {
+        h = sha256_compression(msg_u8_to_u32(msg_block), h);
 
-            msg_byte_ptr = 0;
-        }
+        msg_byte_ptr = 0;
+    }
 
-        msg_block = unsafe {
-            attach_len_to_msg_block(msg_block, msg_byte_ptr, message_size)
-        };
+    msg_block = unsafe {
+        attach_len_to_msg_block(msg_block, msg_byte_ptr, message_size)
+    };
 
+    if !crate::runtime::is_unconstrained() {
         for i in 0..56 {
             let predicate = (i < msg_byte_ptr) as u8;
             let expected_byte = predicate * last_block[i];
@@ -200,9 +201,9 @@ pub fn sha256_var<let N: u32>(msg: [u8; N], message_size: u64) -> [u8; 32] {
             reconstructed_len = 256 * reconstructed_len + msg_block[i] as Field;
         }
         assert_eq(reconstructed_len, len as Field);
-
-        hash_final_block(msg_block, h)
     }
+
+    hash_final_block(msg_block, h)
 }
 
 unconstrained fn pad_msg_block(
