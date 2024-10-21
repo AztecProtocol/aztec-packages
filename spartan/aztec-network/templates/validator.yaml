@@ -134,6 +134,7 @@ spec:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
             - containerPort: {{ .Values.validator.service.p2pUdpPort }}
+              protocol: UDP
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
       volumes:

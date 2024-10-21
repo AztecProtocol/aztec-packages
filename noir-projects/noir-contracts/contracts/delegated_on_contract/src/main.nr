@@ -18,7 +18,6 @@ contract DelegatedOn {
     }
 
     #[private]
-    #['private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let msg_sender_keys = get_public_keys(context.msg_sender());
         let owner_keys = get_public_keys(owner);
@@ -29,14 +28,12 @@ contract DelegatedOn {
     }
 
     #[public]
-    #['public]
     fn public_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
         new_value
     }
 
     #[private]
-    #['private]
     fn get_private_value(amount: Field, owner: AztecAddress) -> pub Field {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);

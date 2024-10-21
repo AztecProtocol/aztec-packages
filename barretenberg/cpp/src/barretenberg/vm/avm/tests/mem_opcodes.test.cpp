@@ -164,10 +164,10 @@ class AvmMemOpcodeTests : public ::testing::Test {
         if (indirect) {
             auto const& mem_ind_a_row = trace.at(mem_ind_a_row_idx);
             EXPECT_THAT(mem_ind_a_row,
-                        AllOf(MEM_ROW_FIELD_EQ(tag_err, 0),
+                        AllOf(MEM_ROW_FIELD_EQ(tag_err, indirect_uninitialized ? 1 : 0),
                               MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                               MEM_ROW_FIELD_EQ(tag,
-                                               indirect_uninitialized ? static_cast<uint32_t>(AvmMemoryTag::U0)
+                                               indirect_uninitialized ? static_cast<uint32_t>(AvmMemoryTag::FF)
                                                                       : static_cast<uint32_t>(AvmMemoryTag::U32)),
                               MEM_ROW_FIELD_EQ(addr, src_offset),
                               MEM_ROW_FIELD_EQ(val, dir_src_offset),
@@ -221,10 +221,25 @@ TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_mov_trace(false, 0, 0, 1, AvmMemoryTag::U0);
+    validate_mov_trace(false, 0, 0, 1, AvmMemoryTag::FF);
 }
 
 TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
+{
+    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    GTEST_SKIP();
+
+    trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 5, 2, AvmMemoryTag::U32);
+    trace_builder.op_mov(3, 2, 3);
+    trace_builder.op_return(0, 0, 0);
+    trace = trace_builder.finalize();
+
+    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::FF, 5, 1);
+}
+
+TEST_F(AvmMemOpcodeTests, indUninitializedAddrMov)
 {
     // TODO(#9131): Re-enable once we have error handling on wrong address resolution
     GTEST_SKIP();
@@ -235,7 +250,7 @@ TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::U0, 0, 1, true);
+    validate_mov_trace(true, 0, 2, 3, AvmMemoryTag::FF, 0, 1, true);
 }
 
 TEST_F(AvmMemOpcodeTests, indirectMov)

@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.57.0...barretenberg.js-v0.58.0) (2024-10-18)
+
+
+### Features
+
+* Browser tests for UltraHonk ([#9047](https://github.com/AztecProtocol/aztec-packages/issues/9047)) ([f0d45dd](https://github.com/AztecProtocol/aztec-packages/commit/f0d45dd8d0c00707cd18989c3a45ff0c3cbc92a6))
+* Docker_fast.sh ([#9273](https://github.com/AztecProtocol/aztec-packages/issues/9273)) ([57e792e](https://github.com/AztecProtocol/aztec-packages/commit/57e792e6baaa2dfaef7af4c84d4ab75804c9d3de))
+* Use s3 cache in bootstrap fast ([#9111](https://github.com/AztecProtocol/aztec-packages/issues/9111)) ([349f938](https://github.com/AztecProtocol/aztec-packages/commit/349f938601f7a4fdbdf83aea62c7b8c244bbe434))
+
+
+### Bug Fixes
+
+* Limit number of bb.js threads to 32 ([#9070](https://github.com/AztecProtocol/aztec-packages/issues/9070)) ([97e4b9b](https://github.com/AztecProtocol/aztec-packages/commit/97e4b9b2e0d37575b6b5e4c7a22f85b60d1f418b))
+* Make gate counting functions less confusing and avoid estimations ([#9046](https://github.com/AztecProtocol/aztec-packages/issues/9046)) ([0bda0a4](https://github.com/AztecProtocol/aztec-packages/commit/0bda0a4d71ae0fb4352de0746f7d96b63b787888))
+* Reduce SRS size back to normal ([#9098](https://github.com/AztecProtocol/aztec-packages/issues/9098)) ([a306ea5](https://github.com/AztecProtocol/aztec-packages/commit/a306ea5ffeb13019427a96d8152e5642b717c5f6))
+* Revert "feat: use s3 cache in bootstrap fast" ([#9181](https://github.com/AztecProtocol/aztec-packages/issues/9181)) ([7872d09](https://github.com/AztecProtocol/aztec-packages/commit/7872d092c359298273d7ab1fc23fa61ae1973f8b))
+* Revert "fix: Revert "feat: use s3 cache in bootstrap fast"" ([#9182](https://github.com/AztecProtocol/aztec-packages/issues/9182)) ([ce3d08a](https://github.com/AztecProtocol/aztec-packages/commit/ce3d08a18684da9f5b1289a2b9bdf60a66342590))
+
 ## [0.57.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.56.0...barretenberg.js-v0.57.0) (2024-10-07)
 
 

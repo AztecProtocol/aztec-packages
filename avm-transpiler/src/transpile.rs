@@ -989,32 +989,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
-            let message_offset = inputs.pointer.to_usize();
-            let message_size_offset = inputs.size.to_usize();
-
-            let index_offset = domain_separator.to_usize();
-            let dest_offset = output.to_usize();
-
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .direct_operand(domain_separator)
-                        .direct_operand(output)
-                        .indirect_operand(&inputs.pointer)
-                        .direct_operand(&inputs.size)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U32 { value: index_offset as u32 },
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
-                ],
-                ..Default::default()
-            });
-        }
         BlackBoxOp::Poseidon2Permutation {
             message,
             output,
@@ -1147,31 +1121,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AvmOperand::U16 { value: scalars_offset as u16 },
                     AvmOperand::U16 { value: outputs_offset as u16 },
                     AvmOperand::U16 { value: num_points as u16 },
-                ],
-                ..Default::default()
-            });
-        }
-        // Temporary while we dont have efficient noir implementations (again)
-        BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-            let input_offset = inputs.pointer.to_usize();
-            let input_size_offset = inputs.size.to_usize();
-            let index_offset = domain_separator.to_usize();
-            let output_offset = output.pointer.to_usize();
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::PEDERSENCOMMITMENT,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .indirect_operand(&inputs.pointer)
-                        .indirect_operand(&output.pointer)
-                        .direct_operand(&inputs.size)
-                        .direct_operand(domain_separator)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U32 { value: input_offset as u32 },
-                    AvmOperand::U32 { value: output_offset as u32 },
-                    AvmOperand::U32 { value: input_size_offset as u32 },
-                    AvmOperand::U32 { value: index_offset as u32 },
                 ],
                 ..Default::default()
             });
@@ -1497,6 +1446,5 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
         BitSize::Integer(IntegerBitSize::U64) => AvmTypeTag::UINT64,
         BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
         BitSize::Field => AvmTypeTag::FIELD,
-        _ => panic!("The AVM doesn't support integer bit size {:?}", bit_size),
     }
 }

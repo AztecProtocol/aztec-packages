@@ -32,12 +32,7 @@ contract ContractClassRegisterer {
     // docs:end:import_pop_capsule
 
     #[private]
-    #['private]
-    fn register(
-        artifact_hash: Field,
-        private_functions_root: Field,
-        public_bytecode_commitment: Field
-    ) {
+    fn register(artifact_hash: Field, private_functions_root: Field, public_bytecode_commitment: Field) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: Validate packed_public_bytecode is legit public bytecode
 
@@ -70,7 +65,6 @@ contract ContractClassRegisterer {
     }
 
     #[private]
-    #['private]
     fn broadcast_private_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -113,7 +107,6 @@ contract ContractClassRegisterer {
     }
 
     #[private]
-    #['private]
     fn broadcast_unconstrained_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
