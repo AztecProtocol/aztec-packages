@@ -44,6 +44,7 @@ output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-nod
 
 # Extract boot node ENR
 export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
+echo "BOOTSTRAP_NODES: $BOOTSTRAP_NODES"
 
 # Generate a private key for the validator
 json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
