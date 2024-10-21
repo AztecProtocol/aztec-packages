@@ -26,7 +26,7 @@ Options:
 
 # Default values
 TEST_FILE=src/spartan/transfer.test.ts
-PROVER_SCRIPT="\"./prover-node.sh 7900 false\""
+PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
 
