@@ -1,12 +1,13 @@
 import {
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockId,
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
-  type L2BlockTag,
+  type L2Tips,
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
@@ -121,7 +122,7 @@ export class ServerWorldStateSynchronizer
   }
 
   public async getLatestBlockNumber() {
-    return (await this.getL2Tips()).latest;
+    return (await this.getL2Tips()).latest.number;
   }
 
   /**
@@ -161,12 +162,15 @@ export class ServerWorldStateSynchronizer
   }
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
-  public async getL2Tips(): Promise<{ latest: number } & Partial<Record<L2BlockTag, number>>> {
+  public async getL2Tips(): Promise<L2Tips> {
     const status = await this.merkleTreeDb.getStatus();
+    const unfinalisedBlockHash = await this.getL2BlockHash(Number(status.unfinalisedBlockNumber));
+    const latestBlockId: L2BlockId = { number: Number(status.unfinalisedBlockNumber), hash: unfinalisedBlockHash! };
+
     return {
-      latest: Number(status.unfinalisedBlockNumber),
-      finalized: Number(status.finalisedBlockNumber),
-      proven: Number(status.finalisedBlockNumber), // TODO(palla/reorg): Using finalised as proven for now
+      latest: latestBlockId,
+      finalized: { number: Number(status.finalisedBlockNumber), hash: '' },
+      proven: { number: Number(status.finalisedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalised as proven for now
     };
   }
 
