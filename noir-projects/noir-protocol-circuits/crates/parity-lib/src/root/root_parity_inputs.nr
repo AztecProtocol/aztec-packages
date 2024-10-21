@@ -41,8 +41,6 @@ impl RootParityInputs {
             assert(
                 self.children[i].vk_path == self.children[0].vk_path, "Inconsistent vk paths across base parity circuits"
             );
-            //TODO: Do we need to validate this following hash
-            //assert(hash(self.children[i].verification_key) == self.children[i].verification_key.hash);
             self.children[i].verify();
             self.children[i].validate_in_vk_tree();
         }
