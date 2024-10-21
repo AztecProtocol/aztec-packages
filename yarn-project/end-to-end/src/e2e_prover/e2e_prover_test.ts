@@ -7,6 +7,7 @@ import {
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
+  EthAddress,
   ExtendedNote,
   type Fq,
   Fr,
@@ -88,14 +89,20 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  private l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1Contracts;
+  public proverAddress!: EthAddress;
 
-  constructor(testName: string, private minNumberOfTxsPerBlock: number, private realProofs = true) {
+  constructor(
+    testName: string,
+    private minNumberOfTxsPerBlock: number,
+    coinbase: EthAddress,
+    private realProofs = true,
+  ) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      { startProverNode: true },
+      { startProverNode: true, fundSysstia: true, coinbase },
       { assumeProvenThrough: undefined },
     );
   }
@@ -261,6 +268,7 @@ export class FullProverTest {
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
     const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).to0xString());
+    this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
     this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
     await this.mintL1ERC20(proverNodeSenderAddress, 100_000_000n);
