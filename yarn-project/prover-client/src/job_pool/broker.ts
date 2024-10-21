@@ -211,15 +211,15 @@ function proofPriorityComparator(a: ProofRequest<ProofType>, b: ProofRequest<Pro
 }
 
 const PROOF_IMPORTANCE = [
+  ProofType.RootRollupProof,
   ProofType.BlockRootRollupProof,
   ProofType.BlockMergeRollupProof,
-  ProofType.RootRollupProof,
   ProofType.MergeRollupProof,
   ProofType.BaseRollupProof,
-  ProofType.PublicKernelSetupProof,
-  ProofType.PublicKernelAppLogicProof,
-  ProofType.PublicKernelTeardownProof,
   ProofType.PublicKernelTailProof,
+  ProofType.PublicKernelTeardownProof,
+  ProofType.PublicKernelAppLogicProof,
+  ProofType.PublicKernelSetupProof,
   ProofType.AvmProof,
   ProofType.TubeProof,
   ProofType.EmptyTubeProof,
