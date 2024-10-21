@@ -56,12 +56,12 @@ mod tests {
         }
 
         pub fn update_leaves<let N: u32>(&mut self, slots: [Field; N]) {
-            let leaves = slots.map(
-                |slot: Field| OverridablePublicDataTreeLeaf {
+            let leaves = slots.map(|slot: Field| {
+                OverridablePublicDataTreeLeaf {
                     leaf: PublicDataTreeLeaf { slot, value: 1 },
                     override_counter: 0,
-                },
-            );
+                }
+            });
             self.leaves = pad_end(leaves, OverridablePublicDataTreeLeaf::empty());
         }
 

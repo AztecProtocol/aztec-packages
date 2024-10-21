@@ -119,9 +119,9 @@ impl Game {
             let entry = self.players[i];
             assert(entry.is_initialized(), "Game not full");
         }
-        let sorted_by_deck_strength = self.players.sort_via(
-            |a: PlayerEntry, b: PlayerEntry| a.deck_strength < b.deck_strength,
-        );
+        let sorted_by_deck_strength = self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| {
+            a.deck_strength < b.deck_strength
+        });
         self.players = sorted_by_deck_strength;
         self.started = true;
     }

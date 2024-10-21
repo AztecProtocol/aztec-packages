@@ -316,8 +316,9 @@ mod tests {
             let low_leaf_index = unsafe {
                 find_index_hint(
                     self.public_data_leaf_preimages,
-                    |p: PublicDataTreeLeafPreimage| !leaf_slot.lt(p.slot)
-                        & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot)),
+                    |p: PublicDataTreeLeafPreimage| {
+                        !leaf_slot.lt(p.slot) & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot))
+                    },
                 )
             };
 

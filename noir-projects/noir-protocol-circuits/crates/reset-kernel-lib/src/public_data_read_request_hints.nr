@@ -25,9 +25,11 @@ pub unconstrained fn build_public_data_read_request_hints<let NUM_READS: u32, le
         if read.counter != 0 {
             let write_index = find_index_hint(
                 writes,
-                |w: OverridablePublicDataWrite| (w.inner().leaf_slot == read.leaf_slot)
-                    & (read.counter > w.counter())
-                    & ((read.counter < w.override_counter) | (w.override_counter == 0)),
+                |w: OverridablePublicDataWrite| {
+                    (w.inner().leaf_slot == read.leaf_slot)
+                        & (read.counter > w.counter())
+                        & ((read.counter < w.override_counter) | (w.override_counter == 0))
+                },
             );
             if write_index != writes.len() {
                 pending_read_hints[num_pending_reads] =

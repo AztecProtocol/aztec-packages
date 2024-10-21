@@ -202,15 +202,15 @@ mod tests {
         leaf_indices: [Field; N],
     ) -> ([TestNonMembershipHint; N], Field) {
         let tree = build_tree();
-        let hints = leaf_indices.map(
-            |leaf_index| TestNonMembershipHint {
+        let hints = leaf_indices.map(|leaf_index| {
+            TestNonMembershipHint {
                 low_leaf_preimage: leaf_preimages[leaf_index],
                 membership_witness: MembershipWitness {
                     leaf_index,
                     sibling_path: tree.get_sibling_path(leaf_index as u32),
                 },
-            },
-        );
+            }
+        });
         let tree_root = tree.get_root();
         (hints, tree_root)
     }

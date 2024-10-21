@@ -68,18 +68,18 @@ impl TailOutputValidator {
 
         // note_encrypted_logs_hashes
         assert_eq(
-            self.previous_kernel.end.note_encrypted_logs_hashes.map(
-                |log: NoteLogHash| log.expose_to_public(),
-            ),
+            self.previous_kernel.end.note_encrypted_logs_hashes.map(|log: NoteLogHash| {
+                log.expose_to_public()
+            }),
             self.output.end.note_encrypted_logs_hashes,
             "mismatch note_encrypted_logs_hashes",
         );
 
         // encrypted_logs_hashes
         assert_eq(
-            self.previous_kernel.end.encrypted_logs_hashes.map(
-                |log: ScopedEncryptedLogHash| log.expose_to_public(),
-            ),
+            self.previous_kernel.end.encrypted_logs_hashes.map(|log: ScopedEncryptedLogHash| {
+                log.expose_to_public()
+            }),
             self.output.end.encrypted_logs_hashes,
             "mismatch encrypted_logs_hashes",
         );

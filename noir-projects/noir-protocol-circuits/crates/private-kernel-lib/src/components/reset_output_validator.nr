@@ -187,8 +187,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array_capped_size(
             kept_note_hashes,
             siloed_note_hashes,
-            |prev: ScopedNoteHash, out: ScopedNoteHash| out.contract_address.is_zero()
-                & (out.counter() == prev.counter()),
+            |prev: ScopedNoteHash, out: ScopedNoteHash| {
+                out.contract_address.is_zero() & (out.counter() == prev.counter())
+            },
             sorted_indexes,
             self.note_hash_siloing_amount,
         );
@@ -200,10 +201,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array_capped_size(
             self.hints.kept_nullifiers,
             self.output.end.nullifiers,
-            |prev: ScopedNullifier, out: ScopedNullifier| (out.value() == silo_nullifier(prev))
-                & (out.counter() == prev.counter())
-                & (out.nullifier.note_hash == prev.nullifier.note_hash)
-                & out.contract_address.is_zero(),
+            |prev: ScopedNullifier, out: ScopedNullifier| {
+                (out.value() == silo_nullifier(prev))
+                    & (out.counter() == prev.counter())
+                    & (out.nullifier.note_hash == prev.nullifier.note_hash)
+                    & out.contract_address.is_zero()
+            },
             self.hints.sorted_nullifier_indexes,
             self.nullifier_siloing_amount,
         );
@@ -223,10 +226,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array(
             self.hints.kept_note_encrypted_log_hashes,
             self.output.end.note_encrypted_logs_hashes,
-            |prev: NoteLogHash, out: NoteLogHash| (out.value == prev.value)
-                & (out.length == prev.length)
-                & (out.counter == prev.counter)
-                & (out.note_hash_counter == 0),
+            |prev: NoteLogHash, out: NoteLogHash| {
+                (out.value == prev.value)
+                    & (out.length == prev.length)
+                    & (out.counter == prev.counter)
+                    & (out.note_hash_counter == 0)
+            },
             self.hints.sorted_note_encrypted_log_hash_indexes,
         );
     }
@@ -237,13 +242,13 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array_capped_size(
             self.previous_kernel.end.encrypted_logs_hashes,
             self.output.end.encrypted_logs_hashes,
-            |prev: ScopedEncryptedLogHash, out: ScopedEncryptedLogHash| (
-                out.contract_address == mask_encrypted_log_hash(prev)
-            )
-                & (out.log_hash.value == prev.log_hash.value)
-                & (out.log_hash.length == prev.log_hash.length)
-                & (out.log_hash.counter == prev.log_hash.counter)
-                & (out.log_hash.randomness == 0),
+            |prev: ScopedEncryptedLogHash, out: ScopedEncryptedLogHash| {
+                (out.contract_address == mask_encrypted_log_hash(prev))
+                    & (out.log_hash.value == prev.log_hash.value)
+                    & (out.log_hash.length == prev.log_hash.length)
+                    & (out.log_hash.counter == prev.log_hash.counter)
+                    & (out.log_hash.randomness == 0)
+            },
             self.hints.sorted_encrypted_log_hash_indexes,
             self.encrypted_log_siloing_amount,
         );

@@ -584,10 +584,9 @@ mod tests {
         let mut sorted_write_tuples = unsafe {
             get_sorted_tuple(
                 final_public_data_writes.storage,
-                |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| full_field_less_than(
-                    leaf_b.slot,
-                    leaf_a.slot,
-                ),
+                |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| {
+                    full_field_less_than(leaf_b.slot, leaf_a.slot)
+                },
             )
         };
 
@@ -817,9 +816,9 @@ mod tests {
             };
 
             let mut start_public_data_tree = NonEmptyMerkleTree::new(
-                self.pre_existing_public_data.map(
-                    |preimage: PublicDataTreeLeafPreimage| preimage.hash(),
-                ),
+                self.pre_existing_public_data.map(|preimage: PublicDataTreeLeafPreimage| {
+                    preimage.hash()
+                }),
                 [0; PUBLIC_DATA_TREE_HEIGHT],
                 [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT],
                 [0; PUBLIC_DATA_SUBTREE_HEIGHT],

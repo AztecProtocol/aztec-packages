@@ -199,30 +199,26 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
 fn silo_and_hash_unencrypted_logs(
     unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 ) -> Field {
-    let siloed_logs = unencrypted_logs_hashes.map(
-        |log: ScopedLogHash| {
-            LogHash {
-                value: silo_unencrypted_log_hash(log),
-                counter: log.log_hash.counter,
-                length: log.log_hash.length,
-            }
-        },
-    );
+    let siloed_logs = unencrypted_logs_hashes.map(|log: ScopedLogHash| {
+        LogHash {
+            value: silo_unencrypted_log_hash(log),
+            counter: log.log_hash.counter,
+            length: log.log_hash.length,
+        }
+    });
     compute_tx_logs_hash(siloed_logs)
 }
 
 fn silo_and_hash_encrypted_logs(
     encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 ) -> Field {
-    let siloed_encrypted_logs = encrypted_logs_hashes.map(
-        |log: ScopedLogHash| {
-            LogHash {
-                value: silo_encrypted_log_hash(log),
-                counter: log.log_hash.counter,
-                length: log.log_hash.length,
-            }
-        },
-    );
+    let siloed_encrypted_logs = encrypted_logs_hashes.map(|log: ScopedLogHash| {
+        LogHash {
+            value: silo_encrypted_log_hash(log),
+            counter: log.log_hash.counter,
+            length: log.log_hash.length,
+        }
+    });
     compute_tx_logs_hash(siloed_encrypted_logs)
 }
 

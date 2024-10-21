@@ -230,10 +230,9 @@ pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(
-        |s: StructDefinition| s.has_named_attribute("storage")
-            | s.has_named_attribute("storage_no_init"),
-    )
+    m.structs().any(|s: StructDefinition| {
+        s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
+    })
 }
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {

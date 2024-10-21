@@ -97,9 +97,9 @@ comptime fn generate_note_interface(
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
     let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
     // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
-    let prefixed_merged_fields = merged_fields.map(
-        |(name, typ, index): (Quoted, Type, u32)| (quote { self.$name }, typ, index),
-    );
+    let prefixed_merged_fields = merged_fields.map(|(name, typ, index): (Quoted, Type, u32)| {
+        (quote { self.$name }, typ, index)
+    });
     let (new_generators_list, new_scalars_list, _, new_aux_vars) =
         generate_multi_scalar_mul(prefixed_merged_fields);
 

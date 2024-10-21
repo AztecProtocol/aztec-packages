@@ -37,9 +37,9 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
     let mut propagated_logs = BoundedVec::new();
     for i in 0..logs.len() {
         let log = logs[i];
-        let linked_note_hash_propagated = propagated_note_hashes.storage.any(
-            |n: ScopedNoteHash| (n.counter() == log.note_hash_counter),
-        );
+        let linked_note_hash_propagated = propagated_note_hashes.storage.any(|n: ScopedNoteHash| {
+            (n.counter() == log.note_hash_counter)
+        });
         if linked_note_hash_propagated {
             propagated_logs.push(log);
         }
