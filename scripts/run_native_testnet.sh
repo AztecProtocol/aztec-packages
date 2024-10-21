@@ -17,14 +17,13 @@ Steps:
    each with an incrementing port number starting from 8081.
 4. Execute the complete command to start the testnet.
 
-Usage:
-  ./run_native_testnet.sh [options]
-
-Options:
-  -h: Display help message
-  -t: Specify a custom test script (default: ./test-transfer.sh)
-  -v: Specify the number of validators (default: 3)
+Usage: Run with -h to see display_help output below.
 '
+
+# Default values
+TEST_FILE=src/spartan/transfer.test.ts
+PROVER_SCRIPT="\"./prover-node.sh 7900 false\""
+NUM_VALIDATORS=3
 
 # Function to display help message
 display_help() {
@@ -32,16 +31,13 @@ display_help() {
     echo
     echo "Options:"
     echo "  -h     Display this help message"
-    echo "  -t     Specify the test script file (default: ./test-transfer.sh)"
-    echo "  -v     Specify the number of validators (default: 3)"
+    echo "  -t     Specify the test file (default: src/spartan/transfer.test.ts)"
+    echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
+    echo "  -v     Specify the number of validators (default: $NUM_VALIDATORS)"
     echo
     echo "Example:"
     echo "  $0 -t ./custom-test.sh -v 5"
 }
-
-# Default values
-TEST_SCRIPT="./test-transfer.sh"
-NUM_VALIDATORS=3
 
 # Parse command line arguments
 while getopts "ht:v:" opt; do
@@ -50,7 +46,9 @@ while getopts "ht:v:" opt; do
       display_help
       exit 0
       ;;
-    t) TEST_SCRIPT="$OPTARG"
+    t) TEST_FILE="$OPTARG"
+      ;;
+    p) PROVER_SCRIPT="\"$OPTARG\""
       ;;
     v) NUM_VALIDATORS="$OPTARG"
       ;;
@@ -61,23 +59,24 @@ while getopts "ht:v:" opt; do
   esac
 done
 
+# Go to repo root
+cd $(git rev-parse --show-toplevel)
+if [ $NUM_VALIDATORS = 1 ] ; then
+  VALIDATOR_CMD="\"./validator.sh 8081\""
+else
+  VALIDATOR_CMD="\"./validators.sh $NUM_VALIDATORS\""
+fi
 # Base command
 BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
-        $TEST_SCRIPT \
+        \"./test.sh $TEST_FILE\" \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
-        \"./prover-node.sh false\" \
+        $VALIDATOR_CMD \
+        $PROVER_SCRIPT \
         ./pxe.sh \
         ./transaction-bot.sh"
-
-# Generate validator commands
-for ((i=0; i<NUM_VALIDATORS; i++))
-do
-    PORT=$((8081 + i))
-    BASE_CMD+=" \"./validator.sh $PORT\""
-done
 
 # Execute the command
 eval $BASE_CMD
