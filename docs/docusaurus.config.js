@@ -223,9 +223,9 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "aztec/overview",
+            docId: "aztec/what_is_aztec",
             position: "left",
-            label: "Concepts",
+            label: "Learn",
           },
           {
             type: "docSidebar",
@@ -235,15 +235,9 @@ const config = {
           },
           {
             type: "docSidebar",
-            sidebarId: "tutorialsSidebar",
-            position: "left",
-            label: "Examples",
-          },
-          {
-            type: "docSidebar",
             sidebarId: "referenceSidebar",
             position: "left",
-            label: "References",
+            label: "Reference",
           },
           {
             type: "dropdown",
