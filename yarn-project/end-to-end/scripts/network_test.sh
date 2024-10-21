@@ -27,7 +27,7 @@ fi
 VALUES_FILE="${VALUES_FILE:-default.yaml}"
 CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
-AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
+AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}go
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -76,8 +76,9 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# tunnel in to get access directly to our PXE service in k8s
+# tunnel in to get access directly to our PXE and ETHs services from k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
+(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-anvil 9545:8545 2>/dev/null >/dev/null || true) &
 
 function cleanup() {
   # kill everything in our process group except our process
@@ -86,8 +87,9 @@ function cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 docker run --rm --network=host \
-  -e PXE_URL=http://localhost:9082 \
+  -e PXE_URL=http://127.0.0.1:9082 \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \
+  -e ETHEREUM_HOST=http://127.0.0.1:9545 \
   -e LOG_JSON=1 \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
