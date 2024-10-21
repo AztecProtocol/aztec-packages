@@ -2,6 +2,7 @@
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -107,5 +108,19 @@ template <typename B> inline void write(B& buf, RecursionConstraint const& const
     write(buf, constraint.public_inputs);
     write(buf, constraint.key_hash);
 }
+
+/**
+ * @brief Construct a genuine but arbitrary proof/vk pair of a given type
+ * @details This is needed e.g. to pre-compute VKs for kernel circuits which include recursive verifications,
+ * the inputs of which (proofs, vks) are not known at the time of VK generation. The proofs/vks do not have to
+ * verify but they do have to have a particular structure. The easisest and most robust way to do this is to
+ * genuinely construct them for as-small-as-possible circuits for efficiency.
+ *
+ * WORKTODO: maybe this method belongs in ivc_recursion_constraint.hpp?
+ *
+ * @param proof_type
+ */
+std::vector<bb::fr> construct_dummy_proof_for_ivc(uint32_t proof_type,
+                                                  bb::DatabusPropagationData databus_propagation_data);
 
 } // namespace acir_format
