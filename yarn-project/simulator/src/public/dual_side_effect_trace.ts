@@ -1,7 +1,7 @@
 import {
   type CombinedConstantData,
-  type ContractInstanceWithAddress,
   type Gas,
+  type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
@@ -14,8 +14,6 @@ import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_eff
 import { type PublicExecutionResult } from './execution.js';
 import { type PublicSideEffectTrace } from './side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
-
-export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
 
 export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   constructor(
@@ -78,9 +76,13 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     this.enqueuedCallTrace.traceUnencryptedLog(contractAddress, log);
   }
 
-  public traceGetContractInstance(instance: TracedContractInstance) {
-    this.innerCallTrace.traceGetContractInstance(instance);
-    this.enqueuedCallTrace.traceGetContractInstance(instance);
+  public traceGetContractInstance(
+    contractAddress: Fr,
+    exists: boolean,
+    instance: SerializableContractInstance | undefined,
+  ) {
+    this.innerCallTrace.traceGetContractInstance(contractAddress, exists, instance);
+    this.enqueuedCallTrace.traceGetContractInstance(contractAddress, exists, instance);
   }
 
   /**

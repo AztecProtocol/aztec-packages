@@ -66,6 +66,7 @@ const proveAndVerifyAvmTestContract = async (
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
   const worldStateDB = mock<WorldStateDB>();
+  // The values here should match those in `avm_simulator.test.ts`
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),

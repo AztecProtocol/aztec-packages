@@ -567,7 +567,9 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<79, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_op_err * ((new_term.main_sel_op_fdiv + new_term.main_sel_op_div) - FF(1)));
+            auto tmp = (new_term.main_op_err * (((new_term.main_sel_op_fdiv + new_term.main_sel_op_div) +
+                                                 new_term.main_sel_op_get_contract_instance) -
+                                                FF(1)));
             tmp *= scaling_factor;
             std::get<79>(evals) += typename Accumulator::View(tmp);
         }
