@@ -21,11 +21,7 @@ Usage:
   ./run_native_testnet.sh [options]
 
 Options:
-  -h: Display help message
-  -t: Specify a custom test script (default: ./test-transfer.sh)
-  -val: Specify the number of validators (default: 3)
-  -v: Set logging level to verbose
-  -vv: Set logging level to debug
+  see display_help() below
 '
 
 # Function to display help message
@@ -38,6 +34,7 @@ display_help() {
     echo "  -val   Specify the number of validators (default: 3)"
     echo "  -v     Set logging level to verbose"
     echo "  -vv    Set logging level to debug"
+    echo "  -i     Run interleaved (default: false)"
     echo
     echo "Example:"
     echo "  $0 -t ./custom-test.sh -val 5 -v"
@@ -47,6 +44,7 @@ display_help() {
 TEST_SCRIPT="./test-transfer.sh"
 NUM_VALIDATORS=3
 LOG_LEVEL="info"
+INTERLEAVED=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -71,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
+    -i)
+      INTERLEAVED=true
+      shift
+      ;;
     -vv)
       LOG_LEVEL="debug"
       shift
@@ -87,7 +89,7 @@ done
 export LOG_LEVEL
 
 # Base command
-BASE_CMD="./yarn-project/end-to-end/scripts/native_network_test.sh \
+BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
         $TEST_SCRIPT \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
