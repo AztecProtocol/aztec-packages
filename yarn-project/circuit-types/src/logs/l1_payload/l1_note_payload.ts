@@ -3,7 +3,6 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type EncryptedL2NoteLog } from '../encrypted_l2_note_log.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 import { Note } from './payload.js';
 
@@ -51,8 +50,8 @@ export class L1NotePayload {
     }
   }
 
-  static decryptAsIncoming(log: EncryptedL2NoteLog, sk: Fq): L1NotePayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, sk);
+  static decryptAsIncoming(log: Buffer, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -63,8 +62,8 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsOutgoing(log: EncryptedL2NoteLog, sk: Fq): L1NotePayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
+  static decryptAsOutgoing(log: Buffer, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
