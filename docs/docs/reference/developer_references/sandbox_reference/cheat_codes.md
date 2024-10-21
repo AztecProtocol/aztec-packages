@@ -463,7 +463,7 @@ The baseSlot is specified in the Aztec.nr contract.
 #### Example
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
     balances: Map<AztecAddress, PublicMutable<Field>>,
 }
@@ -494,7 +494,7 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 #### Example
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
     balances: Map<AztecAddress, PublicMutable<Field>>,
 }
@@ -526,7 +526,7 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 
 #### Example
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
     ...
     pending_shields: PrivateSet<TransparentNote, TRANSPARENT_NOTE_LEN>,
