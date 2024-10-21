@@ -291,7 +291,7 @@ network-test-fake-proofs:
     # All script arguments are in the end-to-end/scripts/native-network folder
     ENV LOG_LEVEL=verbose
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-        "./test.sh src/spartan/transfer.test.ts" \
+        ./test-transfer.sh \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
