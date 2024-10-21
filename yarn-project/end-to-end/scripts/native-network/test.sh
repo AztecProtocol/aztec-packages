@@ -2,6 +2,7 @@
 
 set -eu
 
+TEST=$1
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
 
@@ -22,7 +23,7 @@ until curl -s -X POST -H 'content-type: application/json' \
   sleep 1
 done
 echo "Waiting for l2 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l2-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ] ; do
   sleep 1
 done
 echo "Done waiting."
@@ -30,5 +31,6 @@ echo "Done waiting."
 export DEBUG="aztec:*"
 export LOG_LEVEL=debug
 export PXE_URL=http://localhost:8079
+export ETHEREUM_HOST=http://localhost:8545
 cd $(git rev-parse --show-toplevel)/yarn-project/end-to-end
-yarn test src/spartan/transfer.test.ts
+yarn test "$TEST"

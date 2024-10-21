@@ -13,11 +13,11 @@ PORT="$1"
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
   sleep 1
 done
 
-source "$REPO"/yarn-project/end-to-end/scripts/native-network/l1-contracts.env
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 
 echo "Waiting for Aztec Node..."
 until curl -s http://127.0.0.1:8080/status >/dev/null ; do

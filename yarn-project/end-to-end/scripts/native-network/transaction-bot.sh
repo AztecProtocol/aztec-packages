@@ -21,7 +21,7 @@ until curl -s -X POST -H 'content-type: application/json' \
   sleep 1
 done
 echo "Waiting for l2 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l2-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ] ; do
   sleep 1
 done
 echo "Done waiting."
@@ -37,6 +37,7 @@ export BOT_TX_INTERVAL_SECONDS="5"
 export BOT_PRIVATE_TRANSFERS_PER_TX="1"
 export BOT_PUBLIC_TRANSFERS_PER_TX="0"
 export BOT_NO_WAIT_FOR_TRANSFERS="true"
+export BOT_FOLLOW_CHAIN="NONE"
 export BOT_NO_START="false"
 export PXE_PROVER_ENABLED="false"
 export PROVER_REAL_PROOFS="false"
