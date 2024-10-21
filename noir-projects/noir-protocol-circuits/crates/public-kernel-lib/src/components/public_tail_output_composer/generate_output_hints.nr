@@ -16,7 +16,7 @@ use dep::types::{
     utils::arrays::{array_merge, CombinedOrderHint, get_combined_order_hints_asc, sort_by_counter_asc, SortedResult}
 };
 
-struct SiloedNoteHashHint {
+pub struct SiloedNoteHashHint {
     siloed_note_hash: Field,
     index: u32,
 }
@@ -33,7 +33,7 @@ impl Eq for SiloedNoteHashHint {
     }
 }
 
-struct OutputHints<let NUM_PUBLIC_DATA_LEAVES: u32> {
+pub struct OutputHints<let NUM_PUBLIC_DATA_LEAVES: u32> {
     siloed_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     siloed_note_hash_hints: [SiloedNoteHashHint; MAX_NOTE_HASHES_PER_TX],
     sorted_note_hash_hints: [CombinedOrderHint; MAX_NOTE_HASHES_PER_TX],
@@ -48,7 +48,7 @@ struct OutputHints<let NUM_PUBLIC_DATA_LEAVES: u32> {
     public_data_linked_index_hints: [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
-unconstrained pub fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
+pub unconstrained fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
     previous_kernel: PublicKernelCircuitPublicInputs,
     public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES]
 ) -> OutputHints<NUM_PUBLIC_DATA_LEAVES> {

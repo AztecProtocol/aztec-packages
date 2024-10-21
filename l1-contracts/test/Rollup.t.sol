@@ -1,43 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./decoders/Base.sol";
 
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
-import {Constants} from "../src/core/libraries/ConstantsGen.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 
-import {Registry} from "../src/core/messagebridge/Registry.sol";
-import {Inbox} from "../src/core/messagebridge/Inbox.sol";
-import {Outbox} from "../src/core/messagebridge/Outbox.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-import {Rollup} from "../src/core/Rollup.sol";
-import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
-import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
-import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
-import {SignatureLib} from "../src/core/sequencer_selection/SignatureLib.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
+import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
-import {PortalERC20} from "./portals/PortalERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
+
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+
+// solhint-disable comprehensive-interface
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract RollupTest is DecoderBase {
+  using SlotLib for Slot;
+  using EpochLib for Epoch;
+
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  PortalERC20 internal portalERC20;
+  TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
+  IProofCommitmentEscrow internal proofCommitmentEscrow;
 
   SignatureLib.Signature[] internal signatures;
+
+  EpochProofQuoteLib.EpochProofQuote internal quote;
+  EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -53,52 +66,272 @@ contract RollupTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    portalERC20 = new PortalERC20();
-    feeJuicePortal = new FeeJuicePortal(address(this));
-    portalERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize(
-      address(registry), address(portalERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
+    testERC20 = new TestERC20();
+    feeJuicePortal = new FeeJuicePortal(
+      address(this), address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
-    rollup = new Rollup(
-      registry,
-      IFeeJuicePortal(address(feeJuicePortal)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
+    proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
 
     registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
+
+    uint256 privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
+    address signer = vm.addr(privateKey);
+    uint256 bond = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
+    quote = EpochProofQuoteLib.EpochProofQuote({
+      epochToProve: Epoch.wrap(0),
+      validUntilSlot: Slot.wrap(1),
+      bondAmount: bond,
+      prover: signer,
+      basisPointFee: 0
+    });
+    signedQuote = _quoteToSignedQuote(quote);
+
+    testERC20.mint(signer, bond * 10);
+    vm.prank(signer);
+    testERC20.approve(address(proofCommitmentEscrow), bond * 10);
+    vm.prank(signer);
+    proofCommitmentEscrow.deposit(bond * 10);
+
     _;
+  }
+
+  function warpToL2Slot(uint256 _slot) public {
+    vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
+  }
+
+  function testClaimWithNothingToProve() public setUpFor("mixed_block_1") {
+    assertEq(rollup.getCurrentSlot(), 0, "genesis slot should be zero");
+
+    // sanity check that proven/pending tip are at genesis
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    rollup.claimEpochProofRight(signedQuote);
+
+    warpToL2Slot(1);
+    assertEq(rollup.getCurrentSlot(), 1, "warp to slot 1 failed");
+    assertEq(rollup.getCurrentEpoch(), 0, "Invalid current epoch");
+
+    // empty slots do not move pending chain
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testClaimWithWrongEpoch() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+    quote.epochToProve = Epoch.wrap(1);
+    signedQuote = _quoteToSignedQuote(quote);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__NotClaimingCorrectEpoch.selector, 0, signedQuote.quote.epochToProve
+      )
+    );
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testClaimWithInsufficientBond() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    quote.bondAmount = 0;
+    signedQuote = _quoteToSignedQuote(quote);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InsufficientBondAmount.selector,
+        rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+        signedQuote.quote.bondAmount
+      )
+    );
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testClaimPastValidUntil() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    quote.validUntilSlot = Slot.wrap(0);
+    signedQuote = _quoteToSignedQuote(quote);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__QuoteExpired.selector, 1, signedQuote.quote.validUntilSlot
+      )
+    );
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testClaimSimple() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    vm.expectEmit(true, true, true, true);
+    emit IRollup.ProofRightClaimed(
+      quote.epochToProve, quote.prover, address(this), quote.bondAmount, Slot.wrap(1)
+    );
+    rollup.claimEpochProofRight(signedQuote);
+
+    (
+      Epoch epochToProve,
+      uint256 basisPointFee,
+      uint256 bondAmount,
+      address bondProvider,
+      address proposerClaimant
+    ) = rollup.proofClaim();
+    assertEq(epochToProve, signedQuote.quote.epochToProve, "Invalid epoch to prove");
+    assertEq(basisPointFee, signedQuote.quote.basisPointFee, "Invalid basis point fee");
+    assertEq(bondAmount, signedQuote.quote.bondAmount, "Invalid bond amount");
+    // TODO #8573
+    // This will be fixed with proper escrow
+    assertEq(bondProvider, quote.prover, "Invalid bond provider");
+    assertEq(proposerClaimant, address(this), "Invalid proposer claimant");
+  }
+
+  function testClaimTwice() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    rollup.claimEpochProofRight(signedQuote);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(signedQuote);
+
+    warpToL2Slot(2);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(signedQuote);
+
+    // warp to epoch 1
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION);
+    assertEq(rollup.getCurrentEpoch(), 1, "Invalid current epoch");
+
+    // We should still be trying to prove epoch 0 in epoch 1
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(signedQuote);
+
+    // still nothing to prune
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+  }
+
+  function testClaimOutsideClaimPhase() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__NotInClaimPhase.selector,
+        rollup.CLAIM_DURATION_IN_L2_SLOTS(),
+        rollup.CLAIM_DURATION_IN_L2_SLOTS()
+      )
+    );
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testNoPruneWhenClaimExists() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
+
+    rollup.claimEpochProofRight(signedQuote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+  }
+
+  function testPruneWhenClaimExpires() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
+
+    rollup.claimEpochProofRight(signedQuote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
+
+    // We should still be trying to prove epoch 0 in epoch 2
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(signedQuote);
+
+    rollup.prune();
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testClaimAfterPrune() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+
+    quote.validUntilSlot = Epoch.wrap(3).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
+
+    rollup.claimEpochProofRight(signedQuote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 3);
+
+    rollup.prune();
+
+    _testBlock("mixed_block_1", false, Epoch.wrap(3).toSlots().unwrap());
+
+    quote.epochToProve = Epoch.wrap(3);
+    signedQuote = _quoteToSignedQuote(quote);
+
+    vm.expectEmit(true, true, true, true);
+    emit IRollup.ProofRightClaimed(
+      quote.epochToProve, quote.prover, address(this), quote.bondAmount, Epoch.wrap(3).toSlots()
+    );
+    rollup.claimEpochProofRight(signedQuote);
+  }
+
+  function testPruneWhenNoProofClaim() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
+    rollup.prune();
   }
 
   function testRevertProveTwice() public setUpFor("mixed_block_1") {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
+    bytes32 blockHash = data.blockHash;
+    bytes32 proverId = bytes32(uint256(42));
     bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    rollup.propose(header, archive, blockHash, txHashes, signatures, body);
 
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+    _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, archive, preArchive)
+    );
+    _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
   }
 
   function testTimestamp() public setUpFor("mixed_block_1") {
     // Ensure that the timestamp of the current slot is never in the future.
     for (uint256 i = 0; i < 100; i++) {
-      uint256 slot = rollup.getCurrentSlot();
-      uint256 ts = rollup.getTimestampForSlot(slot);
+      Slot slot = rollup.getCurrentSlot();
+      Timestamp ts = rollup.getTimestampForSlot(slot);
 
       assertLe(ts, block.timestamp, "Invalid timestamp");
 
@@ -113,13 +346,7 @@ contract RollupTest is DecoderBase {
 
     _testBlock("mixed_block_1", false);
 
-    uint256 currentSlot = rollup.getCurrentSlot();
-    (,, uint128 slot) = rollup.blocks(1);
-    uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
-
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__NotReadyToPrune.selector, currentSlot, prunableAt)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
   }
 
@@ -132,11 +359,11 @@ contract RollupTest is DecoderBase {
     //        Even if we end up reverting block 1, we should still see the same root in the inbox.
     bytes32 inboxRoot2 = inbox.getRoot(2);
 
-    (,, uint128 slot) = rollup.blocks(1);
-    uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
+    (,, Slot slot) = rollup.blocks(1);
+    Slot prunableAt = slot + Epoch.wrap(2).toSlots();
 
-    uint256 timeOfPrune = rollup.getTimestampForSlot(prunableAt);
-    vm.warp(timeOfPrune);
+    Timestamp timeOfPrune = rollup.getTimestampForSlot(prunableAt);
+    vm.warp(Timestamp.unwrap(timeOfPrune));
 
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
@@ -161,8 +388,9 @@ contract RollupTest is DecoderBase {
     //        This means that we keep the `empty_block_1` mostly as is, but replace the slot number
     //        and timestamp as if it was created at a different point in time. This allow us to insert it
     //        as if it was the first block, even after we had originally inserted the mixed block.
-    //        An example where this could happen would be if no-one could proof the mixed block.
-    _testBlock("empty_block_1", false, prunableAt);
+    //        An example where this could happen would be if no-one could prove the mixed block.
+    // @note  We prune the pending chain as part of the propose call.
+    _testBlock("empty_block_1", false, prunableAt.unwrap());
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
@@ -180,53 +408,105 @@ contract RollupTest is DecoderBase {
     assertNotEq(minHeightEmpty, minHeightMixed, "Invalid min height");
   }
 
+  function testShouldNotBeTooEagerToPrune() public setUpFor("mixed_block_1") {
+    warpToL2Slot(1);
+    _testBlock("mixed_block_1", false, 1);
+    // we prove epoch 0
+    rollup.setAssumeProvenThroughBlockNumber(rollup.getPendingBlockNumber());
+
+    // jump to epoch 1
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION);
+    _testBlock("mixed_block_2", false, Constants.AZTEC_EPOCH_DURATION);
+
+    // jump to epoch 2
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+  }
+
+  function testPruneDuringPropose() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false, 1);
+    assertEq(rollup.getEpochToProve(), 0, "Invalid epoch to prove");
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
+    _testBlock("mixed_block_1", false, Epoch.wrap(2).toSlots().unwrap());
+
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
+  }
+
   function testBlockFee() public setUpFor("mixed_block_1") {
     uint256 feeAmount = 2e18;
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
-    bytes memory header = data.header;
-    bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
+    uint256 portalBalance = testERC20.balanceOf(address(feeJuicePortal));
+    address coinbase = data.decodedHeader.globalVariables.coinbase;
 
     // Progress time as necessary
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    assembly {
-      mstore(add(header, add(0x20, 0x0248)), feeAmount)
+    {
+      bytes memory header = data.header;
+      assembly {
+        mstore(add(header, add(0x20, 0x0248)), feeAmount)
+      }
+
+      assertEq(testERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
+
+      // We jump to the time of the block. (unless it is in the past)
+      vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+      uint256 coinbaseBalance = testERC20.balanceOf(coinbase);
+      assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
+
+      // Assert that balance have NOT been increased by proposing the block
+      rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body);
+      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
     }
 
-    assertEq(portalERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
 
-    uint256 portalBalance = portalERC20.balanceOf(address(feeJuicePortal));
-
-    // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
-
-    address coinbase = data.decodedHeader.globalVariables.coinbase;
-    uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
-    assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
-
-    // Assert that balance have NOT been increased by proposing the block
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
-    assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector,
-        address(feeJuicePortal),
-        portalBalance,
+    {
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          IERC20Errors.ERC20InsufficientBalance.selector,
+          address(feeJuicePortal),
+          portalBalance,
+          feeAmount
+        )
+      );
+      _submitEpochProofWithFee(
+        rollup,
+        1,
+        preArchive,
+        data.archive,
+        preBlockHash,
+        data.blockHash,
+        bytes32(uint256(42)),
+        coinbase,
         feeAmount
-      )
-    );
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
-    assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+      );
+      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+    }
 
-    portalERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
+    {
+      testERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
 
-    // When the block is proven we should have received the funds
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
-    assertEq(portalERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
+      // When the block is proven we should have received the funds
+      _submitEpochProofWithFee(
+        rollup,
+        1,
+        preArchive,
+        data.archive,
+        preBlockHash,
+        data.blockHash,
+        bytes32(uint256(42)),
+        coinbase,
+        feeAmount
+      );
+      assertEq(testERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
+    }
   }
 
   function testMixedBlock(bool _toProve) public setUpFor("mixed_block_1") {
@@ -246,20 +526,40 @@ contract RollupTest is DecoderBase {
     assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
+  function testProveEpochWithTwoMixedBlocks() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false);
+    _testBlock("mixed_block_2", false);
+
+    DecoderBase.Data memory data = load("mixed_block_2").block;
+
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid initial proven block number");
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+    _submitEpochProof(rollup, 2, preArchive, data.archive, preBlockHash, data.blockHash, bytes32(0));
+
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 2, "Invalid proven block number");
+  }
+
   function testConsecutiveMixedBlocksNonSequentialProof() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false);
 
-    DecoderBase.Data memory data = load("mixed_block_2").block;
-    bytes memory header = data.header;
-    bytes32 archive = data.archive;
-    bytes memory body = data.body;
+    DecoderBase.Data memory data1 = load("mixed_block_1").block;
+    DecoderBase.Data memory data2 = load("mixed_block_2").block;
     bytes32[] memory txHashes = new bytes32[](0);
 
-    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    vm.warp(max(block.timestamp, data2.decodedHeader.globalVariables.timestamp));
+    rollup.propose(data2.header, data2.archive, data2.blockHash, txHashes, signatures, data2.body);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    // Skips proving of block 1
+    (bytes32 preArchive,,) = rollup.blocks(0);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InvalidPreviousArchive.selector, preArchive, data1.archive
+      )
+    );
+    _submitEpochProof(
+      rollup, 1, data1.archive, data2.archive, data1.archive, data2.archive, bytes32(0)
+    );
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
@@ -293,7 +593,7 @@ contract RollupTest is DecoderBase {
     }
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
@@ -308,7 +608,7 @@ contract RollupTest is DecoderBase {
     }
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
@@ -323,7 +623,7 @@ contract RollupTest is DecoderBase {
     }
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
@@ -343,7 +643,7 @@ contract RollupTest is DecoderBase {
     }
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    rollup.propose(header, archive, data.blockHash, txHashes, signatures, body);
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
@@ -371,47 +671,63 @@ contract RollupTest is DecoderBase {
   }
 
   function testSubmitProofNonExistantBlock() public setUpFor("empty_block_1") {
+    _testBlock("empty_block_1", false);
     DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes memory header = data.header;
-    bytes32 archive = data.archive;
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TryingToProveNonExistingBlock.selector));
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+    bytes32 wrong = bytes32(uint256(0xdeadbeef));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, preArchive, wrong)
+    );
+    _submitEpochProof(rollup, 1, wrong, data.archive, preBlockHash, data.blockHash, bytes32(0));
+
+    // TODO: Reenable when we setup proper initial block hash
+    // vm.expectRevert(
+    //   abi.encodeWithSelector(Errors.Rollup__InvalidPreviousBlockHash.selector, preBlockHash, wrong)
+    // );
+    // _submitEpochProof(rollup, 1, preArchive, data.archive, wrong, data.blockHash, bytes32(0));
   }
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", false);
 
     DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes memory header = data.header;
-    bytes32 archive = data.archive;
+    bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
 
-    // Update the lastArchive value in the header and then submit a proof
-    assembly {
-      mstore(add(header, add(0x20, 0x00)), 0xdeadbeef)
-    }
-
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(0), 0xdeadbeef
-      )
+      abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
     );
-    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    _submitEpochProof(rollup, 1, preArchive, wrongArchive, preBlockHash, data.blockHash, bytes32(0));
   }
 
-  function testSubmitProofInvalidProposedArchive() public setUpFor("empty_block_1") {
+  function testSubmitProofInvalidBlockHash() public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", false);
 
     DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes memory header = data.header;
-    bytes32 archive = data.archive;
+    bytes32 wrongBlockHash = bytes32(uint256(0xdeadbeef));
 
-    bytes32 badArchive = keccak256(abi.encode(archive));
-
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidProposedArchive.selector, archive, badArchive)
+      abi.encodeWithSelector(
+        Errors.Rollup__InvalidBlockHash.selector, data.blockHash, wrongBlockHash
+      )
     );
-    rollup.submitBlockRootProof(header, badArchive, bytes32(0), "", "");
+    _submitEpochProof(rollup, 1, preArchive, data.archive, preBlockHash, wrongBlockHash, bytes32(0));
+  }
+
+  function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)
+    internal
+    view
+    returns (EpochProofQuoteLib.SignedEpochProofQuote memory)
+  {
+    bytes32 digest = rollup.quoteToDigest(_quote);
+    (uint8 v, bytes32 r, bytes32 s) =
+      vm.sign(0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234, digest);
+    return EpochProofQuoteLib.SignedEpochProofQuote({
+      quote: _quote,
+      signature: SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s})
+    });
   }
 
   function _testBlock(string memory name, bool _submitProof) public {
@@ -426,14 +742,16 @@ contract RollupTest is DecoderBase {
     uint32 numTxs = full.block.numTxs;
     bytes32[] memory txHashes = new bytes32[](0);
 
-    // Overwrite some timestamps if needed
-    if (_slotNumber != 0) {
-      uint256 ts = rollup.getTimestampForSlot(_slotNumber);
+    Slot slotNumber = Slot.wrap(_slotNumber);
 
-      full.block.decodedHeader.globalVariables.timestamp = ts;
-      full.block.decodedHeader.globalVariables.slotNumber = _slotNumber;
+    // Overwrite some timestamps if needed
+    if (slotNumber != Slot.wrap(0)) {
+      Timestamp ts = rollup.getTimestampForSlot(slotNumber);
+
+      full.block.decodedHeader.globalVariables.timestamp = Timestamp.unwrap(ts);
+      full.block.decodedHeader.globalVariables.slotNumber = Slot.unwrap(slotNumber);
       assembly {
-        mstore(add(header, add(0x20, 0x0194)), _slotNumber)
+        mstore(add(header, add(0x20, 0x0194)), slotNumber)
         mstore(add(header, add(0x20, 0x01b4)), ts)
       }
     }
@@ -443,13 +761,15 @@ contract RollupTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    rollup.propose(header, archive, full.block.blockHash, txHashes, signatures, body);
 
     if (_submitProof) {
       uint256 pre = rollup.getProvenBlockNumber();
+      (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(pre);
 
-      rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
-
+      _submitEpochProof(
+        rollup, 1, preArchive, archive, preBlockHash, full.block.blockHash, bytes32(0)
+      );
       assertEq(pre + 1, rollup.getProvenBlockNumber(), "Block not proven");
     }
 
@@ -500,5 +820,59 @@ contract RollupTest is DecoderBase {
         DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
       );
     }
+  }
+
+  function _submitEpochProof(
+    Rollup _rollup,
+    uint256 _epochSize,
+    bytes32 _previousArchive,
+    bytes32 _endArchive,
+    bytes32 _previousBlockHash,
+    bytes32 _endBlockHash,
+    bytes32 _proverId
+  ) internal {
+    _submitEpochProofWithFee(
+      _rollup,
+      _epochSize,
+      _previousArchive,
+      _endArchive,
+      _previousBlockHash,
+      _endBlockHash,
+      _proverId,
+      address(0),
+      uint256(0)
+    );
+  }
+
+  function _submitEpochProofWithFee(
+    Rollup _rollup,
+    uint256 _epochSize,
+    bytes32 _previousArchive,
+    bytes32 _endArchive,
+    bytes32 _previousBlockHash,
+    bytes32 _endBlockHash,
+    bytes32 _proverId,
+    address _feeRecipient,
+    uint256 _feeAmount
+  ) internal {
+    bytes32[7] memory args = [
+      _previousArchive,
+      _endArchive,
+      _previousBlockHash,
+      _endBlockHash,
+      bytes32(0),
+      bytes32(0),
+      _proverId
+    ];
+
+    bytes32[] memory fees = new bytes32[](Constants.AZTEC_EPOCH_DURATION * 2);
+
+    fees[0] = bytes32(uint256(uint160(_feeRecipient)));
+    fees[1] = bytes32(_feeAmount);
+
+    bytes memory aggregationObject = "";
+    bytes memory proof = "";
+
+    _rollup.submitEpochRootProof(_epochSize, args, fees, aggregationObject, proof);
   }
 }

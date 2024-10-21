@@ -18,7 +18,7 @@ use dep::types::{
     hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, utils::arrays::sort_by_counter_asc
 };
 
-struct ResetOutputComposer<
+pub struct ResetOutputComposer<
     let NH_RR_PENDING: u32,
     let NH_RR_SETTLED: u32,
     let NLL_RR_PENDING: u32,
@@ -46,7 +46,7 @@ impl<
     NLL_RR_SETTLED,
     KEY_VALIDATION_REQUESTS,
 > {
-    unconstrained pub fn new<let TRANSIENT_DATA_AMOUNT: u32>(
+    pub unconstrained fn new<let TRANSIENT_DATA_AMOUNT: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
@@ -65,7 +65,7 @@ impl<
         }
     }
 
-    unconstrained pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
+    pub unconstrained fn finish(self) -> PrivateKernelCircuitPublicInputs {
         let mut output = self.previous_kernel;
 
         output.validation_requests = self.validation_request_processor.compose();

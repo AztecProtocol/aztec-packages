@@ -1,5 +1,4 @@
 import {
-  type Body,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -16,18 +15,21 @@ import {
   TxReceipt,
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
+  type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
+  Fr,
+  type Header,
+  INITIAL_L2_BLOCK_NUM,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval, type SingletonDataRetrieval } from '../structs/data_retrieval.js';
+import { type DataRetrieval } from '../structs/data_retrieval.js';
 import { type L1Published } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
@@ -41,32 +43,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2Blocks: L1Published<L2Block>[] = [];
 
   /**
-   * A mapping of body hash to body
-   */
-  private l2BlockBodies: Map<string, Body> = new Map();
-
-  /**
    * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
 
-  /**
-   * An array containing all the encrypted logs that have been fetched so far.
-   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
-   */
-  private noteEncryptedLogsPerBlock: EncryptedNoteL2BlockL2Logs[] = [];
+  private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
 
-  /**
-   * An array containing all the encrypted logs that have been fetched so far.
-   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
-   */
-  private encryptedLogsPerBlock: EncryptedL2BlockL2Logs[] = [];
+  private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
 
-  /**
-   * An array containing all the unencrypted logs that have been fetched so far.
-   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
-   */
-  private unencryptedLogsPerBlock: UnencryptedL2BlockL2Logs[] = [];
+  private unencryptedLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
 
   /**
    * Contains all L1 to L2 messages.
@@ -75,7 +60,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractArtifacts: Map<string, ContractArtifact> = new Map();
 
-  private contractClasses: Map<string, ContractClassPublic> = new Map();
+  private contractClasses: Map<string, ContractClassPublicWithBlockNumber> = new Map();
 
   private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
 
@@ -84,11 +69,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewBlocks: bigint | undefined = undefined;
-  private lastL1BlockNewBlockBodies: bigint | undefined = undefined;
   private lastL1BlockNewMessages: bigint | undefined = undefined;
-  private lastL1BlockNewProvenLogs: bigint | undefined = undefined;
 
   private lastProvenL2BlockNumber: number = 0;
+  private lastProvenL2EpochNumber: number = 0;
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -136,9 +120,24 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
-  public addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
+  public addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
     for (const contractClass of data) {
-      this.contractClasses.set(contractClass.id.toString(), contractClass);
+      if (!this.contractClasses.has(contractClass.id.toString())) {
+        this.contractClasses.set(contractClass.id.toString(), {
+          ...contractClass,
+          l2BlockNumber: blockNumber,
+        });
+      }
+    }
+    return Promise.resolve(true);
+  }
+
+  public deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
+    for (const contractClass of data) {
+      const restored = this.contractClasses.get(contractClass.id.toString());
+      if (restored && restored.l2BlockNumber >= blockNumber) {
+        this.contractClasses.delete(contractClass.id.toString());
+      }
     }
     return Promise.resolve(true);
   }
@@ -146,6 +145,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
     for (const contractInstance of data) {
       this.contractInstances.set(contractInstance.address.toString(), contractInstance);
+    }
+    return Promise.resolve(true);
+  }
+
+  public deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
+    for (const contractInstance of data) {
+      this.contractInstances.delete(contractInstance.address.toString());
     }
     return Promise.resolve(true);
   }
@@ -163,60 +169,61 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
     this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects));
+
     return Promise.resolve(true);
   }
 
   /**
-   * Append new block bodies to the store's list.
-   * @param blockBodies - The L2 block bodies to be added to the store.
-   * @returns True if the operation is successful.
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
    */
-  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean> {
-    for (const body of blockBodies.retrievedData) {
-      void this.l2BlockBodies.set(body.getTxsEffectsHash().toString('hex'), body);
+  public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+    const last = await this.getSynchedL2BlockNumber();
+    if (from != last) {
+      throw new Error(`Can only remove the tip`);
     }
-    this.lastL1BlockNewBlockBodies = blockBodies.lastProcessedL1BlockNumber;
-    return Promise.resolve(true);
-  }
 
-  /**
-   * Gets block bodies that have the same txHashes as we supply.
-   *
-   * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
-   * @returns The requested L2 block bodies
-   */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
-    return Promise.resolve(
-      txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex'))),
-    );
+    const stopAt = from - blocksToUnwind;
+    while ((await this.getSynchedL2BlockNumber()) > stopAt) {
+      const block = this.l2Blocks.pop();
+      if (block == undefined) {
+        break;
+      }
+      block.data.body.txEffects.forEach(() => this.txEffects.pop());
+    }
+
+    return Promise.resolve(true);
   }
 
   /**
    * Append new logs to the store's list.
-   * @param encryptedLogs - The encrypted logs to be added to the store.
-   * @param unencryptedLogs - The unencrypted logs to be added to the store.
-   * @param blockNumber - The block for which to add the logs.
+   * @param block - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(
-    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
-    encryptedLogs: EncryptedL2BlockL2Logs,
-    unencryptedLogs: UnencryptedL2BlockL2Logs,
-    blockNumber: number,
-  ): Promise<boolean> {
-    if (noteEncryptedLogs) {
-      this.noteEncryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = noteEncryptedLogs;
-    }
+  addLogs(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
+      this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
+      this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
+    });
+    return Promise.resolve(true);
+  }
 
-    if (encryptedLogs) {
-      this.encryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = encryptedLogs;
-    }
-
-    if (unencryptedLogs) {
-      this.unencryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = unencryptedLogs;
-    }
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      this.encryptedLogsPerBlock.delete(block.number);
+      this.noteEncryptedLogsPerBlock.delete(block.number);
+      this.unencryptedLogsPerBlock.delete(block.number);
+    });
 
     return Promise.resolve(true);
+  }
+
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return Promise.resolve(this.l1ToL2Messages.getTotalL1ToL2MessageCount());
   }
 
   /**
@@ -257,18 +264,26 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @remarks When "from" is smaller than genesis block number, blocks from the beginning are returned.
    */
   public getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
-    // Return an empty array if we are outside of range
     if (limit < 1) {
       return Promise.reject(new Error(`Invalid limit: ${limit}`));
     }
 
-    const fromIndex = Math.max(from - INITIAL_L2_BLOCK_NUM, 0);
+    if (from < INITIAL_L2_BLOCK_NUM) {
+      return Promise.reject(new Error(`Invalid start: ${from}`));
+    }
+
+    const fromIndex = from - INITIAL_L2_BLOCK_NUM;
     if (fromIndex >= this.l2Blocks.length) {
       return Promise.resolve([]);
     }
 
     const toIndex = fromIndex + limit;
     return Promise.resolve(this.l2Blocks.slice(fromIndex, toIndex));
+  }
+
+  public async getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+    const blocks = await this.getBlocks(from, limit);
+    return blocks.map(block => block.data.header);
   }
 
   /**
@@ -328,9 +343,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
-      throw new Error(`Invalid limit: ${limit}`);
+      return Promise.resolve([]);
     }
-    const logs = (() => {
+
+    if (from > this.l2Blocks.length) {
+      return Promise.resolve([]);
+    }
+
+    const logMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
           return this.encryptedLogsPerBlock;
@@ -340,14 +360,24 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         default:
           return this.unencryptedLogsPerBlock;
       }
-    })() as L2BlockL2Logs<FromLogType<TLogType>>[];
+    })() as Map<number, L2BlockL2Logs<FromLogType<TLogType>>>;
 
-    if (from > logs.length) {
-      return Promise.resolve([]);
-    }
-    const startIndex = from - INITIAL_L2_BLOCK_NUM;
+    const startIndex = from;
     const endIndex = startIndex + limit;
-    return Promise.resolve(logs.slice(startIndex, endIndex));
+    const upper = Math.min(endIndex, this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
+
+    const l = [];
+    for (let i = startIndex; i < upper; i++) {
+      const log = logMap.get(i);
+      if (log) {
+        l.push(log);
+      } else {
+        // I hate typescript sometimes
+        l.push(undefined as unknown as L2BlockL2Logs<FromLogType<TLogType>>);
+      }
+    }
+
+    return Promise.resolve(l);
   }
 
   /**
@@ -358,37 +388,37 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     let txHash: TxHash | undefined;
-    let fromBlockIndex = 0;
-    let toBlockIndex = this.unencryptedLogsPerBlock.length;
+    let fromBlock = 0;
+    let toBlock = this.l2Blocks.length + INITIAL_L2_BLOCK_NUM;
     let txIndexInBlock = 0;
     let logIndexInTx = 0;
 
     if (filter.afterLog) {
       // Continuation parameter is set --> tx hash is ignored
       if (filter.fromBlock == undefined || filter.fromBlock <= filter.afterLog.blockNumber) {
-        fromBlockIndex = filter.afterLog.blockNumber - INITIAL_L2_BLOCK_NUM;
+        fromBlock = filter.afterLog.blockNumber;
         txIndexInBlock = filter.afterLog.txIndex;
         logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
       } else {
-        fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+        fromBlock = filter.fromBlock;
       }
     } else {
       txHash = filter.txHash;
 
       if (filter.fromBlock !== undefined) {
-        fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+        fromBlock = filter.fromBlock;
       }
     }
 
     if (filter.toBlock !== undefined) {
-      toBlockIndex = filter.toBlock - INITIAL_L2_BLOCK_NUM;
+      toBlock = filter.toBlock;
     }
 
     // Ensure the indices are within block array bounds
-    fromBlockIndex = Math.max(fromBlockIndex, 0);
-    toBlockIndex = Math.min(toBlockIndex, this.unencryptedLogsPerBlock.length);
+    fromBlock = Math.max(fromBlock, INITIAL_L2_BLOCK_NUM);
+    toBlock = Math.min(toBlock, this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
 
-    if (fromBlockIndex > this.unencryptedLogsPerBlock.length || toBlockIndex < fromBlockIndex || toBlockIndex <= 0) {
+    if (fromBlock > this.l2Blocks.length || toBlock < fromBlock || toBlock <= 0) {
       return Promise.resolve({
         logs: [],
         maxLogsHit: false,
@@ -399,27 +429,30 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const logs: ExtendedUnencryptedL2Log[] = [];
 
-    for (; fromBlockIndex < toBlockIndex; fromBlockIndex++) {
-      const block = this.l2Blocks[fromBlockIndex];
-      const blockLogs = this.unencryptedLogsPerBlock[fromBlockIndex];
-      for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
-        const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
-        for (; logIndexInTx < txLogs.length; logIndexInTx++) {
-          const log = txLogs[logIndexInTx];
-          if (
-            (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-            (!contractAddress || log.contractAddress.equals(contractAddress))
-          ) {
-            logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
-            if (logs.length === this.maxLogs) {
-              return Promise.resolve({
-                logs,
-                maxLogsHit: true,
-              });
+    for (; fromBlock < toBlock; fromBlock++) {
+      const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
+      const blockLogs = this.unencryptedLogsPerBlock.get(fromBlock);
+
+      if (blockLogs) {
+        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
+          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
+          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
+            const log = txLogs[logIndexInTx];
+            if (
+              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
+              (!contractAddress || log.contractAddress.equals(contractAddress))
+            ) {
+              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
+              if (logs.length === this.maxLogs) {
+                return Promise.resolve({
+                  logs,
+                  maxLogsHit: true,
+                });
+              }
             }
           }
+          logIndexInTx = 0;
         }
-        logIndexInTx = 0;
       }
       txIndexInBlock = 0;
     }
@@ -445,9 +478,27 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
-  public setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void> {
-    this.lastProvenL2BlockNumber = l2BlockNumber.retrievedData;
-    this.lastL1BlockNewProvenLogs = l2BlockNumber.lastProcessedL1BlockNumber;
+  public getProvenL2EpochNumber(): Promise<number | undefined> {
+    return Promise.resolve(this.lastProvenL2EpochNumber);
+  }
+
+  public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+    this.lastProvenL2BlockNumber = l2BlockNumber;
+    return Promise.resolve();
+  }
+
+  public setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
+    this.lastProvenL2EpochNumber = l2EpochNumber;
+    return Promise.resolve();
+  }
+
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewBlocks = l1BlockNumber;
+    return Promise.resolve();
+  }
+
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewMessages = l1BlockNumber;
     return Promise.resolve();
   }
 
@@ -455,8 +506,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
-      blockBodiesSynchedTo: this.lastL1BlockNewBlockBodies,
-      provenLogsSynchedTo: this.lastL1BlockNewProvenLogs,
     });
   }
 

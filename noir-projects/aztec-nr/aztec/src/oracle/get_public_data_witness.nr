@@ -1,9 +1,9 @@
 use dep::protocol_types::{constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTreeLeafPreimage, utils::arr_copy_slice};
 
 global LEAF_PREIMAGE_LENGTH: u32 = 4;
-global PUBLIC_DATA_WITNESS: Field = 45;
+global PUBLIC_DATA_WITNESS: u32 = 45;
 
-struct PublicDataWitness {
+pub struct PublicDataWitness {
     index: Field,
     leaf_preimage: PublicDataTreeLeafPreimage,
     path: [Field; PUBLIC_DATA_TREE_HEIGHT],
@@ -15,7 +15,7 @@ unconstrained fn get_public_data_witness_oracle(
     _public_data_tree_index: Field
 ) -> [Field; PUBLIC_DATA_WITNESS] {}
 
-unconstrained pub fn get_public_data_witness(
+pub unconstrained fn get_public_data_witness(
     block_number: u32,
     public_data_tree_index: Field
 ) -> PublicDataWitness {

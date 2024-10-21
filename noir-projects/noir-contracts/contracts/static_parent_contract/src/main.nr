@@ -1,12 +1,16 @@
 
 // A contract used along with `StaticChild` contract to test static calls.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract StaticParent {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
-    use dep::aztec::context::gas::GasOpts;
+    use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public, view}};
     use dep::static_child_contract::StaticChild;
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
-    #[aztec(public)]
+    #[public]
+    #['public]
     fn public_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -21,7 +25,8 @@ contract StaticParent {
     }
 
     // Private function to directly call another private function to the target_contract using the selector and args provided
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -31,7 +36,8 @@ contract StaticParent {
     }
 
     // Just like function above but with 3 args.
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -41,7 +47,8 @@ contract StaticParent {
     }
 
     // Private function to enqueue a call to a public function of another contract, passing the target arguments provided
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn enqueue_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -50,7 +57,8 @@ contract StaticParent {
         context.call_public_function(target_contract, target_selector, args);
     }
 
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -60,7 +68,8 @@ contract StaticParent {
     }
 
     // Private function to statically call another private function to the target_contract using the selector and values provided
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_static_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -70,7 +79,8 @@ contract StaticParent {
     }
 
     // Same as above but using a specific function from the interface
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_get_value_from_child(
         target_contract: AztecAddress,
         value: Field,
@@ -80,7 +90,8 @@ contract StaticParent {
     }
 
     // Private function to set a static context and verify correct propagation for nested private calls
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -90,7 +101,8 @@ contract StaticParent {
     }
 
     // Just like function above but with 3 args.
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn private_nested_static_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -100,7 +112,8 @@ contract StaticParent {
     }
 
     // Public function to statically call another public function to the target_contract using the selector and value provided
-    #[aztec(public)]
+    #[public]
+    #['public]
     fn public_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -115,13 +128,15 @@ contract StaticParent {
     }
 
     // Same as above but using a specific function from the interface
-    #[aztec(public)]
+    #[public]
+    #['public]
     fn public_get_value_from_child(target_contract: AztecAddress, value: Field) -> Field {
         StaticChild::at(target_contract).pub_get_value(value).view(&mut context)
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls
-    #[aztec(public)]
+    #[public]
+    #['public]
     fn public_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -132,7 +147,8 @@ contract StaticParent {
     }
 
     // Private function to enqueue a static call to a public function of another contract, passing the target arguments provided
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn enqueue_static_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -142,18 +158,16 @@ contract StaticParent {
     }
 
     // Same as above but using a specific function from the interface
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn enqueue_public_get_value_from_child(target_contract: AztecAddress, value: Field) {
         StaticChild::at(target_contract).pub_get_value(value).enqueue_view(&mut context);
     }
 
     // Private function to set a static context and verify correct propagation of nested enqueuing of public calls
-    #[aztec(private)]
-    fn enqueue_static_nested_call_to_pub_function(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 1]
-    ) {
+    #[private]
+    #['private]
+    fn enqueue_static_nested_call_to_pub_function(target_contract: AztecAddress, target_selector: FunctionSelector, args: [Field; 1]) {
         // Call the target public function through the pub entrypoint statically
         StaticParent::at(context.this_address()).public_call(target_contract, target_selector, args[0]).enqueue_view(&mut context)
     }

@@ -20,24 +20,24 @@ describe('EC Instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         EcAdd.opcode, // opcode
-        0x20, // indirect
-        ...Buffer.from('12345670', 'hex'), // p1x
-        ...Buffer.from('12345671', 'hex'), // p1y
-        ...Buffer.from('00000000', 'hex'), // p1IsInfinite
-        ...Buffer.from('12345672', 'hex'), // p2x
-        ...Buffer.from('12345673', 'hex'), // p2y
-        ...Buffer.from('00000001', 'hex'), // p2IsInfinite
-        ...Buffer.from('12345674', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // indirect
+        ...Buffer.from('1235', 'hex'), // p1x
+        ...Buffer.from('1236', 'hex'), // p1y
+        ...Buffer.from('0000', 'hex'), // p1IsInfinite
+        ...Buffer.from('1237', 'hex'), // p2x
+        ...Buffer.from('1238', 'hex'), // p2y
+        ...Buffer.from('0001', 'hex'), // p2IsInfinite
+        ...Buffer.from('1239', 'hex'), // dstOffset
       ]);
       const inst = new EcAdd(
-        /*indirect=*/ 0x20,
-        /*p1X=*/ 0x12345670,
-        /*p1Y=*/ 0x12345671,
+        /*indirect=*/ 0x1234,
+        /*p1X=*/ 0x1235,
+        /*p1Y=*/ 0x1236,
         /*p1IsInfinite=*/ 0,
-        /*p2X=*/ 0x12345672,
-        /*p2Y=*/ 0x12345673,
+        /*p2X=*/ 0x1237,
+        /*p2Y=*/ 0x1238,
         /*p2IsInfinite=*/ 1,
-        /*dstOffset=*/ 0x12345674,
+        /*dstOffset=*/ 0x1239,
       );
 
       expect(EcAdd.deserialize(buf)).toEqual(inst);

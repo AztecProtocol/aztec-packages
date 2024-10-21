@@ -12,14 +12,14 @@ use dep::types::{
     data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
 
-struct PublicTailOutputComposer<let NUM_PUBLIC_DATA_LEAVES: u32> {
+pub struct PublicTailOutputComposer<let NUM_PUBLIC_DATA_LEAVES: u32> {
     previous_kernel: PublicKernelCircuitPublicInputs,
     start_state: PartialStateReference,
     public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES],
 }
 
 impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputComposer<NUM_PUBLIC_DATA_LEAVES> {
-    unconstrained pub fn new(
+    pub unconstrained fn new(
         previous_kernel: PublicKernelCircuitPublicInputs,
         start_state: PartialStateReference,
         public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES]
@@ -27,7 +27,7 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputComposer<NUM_PUBLIC_DATA_L
         PublicTailOutputComposer { previous_kernel, start_state, public_data_leaf_hints }
     }
 
-    unconstrained pub fn finish(self) -> (KernelCircuitPublicInputs, OutputHints<NUM_PUBLIC_DATA_LEAVES>) {
+    pub unconstrained fn finish(self) -> (KernelCircuitPublicInputs, OutputHints<NUM_PUBLIC_DATA_LEAVES>) {
         let output_hints = generate_output_hints(self.previous_kernel, self.public_data_leaf_hints);
 
         let end = combine_data(

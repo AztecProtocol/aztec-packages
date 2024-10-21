@@ -4,7 +4,7 @@ use dep::types::{
     utils::arrays::{get_sorted_result, SortedResult}
 };
 
-struct SlotIndex {
+pub struct SlotIndex {
     slot: Field,
     index: u32,
     counter: u32,
@@ -34,7 +34,7 @@ fn compare_by_index(a: SlotIndex, b: SlotIndex) -> bool {
     (a.slot != 0) & ((b.slot == 0) | (a.index < b.index))
 }
 
-unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_HINTS: u32>(
+pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_HINTS: u32>(
     reads: [PublicDataRead; NUM_READS],
     writes: [PublicDataUpdateRequest; NUM_WRITES],
     hints: [PublicDataLeafHint; NUM_HINTS]

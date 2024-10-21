@@ -10,7 +10,7 @@ use dep::types::{
 },
     merkle_tree::VariableMerkleTree,
     constants::{
-    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+    AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
     utils::{arrays::{array_length, array_merge}},
@@ -81,6 +81,9 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
 ) {
     assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
     assert(
+        left.protocol_contract_tree_root == right.protocol_contract_tree_root, "input blocks have different protocol contract tree roots"
+    );
+    assert(
         left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
     );
     assert(
@@ -92,12 +95,22 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     assert(
         left.end_global_variables.version == right.start_global_variables.version, "input blocks have different chain version"
     );
-    assert(
-        left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
-    );
-    assert(
-        left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
-    );
+
+    if right.is_padding() {
+        assert(
+            left.end_global_variables.block_number == right.start_global_variables.block_number, "input block numbers do not match"
+        );
+        assert(
+            left.end_global_variables.timestamp == right.start_global_variables.timestamp, "input block timestamps do not match"
+        );
+    } else {
+        assert(
+            left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
+        );
+        assert(
+            left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
+        );
+    }
 }
 
 pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) -> Field {
@@ -107,10 +120,12 @@ pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRo
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs
-) -> [FeeRecipient; 32] {
+) -> [FeeRecipient; AZTEC_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
-    assert(left_len + right_len <= 32, "too many fee payment structs accumulated in rollup");
+    assert(
+        left_len + right_len <= AZTEC_EPOCH_DURATION, "too many fee payment structs accumulated in rollup"
+    );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
@@ -134,12 +149,16 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
 }
 // TODO(Miranda): combine fns?
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
-    accumulate_sha256(
-        [
-        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
-        previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
-    ]
-    )
+    if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
+        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
+    } else {
+        accumulate_sha256(
+            [
+            previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
+            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
+        ]
+        )
+    }
 }
 
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
@@ -293,7 +312,8 @@ pub fn compute_tx_effects_hash(
 
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
     for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
-        let input_as_bytes: [u8; 32] = tx_effects_hash_input[offset].to_be_bytes();
+        // TODO: This is not checking that the decomposition is smaller than P
+        let input_as_bytes: [u8; 32] = tx_effects_hash_input[offset].to_be_radix(256);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }

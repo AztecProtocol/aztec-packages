@@ -4,9 +4,9 @@ use crate::{
     utils::sha256_merkle_tree::Sha256MerkleTree
 };
 
-global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
+global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
-struct RootParityInputs {
+pub struct RootParityInputs {
     children: [RootParityInput; NUM_BASE_PARITY_PER_ROOT_PARITY],
 }
 
@@ -44,8 +44,7 @@ impl RootParityInputs {
             //TODO: Do we need to validate this following hash
             //assert(hash(self.children[i].verification_key) == self.children[i].verification_key.hash);
             self.children[i].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.children[i].validate_in_vk_tree();
+            self.children[i].validate_in_vk_tree();
         }
     }
 }
@@ -59,7 +58,9 @@ mod tests {
     use dep::types::tests::fixtures;
     use dep::types::constants::BASE_PARITY_INDEX;
 
-    fn test_setup() -> [RootParityInput; 4] {
+    use super::NUM_BASE_PARITY_PER_ROOT_PARITY;
+
+    fn test_setup() -> [RootParityInput; NUM_BASE_PARITY_PER_ROOT_PARITY] {
         // 31 byte test SHA roots
         let children_sha_roots = [
             0xb3a3fc1968999f2c2d798b900bdf0de41311be2a4d20496a7e792a521fc8ab,

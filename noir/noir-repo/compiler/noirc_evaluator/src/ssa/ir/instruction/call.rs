@@ -166,6 +166,13 @@ pub(super) fn simplify_call(
             }
         }
         Intrinsic::SlicePopBack => {
+            let length = dfg.get_numeric_constant(arguments[0]);
+            if length.map_or(true, |length| length.is_zero()) {
+                // If the length is zero then we're trying to pop the last element from an empty slice.
+                // Defer the error to acir_gen.
+                return SimplifyResult::None;
+            }
+
             let slice = dfg.get_array_constant(arguments[1]);
             if let Some((_, typ)) = slice {
                 simplify_slice_pop_back(typ, arguments, dfg, block, call_stack.clone())
@@ -174,6 +181,13 @@ pub(super) fn simplify_call(
             }
         }
         Intrinsic::SlicePopFront => {
+            let length = dfg.get_numeric_constant(arguments[0]);
+            if length.map_or(true, |length| length.is_zero()) {
+                // If the length is zero then we're trying to pop the first element from an empty slice.
+                // Defer the error to acir_gen.
+                return SimplifyResult::None;
+            }
+
             let slice = dfg.get_array_constant(arguments[1]);
             if let Some((mut slice, typ)) = slice {
                 let element_count = typ.element_size();
@@ -225,6 +239,13 @@ pub(super) fn simplify_call(
             }
         }
         Intrinsic::SliceRemove => {
+            let length = dfg.get_numeric_constant(arguments[0]);
+            if length.map_or(true, |length| length.is_zero()) {
+                // If the length is zero then we're trying to remove an element from an empty slice.
+                // Defer the error to acir_gen.
+                return SimplifyResult::None;
+            }
+
             let slice = dfg.get_array_constant(arguments[1]);
             let index = dfg.get_numeric_constant(arguments[2]);
             if let (Some((mut slice, typ)), Some(index)) = (slice, index) {
@@ -488,7 +509,6 @@ fn simplify_black_box_func(
         }
     };
     match bb_func {
-        BlackBoxFunc::SHA256 => simplify_hash(dfg, arguments, acvm::blackbox_solver::sha256),
         BlackBoxFunc::Blake2s => simplify_hash(dfg, arguments, acvm::blackbox_solver::blake2s),
         BlackBoxFunc::Blake3 => simplify_hash(dfg, arguments, acvm::blackbox_solver::blake3),
         BlackBoxFunc::Keccakf1600 => {
@@ -517,9 +537,6 @@ fn simplify_black_box_func(
             } else {
                 SimplifyResult::None
             }
-        }
-        BlackBoxFunc::Keccak256 => {
-            unreachable!("Keccak256 should have been replaced by calls to Keccakf1600")
         }
         BlackBoxFunc::Poseidon2Permutation => {
             blackbox::simplify_poseidon2_permutation(dfg, solver, arguments)

@@ -6,7 +6,7 @@ use crate::{
 }
 };
 
-struct SplitOrderHints<let N: u32> {
+pub struct SplitOrderHints<let N: u32> {
     sorted_counters_lt: [u32; N],
     sorted_counters_gte: [u32; N],
     sorted_indexes: [u32; N],
@@ -67,14 +67,14 @@ unconstrained fn get_split_order_hints<T, let N: u32>(
     SplitOrderHints { sorted_counters_lt, sorted_counters_gte, sorted_indexes }
 }
 
-unconstrained pub fn get_split_order_hints_asc<T, let N: u32>(
+pub unconstrained fn get_split_order_hints_asc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
 ) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
     get_split_order_hints(array, split_counter, true)
 }
 
-unconstrained pub fn get_split_order_hints_desc<T, let N: u32>(
+pub unconstrained fn get_split_order_hints_desc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
 ) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
@@ -281,4 +281,3 @@ mod tests {
         builder.desc_to_equal(expected_hints);
     }
 }
-

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -24,7 +23,6 @@ class ECCVMProver {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
-    using ZeroMorph = ZeroMorphProver_<PCS>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     explicit ECCVMProver(CircuitBuilder& builder,
@@ -53,9 +51,6 @@ class ECCVMProver {
 
     CommitmentLabels commitment_labels;
 
-    // Container for d + 1 Fold polynomials produced by Gemini
-    std::vector<Polynomial> gemini_polynomials;
-
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds
 
@@ -65,7 +60,6 @@ class ECCVMProver {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-    std::shared_ptr<CommitmentKey> commitment_key;
 
   private:
     HonkProof proof;

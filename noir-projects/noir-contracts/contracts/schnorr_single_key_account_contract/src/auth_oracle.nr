@@ -1,10 +1,7 @@
 use dep::authwit::auth_witness;
-use dep::aztec::{
-    protocol_types::{address::PartialAddress, utils::arr_copy_slice},
-    keys::{PublicKeys, PUBLIC_KEYS_LENGTH}
-};
+use dep::aztec::protocol_types::{address::PartialAddress, utils::arr_copy_slice, public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}};
 
-struct AuthWitness {
+pub struct AuthWitness {
     keys: PublicKeys,
     signature: [u8; 64],
     partial_address: PartialAddress,
@@ -24,7 +21,7 @@ impl AuthWitness {
     }
 }
 
-unconstrained pub fn get_auth_witness(message_hash: Field) -> AuthWitness {
+pub unconstrained fn get_auth_witness(message_hash: Field) -> AuthWitness {
     let witness: [Field; 77] = auth_witness::get_auth_witness(message_hash);
     AuthWitness::deserialize(witness)
 }

@@ -1,12 +1,12 @@
 use crate::{utils::arrays::{get_sorted_tuple::{get_sorted_tuple, SortedTuple}}};
 
-struct SortedResult<T, let N: u32> {
+pub struct SortedResult<T, let N: u32> {
     sorted_array: [T; N],
     sorted_index_hints: [u32; N],
     original_index_hints: [u32; N],
 }
 
-unconstrained pub fn get_sorted_result<let N: u32, T>(
+pub unconstrained fn get_sorted_result<let N: u32, T>(
     values: [T; N],
     ordering: fn(T, T) -> bool
 ) -> SortedResult<T, N> {

@@ -1,4 +1,5 @@
 import {
+  NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type UnencryptedFunctionL2Logs,
@@ -13,15 +14,13 @@ import {
   type LogHash,
   type NoteHash,
   type Nullifier,
-  PublicCallRequest,
   PublicCallStackItemCompressed,
+  PublicInnerCallRequest,
   type ReadRequest,
   RevertCode,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-
-import { type Gas as AvmGas } from '../avm/avm_gas.js';
 
 /**
  * The public function execution result.
@@ -35,9 +34,9 @@ export interface PublicExecutionResult {
   /** The side effect counter after executing this function call */
   endSideEffectCounter: Fr;
   /** How much gas was available for this public execution. */
-  startGasLeft: AvmGas;
+  startGasLeft: Gas;
   /** How much gas was left after this public execution. */
-  endGasLeft: AvmGas;
+  endGasLeft: Gas;
   /** Transaction fee set for this tx. */
   transactionFee: Fr;
 
@@ -86,10 +85,8 @@ export interface PublicExecutionResult {
    */
   allUnencryptedLogs: UnencryptedFunctionL2Logs;
 
-  // TODO(dbanks12): add contract instance read requests
-
   /** The requests to call public functions made by this call. */
-  publicCallRequests: PublicCallRequest[];
+  publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
   nestedExecutions: this[];
 
@@ -101,14 +98,19 @@ export interface PublicExecutionResult {
 }
 
 /**
- * Returns if the input is a public execution result and not just a public execution.
- * @param input - Public execution or public execution result.
- * @returns Whether the input is a public execution result and not just a public execution.
+ * Recursively accummulate the return values of a call result and its nested executions,
+ * so they can be retrieved in order.
+ * @param executionResult
+ * @returns
  */
-export function isPublicExecutionResult(
-  input: PublicExecutionRequest | PublicExecutionResult,
-): input is PublicExecutionResult {
-  return 'executionRequest' in input && input.executionRequest !== undefined;
+export function accumulatePublicReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
+  const acc = new NestedProcessReturnValues(executionResult.returnValues);
+  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePublicReturnValues(nestedExecution));
+  return acc;
+}
+
+export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {
+  return [result, ...result.nestedExecutions.map(collectExecutionResults)].flat();
 }
 
 /**
@@ -146,5 +148,5 @@ export function resultToPublicCallRequest(result: PublicExecutionResult) {
     Gas.from(result.startGasLeft),
     Gas.from(result.endGasLeft),
   );
-  return new PublicCallRequest(item, result.startSideEffectCounter.toNumber());
+  return new PublicInnerCallRequest(item, result.startSideEffectCounter.toNumber());
 }

@@ -12,11 +12,6 @@ pub enum BlackBoxOp {
         key: HeapArray,
         outputs: HeapVector,
     },
-    /// Calculates the SHA256 hash of the inputs.
-    Sha256 {
-        message: HeapVector,
-        output: HeapArray,
-    },
     /// Calculates the Blake2s hash of the inputs.
     Blake2s {
         message: HeapVector,
@@ -24,11 +19,6 @@ pub enum BlackBoxOp {
     },
     /// Calculates the Blake3 hash of the inputs.
     Blake3 {
-        message: HeapVector,
-        output: HeapArray,
-    },
-    /// Calculates the Keccak256 hash of the inputs.
-    Keccak256 {
         message: HeapVector,
         output: HeapArray,
     },
@@ -130,7 +120,7 @@ pub enum BlackBoxOp {
     },
     ToRadix {
         input: MemoryAddress,
-        radix: u32,
+        radix: MemoryAddress,
         output: HeapArray,
         output_bits: bool,
     },

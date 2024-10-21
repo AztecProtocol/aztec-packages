@@ -40,12 +40,6 @@ pub enum BlackBoxFunc {
     /// - input: (witness, bit_size)
     RANGE,
 
-    /// Computes SHA256 of the inputs
-    /// - inputs are a byte array, i.e a vector of (witness, 8)
-    /// - output is a byte array of len 32, i.e an array of 32 (witness, 8),
-    ///   constrained to be the sha256 of the inputs.
-    SHA256,
-
     /// Computes the Blake2s hash of the inputs, as specified in
     /// https://tools.ietf.org/html/rfc7693
     /// - inputs are a byte array, i.e a vector of (witness, 8)
@@ -123,11 +117,6 @@ pub enum BlackBoxFunc {
     /// scalar $a$: `a=low+high*2^{128}`, with `low, high < 2^{128}`
     MultiScalarMul,
 
-    /// Computes the Keccak-256 (Ethereum version) of the inputs.
-    /// - inputs: Vector of bytes (witness, 8)
-    /// - outputs: Array of 32 bytes (witness, 8)
-    Keccak256,
-
     /// Keccak Permutation function of width 1600
     /// - inputs: An array of 25 64-bit Keccak lanes that represent a keccak sponge of 1600 bits
     /// - outputs: The result of a keccak f1600 permutation on the input state. Also an array of 25 Keccak lanes.
@@ -164,7 +153,15 @@ pub enum BlackBoxFunc {
     /// ultimately fail.
     RecursiveAggregation,
 
-    /// Addition over the embedded curve on which the witness is defined.
+    /// Addition over the embedded curve on which the witness is defined
+    /// The opcode makes the following assumptions but does not enforce them because
+    /// it is more efficient to do it only when required. For instance, adding two
+    /// points that are on the curve it guarantee to give a point on the curve.
+    ///
+    /// It assumes that the points are on the curve.
+    /// If the inputs are the same witnesses index, it will perform a doubling,
+    /// If not, it assumes that the points' x-coordinates are not equal.
+    /// It also assumes neither point is the infinity point.
     EmbeddedCurveAdd,
 
     /// BigInt addition
@@ -205,7 +202,6 @@ impl BlackBoxFunc {
     pub fn name(&self) -> &'static str {
         match self {
             BlackBoxFunc::AES128Encrypt => "aes128_encrypt",
-            BlackBoxFunc::SHA256 => "sha256",
             BlackBoxFunc::SchnorrVerify => "schnorr_verify",
             BlackBoxFunc::Blake2s => "blake2s",
             BlackBoxFunc::Blake3 => "blake3",
@@ -215,7 +211,6 @@ impl BlackBoxFunc {
             BlackBoxFunc::AND => "and",
             BlackBoxFunc::XOR => "xor",
             BlackBoxFunc::RANGE => "range",
-            BlackBoxFunc::Keccak256 => "keccak256",
             BlackBoxFunc::Keccakf1600 => "keccakf1600",
             BlackBoxFunc::RecursiveAggregation => "recursive_aggregation",
             BlackBoxFunc::EcdsaSecp256r1 => "ecdsa_secp256r1",
@@ -235,7 +230,6 @@ impl BlackBoxFunc {
     pub fn lookup(op_name: &str) -> Option<BlackBoxFunc> {
         match op_name {
             "aes128_encrypt" => Some(BlackBoxFunc::AES128Encrypt),
-            "sha256" => Some(BlackBoxFunc::SHA256),
             "schnorr_verify" => Some(BlackBoxFunc::SchnorrVerify),
             "blake2s" => Some(BlackBoxFunc::Blake2s),
             "blake3" => Some(BlackBoxFunc::Blake3),
@@ -246,7 +240,6 @@ impl BlackBoxFunc {
             "and" => Some(BlackBoxFunc::AND),
             "xor" => Some(BlackBoxFunc::XOR),
             "range" => Some(BlackBoxFunc::RANGE),
-            "keccak256" => Some(BlackBoxFunc::Keccak256),
             "keccakf1600" => Some(BlackBoxFunc::Keccakf1600),
             "recursive_aggregation" => Some(BlackBoxFunc::RecursiveAggregation),
             "bigint_add" => Some(BlackBoxFunc::BigIntAdd),

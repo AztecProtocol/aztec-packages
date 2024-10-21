@@ -2,17 +2,17 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 
+import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint32 } from '../avm_memory_types.js';
 import { markBytecodeAsAvm } from '../bytecode_utils.js';
-import { adjustCalldataIndex, initContext, initHostStorage, initPersistableStateManager } from '../fixtures/index.js';
-import { type HostStorage } from '../journal/host_storage.js';
+import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { mockGetBytecode, mockTraceFork } from '../test_utils.js';
-import { L2GasLeft } from './context_getters.js';
+import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
 import { type Instruction } from './instruction.js';
 import { CalldataCopy, Set } from './memory.js';
@@ -20,15 +20,15 @@ import { SStore } from './storage.js';
 
 describe('External Calls', () => {
   let context: AvmContext;
-  let hostStorage: HostStorage;
+  let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
   beforeEach(() => {
-    hostStorage = initHostStorage();
+    worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ hostStorage, trace });
-    context = initContext({ persistableState: persistableState });
+    persistableState = initPersistableStateManager({ worldStateDB, trace });
+    context = initContext({ persistableState });
     mockTraceFork(trace); // make sure trace.fork() works on nested call
   });
 
@@ -36,26 +36,26 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // gasOffset
-        ...Buffer.from('a2345678', 'hex'), // addrOffset
-        ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSizeOffset
-        ...Buffer.from('d2345678', 'hex'), // retOffset
-        ...Buffer.from('e2345678', 'hex'), // retSize
-        ...Buffer.from('f2345678', 'hex'), // successOffset
-        ...Buffer.from('f3345678', 'hex'), // functionSelectorOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('a234', 'hex'), // addrOffset
+        ...Buffer.from('b234', 'hex'), // argsOffset
+        ...Buffer.from('c234', 'hex'), // argsSizeOffset
+        ...Buffer.from('d234', 'hex'), // retOffset
+        ...Buffer.from('e234', 'hex'), // retSize
+        ...Buffer.from('f234', 'hex'), // successOffset
+        ...Buffer.from('f334', 'hex'), // functionSelectorOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSizeOffset=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*indirect=*/ 0x1234,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSizeOffset=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       );
 
       expect(Call.deserialize(buf)).toEqual(inst);
@@ -84,17 +84,14 @@ describe('External Calls', () => {
       // const otherContextInstructionsL2GasCost = 780; // Includes the cost of the call itself
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, adjustCalldataIndex(0), /*dstOffset=*/ 0).as(
-            Opcode.SET_8,
-            Set.wireFormat8,
-          ),
+          new Set(/*indirect=*/ 0, TypeTag.UINT32, 0, /*dstOffset=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
           new Set(/*indirect=*/ 0, TypeTag.UINT32, argsSize, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0),
           new SStore(/*indirect=*/ 0, /*srcOffset=*/ valueOffset, /*slotOffset=*/ slotOffset),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 2),
         ]),
       );
-      mockGetBytecode(hostStorage, otherContextInstructionsBytecode);
+      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -127,7 +124,7 @@ describe('External Calls', () => {
       expect(await context.persistableState.peekStorage(addr, slot)).toEqual(valueToStore);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
-      expect(context.machineState.daGasLeft).toEqual(initialDaGas);
+      expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
     });
 
     it('Should cap to available gas if allocated is bigger', async () => {
@@ -144,11 +141,14 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new L2GasLeft(/*indirect=*/ 0, /*dstOffset=*/ 0),
+          new GetEnvVar(/*indirect=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT, /*dstOffset=*/ 0).as(
+            Opcode.GETENVVAR_16,
+            GetEnvVar.wireFormat16,
+          ),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      mockGetBytecode(hostStorage, otherContextInstructionsBytecode);
+      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -177,7 +177,7 @@ describe('External Calls', () => {
       expect(retValue).toBeLessThan(initialL2Gas);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
-      expect(context.machineState.daGasLeft).toEqual(initialDaGas);
+      expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
     });
   });
 
@@ -185,26 +185,26 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // gasOffset
-        ...Buffer.from('a2345678', 'hex'), // addrOffset
-        ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSizeOffset
-        ...Buffer.from('d2345678', 'hex'), // retOffset
-        ...Buffer.from('e2345678', 'hex'), // retSize
-        ...Buffer.from('f2345678', 'hex'), // successOffset
-        ...Buffer.from('f3345678', 'hex'), // functionSelectorOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('a234', 'hex'), // addrOffset
+        ...Buffer.from('b234', 'hex'), // argsOffset
+        ...Buffer.from('c234', 'hex'), // argsSizeOffset
+        ...Buffer.from('d234', 'hex'), // retOffset
+        ...Buffer.from('e234', 'hex'), // retSize
+        ...Buffer.from('f234', 'hex'), // successOffset
+        ...Buffer.from('f334', 'hex'), // functionSelectorOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSizeOffset=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*indirect=*/ 0x1234,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSizeOffset=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       );
 
       expect(StaticCall.deserialize(buf)).toEqual(inst);
@@ -235,7 +235,7 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetBytecode(hostStorage, otherContextInstructionsBytecode);
+      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const instruction = new StaticCall(
         /*indirect=*/ 0,
@@ -259,10 +259,10 @@ describe('External Calls', () => {
       const buf = Buffer.from([
         Return.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // returnOffset
-        ...Buffer.from('a2345678', 'hex'), // copySize
+        ...Buffer.from('1234', 'hex'), // returnOffset
+        ...Buffer.from('a234', 'hex'), // copySize
       ]);
-      const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*copySize=*/ 0xa2345678);
+      const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*copySize=*/ 0xa234);
 
       expect(Return.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);

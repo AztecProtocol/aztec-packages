@@ -1,7 +1,7 @@
 use crate::reset::{read_request::{ReadRequestState, ReadRequestStatus}};
 use dep::types::{abis::side_effect::{Ordered, Overridable, Readable}};
 
-struct ReadIndexHint {
+pub struct ReadIndexHint {
     read_request_index: u32,
     value_index: u32,
 }
@@ -285,7 +285,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="Read request counter must be less than the counter of the next data write")]
+    #[test(should_fail_with = "Read request counter must be less than the counter of the next data write")]
     fn reset_pending_reads_overriden_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -308,7 +308,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="leaf_slot in OverridablePublicDataWrite does not match read request")]
+    #[test(should_fail_with = "leaf_slot in OverridablePublicDataWrite does not match read request")]
     fn reset_pending_reads_wrong_slot_fails() {
         let mut builder = TestBuilder::new();
 
@@ -318,7 +318,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="value in OverridablePublicDataWrite does not match read request")]
+    #[test(should_fail_with = "value in OverridablePublicDataWrite does not match read request")]
     fn reset_pending_reads_wrong_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -328,7 +328,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the data write")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the data write")]
     fn reset_pending_reads_value_write_after_fails() {
         let mut builder = TestBuilder::new();
 
@@ -360,7 +360,7 @@ mod tests {
         builder.validate_leaf_data_read_requests();
     }
 
-    #[test(should_fail_with="Hinted leaf is overridden before the read request")]
+    #[test(should_fail_with = "Hinted leaf is overridden before the read request")]
     fn reset_leaf_data_reads_overriden_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -383,7 +383,7 @@ mod tests {
         builder.validate_leaf_data_read_requests();
     }
 
-    #[test(should_fail_with=""leaf_index in TestLeafData does not match")]
+    #[test(should_fail_with = "leaf_index in TestLeafData does not match")]
     fn reset_leaf_reads_wrong_slot_fails() {
         let mut builder = TestBuilder::new();
 
@@ -393,7 +393,7 @@ mod tests {
         builder.validate_leaf_data_read_requests();
     }
 
-    #[test(should_fail_with=""value in TestLeafData does not match")]
+    #[test(should_fail_with = "value in TestLeafData does not match")]
     fn reset_leaf_reads_wrong_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -415,7 +415,7 @@ mod tests {
         builder.ensure_all_read_requests_are_verified();
     }
 
-    #[test(should_fail_with="Hinted pending read request does not match status")]
+    #[test(should_fail_with = "Hinted pending read request does not match status")]
     fn ensure_all_read_requests_are_verified_wrong_pending_hint_index_fails() {
         let mut builder = TestBuilder::new();
 
@@ -425,7 +425,7 @@ mod tests {
         builder.ensure_all_read_requests_are_verified();
     }
 
-    #[test(should_fail_with="Hinted settled read request does not match status")]
+    #[test(should_fail_with = "Hinted settled read request does not match status")]
     fn ensure_all_read_requests_are_verified_wrong_leaf_hint_index_fails() {
         let mut builder = TestBuilder::new();
 
@@ -435,7 +435,7 @@ mod tests {
         builder.ensure_all_read_requests_are_verified();
     }
 
-    #[test(should_fail_with="Hinted settled read request does not match status")]
+    #[test(should_fail_with = "Hinted settled read request does not match status")]
     fn ensure_all_read_requests_are_verified_wrong_status_fails() {
         let mut builder = TestBuilder::new();
 

@@ -4,6 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+
 import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { GasFees } from './gas_fees.js';
 
@@ -134,6 +136,20 @@ export class GlobalVariables {
     };
   }
 
+  /**
+   * A trimmed version of the JSON representation of the global variables,
+   * tailored for human consumption.
+   */
+  toFriendlyJSON() {
+    return {
+      blockNumber: this.blockNumber.toNumber(),
+      slotNumber: this.slotNumber.toNumber(),
+      timestamp: this.timestamp.toString(),
+      coinbase: this.coinbase.toString(),
+      gasFees: this.gasFees.toJSON(),
+    };
+  }
+
   clone(): GlobalVariables {
     return GlobalVariables.fromBuffer(this.toBuffer());
   }
@@ -148,6 +164,25 @@ export class GlobalVariables {
       this.coinbase.isZero() &&
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty()
+    );
+  }
+
+  [inspect.custom]() {
+    return `GlobalVariables { chainId: ${this.chainId.toString()}, version: ${this.version.toString()}, blockNumber: ${this.blockNumber.toString()}, slotNumber: ${this.slotNumber.toString()}, timestamp: ${this.timestamp.toString()}, coinbase: ${this.coinbase.toString()}, feeRecipient: ${this.feeRecipient.toString()}, gasFees: ${inspect(
+      this.gasFees,
+    )} }`;
+  }
+
+  public equals(other: this): boolean {
+    return (
+      this.chainId.equals(other.chainId) &&
+      this.version.equals(other.version) &&
+      this.blockNumber.equals(other.blockNumber) &&
+      this.slotNumber.equals(other.slotNumber) &&
+      this.timestamp.equals(other.timestamp) &&
+      this.coinbase.equals(other.coinbase) &&
+      this.feeRecipient.equals(other.feeRecipient) &&
+      this.gasFees.equals(other.gasFees)
     );
   }
 }

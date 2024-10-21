@@ -9,7 +9,7 @@ use dep::types::{
     utils::{arrays::{find_index_hint, get_sorted_result}}
 };
 
-struct NullifierNonExistentReadRequestHintsBuilder {
+pub struct NullifierNonExistentReadRequestHintsBuilder {
     nullifier_tree: NonEmptyMerkleTree<MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>,
     non_membership_hints: BoundedVec<NullifierNonMembershipHint, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
     read_values: BoundedVec<Field, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
@@ -49,7 +49,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         self.non_membership_hints.push(hint);
     }
 
-    unconstrained pub fn to_hints(self) -> NullifierNonExistentReadRequestHints {
+    pub unconstrained fn to_hints(self) -> NullifierNonExistentReadRequestHints {
         let sorted_result = get_sorted_result(
             self.pending_nullifiers,
             |a: Nullifier, b: Nullifier| (b.value == 0) | ((a.value != 0) & a.value.lt(b.value))

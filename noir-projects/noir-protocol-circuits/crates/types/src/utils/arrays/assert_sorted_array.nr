@@ -51,7 +51,7 @@ mod tests {
         assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
     }
 
-    #[test(should_fail_with="Values not sorted")]
+    #[test(should_fail_with = "Values not sorted")]
     fn assert_sorted_array_custom_wrong_ordering_fails() {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 90, 50, 0, 0];
@@ -59,7 +59,7 @@ mod tests {
         assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
     }
 
-    #[test(should_fail_with="Values not sorted")]
+    #[test(should_fail_with = "Values not sorted")]
     fn assert_sorted_array_custom_misplaced_sorted_fails() {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 50, 0, 0, 90];
@@ -67,7 +67,7 @@ mod tests {
         assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
     }
 
-    #[test(should_fail_with="Invalid index")]
+    #[test(should_fail_with = "Invalid index")]
     fn assert_sorted_array_custom_wrong_index_fails() {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 50, 90, 0, 0];
@@ -75,7 +75,7 @@ mod tests {
         assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
     }
 
-    #[test(should_fail_with="Empty values must be padded to the right")]
+    #[test(should_fail_with = "Empty values must be padded to the right")]
     fn assert_sorted_array_custom_not_padded_fails() {
         let original = [30, 20, 90, 0, 50, 0];
         let sorted = [20, 30, 90, 0, 0, 0];
@@ -83,7 +83,7 @@ mod tests {
         assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
     }
 
-    #[test(should_fail_with="Empty values must not be mixed with sorted values")]
+    #[test(should_fail_with = "Empty values must not be mixed with sorted values")]
     fn assert_sorted_array_custom_mixed_empty_fails() {
         let original = [30, 20, 90, 0, 0, 0];
         let sorted = [20, 30, 90, 0, 0, 10];

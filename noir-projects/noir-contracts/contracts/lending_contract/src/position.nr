@@ -1,12 +1,12 @@
 use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
-struct Position {
+pub struct Position {
     collateral: Field,
     static_debt: Field,
     debt: Field,
 }
 
-global POSITION_SERIALIZED_LEN: Field = 3;
+global POSITION_SERIALIZED_LEN: u32 = 3;
 
 impl Serialize<POSITION_SERIALIZED_LEN> for Position {
     fn serialize(position: Position) -> [Field; POSITION_SERIALIZED_LEN] {

@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
-import {IInbox} from "../src/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
-import {Constants} from "../src/core/libraries/ConstantsGen.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-import {Hash} from "../src/core/libraries/Hash.sol";
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 contract InboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+  // We set low depth (5) to ensure we sufficiently test the tree transitions
+  uint256 internal constant HEIGHT = 5;
+  uint256 internal constant SIZE = 2 ** HEIGHT;
 
   InboxHarness internal inbox;
   uint256 internal version = 0;
@@ -23,8 +26,7 @@ contract InboxTest is Test {
 
   function setUp() public {
     address rollup = address(this);
-    // We set low depth (5) to ensure we sufficiently test the tree transitions
-    inbox = new InboxHarness(rollup, 5);
+    inbox = new InboxHarness(rollup, HEIGHT);
     emptyTreeRoot = inbox.getEmptyRoot();
   }
 
@@ -87,7 +89,8 @@ contract InboxTest is Test {
     bytes32 leaf = message.sha256ToField();
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, leaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf);
     // event we will get
     bytes32 insertedLeaf =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);

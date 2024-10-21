@@ -25,5 +25,9 @@ describe('AggregateTxValidator', () => {
         txs.filter(tx => this.denyList.has(Tx.getHash(tx).toString())),
       ]);
     }
+
+    validateTx(tx: AnyTx): Promise<boolean> {
+      return Promise.resolve(this.denyList.has(Tx.getHash(tx).toString()));
+    }
   }
 });

@@ -96,14 +96,12 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .logic_constraints = { logic_constraint },
             .range_constraints = { range_a, range_b },
             .aes128_constraints = {},
-            .sha256_constraints = {},
             .sha256_compression = {},
             .schnorr_constraints = {},
             .ecdsa_k1_constraints = {},
             .ecdsa_r1_constraints = {},
             .blake2s_constraints = {},
             .blake3_constraints = {},
-            .keccak_constraints = {},
             .keccak_permutations = {},
             .pedersen_constraints = {},
             .pedersen_hash_constraints = {},
@@ -120,6 +118,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .assert_equalities = {},
             .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
             .quad_constraints = {},
+            .big_quad_constraints = {},
             .block_constraints = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
         };
@@ -173,7 +172,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system{};
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = false;
+        constraint_system.recursive = true;
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
@@ -195,7 +194,7 @@ TEST_F(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
     Prover prover(proving_key);
@@ -215,7 +214,7 @@ TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
     Prover prover(proving_key);
@@ -273,7 +272,7 @@ TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
+    info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<DeciderProvingKey>(layer_3_circuit);
     Prover prover(proving_key);
@@ -303,7 +302,7 @@ TEST_F(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
+    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<DeciderProvingKey>(layer_3_circuit);
     Prover prover(proving_key);

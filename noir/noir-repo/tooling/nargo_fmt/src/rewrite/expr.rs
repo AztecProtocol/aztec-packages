@@ -1,8 +1,9 @@
+use noirc_errors::Span;
 use noirc_frontend::ast::{
     ArrayLiteral, BlockExpression, Expression, ExpressionKind, Literal, Path, PathKind, UnaryOp,
     UnresolvedType,
 };
-use noirc_frontend::{macros_api::Span, token::Token};
+use noirc_frontend::token::Token;
 
 use crate::rewrite;
 use crate::visitor::{
@@ -192,7 +193,20 @@ pub(crate) fn rewrite(
         }
         ExpressionKind::AsTraitPath(path) => {
             let trait_path = rewrite_path(visitor, shape, path.trait_path);
-            format!("<{} as {}>::{}", path.typ, trait_path, path.impl_item)
+
+            if path.trait_generics.is_empty() {
+                format!("<{} as {}>::{}", path.typ, trait_path, path.impl_item)
+            } else {
+                let generics = path.trait_generics;
+                format!("<{} as {}::{}>::{}", path.typ, trait_path, generics, path.impl_item)
+            }
+        }
+        ExpressionKind::TypePath(path) => {
+            if path.turbofish.is_empty() {
+                format!("{}::{}", path.typ, path.item)
+            } else {
+                format!("{}::{}::{}", path.typ, path.item, path.turbofish)
+            }
         }
     }
 }

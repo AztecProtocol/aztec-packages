@@ -14,19 +14,19 @@ use dep::types::{
     messaging::l2_to_l1_message::ScopedL2ToL1Message
 };
 
-struct TailOutputComposer {
+pub struct TailOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
 }
 
 impl TailOutputComposer {
-    unconstrained pub fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
+    pub unconstrained fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
         let mut output_composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
         output_composer.sort_ordered_values();
 
         TailOutputComposer { output_composer }
     }
 
-    unconstrained  pub fn finish(self) -> KernelCircuitPublicInputs {
+    pub unconstrained fn finish(self) -> KernelCircuitPublicInputs {
         let source = self.output_composer.finish();
         let mut output = KernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;

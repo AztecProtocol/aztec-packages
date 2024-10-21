@@ -1,4 +1,5 @@
 use crate::components::{
+    previous_kernel_validator::PreviousKernelValidator,
     reset_output_composer::{ResetOutputComposer, ResetOutputHints},
     reset_output_validator::ResetOutputValidator
 };
@@ -7,16 +8,18 @@ use dep::reset_kernel_lib::{
     PrivateValidationRequestProcessor, TransientDataIndexHint
 };
 use dep::types::{
-    abis::private_kernel_data::PrivateKernelData,
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX}, PrivateKernelCircuitPublicInputs
+    abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    PrivateKernelCircuitPublicInputs
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_INIT_INDEX,
     PRIVATE_KERNEL_INNER_INDEX,
+    PRIVATE_KERNEL_RESET_INDEX
 ];
 
-struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
+pub struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
@@ -24,7 +27,7 @@ struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, l
     validation_requests_split_counter: u32,
 }
 
-struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
+pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     previous_kernel: PrivateKernelData,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT>,
 }
@@ -37,6 +40,14 @@ impl<
     let KEY_VALIDATION_REQUESTS: u32,
     let TRANSIENT_DATA_AMOUNT: u32
 > PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> {
+    fn new(
+        previous_kernel: PrivateKernelDataWithoutPublicInputs,
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+        hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT>
+    ) -> Self {
+        Self { previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs), hints }
+    }
+
     unconstrained fn generate_output(
         self,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
@@ -85,10 +96,8 @@ impl<
         };
 
         // Validate inputs.
-        if !std::runtime::is_unconstrained() {
-            // TODO(#7410) currently stubbed out until tube vk handled
-            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -123,7 +132,7 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX
+        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
@@ -300,7 +309,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value of the note hash does not match read request")]
+    #[test(should_fail_with = "Value of the note hash does not match read request")]
     fn pending_note_hash_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -334,7 +343,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
+    #[test(should_fail_with = "Value of the nullifier does not match read request")]
     fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -348,7 +357,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the nullifier")]
     fn pending_nullifier_read_request_reads_before_value_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -487,7 +496,7 @@ mod tests {
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
-    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
+    #[test(should_fail_with = "Value of the hinted transient note hash does not match")]
     fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.append_note_hashes(1);
@@ -567,7 +576,7 @@ mod tests {
         assert_array_eq(public_inputs.end.encrypted_logs_hashes, output_logs);
     }
 
-    #[test(should_fail_with="note hashes have been siloed in a previous reset")]
+    #[test(should_fail_with = "note hashes have been siloed in a previous reset")]
     fn siloing_note_hashes_again_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
 
@@ -600,11 +609,11 @@ mod tests {
         // The 2nd nullifier has been siloed
         assert(output_nullifiers[2].value() != nullifiers[2].value());
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PrivateKernelResetInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with = "Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelResetInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        let _res = builder.execute();
+    }
 }

@@ -58,7 +58,7 @@ Before writing the functions, let's go through them to see how this contract wil
 
 ### Initializer
 
-There is one `initilizer` function in this contract, and it will be selected and executed once when the contract is deployed, similar to a constructor in Solidity. This is marked private, so the function logic will not be transparent. To execute public function logic in the constructor, this function will call `_initialize` (marked internal, more detail below).
+There is one `initializer` function in this contract, and it will be selected and executed once when the contract is deployed, similar to a constructor in Solidity. This is marked private, so the function logic will not be transparent. To execute public function logic in the constructor, this function will call `_initialize` (marked internal, more detail below).
 
 ### Public functions
 
@@ -200,15 +200,13 @@ This function allows an account approved in the public `minters` mapping to crea
 
 First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `U128` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
 
-The function returns 1 to indicate successful execution.
-
 #include_code mint_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `mint_private`
 
 This public function allows an account approved in the public `minters` mapping to create new private tokens that can be claimed by anyone that has the pre-image to the `secret_hash`.
 
-First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. It returns `1` to indicate successful execution.
+First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. 
 
 #include_code mint_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -384,6 +382,6 @@ It builds on the Token contract described here and goes into more detail about A
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 -  [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
 -  [Nullifiers](../../../aztec/concepts/storage/trees/index.md#nullifier-tree)
--  [Contract Communication](../../../aztec/smart_contracts/communication/index.md)
+-  [Public / Private function calls](../../../aztec/smart_contracts/functions/public_private_calls.md).
 -  [Contract Storage](../../../aztec/concepts/storage/index.md)
 -  [Authwit](../../../aztec/concepts/accounts/authwit.md)

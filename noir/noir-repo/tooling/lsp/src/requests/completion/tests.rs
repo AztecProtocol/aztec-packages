@@ -149,8 +149,8 @@ mod completion_tests {
     async fn test_use_second_segment() {
         let src = r#"
             mod foo {
-                mod bar {}
-                mod baz {}
+                pub mod bar {}
+                pub mod baz {}
             }
             use foo::>|<
         "#;
@@ -163,8 +163,8 @@ mod completion_tests {
     async fn test_use_second_segment_after_typing() {
         let src = r#"
             mod foo {
-                mod bar {}
-                mod brave {}
+                pub mod bar {}
+                pub mod brave {}
             }
             use foo::ba>|<
         "#;
@@ -239,7 +239,7 @@ mod completion_tests {
     async fn test_use_in_tree_after_letter() {
         let src = r#"
             mod foo {
-                mod bar {}
+                pub mod bar {}
             }
             use foo::{b>|<}
         "#;
@@ -251,8 +251,8 @@ mod completion_tests {
     async fn test_use_in_tree_after_colons() {
         let src = r#"
             mod foo {
-                mod bar {
-                    mod baz {}
+                pub mod bar {
+                    pub mod baz {}
                 }
             }
             use foo::{bar::>|<}
@@ -265,8 +265,8 @@ mod completion_tests {
     async fn test_use_in_tree_after_colons_after_another_segment() {
         let src = r#"
             mod foo {
-                mod bar {}
-                mod qux {}
+                pub mod bar {}
+                pub mod qux {}
             }
             use foo::{bar, q>|<}
         "#;
@@ -350,7 +350,7 @@ mod completion_tests {
     async fn test_complete_path_after_colons_shows_submodule() {
         let src = r#"
           mod foo {
-            mod bar {}
+            pub mod bar {}
           }
 
           fn main() {
@@ -364,7 +364,7 @@ mod completion_tests {
     async fn test_complete_path_after_colons_and_letter_shows_submodule() {
         let src = r#"
           mod foo {
-            mod qux {}
+            pub mod qux {}
           }
 
           fn main() {
@@ -429,6 +429,27 @@ mod completion_tests {
             )],
         )
         .await;
+    }
+
+    #[test]
+    async fn test_complete_type_path_with_non_empty_name() {
+        let src = r#"
+          trait One {
+              fn one() -> Self;
+          }
+
+          impl One for Field {
+              fn one() -> Self {
+                  1
+              }
+          }
+
+          fn main() {
+            Field::o>|<
+          }
+        "#;
+        assert_completion(src, vec![function_completion_item("one()", "one()", "fn() -> Field")])
+            .await;
     }
 
     #[test]
@@ -574,7 +595,7 @@ mod completion_tests {
             vec![simple_completion_item(
                 "lambda_var",
                 CompletionItemKind::VARIABLE,
-                Some("_".to_string()),
+                Some("i32".to_string()),
             )],
         )
         .await;
@@ -757,21 +778,29 @@ mod completion_tests {
     }
 
     #[test]
+    async fn test_suggest_builtin_types_in_any_position() {
+        let src = r#"
+            fn foo() {
+                i>|<
+            }
+        "#;
+
+        let items = get_completions(src).await;
+        assert!(items.iter().any(|item| item.label == "i8"));
+    }
+
+    #[test]
     async fn test_suggest_true() {
         let src = r#"
             fn main() {
                 let x = t>|<
             }
         "#;
-        assert_completion_excluding_auto_import(
-            src,
-            vec![simple_completion_item(
-                "true",
-                CompletionItemKind::KEYWORD,
-                Some("bool".to_string()),
-            )],
-        )
-        .await;
+
+        let items = get_completions(src).await;
+        assert!(items
+            .iter()
+            .any(|item| item.label == "true" && item.kind == Some(CompletionItemKind::KEYWORD)));
     }
 
     #[test]
@@ -1040,6 +1069,22 @@ mod completion_tests {
             }
         "#;
         assert_completion(src, vec![field_completion_item("bar", "i32")]).await;
+    }
+
+    #[test]
+    async fn test_does_not_suggest_private_struct_field() {
+        let src = r#"
+            mod moo {
+                pub struct Some {
+                    property: i32,
+                }
+            }
+
+            fn foo(s: moo::Some) {
+                s.>|<
+            }
+        "#;
+        assert_completion(src, vec![]).await;
     }
 
     #[test]
@@ -1546,7 +1591,7 @@ mod completion_tests {
     async fn test_auto_import_suggests_modules_too() {
         let src = r#"
             mod foo {
-                mod barbaz {
+                pub mod barbaz {
                     fn hello_world() {}
                 }
             }
@@ -1777,11 +1822,42 @@ mod completion_tests {
     }
 
     #[test]
+    async fn test_does_not_suggest_private_struct_methods() {
+        let src = r#"
+            mod moo {
+                pub struct Foo {}
+
+                impl Foo {
+                    fn bar(self) {}
+                }
+            }
+
+            fn x(f: moo::Foo) {
+                f.>|<()
+            }
+        "#;
+        assert_completion(src, vec![]).await;
+    }
+
+    #[test]
+    async fn test_does_not_suggest_private_primitive_methods() {
+        let src = r#"
+            fn foo(x: Field) {
+                x.>|<
+            }
+        "#;
+        let items = get_completions(src).await;
+        if items.iter().any(|item| item.label == "__assert_max_bit_size") {
+            panic!("Private method __assert_max_bit_size was suggested");
+        }
+    }
+
+    #[test]
     async fn test_suggests_pub_use() {
         let src = r#"
             mod bar {
-                mod baz {
-                    mod coco {}
+                pub mod baz {
+                    pub mod coco {}
                 }
 
                 pub use baz::coco;
@@ -1798,8 +1874,8 @@ mod completion_tests {
     async fn test_auto_import_suggests_pub_use_for_module() {
         let src = r#"
             mod bar {
-                mod baz {
-                    mod coco {}
+                pub mod baz {
+                    pub mod coco {}
                 }
 
                 pub use baz::coco as foobar;
@@ -1914,12 +1990,32 @@ mod completion_tests {
     }
 
     #[test]
+    async fn test_suggests_built_in_let_attribute() {
+        let src = r#"
+            fn foo() {
+                #[allo>|<]
+                let x = 1;
+            }
+        "#;
+
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "allow(unused_variables)",
+                CompletionItemKind::METHOD,
+                None,
+            )],
+        )
+        .await;
+    }
+
+    #[test]
     async fn test_suggests_function_attribute() {
         let src = r#"
             #[some>|<]
             fn foo() {}
 
-            fn some_attr(f: FunctionDefinition, x: Field) {}
+            comptime fn some_attr(f: FunctionDefinition, x: Field) -> Quoted {}
             fn some_other_function(x: Field) {}
         "#;
 
@@ -1928,7 +2024,7 @@ mod completion_tests {
             vec![function_completion_item(
                 "some_attr(…)",
                 "some_attr(${1:x})",
-                "fn(FunctionDefinition, Field)",
+                "fn(FunctionDefinition, Field) -> Quoted",
             )],
         )
         .await;
@@ -2118,5 +2214,160 @@ mod completion_tests {
         }"#;
 
         assert_completion(src, vec![field_completion_item("bar", "Field")]).await;
+    }
+
+    #[test]
+    async fn test_suggests_macro_call_if_comptime_function_returns_quoted() {
+        let src = r#"
+        comptime fn foobar() -> Quoted {}
+
+        fn main() {
+            comptime {
+                fooba>|<
+            }
+        }
+        "#;
+
+        assert_completion_excluding_auto_import(
+            src,
+            vec![
+                function_completion_item("foobar!()", "foobar!()", "fn() -> Quoted"),
+                function_completion_item("foobar()", "foobar()", "fn() -> Quoted"),
+            ],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_only_macro_call_if_comptime_function_returns_quoted_and_outside_comptime(
+    ) {
+        let src = r#"
+        comptime fn foobar() -> Quoted {}
+
+        fn main() {
+            fooba>|<
+        }
+        "#;
+
+        assert_completion_excluding_auto_import(
+            src,
+            vec![function_completion_item("foobar!()", "foobar!()", "fn() -> Quoted")],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_only_suggests_macro_call_for_unquote() {
+        let src = r#"
+        use std::meta::unquote;
+
+        fn main() {
+            unquot>|<
+        }
+        "#;
+
+        let completions = get_completions(src).await;
+        assert_eq!(completions.len(), 1);
+        assert_eq!(completions[0].label, "unquote!(…)");
+    }
+
+    #[test]
+    async fn test_suggests_variable_in_quoted_after_dollar() {
+        let src = r#"
+        fn main() {
+            comptime {
+                let some_var = 1;
+                quote {
+                    $>|<
+                }
+            }
+        }
+        "#;
+
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "some_var",
+                CompletionItemKind::VARIABLE,
+                Some("Field".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_variable_in_quoted_after_dollar_and_letters() {
+        let src = r#"
+        fn main() {
+            comptime {
+                let some_var = 1;
+                quote {
+                    $s>|<
+                }
+            }
+        }
+        "#;
+
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "some_var",
+                CompletionItemKind::VARIABLE,
+                Some("Field".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_does_not_auto_import_private_global() {
+        let src = r#"mod moo {
+            global foobar = 1;
+        }
+
+        fn main() {
+            fooba>|<
+        }"#;
+
+        assert_completion(src, Vec::new()).await;
+    }
+
+    #[test]
+    async fn test_does_not_auto_import_private_type_alias() {
+        let src = r#"mod moo {
+            type foobar = i32;
+        }
+
+        fn main() {
+            fooba>|<
+        }"#;
+
+        assert_completion(src, Vec::new()).await;
+    }
+
+    #[test]
+    async fn test_does_not_auto_import_private_trait() {
+        let src = r#"mod moo {
+            trait Foobar {}
+        }
+
+        fn main() {
+            Fooba>|<
+        }"#;
+
+        assert_completion(src, Vec::new()).await;
+    }
+
+    #[test]
+    async fn test_does_not_auto_import_private_module() {
+        let src = r#"mod moo {
+            mod foobar {}
+        }
+
+        fn main() {
+            fooba>|<
+        }"#;
+
+        assert_completion(src, Vec::new()).await;
     }
 }

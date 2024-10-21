@@ -1,14 +1,14 @@
 use crate::{
-    abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, constants::VK_TREE_HEIGHT,
-    merkle_tree::membership::assert_check_membership,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    constants::{VK_TREE_HEIGHT, TUBE_INDEX}, merkle_tree::membership::check_membership,
+    recursion::{proof::NestedRecursiveProof, verification_key::HonkVerificationKey, traits::Verifiable},
     utils::arrays::find_index_hint
 };
 
-struct PublicKernelData {
+pub struct PublicKernelData {
     public_inputs: PublicKernelCircuitPublicInputs,
     proof: NestedRecursiveProof,
-    vk: VerificationKey,
+    vk: HonkVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
 }
@@ -25,14 +25,18 @@ impl PublicKernelData {
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == self.vk_index)
         };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], self.vk_index, "Invalid vk index");
 
-        assert_check_membership(
+        // TODO(#7410) Remove the exception for the tube index
+        assert(
+            check_membership(
             self.vk.hash,
             self.vk_index as Field,
             self.vk_path,
             self.public_inputs.constants.vk_tree_root
+        )
+            | (self.vk_index == TUBE_INDEX)
         );
     }
 }
-

@@ -9,20 +9,21 @@ use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
 use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
     constants::{
-    NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+    AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
     L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX
 },
     header::Header, content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
     traits::Empty
 };
+use types::debug_log::debug_log_format;
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     BASE_ROLLUP_INDEX,
     MERGE_ROLLUP_INDEX,
 ];
 
-struct BlockRootRollupInputs {
+pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
     previous_rollup_data: [PreviousRollupData; 2],
 
@@ -35,6 +36,7 @@ struct BlockRootRollupInputs {
     start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
 
     // inputs required to add the block hash
+    // TODO: Remove in favor of left.constants.last_archive
     start_archive_snapshot: AppendOnlyTreeSnapshot,
     new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     // Added previous_block_hash to be passed through to the final root, where it will be either:
@@ -50,17 +52,14 @@ impl BlockRootRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             // verify the root parity
             self.l1_to_l2_roots.verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.l1_to_l2_roots.validate_in_vk_tree();
+            self.l1_to_l2_roots.validate_in_vk_tree();
         }
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
@@ -93,6 +92,24 @@ impl BlockRootRollupInputs {
 
         let total_fees = components::accumulate_fees(left, right);
 
+        // unsafe {
+        //     debug_log_format("Assembling header in block root rollup", []);
+        //     debug_log_format(
+        //         "header.last_archive={}",
+        //         left.constants.last_archive.serialize()
+        //     );
+        //     debug_log_format(
+        //         "header.content_commitment={}",
+        //         content_commitment.serialize()
+        //     );
+        //     debug_log_format("header.state={}", state.serialize());
+        //     debug_log_format(
+        //         "header.global_variables={}",
+        //         left.constants.global_variables.serialize()
+        //     );
+        //     debug_log_format("header.total_fees={0}", [total_fees]);
+        // }
+
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
@@ -113,7 +130,7 @@ impl BlockRootRollupInputs {
             0
         );
 
-        let mut fee_arr = [FeeRecipient::empty(); 32];
+        let mut fee_arr = [FeeRecipient::empty(); AZTEC_EPOCH_DURATION];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
         BlockRootOrBlockMergePublicInputs {
@@ -126,6 +143,7 @@ impl BlockRootRollupInputs {
             out_hash: content_commitment.out_hash,
             fees: fee_arr,
             vk_tree_root: left.constants.vk_tree_root,
+            protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: self.prover_id
         }
     }

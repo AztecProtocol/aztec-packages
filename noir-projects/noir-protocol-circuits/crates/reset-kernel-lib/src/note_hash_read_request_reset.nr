@@ -6,7 +6,7 @@ use dep::types::{
     merkle_tree::MembershipWitness
 };
 
-struct NoteHashSettledReadHint {
+pub struct NoteHashSettledReadHint {
     read_request_index: u32,
     membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
     leaf_preimage: NoteHashLeafPreimage,
@@ -36,7 +36,7 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     }
 }
 
-struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
+pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
     read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
     settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
@@ -150,7 +150,7 @@ mod tests {
             (hints, tree_root)
         }
 
-        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        pub unconstrained fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
@@ -202,7 +202,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the note hash does not match read request")]
+    #[test(should_fail_with = "Value of the note hash does not match read request")]
     fn verify_reset_note_hash_read_requests_wrong_hinted_value_fails() {
         let mut builder = TestBuilder::new();
 
@@ -212,7 +212,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Contract address of the note hash does not match read request")]
+    #[test(should_fail_with = "Contract address of the note hash does not match read request")]
     fn verify_reset_note_hash_read_requests_different_contract_addresses_fails() {
         let mut builder = TestBuilder::new();
 
@@ -221,7 +221,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the note hash")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the note hash")]
     fn verify_reset_note_hash_read_requests_invalid_counter_fails() {
         let mut builder = TestBuilder::new();
 
@@ -233,7 +233,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Value of the note hash leaf does not match read request")]
+    #[test(should_fail_with = "Value of the note hash leaf does not match read request")]
     fn verify_reset_note_hash_read_requests_invalid_leaf_fails() {
         let mut builder = TestBuilder::new();
 
@@ -245,4 +245,3 @@ mod tests {
         builder.verify();
     }
 }
-

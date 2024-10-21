@@ -4,20 +4,20 @@ use dep::types::{
     utils::reader::Reader
 };
 
-struct ConstantRollupData {
+pub struct ConstantRollupData {
     // Archive tree snapshot at the very beginning of the entire rollup.
-    last_archive : AppendOnlyTreeSnapshot,
-
-    vk_tree_root : Field,
-
-    global_variables : GlobalVariables,
+    last_archive: AppendOnlyTreeSnapshot,
+    vk_tree_root: Field,
+    protocol_contract_tree_root: Field,
+    global_variables: GlobalVariables,
 }
 
 impl Eq for ConstantRollupData {
     fn eq(self, other: ConstantRollupData) -> bool {
         self.last_archive.eq(other.last_archive)
-            & self.global_variables.eq(other.global_variables)
             & (self.vk_tree_root == other.vk_tree_root)
+            & (self.protocol_contract_tree_root == other.protocol_contract_tree_root)
+            & self.global_variables.eq(other.global_variables)
     }
 }
 
@@ -26,6 +26,7 @@ impl Empty for ConstantRollupData {
         ConstantRollupData {
             last_archive: AppendOnlyTreeSnapshot::zero(),
             vk_tree_root: 0,
+            protocol_contract_tree_root: 0,
             global_variables: GlobalVariables::empty()
         }
     }
@@ -36,7 +37,8 @@ impl Serialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
         let mut fields: BoundedVec<Field, CONSTANT_ROLLUP_DATA_LENGTH> = BoundedVec::new();
 
         fields.extend_from_array(self.last_archive.serialize());
-        fields.push(self.vk_tree_root as Field);
+        fields.push(self.vk_tree_root);
+        fields.push(self.protocol_contract_tree_root);
         fields.extend_from_array(self.global_variables.serialize());
 
         assert_eq(fields.len(), CONSTANT_ROLLUP_DATA_LENGTH);
@@ -51,6 +53,7 @@ impl Deserialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
         let item = Self {
             last_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
             vk_tree_root: reader.read(),
+            protocol_contract_tree_root: reader.read(),
             global_variables: reader.read_struct(GlobalVariables::deserialize)
         };
 

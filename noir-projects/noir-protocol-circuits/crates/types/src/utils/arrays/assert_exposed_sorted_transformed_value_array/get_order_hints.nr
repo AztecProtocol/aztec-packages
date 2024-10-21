@@ -6,7 +6,7 @@ use crate::{
 }
 };
 
-struct OrderHint {
+pub struct OrderHint {
     counter: u32,
     sorted_index: u32,
 }
@@ -23,7 +23,7 @@ impl Eq for OrderHint {
     }
 }
 
-unconstrained pub fn get_order_hints<T, let N: u32>(
+pub unconstrained fn get_order_hints<T, let N: u32>(
     array: [T; N],
     ordering: fn(T, T) -> bool
 ) -> [OrderHint; N] where T: Ordered {
@@ -40,11 +40,11 @@ unconstrained pub fn get_order_hints<T, let N: u32>(
     hints
 }
 
-unconstrained pub fn get_order_hints_asc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+pub unconstrained fn get_order_hints_asc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
     get_order_hints(array, compare_by_counter_empty_padded_asc)
 }
 
-unconstrained pub fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+pub unconstrained fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
     get_order_hints(array, compare_by_counter_empty_padded_desc)
 }
 
@@ -147,4 +147,3 @@ mod tests {
         builder.desc_to_equal(expected_hints);
     }
 }
-

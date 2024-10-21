@@ -4,13 +4,13 @@ use dep::types::{
     data::OverridablePublicDataTreeLeaf, utils::arrays::find_index_hint
 };
 
-struct PublicDataReadRequestHints<let NUM_READS: u32> {
+pub struct PublicDataReadRequestHints<let NUM_READS: u32> {
     read_request_statuses: [ReadRequestStatus; NUM_READS],
     pending_read_hints: [ReadIndexHint; NUM_READS],
     leaf_data_read_hints: [ReadIndexHint; NUM_READS],
 }
 
-unconstrained pub fn build_public_data_read_request_hints<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_LEAVES: u32>(
+pub unconstrained fn build_public_data_read_request_hints<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     reads: [PublicDataRead; NUM_READS],
     writes: [OverridablePublicDataWrite; NUM_WRITES],
     leaf_data: [OverridablePublicDataTreeLeaf; NUM_LEAVES]

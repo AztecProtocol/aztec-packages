@@ -1,11 +1,20 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract ContractInstanceDeployer {
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PublicKeysHash, PartialAddress}, contract_class_id::ContractClassId,
-        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, abis::log_hash::LogHash
+        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, abis::log_hash::LogHash,
+        traits::Serialize
     };
-    use dep::aztec::{hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private_internal};
+    use dep::aztec::{
+        hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private,
+        macros::{events::event, functions::private}, utils::to_bytes::arr_to_be_bytes_arr
+    };
+    use std::meta::derive;
 
-    #[aztec(event)]
+    #[event]
+    #[derive(Serialize)]
     struct ContractInstanceDeployed {
         DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field,
         address: AztecAddress,
@@ -17,7 +26,8 @@ contract ContractInstanceDeployer {
         deployer: AztecAddress,
     }
 
-    #[aztec(private)]
+    #[private]
+    #['private]
     fn deploy(
         salt: Field,
         contract_class_id: ContractClassId,
@@ -59,13 +69,16 @@ contract ContractInstanceDeployer {
         let counter = context.next_counter();
 
         // @todo This is very inefficient, we are doing a lot of back and forth conversions.
-        let log_slice = payload.to_be_bytes_arr();
-        let log_hash = compute_unencrypted_log_hash(contract_address, payload);
+        let serialized_log = arr_to_be_bytes_arr(payload);
+        let log_hash = compute_unencrypted_log_hash(contract_address, serialized_log);
         // 40 = addr (32) + raw log len (4) + processed log len (4)
-        let len = 40 + log_slice.len().to_field();
+        let len = 40 + serialized_log.len().to_field();
         let side_effect = LogHash { value: log_hash, counter, length: len };
-        context.unencrypted_logs_hashes.push(side_effect);
 
-        let _void = emit_unencrypted_log_private_internal(contract_address, payload, counter);
+        // We manually push the unencrypted log to the context and inform the execution environment about this because
+        // PrivateContext does not expose an `emit_unencrypted_log` method - this mechanism is considered error-prone
+        // and only some canonical contracts use it.
+        context.unencrypted_logs_hashes.push(side_effect);
+        emit_unencrypted_log_private(contract_address, payload, counter);
     }
 }

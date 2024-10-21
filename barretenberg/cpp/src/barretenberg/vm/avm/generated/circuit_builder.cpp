@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/vm/stats.hpp"
@@ -16,28 +17,31 @@ namespace bb {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
-    const auto num_rows = get_circuit_subgroup_size();
+    const size_t num_rows = get_estimated_num_finalized_gates();
+    const size_t circuit_subgroup_size = get_circuit_subgroup_size();
+    ASSERT(num_rows <= circuit_subgroup_size);
     ProverPolynomials polys;
 
     // Allocate mem for each column
     AVM_TRACK_TIME("circuit_builder/init_polys_to_be_shifted", ({
                        for (auto& poly : polys.get_to_be_shifted()) {
                            poly = Polynomial{ /*memory size*/ num_rows - 1,
-                                              /*largest possible index*/ num_rows,
+                                              /*largest possible index*/ circuit_subgroup_size,
                                               /*make shiftable with offset*/ 1 };
                        }
                    }));
     // catch-all with fully formed polynomials
-    AVM_TRACK_TIME("circuit_builder/init_polys_unshifted", ({
-                       auto unshifted = polys.get_unshifted();
-                       bb::parallel_for(unshifted.size(), [&](size_t i) {
-                           auto& poly = unshifted[i];
-                           if (poly.is_empty()) {
-                               // Not set above
-                               poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ num_rows };
-                           }
-                       });
-                   }));
+    AVM_TRACK_TIME(
+        "circuit_builder/init_polys_unshifted", ({
+            auto unshifted = polys.get_unshifted();
+            bb::parallel_for(unshifted.size(), [&](size_t i) {
+                auto& poly = unshifted[i];
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ circuit_subgroup_size };
+                }
+            });
+        }));
 
     AVM_TRACK_TIME(
         "circuit_builder/set_polys_unshifted", ({
@@ -55,7 +59,14 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.gas_dyn_l2_gas_fixed_table.set_if_valid_index(i, rows[i].gas_dyn_l2_gas_fixed_table);
                 polys.gas_sel_gas_cost.set_if_valid_index(i, rows[i].gas_sel_gas_cost);
                 polys.main_clk.set_if_valid_index(i, rows[i].main_clk);
+                polys.main_sel_da_end_gas_kernel_input.set_if_valid_index(i, rows[i].main_sel_da_end_gas_kernel_input);
+                polys.main_sel_da_start_gas_kernel_input.set_if_valid_index(i,
+                                                                            rows[i].main_sel_da_start_gas_kernel_input);
                 polys.main_sel_first.set_if_valid_index(i, rows[i].main_sel_first);
+                polys.main_sel_l2_end_gas_kernel_input.set_if_valid_index(i, rows[i].main_sel_l2_end_gas_kernel_input);
+                polys.main_sel_l2_start_gas_kernel_input.set_if_valid_index(i,
+                                                                            rows[i].main_sel_l2_start_gas_kernel_input);
+                polys.main_sel_start_exec.set_if_valid_index(i, rows[i].main_sel_start_exec);
                 polys.main_zeroes.set_if_valid_index(i, rows[i].main_zeroes);
                 polys.powers_power_of_2.set_if_valid_index(i, rows[i].powers_power_of_2);
                 polys.main_kernel_inputs.set_if_valid_index(i, rows[i].main_kernel_inputs);
@@ -107,6 +118,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.alu_sel_shift_which.set_if_valid_index(i, rows[i].alu_sel_shift_which);
                 polys.alu_u128_tag.set_if_valid_index(i, rows[i].alu_u128_tag);
                 polys.alu_u16_tag.set_if_valid_index(i, rows[i].alu_u16_tag);
+                polys.alu_u1_tag.set_if_valid_index(i, rows[i].alu_u1_tag);
                 polys.alu_u32_tag.set_if_valid_index(i, rows[i].alu_u32_tag);
                 polys.alu_u64_tag.set_if_valid_index(i, rows[i].alu_u64_tag);
                 polys.alu_u8_tag.set_if_valid_index(i, rows[i].alu_u8_tag);
@@ -152,6 +164,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.conversion_clk.set_if_valid_index(i, rows[i].conversion_clk);
                 polys.conversion_input.set_if_valid_index(i, rows[i].conversion_input);
                 polys.conversion_num_limbs.set_if_valid_index(i, rows[i].conversion_num_limbs);
+                polys.conversion_output_bits.set_if_valid_index(i, rows[i].conversion_output_bits);
                 polys.conversion_radix.set_if_valid_index(i, rows[i].conversion_radix);
                 polys.conversion_sel_to_radix_le.set_if_valid_index(i, rows[i].conversion_sel_to_radix_le);
                 polys.keccakf1600_clk.set_if_valid_index(i, rows[i].keccakf1600_clk);
@@ -187,6 +200,8 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_ind_addr_d.set_if_valid_index(i, rows[i].main_ind_addr_d);
                 polys.main_internal_return_ptr.set_if_valid_index(i, rows[i].main_internal_return_ptr);
                 polys.main_inv.set_if_valid_index(i, rows[i].main_inv);
+                polys.main_is_fake_row.set_if_valid_index(i, rows[i].main_is_fake_row);
+                polys.main_is_gas_accounted.set_if_valid_index(i, rows[i].main_is_gas_accounted);
                 polys.main_kernel_in_offset.set_if_valid_index(i, rows[i].main_kernel_in_offset);
                 polys.main_kernel_out_offset.set_if_valid_index(i, rows[i].main_kernel_out_offset);
                 polys.main_l1_to_l2_msg_exists_write_offset.set_if_valid_index(
@@ -214,10 +229,10 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_alu.set_if_valid_index(i, rows[i].main_sel_alu);
                 polys.main_sel_bin.set_if_valid_index(i, rows[i].main_sel_bin);
                 polys.main_sel_calldata.set_if_valid_index(i, rows[i].main_sel_calldata);
+                polys.main_sel_execution_end.set_if_valid_index(i, rows[i].main_sel_execution_end);
                 polys.main_sel_execution_row.set_if_valid_index(i, rows[i].main_sel_execution_row);
                 polys.main_sel_kernel_inputs.set_if_valid_index(i, rows[i].main_sel_kernel_inputs);
                 polys.main_sel_kernel_out.set_if_valid_index(i, rows[i].main_sel_kernel_out);
-                polys.main_sel_last.set_if_valid_index(i, rows[i].main_sel_last);
                 polys.main_sel_mem_op_a.set_if_valid_index(i, rows[i].main_sel_mem_op_a);
                 polys.main_sel_mem_op_b.set_if_valid_index(i, rows[i].main_sel_mem_op_b);
                 polys.main_sel_mem_op_c.set_if_valid_index(i, rows[i].main_sel_mem_op_c);
@@ -231,7 +246,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_calldata_copy.set_if_valid_index(i, rows[i].main_sel_op_calldata_copy);
                 polys.main_sel_op_cast.set_if_valid_index(i, rows[i].main_sel_op_cast);
                 polys.main_sel_op_chain_id.set_if_valid_index(i, rows[i].main_sel_op_chain_id);
-                polys.main_sel_op_cmov.set_if_valid_index(i, rows[i].main_sel_op_cmov);
                 polys.main_sel_op_dagasleft.set_if_valid_index(i, rows[i].main_sel_op_dagasleft);
                 polys.main_sel_op_div.set_if_valid_index(i, rows[i].main_sel_op_div);
                 polys.main_sel_op_ecadd.set_if_valid_index(i, rows[i].main_sel_op_ecadd);
@@ -251,6 +265,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                                                                            rows[i].main_sel_op_get_contract_instance);
                 polys.main_sel_op_internal_call.set_if_valid_index(i, rows[i].main_sel_op_internal_call);
                 polys.main_sel_op_internal_return.set_if_valid_index(i, rows[i].main_sel_op_internal_return);
+                polys.main_sel_op_is_static_call.set_if_valid_index(i, rows[i].main_sel_op_is_static_call);
                 polys.main_sel_op_jump.set_if_valid_index(i, rows[i].main_sel_op_jump);
                 polys.main_sel_op_jumpi.set_if_valid_index(i, rows[i].main_sel_op_jumpi);
                 polys.main_sel_op_keccak.set_if_valid_index(i, rows[i].main_sel_op_keccak);
@@ -276,6 +291,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_shr.set_if_valid_index(i, rows[i].main_sel_op_shr);
                 polys.main_sel_op_sload.set_if_valid_index(i, rows[i].main_sel_op_sload);
                 polys.main_sel_op_sstore.set_if_valid_index(i, rows[i].main_sel_op_sstore);
+                polys.main_sel_op_static_call.set_if_valid_index(i, rows[i].main_sel_op_static_call);
                 polys.main_sel_op_storage_address.set_if_valid_index(i, rows[i].main_sel_op_storage_address);
                 polys.main_sel_op_sub.set_if_valid_index(i, rows[i].main_sel_op_sub);
                 polys.main_sel_op_timestamp.set_if_valid_index(i, rows[i].main_sel_op_timestamp);
@@ -313,7 +329,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.mem_sel_op_a.set_if_valid_index(i, rows[i].mem_sel_op_a);
                 polys.mem_sel_op_b.set_if_valid_index(i, rows[i].mem_sel_op_b);
                 polys.mem_sel_op_c.set_if_valid_index(i, rows[i].mem_sel_op_c);
-                polys.mem_sel_op_cmov.set_if_valid_index(i, rows[i].mem_sel_op_cmov);
                 polys.mem_sel_op_d.set_if_valid_index(i, rows[i].mem_sel_op_d);
                 polys.mem_sel_op_poseidon_read_a.set_if_valid_index(i, rows[i].mem_sel_op_poseidon_read_a);
                 polys.mem_sel_op_poseidon_read_b.set_if_valid_index(i, rows[i].mem_sel_op_poseidon_read_b);
@@ -721,7 +736,8 @@ bool AvmCircuitBuilder::check_circuit() const
     };
 
     auto polys = compute_polynomials();
-    const size_t num_rows = polys.get_polynomial_size();
+    // We'll only check up to the generated trace which might be << than the circuit subgroup size.
+    const size_t num_rows = get_estimated_num_finalized_gates();
 
     // Checks that we will run.
     using SignalErrorFn = const std::function<void(const std::string&)>&;

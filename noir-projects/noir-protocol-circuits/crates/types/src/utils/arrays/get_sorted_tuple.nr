@@ -1,11 +1,11 @@
 use crate::utils::arrays::sort_by::sort_by;
 
-struct SortedTuple<T> {
+pub struct SortedTuple<T> {
     elem: T,
     original_index: u32,
 }
 
-unconstrained pub fn get_sorted_tuple<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [SortedTuple<T>; N] {
+pub unconstrained fn get_sorted_tuple<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [SortedTuple<T>; N] {
     let mut tuples = [SortedTuple { elem: array[0], original_index: 0 }; N];
     for i in 0..N {
         tuples[i] = SortedTuple {

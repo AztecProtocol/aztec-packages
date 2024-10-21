@@ -3,26 +3,31 @@ use crate::{
     gas::Gas, gas_settings::GasSettings, call_context::CallContext,
     accumulated_data::{
     CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-    PublicAccumulatedData, PublicAccumulatedDataBuilder
+    PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder
 },
     function_data::FunctionData, global_variables::GlobalVariables,
-    combined_constant_data::CombinedConstantData,
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
+    combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
+    kernel_circuit_public_inputs::{
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
+    VMCircuitPublicInputs
+},
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier}, private_call_request::PrivateCallRequest,
     private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, public_call_data::{Proof, PublicCallData},
+    private_kernel::private_call_data::PrivateCallData,
+    public_call_data::{Proof as PublicCallDataProof, PublicCallData},
     public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
-    public_call_stack_item_compressed::PublicCallStackItemCompressed,
     public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
-    public_data_update_request::PublicDataUpdateRequest, read_request::{ReadRequest, ScopedReadRequest},
+    public_data_update_request::PublicDataUpdateRequest,
+    public_inner_call_request::PublicInnerCallRequest, read_request::{ReadRequest, ScopedReadRequest},
     tree_leaf_read_request::TreeLeafReadRequest,
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
     validation_requests::{
     KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-    PublicValidationRequests, RollupValidationRequests, ScopedKeyValidationRequestAndGenerator
+    PublicValidationRequests, PublicValidationRequestArrayLengths, RollupValidationRequests,
+    ScopedKeyValidationRequestAndGenerator
 }
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
@@ -35,7 +40,7 @@ use crate::{
     MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
     MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
-    PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH
+    PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
@@ -44,9 +49,14 @@ use crate::{
 },
     header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    partial_state_reference::PartialStateReference, tests::fixtures,
+    partial_state_reference::PartialStateReference,
+    tests::{fixtures, fixtures::{contracts::ContractData, contract_functions::ContractFunction}},
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}, point::Point
+    recursion::{
+    verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
+    proof::NestedRecursiveProof
+},
+    point::Point
 };
 
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
@@ -69,7 +79,7 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     reversed
 }
 
-struct FixtureBuilder {
+pub struct FixtureBuilder {
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     msg_sender: AztecAddress,
@@ -79,7 +89,7 @@ struct FixtureBuilder {
     // Fees.
     is_fee_payer: bool,
     fee_payer: AztecAddress,
-    public_teardown_call_stack: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_teardown_call_request: PublicCallRequest,
     transaction_fee: Field,
     start_gas_left: Gas,
     end_gas_left: Gas,
@@ -106,6 +116,7 @@ struct FixtureBuilder {
     contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
     private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_inner_call_requests: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
     revert_code: u8,
 
@@ -135,16 +146,20 @@ struct FixtureBuilder {
     acir_hash: Field,
 
     // Public call.
-    is_execution_request: bool,
     bytecode_hash: Field,
     prover_address: AztecAddress,
 
     // Proof.
     proof: NestedRecursiveProof,
-    vk: VerificationKey,
+    honk_vk: HonkVerificationKey,
+    client_ivc_vk: ClientIVCVerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     vk_tree_root: Field,
+
+    // Protocol contracts.
+    protocol_contract_tree_root: Field,
+    protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -166,25 +181,15 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
-        let contract_data = fixtures::contracts::default_contract;
-        let contract_function = fixtures::contract_functions::default_private_function;
-        let contract_address = contract_data.address;
-
         builder.tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::empty() };
-        builder.contract_address = contract_address;
-        builder.storage_contract_address = contract_address;
         builder.msg_sender = fixtures::contracts::parent_contract.address;
-        builder.function_data = contract_function.data;
-        builder.function_leaf_membership_witness = contract_function.membership_witness;
-        builder.salted_initialization_hash = contract_data.salted_initialization_hash;
-        builder.public_keys_hash = contract_data.public_keys_hash;
-        builder.contract_class_artifact_hash = contract_data.artifact_hash;
-        builder.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
-        builder.acir_hash = contract_function.acir_hash;
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
 
-        builder
+        let contract_data = fixtures::contracts::default_contract;
+        let contract_function = fixtures::contract_functions::default_private_function;
+
+        builder.use_contract(contract_data).use_function(contract_function)
     }
 
     pub fn as_parent_contract(&mut self) -> Self {
@@ -199,12 +204,53 @@ impl FixtureBuilder {
         let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
 
         let vk_hash = vk_tree.leaves[vk_index];
-        self.vk.hash = vk_hash;
+        self.honk_vk.hash = vk_hash;
+        self.client_ivc_vk.hash = vk_hash;
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
 
         self.vk_tree_root = vk_tree.get_root();
 
+        *self
+    }
+
+    pub fn set_protocol_contract_root(&mut self) {
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        self.protocol_contract_tree_root = tree.get_root();
+    }
+
+    pub fn use_protocol_contract(&mut self) -> Self {
+        let contract_index = 1;
+
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        self.protocol_contract_tree_root = tree.get_root();
+        self.protocol_contract_sibling_path = tree.get_sibling_path(contract_index);
+
+        let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
+        let function_data = fixtures::contract_functions::get_protocol_contract_function(contract_index);
+
+        let _ = self.use_contract(contract_data);
+        self.contract_address = AztecAddress::from_field(contract_index as Field);
+        self.storage_contract_address = self.contract_address;
+
+        self.use_function(function_data)
+    }
+
+    pub fn use_contract(&mut self, contract_data: ContractData) -> Self {
+        self.contract_address = contract_data.address;
+        self.storage_contract_address = self.contract_address;
+        self.salted_initialization_hash = contract_data.salted_initialization_hash;
+        self.public_keys_hash = contract_data.public_keys_hash;
+        self.contract_class_artifact_hash = contract_data.artifact_hash;
+        self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
+
+        *self
+    }
+
+    pub fn use_function(&mut self, function_data: ContractFunction) -> Self {
+        self.function_data = function_data.data;
+        self.function_leaf_membership_witness = function_data.membership_witness;
+        self.acir_hash = function_data.acir_hash;
         *self
     }
 
@@ -237,6 +283,7 @@ impl FixtureBuilder {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables
         }
     }
@@ -288,7 +335,7 @@ impl FixtureBuilder {
             nullifiers: subarray(self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
             private_call_requests: subarray(self.private_call_requests.storage),
             public_call_requests: subarray(self.public_call_requests.storage),
-            public_teardown_call_request: self.public_teardown_call_stack.storage[0],
+            public_teardown_call_request: self.public_teardown_call_request,
             l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
@@ -311,12 +358,13 @@ impl FixtureBuilder {
     pub fn to_private_call_data(self) -> PrivateCallData {
         PrivateCallData {
             call_stack_item: self.to_private_call_stack_item(),
-            vk: self.vk,
+            vk: self.client_ivc_vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
             public_keys_hash: self.public_keys_hash,
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
+            protocol_contract_sibling_path: self.protocol_contract_sibling_path,
             acir_hash: self.acir_hash
         }
     }
@@ -336,6 +384,15 @@ impl FixtureBuilder {
 
     pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
         self.to_private_accumulated_data_builder().finish()
+    }
+
+    pub fn to_public_call_request(self) -> PublicCallRequest {
+        PublicCallRequest {
+            contract_address: self.contract_address,
+            call_context: self.build_call_context(),
+            args_hash: self.args_hash,
+            counter: 0
+        }
     }
 
     pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
@@ -412,7 +469,7 @@ impl FixtureBuilder {
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_private_validation_requests();
         let constants = self.to_constant_data();
-        let public_teardown_call_request = self.public_teardown_call_stack.get_unchecked(0);
+        let public_teardown_call_request = self.public_teardown_call_request;
 
         PrivateKernelCircuitPublicInputs {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
@@ -426,7 +483,7 @@ impl FixtureBuilder {
 
     pub fn to_private_kernel_data(self) -> PrivateKernelData {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
-        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PrivateKernelData { public_inputs, vk: self.client_ivc_vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_circuit_public_inputs(self) -> PublicCircuitPublicInputs {
@@ -442,7 +499,7 @@ impl FixtureBuilder {
             l1_to_l2_msg_read_requests: subarray(self.l1_to_l2_msg_read_requests.storage),
             contract_storage_update_requests: subarray(self.contract_storage_update_requests.storage),
             contract_storage_reads: self.contract_storage_reads.storage,
-            public_call_requests: subarray(self.public_call_requests.storage),
+            public_call_requests: subarray(self.public_inner_call_requests.storage),
             note_hashes: subarray(self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash)),
             nullifiers: subarray(self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
             l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message)),
@@ -463,13 +520,16 @@ impl FixtureBuilder {
         PublicCallStackItem {
             contract_address: self.contract_address,
             function_data: self.function_data,
-            is_execution_request: self.is_execution_request,
             public_inputs: self.to_public_circuit_public_inputs()
         }
     }
 
     pub fn to_public_call_data(self) -> PublicCallData {
-        PublicCallData { call_stack_item: self.to_public_call_stack_item(), proof: Proof {}, bytecode_hash: self.bytecode_hash }
+        PublicCallData {
+            call_stack_item: self.to_public_call_stack_item(),
+            proof: PublicCallDataProof {},
+            bytecode_hash: self.bytecode_hash
+        }
     }
 
     pub fn to_public_validation_requests(self) -> PublicValidationRequests {
@@ -481,6 +541,27 @@ impl FixtureBuilder {
             public_data_reads: self.public_data_reads.storage,
             l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage
         }
+    }
+
+    pub fn to_vm_circuit_public_inputs(self) -> VMCircuitPublicInputs {
+        VMCircuitPublicInputs {
+            constants: self.to_constant_data(),
+            call_request: self.to_public_call_request(),
+            public_call_stack: subarray(self.public_inner_call_requests.storage),
+            previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
+            validation_requests: self.to_public_validation_requests(),
+            previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
+            accumulated_data: self.to_public_accumulated_data(),
+            start_side_effect_counter: self.counter_start,
+            end_side_effect_counter: self.counter,
+            start_gas_left: self.start_gas_left,
+            transaction_fee: self.transaction_fee,
+            reverted: self.revert_code != 0
+        }
+    }
+
+    pub fn to_enqueued_call_data(self) -> EnqueuedCallData {
+        EnqueuedCallData { data: self.to_vm_circuit_public_inputs(), proof: Proof {} }
     }
 
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
@@ -496,23 +577,22 @@ impl FixtureBuilder {
         } else {
             PublicAccumulatedData::empty()
         };
-        let validation_requests = self.to_public_validation_requests();
-        let constants = self.to_constant_data();
 
         PublicKernelCircuitPublicInputs {
+            constants: self.to_constant_data(),
+            validation_requests: self.to_public_validation_requests(),
             end_non_revertible,
             end,
-            validation_requests,
-            constants,
-            revert_code: self.revert_code,
-            public_teardown_call_stack: self.public_teardown_call_stack.storage,
-            fee_payer: self.fee_payer
+            end_side_effect_counter: self.counter,
+            public_teardown_call_request: self.public_teardown_call_request,
+            fee_payer: self.fee_payer,
+            revert_code: self.revert_code
         }
     }
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.honk_vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
@@ -539,7 +619,7 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: self.vk,
+            vk: self.honk_vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -957,16 +1037,17 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn push_public_call_request(&mut self, item: PublicCallStackItemCompressed) {
-        self.public_call_requests.push(PublicCallRequest { item, counter: self.next_counter() });
+    pub fn add_public_call_request(&mut self, request: PublicCallRequest) {
+        self.public_call_requests.push(request);
     }
 
     pub fn append_public_call_requests(&mut self, num: u32) {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
-                let item = self.mock_public_call_request_item(index_offset + i, false);
-                self.push_public_call_request(item);
+                let mut request = self.mock_public_call_request(index_offset + i, false);
+                request.counter = self.next_counter();
+                self.add_public_call_request(request);
             }
         }
     }
@@ -975,8 +1056,9 @@ impl FixtureBuilder {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
-                let item = self.mock_public_call_request_item(index_offset + i, true);
-                self.push_public_call_request(item);
+                let mut request = self.mock_public_call_request(index_offset + i, true);
+                request.counter = self.next_counter();
+                self.add_public_call_request(request);
             }
         }
     }
@@ -991,30 +1073,16 @@ impl FixtureBuilder {
         self.storage_contract_address
     }
 
-    pub fn push_public_teardown_call_request(&mut self, item: PublicCallStackItemCompressed) {
-        self.public_teardown_call_stack.push(PublicCallRequest { item, counter: self.next_counter() });
+    pub fn set_public_teardown_call_request(&mut self) {
+        let mut request = self.mock_public_teardown_call_request(false);
+        request.counter = self.next_counter();
+        self.public_teardown_call_request = request;
     }
 
-    pub fn append_public_teardown_call_request(&mut self) {
-        let index = self.public_teardown_call_stack.len();
-        let item = self.mock_public_teardown_call_request_item(index, false);
-        self.push_public_teardown_call_request(item);
-    }
-
-    pub fn append_public_teardown_call_request_delegate(&mut self) {
-        let index = self.public_teardown_call_stack.len();
-        let item = self.mock_public_teardown_call_request_item(index, true);
-        self.push_public_teardown_call_request(item);
-    }
-
-    pub fn append_public_teardown_call_requests(&mut self, num: u32) {
-        let index_offset = self.public_teardown_call_stack.len();
-        for i in 0..self.public_teardown_call_stack.max_len() {
-            if i < num {
-                let item = self.mock_public_teardown_call_request_item(index_offset + i, true);
-                self.push_public_teardown_call_request(item);
-            }
-        }
+    pub fn set_public_teardown_call_request_delegate(&mut self) {
+        let mut request = self.mock_public_teardown_call_request(true);
+        request.counter = self.next_counter();
+        self.public_teardown_call_request = request;
     }
 
     pub fn end_setup(&mut self) {
@@ -1105,19 +1173,19 @@ impl FixtureBuilder {
         PrivateCallRequest::deserialize(fields)
     }
 
-    fn mock_public_call_request_item(self, index: u32, is_delegate_call: bool) -> PublicCallStackItemCompressed {
+    fn mock_public_call_request(self, index: u32, is_delegate_call: bool) -> PublicCallRequest {
         let value_offset = 636363 + self.value_offset + index as Field;
-        let mut fields = [0; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH];
+        let mut fields = [0; PUBLIC_CALL_REQUEST_LENGTH];
         for i in 0..fields.len() {
             fields[i] = value_offset + i as Field;
         }
-        let mut item = PublicCallStackItemCompressed::deserialize(fields);
-        item.call_context = self.generate_call_context(item.contract_address, is_delegate_call);
-        item
+        let mut request = PublicCallRequest::deserialize(fields);
+        request.call_context = self.generate_call_context(request.contract_address, is_delegate_call);
+        request
     }
 
-    fn mock_public_teardown_call_request_item(self, index: u32, is_delegate_call: bool) -> PublicCallStackItemCompressed {
-        self.mock_public_call_request_item(index + 54345, is_delegate_call)
+    fn mock_public_teardown_call_request(self, is_delegate_call: bool) -> PublicCallRequest {
+        self.mock_public_call_request(54345, is_delegate_call)
     }
 
     fn mock_fee_payer(self) -> AztecAddress {
@@ -1159,6 +1227,7 @@ impl Empty for FixtureBuilder {
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
+            public_teardown_call_request: PublicCallRequest::empty(),
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
@@ -1178,6 +1247,7 @@ impl Empty for FixtureBuilder {
             contract_storage_update_requests: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
+            public_inner_call_requests: BoundedVec::new(),
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             note_hash_tree_leaf_read_requests: BoundedVec::new(),
@@ -1197,14 +1267,16 @@ impl Empty for FixtureBuilder {
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
             acir_hash: 0,
-            is_execution_request: false,
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            honk_vk: VerificationKey::empty(),
+            client_ivc_vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
             vk_tree_root: FixtureBuilder::vk_tree_root(),
+            protocol_contract_tree_root: 0,
+            protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,
@@ -1214,7 +1286,6 @@ impl Empty for FixtureBuilder {
             start_gas_left: Gas::empty(),
             end_gas_left: Gas::empty(),
             transaction_fee: 0,
-            public_teardown_call_stack: BoundedVec::new(),
             value_offset: 0
         }
     }

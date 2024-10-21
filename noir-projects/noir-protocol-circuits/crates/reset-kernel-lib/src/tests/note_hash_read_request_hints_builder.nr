@@ -4,7 +4,7 @@ use crate::{
 };
 use dep::types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
 
-struct NoteHashReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
+pub struct NoteHashReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
     read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     pending_read_hints: BoundedVec<PendingReadHint, NUM_PENDING_HINTS>,
     settled_read_hints: BoundedVec<NoteHashSettledReadHint, NUM_SETTLED_HINTS>,
@@ -22,7 +22,7 @@ impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NoteHashReadRequest
         }
     }
 
-    unconstrained pub fn to_hints(self) -> NoteHashReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+    pub unconstrained fn to_hints(self) -> NoteHashReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
         NoteHashReadRequestHints {
             read_request_statuses: self.read_request_statuses,
             pending_read_hints: self.pending_read_hints.storage,

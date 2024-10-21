@@ -125,8 +125,8 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                            multivariate_challenge,
                                            Commitment::one(builder),
                                            transcript,
-                                           commitments.get_concatenation_groups(),
-                                           claimed_evaluations.get_concatenated_constraints());
+                                           commitments.get_groups_to_be_concatenated(),
+                                           claimed_evaluations.get_concatenated());
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     return pairing_points;

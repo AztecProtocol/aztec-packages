@@ -1,6 +1,6 @@
 use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
 
-struct EthAddress{
+pub struct EthAddress{
     inner : Field
 }
 
@@ -40,7 +40,7 @@ impl EthAddress {
     }
 
     pub fn from_field(field: Field) -> Self {
-        field.assert_max_bit_size(160);
+        field.assert_max_bit_size::<160>();
         Self { inner: field }
     }
 

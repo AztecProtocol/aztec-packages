@@ -91,6 +91,33 @@ export interface L1ContractArtifactsForDeployment {
   feeJuicePortal: ContractArtifacts;
 }
 
+export interface DeployL1ContractsArgs {
+  /**
+   * The address of the L2 Fee Juice contract.
+   */
+  l2FeeJuiceAddress: AztecAddress;
+  /**
+   * The vk tree root.
+   */
+  vkTreeRoot: Fr;
+  /**
+   * The protocol contract tree root.
+   */
+  protocolContractTreeRoot: Fr;
+  /**
+   * The block number to assume proven through.
+   */
+  assumeProvenThrough?: number;
+  /**
+   * The salt for CREATE2 deployment.
+   */
+  salt: number | undefined;
+  /**
+   * The initial validators for the rollup contract.
+   */
+  initialValidators?: EthAddress[];
+}
+
 export type L1Clients = {
   publicClient: PublicClient<HttpTransport, Chain>;
   walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -144,13 +171,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: {
-    l2FeeJuiceAddress: AztecAddress;
-    vkTreeRoot: Fr;
-    assumeProvenThrough?: number;
-    salt: number | undefined;
-    initialValidators?: EthAddress[];
-  },
+  args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -183,17 +204,20 @@ export const deployL1Contracts = async (
   logger.info(`Deployed Registry at ${registryAddress}`);
 
   const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
-
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
-
-  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [
+    account.address.toString(),
+    registryAddress.toString(),
+    feeJuiceAddress.toString(),
+    args.l2FeeJuiceAddress.toString(),
+  ]);
+  logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
-    getAddress(registryAddress.toString()),
-    getAddress(feeJuicePortalAddress.toString()),
+    feeJuicePortalAddress.toString(),
     args.vkTreeRoot.toString(),
+    args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
   ]);
@@ -235,22 +259,16 @@ export const deployL1Contracts = async (
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
   logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
-  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
-    const initPortalTxHash = await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]);
+  if ((await feeJuicePortal.read.owner([])) !== zeroAddress) {
+    const initPortalTxHash = await feeJuicePortal.write.initialize([]);
     txHashes.push(initPortalTxHash);
-    logger.verbose(
-      `Fee juice portal initializing with registry ${registryAddress.toString()} in tx ${initPortalTxHash}`,
-    );
+    logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
   } else {
     logger.verbose(`Fee juice portal is already initialized`);
   }
 
   logger.info(
-    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
   if (isAnvilTestChain(chain.id)) {
@@ -359,6 +377,50 @@ class L1Deployer {
   async waitForDeployments(): Promise<void> {
     await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
   }
+}
+
+/**
+ * Compiles a contract source code using the provided solc compiler.
+ * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
+ * @param contractName - Contract name within the file (eg HonkVerifier)
+ * @param source - Source code to compile
+ * @param solc - Solc instance
+ * @returns ABI and bytecode of the compiled contract
+ */
+export function compileContract(
+  fileName: string,
+  contractName: string,
+  source: string,
+  solc: { compile: (source: string) => string },
+): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
+  const input = {
+    language: 'Solidity',
+    sources: {
+      [fileName]: {
+        content: source,
+      },
+    },
+    settings: {
+      // we require the optimizer
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      evmVersion: 'paris',
+      outputSelection: {
+        '*': {
+          '*': ['evm.bytecode.object', 'abi'],
+        },
+      },
+    },
+  };
+
+  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+
+  const abi = output.contracts[fileName][contractName].abi;
+  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
+
+  return { abi, bytecode };
 }
 
 // docs:start:deployL1Contract

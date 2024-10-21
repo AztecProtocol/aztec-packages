@@ -1,13 +1,13 @@
 use dep::types::{
     traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::RecursiveProof, traits::Verifiable},
+    recursion::{verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof, traits::Verifiable},
     constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT}, merkle_tree::membership::assert_check_membership
 };
 use crate::parity_public_inputs::ParityPublicInputs;
 
-struct RootParityInput {
+pub struct RootParityInput {
     proof: RecursiveProof,
-    verification_key: VerificationKey,
+    verification_key: HonkVerificationKey,
     vk_path: [Field; VK_TREE_HEIGHT],
     public_inputs: ParityPublicInputs,
 }

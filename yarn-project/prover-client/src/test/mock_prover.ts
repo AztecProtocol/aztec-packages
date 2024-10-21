@@ -13,6 +13,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootRollupPublicInputs,
+  type VMCircuitPublicInputs,
   VerificationKeyData,
   makeEmptyProof,
   makeRecursiveProof,
@@ -24,6 +25,7 @@ import {
   makePublicKernelCircuitPublicInputs,
   makeRootParityInput,
   makeRootRollupPublicInputs,
+  makeVMCircuitPublicInputs,
 } from '@aztec/circuits.js/testing';
 
 export class MockProver implements ServerCircuitProver {
@@ -51,7 +53,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -61,7 +63,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -71,7 +73,17 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
+  }
+
+  getEmptyBlockRootRollupProof(): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -81,7 +93,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -91,7 +103,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeKernelCircuitPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -101,17 +113,27 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeKernelCircuitPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
 
-  getPublicKernelProof(): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
+  getPublicKernelInnerProof(): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeVMCircuitPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
+  }
+
+  getPublicKernelMergeProof(): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makePublicKernelCircuitPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -121,7 +143,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeKernelCircuitPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -131,7 +153,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeRootRollupPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
@@ -141,7 +163,7 @@ export class MockProver implements ServerCircuitProver {
     tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
   }> {
     return Promise.resolve({
-      tubeVK: VerificationKeyData.makeFake(),
+      tubeVK: VerificationKeyData.makeFakeHonk(),
       tubeProof: makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
     });
   }

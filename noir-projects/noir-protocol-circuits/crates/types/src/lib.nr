@@ -1,6 +1,7 @@
 mod utils;
 mod address;
 mod debug_log;
+pub mod public_keys;
 mod point;
 mod scalar;
 // This is intentionally spelled like this since contract is a reserved keyword, so it cannot be used as an ident.
@@ -29,5 +30,9 @@ mod recursion;
 mod data;
 mod storage;
 mod validate;
+mod meta;
 
-pub use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs};
+pub use abis::kernel_circuit_public_inputs::{
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
+    VMCircuitPublicInputs
+};

@@ -69,7 +69,7 @@ mod tests {
         utils::arrays::assert_split_transformed_value_arrays::{assert_split_transformed_value_arrays, assert_split_transformed_value_arrays_with_hint}
     };
 
-    global NUM_TEST_ITEMS = 5;
+    global NUM_TEST_ITEMS: u32 = 5;
 
     fn is_transformed(from: TestValue, to: Field) -> bool {
         from.value == to
@@ -160,19 +160,19 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="counter of first revertible item is not greater than or equal to the split counter")]
+    #[test(should_fail_with = "counter of first revertible item is not greater than or equal to the split counter")]
     fn assert_split_transformed_value_arrays_num_non_revertible_too_small_fails() {
         let builder = TestBuilder::new();
         builder.execute_with_num_non_revertibles(2);
     }
 
-    #[test(should_fail_with="counter of last non-revertible item is not less than the split counter")]
+    #[test(should_fail_with = "counter of last non-revertible item is not less than the split counter")]
     fn assert_split_transformed_value_arrays_num_non_revertible_too_big_fails() {
         let mut builder = TestBuilder::new();
         builder.execute_with_num_non_revertibles(4);
     }
 
-    #[test(should_fail_with="invalid transformed value")]
+    #[test(should_fail_with = "invalid transformed value")]
     fn assert_split_transformed_value_arrays_wrong_transformed_value_in_lt_fails() {
         let mut builder = TestBuilder::new();
 
@@ -181,7 +181,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="invalid transformed value")]
+    #[test(should_fail_with = "invalid transformed value")]
     fn assert_split_transformed_value_arrays_wrong_transformed_value_in_gte_fails() {
         let mut builder = TestBuilder::new();
 
@@ -190,7 +190,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_extra_non_empty_item_in_lt_fails() {
         let mut builder = TestBuilder::new();
 
@@ -199,7 +199,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_extra_non_empty_item_in_gte_fails() {
         let mut builder = TestBuilder::new();
 
@@ -208,7 +208,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_end_with_non_empty_item_in_lt_fails() {
         let mut builder = TestBuilder::new();
 
@@ -217,7 +217,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_end_with_non_empty_item_in_gte_fails() {
         let mut builder = TestBuilder::new();
 

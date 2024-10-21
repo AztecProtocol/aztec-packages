@@ -4,7 +4,7 @@ use dep::types::{
     utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
 };
 
-struct TailToPublicOutputHints {
+pub struct TailToPublicOutputHints {
     // L2 to l1 msgs.
     sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
     // Unencrypted log hashes.
@@ -13,7 +13,7 @@ struct TailToPublicOutputHints {
     sorted_public_call_request_hints: SplitOrderHints<MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 }
 
-unconstrained pub fn generate_tail_to_public_output_hints(previous_kernel: PrivateKernelCircuitPublicInputs) -> TailToPublicOutputHints {
+pub unconstrained fn generate_tail_to_public_output_hints(previous_kernel: PrivateKernelCircuitPublicInputs) -> TailToPublicOutputHints {
     let split_counter = previous_kernel.min_revertible_side_effect_counter;
 
     // l2_to_l1_msgss

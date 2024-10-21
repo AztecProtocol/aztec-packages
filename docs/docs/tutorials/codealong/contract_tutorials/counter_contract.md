@@ -7,8 +7,9 @@ In this guide, we will create our first Aztec.nr smart contract. We will build a
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../guides/developer_guides/getting_started/quickstart.md)
+- You have followed the [quickstart](../../../guides/developer_guides/getting_started.md)
 - Running Aztec Sandbox
+- Installed [Noir LSP](../../../guides/developer_guides/local_env/installing_noir_lsp.md) (optional)
 
 ## Set up a project
 

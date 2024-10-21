@@ -5,7 +5,7 @@ use crate::{
     traits::{Empty, Serialize, Deserialize}
 };
 
-struct PublicDataRead {
+pub struct PublicDataRead {
     leaf_slot: Field,
     value: Field,
     counter: u32,

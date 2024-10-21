@@ -3,29 +3,32 @@ use crate::components::{
     tail_output_validator::TailOutputValidator
 };
 use dep::types::{
-    abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
-    constants::{
-    PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
-    PRIVATE_KERNEL_RESET_TINY_INDEX
-}
+    abis::{
+    private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+    kernel_circuit_public_inputs::KernelCircuitPublicInputs
+},
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    PrivateKernelCircuitPublicInputs
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_INIT_INDEX,
     PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX,
-    PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
-    PRIVATE_KERNEL_RESET_SMALL_INDEX,
-    PRIVATE_KERNEL_RESET_TINY_INDEX,
+    PRIVATE_KERNEL_RESET_INDEX,
 ];
 
-struct PrivateKernelTailCircuitPrivateInputs {
+pub struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
 }
 
 impl PrivateKernelTailCircuitPrivateInputs {
+    pub fn new(
+        previous_kernel: PrivateKernelDataWithoutPublicInputs,
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs
+    ) -> Self {
+        Self { previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs) }
+    }
+
     unconstrained fn generate_output(self) -> KernelCircuitPublicInputs {
         TailOutputComposer::new(self.previous_kernel.public_inputs).finish()
     }
@@ -37,11 +40,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
         };
 
         // Validate inputs.
-        PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail();
-        if !std::runtime::is_unconstrained() {
-            // TODO(#7410) currently stubbed out until tube vk handled
-            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.validate_for_private_tail();
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -56,7 +57,7 @@ mod tests {
     use crate::private_kernel_tail::{PrivateKernelTailCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX
+        L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
@@ -166,35 +167,35 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
+    #[test(should_fail_with = "Private call stack must be empty when executing the tail circuit")]
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.append_private_call_requests(1);
         builder.failed();
     }
 
-    #[test(should_fail_with="Public call stack must be empty when executing the tail circuit")]
+    #[test(should_fail_with = "Public call stack must be empty when executing the tail circuit")]
     fn non_empty_public_call_stack_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.append_public_call_requests(1);
         builder.failed();
     }
 
-    #[test(should_fail_with="Public teardown call request must be empty when executing the tail circuit")]
+    #[test(should_fail_with = "Public teardown call request must be empty when executing the tail circuit")]
     fn non_empty_public_teardown_call_request_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.append_public_teardown_call_request();
+        builder.previous_kernel.set_public_teardown_call_request();
         builder.failed();
     }
 
-    #[test(should_fail_with="split_counter must be 0 for pure private tx")]
+    #[test(should_fail_with = "split_counter must be 0 for pure private tx")]
     fn non_zero_validation_requests_split_counter_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.validation_requests_split_counter = Option::some(123);
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty note hash read requests")]
+    #[test(should_fail_with = "Non empty note hash read requests")]
     fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.append_note_hashes(3);
@@ -202,7 +203,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty nullifier read requests")]
+    #[test(should_fail_with = "Non empty nullifier read requests")]
     fn non_empty_nullifier_read_requests() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.append_nullifiers(3);
@@ -210,7 +211,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty key validation requests")]
+    #[test(should_fail_with = "Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         let _void = builder.previous_kernel.add_request_for_key_validation(
@@ -277,7 +278,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="The gas used exceeds the gas limits")]
+    #[test(should_fail_with = "The gas used exceeds the gas limits")]
     fn gas_limits_are_enforced() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
@@ -309,11 +310,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PrivateKernelTailInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with = "Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        let _res = builder.execute();
+    }
 }

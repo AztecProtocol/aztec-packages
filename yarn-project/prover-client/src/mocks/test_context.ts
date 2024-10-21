@@ -1,19 +1,25 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
-  type BlockProver,
-  type MerkleTreeAdminOperations,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
+  type ProcessedTxHandler,
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import {
+  type CombinedConstantData,
+  type Gas,
+  type GlobalVariables,
+  Header,
+  type Nullifier,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
-  type ContractsDataSourcePublicDB,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -21,7 +27,7 @@ import {
   RealPublicKernelCircuitSimulator,
   type SimulationProvider,
   WASMSimulator,
-  type WorldStatePublicDB,
+  type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -29,11 +35,9 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
@@ -41,12 +45,11 @@ import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixt
 export class TestContext {
   constructor(
     public publicExecutor: MockProxy<PublicExecutor>,
-    public publicContractsDB: MockProxy<ContractsDataSourcePublicDB>,
-    public publicWorldStateDB: MockProxy<WorldStatePublicDB>,
+    public worldStateDB: MockProxy<WorldStateDB>,
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeAdminOperations,
+    public actualDb: MerkleTreeWriteOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
@@ -55,13 +58,13 @@ export class TestContext {
     public logger: DebugLogger,
   ) {}
 
-  public get blockProver() {
+  public get epochProver() {
     return this.orchestrator;
   }
 
   static async new(
     logger: DebugLogger,
-    worldState: 'native' | 'legacy' = 'legacy',
+    worldState: 'native' | 'legacy' = 'native',
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
@@ -71,31 +74,27 @@ export class TestContext {
     const globalVariables = makeGlobals(blockNumber);
 
     const publicExecutor = mock<PublicExecutor>();
-    const publicContractsDB = mock<ContractsDataSourcePublicDB>();
-    const publicWorldStateDB = mock<WorldStatePublicDB>();
+    const worldStateDB = mock<WorldStateDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
-    let actualDb: MerkleTreeAdminOperations;
+    let actualDb: MerkleTreeWriteOperations;
 
     if (worldState === 'native') {
-      const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));
-      directoriesToCleanup.push(dir);
-      const ws = await NativeWorldStateService.create(dir);
-      actualDb = ws.asLatest();
+      const ws = await NativeWorldStateService.tmp();
+      actualDb = await ws.fork();
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);
-      actualDb = ws.asLatest();
+      actualDb = await ws.getLatest();
     }
 
-    const processor = new PublicProcessor(
+    const processor = PublicProcessor.create(
       actualDb,
       publicExecutor,
       publicKernel,
-      GlobalVariables.empty(),
+      globalVariables,
       Header.empty(),
-      publicContractsDB,
-      publicWorldStateDB,
+      worldStateDB,
       telemetry,
     );
 
@@ -113,11 +112,12 @@ export class TestContext {
         acvmWorkingDirectory: config.acvmWorkingDirectory,
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
+        bbSkipCleanup: config.bbSkipCleanup,
       };
       localProver = await createProver(bbConfig);
     }
 
-    if (config?.directoryToCleanup) {
+    if (config?.directoryToCleanup && !config.bbSkipCleanup) {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
@@ -130,8 +130,7 @@ export class TestContext {
 
     return new this(
       publicExecutor,
-      publicContractsDB,
-      publicWorldStateDB,
+      worldStateDB,
       processor,
       simulationProvider,
       globalVariables,
@@ -155,12 +154,12 @@ export class TestContext {
   public async processPublicFunctions(
     txs: Tx[],
     maxTransactions: number,
-    blockProver?: BlockProver,
+    txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
   ) {
     const defaultExecutorImplementation = (
       execution: PublicExecutionRequest,
-      _globalVariables: GlobalVariables,
+      _constants: CombinedConstantData,
       availableGas: Gas,
       _txContext: TxContext,
       _pendingNullifiers: Nullifier[],
@@ -187,7 +186,7 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
-      blockProver,
+      txHandler,
       txValidator,
       defaultExecutorImplementation,
     );
@@ -196,11 +195,11 @@ export class TestContext {
   public async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
-    blockProver?: BlockProver,
+    txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       execution: PublicExecutionRequest,
-      globalVariables: GlobalVariables,
+      constants: CombinedConstantData,
       availableGas: Gas,
       txContext: TxContext,
       pendingNullifiers: Nullifier[],
@@ -211,6 +210,6 @@ export class TestContext {
     if (executorMock) {
       this.publicExecutor.simulate.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, blockProver, txValidator);
+    return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
   }
 }

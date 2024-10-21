@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   type ClientProtocolCircuitVerifier,
+  EpochProofQuote,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
@@ -17,6 +18,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
+import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -31,9 +33,8 @@ import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
-import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { type MemPools } from '../mem_pools/interface.js';
 import {
   DataTxValidator,
   DoubleSpendTxValidator,
@@ -47,13 +48,13 @@ import { PeerErrorSeverity } from './peer_scoring.js';
 import { pingHandler, statusHandler } from './reqresp/handlers.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
+  DEFAULT_SUB_PROTOCOL_VALIDATORS,
   PING_PROTOCOL,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   STATUS_PROTOCOL,
   type SubProtocolMap,
   TX_REQ_PROTOCOL,
-  subProtocolMap,
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
@@ -77,7 +78,7 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService implements P2PService {
+export class LibP2PService extends WithTracer implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
@@ -96,20 +97,23 @@ export class LibP2PService implements P2PService {
     private config: P2PConfig,
     private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
-    private txPool: TxPool,
-    private attestationPool: AttestationPool,
+    private mempools: MemPools,
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
+    telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
+    // Instatntiate tracer
+    super(telemetry, 'LibP2PService');
+
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
     this.node.services.pubsub.score.params.appSpecificWeight = 10;
-    this.reqresp = new ReqResp(config, node);
+    this.reqresp = new ReqResp(config, node, this.peerManager);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(
@@ -162,7 +166,13 @@ export class LibP2PService implements P2PService {
       this.peerManager.heartbeat();
     }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
-    await this.reqresp.start(this.requestResponseHandlers);
+
+    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
+    const reqrespSubProtocolValidators = {
+      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
+      [TX_REQ_PROTOCOL]: this.validateRequestedTx.bind(this),
+    };
+    await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
   }
 
   /**
@@ -176,12 +186,12 @@ export class LibP2PService implements P2PService {
     await this.discoveryRunningPromise?.stop();
     this.logger.debug('Stopping peer discovery service...');
     await this.peerDiscoveryService.stop();
+    this.logger.debug('Request response service stopped...');
+    await this.reqresp.stop();
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
     this.logger.debug('Stopping request response service...');
-    await this.reqresp.stop();
-    this.logger.debug('Request response service stopped...');
   }
 
   /**
@@ -194,12 +204,12 @@ export class LibP2PService implements P2PService {
     config: P2PConfig,
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
-    txPool: TxPool,
-    attestationPool: AttestationPool,
+    mempools: MemPools,
     l2BlockSource: L2BlockSource,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecKVStore,
+    telemetry: TelemetryClient,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -254,6 +264,21 @@ export class LibP2PService implements P2PService {
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
+              [BlockAttestation.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
+              [BlockAttestation.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
+              [EpochProofQuote.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,
@@ -268,7 +293,7 @@ export class LibP2PService implements P2PService {
      */
     const txHandler = (msg: Buffer): Promise<Uint8Array> => {
       const txHash = TxHash.fromBuffer(msg);
-      const foundTx = txPool.getTxByHash(txHash);
+      const foundTx = mempools.txPool.getTxByHash(txHash);
       const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
       return Promise.resolve(asUint8Array);
     };
@@ -283,11 +308,11 @@ export class LibP2PService implements P2PService {
       config,
       node,
       peerDiscoveryService,
-      txPool,
-      attestationPool,
+      mempools,
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
+      telemetry,
       requestResponseHandlers,
     );
   }
@@ -302,18 +327,11 @@ export class LibP2PService implements P2PService {
    * @param request The request type to send
    * @returns
    */
-  async sendRequest<SubProtocol extends ReqRespSubProtocol>(
+  sendRequest<SubProtocol extends ReqRespSubProtocol>(
     protocol: SubProtocol,
     request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    const pair = subProtocolMap[protocol];
-
-    const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
-    if (!res) {
-      return undefined;
-    }
-
-    return pair.response.fromBuffer(res!);
+    return this.reqresp.sendRequest(protocol, request);
   }
 
   /**
@@ -373,6 +391,10 @@ export class LibP2PService implements P2PService {
       const block = BlockProposal.fromBuffer(Buffer.from(message.data));
       await this.processBlockFromPeer(block);
     }
+    if (message.topic == EpochProofQuote.p2pTopic) {
+      const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(message.data));
+      this.processEpochProofQuoteFromPeer(epochProofQuote);
+    }
 
     return;
   }
@@ -382,9 +404,15 @@ export class LibP2PService implements P2PService {
    *
    * @param attestation - The attestation to process.
    */
+  @trackSpan('Libp2pService.processAttestationFromPeer', attestation => ({
+    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
+    [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
+  }))
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
-    this.logger.verbose(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
-    await this.attestationPool.addAttestations([attestation]);
+    this.logger.debug(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
+    await this.mempools.attestationPool.addAttestations([attestation]);
   }
 
   /**Process block from peer
@@ -394,6 +422,12 @@ export class LibP2PService implements P2PService {
    * @param block - The block to process.
    */
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
+  @trackSpan('Libp2pService.processBlockFromPeer', block => ({
+    [Attributes.BLOCK_NUMBER]: block.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
+    [Attributes.P2P_ID]: block.p2pMessageIdentifier().toString(),
+  }))
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
     this.logger.verbose(`Received block ${block.p2pMessageIdentifier()} from external peer.`);
     const attestation = await this.blockReceivedCallback(block);
@@ -401,8 +435,27 @@ export class LibP2PService implements P2PService {
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
     if (attestation != undefined) {
-      this.propagate(attestation);
+      this.broadcastAttestation(attestation);
     }
+  }
+
+  /**
+   * Broadcast an attestation to all peers.
+   * @param attestation - The attestation to broadcast.
+   */
+  @trackSpan('Libp2pService.broadcastAttestation', attestation => ({
+    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
+    [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
+  }))
+  private broadcastAttestation(attestation: BlockAttestation): void {
+    this.propagate(attestation);
+  }
+
+  private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
+    this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);
+    this.mempools.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
@@ -418,19 +471,53 @@ export class LibP2PService implements P2PService {
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
 
-    const isValidTx = await this.validateTx(tx, peerId);
+    const isValidTx = await this.validatePropagatedTx(tx, peerId);
 
     if (isValidTx) {
-      await this.txPool.addTxs([tx]);
+      await this.mempools.txPool.addTxs([tx]);
     }
   }
 
-  private async validateTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+  /**
+   * Validate a tx that has been requested from a peer.
+   *
+   * The core component of this validator is that the tx hash MUST match the requested tx hash,
+   * In order to perform this check, the tx proof must be verified.
+   *
+   * Note: This function is called from within `ReqResp.sendRequest` as part of the
+   * TX_REQ_PROTOCOL subprotocol validation.
+   *
+   * @param requestedTxHash - The hash of the tx that was requested.
+   * @param responseTx - The tx that was received as a response to the request.
+   * @param peerId - The peer ID of the peer that sent the tx.
+   * @returns True if the tx is valid, false otherwise.
+   */
+  private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
+    const proofValidator = new TxProofValidator(this.proofVerifier);
+    const validProof = await proofValidator.validateTx(responseTx);
+
+    // If the node returns the wrong data, we penalize it
+    if (!requestedTxHash.equals(responseTx.getTxHash())) {
+      // Returning the wrong data is a low tolerance error
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+      return false;
+    }
+
+    if (!validProof) {
+      // If the proof is invalid, but the txHash is correct, then this is an active attack and we severly punish
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      return false;
+    }
+
+    return true;
+  }
+
+  private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
     // basic data validation
     const dataValidator = new DataTxValidator();
-    const [_, dataInvalidTxs] = await dataValidator.validateTxs([tx]);
-    if (dataInvalidTxs.length > 0) {
+    const validData = await dataValidator.validateTx(tx);
+    if (!validData) {
       // penalize
       this.node.services.pubsub.score.markInvalidMessageDelivery(peerId.toString(), Tx.p2pTopic);
       return false;
@@ -438,8 +525,8 @@ export class LibP2PService implements P2PService {
 
     // metadata validation
     const metadataValidator = new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber));
-    const [__, metaInvalidTxs] = await metadataValidator.validateTxs([tx]);
-    if (metaInvalidTxs.length > 0) {
+    const validMetadata = await metadataValidator.validateTx(tx);
+    if (!validMetadata) {
       // penalize
       this.node.services.pubsub.score.markInvalidMessageDelivery(peerId.toString(), Tx.p2pTopic);
       return false;
@@ -448,13 +535,13 @@ export class LibP2PService implements P2PService {
     // double spend validation
     const doubleSpendValidator = new DoubleSpendTxValidator({
       getNullifierIndex: async (nullifier: Fr) => {
-        const merkleTree = this.worldStateSynchronizer.getLatest();
+        const merkleTree = this.worldStateSynchronizer.getCommitted();
         const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
         return index;
       },
     });
-    const [___, doubleSpendInvalidTxs] = await doubleSpendValidator.validateTxs([tx]);
-    if (doubleSpendInvalidTxs.length > 0) {
+    const validDoubleSpend = await doubleSpendValidator.validateTx(tx);
+    if (!validDoubleSpend) {
       // check if nullifier is older than 20 blocks
       if (blockNumber - this.config.severePeerPenaltyBlockLength > 0) {
         const snapshotValidator = new DoubleSpendTxValidator({
@@ -467,9 +554,9 @@ export class LibP2PService implements P2PService {
           },
         });
 
-        const [____, snapshotInvalidTxs] = await snapshotValidator.validateTxs([tx]);
+        const validSnapshot = await snapshotValidator.validateTx(tx);
         // High penalty if nullifier is older than 20 blocks
-        if (snapshotInvalidTxs.length > 0) {
+        if (!validSnapshot) {
           // penalize
           this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
           return false;
@@ -482,8 +569,8 @@ export class LibP2PService implements P2PService {
 
     // proof validation
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const [_____, proofInvalidTxs] = await proofValidator.validateTxs([tx]);
-    if (proofInvalidTxs.length > 0) {
+    const validProof = await proofValidator.validateTx(tx);
+    if (!validProof) {
       // penalize
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;

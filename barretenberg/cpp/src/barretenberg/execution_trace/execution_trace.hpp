@@ -28,7 +28,9 @@ template <class Flavor> class ExecutionTrace_ {
 
         TraceData(Builder& builder, ProvingKey& proving_key)
         {
-            ZoneScopedN("TraceData constructor");
+
+            PROFILE_THIS_NAME("TraceData constructor");
+
             if constexpr (IsHonkFlavor<Flavor>) {
                 // Initialize and share the wire and selector polynomials
                 for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
@@ -37,7 +39,6 @@ template <class Flavor> class ExecutionTrace_ {
                 for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
                     selector = other_selector.share();
                 }
-                proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
             } else {
                 // Initialize and share the wire and selector polynomials
                 for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -46,7 +47,9 @@ template <class Flavor> class ExecutionTrace_ {
                     proving_key.polynomial_store.put(wire_tag, wires[idx].share());
                 }
                 {
-                    ZoneScopedN("selector initialization");
+
+                    PROFILE_THIS_NAME("selector initialization");
+
                     for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
                         selectors[idx] = Polynomial(proving_key.circuit_size);
                         std::string selector_tag = builder.selector_names[idx] + "_lagrange";
@@ -55,7 +58,8 @@ template <class Flavor> class ExecutionTrace_ {
                 }
             }
             {
-                ZoneScopedN("copy cycle initialization");
+                PROFILE_THIS_NAME("copy cycle initialization");
+
                 copy_cycles.resize(builder.variables.size());
             }
         }
@@ -73,6 +77,14 @@ template <class Flavor> class ExecutionTrace_ {
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
     static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
+
+    /**
+     * @brief Populate the public inputs block
+     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
+     *
+     * @param circuit
+     */
+    static void populate_public_inputs_block(Builder& builder);
 
   private:
     /**
@@ -103,14 +115,6 @@ template <class Flavor> class ExecutionTrace_ {
     static TraceData construct_trace_data(Builder& builder,
                                           typename Flavor::ProvingKey& proving_key,
                                           bool is_structured = false);
-
-    /**
-     * @brief Populate the public inputs block
-     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
-     *
-     * @param builder
-     */
-    static void populate_public_inputs_block(Builder& builder);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

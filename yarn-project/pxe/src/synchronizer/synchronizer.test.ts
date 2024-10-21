@@ -97,21 +97,9 @@ describe('Synchronizer', () => {
       .mockResolvedValueOnce([blocks[1].body.encryptedLogs]);
 
     aztecNode.getBlocks
-      // called by synchronizer.work, we are testing fromFields in this first call
-      .mockResolvedValueOnce([
-        L2Block.fromFields({
-          archive: blocks[0].archive,
-          header: blocks[0].header,
-          body: blocks[0].body,
-        }),
-      ])
-      .mockResolvedValueOnce([
-        L2Block.fromFields({
-          archive: blocks[1].archive,
-          header: blocks[1].header,
-          body: blocks[1].body,
-        }),
-      ])
+      // called by synchronizer.work,
+      .mockResolvedValueOnce([blocks[0]])
+      .mockResolvedValueOnce([blocks[1]])
       // called by synchronizer.workNoteProcessorCatchUp
       .mockResolvedValueOnce([blocks[0]])
       .mockResolvedValueOnce([blocks[1]]);
@@ -132,7 +120,7 @@ describe('Synchronizer', () => {
       const partialAddress = Fr.random();
       const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
-      await synchronizer.addAccount(completeAddress.address, keyStore, startingBlockNum);
+      await synchronizer.addAccount(completeAddress, keyStore, startingBlockNum);
       return completeAddress;
     };
 

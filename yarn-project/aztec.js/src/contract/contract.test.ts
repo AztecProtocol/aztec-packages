@@ -1,13 +1,24 @@
-import { type Tx, type TxExecutionRequest, type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
+import {
+  type Tx,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxProvingResult,
+  type TxReceipt,
+  type TxSimulationResult,
+} from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  EthAddress,
+  type NodeInfo,
+} from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
-import { type ContractArtifact, type DecodedReturn, FunctionType } from '@aztec/foundation/abi';
-import { type NodeInfo } from '@aztec/types/interfaces';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type ContractInstanceWithAddress } from '../index.js';
-import { type Wallet } from '../wallet/index.js';
+import { type Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -17,9 +28,11 @@ describe('Contract Class', () => {
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
+  const mockTxProvingResult = { type: 'TxProvingResult', toTx: () => mockTx } as any as TxProvingResult;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
+  const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
   const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),
@@ -39,7 +52,6 @@ describe('Contract Class', () => {
       classRegisterer: AztecAddress.random(),
       feeJuice: AztecAddress.random(),
       instanceDeployer: AztecAddress.random(),
-      keyRegistry: AztecAddress.random(),
       multiCallEntrypoint: AztecAddress.random(),
     },
   };
@@ -125,13 +137,14 @@ describe('Contract Class', () => {
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
+    wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as DecodedReturn);
+    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
-    wallet.proveTx.mockResolvedValue(mockTx);
+    wallet.proveTx.mockResolvedValue(mockTxProvingResult);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 

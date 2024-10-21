@@ -5,6 +5,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
+import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -30,7 +31,7 @@ export interface Validator {
 
 /** Validator Client
  */
-export class ValidatorClient implements Validator {
+export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
 
   constructor(
@@ -38,15 +39,18 @@ export class ValidatorClient implements Validator {
     private p2pClient: P2P,
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
-    private log = createDebugLogger('aztec:validator'),
+    telemetry: TelemetryClient,
+    private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
   ) {
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
+    // Instantiate tracer
+    super(telemetry, 'Validator');
 
+    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P) {
+  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -59,6 +63,7 @@ export class ValidatorClient implements Validator {
       p2pClient,
       config.attestationPoolingIntervalMs,
       config.attestationWaitTimeoutMs,
+      telemetry,
     );
     validator.registerBlockProposalHandler();
     return validator;
@@ -81,6 +86,10 @@ export class ValidatorClient implements Validator {
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    this.log.verbose(`request to attest`, {
+      archive: proposal.payload.archive.toString(),
+      txHashes: proposal.payload.txHashes,
+    });
     try {
       await this.ensureTransactionsAreAvailable(proposal);
     } catch (error: any) {
@@ -89,7 +98,9 @@ export class ValidatorClient implements Validator {
       }
       return undefined;
     }
-    this.log.debug(`Transactions available, attesting to proposal with ${proposal.txs.length} transactions`);
+    this.log.verbose(
+      `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
+    );
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
@@ -104,7 +115,7 @@ export class ValidatorClient implements Validator {
    * @param proposal - The proposal to attest to
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
-    const txHashes: TxHash[] = proposal.txs;
+    const txHashes: TxHash[] = proposal.payload.txHashes;
     const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
 
     const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
@@ -136,15 +147,16 @@ export class ValidatorClient implements Validator {
     numberOfRequiredAttestations: number,
   ): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.header.globalVariables.slotNumber.toBigInt();
+    const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
+    const proposalId = proposal.archive.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
 
     const startTime = Date.now();
 
     while (true) {
-      const attestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot))];
+      const attestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot, proposalId))];
 
       if (attestations.length >= numberOfRequiredAttestations) {
         this.log.info(`Collected all ${numberOfRequiredAttestations} attestations for slot, ${slot}`);

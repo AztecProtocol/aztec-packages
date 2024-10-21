@@ -1,6 +1,10 @@
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Main {
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #['private]
+    #['initializer]
     fn constructor() { }
 }

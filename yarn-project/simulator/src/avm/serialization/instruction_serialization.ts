@@ -39,21 +39,8 @@ export enum Opcode {
   CAST_8,
   CAST_16,
   // Execution environment
-  ADDRESS,
-  STORAGEADDRESS,
-  SENDER,
-  FUNCTIONSELECTOR,
-  TRANSACTIONFEE,
-  CHAINID,
-  VERSION,
-  BLOCKNUMBER,
-  TIMESTAMP,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
+  GETENVVAR_16,
   CALLDATACOPY,
-  // Gas
-  L2GASLEFT,
-  DAGASLEFT,
   // Control flow
   JUMP_16,
   JUMPI_16,
@@ -68,7 +55,6 @@ export enum Opcode {
   SET_FF,
   MOV_8,
   MOV_16,
-  CMOV,
   // World state
   SLOAD,
   SSTORE,
@@ -92,16 +78,14 @@ export enum Opcode {
   // Gadgets
   KECCAK,
   POSEIDON2,
-  SHA256, // temp - may be removed, but alot of contracts rely on it
+  SHA256COMPRESSION,
+  KECCAKF1600,
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
   PEDERSENCOMMITMENT,
   // Conversion
   TORADIXLE,
-  // Future Gadgets -- pending changes in noir
-  SHA256COMPRESSION,
-  KECCAKF1600, // Here for when we eventually support this
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
@@ -174,7 +158,7 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
-  if (cursor instanceof Buffer) {
+  if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 

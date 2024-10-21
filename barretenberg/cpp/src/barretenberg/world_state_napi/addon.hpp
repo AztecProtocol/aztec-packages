@@ -33,6 +33,7 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
 
     bool get_tree_info(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool get_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool get_initial_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
     bool get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& buffer) const;
@@ -51,7 +52,16 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
 
     bool sync_block(msgpack::object& obj, msgpack::sbuffer& buffer);
 
-    static WorldStateRevision revision_from_input(int input);
+    bool create_fork(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool delete_fork(msgpack::object& obj, msgpack::sbuffer& buffer);
+
+    bool close(msgpack::object& obj, msgpack::sbuffer& buffer);
+
+    bool set_finalised(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool unwind(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool remove_historical(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+
+    bool get_status(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 };
 
 } // namespace bb::world_state

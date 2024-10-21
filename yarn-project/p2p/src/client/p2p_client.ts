@@ -1,6 +1,7 @@
 import {
   type BlockAttestation,
   type BlockProposal,
+  type EpochProofQuote,
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
@@ -10,14 +11,17 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 
-import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
+import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { type MemPools } from '../mem_pools/interface.js';
+import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
-import { type TxPool } from '../tx_pool/index.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -58,9 +62,25 @@ export interface P2P {
    * Queries the Attestation pool for attestations for the given slot
    *
    * @param slot - the slot to query
+   * @param proposalId - the proposal id to query
    * @returns BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+  getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+
+  /**
+   * Queries the EpochProofQuote pool for quotes for the given epoch
+   *
+   * @param epoch  - the epoch to query
+   * @returns EpochProofQuotes
+   */
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+
+  /**
+   * Broadcasts an EpochProofQuote to other peers.
+   *
+   * @param quote - the quote to broadcast
+   */
+  broadcastEpochProofQuote(quote: EpochProofQuote): void;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -134,7 +154,7 @@ export interface P2P {
    * Indicates if the p2p client is ready for transaction submission.
    * @returns A boolean flag indicating readiness.
    */
-  isReady(): Promise<boolean>;
+  isReady(): boolean;
 
   /**
    * Returns the current status of the p2p client.
@@ -150,7 +170,7 @@ export interface P2P {
 /**
  * The P2P client implementation.
  */
-export class P2PClient implements P2P {
+export class P2PClient extends WithTracer implements P2P {
   /** L2 block download to stay in sync with latest blocks. */
   private latestBlockDownloader: L2BlockDownloader;
 
@@ -172,6 +192,10 @@ export class P2PClient implements P2P {
   private synchedLatestBlockNumber: AztecSingleton<number>;
   private synchedProvenBlockNumber: AztecSingleton<number>;
 
+  private txPool: TxPool;
+  private attestationPool: AttestationPool;
+  private epochProofQuotePool: EpochProofQuotePool;
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -184,12 +208,14 @@ export class P2PClient implements P2P {
   constructor(
     store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
-    private txPool: TxPool,
-    private attestationPool: AttestationPool,
+    mempools: MemPools,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
+    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:p2p'),
   ) {
+    super(telemetryClient, 'P2PClient');
+
     const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
     // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
@@ -200,6 +226,26 @@ export class P2PClient implements P2P {
 
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+
+    this.txPool = mempools.txPool;
+    this.attestationPool = mempools.attestationPool;
+    this.epochProofQuotePool = mempools.epochProofQuotePool;
+  }
+
+  #assertIsReady() {
+    if (!this.isReady()) {
+      throw new Error('P2P client not ready');
+    }
+  }
+
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+    return Promise.resolve(this.epochProofQuotePool.getQuotes(epoch));
+  }
+
+  broadcastEpochProofQuote(quote: EpochProofQuote): void {
+    this.#assertIsReady();
+    this.epochProofQuotePool.addQuote(quote);
+    return this.p2pService.propagate(quote);
   }
 
   /**
@@ -276,13 +322,19 @@ export class P2PClient implements P2P {
     this.log.info('P2P client stopped.');
   }
 
+  @trackSpan('p2pClient.broadcastProposal', proposal => ({
+    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
+    [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
+  }))
   public broadcastProposal(proposal: BlockProposal): void {
     this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 
-  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
-    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot));
+  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot, proposalId));
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -319,8 +371,6 @@ export class P2PClient implements P2P {
 
     this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
     if (tx) {
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8485): This check is not sufficient to validate the transaction. We need to validate the entire proof.
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8483): alter peer scoring system for a validator that returns an invalid transcation
       await this.txPool.addTxs([tx]);
     }
 
@@ -365,10 +415,7 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    const ready = await this.isReady();
-    if (!ready) {
-      throw new Error('P2P client not ready');
-    }
+    this.#assertIsReady();
     await this.txPool.addTxs([tx]);
     this.p2pService.propagate(tx);
   }
@@ -393,10 +440,7 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    **/
   public async deleteTxs(txHashes: TxHash[]): Promise<void> {
-    const ready = await this.isReady();
-    if (!ready) {
-      throw new Error('P2P client not ready');
-    }
+    this.#assertIsReady();
     await this.txPool.deleteTxs(txHashes);
   }
 
@@ -405,7 +449,7 @@ export class P2PClient implements P2P {
    * @returns True if the P2P client is ready to receive txs.
    */
   public isReady() {
-    return Promise.resolve(this.currentState === P2PClientState.RUNNING);
+    return this.currentState === P2PClientState.RUNNING;
   }
 
   /**
@@ -501,6 +545,10 @@ export class P2PClient implements P2P {
 
     await this.synchedProvenBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to proven block ${lastBlockNum}`);
+    const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
+    if (provenEpochNumber !== undefined) {
+      this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
+    }
     await this.startServiceIfSynched();
   }
 

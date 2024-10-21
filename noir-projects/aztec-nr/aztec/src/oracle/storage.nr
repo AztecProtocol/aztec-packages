@@ -3,7 +3,7 @@ use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
 #[oracle(storageRead)]
 unconstrained fn storage_read_oracle<let N: u32>(address: Field, storage_slot: Field, block_number: Field, length: Field) -> [Field; N] {}
 
-unconstrained pub fn raw_storage_read<let N: u32>(
+pub unconstrained fn raw_storage_read<let N: u32>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32
@@ -16,7 +16,7 @@ unconstrained pub fn raw_storage_read<let N: u32>(
     )
 }
 
-unconstrained pub fn storage_read<T, let N: u32>(
+pub unconstrained fn storage_read<T, let N: u32>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32
@@ -36,7 +36,7 @@ mod tests {
     global block_number = 17;
 
     #[test]
-    fn test_raw_storage_read() {
+    unconstrained fn test_raw_storage_read() {
         let written = MockStruct { a: 13, b: 42 };
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
@@ -47,7 +47,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_read() {
+    unconstrained fn test_storage_read() {
         let written = MockStruct { a: 13, b: 42 };
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());

@@ -108,15 +108,16 @@ describe('e2e_fees private_payment', () => {
      */
     const transferAmount = 5n;
     const interaction = bananaCoin.methods.transfer(bobAddress, transferAmount);
-    const localTx = await interaction.prove({
+    const settings = {
       fee: {
         gasSettings,
         paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
       },
-    });
+    };
+    const localTx = await interaction.prove(settings);
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
-    const tx = await interaction.send().wait();
+    const tx = await localTx.send().wait();
 
     /**
      * at present the user is paying DA gas for:

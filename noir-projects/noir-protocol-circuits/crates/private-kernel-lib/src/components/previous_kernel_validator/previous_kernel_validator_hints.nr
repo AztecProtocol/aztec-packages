@@ -3,11 +3,11 @@ use dep::types::{
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, utils::arrays::find_index_hint
 };
 
-struct PreviousKernelValidatorHints {
+pub struct PreviousKernelValidatorHints {
     note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
 }
 
-unconstrained pub fn generate_previous_kernel_validator_hints(previous_kernel: PrivateKernelCircuitPublicInputs) -> PreviousKernelValidatorHints {
+pub unconstrained fn generate_previous_kernel_validator_hints(previous_kernel: PrivateKernelCircuitPublicInputs) -> PreviousKernelValidatorHints {
     let mut note_hash_indexes_for_nullifiers = [0; MAX_NULLIFIERS_PER_TX];
     let note_hashes = previous_kernel.end.note_hashes;
     let nullifiers = previous_kernel.end.nullifiers;

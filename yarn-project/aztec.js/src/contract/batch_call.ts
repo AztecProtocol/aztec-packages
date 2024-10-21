@@ -1,5 +1,5 @@
 import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
-import { FunctionType, decodeReturnValues } from '@aztec/foundation/abi';
+import { FunctionType, decodeFromAbi } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/index.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
@@ -18,12 +18,9 @@ export class BatchCall extends BaseContractInteraction {
    * @returns A Promise that resolves to a transaction instance.
    */
   public async create(opts?: SendMethodOptions): Promise<TxExecutionRequest> {
-    if (!this.txRequest) {
-      const calls = this.calls;
-      const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
-      this.txRequest = await this.wallet.createTxExecutionRequest({ calls, fee });
-    }
-    return this.txRequest;
+    const calls = this.calls;
+    const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
+    return await this.wallet.createTxExecutionRequest({ calls, fee });
   }
 
   /**
@@ -92,10 +89,10 @@ export class BatchCall extends BaseContractInteraction {
       // For public functions we retrieve the first values directly from the public output.
       const rawReturnValues =
         call.type == FunctionType.PRIVATE
-          ? simulatedTx.privateReturnValues?.nested?.[resultIndex].values
-          : simulatedTx.publicOutput?.publicReturnValues?.[resultIndex].values;
+          ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
+          : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-      results[callIndex] = rawReturnValues ? decodeReturnValues(call.returnTypes, rawReturnValues) : [];
+      results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
     });
     return results;
   }

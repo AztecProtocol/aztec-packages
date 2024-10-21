@@ -29,7 +29,7 @@ export {
   type ContractStorageLayout,
   DefaultWaitOpts,
   DeployMethod,
-  DeployOptions,
+  type DeployOptions,
   DeploySentTx,
   type SendMethodOptions,
   SentTx,
@@ -39,32 +39,34 @@ export {
 export { ContractDeployer } from './deployment/index.js';
 
 export {
-  AztecAddressLike,
+  type AztecAddressLike,
   AnvilTestWatcher,
   CheatCodes,
-  EthAddressLike,
+  type EthAddressLike,
   EthCheatCodes,
-  EventSelectorLike,
-  FieldLike,
-  FunctionSelectorLike,
-  WrappedFieldLike,
+  type EventSelectorLike,
+  type FieldLike,
+  type FunctionSelectorLike,
+  type WrappedFieldLike,
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,
   computeInnerAuthWitHash,
   generatePublicKey,
+  readFieldCompressedString,
   waitForAccountSynch,
   waitForPXE,
 } from './utils/index.js';
+
 export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createPXEClient, createCompatibleClient } from './rpc_clients/index.js';
 
-export { AuthWitnessProvider } from './account/index.js';
+export { type AuthWitnessProvider } from './account/index.js';
 
-export { AccountContract } from './account/index.js';
-export { AccountManager, DeployAccountOptions } from './account_manager/index.js';
+export { type AccountContract } from './account/index.js';
+export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
 
-export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, Wallet } from './wallet/index.js';
+export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
 
 // // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
 // // here once the issue is resolved.
@@ -79,6 +81,9 @@ export {
   Point,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  NodeInfo,
 } from '@aztec/circuits.js';
 
 export { computeSecretHash } from '@aztec/circuits.js/hash';
@@ -94,14 +99,11 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
 export {
   AuthWitness,
-  AztecNode,
+  type AztecNode,
   Body,
   Comparator,
   CompleteAddress,
   EncryptedL2BlockL2Logs,
-  EncryptedLogHeader,
-  EncryptedNoteLogIncomingBody,
-  EncryptedLogOutgoingBody,
   EventType,
   ExtendedNote,
   UniqueNote,
@@ -112,17 +114,17 @@ export {
   L2Block,
   L2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
-  LogFilter,
+  type LogFilter,
   LogId,
   LogType,
   MerkleTreeId,
   Note,
-  PXE,
+  type PXE,
   PackedValues,
-  PartialAddress,
-  PublicKey,
+  type PartialAddress,
+  type PublicKey,
   SiblingPath,
-  SyncStatus,
+  type SyncStatus,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -133,32 +135,32 @@ export {
   createAztecNodeClient,
   merkleTreeIds,
   mockTx,
-  TaggedLog,
+  mockEpochProofQuote,
+  EncryptedLogPayload,
   L1NotePayload,
   L1EventPayload,
+  EpochProofQuote,
+  EpochProofQuotePayload,
 } from '@aztec/circuit-types';
-export { NodeInfo } from '@aztec/types/interfaces';
-
-export { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { encodeArguments } from '@aztec/foundation/abi';
+export { encodeArguments, decodeFromAbi, type AbiType } from '@aztec/foundation/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256 } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
-export { DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
+export { type DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
 export { retry, retryUntil } from '@aztec/foundation/retry';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { sleep } from '@aztec/foundation/sleep';
 export { elapsed } from '@aztec/foundation/timer';
-export { FieldsOf } from '@aztec/foundation/types';
+export { type FieldsOf } from '@aztec/foundation/types';
 export { fileURLToPath } from '@aztec/foundation/url';
 
 export {
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
+  type DeployL1Contracts,
+  type L1ContractArtifactsForDeployment,
   deployL1Contract,
   deployL1Contracts,
 } from '@aztec/ethereum';

@@ -4,9 +4,9 @@ use dep::protocol_types::{
 };
 
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT
-global NULLIFIER_MEMBERSHIP_WITNESS: Field = 24;
+global NULLIFIER_MEMBERSHIP_WITNESS: u32 = 24;
 
-struct NullifierMembershipWitness {
+pub struct NullifierMembershipWitness {
     index: Field,
     leaf_preimage: NullifierLeafPreimage,
     path: [Field; NULLIFIER_TREE_HEIGHT],
@@ -35,7 +35,7 @@ unconstrained fn get_low_nullifier_membership_witness_oracle(
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
-unconstrained pub fn get_low_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
+pub unconstrained fn get_low_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
     let fields = get_low_nullifier_membership_witness_oracle(block_number, nullifier);
     NullifierMembershipWitness::deserialize(fields)
 }
@@ -48,7 +48,7 @@ unconstrained fn get_nullifier_membership_witness_oracle(
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
-unconstrained pub fn get_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
+pub unconstrained fn get_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
     let fields = get_nullifier_membership_witness_oracle(block_number, nullifier);
     NullifierMembershipWitness::deserialize(fields)
 }

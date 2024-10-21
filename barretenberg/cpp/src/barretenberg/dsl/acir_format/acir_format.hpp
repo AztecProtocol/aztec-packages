@@ -41,14 +41,12 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> logic_constraints;
     std::vector<size_t> range_constraints;
     std::vector<size_t> aes128_constraints;
-    std::vector<size_t> sha256_constraints;
     std::vector<size_t> sha256_compression;
     std::vector<size_t> schnorr_constraints;
     std::vector<size_t> ecdsa_k1_constraints;
     std::vector<size_t> ecdsa_r1_constraints;
     std::vector<size_t> blake2s_constraints;
     std::vector<size_t> blake3_constraints;
-    std::vector<size_t> keccak_constraints;
     std::vector<size_t> keccak_permutations;
     std::vector<size_t> pedersen_constraints;
     std::vector<size_t> pedersen_hash_constraints;
@@ -90,14 +88,12 @@ struct AcirFormat {
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
-    std::vector<Sha256Constraint> sha256_constraints;
     std::vector<Sha256Compression> sha256_compression;
     std::vector<SchnorrConstraint> schnorr_constraints;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
-    std::vector<KeccakConstraint> keccak_constraints;
     std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
@@ -117,7 +113,13 @@ struct AcirFormat {
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
     bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
+    // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
     bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
+    // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
+    // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
+    // reduce the number of intermediate variables.
+    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -137,14 +139,12 @@ struct AcirFormat {
                    logic_constraints,
                    range_constraints,
                    aes128_constraints,
-                   sha256_constraints,
                    sha256_compression,
                    schnorr_constraints,
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
                    blake2s_constraints,
                    blake3_constraints,
-                   keccak_constraints,
                    keccak_permutations,
                    pedersen_constraints,
                    pedersen_hash_constraints,
@@ -156,6 +156,8 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    ivc_recursion_constraints,
                    poly_triple_constraints,
+                   quad_constraints,
+                   big_quad_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
                    bigint_to_le_bytes_constraints,
@@ -242,7 +244,7 @@ template <typename Builder> class GateCounter {
         if (!collect_gates_per_opcode) {
             return 0;
         }
-        size_t new_gate_count = builder->get_num_gates();
+        size_t new_gate_count = builder->get_estimated_num_finalized_gates();
         size_t diff = new_gate_count - prev_gate_count;
         prev_gate_count = new_gate_count;
         return diff;

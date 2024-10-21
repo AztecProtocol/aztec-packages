@@ -7,7 +7,6 @@
 ^noir/noir-repo/yarn.lock
 ^noir/noir-repo/acvm-repo
 ^noir/noir-repo/compiler
-^noir/noir-repo/aztec_macros
 ^noir/noir-repo/noir_stdlib
 ^noir/noir-repo/tooling/noir_codegen
 ^noir/noir-repo/tooling/noir_js

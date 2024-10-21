@@ -1,15 +1,18 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    recursion::{
+    proof::NestedRecursiveProof, verification_key::{VerificationKey, HonkVerificationKey},
+    traits::Verifiable
+},
     traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
     utils::arrays::find_index_hint
 };
 
-struct PreviousRollupData{
+pub struct PreviousRollupData{
     base_or_merge_rollup_public_inputs : BaseOrMergeRollupPublicInputs,
     proof : NestedRecursiveProof,
-    vk : VerificationKey,
+    vk : HonkVerificationKey,
     vk_witness : MembershipWitness<VK_TREE_HEIGHT>,
 }
 
@@ -37,6 +40,7 @@ impl PreviousRollupData {
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == leaf_index)
         };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
         assert_check_membership(

@@ -1,0 +1,166 @@
+{{- if not .Values.proverNode.external }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-node
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "aztec-network.fullname" . }}-prover-node
+  replicas: {{ .Values.proverNode.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: prover-node
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: prover-node
+    spec:
+      initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                echo "Waiting for Ethereum node..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
+              echo "Boot node is ready!"
+        - name: configure-prover-env
+          image: "{{ .Values.images.aztec.image }}"
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "cp /scripts/configure-prover-env.sh /tmp/configure-prover-env.sh && chmod +x /tmp/configure-prover-env.sh && /tmp/configure-prover-env.sh {{ include "aztec-network.bootNodeUrl" . }}"
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /shared
+            - name: scripts
+              mountPath: /scripts
+          env:
+            - name: ETHEREUM_HOST
+              value: {{ include "aztec-network.ethereumHost" . | quote }}
+
+      containers:
+        - name: prover-node
+          image: "{{ .Values.images.aztec.image }}"
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --prover --archiver"
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /shared
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_DNS_NAME
+              value: "$(POD_NAME).{{ include "aztec-network.fullname" . }}-prover-node.$(POD_NAMESPACE).svc.cluster.local"
+            - name: PORT
+              value: "{{ .Values.proverNode.service.nodePort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.proverNode.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: DEBUG
+              value: "{{ .Values.proverNode.debug }}"
+            - name: ETHEREUM_HOST
+              value: {{ include "aztec-network.ethereumHost" . | quote }}
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.proverNode.realProofs }}"
+            - name: PROVER_AGENT_ENABLED
+              value: "{{ .Values.proverNode.proverAgentEnabled }}"
+            - name: PROVER_PUBLISHER_PRIVATE_KEY
+              value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            # get private proofs from the boot node
+            - name: PROVER_COORDINATION_NODE_URL
+              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+            - name: PROVER_JOB_SOURCE_URL
+              value: "http://$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
+          ports:
+            - containerPort: {{ .Values.proverNode.service.nodePort }}
+          resources:
+            {{- toYaml .Values.proverNode.resources | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-configure-prover-env
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "aztec-network.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.proverNode.storage }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-configure-prover-env
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  configure-prover-env.sh: |
+    {{ .Files.Get "files/config/config-prover-env.sh" | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-node
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-node
+  ports:
+    - port: {{ .Values.proverNode.service.nodePort }}
+      name: node
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-node-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-node
+  ports:
+    - port: {{ .Values.proverNode.service.nodePort }}
+      name: node
+{{ end }}
+{{ end }}

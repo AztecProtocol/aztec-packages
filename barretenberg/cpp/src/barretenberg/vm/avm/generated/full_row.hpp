@@ -23,7 +23,12 @@ template <typename FF> struct AvmFullRow {
     FF gas_dyn_l2_gas_fixed_table{};
     FF gas_sel_gas_cost{};
     FF main_clk{};
+    FF main_sel_da_end_gas_kernel_input{};
+    FF main_sel_da_start_gas_kernel_input{};
     FF main_sel_first{};
+    FF main_sel_l2_end_gas_kernel_input{};
+    FF main_sel_l2_start_gas_kernel_input{};
+    FF main_sel_start_exec{};
     FF main_zeroes{};
     FF powers_power_of_2{};
     FF main_kernel_inputs{};
@@ -75,6 +80,7 @@ template <typename FF> struct AvmFullRow {
     FF alu_sel_shift_which{};
     FF alu_u128_tag{};
     FF alu_u16_tag{};
+    FF alu_u1_tag{};
     FF alu_u32_tag{};
     FF alu_u64_tag{};
     FF alu_u8_tag{};
@@ -120,6 +126,7 @@ template <typename FF> struct AvmFullRow {
     FF conversion_clk{};
     FF conversion_input{};
     FF conversion_num_limbs{};
+    FF conversion_output_bits{};
     FF conversion_radix{};
     FF conversion_sel_to_radix_le{};
     FF keccakf1600_clk{};
@@ -153,6 +160,8 @@ template <typename FF> struct AvmFullRow {
     FF main_ind_addr_d{};
     FF main_internal_return_ptr{};
     FF main_inv{};
+    FF main_is_fake_row{};
+    FF main_is_gas_accounted{};
     FF main_kernel_in_offset{};
     FF main_kernel_out_offset{};
     FF main_l1_to_l2_msg_exists_write_offset{};
@@ -176,10 +185,10 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_alu{};
     FF main_sel_bin{};
     FF main_sel_calldata{};
+    FF main_sel_execution_end{};
     FF main_sel_execution_row{};
     FF main_sel_kernel_inputs{};
     FF main_sel_kernel_out{};
-    FF main_sel_last{};
     FF main_sel_mem_op_a{};
     FF main_sel_mem_op_b{};
     FF main_sel_mem_op_c{};
@@ -193,7 +202,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_calldata_copy{};
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
-    FF main_sel_op_cmov{};
     FF main_sel_op_dagasleft{};
     FF main_sel_op_div{};
     FF main_sel_op_ecadd{};
@@ -212,6 +220,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_get_contract_instance{};
     FF main_sel_op_internal_call{};
     FF main_sel_op_internal_return{};
+    FF main_sel_op_is_static_call{};
     FF main_sel_op_jump{};
     FF main_sel_op_jumpi{};
     FF main_sel_op_keccak{};
@@ -237,6 +246,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_shr{};
     FF main_sel_op_sload{};
     FF main_sel_op_sstore{};
+    FF main_sel_op_static_call{};
     FF main_sel_op_storage_address{};
     FF main_sel_op_sub{};
     FF main_sel_op_timestamp{};
@@ -274,7 +284,6 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_a{};
     FF mem_sel_op_b{};
     FF mem_sel_op_c{};
-    FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
     FF mem_sel_op_poseidon_read_a{};
     FF mem_sel_op_poseidon_read_b{};
@@ -640,6 +649,10 @@ template <typename FF> struct AvmFullRow {
     FF perm_cmp_alu_inv{};
     FF perm_rng_gas_l2_inv{};
     FF perm_rng_gas_da_inv{};
+    FF perm_l2_start_gas_inv{};
+    FF perm_da_start_gas_inv{};
+    FF perm_l2_end_gas_inv{};
+    FF perm_da_end_gas_inv{};
     FF perm_pos_mem_read_a_inv{};
     FF perm_pos_mem_read_b_inv{};
     FF perm_pos_mem_read_c_inv{};
@@ -709,7 +722,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 695;
+    static constexpr size_t SIZE = 708;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

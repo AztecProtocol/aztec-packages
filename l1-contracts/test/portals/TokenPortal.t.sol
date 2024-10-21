@@ -1,25 +1,27 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 // Interfaces
-import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
-import {PortalERC20} from "./PortalERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -27,6 +29,7 @@ contract TokenPortalTest is Test {
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
 
@@ -37,7 +40,7 @@ contract TokenPortalTest is Test {
   bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
 
   TokenPortal internal tokenPortal;
-  PortalERC20 internal portalERC20;
+  TestERC20 internal testERC20;
 
   // input params
   uint32 internal deadline = uint32(block.timestamp + 1 days);
@@ -59,19 +62,19 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry(address(this));
-    portalERC20 = new PortalERC20();
+    testERC20 = new TestERC20();
     rollup =
-      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
+      new Rollup(new MockFeeJuicePortal(), bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 
     registry.upgrade(address(rollup));
 
     tokenPortal = new TokenPortal();
-    tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
+    tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber));
+    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber));
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
@@ -89,7 +92,7 @@ contract TokenPortalTest is Test {
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
-        ),
+      ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -109,8 +112,8 @@ contract TokenPortalTest is Test {
 
   function testDepositPrivate() public returns (bytes32) {
     // mint token and approve to the portal
-    portalERC20.mint(address(this), mintAmount);
-    portalERC20.approve(address(tokenPortal), mintAmount);
+    testERC20.mint(address(this), mintAmount);
+    testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message();
@@ -120,7 +123,8 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
     // event we will get
 
     // Perform op
@@ -135,8 +139,8 @@ contract TokenPortalTest is Test {
 
   function testDepositPublic() public returns (bytes32) {
     // mint token and approve to the portal
-    portalERC20.mint(address(this), mintAmount);
-    portalERC20.approve(address(tokenPortal), mintAmount);
+    testERC20.mint(address(this), mintAmount);
+    testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message();
@@ -145,7 +149,8 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
 
     // Perform op
     bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
@@ -167,7 +172,7 @@ contract TokenPortalTest is Test {
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )
-          )
+        )
       })
     );
 
@@ -184,7 +189,7 @@ contract TokenPortalTest is Test {
     returns (bytes32, bytes32[] memory, bytes32)
   {
     // send assets to the portal
-    portalERC20.mint(address(tokenPortal), withdrawAmount);
+    testERC20.mint(address(tokenPortal), withdrawAmount);
 
     // Create the message
     (bytes32 l2ToL1Message,) = _createWithdrawMessageForOutbox(_designatedCaller);
@@ -209,7 +214,7 @@ contract TokenPortalTest is Test {
     // add message with caller as this address
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(0), l2BlockNumber);
-    assertEq(portalERC20.balanceOf(recipient), 0);
+    assertEq(testERC20.balanceOf(recipient), 0);
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
@@ -217,7 +222,7 @@ contract TokenPortalTest is Test {
     tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
 
     // Should have received 654 RNA tokens
-    assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
+    assertEq(testERC20.balanceOf(recipient), withdrawAmount);
 
     // Should not be able to withdraw again
     vm.expectRevert(
@@ -262,6 +267,6 @@ contract TokenPortalTest is Test {
     tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
 
     // Should have received 654 RNA tokens
-    assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
+    assertEq(testERC20.balanceOf(recipient), withdrawAmount);
   }
 }

@@ -8,9 +8,9 @@ import {
   type Wallet,
   computeSecretHash,
 } from '@aztec/aztec.js';
-import { FeeJuicePortalAbi, OutboxAbi, PortalERC20Abi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
   type Account,
@@ -68,7 +68,7 @@ export class FeeJuicePortalTestingHarnessFactory {
 
     const gasL1 = getContract({
       address: feeJuiceAddress.toString(),
-      abi: PortalERC20Abi,
+      abi: TestERC20Abi,
       client: walletClient,
     });
 
@@ -78,7 +78,7 @@ export class FeeJuicePortalTestingHarnessFactory {
       client: walletClient,
     });
 
-    const gasL2 = await FeeJuiceContract.at(FeeJuiceAddress, wallet);
+    const gasL2 = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,
@@ -125,7 +125,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Token portal instance. */
     public tokenPortal: GetContractReturnType<typeof FeeJuicePortalAbi, WalletClient<HttpTransport, Chain, Account>>,
     /** Underlying token for portal tests. */
-    public underlyingERC20: GetContractReturnType<typeof PortalERC20Abi, WalletClient<HttpTransport, Chain, Account>>,
+    public underlyingERC20: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>,
     /** Message Bridge Outbox. */
     public outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>,
     /** Viem Public client instance. */

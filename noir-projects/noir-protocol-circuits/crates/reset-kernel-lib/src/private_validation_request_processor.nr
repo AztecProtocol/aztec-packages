@@ -9,7 +9,7 @@ use dep::types::{
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}
 };
 
-struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
+pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
     validation_requests: PrivateValidationRequests,
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     pending_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
@@ -28,7 +28,7 @@ impl<
     let NLL_RR_SETTLED: u32,
     let KEY_VALIDATION_REQUESTS: u32
 > PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
-    unconstrained pub fn compose(self) -> PrivateValidationRequests {
+    pub unconstrained fn compose(self) -> PrivateValidationRequests {
         let note_hash_read_requests = get_unverified_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.note_hash_read_request_hints.read_request_statuses
@@ -81,11 +81,17 @@ impl<
         );
 
         // key_validation_requests
-        verify_reset_key_validation_requests(
-            self.validation_requests.scoped_key_validation_requests_and_generators,
-            self.key_validation_hints,
-            output.scoped_key_validation_requests_and_generators
-        );
+        if KEY_VALIDATION_REQUESTS == 0 {
+            assert_eq(
+                output.scoped_key_validation_requests_and_generators, self.validation_requests.scoped_key_validation_requests_and_generators, "mismatch scoped_key_validation_requests_and_generators"
+            );
+        } else {
+            verify_reset_key_validation_requests(
+                self.validation_requests.scoped_key_validation_requests_and_generators,
+                self.key_validation_hints,
+                output.scoped_key_validation_requests_and_generators
+            );
+        }
 
         // split_counter
         assert_eq(

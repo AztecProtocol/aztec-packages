@@ -1,10 +1,10 @@
-import { AztecAddress, type GrumpkinScalar, type KeyValidationRequest, type PublicKey } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { EncryptedNoteLogIncomingBody } from './encrypted_log_incoming_body/index.js';
-import { L1Payload } from './l1_payload.js';
+import { type EncryptedL2NoteLog } from '../encrypted_l2_note_log.js';
+import { EncryptedLogPayload } from './encrypted_log_payload.js';
 import { Note } from './payload.js';
 
 /**
@@ -12,7 +12,7 @@ import { Note } from './payload.js';
  * @remarks This data is required to compute a nullifier/to spend a note. Along with that this class contains
  * the necessary functionality to encrypt and decrypt the data.
  */
-export class L1NotePayload extends L1Payload {
+export class L1NotePayload {
   constructor(
     /**
      * A note as emitted from Noir contract. Can be used along with private key to compute nullifier.
@@ -30,22 +30,48 @@ export class L1NotePayload extends L1Payload {
      * Type identifier for the underlying note, required to determine how to compute its hash and nullifier.
      */
     public noteTypeId: NoteSelector,
-  ) {
-    super();
+  ) {}
+
+  static fromIncomingBodyPlaintextAndContractAddress(
+    plaintext: Buffer,
+    contractAddress: AztecAddress,
+  ): L1NotePayload | undefined {
+    try {
+      const reader = BufferReader.asReader(plaintext);
+      const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
+
+      const storageSlot = fields[0];
+      const noteTypeId = NoteSelector.fromField(fields[1]);
+
+      const note = new Note(fields.slice(2));
+
+      return new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+    } catch (e) {
+      return undefined;
+    }
   }
 
-  /**
-   * Deserializes the L1NotePayload object from a Buffer.
-   * @param buffer - Buffer or BufferReader object to deserialize.
-   * @returns An instance of L1NotePayload.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): L1NotePayload {
-    const reader = BufferReader.asReader(buffer);
-    return new L1NotePayload(
-      reader.readObject(Note),
-      reader.readObject(AztecAddress),
-      Fr.fromBuffer(reader),
-      reader.readObject(NoteSelector),
+  static decryptAsIncoming(log: EncryptedL2NoteLog, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, sk);
+    if (!decryptedLog) {
+      return undefined;
+    }
+
+    return this.fromIncomingBodyPlaintextAndContractAddress(
+      decryptedLog.incomingBodyPlaintext,
+      decryptedLog.contractAddress,
+    );
+  }
+
+  static decryptAsOutgoing(log: EncryptedL2NoteLog, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
+    if (!decryptedLog) {
+      return undefined;
+    }
+
+    return this.fromIncomingBodyPlaintextAndContractAddress(
+      decryptedLog.incomingBodyPlaintext,
+      decryptedLog.contractAddress,
     );
   }
 
@@ -53,8 +79,9 @@ export class L1NotePayload extends L1Payload {
    * Serializes the L1NotePayload object into a Buffer.
    * @returns Buffer representation of the L1NotePayload object.
    */
-  toBuffer() {
-    return serializeToBuffer([this.note, this.contractAddress, this.storageSlot, this.noteTypeId]);
+  toIncomingBodyPlaintext() {
+    const fields = [this.storageSlot, this.noteTypeId.toField(), ...this.note.items];
+    return serializeToBuffer(fields);
   }
 
   /**
@@ -66,77 +93,6 @@ export class L1NotePayload extends L1Payload {
     return new L1NotePayload(Note.random(), contract, Fr.random(), NoteSelector.random());
   }
 
-  public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
-    // TODO(#8558): numPublicValues could occupy just a single bit if we store info about partial fields
-    // in the ABI
-    // We always set the value to 0 here as we don't need partial notes encryption support in TS
-    const numPublicValues = 0;
-    const encryptedPayload = super._encrypt(
-      this.contractAddress,
-      ephSk,
-      recipient,
-      ivpk,
-      ovKeys,
-      new EncryptedNoteLogIncomingBody(this.storageSlot, this.noteTypeId, this.note),
-    );
-    return Buffer.concat([Buffer.alloc(1, numPublicValues), encryptedPayload]);
-  }
-
-  /**
-   * Extracts public values and decrypts a ciphertext as an incoming log.
-   *
-   * This is executable by the recipient of the note, and uses the ivsk to decrypt the payload.
-   * The outgoing parts of the log are ignored entirely.
-   *
-   * Produces the same output as `decryptAsOutgoing`.
-   *
-   * @param content - Content of the log. Contains ciphertext and public values.
-   * @param ivsk - The incoming viewing secret key, used to decrypt the logs
-   * @returns The decrypted log payload
-   */
-  public static decryptAsIncoming(content: Buffer | bigint[], ivsk: GrumpkinScalar) {
-    const [ciphertext, publicValues] = this.#getCiphertextAndPublicValues(content);
-
-    const [address, incomingBody] = super._decryptAsIncoming(
-      ciphertext,
-      ivsk,
-      EncryptedNoteLogIncomingBody.fromCiphertext,
-    );
-
-    // Partial fields are expected to be at the end of the note
-    const note = new Note([...incomingBody.note.items, ...publicValues]);
-
-    return new L1NotePayload(note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
-  }
-
-  /**
-   * Extracts public values and decrypts a ciphertext as an outgoing log.
-   *
-   * This is executable by the sender of the note, and uses the ovsk to decrypt the payload.
-   * The outgoing parts are decrypted to retrieve information that allows the sender to
-   * decrypt the incoming log, and learn about the note contents.
-   *
-   * Produces the same output as `decryptAsIncoming`.
-   *
-   * @param content - Content of the log. Contains ciphertext and public values.
-   * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
-   * @returns The decrypted log payload
-   */
-  public static decryptAsOutgoing(content: Buffer | bigint[], ovsk: GrumpkinScalar) {
-    const [ciphertext, publicValues] = this.#getCiphertextAndPublicValues(content);
-
-    const [address, incomingBody] = super._decryptAsOutgoing(
-      ciphertext,
-      ovsk,
-      EncryptedNoteLogIncomingBody.fromCiphertext,
-    );
-
-    // Partial fields are expected to be at the end of the note
-    const note = new Note([...incomingBody.note.items, ...publicValues]);
-
-    return new L1NotePayload(note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
-  }
-
   public equals(other: L1NotePayload) {
     return (
       this.note.equals(other.note) &&
@@ -144,35 +100,5 @@ export class L1NotePayload extends L1Payload {
       this.storageSlot.equals(other.storageSlot) &&
       this.noteTypeId.equals(other.noteTypeId)
     );
-  }
-
-  /**
-   * Extracts the ciphertext and the public values from the log content.
-   * Input byte layout:
-   * +-----------------------------------+
-   * | Byte | Description                |
-   * |------|----------------------------|
-   * |  0   | num_pub_vals               |
-   * |------|----------------------------|
-   * | 1 to | Ciphertext                 |
-   * |  N   | (N = total_length - 1      |
-   * |      |  - num_pub_vals * 32)      |
-   * |------|----------------------------|
-   * | N+1  | Public values              |
-   * |  to  | (num_pub_vals * 32 bytes)  |
-   * | end  |                            |
-   * +-----------------------------------+
-   */
-  static #getCiphertextAndPublicValues(content: Buffer | bigint[]): [Buffer, Fr[]] {
-    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
-
-    const reader = BufferReader.asReader(input);
-    const numPublicValues = reader.readUInt8();
-    const ciphertextLength = reader.getLength() - numPublicValues * Fr.SIZE_IN_BYTES - 1;
-
-    const ciphertext = reader.readBytes(ciphertextLength);
-    const publicValues = reader.readArray(numPublicValues, Fr);
-
-    return [ciphertext, publicValues];
   }
 }

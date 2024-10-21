@@ -3,7 +3,7 @@ use crate::{
     utils::arrays::{array_length, sort_by_counter::compare_by_counter_empty_padded_asc, get_sorted_tuple::get_sorted_tuple}
 };
 
-struct CombinedOrderHint {
+pub struct CombinedOrderHint {
     counter: u32,
     original_index: u32,
 }
@@ -20,7 +20,7 @@ impl Eq for CombinedOrderHint {
     }
 }
 
-unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+pub unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
     let mut length = 0;
     for item in array {
         if !is_empty(item) & (item.counter() == 0) {
@@ -30,7 +30,7 @@ unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 wh
     length
 }
 
-unconstrained pub fn get_combined_order_hints_asc<T, let N: u32>(
+pub unconstrained fn get_combined_order_hints_asc<T, let N: u32>(
     array_lt: [T; N],
     array_gte: [T; N]
 ) -> [CombinedOrderHint; N] where T: Ordered + Eq + Empty {
@@ -254,4 +254,3 @@ mod tests {
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
 }
-
