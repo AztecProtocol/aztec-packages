@@ -15,6 +15,7 @@ fn compute_raw_event_log<Event, let N: u32>(
 ) -> ([u8; 417 + N * 32], Field) where Event: EventInterface<N> {
     let contract_address: AztecAddress = context.this_address();
     let plaintext = event.private_to_be_bytes(randomness);
+    // Note: The following could be 1 byte shorter since that we never have publicly appended values in event logs.
     let encrypted_log: [u8; 417 + N * 32] = compute_encrypted_log(
         contract_address,
         ovsk_app,

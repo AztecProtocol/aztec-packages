@@ -27,10 +27,25 @@ const OUTGOING_BODY_SIZE = 144;
  */
 export class EncryptedLogPayload {
   constructor(
+    /**
+     * Note discovery tag used by the recipient of the log.
+     */
     public readonly incomingTag: Fr,
+    /**
+     * Note discovery tag used by the sender of the log.
+     */
     public readonly outgoingTag: Fr,
+    /**
+     * Indicates whether there are values to be appended to the log in public (used in partial note flow).
+     */
     public readonly publicValuesAppended: boolean,
+    /**
+     * Address of a contract that emitted the log.
+     */
     public readonly contractAddress: AztecAddress,
+    /**
+     * Decrypted incoming body.
+     */
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
