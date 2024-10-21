@@ -111,6 +111,7 @@ import {
   type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelInnerData,
   type PublicKernelTailCircuitPrivateInputs,
+  type PublicKeys,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   type RECURSIVE_PROOF_LENGTH,
@@ -234,6 +235,7 @@ import type {
   PublicKernelInnerData as PublicKernelInnerDataNoir,
   PublicKernelMergeCircuitPrivateInputs as PublicKernelMergeCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+  PublicKeys as PublicKeysNoir,
   PublicValidationRequestArrayLengths as PublicValidationRequestArrayLengthsNoir,
   PublicValidationRequests as PublicValidationRequestsNoir,
   ReadRequest as ReadRequestNoir,
@@ -1011,10 +1013,27 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
-    public_keys_hash: mapWrappedFieldToNoir(privateCallData.publicKeysHash),
+    public_keys: mapPublicKeysToNoir(privateCallData.publicKeys),
     salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
     protocol_contract_sibling_path: mapTuple(privateCallData.protocolContractSiblingPath, mapFieldToNoir),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
+  };
+}
+
+export function mapPublicKeysToNoir(publicKeys: PublicKeys): PublicKeysNoir {
+  return {
+    npk_m: {
+      inner: mapPointToNoir(publicKeys.masterNullifierPublicKey),
+    },
+    ivpk_m: {
+      inner: mapPointToNoir(publicKeys.masterIncomingViewingPublicKey),
+    },
+    ovpk_m: {
+      inner: mapPointToNoir(publicKeys.masterOutgoingViewingPublicKey),
+    },
+    tpk_m: {
+      inner: mapPointToNoir(publicKeys.masterTaggingPublicKey),
+    },
   };
 }
 
