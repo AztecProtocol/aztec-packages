@@ -29,7 +29,7 @@ We can now get the token instance in our main code in `src/index.mjs`, by import
 
 ```js
 // src/index.mjs
-#include_code imports yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
+#include_code imports yarn-project/end-to-end/src/sample-dapp/index.mjs raw
 ```
 
 and query the private balance for each of the user accounts. To query a function, without sending a transaction, use the `simulate` function of the method:
@@ -50,7 +50,7 @@ Before we can transfer tokens, we need to mint some tokens to our user accounts.
 
 #include_code mintPrivateFunds yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
-Call the function in `main`, run the script and you should see 20 tokens in the balance of the first account.
+Call the function in `main`, run the script and after printing the balances of each account it will then privately mint tokens. After that completes, you should then see 20 tokens in the balance of the first account.
 
 ```text
 Balance of 0x0c8a6673d7676cc80aaebe7fa7504cf51daa90ba906861bfad70a58a98bf5a7d: 20
