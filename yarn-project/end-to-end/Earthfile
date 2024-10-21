@@ -301,6 +301,13 @@ kind-network-smoke:
 kind-network-transfer:
   ARG values_file
   LOCALLY
-  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9166): 
+  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9166):
   # This has || true so it does NOT report failure in github actions job. To be reenabled once stable
-  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts || true
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
+
+kind-network-4epochs:
+  ARG values_file
+  LOCALLY
+  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9166):
+  # This has || true so it does NOT report failure in github actions job. To be reenabled once stable
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/4epochs.test.ts
