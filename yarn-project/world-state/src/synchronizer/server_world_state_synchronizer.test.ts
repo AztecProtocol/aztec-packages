@@ -87,7 +87,7 @@ describe('ServerWorldStateSynchronizer', () => {
       type: 'blocks-added',
       blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 2, 3, 2, 1, inHash)),
     });
-    server.latest = to;
+    server.latest.number = to;
   };
 
   const expectServerStatus = async (state: WorldStateRunningState, blockNumber: number) => {
@@ -199,7 +199,9 @@ describe('ServerWorldStateSynchronizer', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  public latest = 0;
+  public latest = { number: 0, hash: '' };
+  public finalized = { number: 0, hash: '' };
+  public proven = { number: 0, hash: '' };
 
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,
@@ -215,6 +217,6 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   }
 
   public override getL2Tips() {
-    return Promise.resolve({ latest: this.latest, proven: undefined, finalized: undefined });
+    return Promise.resolve({ latest: this.latest, proven: this.proven, finalized: this.finalized });
   }
 }
