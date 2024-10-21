@@ -1,23 +1,34 @@
-import { readFieldCompressedString } from '@aztec/aztec.js';
+import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
+import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
+
+
 import { jest } from '@jest/globals';
 
+
+
+import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 
-const { PXE_URL } = process.env;
+
+const { PXE_URL, ETHEREUM_HOST } = process.env;
 if (!PXE_URL) {
   throw new Error('PXE_URL env variable must be set');
+}
+if (!ETHEREUM_HOST) {
+  throw new Error('ETHEREUM_HOST env variable must be set');
 }
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
   const logger = createDebugLogger(`aztec:spartan-test:transfer`);
-  const MINT_AMOUNT = 20n;
-
-  const ROUNDS = 5n;
+  // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
+  const MINT_AMOUNT = 2000000n;
+  const TEST_EPOCHS = 4;
+  const ROUNDS = BigInt(AZTEC_SLOT_DURATION * TEST_EPOCHS);
 
   let testWallets: TestWallets;
 
@@ -31,7 +42,13 @@ describe('token transfer test', () => {
     expect(name).toBe(testWallets.tokenName);
   });
 
-  it('can transfer 1 token privately and publicly', async () => {
+  it('transfer tokens for 4 epochs', async () => {
+    const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);
+    // Get 4 epochs
+    const rollupCheatCodes = new RollupCheatCodes(
+      ethCheatCodes,
+      await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+    );
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
@@ -42,6 +59,7 @@ describe('token transfer test', () => {
     expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
 
     // For each round, make both private and public transfers
+    const startSlot = await rollupCheatCodes.getSlot();
     for (let i = 1n; i <= ROUNDS; i++) {
       const interactions = await Promise.all([
         ...testWallets.wallets.map(async w =>
@@ -54,6 +72,10 @@ describe('token transfer test', () => {
       const txs = await Promise.all(interactions.map(async i => await i.prove()));
 
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
+      const currentSlot = await rollupCheatCodes.getSlot();
+      expect(currentSlot).toBe(startSlot + i);
+      const startEpoch = await rollupCheatCodes.getEpoch();
+      logger.debug(`Successfully reached slot ${currentSlot}/${startSlot + ROUNDS} (Epoch ${startEpoch})`);
     }
 
     testWallets.wallets.forEach(async w => {
