@@ -961,7 +961,7 @@ fn generate_mov_instruction(
     }
 }
 
-/// Black box functions, for the meantime only covers pedersen operations as the blackbox function api suits our current needs.
+/// Black box functions
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {

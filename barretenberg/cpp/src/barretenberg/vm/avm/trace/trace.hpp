@@ -8,7 +8,6 @@
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
-#include "barretenberg/vm/avm/trace/gadgets/pedersen.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
@@ -145,11 +144,6 @@ class AvmTraceBuilder {
     // Gadgets
     void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
-    void op_pedersen_hash(uint8_t indirect,
-                          uint32_t gen_ctx_offset,
-                          uint32_t output_offset,
-                          uint32_t input_offset,
-                          uint32_t input_size_offset);
     void op_ec_add(uint16_t indirect,
                    uint32_t lhs_x_offset,
                    uint32_t lhs_y_offset,
@@ -163,11 +157,6 @@ class AvmTraceBuilder {
                          uint32_t scalars_offset,
                          uint32_t output_offset,
                          uint32_t point_length_offset);
-    void op_pedersen_commit(uint8_t indirect,
-                            uint32_t output_offset,
-                            uint32_t input_offset,
-                            uint32_t input_size_offset,
-                            uint32_t gen_ctx_offset);
     // Conversions
     void op_to_radix_le(uint8_t indirect,
                         uint32_t src_offset,
@@ -227,7 +216,6 @@ class AvmTraceBuilder {
     AvmSha256TraceBuilder sha256_trace_builder;
     AvmPoseidon2TraceBuilder poseidon2_trace_builder;
     AvmKeccakTraceBuilder keccak_trace_builder;
-    AvmPedersenTraceBuilder pedersen_trace_builder;
     AvmEccTraceBuilder ecc_trace_builder;
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;

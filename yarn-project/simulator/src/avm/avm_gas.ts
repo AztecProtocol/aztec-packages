@@ -117,14 +117,11 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.REVERT_8]: makeCost(c.AVM_REVERT_BASE_L2_GAS, 0),
   [Opcode.REVERT_16]: makeCost(c.AVM_REVERT_BASE_L2_GAS, 0),
   [Opcode.DEBUGLOG]: makeCost(c.AVM_DEBUGLOG_BASE_L2_GAS, 0),
-  [Opcode.KECCAK]: makeCost(c.AVM_KECCAK_BASE_L2_GAS, 0),
   [Opcode.POSEIDON2]: makeCost(c.AVM_POSEIDON2_BASE_L2_GAS, 0),
   [Opcode.SHA256COMPRESSION]: makeCost(c.AVM_SHA256COMPRESSION_BASE_L2_GAS, 0),
   [Opcode.KECCAKF1600]: makeCost(c.AVM_KECCAKF1600_BASE_L2_GAS, 0),
-  [Opcode.PEDERSEN]: makeCost(c.AVM_PEDERSEN_BASE_L2_GAS, 0),
   [Opcode.ECADD]: makeCost(c.AVM_ECADD_BASE_L2_GAS, 0),
   [Opcode.MSM]: makeCost(c.AVM_MSM_BASE_L2_GAS, 0),
-  [Opcode.PEDERSENCOMMITMENT]: makeCost(c.AVM_PEDERSENCOMMITMENT_BASE_L2_GAS, 0),
   [Opcode.TORADIXLE]: makeCost(c.AVM_TORADIXLE_BASE_L2_GAS, 0),
 };
 
@@ -136,9 +133,7 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.RETURN, makeCost(c.AVM_RETURN_DYN_L2_GAS, 0)],
   [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
-  [Opcode.PEDERSEN, makeCost(c.AVM_PEDERSEN_DYN_L2_GAS, 0)],
   [Opcode.MSM, makeCost(c.AVM_MSM_DYN_L2_GAS, 0)],
-  [Opcode.PEDERSENCOMMITMENT, makeCost(c.AVM_PEDERSENCOMMITMENT_DYN_L2_GAS, 0)],
   [Opcode.TORADIXLE, makeCost(c.AVM_TORADIXLE_DYN_L2_GAS, 0)],
 ]);
 

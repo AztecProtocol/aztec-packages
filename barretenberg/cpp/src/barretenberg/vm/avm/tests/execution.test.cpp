@@ -945,16 +945,16 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
                                + to_hex(OpCode::SET_8) + // opcode SET for indirect dst (output)
                                "00"                      // Indirect flag
                                + to_hex(AvmMemoryTag::U32) +
-                               "09"                          // value 9 (i.e. where the ouput will be written to)
-                               "23"                          // dst_offset 35
-                               + to_hex(OpCode::POSEIDON2) + // opcode POSEIDON2
-                               "03"                          // Indirect flag (first 2 operands indirect)
-                               "0024"                        // input offset (indirect 36)
-                               "0023"                        // output offset (indirect 35)
-                               + to_hex(OpCode::RETURN) +    // opcode RETURN
-                               "00"                          // Indirect flag
-                               "0009"                        // ret offset 256
-                               "0004";                       // ret size 8
+                               "09"                              // value 9 (i.e. where the ouput will be written to)
+                               "23"                              // dst_offset 35
+                               + to_hex(OpCode::POSEIDON2PERM) + // opcode POSEIDON2
+                               "03"                              // Indirect flag (first 2 operands indirect)
+                               "0024"                            // input offset (indirect 36)
+                               "0023"                            // output offset (indirect 35)
+                               + to_hex(OpCode::RETURN) +        // opcode RETURN
+                               "00"                              // Indirect flag
+                               "0009"                            // ret offset 256
+                               "0004";                           // ret size 8
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1047,125 +1047,6 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
-// Positive test with Keccak.
-TEST_F(AvmExecutionTests, keccakOpCode)
-{
-    // Test vectors from keccak256_test_cases in noir/noir-repo/acvm-repo/blackbox_solver/
-    // Input: Uint8Array.from([0xbd]),
-    // Output: Uint8Array.from([
-    //   0x5a, 0x50, 0x2f, 0x9f, 0xca, 0x46, 0x7b, 0x26, 0x6d, 0x5b, 0x78, 0x33, 0x65, 0x19, 0x37, 0xe8, 0x05, 0x27,
-    //   0x0c, 0xa3, 0xf3, 0xaf, 0x1c, 0x0d, 0xd2, 0x46, 0x2d, 0xca, 0x4b, 0x3b, 0x1a, 0xbf,
-    // ]),
-    std::vector<FF> expected_output = {
-        FF(0x5a), FF(0x50), FF(0x2f), FF(0x9f), FF(0xca), FF(0x46), FF(0x7b), FF(0x26), FF(0x6d), FF(0x5b), FF(0x78),
-        FF(0x33), FF(0x65), FF(0x19), FF(0x37), FF(0xe8), FF(0x05), FF(0x27), FF(0x0c), FF(0xa3), FF(0xf3), FF(0xaf),
-        FF(0x1c), FF(0x0d), FF(0xd2), FF(0x46), FF(0x2d), FF(0xca), FF(0x4b), FF(0x3b), FF(0x1a), FF(0xbf)
-    };
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // Initial SET operations to store state and input
-                               "00"                    // Indirect Flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "BD"                      // val 189
-                               "01"                      // dst_offset 1
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect src (input)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the src will be read from)
-                               "24"                      // input_offset 36
-                               + to_hex(OpCode::SET_8) + //
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "01"                       // value 1 (i.e. where the length parameter is stored)
-                               "25"                       // input_offset 37
-                               + to_hex(OpCode::SET_16) + // opcode SET for indirect dst (output)
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0100"                     // value 256 (i.e. where the ouput will be written to)
-                               "0023"                     // dst_offset 35
-                               + to_hex(OpCode::KECCAK) + // opcode KECCAK
-                               "03"                       // Indirect flag (first 2 operands indirect)
-                               "00000023"                 // output offset (indirect 35)
-                               "00000024"                 // input offset (indirect 36)
-                               "00000025"                 // length offset 37
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "0100"                     // ret offset 256
-                               "0020";                    // ret size 32
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> calldata = std::vector<FF>();
-    std::vector<FF> returndata = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
-
-    EXPECT_EQ(returndata, expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-
-// Positive test with Pedersen.
-TEST_F(AvmExecutionTests, pedersenHashOpCode)
-{
-    // Test vectors from pedersen_hash in noir/noir-repo/acvm-repo/blackbox_solver/
-    // input = [1,1]
-    // output = 0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6
-    // hash_index = 5;
-    FF expected_output = FF("0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6");
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02"                             // val
-                               "01"                             // dst_offset
-                               + to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
-                               "00"                             // Indirect flag
-                               "0000"                           // cd_offset
-                               "0001"                           // copy_size
-                               "0000"                           // dst_offset
-                               + to_hex(OpCode::SET_8) +        // opcode SET for direct hash index offset
-                               "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "05"                      // value 5
-                               "02"                      // input_offset 2
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect src
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // value 0 (i.e. where the src will be read from)
-                               "04"                      // dst_offset 4
-                               + to_hex(OpCode::SET_8) + // opcode SET for direct src_length
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02"                         // value 2
-                               "05"                         // dst_offset
-                               + to_hex(OpCode::PEDERSEN) + // opcode PEDERSEN
-                               "04"                         // Indirect flag (3rd operand indirect)
-                               "00000002"                   // hash_index offset (direct)
-                               "00000003"                   // dest offset (direct)
-                               "00000004"                   // input offset (indirect)
-                               "00000005"                   // length offset (direct)
-                               + to_hex(OpCode::RETURN) +   // opcode RETURN
-                               "00"                         // Indirect flag
-                               "0003"                       // ret offset 3
-                               "0001";                      // ret size 1
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> calldata = { FF(1), FF(1) };
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
-
-    EXPECT_EQ(returndata[0], expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-//
 // Positive test with EmbeddedCurveAdd
 TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
 {
@@ -1307,79 +1188,6 @@ TEST_F(AvmExecutionTests, msmOpCode)
                                "00"                       // Indirect flag
                                "000c"                     // ret offset 12 (this overwrites)
                                "0003";                    // ret size 3
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata;
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
-
-    EXPECT_EQ(returndata, expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-
-// Positive test with pedersen commitment
-TEST_F(AvmExecutionTests, pedersenCommitmentOpcode)
-{
-    auto expected_result =
-        grumpkin::g1::affine_element(fr(uint256_t("054aa86a73cb8a34525e5bbed6e43ba1198e860f5f3950268f71df4591bde402")),
-                                     fr(uint256_t("209dcfbf2cfb57f9f6046f44d71ac6faf87254afc7407c04eb621a6287cac126")));
-    // grumpkin::g1::affine_eleelement;
-    // grumpkin::g1::affine_element b = grumpkin::g1::affine_element::one();
-
-    // Remmeber that grumpkin Fq == BN254 Fr => aka FF
-    grumpkin::g1::Fq scalar_a = grumpkin::g1::Fq::zero();
-    grumpkin::g1::Fq scalar_b = grumpkin::g1::Fq::one();
-    std::vector<FF> expected_output = { expected_result.x, expected_result.y, expected_result.is_point_at_infinity() };
-    // Send all the input as Fields and cast them to U8 later
-    std::vector<FF> calldata = { scalar_a, scalar_b };
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02" // val
-                               "01" +
-                               to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset 0
-                               "0001"                         // copy_size (2 elements)
-                               "0000"                         // dst_offset 0
-                               + to_hex(OpCode::SET_8) +      // opcode SET for indirect input
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // Input stored at memory 0
-                               "0b"                      // dst offset (11)
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect output
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "20"                      // output offset
-                               "0d"                      // dst offset
-                               + to_hex(OpCode::SET_8) + // opcode SET for input length
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02"                    // scalars length (2)
-                               "02" +                  // dst offset (2)
-                               to_hex(OpCode::SET_8) + // opcode SET for ctx index
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                                 // ctx index (0)
-                               "0f" +                               // dst offset
-                               to_hex(OpCode::PEDERSENCOMMITMENT) + // opcode MSM
-                               "03"                                 // Indirect flag (first 2 indirect)
-                               "0000000b"                           // inputs offset
-                               "0000000d"                           // outputs offset
-                               "00000002"                           // inputs length offset
-                               "0000000f"                           // gen ctx index offset
-                               + to_hex(OpCode::RETURN) +           // opcode RETURN
-                               "00"                                 // Indirect flag
-                               "0020"                               // ret offset
-                               "0003";                              // ret size 3
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);

@@ -82,15 +82,11 @@ const std::unordered_map<OpCode, FixedGasTable::GasRow> GAS_COST_TABLE = {
     { OpCode::REVERT_8, make_cost(AVM_REVERT_BASE_L2_GAS, 0, AVM_REVERT_DYN_L2_GAS, 0) },
     { OpCode::REVERT_16, make_cost(AVM_REVERT_BASE_L2_GAS, 0, AVM_REVERT_DYN_L2_GAS, 0) },
     { OpCode::DEBUGLOG, make_cost(AVM_DEBUGLOG_BASE_L2_GAS, 0, 0, 0) },
-    { OpCode::KECCAK, make_cost(AVM_KECCAK_BASE_L2_GAS, 0, AVM_KECCAK_DYN_L2_GAS, 0) },
-    { OpCode::POSEIDON2, make_cost(AVM_POSEIDON2_BASE_L2_GAS, 0, 0, 0) },
+    { OpCode::POSEIDON2PERM, make_cost(AVM_POSEIDON2_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::SHA256COMPRESSION, make_cost(AVM_SHA256COMPRESSION_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::KECCAKF1600, make_cost(AVM_KECCAKF1600_BASE_L2_GAS, 0, 0, 0) },
-    { OpCode::PEDERSEN, make_cost(AVM_PEDERSEN_BASE_L2_GAS, 0, AVM_PEDERSEN_DYN_L2_GAS, 0) },
     { OpCode::ECADD, make_cost(AVM_ECADD_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::MSM, make_cost(AVM_MSM_BASE_L2_GAS, 0, AVM_MSM_DYN_L2_GAS, 0) },
-    { OpCode::PEDERSENCOMMITMENT,
-      make_cost(AVM_PEDERSENCOMMITMENT_BASE_L2_GAS, 0, AVM_PEDERSENCOMMITMENT_DYN_L2_GAS, 0) },
     { OpCode::TORADIXLE, make_cost(AVM_TORADIXLE_BASE_L2_GAS, 0, AVM_TORADIXLE_DYN_L2_GAS, 0) },
 };
 

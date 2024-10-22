@@ -98,14 +98,11 @@ enum class OpCode : uint8_t {
     DEBUGLOG,
 
     // Gadgets
-    KECCAK,
-    POSEIDON2,
+    POSEIDON2PERM,
     SHA256COMPRESSION,
     KECCAKF1600,
-    PEDERSEN,
     ECADD,
     MSM,
-    PEDERSENCOMMITMENT,
     // Conversions
     TORADIXLE,
 

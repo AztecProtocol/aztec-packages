@@ -16,7 +16,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -2747,65 +2746,6 @@ std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
  **************************************************************************************************/
 
 /**
- * @brief Keccak  with direct or indirect memory access.
- * Keccak is TEMPORARY while we wait for the transition to keccakf1600, so we do the minimal to store the result
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param output_offset An index in memory pointing to where the first u8 value of the output array should be
- * stored.
- * @param input_offset An index in memory pointing to the first u8 value of the input array to be used
- * @param input_size offset An index in memory pointing to the size of the input array.
- */
-void AvmTraceBuilder::op_keccak(uint8_t indirect,
-                                uint32_t output_offset,
-                                uint32_t input_offset,
-                                uint32_t input_size_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        Addressing<3>::fromWire(indirect, call_ptr)
-            .resolve({ output_offset, input_offset, input_size_offset }, mem_trace_builder);
-
-    // Read the input length first
-    auto input_length_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK, static_cast<uint32_t>(input_length_read.val));
-
-    // Store the clock time that we will use to line up the gadget later
-    auto keccak_op_clk = clk;
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ib = input_length_read.val, // Message Length
-        .main_ind_addr_b = FF(input_length_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_b = FF(input_length_read.direct_address), // length
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_sel_mem_op_b = FF(1),
-        .main_sel_op_keccak = FF(1),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(input_length_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_length_read.tag_match)),
-    });
-    clk++;
-
-    std::vector<uint8_t> input;
-    input.reserve(uint32_t(input_length_read.val));
-    // Read the slice length from memory
-    read_slice_from_memory(resolved_input_offset, uint32_t(input_length_read.val), input);
-
-    std::array<uint8_t, 32> result = keccak_trace_builder.keccak(keccak_op_clk, input, uint32_t(input_length_read.val));
-    // We convert the results to field elements here
-    std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 32; i++) {
-        ff_result.emplace_back(result[i]);
-    }
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U8, ff_result);
-}
-
-/**
  * @brief Poseidon2 Permutation with direct or indirect memory access.
  *
  * @param indirect byte encoding information about indirect/direct memory access.
@@ -2827,7 +2767,7 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
     // Resolve indirects in the main trace. Do not resolve the value stored in direct addresses.
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2);
+    gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2PERM);
 
     // Main trace contains on operand values from the bytecode and resolved indirects
     main_trace.push_back(Row{
@@ -2916,330 +2856,6 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                 IntermRegister::ID,
                                 AvmMemTraceBuilder::POSEIDON2);
 }
-
-/**
- * @brief Pedersen Hash with direct or indirect memory access.
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param gen_ctx_offset An index in memory pointing to where the u32 offset for the pedersen hash generators.
- * @param input_offset An index in memory pointing to the first FF value of the input array to be used in the next
- * @param input_size offset An index in memory pointing to the size of the input array.
- */
-void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
-                                       uint32_t gen_ctx_offset,
-                                       uint32_t output_offset,
-                                       uint32_t input_offset,
-                                       uint32_t input_size_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_gen_ctx_offset, resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        Addressing<4>::fromWire(indirect, call_ptr)
-            .resolve({ gen_ctx_offset, output_offset, input_offset, input_size_offset }, mem_trace_builder);
-
-    auto input_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    // auto input_size_read = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
-    // auto gen_ctx_read = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_gen_ctx_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IC);
-    auto input_size_read = unconstrained_read_from_memory(resolved_input_size_offset);
-    auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
-
-    // Constrain gas cost
-    // TODO(dbanks12): need tag check u32 here on input size
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN, static_cast<uint32_t>(input_size_read));
-
-    // We read the input and output addresses in one row as they should contain FF elements
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ia = input_read.val, // First element of input
-        .main_ind_addr_a = FF(input_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(input_read.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-        .main_sel_mem_op_a = FF(1),
-        .main_sel_op_pedersen = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(input_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_read.tag_match)),
-    });
-
-    std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, static_cast<uint32_t>(input_size_read), inputs);
-    FF output = pedersen_trace_builder.pedersen_hash(inputs, static_cast<uint32_t>(gen_ctx_read), clk);
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
-}
-
-void AvmTraceBuilder::op_ec_add(uint16_t indirect,
-                                uint32_t lhs_x_offset,
-                                uint32_t lhs_y_offset,
-                                uint32_t lhs_is_inf_offset,
-                                uint32_t rhs_x_offset,
-                                uint32_t rhs_y_offset,
-                                uint32_t rhs_is_inf_offset,
-                                uint32_t output_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_lhs_x_offset,
-          resolved_lhs_y_offset,
-          resolved_lhs_is_inf_offset,
-          resolved_rhs_x_offset,
-          resolved_rhs_y_offset,
-          resolved_rhs_is_inf_offset,
-          resolved_output_offset] = Addressing<7>::fromWire(indirect, call_ptr)
-                                        .resolve({ lhs_x_offset,
-                                                   lhs_y_offset,
-                                                   lhs_is_inf_offset,
-                                                   rhs_x_offset,
-                                                   rhs_y_offset,
-                                                   rhs_is_inf_offset,
-                                                   output_offset },
-                                                 mem_trace_builder);
-
-    // Load lhs point
-    auto lhs_x_read = unconstrained_read_from_memory(resolved_lhs_x_offset);
-    auto lhs_y_read = unconstrained_read_from_memory(resolved_lhs_y_offset);
-    // Load rhs point
-    auto rhs_x_read = unconstrained_read_from_memory(resolved_rhs_x_offset);
-    auto rhs_y_read = unconstrained_read_from_memory(resolved_rhs_y_offset);
-    // Load the infinite bools separately since they have a different memory tag
-    auto lhs_is_inf_read = unconstrained_read_from_memory(resolved_lhs_is_inf_offset);
-    auto rhs_is_inf_read = unconstrained_read_from_memory(resolved_rhs_is_inf_offset);
-
-    grumpkin::g1::affine_element lhs = uint8_t(lhs_is_inf_read) == 1
-                                           ? grumpkin::g1::affine_element::infinity()
-                                           : grumpkin::g1::affine_element{ lhs_x_read, lhs_y_read };
-    grumpkin::g1::affine_element rhs = uint8_t(rhs_is_inf_read) == 1
-                                           ? grumpkin::g1::affine_element::infinity()
-                                           : grumpkin::g1::affine_element{ rhs_x_read, rhs_y_read };
-    auto result = ecc_trace_builder.embedded_curve_add(lhs, rhs, clk);
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
-        .main_sel_op_ecadd = 1,
-        .main_tag_err = FF(0),
-    });
-
-    gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
-
-    // Write point coordinates
-    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
-}
-
-void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
-                                      uint32_t points_offset,
-                                      uint32_t scalars_offset,
-                                      uint32_t output_offset,
-                                      uint32_t point_length_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset, resolved_point_length_offset] =
-        Addressing<4>::fromWire(indirect, call_ptr)
-            .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
-
-    auto points_length = unconstrained_read_from_memory(resolved_point_length_offset);
-
-    // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
-    uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
-    // We need to split up the reads due to the memory tags,
-    std::vector<FF> points_coords_vec;
-    std::vector<FF> points_inf_vec;
-    std::vector<FF> scalars_vec;
-
-    // Loading the points is a bit more complex since we need to read the coordinates and the infinity flags
-    // separately The current circuit constraints does not allow for multiple memory tags to be loaded from within
-    // the same row. If we could we would be able to replace the following loops with a single read_slice_to_memory
-    // call. For now we load the coordinates first and then the infinity flags, and finally splice them together
-    // when creating the points
-
-    // Read the coordinates first, +2 since we read 2 points per row, the first load could be indirect
-    for (uint32_t i = 0; i < num_points; i++) {
-        auto point_x1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i);
-        auto point_y1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 1);
-        auto infty = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 2);
-        points_coords_vec.insert(points_coords_vec.end(), { point_x1, point_y1 });
-        points_inf_vec.emplace_back(infty);
-    }
-    // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
-    uint32_t scalar_read_length = num_points * 2;
-    // Scalars are easy to read since they are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF,FF,
-    // ...]
-    read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
-
-    // Reconstruct Grumpkin points
-    std::vector<grumpkin::g1::affine_element> points;
-    for (size_t i = 0; i < num_points; i++) {
-        grumpkin::g1::Fq x = points_coords_vec[i * 2];
-        grumpkin::g1::Fq y = points_coords_vec[i * 2 + 1];
-        bool is_inf = points_inf_vec[i] == 1;
-        if (is_inf) {
-            points.emplace_back(grumpkin::g1::affine_element::infinity());
-        } else {
-            points.emplace_back(x, y);
-        }
-    }
-    // Reconstruct Grumpkin scalars
-    // Scalars are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF, FF, ...]
-    std::vector<grumpkin::fr> scalars;
-    for (size_t i = 0; i < num_points; i++) {
-        FF lo = scalars_vec[i * 2];
-        FF hi = scalars_vec[i * 2 + 1];
-        // hi is shifted 128 bits
-        uint256_t scalar = (uint256_t(hi) << 128) + uint256_t(lo);
-        scalars.emplace_back(scalar);
-    }
-    // Perform the variable MSM - could just put the logic in here since there are no constraints.
-    auto result = ecc_trace_builder.variable_msm(points, scalars, clk);
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
-        .main_sel_op_msm = 1,
-        .main_tag_err = FF(0),
-    });
-
-    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
-    // run out of gas. Casting/truncating here is not secure.
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
-
-    // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
-    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
-}
-
-void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
-                                         uint32_t input_offset,
-                                         uint32_t output_offset,
-                                         uint32_t input_size_offset,
-                                         uint32_t gen_ctx_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_input_offset, resolved_output_offset, resolved_input_size_offset, resolved_gen_ctx_offset] =
-        Addressing<4>::fromWire(indirect, call_ptr)
-            .resolve({ input_offset, output_offset, input_size_offset, gen_ctx_offset }, mem_trace_builder);
-
-    auto input_length_read = unconstrained_read_from_memory(resolved_input_size_offset);
-    auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
-
-    std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, uint32_t(input_length_read), inputs);
-
-    grumpkin::g1::affine_element result = crypto::pedersen_commitment::commit_native(inputs, uint32_t(gen_ctx_read));
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
-        .main_sel_op_pedersen_commit = 1,
-        .main_tag_err = FF(0),
-    });
-
-    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
-    // run out of gas. Casting/truncating here is not secure.
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT, static_cast<uint32_t>(input_length_read));
-
-    // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
-    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
-}
-
-/**************************************************************************************************
- *                                   CONVERSIONS
- **************************************************************************************************/
-
-/**
- * @brief To_Radix_LE with direct or indirect memory access.
- *
- * @param indirect A byte encoding information about indirect/direct memory access.
- * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
- * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb <
- * radix.
- * @param num_limbs The number of limbs to the value into.
- * @param output_bits Should the output be U1s instead of U8s?
- */
-void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
-                                     uint32_t src_offset,
-                                     uint32_t dst_offset,
-                                     uint32_t radix_offset,
-                                     uint32_t num_limbs,
-                                     uint8_t output_bits)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    // write output as bits or bytes
-    AvmMemoryTag w_in_tag = output_bits > 0 ? AvmMemoryTag::U1 // bits mode
-                                            : AvmMemoryTag::U8;
-
-    auto [resolved_src_offset, resolved_dst_offset, resolved_radix_offset] =
-        Addressing<3>::fromWire(indirect, call_ptr)
-            .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
-
-    auto read_src = constrained_read_from_memory(
-        call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
-    // TODO:(8603): once instructions can have multiple different tags for reads, constrain the radix's read
-    // auto read_radix = constrained_read_from_memory(
-    //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
-    auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
-
-    FF input = read_src.val;
-    // TODO:(8603): uncomment
-    // uint32_t radix = static_cast<uint32_t>(read_radix.val);
-    uint32_t radix = static_cast<uint32_t>(read_radix);
-
-    bool radix_out_of_bounds = radix > 256;
-    bool error = radix_out_of_bounds || !read_src.tag_match; // || !read_radix.tag_match;
-
-    // In case of an error, we do not perform the computation.
-    // Therefore, we do not create any entry in gadget table and we return a vector of 0.
-    std::vector<uint8_t> res = error
-                                   ? std::vector<uint8_t>(num_limbs, 0)
-                                   : conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, output_bits, clk);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXLE, num_limbs);
-
-    // This is the row that contains the selector to trigger the sel_op_radix_le
-    // In this row, we read the input value and the destination address into register A and B respectively
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_call_ptr = call_ptr,
-        .main_ia = input,
-        .main_ib = radix,
-        .main_ic = num_limbs,
-        .main_id = output_bits,
-        .main_ind_addr_a = read_src.indirect_address,
-        // TODO:(8603): uncomment
-        //.main_ind_addr_b = read_radix.indirect_address,
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = read_src.direct_address,
-        // TODO:(8603): uncomment
-        //.main_mem_addr_b = read_radix.direct_address,
-        .main_op_err = error ? FF(1) : FF(0),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-        .main_sel_mem_op_a = FF(1),
-        // TODO:(8603): uncomment
-        //.main_sel_mem_op_b = FF(1),
-        .main_sel_op_radix_le = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_src.is_indirect)),
-        // TODO:(8603): uncomment
-        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_radix.is_indirect)),
-        .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
-    });
-
-    write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
-}
-
-/**************************************************************************************************
- *                                   FUTURE GADGETS -- pending changes in noir
- **************************************************************************************************/
 
 /**
  * @brief SHA256 Compression with direct or indirect memory access.
@@ -3397,6 +3013,237 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 }
 
+void AvmTraceBuilder::op_ec_add(uint16_t indirect,
+                                uint32_t lhs_x_offset,
+                                uint32_t lhs_y_offset,
+                                uint32_t lhs_is_inf_offset,
+                                uint32_t rhs_x_offset,
+                                uint32_t rhs_y_offset,
+                                uint32_t rhs_is_inf_offset,
+                                uint32_t output_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    auto [resolved_lhs_x_offset,
+          resolved_lhs_y_offset,
+          resolved_lhs_is_inf_offset,
+          resolved_rhs_x_offset,
+          resolved_rhs_y_offset,
+          resolved_rhs_is_inf_offset,
+          resolved_output_offset] = Addressing<7>::fromWire(indirect, call_ptr)
+                                        .resolve({ lhs_x_offset,
+                                                   lhs_y_offset,
+                                                   lhs_is_inf_offset,
+                                                   rhs_x_offset,
+                                                   rhs_y_offset,
+                                                   rhs_is_inf_offset,
+                                                   output_offset },
+                                                 mem_trace_builder);
+
+    // Load lhs point
+    auto lhs_x_read = unconstrained_read_from_memory(resolved_lhs_x_offset);
+    auto lhs_y_read = unconstrained_read_from_memory(resolved_lhs_y_offset);
+    // Load rhs point
+    auto rhs_x_read = unconstrained_read_from_memory(resolved_rhs_x_offset);
+    auto rhs_y_read = unconstrained_read_from_memory(resolved_rhs_y_offset);
+    // Load the infinite bools separately since they have a different memory tag
+    auto lhs_is_inf_read = unconstrained_read_from_memory(resolved_lhs_is_inf_offset);
+    auto rhs_is_inf_read = unconstrained_read_from_memory(resolved_rhs_is_inf_offset);
+
+    grumpkin::g1::affine_element lhs = uint8_t(lhs_is_inf_read) == 1
+                                           ? grumpkin::g1::affine_element::infinity()
+                                           : grumpkin::g1::affine_element{ lhs_x_read, lhs_y_read };
+    grumpkin::g1::affine_element rhs = uint8_t(rhs_is_inf_read) == 1
+                                           ? grumpkin::g1::affine_element::infinity()
+                                           : grumpkin::g1::affine_element{ rhs_x_read, rhs_y_read };
+    auto result = ecc_trace_builder.embedded_curve_add(lhs, rhs, clk);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_pc = FF(pc++),
+        .main_sel_op_ecadd = 1,
+        .main_tag_err = FF(0),
+    });
+
+    gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
+
+    // Write point coordinates
+    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
+}
+
+void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
+                                      uint32_t points_offset,
+                                      uint32_t scalars_offset,
+                                      uint32_t output_offset,
+                                      uint32_t point_length_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset, resolved_point_length_offset] =
+        Addressing<4>::fromWire(indirect, call_ptr)
+            .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
+
+    auto points_length = unconstrained_read_from_memory(resolved_point_length_offset);
+
+    // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
+    uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
+    // We need to split up the reads due to the memory tags,
+    std::vector<FF> points_coords_vec;
+    std::vector<FF> points_inf_vec;
+    std::vector<FF> scalars_vec;
+
+    // Loading the points is a bit more complex since we need to read the coordinates and the infinity flags
+    // separately The current circuit constraints does not allow for multiple memory tags to be loaded from within
+    // the same row. If we could we would be able to replace the following loops with a single read_slice_to_memory
+    // call. For now we load the coordinates first and then the infinity flags, and finally splice them together
+    // when creating the points
+
+    // Read the coordinates first, +2 since we read 2 points per row, the first load could be indirect
+    for (uint32_t i = 0; i < num_points; i++) {
+        auto point_x1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i);
+        auto point_y1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 1);
+        auto infty = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 2);
+        points_coords_vec.insert(points_coords_vec.end(), { point_x1, point_y1 });
+        points_inf_vec.emplace_back(infty);
+    }
+    // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
+    uint32_t scalar_read_length = num_points * 2;
+    // Scalars are easy to read since they are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF,FF,
+    // ...]
+    read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
+
+    // Reconstruct Grumpkin points
+    std::vector<grumpkin::g1::affine_element> points;
+    for (size_t i = 0; i < num_points; i++) {
+        grumpkin::g1::Fq x = points_coords_vec[i * 2];
+        grumpkin::g1::Fq y = points_coords_vec[i * 2 + 1];
+        bool is_inf = points_inf_vec[i] == 1;
+        if (is_inf) {
+            points.emplace_back(grumpkin::g1::affine_element::infinity());
+        } else {
+            points.emplace_back(x, y);
+        }
+    }
+    // Reconstruct Grumpkin scalars
+    // Scalars are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF, FF, ...]
+    std::vector<grumpkin::fr> scalars;
+    for (size_t i = 0; i < num_points; i++) {
+        FF lo = scalars_vec[i * 2];
+        FF hi = scalars_vec[i * 2 + 1];
+        // hi is shifted 128 bits
+        uint256_t scalar = (uint256_t(hi) << 128) + uint256_t(lo);
+        scalars.emplace_back(scalar);
+    }
+    // Perform the variable MSM - could just put the logic in here since there are no constraints.
+    auto result = ecc_trace_builder.variable_msm(points, scalars, clk);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_pc = FF(pc++),
+        .main_sel_op_msm = 1,
+        .main_tag_err = FF(0),
+    });
+
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
+
+    // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
+    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
+}
+
+/**************************************************************************************************
+ *                                   CONVERSIONS
+ **************************************************************************************************/
+
+/**
+ * @brief To_Radix_LE with direct or indirect memory access.
+ *
+ * @param indirect A byte encoding information about indirect/direct memory access.
+ * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
+ * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb <
+ * radix.
+ * @param num_limbs The number of limbs to the value into.
+ * @param output_bits Should the output be U1s instead of U8s?
+ */
+void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
+                                     uint32_t src_offset,
+                                     uint32_t dst_offset,
+                                     uint32_t radix_offset,
+                                     uint32_t num_limbs,
+                                     uint8_t output_bits)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // write output as bits or bytes
+    AvmMemoryTag w_in_tag = output_bits > 0 ? AvmMemoryTag::U1 // bits mode
+                                            : AvmMemoryTag::U8;
+
+    auto [resolved_src_offset, resolved_dst_offset, resolved_radix_offset] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
+
+    auto read_src = constrained_read_from_memory(
+        call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
+    // TODO:(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // auto read_radix = constrained_read_from_memory(
+    //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
+    auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
+
+    FF input = read_src.val;
+    // TODO:(8603): uncomment
+    // uint32_t radix = static_cast<uint32_t>(read_radix.val);
+    uint32_t radix = static_cast<uint32_t>(read_radix);
+
+    bool radix_out_of_bounds = radix > 256;
+    bool error = radix_out_of_bounds || !read_src.tag_match; // || !read_radix.tag_match;
+
+    // In case of an error, we do not perform the computation.
+    // Therefore, we do not create any entry in gadget table and we return a vector of 0.
+    std::vector<uint8_t> res = error
+                                   ? std::vector<uint8_t>(num_limbs, 0)
+                                   : conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, output_bits, clk);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXLE, num_limbs);
+
+    // This is the row that contains the selector to trigger the sel_op_radix_le
+    // In this row, we read the input value and the destination address into register A and B respectively
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_ia = input,
+        .main_ib = radix,
+        .main_ic = num_limbs,
+        .main_id = output_bits,
+        .main_ind_addr_a = read_src.indirect_address,
+        // TODO:(8603): uncomment
+        //.main_ind_addr_b = read_radix.indirect_address,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_mem_addr_a = read_src.direct_address,
+        // TODO:(8603): uncomment
+        //.main_mem_addr_b = read_radix.direct_address,
+        .main_op_err = error ? FF(1) : FF(0),
+        .main_pc = FF(pc++),
+        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+        .main_sel_mem_op_a = FF(1),
+        // TODO:(8603): uncomment
+        //.main_sel_mem_op_b = FF(1),
+        .main_sel_op_radix_le = FF(1),
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_src.is_indirect)),
+        // TODO:(8603): uncomment
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_radix.is_indirect)),
+        .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
+    });
+
+    write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
+}
+
 /**************************************************************************************************
  *                                   FINALIZE
  **************************************************************************************************/
@@ -3419,7 +3266,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     auto sha256_trace = sha256_trace_builder.finalize();
     auto poseidon2_trace = poseidon2_trace_builder.finalize();
     auto keccak_trace = keccak_trace_builder.finalize();
-    auto pedersen_trace = pedersen_trace_builder.finalize();
     auto slice_trace = slice_trace_builder.finalize();
     const auto& fixed_gas_table = FixedGasTable::get();
     size_t mem_trace_size = mem_trace.size();
@@ -3429,7 +3275,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t sha256_trace_size = sha256_trace.size();
     size_t poseidon2_trace_size = poseidon2_trace.size();
     size_t keccak_trace_size = keccak_trace.size();
-    size_t pedersen_trace_size = pedersen_trace.size();
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
@@ -3438,11 +3283,11 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
     size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,         main_trace_size + 1,   alu_trace_size,
-                                        range_check_size,       conv_trace_size,       sha256_trace_size,
-                                        poseidon2_trace_size,   pedersen_trace_size,   gas_trace_size + 1,
-                                        KERNEL_INPUTS_LENGTH,   KERNEL_OUTPUTS_LENGTH, kernel_trace_size,
-                                        fixed_gas_table.size(), slice_trace_size,      calldata.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size + 1, alu_trace_size,
+                                        range_check_size,      conv_trace_size,     sha256_trace_size,
+                                        poseidon2_trace_size,  gas_trace_size + 1,  KERNEL_INPUTS_LENGTH,
+                                        KERNEL_OUTPUTS_LENGTH, kernel_trace_size,   fixed_gas_table.size(),
+                                        slice_trace_size,      calldata.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // Before making any changes to the main trace, mark the real rows.
@@ -3639,15 +3484,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.keccakf1600_sel_keccakf1600 = FF(1);
     }
 
-    // Add Pedersen Gadget table
-    for (size_t i = 0; i < pedersen_trace_size; i++) {
-        auto const& src = pedersen_trace.at(i);
-        auto& dest = main_trace.at(i);
-        dest.pedersen_clk = FF(src.clk);
-        dest.pedersen_input = FF(src.input[0]);
-        dest.pedersen_sel_pedersen = FF(1);
-    }
-
     /**********************************************************************************************
      * SLICE TRACE INCLUSION
      **********************************************************************************************/
@@ -3840,8 +3676,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
           sha256_trace_size,
           "\n\tposeidon2_trace_size: ",
           poseidon2_trace_size,
-          "\n\tpedersen_trace_size: ",
-          pedersen_trace_size,
           "\n\tgas_trace_size: ",
           gas_trace_size,
           "\n\tfixed_gas_table_size: ",
@@ -3884,7 +3718,6 @@ void AvmTraceBuilder::reset()
     sha256_trace_builder.reset();
     poseidon2_trace_builder.reset();
     keccak_trace_builder.reset();
-    pedersen_trace_builder.reset();
     slice_trace_builder.reset();
 
     external_call_counter = 0;
