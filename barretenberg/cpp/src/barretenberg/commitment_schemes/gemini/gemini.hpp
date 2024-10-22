@@ -103,12 +103,12 @@ template <typename Curve> class GeminiProver_ {
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_N,
                                                             std::span<const Fr> multilinear_challenge,
                                                             Polynomial&& batched_unshifted,
-                                                            Polynomial&& batched_to_be_shifted);
+                                                            Polynomial&& batched_to_be_shifted,
+                                                            Polynomial&& batched_concatenated = {});
 
     static std::vector<Claim> compute_fold_polynomial_evaluations(
         const size_t log_N,
         std::vector<Polynomial>&& fold_polynomials,
-        Polynomial&& batched_unshifted,
         const Fr& r_challenge,
         std::vector<Polynomial>&& batched_groups_to_be_concatenated = {});
 
@@ -126,8 +126,8 @@ template <typename Curve> class GeminiProver_ {
 
 template <typename Curve> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
-    using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
+    using GroupElement = typename Curve::Element;
 
   public:
     /**
@@ -146,11 +146,11 @@ template <typename Curve> class GeminiVerifier_ {
         std::span<Fr> multilinear_challenge,
         RefSpan<Fr> unshifted_evaluations,
         RefSpan<Fr> shifted_evaluations,
-        RefSpan<GroupElement> unshifted_commitments,
-        RefSpan<GroupElement> to_be_shifted_commitments,
+        RefSpan<Commitment> unshifted_commitments,
+        RefSpan<Commitment> to_be_shifted_commitments,
         auto& transcript,
-        [[maybe_unused]] const std::vector<RefVector<GroupElement>>& concatenation_group_commitments = {},
-        [[maybe_unused]] RefSpan<Fr> concatenated_evaluations = {})
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        RefSpan<Fr> concatenated_evaluations = {})
 
     {
         const size_t num_variables = multilinear_challenge.size();
@@ -183,34 +183,43 @@ template <typename Curve> class GeminiVerifier_ {
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
         const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, CONST_PROOF_SIZE_LOG_N);
 
-        // have to do it both with and without minus (i.e. r and -r)
+        // Get evaluations a_i, i = 0,...,m-1 from transcript
+        const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
 
-        GroupElement batched_concatenated_pos = GroupElement::zero();
-        GroupElement batched_concatenated_neg = GroupElement::zero();
+        GroupElement C0_r_pos = batched_commitment_unshifted;
+        GroupElement C0_r_neg = batched_commitment_unshifted;
 
-        Fr r_inv = r.invert(); // r⁻¹
-        Fr r_minus = -r;
+        Fr r_inv = r.invert();
+        if (!batched_commitment_to_be_shifted.is_point_at_infinity()) {
+            batched_commitment_to_be_shifted = batched_commitment_to_be_shifted * r_inv;
+            C0_r_pos += batched_commitment_to_be_shifted;
+            C0_r_neg -= batched_commitment_to_be_shifted;
+        }
 
+        // If verifying the opening for the translator VM, we reconstruct the commitment of the batched concatenated
+        // polynomials, partially evaluated in r and -r, using the commitments in the concatenation groups
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
-            size_t CONCATENATION_GROUP_SIZE = concatenation_group_commitments[0].size();
-            size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
-            info("Verifer side ", MINICIRCUIT_N);
+            size_t concatenation_group_size = concatenation_group_commitments[0].size();
+            // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
+            const size_t mini_circuit_size = N / concatenation_group_size;
+            Fr current_r_shift_pos = Fr(1);
+            Fr current_r_shift_neg = Fr(1);
+            const Fr r_pow_minicircuit = r.pow(mini_circuit_size);
+            const Fr r_neg_pow_minicircuit = (-r).pow(mini_circuit_size);
             std::vector<Fr> r_shifts_pos;
             std::vector<Fr> r_shifts_neg;
-            auto current_r_shift_pos = Fr(1);
-            auto current_r_shift_neg = Fr(1);
-            auto r_to_minicircuit_n_pos = r.pow(MINICIRCUIT_N);
-            auto r_to_minicircuit_n_neg = r_minus.pow(MINICIRCUIT_N);
-            for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
+            for (size_t i = 0; i < concatenation_group_size; ++i) {
                 r_shifts_pos.emplace_back(current_r_shift_pos);
                 r_shifts_neg.emplace_back(current_r_shift_neg);
-                current_r_shift_pos *= r_to_minicircuit_n_pos;
-                current_r_shift_neg *= r_to_minicircuit_n_neg;
+                current_r_shift_pos *= r_pow_minicircuit;
+                current_r_shift_neg *= r_neg_pow_minicircuit;
             }
             size_t j = 0;
+            GroupElement batched_concatenated_pos = GroupElement::zero();
+            GroupElement batched_concatenated_neg = GroupElement::zero();
             for (auto& concatenation_group_commitment : concatenation_group_commitments) {
-                for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
+                for (size_t i = 0; i < concatenation_group_size; ++i) {
                     batched_concatenated_pos += concatenation_group_commitment[i] * batching_scalar * r_shifts_pos[i];
                     batched_concatenated_neg += concatenation_group_commitment[i] * batching_scalar * r_shifts_neg[i];
                 }
@@ -218,56 +227,17 @@ template <typename Curve> class GeminiVerifier_ {
                 batching_scalar *= rho;
                 j++;
             }
-        }
 
-        // Get evaluations a_i, i = 0,...,m-1 from transcript
-        const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
-        // Compute evaluation A₀(r)
-        // I think this stays as it is, it includes concatenated shit
-        auto a_0_pos = compute_gemini_batched_univariate_evaluation(
-            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
-
-        // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
-        GroupElement C0_r_pos;
-
-        // C₀ᵣ₋ = [F] - r⁻¹⋅[G]
-        GroupElement C0_r_neg;
-
-        // If in a recursive setting, perform a batch mul. Otherwise, accumulate directly.
-        // TODO(#673): The following if-else represents the stldib/native code paths. Once the "native" verifier is
-        // achieved through a builder Simulator, the stdlib codepath should become the only codepath.
-        // if constexpr (Curve::is_stdlib_type) {
-        //     std::vector<GroupElement> commitments = { batched_commitment_unshifted, batched_commitment_to_be_shifted
-        //     }; auto builder = r.get_context(); auto one = Fr(builder, 1);
-        //     // TODO(#707): these batch muls include the use of 1 as a scalar. This is handled appropriately as a
-        //     non-mul
-        //     // (add-accumulate) in the goblin batch_mul but is done inefficiently as a scalar mul in the conventional
-        //     // emulated batch mul.
-        //     C0_r_pos = GroupElement::batch_mul(commitments, { one, r_inv });
-        //     C0_r_neg = GroupElement::batch_mul(commitments, { one, -r_inv });
-        // } else {
-        C0_r_pos = batched_commitment_unshifted;
-        C0_r_neg = batched_commitment_unshifted;
-        if (!batched_commitment_to_be_shifted.is_point_at_infinity()) {
-            batched_commitment_to_be_shifted = batched_commitment_to_be_shifted * r_inv;
-            C0_r_pos += batched_commitment_to_be_shifted;
             C0_r_pos += batched_concatenated_pos;
-
-            C0_r_neg -= batched_commitment_to_be_shifted;
             C0_r_neg += batched_concatenated_neg;
         }
-        // }
 
-        // here we use the commitments to concatenated groups, shifting by r
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
-        // auto [c0_r_pos, c0_r_neg] =
-        //     compute_simulated_commitments(batched_commitment_unshifted, batched_commitment_to_be_shifted, r);
-
+        // Compute evaluation A₀(r)
+        auto a_0_pos = compute_gemini_batched_univariate_evaluation(
+            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
         fold_polynomial_opening_claims.reserve(num_variables + 1);
 
-        // we
         // ( [A₀₊], r, A₀(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, a_0_pos }, C0_r_pos });
         // ( [A₀₋], -r, A₀(-r) )
@@ -352,7 +322,8 @@ template <typename Curve> class GeminiVerifier_ {
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114):
+                // insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
                 batched_eval_accumulator =
                     Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
@@ -366,48 +337,6 @@ template <typename Curve> class GeminiVerifier_ {
 
         return batched_eval_accumulator;
     }
-
-    /**
-     * @brief Computes two commitments to A₀ partially evaluated in r and -r.
-     *
-     * @param batched_commitment_unshifted batched commitment to non-shifted polynomials
-     * @param batched_commitment_to_be_shifted batched commitment to to-be-shifted polynomials
-     * @param r evaluation point at which we have partially evaluated A₀ at r and -r.
-     * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
-     */
-    // static std::pair<GroupElement, GroupElement> compute_simulated_commitments(
-    //     GroupElement& batched_commitment_unshifted, GroupElement& batched_commitment_to_be_shifted, Fr r)
-    // {
-    //     // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
-    //     GroupElement C0_r_pos;
-    //     // C₀ᵣ₋ = [F] - r⁻¹⋅[G]
-    //     GroupElement C0_r_neg;
-    //     Fr r_inv = r.invert(); // r⁻¹
-
-    //     // If in a recursive setting, perform a batch mul. Otherwise, accumulate directly.
-    //     // TODO(#673): The following if-else represents the stldib/native code paths. Once the "native" verifier is
-    //     // achieved through a builder Simulator, the stdlib codepath should become the only codepath.
-    //     if constexpr (Curve::is_stdlib_type) {
-    //         std::vector<GroupElement> commitments = { batched_commitment_unshifted, batched_commitment_to_be_shifted
-    //         }; auto builder = r.get_context(); auto one = Fr(builder, 1);
-    //         // TODO(#707): these batch muls include the use of 1 as a scalar. This is handled appropriately as a
-    //         non-mul
-    //         // (add-accumulate) in the goblin batch_mul but is done inefficiently as a scalar mul in the conventional
-    //         // emulated batch mul.
-    //         C0_r_pos = GroupElement::batch_mul(commitments, { one, r_inv });
-    //         C0_r_neg = GroupElement::batch_mul(commitments, { one, -r_inv });
-    //     } else {
-    //         C0_r_pos = batched_commitment_unshifted;
-    //         C0_r_neg = batched_commitment_unshifted;
-    //         if (!batched_commitment_to_be_shifted.is_point_at_infinity()) {
-    //             batched_commitment_to_be_shifted = batched_commitment_to_be_shifted * r_inv;
-    //             C0_r_pos += batched_commitment_to_be_shifted;
-    //             C0_r_neg -= batched_commitment_to_be_shifted;
-    //         }
-    //     }
-
-    //     return { C0_r_pos, C0_r_neg };
-    // }
 };
 
 } // namespace bb

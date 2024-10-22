@@ -194,16 +194,16 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Fr> concatenation_scalars;
         if (!concatenation_group_commitments.empty()) {
             const size_t concatenation_group_size = concatenation_group_commitments[0].size();
-            // The "real" size of each polynomial in concatenation groups (i.e. the nummber of non-zero values)
+            // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
             const size_t mini_circuit_size = circuit_size / concatenation_group_size;
-            auto r_shift_pos = Fr(1);
-            auto r_shift_neg = Fr(1);
-            auto r_pow_minicircuit = gemini_evaluation_challenge.pow(mini_circuit_size);
-            auto r_neg_pow_minicircuit = (-gemini_evaluation_challenge).pow(mini_circuit_size);
+            Fr r_shift_pos = Fr(1);
+            Fr r_shift_neg = Fr(1);
+            const Fr r_pow_minicircuit = gemini_evaluation_challenge.pow(mini_circuit_size);
+            const Fr r_neg_pow_minicircuit = (-gemini_evaluation_challenge).pow(mini_circuit_size);
 
             for (size_t i = 0; i < concatenation_group_size; ++i) {
-                // The commitments in the l-th concatenation group will be multiplied by  -ρᵏ⁺ᵐ⁺ˡ and
-                // ( r_shift_pos/(z−r) + ν ⋅ r_shift_neg /(z+r) )
+                // The l-th commitment in each concatenation group will be multiplied by  -ρᵏ⁺ᵐ⁺ˡ and
+                // ( rˡˢ /(z−r) + ν ⋅ (-r)ˡˢ /(z+r) ) where s is the mini circuit size
                 concatenation_scalars.emplace_back(r_shift_pos * inverse_vanishing_evals[0] +
                                                    r_shift_neg * shplonk_batching_challenge *
                                                        inverse_vanishing_evals[1]);

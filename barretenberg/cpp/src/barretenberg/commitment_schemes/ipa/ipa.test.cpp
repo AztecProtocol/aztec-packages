@@ -55,7 +55,7 @@ TEST_F(IPATest, OpenZeroPolynomial)
     constexpr size_t n = 4;
     Polynomial poly(n);
     // Commit to a zero polynomial
-    GroupElement commitment = this->commit(poly);
+    Commitment commitment = this->commit(poly);
     EXPECT_TRUE(commitment.is_point_at_infinity());
 
     auto [x, eval] = this->random_eval(poly);
@@ -247,8 +247,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto poly1 = Polynomial::random(n);
     auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
 
-    GroupElement commitment1 = this->commit(poly1);
-    GroupElement commitment2 = this->commit(poly2);
+    Commitment commitment1 = this->commit(poly1);
+    Commitment commitment2 = this->commit(poly2);
 
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
     auto eval2 = poly2.evaluate_mle(mle_opening_point);
