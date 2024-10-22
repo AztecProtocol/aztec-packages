@@ -65,7 +65,8 @@ show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  kill $(pgrep -g $$ | grep -v $$)
+  kill $(pgrep -g $$ | grep -v $$) || true
+  kill $(jobs -p) || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 # Install the Helm chart
