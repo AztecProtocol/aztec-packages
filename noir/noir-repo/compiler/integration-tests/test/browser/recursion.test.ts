@@ -45,7 +45,7 @@ describe('It compiles noir program code, receiving circuit bytes and abi object.
     const main_program = await getCircuit(`${base_relative_path}/${circuit_main}`);
     const main_inputs: InputMap = TOML.parse(circuit_main_toml) as InputMap;
 
-    const main_backend = new BarretenbergBackend(main_program);
+    const main_backend = new UltraPlonkBackend(main_program.bytecode);
 
     const { witness: main_witnessUint8Array } = await new Noir(main_program).execute(main_inputs);
 
