@@ -57,8 +57,13 @@ export async function createProverNode(
   // WORKTODO: describe how this is set up - and create tests
   let p2pClient: P2PClient | undefined = undefined;
   if (config.p2pEnabled) {
+    log.info('Using prover coordination via p2p');
+
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
+    await p2pClient.start();
+
+    log.info('Started p2p client');
   }
 
   const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config, p2pClient);
@@ -91,12 +96,19 @@ export async function createProverNode(
     claimsMonitor,
     epochMonitor,
     bondManager,
+    p2pClient,
     telemetry,
     proverNodeConfig,
   );
 }
 
-function createQuoteProvider(config: QuoteProviderConfig) {
+// WORKTODO: will there need to be a quote provider that works via p2p?
+function createQuoteProvider(config: QuoteProviderConfig
+  // ,p2pClient?: P2PClient
+) {
+  // if (p2pClient) {
+  //   return new P2PQuoteProvider(p2pClient);
+  // }
   return config.quoteProviderUrl
     ? new HttpQuoteProvider(config.quoteProviderUrl)
     : new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);

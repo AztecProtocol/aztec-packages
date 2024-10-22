@@ -24,6 +24,7 @@ import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims
 import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
+import { P2PClient } from '@aztec/p2p';
 
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
@@ -58,7 +59,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     private readonly claimsMonitor: ClaimsMonitor,
     private readonly epochsMonitor: EpochMonitor,
     private readonly bondManager: BondManager,
-    // private readonly p2pClient: P2PClient,
+    private readonly p2pClient: P2PClient | undefined,
     private readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {
@@ -170,6 +171,10 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     this.publisher.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
+
+    if (this.p2pClient) {
+      await this.p2pClient.stop();
+    }
     this.log.info('Stopped ProverNode');
   }
 

@@ -1,4 +1,4 @@
-import { type ClientProtocolCircuitVerifier, type Tx } from '@aztec/circuit-types';
+import { L2BlockSource, WorldStateSynchronizer, type ClientProtocolCircuitVerifier, type Tx } from '@aztec/circuit-types';
 
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -18,20 +18,42 @@ import {
   noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { InMemoryTxPool } from '../mem_pools/tx_pool/memory_tx_pool.js';
+import { MemoryEpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/memory_epoch_proof_quote_pool.js';
+import { InMemoryAttestationPool } from '../mem_pools/attestation_pool/memory_attestation_pool.js';
+import { MemPools } from '../mem_pools/interface.js';
+import { DataStoreConfig } from '@aztec/kv-store/utils';
+import { BootnodeConfig, P2PConfig } from '../config.js';
+import { createLibP2PPeerId, LibP2PService } from '../service/libp2p_service.js';
+import { DiscV5Service } from '../service/discV5_service.js';
+import { identify } from '@libp2p/identify';
+import { PeerId } from '@libp2p/interface';
+import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { PubSubLibp2p } from '../util.js';
+import { TelemetryClient } from '@aztec/telemetry-client';
+import { BootstrapNode } from '../bootstrap/bootstrap.js';
+import { portToBuf } from '@chainsafe/enr';
 
 /**
  * Creates a libp2p node, pre configured.
  * @param boostrapAddrs - an optional list of bootstrap addresses
  * @returns Lip2p node
  */
-export async function createLibp2pNode(boostrapAddrs: string[] = []): Promise<Libp2p> {
+export async function createLibp2pNode(boostrapAddrs: string[] = [], peerId?: PeerId, enableGossipSub: boolean = false): Promise<Libp2p> {
   const options: Libp2pOptions = {
     addresses: {
       listen: ['/ip4/0.0.0.0/tcp/0'],
+      announce: ['/ip4/0.0.0.0/tcp/0'],
     },
     connectionEncryption: [noise()],
     streamMuxers: [yamux()],
     transports: [tcp()],
+    services: {
+      identify: identify({
+        protocolPrefix: 'aztec',
+      }),
+    }
   };
 
   if (boostrapAddrs.length > 0) {
@@ -42,7 +64,47 @@ export async function createLibp2pNode(boostrapAddrs: string[] = []): Promise<Li
     ];
   }
 
+  if (peerId) {
+    options.peerId = peerId;
+  }
+
+  if (enableGossipSub) {
+    options.services!.pubsub = gossipsub({
+      allowPublishToZeroTopicPeers: true,
+    });
+  }
+
   return await createLibp2p(options);
+}
+
+/**
+ * Test Libp2p service
+ * P2P functionality is operational, however everything else is default
+ *
+ * WORKTODO: more description
+ */
+export async function createTestLibP2PService(
+  boostrapAddrs: string[] = [],
+  l2BlockSource: L2BlockSource,
+  worldStateSynchronizer: WorldStateSynchronizer,
+  mempools: MemPools,
+  telemetry: TelemetryClient,
+  port: number = 0
+) {
+  const config = {
+    tcpAnnounceAddress: `127.0.0.1:${port}`,
+    udpAnnounceAddress: `127.0.0.1:${port}`,
+    tcpListenAddress: `0.0.0.0:${port}`,
+    udpListenAddress: `0.0.0.0:${port}`,
+    bootstrapNodes: boostrapAddrs,
+  } as P2PConfig & DataStoreConfig;
+  const peerId = await createLibP2PPeerId();
+  const discoveryService = new DiscV5Service(peerId, config);
+  const proofVerifier = new AlwaysTrueCircuitVerifier();
+
+  const p2pNode = await createLibp2pNode(boostrapAddrs, peerId, /*enable gossip */ true);
+
+  return new LibP2PService(config, p2pNode as PubSubLibp2p, discoveryService, mempools, l2BlockSource, proofVerifier, worldStateSynchronizer, telemetry);
 }
 
 /**
@@ -121,6 +183,7 @@ export const connectToPeers = async (nodes: ReqRespNode[]): Promise<void> => {
   }
 };
 
+
 // Mock circuit verifier for testing - reimplementation from bb to avoid dependency
 export class AlwaysTrueCircuitVerifier implements ClientProtocolCircuitVerifier {
   verifyProof(_tx: Tx): Promise<boolean> {
@@ -132,3 +195,35 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
     return Promise.resolve(false);
   }
 }
+
+// WORKTODO: copied from end-to-end/src/e2e_p2p/p2p_network.ts
+// Deduplicate
+    // Bootnodes
+
+    export function createBootstrapNodeConfig(privateKey: string, port: number): BootnodeConfig {
+      return {
+        udpListenAddress: `0.0.0.0:${port}`,
+        udpAnnounceAddress: `127.0.0.1:${port}`,
+        peerIdPrivateKey: privateKey,
+        minPeerCount: 10,
+        maxPeerCount: 100,
+      };
+    }
+
+    export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number): Promise<BootstrapNode> {
+      const config = createBootstrapNodeConfig(privateKey, port);
+      return startBootstrapNode(config);
+    }
+
+    export async function createBootstrapNode(port: number): Promise<BootstrapNode> {
+      const peerId = await createLibP2PPeerId();
+      const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
+
+      return startBootstrapNode(config);
+    }
+
+async function startBootstrapNode(config: BootnodeConfig) {
+  const bootstrapNode = new BootstrapNode();
+  await bootstrapNode.start(config);
+  return bootstrapNode;
+  }
