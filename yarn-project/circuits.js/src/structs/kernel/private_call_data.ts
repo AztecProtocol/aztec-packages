@@ -4,7 +4,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { PrivateCallStackItem } from '../private_call_stack_item.js';
+import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
 /**
@@ -13,9 +13,9 @@ import { VerificationKeyAsFields } from '../verification_key.js';
 export class PrivateCallData {
   constructor(
     /**
-     * The call stack item currently being processed.
+     * Public inputs of the private function circuit.
      */
-    public callStackItem: PrivateCallStackItem,
+    public publicInputs: PrivateCircuitPublicInputs,
     /**
      * The verification key for the function being invoked.
      */
@@ -54,7 +54,7 @@ export class PrivateCallData {
    */
   static getFields(fields: FieldsOf<PrivateCallData>) {
     return [
-      fields.callStackItem,
+      fields.publicInputs,
       fields.vk,
       fields.contractClassArtifactHash,
       fields.contractClassPublicBytecodeCommitment,
@@ -86,7 +86,7 @@ export class PrivateCallData {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateCallData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateCallData(
-      reader.readObject(PrivateCallStackItem),
+      reader.readObject(PrivateCircuitPublicInputs),
       reader.readObject(VerificationKeyAsFields),
       reader.readObject(Fr),
       reader.readObject(Fr),

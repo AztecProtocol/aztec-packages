@@ -63,7 +63,7 @@ export class PublicExecutor {
     previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths = PublicValidationRequestArrayLengths.empty(),
     previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.empty(),
   ): Promise<PublicExecutionResult> {
-    const address = executionRequest.contractAddress;
+    const address = executionRequest.callContext.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
     const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
@@ -149,15 +149,13 @@ function createAvmExecutionEnvironment(
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
-    executionRequest.contractAddress,
-    executionRequest.callContext.storageContractAddress,
+    executionRequest.callContext.contractAddress,
     executionRequest.callContext.msgSender,
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
     globalVariables,
     executionRequest.callContext.isStaticCall,
-    executionRequest.callContext.isDelegateCall,
     executionRequest.args,
   );
 }

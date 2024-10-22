@@ -148,7 +148,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Control Flow - Contract Calls
     { OpCode::CALL, external_call_format },
     { OpCode::STATICCALL, external_call_format },
-    // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     // REVERT,
     { OpCode::REVERT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },

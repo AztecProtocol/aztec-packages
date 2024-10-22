@@ -114,8 +114,8 @@ export class KernelProver {
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
 
       const functionName = await this.oracle.getDebugFunctionName(
-        currentExecution.callStackItem.contractAddress,
-        currentExecution.callStackItem.functionData.selector,
+        currentExecution.publicInputs.callContext.contractAddress,
+        currentExecution.publicInputs.callContext.functionSelector,
       );
 
       const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
@@ -201,12 +201,12 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ callStackItem }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
-    const { contractAddress, functionData } = callStackItem;
+  private async createPrivateCallData({ publicInputs }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
+    const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      functionData.selector,
+      functionSelector,
     );
     const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
       contractAddress,
@@ -223,7 +223,7 @@ export class KernelProver {
       : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
 
     return PrivateCallData.from({
-      callStackItem,
+      publicInputs,
       vk,
       publicKeysHash: publicKeys.hash(),
       contractClassArtifactHash,

@@ -360,7 +360,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const { endSideEffectCounter, returnsHash } = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
@@ -368,7 +367,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return [endSideEffectCounter, returnsHash].map(toACVMField);
   }
@@ -379,7 +377,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField> {
     const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
@@ -387,7 +384,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return toACVMField(newArgsHash);
   }
@@ -398,7 +394,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField> {
     const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
@@ -406,7 +401,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return toACVMField(newArgsHash);
   }

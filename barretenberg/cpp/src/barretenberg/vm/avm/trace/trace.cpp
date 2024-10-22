@@ -1266,9 +1266,6 @@ void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t
     case EnvironmentVariable::ADDRESS:
         op_address(indirect, dst_offset);
         break;
-    case EnvironmentVariable::STORAGEADDRESS:
-        op_storage_address(indirect, dst_offset);
-        break;
     case EnvironmentVariable::SENDER:
         op_sender(indirect, dst_offset);
         break;
@@ -1316,19 +1313,6 @@ void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
     FF ia_value = kernel_trace_builder.op_address(clk);
     Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_address = FF(1);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
-
-    main_trace.push_back(row);
-}
-
-void AvmTraceBuilder::op_storage_address(uint8_t indirect, uint32_t dst_offset)
-{
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_storage_address(clk);
-    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
-    row.main_sel_op_storage_address = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);

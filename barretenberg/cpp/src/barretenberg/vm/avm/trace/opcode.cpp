@@ -147,8 +147,6 @@ std::string to_string(OpCode opcode)
         return "CALL";
     case OpCode::STATICCALL:
         return "STATICCALL";
-    case OpCode::DELEGATECALL:
-        return "DELEGATECALL";
     case OpCode::RETURN:
         return "RETURN";
     case OpCode::REVERT_8:

@@ -32,7 +32,7 @@ namespace main(256);
 
     pol commit sel_execution_end; // Toggle next row of last execution trace row.
                                   // Used as a LHS selector of the lookup to enforce final gas values which correspond to
-                                  // l2_gas_remaining and da_gas_remaining values located at the row after last execution row.  
+                                  // l2_gas_remaining and da_gas_remaining values located at the row after last execution row.
     sel_execution_end' = sel_execution_row * (1 - sel_execution_row') * (1 - sel_first);
 
     //===== PUBLIC COLUMNS=========================================================
@@ -47,7 +47,6 @@ namespace main(256);
 
     // CONTEXT - ENVIRONMENT
     pol commit sel_op_address;
-    pol commit sel_op_storage_address;
     pol commit sel_op_sender;
     pol commit sel_op_function_selector;
     pol commit sel_op_transaction_fee;
@@ -218,7 +217,6 @@ namespace main(256);
     // TODO: Very likely, we can remove these constraints as the selectors should be derived during
     // opcode decomposition.
     sel_op_address * (1 - sel_op_address) = 0;
-    sel_op_storage_address * (1 - sel_op_storage_address) = 0;
     sel_op_sender * (1 - sel_op_sender) = 0;
     sel_op_function_selector * (1 - sel_op_function_selector) = 0;
     sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;

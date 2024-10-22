@@ -69,7 +69,6 @@ export enum Opcode {
   // External calls
   CALL,
   STATICCALL,
-  DELEGATECALL,
   RETURN,
   REVERT_8,
   REVERT_16,

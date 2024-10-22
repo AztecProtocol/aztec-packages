@@ -188,7 +188,6 @@ export class TXE implements TypedOracle {
     blockNumber: number,
     sideEffectsCounter = this.sideEffectsCounter,
     isStaticCall = false,
-    isDelegateCall = false,
   ) {
     const db = await this.#getTreesAt(blockNumber);
     const previousBlockState = await this.#getTreesAt(blockNumber - 1);
@@ -200,12 +199,8 @@ export class TXE implements TypedOracle {
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
       (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
     );
-    inputs.callContext.msgSender = this.msgSender;
-    inputs.callContext.storageContractAddress = this.contractAddress;
-    inputs.callContext.isStaticCall = isStaticCall;
-    inputs.callContext.isDelegateCall = isDelegateCall;
+    inputs.callContext = new CallContext(this.msgSender, this.contractAddress, this.functionSelector, isStaticCall);
     inputs.startSideEffectCounter = sideEffectsCounter;
-    inputs.callContext.functionSelector = this.functionSelector;
     return inputs;
   }
 
@@ -555,13 +550,12 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     this.logger.verbose(
       `Executing external function ${await this.getDebugFunctionName(
         targetContractAddress,
         functionSelector,
-      )}@${targetContractAddress} isStaticCall=${isStaticCall} isDelegateCall=${isDelegateCall}`,
+      )}@${targetContractAddress} isStaticCall=${isStaticCall}`,
     );
 
     // Store and modify env
@@ -575,13 +569,7 @@ export class TXE implements TypedOracle {
     const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
 
     const acir = artifact.bytecode;
-    const initialWitness = await this.getInitialWitness(
-      artifact,
-      argsHash,
-      sideEffectCounter,
-      isStaticCall,
-      isDelegateCall,
-    );
+    const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     try {
@@ -633,13 +621,7 @@ export class TXE implements TypedOracle {
     }
   }
 
-  async getInitialWitness(
-    abi: FunctionAbi,
-    argsHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-    isDelegateCall: boolean,
-  ) {
+  async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
     const argumentsSize = countArgumentsSize(abi);
 
     const args = this.packedValuesCache.unpack(argsHash);
@@ -652,7 +634,6 @@ export class TXE implements TypedOracle {
       this.blockNumber - 1,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
 
     const fields = [...privateContextInputs.toFields(), ...args];
@@ -680,17 +661,12 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  async executePublicFunction(
-    targetContractAddress: AztecAddress,
-    args: Fr[],
-    callContext: CallContext,
-    counter: number,
-  ) {
+  private async executePublicFunction(args: Fr[], callContext: CallContext, counter: number) {
     const executor = new PublicExecutor(
       new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
     );
-    const execution = new PublicExecutionRequest(targetContractAddress, callContext, args);
+    const execution = new PublicExecutionRequest(callContext, args);
 
     const executionResult = executor.simulate(
       execution,
@@ -709,7 +685,6 @@ export class TXE implements TypedOracle {
     functionSelector: FunctionSelector,
     args: Fr[],
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
@@ -720,19 +695,9 @@ export class TXE implements TypedOracle {
     this.setFunctionSelector(functionSelector);
     this.setCalldata(args);
 
-    const callContext = CallContext.empty();
-    callContext.msgSender = this.msgSender;
-    callContext.functionSelector = this.functionSelector;
-    callContext.storageContractAddress = targetContractAddress;
-    callContext.isStaticCall = isStaticCall;
-    callContext.isDelegateCall = isDelegateCall;
+    const callContext = new CallContext(this.contractAddress, targetContractAddress, functionSelector, isStaticCall);
 
-    const executionResult = await this.executePublicFunction(
-      targetContractAddress,
-      args,
-      callContext,
-      this.sideEffectsCounter,
-    );
+    const executionResult = await this.executePublicFunction(args, callContext, this.sideEffectsCounter);
 
     // Apply side effects
     if (!executionResult.reverted) {
@@ -751,7 +716,6 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ): Promise<Fr> {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
@@ -761,22 +725,17 @@ export class TXE implements TypedOracle {
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
 
-    const callContext = CallContext.empty();
-    callContext.msgSender = this.msgSender;
-    callContext.functionSelector = FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR));
-    callContext.storageContractAddress = targetContractAddress;
-    callContext.isStaticCall = isStaticCall;
-    callContext.isDelegateCall = isDelegateCall;
+    const callContext = new CallContext(
+      this.contractAddress,
+      targetContractAddress,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      isStaticCall,
+    );
 
     const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
     const newArgsHash = this.packedValuesCache.pack(args);
 
-    const executionResult = await this.executePublicFunction(
-      targetContractAddress,
-      args,
-      callContext,
-      sideEffectCounter,
-    );
+    const executionResult = await this.executePublicFunction(args, callContext, sideEffectCounter);
 
     if (executionResult.reverted) {
       throw new Error(`Execution reverted with reason: ${executionResult.revertReason}`);
@@ -797,7 +756,6 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ): Promise<Fr> {
     // Definitely not right, in that the teardown should always be last.
     // But useful for executing flows.
@@ -807,7 +765,6 @@ export class TXE implements TypedOracle {
       argsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
   }
 
