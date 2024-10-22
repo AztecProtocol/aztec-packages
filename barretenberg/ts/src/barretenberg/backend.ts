@@ -161,9 +161,12 @@ export class UltraHonkBackend {
     }
   }
 
-  async generateProof(uncompressedWitness: Uint8Array): Promise<ProofData> {
+  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
     await this.instantiate();
-    const proofWithPublicInputs = await this.api.acirProveUltraHonk(this.acirUncompressedBytecode, uncompressedWitness);
+    const proofWithPublicInputs = await this.api.acirProveUltraHonk(
+      this.acirUncompressedBytecode,
+      gunzip(compressedWitness),
+    );
 
     const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
 
