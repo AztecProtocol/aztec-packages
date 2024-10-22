@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729581252494,
+  "lastUpdate": 1729612332273,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ec9dfdf9ba36d9bb2e3829a8cdd5b0ed94cbc3fb",
-          "message": "refactor(avm)!: remove CMOV opcode (#9030)\n\nIt's not emitted by Noir, and it needs special casing in the AVM\ncircuit. We discussed with Alvaro that we'd remove it.",
-          "timestamp": "2024-10-04T23:38:37+01:00",
-          "tree_id": "5aac8113e3cf0b1581a0d0310f9195373f9f95cd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec9dfdf9ba36d9bb2e3829a8cdd5b0ed94cbc3fb"
-        },
-        "date": 1728082781739,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31207.998299999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28825.623207000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5449.064601000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5082.764854 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 94071.196319,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 94071198000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15212.738652999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15212739000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8361160955,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8361160955 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152576280,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152576280 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6782398642,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6782398642 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125519994,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125519994 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3428,6 +3356,66 @@ window.BENCHMARK_DATA = {
             "value": 130181963,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 130181963 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42e5221dda3fc28dc7fcce3607af756132b4e314",
+          "message": "fix(avm): public dispatch in proving tests (#9331)\n\nfixes a bug in the poseidon2_permutation, where we were using the space\r\nid from the main trace incorrectly. keccakF also missing an operand for\r\naddressing",
+          "timestamp": "2024-10-22T16:26:33+01:00",
+          "tree_id": "c92b9020a0c8d7d84def639ce170052d51f328fd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/42e5221dda3fc28dc7fcce3607af756132b4e314"
+        },
+        "date": 1729612324780,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29649.34950099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28056.735666 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5406.272170000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5082.340565 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94252.168168,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94252170000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15295.167253000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15295167000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2847390422,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2847390422 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133721808,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133721808 ns\nthreads: 1"
           }
         ]
       }
