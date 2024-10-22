@@ -2,7 +2,7 @@ import {
   AuthWitness,
   MerkleTreeId,
   Note,
-  type NoteStatus,
+  NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
   PublicDataWrite,
@@ -87,6 +87,8 @@ export class TXE implements TypedOracle {
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
 
+  private tempNoteCache = new Map<string, NoteData[]>();
+
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
@@ -117,6 +119,10 @@ export class TXE implements TypedOracle {
 
   getVersion() {
     return Promise.resolve(this.version);
+  }
+
+  getTimestamp() {
+    return Promise.resolve(new Fr(Math.floor(Date.now() / 1000)));
   }
 
   getMsgSender() {
@@ -195,6 +201,8 @@ export class TXE implements TypedOracle {
 
     const stateReference = await db.getStateReference();
     const inputs = PrivateContextInputs.empty();
+    inputs.txContext.version = this.version;
+    inputs.txContext.chainId = this.chainId;
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -253,6 +261,7 @@ export class TXE implements TypedOracle {
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
     const db = await this.trees.getLatest();
     const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
+
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
 
@@ -302,6 +311,11 @@ export class TXE implements TypedOracle {
     return contractInstance;
   }
 
+  // TODO (#8809): This function as is does not work for note hashes at all
+  // This is because when we add the notes into our trees, via `addNoteHashes`, we add the hashes after siloing them with the contract address
+  // The issue is when we are trying to get the note hashes later, we are getting them and passing in the raw note hash, without siloing them to contract address, so they will never show up here.
+  // They are not siloed because all notes created in the TXE have a nonce of 0, indicating that they are transient notes.
+  // Similarly when nullifiers are emitted, but each nullified note from a different contract *can* nullify other notes if they have the exact same preimage.
   async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
     const db = await this.#getTreesAt(blockNumber);
     const index = await db.findLeafIndex(treeId, leafValue.toBuffer());
@@ -361,17 +375,33 @@ export class TXE implements TypedOracle {
     }
   }
 
-  getLowNullifierMembershipWitness(
-    _blockNumber: number,
-    _nullifier: Fr,
+  async getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Method not implemented.');
+    const committedDb = await this.#getTreesAt(blockNumber);
+    const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!findResult) {
+      return undefined;
+    }
+    const { index, alreadyPresent } = findResult;
+    if (alreadyPresent) {
+      this.logger.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+    }
+    const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
+
+    const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
+      MerkleTreeId.NULLIFIER_TREE,
+      BigInt(index),
+    );
+    return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
   async getHeader(blockNumber: number): Promise<Header | undefined> {
     const header = Header.empty();
     const db = await this.#getTreesAt(blockNumber);
     header.state = await db.getStateReference();
+
     header.globalVariables.blockNumber = new Fr(blockNumber);
     return header;
   }
@@ -402,12 +432,17 @@ export class TXE implements TypedOracle {
     sortOrder: number[],
     limit: number,
     offset: number,
-    _status: NoteStatus,
+    status: NoteStatus,
   ) {
+    let allNotes: NoteData[] = [];
+    if (status === NoteStatus.ACTIVE_OR_NULLIFIED) {
+      allNotes = this.tempNoteCache.get(`${this.contractAddress}:${storageSlot}`) ?? [];
+    }
+
     // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
-    const notes = pickNotes<NoteData>(pendingNotes, {
+    const notes = pickNotes<NoteData>([...pendingNotes, ...allNotes], {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
         value: selectValues[i],
@@ -432,15 +467,26 @@ export class TXE implements TypedOracle {
 
   notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
+
+    const noteData: NoteData = {
+      contractAddress: this.contractAddress,
+      storageSlot,
+      nonce: Fr.ZERO, // Nonce cannot be known during private execution.
+      note,
+      siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
+      noteHash,
+    };
+
+    const notes = this.tempNoteCache.get(`${this.contractAddress}:${storageSlot}`);
+
+    if (notes === undefined) {
+      this.tempNoteCache.set(`${this.contractAddress}:${storageSlot}`, [noteData]);
+    } else {
+      this.tempNoteCache.set(`${this.contractAddress}:${storageSlot}`, [...notes, noteData]);
+    }
+
     this.noteCache.addNewNote(
-      {
-        contractAddress: this.contractAddress,
-        storageSlot,
-        nonce: Fr.ZERO, // Nonce cannot be known during private execution.
-        note,
-        siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        noteHash,
-      },
+      noteData,
       counter,
     );
     this.sideEffectsCounter = counter + 1;
@@ -584,6 +630,10 @@ export class TXE implements TypedOracle {
     );
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
+
+    const originalSideEffectsCounter = this.sideEffectsCounter;
+    const originalNotesLength = this.noteCache.getAllNotes().length;
+
     try {
       const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
         const execError = new ExecutionError(
@@ -595,9 +645,11 @@ export class TXE implements TypedOracle {
           extractCallStack(err, artifact.debug),
           { cause: err },
         );
+
         this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
         throw createSimulationError(execError);
       });
+
       const duration = timer.ms();
       const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
@@ -615,10 +667,17 @@ export class TXE implements TypedOracle {
       const endSideEffectCounter = publicInputs.endSideEffectCounter;
       this.sideEffectsCounter = endSideEffectCounter.toNumber() + 1;
 
-      await this.addNullifiers(
-        targetContractAddress,
-        publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
-      );
+      try {
+        await this.addNullifiers(
+          targetContractAddress,
+          publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+        );
+      } catch (err) {
+        this.sideEffectsCounter = originalSideEffectsCounter;
+        const newNoteLength = this.noteCache.getAllNotes().length;
+        this.noteCache.removeNotesFromCache(newNoteLength - originalNotesLength);
+        throw new Error('Could not add nullifiers to the state tree');
+      }
 
       await this.addNoteHashes(
         targetContractAddress,
