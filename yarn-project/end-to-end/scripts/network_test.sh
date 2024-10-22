@@ -63,6 +63,12 @@ function show_status_until_pxe_ready() {
 
 show_status_until_pxe_ready &
 
+function cleanup() {
+  # kill everything in our process group except our process
+  kill $(pgrep -g $$ | grep -v $$) || true
+  kill $(jobs -p) || true
+}
+trap cleanup SIGINT SIGTERM EXIT
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
@@ -79,12 +85,6 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 # tunnel in to get access directly to our PXE and ETHs services from k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-anvil 9545:8545 2>/dev/null >/dev/null || true) &
-
-function cleanup() {
-  # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) 2>/dev/null || true
-}
-trap cleanup SIGINT SIGTERM EXIT
 
 docker run --rm --network=host \
   -e PXE_URL=http://127.0.0.1:9082 \
