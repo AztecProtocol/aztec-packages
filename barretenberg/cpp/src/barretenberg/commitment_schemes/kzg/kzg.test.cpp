@@ -1,10 +1,8 @@
 
 #include "kzg.hpp"
 #include "../commitment_key.test.hpp"
-#include "../gemini/gemini.hpp"
-#include "../shplonk/shplemini.hpp"
-#include "../shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/test_utils.hpp"
 
 namespace bb {

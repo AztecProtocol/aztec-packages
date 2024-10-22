@@ -126,8 +126,8 @@ template <typename Curve> class GeminiProver_ {
 
 template <typename Curve> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
-    using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
 
   public:
     /**
@@ -186,6 +186,8 @@ template <typename Curve> class GeminiVerifier_ {
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
 
+        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
+        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
         GroupElement C0_r_pos = batched_commitment_unshifted;
         GroupElement C0_r_neg = batched_commitment_unshifted;
 
@@ -228,6 +230,7 @@ template <typename Curve> class GeminiVerifier_ {
                 j++;
             }
 
+            // Add the contributions from concatenation groups to get the final [A₀₊] and  [A₀₋]
             C0_r_pos += batched_concatenated_pos;
             C0_r_neg += batched_concatenated_neg;
         }
@@ -322,8 +325,7 @@ template <typename Curve> class GeminiVerifier_ {
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114):
-                // insecure!
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
                 batched_eval_accumulator =
                     Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);

@@ -1,13 +1,7 @@
 
-#include "../gemini/gemini.hpp"
-#include "../shplonk/shplemini.hpp"
-#include "../shplonk/shplonk.hpp"
 #include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
-#include "barretenberg/common/mem.hpp"
-#include "barretenberg/ecc/curves/bn254/fq12.hpp"
-#include "barretenberg/ecc/curves/types.hpp"
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 using namespace bb;
 
 namespace {

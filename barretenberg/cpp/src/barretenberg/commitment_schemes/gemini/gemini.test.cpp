@@ -2,8 +2,6 @@
 
 #include "../commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/utils/test_utils.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 using namespace bb;
 
