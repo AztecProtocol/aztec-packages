@@ -1,12 +1,9 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { TestCircuitVerifier } from '@aztec/bb-prover/test';
-import { BBCircuitVerifier } from '@aztec/bb-prover/verifier';
 import { type AztecNode } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { type P2PClient, createP2PClient } from '@aztec/p2p';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { createSimulationProvider } from '@aztec/simulator';
@@ -54,7 +51,9 @@ export async function createProverNode(
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
-  const proverCoordination = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : await createProverCoordination(config, worldStateSynchronizer, archiver, telemetry);
+  const proverCoordination = deps.aztecNodeTxProvider
+    ? deps.aztecNodeTxProvider
+    : await createProverCoordination(config, worldStateSynchronizer, archiver, telemetry);
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 

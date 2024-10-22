@@ -1,11 +1,11 @@
-import { type ProverCoordination, WorldStateSynchronizer, createAztecNodeClient } from '@aztec/circuit-types';
-import { createP2PClient, type P2PClient } from '@aztec/p2p';
-
-import { createDebugLogger, Logger } from '@aztec/foundation/log';
+import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { ProverNodeConfig } from '../config.js';
-import { Archiver, ArchiveSource } from '@aztec/archiver';
-import { TelemetryClient } from '@aztec/telemetry-client';
+import { type ProverCoordination, type WorldStateSynchronizer, createAztecNodeClient } from '@aztec/circuit-types';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { createP2PClient } from '@aztec/p2p';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+
+import { type ProverNodeConfig } from '../config.js';
 
 export async function createProverCoordination(
   config: ProverNodeConfig,
@@ -19,7 +19,6 @@ export async function createProverCoordination(
     log.info('Using prover coordination via p2p');
 
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
-
     const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
     await p2pClient.start();
 

@@ -4,7 +4,6 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
