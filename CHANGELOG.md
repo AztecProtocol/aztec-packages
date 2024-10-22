@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.58.0...aztec-packages-v0.59.0) (2024-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **seq:** disable sequencer and disable validator as one env var, update p2p listen port names ([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266))
+
+### Bug Fixes
+
+* **docs:** Dapp tutorial edits ([#8695](https://github.com/AztecProtocol/aztec-packages/issues/8695)) ([f95bcff](https://github.com/AztecProtocol/aztec-packages/commit/f95bcff9902b7e28bffcf96fbd7159b2da88e89c))
+* **docs:** Update debugging docs ([#9200](https://github.com/AztecProtocol/aztec-packages/issues/9200)) ([2a4188c](https://github.com/AztecProtocol/aztec-packages/commit/2a4188ca91a1341a3dca1d052a842b730b50fd91))
+* Publish readme on bb.js NPM package ([#9303](https://github.com/AztecProtocol/aztec-packages/issues/9303)) ([1d860a8](https://github.com/AztecProtocol/aztec-packages/commit/1d860a82c290d820b0fcc55b61ef68f5501f7c1b))
+
+
+### Miscellaneous
+
+* Re-enable test fixed by Native World State ([#9289](https://github.com/AztecProtocol/aztec-packages/issues/9289)) ([3fd1802](https://github.com/AztecProtocol/aztec-packages/commit/3fd18028a84f1eae6e7e9d2858d5875a6e47595f)), closes [#8306](https://github.com/AztecProtocol/aztec-packages/issues/8306)
+* Replace relative paths to noir-protocol-circuits ([ceeab4e](https://github.com/AztecProtocol/aztec-packages/commit/ceeab4e08240884e84f08e94b32f5350c3def606))
+* **seq:** Disable sequencer and disable validator as one env var, update p2p listen port names ([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266)) ([367c38c](https://github.com/AztecProtocol/aztec-packages/commit/367c38c02b6cda494e9d3c64ea27a1cf3465f082))
+
 ## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.57.0...aztec-packages-v0.58.0) (2024-10-18)
 
 

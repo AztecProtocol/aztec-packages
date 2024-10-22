@@ -69,7 +69,7 @@ fn validate_contract_address_incorrect_partial_address_preimage_fails() {
 fn validate_contract_address_incorrect_address_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    builder.private_call.public_keys_hash.inner = builder.private_call.public_keys_hash.inner + 1;
+    builder.private_call.public_keys.ivpk_m.inner.x = builder.private_call.public_keys.ivpk_m.inner.x + 1;
 
     builder.validate();
 }

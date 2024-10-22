@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 : '
 This script sets up and runs a native testnet for the Aztec network.
 
@@ -24,27 +26,28 @@ Options:
   see display_help() below
 '
 
+# Default values
+TEST_SCRIPT=./test-transfer.sh
+PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
+NUM_VALIDATORS=3
+INTERLEAVED=false
+
 # Function to display help message
 display_help() {
     echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo "  -h     Display this help message"
-    echo "  -t     Specify the test script file (default: ./test-transfer.sh)"
-    echo "  -val   Specify the number of validators (default: 3)"
+    echo "  -t     Specify the test file (default: $TEST_FILE)"
+    echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
+    echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
     echo "  -v     Set logging level to verbose"
     echo "  -vv    Set logging level to debug"
-    echo "  -i     Run interleaved (default: false)"
+    echo "  -i     Run interleaved (default: $INTERLEAVED)"
     echo
     echo "Example:"
-    echo "  $0 -t ./custom-test.sh -val 5 -v"
+    echo "  $0 -t ./test-4epochs.sh -val 5 -v"
 }
-
-# Default values
-TEST_SCRIPT="./test-transfer.sh"
-NUM_VALIDATORS=3
-LOG_LEVEL="info"
-INTERLEAVED=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -55,6 +58,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -t)
       TEST_SCRIPT="$2"
+      shift 2
+      ;;
+    -p)
+      PROVER_SCRIPT="$2"
       shift 2
       ;;
     -val)
@@ -88,6 +95,9 @@ done
 ## Set log level for all child commands
 export LOG_LEVEL
 
+# Go to repo root
+cd $(git rev-parse --show-toplevel)
+
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
         $TEST_SCRIPT \
@@ -95,10 +105,10 @@ BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_netw
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
-        \"./prover-node.sh 8078 false\" \
+        \"./validators.sh $NUM_VALIDATORS\" \
+        $PROVER_SCRIPT \
         ./pxe.sh \
-        ./transaction-bot.sh \
-        \"./validators.sh $NUM_VALIDATORS\""
+        ./transaction-bot.sh"
 
 # Execute the command
 eval $BASE_CMD

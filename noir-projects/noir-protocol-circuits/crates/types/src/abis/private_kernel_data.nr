@@ -14,6 +14,8 @@ pub struct PrivateKernelData {
 
 impl PrivateKernelData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let index_in_allowed_list = if self.vk_index >= PRIVATE_KERNEL_RESET_INDEX {
             // Kernel circuits only need to include PRIVATE_KERNEL_RESET_INDEX in the list to allow all private kernel reset variants.
             PRIVATE_KERNEL_RESET_INDEX

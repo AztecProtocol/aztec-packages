@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.58.0...barretenberg.js-v0.59.0) (2024-10-21)
+
+
+### Bug Fixes
+
+* Publish readme on bb.js NPM package ([#9303](https://github.com/AztecProtocol/aztec-packages/issues/9303)) ([1d860a8](https://github.com/AztecProtocol/aztec-packages/commit/1d860a82c290d820b0fcc55b61ef68f5501f7c1b))
+
 ## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.57.0...barretenberg.js-v0.58.0) (2024-10-18)
 
 
