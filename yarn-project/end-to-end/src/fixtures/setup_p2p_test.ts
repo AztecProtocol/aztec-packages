@@ -121,31 +121,3 @@ export async function createValidatorConfig(
 
   return nodeConfig;
 }
-
-export function createBootstrapNodeConfig(privateKey: string, port: number): BootnodeConfig {
-  return {
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    peerIdPrivateKey: privateKey,
-    minPeerCount: 10,
-    maxPeerCount: 100,
-  };
-}
-
-export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number): Promise<BootstrapNode> {
-  const config = createBootstrapNodeConfig(privateKey, port);
-  return startBootstrapNode(config);
-}
-
-export async function createBootstrapNode(port: number): Promise<BootstrapNode> {
-  const peerId = await createLibP2PPeerId();
-  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
-
-  return startBootstrapNode(config);
-}
-
-async function startBootstrapNode(config: BootnodeConfig) {
-  const bootstrapNode = new BootstrapNode();
-  await bootstrapNode.start(config);
-  return bootstrapNode;
-}

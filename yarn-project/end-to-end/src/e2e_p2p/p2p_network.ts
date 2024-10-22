@@ -9,14 +9,10 @@ import getPort from 'get-port';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import {
-  createBootstrapNodeFromPrivateKey,
-  createValidatorConfig,
-  generateNodePrivateKeys,
-  generatePeerIdPrivateKeys,
-} from '../fixtures/setup_p2p_test.js';
+import { createValidatorConfig, generateNodePrivateKeys, generatePeerIdPrivateKeys } from '../fixtures/setup_p2p_test.js';
 import { type ISnapshotManager, type SubsystemsContext, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
