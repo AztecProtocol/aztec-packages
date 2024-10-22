@@ -427,7 +427,6 @@ export class P2PClient extends WithTracer implements P2P {
     return this.txPool.getTxByHash(txHash);
   }
 
-  // WORKTODO: clean up other interfaces the use this
   /**
    * Returns a transaction in the transaction pool by its hash.
    * If the transaction is not in the pool, it will be requested from the network.
