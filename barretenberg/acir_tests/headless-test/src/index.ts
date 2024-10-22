@@ -1,7 +1,6 @@
 import { chromium, firefox, webkit } from "playwright";
 import fs from "fs";
 import { Command } from "commander";
-import { gunzipSync } from "zlib";
 import chalk from "chalk";
 import os from "os";
 
