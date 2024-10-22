@@ -1460,7 +1460,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(1)))));
 
     // SENDER
-    EXPECT_THAT(instructions.at(2),
+    EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1469,7 +1469,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 
     // FUNCTIONSELECTOR
     EXPECT_THAT(
-        instructions.at(3),
+        instructions.at(2),
         AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(0),
@@ -1477,7 +1477,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                 VariantWith<uint16_t>(3)))));
 
     // TRANSACTIONFEE
-    EXPECT_THAT(instructions.at(4),
+    EXPECT_THAT(instructions.at(3),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1485,7 +1485,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(4)))));
 
     // CHAINID
-    EXPECT_THAT(instructions.at(5),
+    EXPECT_THAT(instructions.at(4),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1493,7 +1493,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(5)))));
 
     // VERSION
-    EXPECT_THAT(instructions.at(6),
+    EXPECT_THAT(instructions.at(5),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1501,7 +1501,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(6)))));
 
     // BLOCKNUMBER
-    EXPECT_THAT(instructions.at(7),
+    EXPECT_THAT(instructions.at(6),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1509,7 +1509,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(7)))));
 
     // TIMESTAMP
-    EXPECT_THAT(instructions.at(8),
+    EXPECT_THAT(instructions.at(7),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1517,7 +1517,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(8)))));
 
     // FEEPERL2GAS
-    EXPECT_THAT(instructions.at(9),
+    EXPECT_THAT(instructions.at(8),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1525,7 +1525,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(9)))));
 
     // FEEPERDAGAS
-    EXPECT_THAT(instructions.at(10),
+    EXPECT_THAT(instructions.at(9),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
@@ -1533,7 +1533,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint16_t>(10)))));
 
     // ISSTATICCALL
-    EXPECT_THAT(instructions.at(11),
+    EXPECT_THAT(instructions.at(10),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
