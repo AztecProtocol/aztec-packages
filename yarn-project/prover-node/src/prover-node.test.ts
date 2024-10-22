@@ -104,7 +104,6 @@ describe('prover-node', () => {
       claimsMonitor,
       epochMonitor,
       bondManager,
-      p2pClient,
       telemetryClient,
       config,
     );

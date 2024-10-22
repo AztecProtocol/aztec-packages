@@ -59,7 +59,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     private readonly claimsMonitor: ClaimsMonitor,
     private readonly epochsMonitor: EpochMonitor,
     private readonly bondManager: BondManager,
-    private readonly p2pClient: P2PClient | undefined,
     private readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {
@@ -171,10 +170,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     this.publisher.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
-
-    if (this.p2pClient) {
-      await this.p2pClient.stop();
-    }
+    await this.coordination.stop();
     this.log.info('Stopped ProverNode');
   }
 

@@ -52,21 +52,9 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = new L1Publisher(config, telemetry);
 
-  // WORKTODO: if prover node p2p is configured, then we can createProverCoordination via p2p in the createProverCoordination function
-  // WORKTODO: it is not clear how the proof verifier will go in here - but it is required to validate the p2p requests.
-  // WORKTODO: describe how this is set up - and create tests
-  let p2pClient: P2PClient | undefined = undefined;
-  if (config.p2pEnabled) {
-    log.info('Using prover coordination via p2p');
-
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
-    p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
-    await p2pClient.start();
-
-    log.info('Started p2p client');
-  }
-
-  const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config, p2pClient);
+  // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
+  // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
+  const proverCoordination = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : await createProverCoordination(config, worldStateSynchronizer, archiver, telemetry);
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
@@ -89,14 +77,13 @@ export async function createProverNode(
     archiver,
     archiver,
     worldStateSynchronizer,
-    txProvider,
+    proverCoordination,
     simulationProvider,
     quoteProvider,
     quoteSigner,
     claimsMonitor,
     epochMonitor,
     bondManager,
-    p2pClient,
     telemetry,
     proverNodeConfig,
   );
