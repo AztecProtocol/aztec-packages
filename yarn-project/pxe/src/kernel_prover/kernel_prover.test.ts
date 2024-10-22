@@ -7,7 +7,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  FunctionData,
   FunctionSelector,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
@@ -61,8 +60,7 @@ describe('Kernel Prover', () => {
           : NoteHash.empty(),
       0,
     );
-    const functionData = FunctionData.empty();
-    functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
+    publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
     return new PrivateExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),

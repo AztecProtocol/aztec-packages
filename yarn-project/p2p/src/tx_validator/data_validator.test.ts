@@ -38,12 +38,12 @@ describe('TxDataValidator', () => {
 
   it('rejects txs with mismatch revertible execution requests', async () => {
     const goodTxs = mockTxs(3);
-    const badTxs = mockTxs(5);
+    const badTxs = mockTxs(4);
     badTxs[0].data.forPublic!.end.publicCallStack[0].callContext.msgSender = AztecAddress.random();
     badTxs[1].data.forPublic!.end.publicCallStack[1].callContext.contractAddress = AztecAddress.random();
     badTxs[2].data.forPublic!.end.publicCallStack[0].callContext.functionSelector = FunctionSelector.random();
-    badTxs[4].data.forPublic!.end.publicCallStack[0].callContext.isStaticCall =
-      !badTxs[4].enqueuedPublicFunctionCalls[0].callContext.isStaticCall;
+    badTxs[3].data.forPublic!.end.publicCallStack[0].callContext.isStaticCall =
+      !badTxs[3].enqueuedPublicFunctionCalls[0].callContext.isStaticCall;
 
     await expect(validator.validateTxs([...badTxs, ...goodTxs])).resolves.toEqual([goodTxs, badTxs]);
   });
