@@ -156,7 +156,7 @@ pub fn encrypt_and_emit_partial_log<let P: u32>(
 ) {
     let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-    let encrypted_log: [u8; 353 + P] = compute_encrypted_log(
+    let encrypted_log: [u8; 353 + P] = compute_note_log(
         context.this_address(),
         ovsk_app,
         recipient_keys.ovpk_m,
@@ -184,7 +184,7 @@ pub fn encrypt_and_emit_partial_log_and_return<let P: u32, let N: u32>(
 ) -> [Field; N] {
     let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-    let encrypted_log: [u8; 353 + P] = compute_encrypted_log(
+    let encrypted_log: [u8; 353 + P] = compute_note_log(
         context.this_address(),
         ovsk_app,
         recipient_keys.ovpk_m,
@@ -217,7 +217,7 @@ pub fn encrypt_partial_log<let P: u32, let N: u32>(
 ) -> [Field; N] {
     let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-    let encrypted_log_bytes: [u8; 353 + P] = compute_encrypted_log(
+    let encrypted_log_bytes: [u8; 353 + P] = compute_note_log(
         context.this_address(),
         ovsk_app,
         recipient_keys.ovpk_m,

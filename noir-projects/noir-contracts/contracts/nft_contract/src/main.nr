@@ -14,7 +14,12 @@ contract NFT {
         NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
         AztecAddress, PublicContext
     },
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log, encrypt_and_emit_partial_log_and_return, encrypt_partial_log}},
+        encrypted_logs::{
+        encrypted_note_emission::{
+        encode_and_encrypt_note, encrypt_and_emit_partial_log, encrypt_and_emit_partial_log_and_return,
+        encrypt_partial_log
+    }
+    },
         keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize}, utils::bytes::fields_to_bytes,
