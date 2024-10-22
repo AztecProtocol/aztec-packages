@@ -46,6 +46,7 @@ describe('e2e_p2p_gerousia', () => {
   /**
    * There is some flaky behavior in here, likely similar to what is in the gossip test.
    * For this reason we are not running it as part of the CI.
+   * TODO(https://github.com/AztecProtocol/aztec-packages/issues/9164): Currently flakey
    */
   it.skip('Should cast votes to upgrade gerousia', async () => {
     // create the bootstrap node for the network

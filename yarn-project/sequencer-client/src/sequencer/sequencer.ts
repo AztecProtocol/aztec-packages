@@ -40,7 +40,7 @@ import { inspect } from 'util';
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
-import { prettyLogViemError } from '../publisher/utils.js';
+import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -315,8 +315,10 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      this.log.verbose(`Rejected from being able to propose at next block with ${tipArchive}`);
-      prettyLogViemError(err, this.log);
+      const msg = prettyLogViemErrorMsg(err);
+      this.log.verbose(
+        `Rejected from being able to propose at next block with ${tipArchive.toString('hex')}: ${msg ? `${msg}` : ''}`,
+      );
       throw err;
     }
   }
