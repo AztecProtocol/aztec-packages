@@ -49,7 +49,7 @@ it('end-to-end proof creation and verification (outer) -- Verifier API', async (
 
   // Proof verification
   const verifier = new BarretenbergVerifier();
-  const isValid = await verifier.verifyProof(proof, verificationKey);
+  const isValid = await verifier.verifyUltraplonkProof(proof, verificationKey);
   expect(isValid).to.be.true;
 });
 
@@ -192,7 +192,7 @@ it('UltraHonk end-to-end proof creation and verification (outer) -- Verifier API
 
   // Proof verification
   const verifier = new BarretenbergVerifier();
-  const isValid = await verifier.verifyProof(proof, verificationKey);
+  const isValid = await verifier.verifyUltrahonkProof(proof, verificationKey);
   expect(isValid).to.be.true;
 });
 
@@ -231,7 +231,7 @@ it('UltraHonk end-to-end proving and verification with different instances', asy
   // bb.js part
   const proof = await honkBackend.generateProof(witness);
 
-  const verifier = new UltraHonkBackend(assert_lt_program);
+  const verifier = new UltraHonkBackend(assert_lt_program.bytecode);
   const proof_is_valid = await verifier.verifyProof(proof);
   expect(proof_is_valid).to.be.true;
 });
