@@ -22,7 +22,7 @@ import {
   getTxProviderConfigFromEnv,
   proverCoordinationConfigMappings,
 } from './prover-coordination/config.js';
-import { P2PConfig } from '@aztec/p2p';
+import { getP2PConfigFromEnv, P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
@@ -79,6 +79,7 @@ const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...archiverConfigMappings,
   ...proverClientConfigMappings,
+  ...p2pConfigMappings,
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
@@ -92,6 +93,7 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
   return {
     ...getArchiverConfigFromEnv(),
     ...getProverEnvVars(),
+    ...getP2PConfigFromEnv(),
     ...getWorldStateConfigFromEnv(),
     ...getPublisherConfigFromEnv('PROVER'),
     ...getTxSenderConfigFromEnv('PROVER'),

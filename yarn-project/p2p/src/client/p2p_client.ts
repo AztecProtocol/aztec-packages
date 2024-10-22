@@ -16,7 +16,7 @@ import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/
 
 import { type ENR } from '@chainsafe/enr';
 
-import { getP2PConfigEnvVars } from '../config.js';
+import { getP2PConfigFromEnv } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
@@ -224,7 +224,7 @@ export class P2PClient extends WithTracer implements P2P {
   ) {
     super(telemetryClient, 'P2PClient');
 
-    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
+    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigFromEnv();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
     // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
     // if the archiver is remote. We should refactor this so the downloader keeps a single queue and handles
