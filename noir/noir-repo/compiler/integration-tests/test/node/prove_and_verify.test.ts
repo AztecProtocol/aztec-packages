@@ -192,7 +192,7 @@ it('UltraHonk end-to-end proof creation and verification (outer) -- Verifier API
 
   // Proof verification
   const verifier = new BarretenbergVerifier();
-  const isValid = await verifier.verifyUltrahonkProof(proof, verificationKey);
+  const isValid = await verifier.verifyUltraHonkProof(proof, verificationKey);
   expect(isValid).to.be.true;
 });
 
