@@ -49,8 +49,8 @@ jobs:
           BRANCH: "${{ github.ref_name }}"
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "username=${{ github.event.pull_request.user.login }}"
-            echo "username=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+            echo "username=${{ github.actor }}"
+            echo "username=${{ github.actor }}" >> $GITHUB_OUTPUT
           else
             GIT_HASH="${{ github.sha }}"
             GIT_HASH_LAST8=${GIT_HASH: -8}
