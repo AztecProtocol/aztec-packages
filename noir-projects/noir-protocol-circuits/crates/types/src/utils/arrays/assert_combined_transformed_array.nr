@@ -25,7 +25,7 @@ pub fn assert_combined_transformed_array<T, S, let N: u32, Env>(
     }
 }
 
-unconstrained pub fn combine_and_transform_arrays<T, S, let N: u32, Env>(
+pub unconstrained fn combine_and_transform_arrays<T, S, let N: u32, Env>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],
     transform: fn[Env](T) -> S
@@ -130,7 +130,7 @@ mod tests {
         builder.check_and_execute();
     }
 
-    #[test(should_fail_with="hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the commbined array does not match")]
     fn assert_combined_transformed_array_extra_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -140,7 +140,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the commbined array does not match")]
     fn assert_combined_transformed_array_missing_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -150,7 +150,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the commbined array does not match")]
     fn assert_combined_transformed_array_unordered_fails() {
         let mut builder = TestBuilder::new();
 

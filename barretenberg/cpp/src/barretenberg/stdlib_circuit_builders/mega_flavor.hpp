@@ -372,7 +372,7 @@ class MegaFlavor {
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in client_ivc_bench only).
-            BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
+            PROFILE_THIS_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
@@ -396,7 +396,7 @@ class MegaFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            BB_OP_COUNT_TIME_NAME("MegaFlavor::get_row");
+            PROFILE_THIS_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -550,6 +550,9 @@ class MegaFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             set_metadata(proving_key);
+            if (proving_key.commitment_key == nullptr) {
+                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }

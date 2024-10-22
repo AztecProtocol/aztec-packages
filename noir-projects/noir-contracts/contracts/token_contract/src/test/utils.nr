@@ -2,19 +2,17 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
 
 use crate::{types::transparent_note::TransparentNote, Token};
 
-unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
         let owner = env.create_account_contract(1);
         let recipient = env.create_account_contract(2);
-        // Deploy canonical auth registry
-        let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
         (owner, recipient)
     } else {
         let owner = env.create_account();
@@ -38,12 +36,12 @@ unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
     (&mut env, token_contract_address, owner, recipient)
 }
 
-unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
     // Mint some tokens
-    let secret = unsafe_rand();
+    let secret = random();
     let secret_hash = compute_secret_hash(secret);
     let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
     env.call_public(mint_private_call_interface);
@@ -71,7 +69,7 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
 }
 
 // docs:start:txe_test_read_public
-unconstrained pub fn check_public_balance(
+pub unconstrained fn check_public_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: Field
@@ -89,7 +87,7 @@ unconstrained pub fn check_public_balance(
 // docs:end:txe_test_read_public
 
 // docs:start:txe_test_call_unconstrained
-unconstrained pub fn check_private_balance(
+pub unconstrained fn check_private_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: Field

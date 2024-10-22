@@ -1,5 +1,5 @@
 import {
-  type MerkleTreeOperations,
+  type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
   type ProcessedTx,
   ProvingRequestType,
@@ -28,7 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolCircuitVks, getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { ProtocolCircuitVks, TubeVk, getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
 import { inspect } from 'util';
 
@@ -93,7 +93,7 @@ export class EnqueuedCallsProcessor {
   }
 
   static create(
-    db: MerkleTreeOperations,
+    db: MerkleTreeReadOperations,
     publicExecutor: PublicExecutor,
     publicKernelSimulator: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
@@ -377,9 +377,7 @@ export class EnqueuedCallsProcessor {
     // The proof is not used in simulation.
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
-    const vk = isFromPrivate
-      ? ProtocolCircuitVks.PrivateKernelTailToPublicArtifact
-      : ProtocolCircuitVks.PublicKernelMergeArtifact;
+    const vk = isFromPrivate ? TubeVk : ProtocolCircuitVks.PublicKernelMergeArtifact;
     const vkIndex = getVKIndex(vk);
     const siblingPath = getVKSiblingPath(vkIndex);
 

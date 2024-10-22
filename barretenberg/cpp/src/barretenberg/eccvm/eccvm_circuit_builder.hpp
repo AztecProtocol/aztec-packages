@@ -208,7 +208,7 @@ class ECCVMCircuitBuilder {
         return result;
     }
 
-    [[nodiscard]] size_t get_num_gates() const
+    [[nodiscard]] size_t get_estimated_num_finalized_gates() const
     {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/2218): Reduce the amount of computation needed
         // for this method

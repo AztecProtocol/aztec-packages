@@ -241,7 +241,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval3, eval1_shift, eval3_shift };
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-        concatenation_inputs<TypeParam>(mle_opening_point, 3, 2, this->ck());
+        generate_concatenation_inputs<TypeParam>(mle_opening_point, 3, 2, this->ck());
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 

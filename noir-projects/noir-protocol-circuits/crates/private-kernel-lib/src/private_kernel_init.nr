@@ -8,7 +8,8 @@ use crate::{
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData
+    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+    private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     transaction::tx_request::TxRequest
 };
@@ -17,13 +18,34 @@ use dep::types::{
 pub struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
     vk_tree_root: Field,
+    protocol_contract_tree_root: Field,
     private_call: PrivateCallData,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
+    pub fn new(
+        tx_request: TxRequest,
+        vk_tree_root: Field,
+        protocol_contract_tree_root: Field,
+        private_call: PrivateCallDataWithoutPublicInputs,
+        app_public_inputs: PrivateCircuitPublicInputs
+    ) -> Self {
+        Self {
+            tx_request,
+            vk_tree_root,
+            protocol_contract_tree_root,
+            private_call: private_call.to_private_call_data(app_public_inputs)
+        }
+    }
+
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
-        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs, self.vk_tree_root).with_private_call(
+        PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
+            self.tx_request,
+            private_call_public_inputs,
+            self.vk_tree_root,
+            self.protocol_contract_tree_root
+        ).with_private_call(
             private_call_public_inputs,
             self.private_call.call_stack_item.contract_address
         ).finish()
@@ -39,7 +61,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
         private_call_data_validator.validate_as_first_call();
         private_call_data_validator.validate_against_tx_request(self.tx_request);
-        private_call_data_validator.validate(output.end.note_hashes);
+        private_call_data_validator.validate(output.end.note_hashes, self.protocol_contract_tree_root);
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -47,7 +69,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.tx_request,
                 self.private_call.call_stack_item.public_inputs,
                 private_call_data_validator.array_lengths,
-                self.vk_tree_root
+                self.vk_tree_root,
+                self.protocol_contract_tree_root
             );
         }
         output
@@ -76,7 +99,12 @@ mod tests {
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let private_call = self.private_call.to_private_call_data();
-            PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call, vk_tree_root: FixtureBuilder::vk_tree_root() }.execute()
+            PrivateKernelInitCircuitPrivateInputs {
+                tx_request: self.tx_request,
+                private_call,
+                vk_tree_root: FixtureBuilder::vk_tree_root(),
+                protocol_contract_tree_root: 0
+            }.execute()
         }
     }
 

@@ -4,15 +4,20 @@ import { inspect } from 'util';
 import { type LogData, type LogFn } from './log_fn.js';
 
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
-const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : ('info' as const);
 
 /**
  * A valid log severity level.
  */
 export type LogLevel = (typeof LogLevels)[number];
 
-const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-export let currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
+function getLogLevel() {
+  const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
+  const defaultNonTestLogLevel = process.env.DEBUG === undefined ? ('info' as const) : ('debug' as const);
+  const defaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : defaultNonTestLogLevel;
+  return LogLevels.includes(envLogLevel) ? envLogLevel : defaultLogLevel;
+}
+
+export let currentLevel = getLogLevel();
 
 const namespaces = process.env.DEBUG ?? 'aztec:*';
 debug.enable(namespaces);
@@ -36,22 +41,31 @@ export type DebugLogger = Logger;
  * If DEBUG="[module]" env is set, will enable debug logging if the module matches.
  * Uses npm debug for debug level and console.error for other levels.
  * @param name - Name of the module.
+ * @param fixedLogData - Additional data to include in the log message.
+ * @usage createDebugLogger('aztec:validator', {validatorAddress: '0x1234...'});
+ * // will always add the validator address to the log labels
  * @returns A debug logger.
  */
-export function createDebugLogger(name: string): DebugLogger {
+
+export function createDebugLogger(name: string, fixedLogData?: LogData): DebugLogger {
   const debugLogger = debug(name);
+
+  const attatchFixedLogData = (data?: LogData) => ({ ...fixedLogData, ...data });
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
-    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data),
-    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
-    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),
-    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data),
+    error: (msg: string, err?: unknown, data?: LogData) =>
+      logWithDebug(debugLogger, 'error', fmtErr(msg, err), attatchFixedLogData(data)),
+    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, attatchFixedLogData(data)),
+    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, attatchFixedLogData(data)),
+    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, attatchFixedLogData(data)),
+    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
   };
-  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data), logger);
+  return Object.assign(
+    (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, attatchFixedLogData(data)),
+    logger,
+  );
 }
-
 /** A callback to capture all logs. */
 export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
 
@@ -101,7 +115,7 @@ function fmtErr(msg: string, err?: Error | unknown): string {
  * Formats structured log data as a string for console output.
  * @param data - Optional log data.
  */
-function fmtLogData(data?: LogData): string {
+export function fmtLogData(data?: LogData): string {
   return Object.entries(data ?? {})
     .map(([key, value]) => `${key}=${typeof value === 'object' && 'toString' in value ? value.toString() : value}`)
     .join(' ');

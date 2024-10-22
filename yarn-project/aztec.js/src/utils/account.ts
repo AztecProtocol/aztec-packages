@@ -1,7 +1,7 @@
 import { type CompleteAddress, type PXE } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import { DefaultWaitOpts, type WaitOpts } from '../contract/index.js';
+import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 
 /**
  * Waits for the account to finish synchronizing with the PXE Service.

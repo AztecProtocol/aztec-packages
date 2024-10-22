@@ -1,11 +1,11 @@
 use dep::types::{
     header::Header, KernelCircuitPublicInputs, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::RecursiveProof, traits::Verifiable}
+    recursion::{verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof, traits::Verifiable}
 };
 
 pub struct EmptyNestedCircuitPublicInputs {
     proof: RecursiveProof,
-    vk: VerificationKey,
+    vk: HonkVerificationKey,
 }
 
 impl Verifiable for EmptyNestedCircuitPublicInputs {
@@ -26,6 +26,7 @@ pub struct PrivateKernelEmptyPrivateInputs {
     chain_id: Field,
     version: Field,
     vk_tree_root: Field,
+    protocol_contract_tree_root: Field,
 }
 
 impl PrivateKernelEmptyPrivateInputs {
@@ -37,6 +38,7 @@ impl PrivateKernelEmptyPrivateInputs {
         public_inputs.constants.tx_context.chain_id = self.chain_id;
         public_inputs.constants.tx_context.version = self.version;
         public_inputs.constants.vk_tree_root = self.vk_tree_root;
+        public_inputs.constants.protocol_contract_tree_root = self.protocol_contract_tree_root;
 
         public_inputs
     }
@@ -49,7 +51,8 @@ impl Empty for PrivateKernelEmptyPrivateInputs {
             historical_header: Header::empty(),
             chain_id: 0,
             version: 0,
-            vk_tree_root: 0
+            vk_tree_root: 0,
+            protocol_contract_tree_root: 0
         }
     }
 }
@@ -65,11 +68,13 @@ mod tests {
             historical_header: Header::empty(),
             chain_id: 1,
             version: 2,
-            vk_tree_root: 3
+            vk_tree_root: 3,
+            protocol_contract_tree_root: 4
         };
         let public_inputs = private_inputs.execute();
         assert_eq(public_inputs.constants.tx_context.chain_id, 1);
         assert_eq(public_inputs.constants.tx_context.version, 2);
         assert_eq(public_inputs.constants.vk_tree_root, 3);
+        assert_eq(public_inputs.constants.protocol_contract_tree_root, 4);
     }
 }

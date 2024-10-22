@@ -30,4 +30,10 @@ if ! command -v helm &> /dev/null; then
   rm get_helm.sh
 fi
 
-kind create cluster
+if kind get clusters | grep -q "^kind$"; then
+  echo "Cluster 'kind' already exists. Skipping creation."
+else
+  kind create cluster
+fi
+
+kubectl config use-context kind-kind

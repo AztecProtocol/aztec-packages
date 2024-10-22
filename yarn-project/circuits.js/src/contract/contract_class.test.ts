@@ -1,6 +1,7 @@
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
+import { PUBLIC_DISPATCH_SELECTOR } from '../constants.gen.js';
 import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
 
@@ -19,9 +20,7 @@ describe('ContractClass', () => {
     });
 
     // Check function selectors match
-    const publicFunctionSelectors = artifact.functions
-      .filter(fn => fn.functionType === FunctionType.PUBLIC)
-      .map(fn => FunctionSelector.fromNameAndParameters(fn));
+    const publicFunctionSelectors = [FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR))];
     const privateFunctionSelectors = artifact.functions
       .filter(fn => fn.functionType === FunctionType.PRIVATE)
       .map(fn => FunctionSelector.fromNameAndParameters(fn));

@@ -33,7 +33,7 @@ pub struct ResetOutputHints {
     sorted_encrypted_log_hash_indexes: [u32; MAX_ENCRYPTED_LOGS_PER_TX],
 }
 
-unconstrained pub fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
+pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
     previous_kernel: PrivateKernelCircuitPublicInputs,
     transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS]
 ) -> ResetOutputHints {

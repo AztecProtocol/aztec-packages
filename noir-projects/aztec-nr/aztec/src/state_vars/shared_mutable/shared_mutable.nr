@@ -1,4 +1,7 @@
-use dep::protocol_types::{hash::{pedersen_hash, poseidon2_hash}, address::AztecAddress, traits::{FromField, ToField}};
+use dep::protocol_types::{
+    hash::{poseidon2_hash, poseidon2_hash_with_separator}, address::AztecAddress,
+    traits::{FromField, ToField}, utils::arrays::array_concat
+};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::state_vars::{
@@ -29,17 +32,6 @@ global HASH_SEPARATOR: u32 = 2;
 // can actually use it here
 impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
 
-fn concat_arrays<let N: u32, let M: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; N + M] {
-    let mut out: [Field; N + M] = [0; N + M];
-    for i in 0..N {
-        out[i] = arr_n[i];
-    }
-    for i in 0..M {
-        out[N+i] = arr_m[i];
-    }
-    out
-}
-
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
 //  - mutable in public
@@ -66,15 +58,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], HASH_SEPARATOR)
     }
 }
 
@@ -217,13 +209,13 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>
     ) -> Field {
-        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
+        let concatenated: [Field; 4] = array_concat(value_change.serialize(), delay_change.serialize());
         poseidon2_hash(concatenated)
     }
 }
 
 impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
-    unconstrained pub fn get_current_value_in_unconstrained(self) -> T {
+    pub unconstrained fn get_current_value_in_unconstrained(self) -> T {
         let block_number = self.context.block_number() as u32;
         self.read_value_change().get_current_at(block_number)
     }

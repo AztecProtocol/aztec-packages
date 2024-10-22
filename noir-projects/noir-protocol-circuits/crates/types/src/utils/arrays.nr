@@ -51,7 +51,7 @@ pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N> wh
     BoundedVec { storage: array, len }
 }
 
-unconstrained pub fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
+pub unconstrained fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
     let mut index = N;
     for i in 0..N {
         if (index == N) & find(array[i]) {
@@ -93,9 +93,8 @@ pub fn array_length<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
     length
 }
 
-pub fn array_concat<T, let N: u32, let M: u32, let S: u32>(array1: [T; N], array2: [T; M]) -> [T; S] {
-    assert_eq(N + M, S, "combined array length does not match return array length");
-    let mut result = [array1[0]; S];
+pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -> [T; N + M] {
+    let mut result = [array1[0]; N + M];
     for i in 1..N {
         result[i] = array1[i];
     }
@@ -226,13 +225,6 @@ fn test_array_concat() {
     let array1 = [4, 5];
     let concated = array_concat(array0, array1);
     assert_eq(concated, [1, 2, 3, 4, 5]);
-}
-
-#[test(should_fail_with="combined array length does not match return array length")]
-fn array_concat_fails_inconsistent_lengths() {
-    let array0 = [1, 2, 3];
-    let array1 = [4, 5];
-    let _concated: [Field; 4] = array_concat(array0, array1);
 }
 
 #[test]

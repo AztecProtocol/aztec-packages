@@ -1,4 +1,4 @@
-{{- if .Values.network.enableBots }}
+{{- if not .Values.pxe.external }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,8 +17,29 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: pxe
     spec:
+      initContainers:
+        - name: wait-for-boot-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+                echo "Waiting for boot node..."
+                sleep 5
+              done
+        - name: wait-for-validator-service
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl --head --silent {{ include "aztec-network.validatorUrl" . }}/status; do
+                echo "Waiting for validator service..."
+                sleep 5
+              done
       containers:
-        - name: aztec
+        - name: pxe
           image: "{{ .Values.images.aztec.image }}"
           command:
             - "/bin/bash"
@@ -66,7 +87,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
+  type: ClusterIP
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: pxe
@@ -77,4 +98,25 @@ spec:
       {{- if and (eq .Values.pxe.service.type "NodePort") .Values.pxe.service.nodePort }}
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
+---
+{{if .Values.network.public }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-pxe-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: pxe
+  ports:
+    - protocol: TCP
+      port: {{ .Values.pxe.service.port }}
+      targetPort: {{ .Values.pxe.service.targetPort }}
+      {{- if and (eq .Values.pxe.service.type "NodePort") .Values.pxe.service.nodePort }}
+      nodePort: {{ .Values.pxe.service.nodePort }}
+      {{- end }}
+{{ end }}
 {{- end }}

@@ -101,7 +101,6 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.SET_FF]: makeCost(c.AVM_SET_BASE_L2_GAS, 0),
   [Opcode.MOV_8]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
   [Opcode.MOV_16]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
-  [Opcode.CMOV]: makeCost(c.AVM_CMOV_BASE_L2_GAS, 0),
   [Opcode.SLOAD]: makeCost(c.AVM_SLOAD_BASE_L2_GAS, 0),
   [Opcode.SSTORE]: makeCost(c.AVM_SSTORE_BASE_L2_GAS, c.AVM_SSTORE_BASE_DA_GAS),
   [Opcode.NOTEHASHEXISTS]: makeCost(c.AVM_NOTEHASHEXISTS_BASE_L2_GAS, 0),
@@ -181,6 +180,7 @@ export function getGasCostForTypeTag(tag: TypeTag, baseCost: Gas) {
 function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8
+      return 1;
     case TypeTag.UINT8:
       return 1;
     case TypeTag.UINT16:
@@ -194,7 +194,6 @@ function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
     case TypeTag.FIELD:
       return 32;
     case TypeTag.INVALID:
-    case TypeTag.UNINITIALIZED:
       throw new InstructionExecutionError(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
   }
 }

@@ -76,49 +76,6 @@ export class Set extends Instruction {
   }
 }
 
-export class CMov extends Instruction {
-  static readonly type: string = 'CMOV';
-  static readonly opcode: Opcode = Opcode.CMOV;
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-  ];
-
-  constructor(
-    private indirect: number,
-    private aOffset: number,
-    private bOffset: number,
-    private condOffset: number,
-    private dstOffset: number,
-  ) {
-    super();
-  }
-
-  public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost());
-
-    const operands = [this.aOffset, this.bOffset, this.condOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [aOffset, bOffset, condOffset, dstOffset] = addressing.resolve(operands, memory);
-
-    const a = memory.get(aOffset);
-    const b = memory.get(bOffset);
-    const cond = memory.get(condOffset);
-
-    // TODO: reconsider toBigInt() here
-    memory.set(dstOffset, cond.toBigInt() > 0 ? a : b);
-
-    memory.assert({ reads: 3, writes: 1, addressing });
-    context.machineState.incrementPc();
-  }
-}
-
 export class Cast extends Instruction {
   static readonly type: string = 'CAST';
   static readonly opcode = Opcode.CAST_8;
@@ -206,9 +163,9 @@ export class CalldataCopy extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(

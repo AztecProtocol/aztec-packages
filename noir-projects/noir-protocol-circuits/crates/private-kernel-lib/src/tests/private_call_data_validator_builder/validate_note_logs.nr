@@ -10,7 +10,7 @@ fn validate_note_logs_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="could not find note hash linked to note log")]
+#[test(should_fail_with = "could not find note hash linked to note log")]
 fn validate_note_logs_random_note_hash_counter_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -21,7 +21,7 @@ fn validate_note_logs_random_note_hash_counter_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="could not link a note log to a note hash in another contract")]
+#[test(should_fail_with = "could not link a note log to a note hash in another contract")]
 fn validate_note_logs_zero_note_hash_counter_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
@@ -32,7 +32,7 @@ fn validate_note_logs_zero_note_hash_counter_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="could not link a note log to a note hash in another contract")]
+#[test(should_fail_with = "could not link a note log to a note hash in another contract")]
 fn validate_note_logs_mismatch_contract_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
 

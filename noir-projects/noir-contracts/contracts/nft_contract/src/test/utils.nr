@@ -1,19 +1,18 @@
+use crate::{types::nft_note::NFTNote, NFT};
 use dep::aztec::{
     hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
-use crate::{types::nft_note::NFTNote, NFT};
+use std::test::OracleMock;
 
-unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
         let owner = env.create_account_contract(1);
         let recipient = env.create_account_contract(2);
-        // Deploy canonical auth registry
-        let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
         (owner, recipient)
     } else {
         let owner = env.create_account();
@@ -36,7 +35,7 @@ unconstrained pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
     (&mut env, nft_contract_address, owner, recipient)
 }
 
-unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, nft_contract_address, owner, recipient) = setup(with_account_contracts);
     let minted_token_id = 615;
@@ -47,31 +46,29 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
 
-unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub unconstrained fn setup_mint_and_transfer_to_private(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     let (env, nft_contract_address, owner, recipient, minted_token_id) = setup_and_mint(with_account_contracts);
 
-    let note_randomness = unsafe_rand();
-    let transient_storage_slot_randomness = unsafe_rand();
+    let note_randomness = random();
+    let transient_storage_slot_randomness = random();
     let transfer_preparer_storage_slot_commitment = pedersen_hash(
         [owner.to_field(), transient_storage_slot_randomness],
         NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
     );
 
+    // We mock the Oracle to return the note randomness such that later on we can manually add the note
+    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
+
     // We prepare the transfer with user being both the sender and the recipient (classical "shield" flow)
-    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(
-        owner,
-        owner,
-        note_randomness,
-        transient_storage_slot_randomness
-    );
+    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness);
     env.call_private_void(prepare_transfer_to_private_call_interface);
 
     // Finalize the transfer of the NFT
     let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment);
     env.call_public(finalize_transfer_to_private_call_interface);
 
-    // Store the finalized note in the cache
-    let mut context = env.private();
+    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
+    // is not called and we don't have a `NoteProcessor` in TXE.
     let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
     let private_nfts_owner_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, owner);
 
@@ -89,7 +86,7 @@ unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
 
-unconstrained pub fn get_nft_exists(nft_contract_address: AztecAddress, token_id: Field) -> bool {
+pub unconstrained fn get_nft_exists(nft_contract_address: AztecAddress, token_id: Field) -> bool {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(nft_contract_address);
     let block_number = get_block_number();
@@ -102,7 +99,7 @@ unconstrained pub fn get_nft_exists(nft_contract_address: AztecAddress, token_id
     exists
 }
 
-unconstrained pub fn assert_owns_public_nft(
+pub unconstrained fn assert_owns_public_nft(
     env: &mut TestEnvironment,
     nft_contract_address: AztecAddress,
     owner: AztecAddress,
@@ -114,7 +111,7 @@ unconstrained pub fn assert_owns_public_nft(
     assert(owner == obtained_owner, "Incorrect NFT owner");
 }
 
-unconstrained pub fn assert_owns_private_nft(nft_contract_address: AztecAddress, owner: AztecAddress, token_id: Field) {
+pub unconstrained fn assert_owns_private_nft(nft_contract_address: AztecAddress, owner: AztecAddress, token_id: Field) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(nft_contract_address);
 

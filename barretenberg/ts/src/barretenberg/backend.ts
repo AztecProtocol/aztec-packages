@@ -16,24 +16,11 @@ export class UltraPlonkBackend {
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-        this.options.threads = navigator.hardwareConcurrency;
-      } else {
-        try {
-          const os = await import('os');
-          this.options.threads = os.cpus().length;
-        } catch (e) {
-          console.log('Could not detect environment. Falling back to one thread.', e);
-        }
-      }
       const api = await Barretenberg.new(this.options);
 
       const honkRecursion = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(
-        this.acirUncompressedBytecode,
-        honkRecursion,
-      );
+      const [_total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode, honkRecursion);
 
       await api.initSRSForCircuitSize(subgroupSize);
       this.acirComposer = await api.acirNewAcirComposer(subgroupSize);
@@ -125,16 +112,6 @@ export class UltraHonkBackend {
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-        this.options.threads = navigator.hardwareConcurrency;
-      } else {
-        try {
-          const os = await import('os');
-          this.options.threads = os.cpus().length;
-        } catch (e) {
-          console.log('Could not detect environment. Falling back to one thread.', e);
-        }
-      }
       const api = await Barretenberg.new(this.options);
       const honkRecursion = true;
       await api.acirInitSRS(this.acirUncompressedBytecode, honkRecursion);

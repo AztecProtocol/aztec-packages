@@ -4,7 +4,7 @@ import {
   Body,
   L2Block,
   MerkleTreeId,
-  type MerkleTreeOperations,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type TxEffect,
   makeEmptyProcessedTx,
@@ -15,11 +15,11 @@ import {
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { TubeVk, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBaseRollupInput, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -36,7 +36,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private readonly logger = createDebugLogger('aztec:sequencer-client:block_builder_light');
 
-  constructor(private db: MerkleTreeOperations, private telemetry: TelemetryClient) {}
+  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 
   async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
@@ -56,7 +56,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       this.globalVariables!,
       this.db,
-      VerificationKeyData.makeFake(),
+      TubeVk,
     );
   }
 
@@ -70,6 +70,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
           this.globalVariables!.chainId,
           this.globalVariables!.version,
           getVKTreeRoot(),
+          protocolContractTreeRoot,
         ),
       );
     }
@@ -96,7 +97,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 export class LightweightBlockBuilderFactory {
   constructor(private telemetry?: TelemetryClient) {}
 
-  create(db: MerkleTreeOperations): BlockBuilder {
+  create(db: MerkleTreeWriteOperations): BlockBuilder {
     return new LightweightBlockBuilder(db, this.telemetry ?? new NoopTelemetryClient());
   }
 }

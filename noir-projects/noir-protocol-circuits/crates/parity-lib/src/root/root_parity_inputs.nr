@@ -41,11 +41,8 @@ impl RootParityInputs {
             assert(
                 self.children[i].vk_path == self.children[0].vk_path, "Inconsistent vk paths across base parity circuits"
             );
-            //TODO: Do we need to validate this following hash
-            //assert(hash(self.children[i].verification_key) == self.children[i].verification_key.hash);
             self.children[i].verify();
-            // TODO(#7410) we need the tube vk to reinstate this
-            // self.children[i].validate_in_vk_tree();
+            self.children[i].validate_in_vk_tree();
         }
     }
 }
@@ -60,6 +57,8 @@ mod tests {
     use dep::types::constants::BASE_PARITY_INDEX;
 
     use super::NUM_BASE_PARITY_PER_ROOT_PARITY;
+    use types::hash::verification_key_hash;
+    use types::tests::fixtures::vk_tree::generate_fake_honk_vk_for_index;
 
     fn test_setup() -> [RootParityInput; NUM_BASE_PARITY_PER_ROOT_PARITY] {
         // 31 byte test SHA roots
@@ -72,12 +71,10 @@ mod tests {
 
         let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
 
-        let vk_hash = vk_tree.leaves[BASE_PARITY_INDEX];
         let vk_path = vk_tree.get_sibling_path(BASE_PARITY_INDEX);
         let vk_tree_root = vk_tree.get_root();
 
-        let mut vk1 = VerificationKey::empty();
-        vk1.hash = vk_hash;
+        let vk1 = generate_fake_honk_vk_for_index(BASE_PARITY_INDEX);
 
         let children = [
             RootParityInput {
@@ -124,7 +121,8 @@ mod tests {
     #[test(should_fail_with = "Inconsistent vk hashes across base parity circuits")]
     fn test_asserts_incorrect_vk_hash_1() {
         let mut vk2 = VerificationKey::empty();
-        vk2.hash = 0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a;
+        vk2.key[0] = 0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a;
+        vk2.hash = verification_key_hash(vk2.key);
         let mut children = test_setup();
         children[1].verification_key = vk2;
         let root_parity_inputs = RootParityInputs { children };
@@ -140,7 +138,8 @@ mod tests {
     #[test(should_fail_with = "Inconsistent vk hashes across base parity circuits")]
     fn test_asserts_incorrect_vk_hash_2() {
         let mut vk2 = VerificationKey::empty();
-        vk2.hash = 0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a;
+        vk2.key[0] = 0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a;
+        vk2.hash = verification_key_hash(vk2.key);
         let mut children = test_setup();
         children[2].verification_key = vk2;
         let root_parity_inputs = RootParityInputs { children };
@@ -156,7 +155,8 @@ mod tests {
     #[test(should_fail_with = "Inconsistent vk hashes across base parity circuits")]
     fn test_asserts_incorrect_vk_hash_3() {
         let mut vk2 = VerificationKey::empty();
-        vk2.hash = 0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a;
+        vk2.key[0] = 0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a;
+        vk2.hash = verification_key_hash(vk2.key);
         let mut children = test_setup();
         children[3].verification_key = vk2;
         let root_parity_inputs = RootParityInputs { children };

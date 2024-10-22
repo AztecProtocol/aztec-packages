@@ -1,7 +1,10 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    recursion::{
+    proof::NestedRecursiveProof, verification_key::{HonkVerificationKey, VerificationKey},
+    traits::Verifiable
+},
     traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
     utils::arrays::find_index_hint
 };
@@ -9,7 +12,7 @@ use dep::types::{
 pub struct PreviousRollupBlockData {
     block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     proof: NestedRecursiveProof,
-    vk: VerificationKey,
+    vk: HonkVerificationKey,
     vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
@@ -33,10 +36,13 @@ impl Empty for PreviousRollupBlockData {
 
 impl PreviousRollupBlockData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let leaf_index = self.vk_witness.leaf_index as u32;
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == leaf_index)
         };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
         assert_check_membership(

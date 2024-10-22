@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, scalar::Scalar, point::Point, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
-    hash::poseidon2_hash_with_separator
+    address::AztecAddress, scalar::Scalar, point::Point, public_keys::{OvpkM, IvpkM},
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash_with_separator
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -8,9 +8,8 @@ use std::{
 };
 
 use crate::{
-    oracle::unsafe_rand::unsafe_rand, utils::point::point_to_bytes,
-    encrypted_logs::{header::EncryptedLogHeader},
-    keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::{OvpkM, IvpkM}}
+    oracle::random::random, utils::point::point_to_bytes, encrypted_logs::{header::EncryptedLogHeader},
+    keys::{point_to_symmetric_key::point_to_symmetric_key}
 };
 
 pub fn compute_encrypted_log<let P: u32, let M: u32>(
@@ -73,11 +72,17 @@ fn fr_to_fq(r: Field) -> Scalar {
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
+
+    // We use the randomness to preserve the privacy of both the sender and recipient via encryption, so a malicious
+    // sender could use non-random values to reveal the plaintext. But they already know it themselves anyway, and so
+    // the recipient already trusts them to not disclose this information. We can therefore assume that the sender will
+    // cooperate in the random value generation.
+    let randomness = unsafe {
+        random()
+    };
+
     // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
     // the scalars.
-    let randomness = unsafe {
-        unsafe_rand()
-    };
     let eph_sk = fr_to_fq_unsafe(randomness);
     let eph_pk = derive_public_key(eph_sk);
 
@@ -142,12 +147,9 @@ pub fn compute_outgoing_body_ciphertext(
 }
 
 mod test {
-    use crate::{
-        encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext},
-        keys::public_keys::{OvpkM, IvpkM}
-    };
+    use crate::{encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext}};
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
-    use dep::protocol_types::{address::AztecAddress, point::Point, scalar::Scalar};
+    use dep::protocol_types::{address::AztecAddress, public_keys::{OvpkM, IvpkM}, point::Point, scalar::Scalar};
     use std::test::OracleMock;
 
     #[test]

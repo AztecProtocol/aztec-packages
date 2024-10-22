@@ -13,18 +13,18 @@ contract Test {
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
 
-    use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point};
+    use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point, public_keys::IvpkM};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
 
     use dep::aztec::{
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher}, keys::public_keys::IvpkM,
+        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
-        deploy::deploy_contract as aztec_deploy_contract, oracle::unsafe_rand::unsafe_rand,
+        deploy::deploy_contract as aztec_deploy_contract, oracle::random::random,
         utils::comparison::Comparator,
         macros::{storage::storage, events::event, functions::{private, public, internal}}
     };
@@ -452,7 +452,7 @@ contract Test {
 
     // Purely exists for testing
     unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * unsafe_rand()
+        kinda_seed * random()
     }
 
     pub struct DummyNote {

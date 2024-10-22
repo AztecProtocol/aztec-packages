@@ -145,7 +145,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
      * @brief Generate the tuple of concatenation inputs used to test the opening protocol special functionality that
      * avoids high degrees in the Goblin Translator.
      */
-    ConcatenationInputs concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
+    ConcatenationInputs generate_concatenation_inputs(std::vector<Fr> u_challenge, size_t NUM_CONCATENATED)
     {
 
         size_t concatenation_index = 2;
@@ -256,7 +256,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
                                              std::vector<Fr> u_challenge,
                                              size_t NUM_CONCATENATED)
     {
-        ConcatenationInputs concatenation = concatenation_inputs(u_challenge, NUM_CONCATENATED);
+        ConcatenationInputs concatenation = generate_concatenation_inputs(u_challenge, NUM_CONCATENATED);
 
         auto prover_transcript = NativeTranscript::prover_init_empty();
 

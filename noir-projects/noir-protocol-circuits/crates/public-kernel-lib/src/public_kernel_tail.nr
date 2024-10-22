@@ -108,7 +108,8 @@ mod tests {
         MAX_PUBLIC_DATA_HINTS, NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX,
+        BASE_ROLLUP_INDEX
     },
         data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
         hash::{compute_siloed_nullifier, silo_note_hash},
@@ -443,7 +444,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
+    #[test(should_fail_with = "Value of the nullifier does not match read request")]
     unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
@@ -456,7 +457,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
+    #[test(should_fail_with = "Read request counter must be greater than the counter of the nullifier")]
     unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
@@ -485,7 +486,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="Value exists in pending set")]
+    #[test(should_fail_with = "Value exists in pending set")]
     unconstrained fn nullifier_non_existent_read_request_failed_read_exist() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_nullifier_tree();
 
@@ -540,7 +541,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="value in OverridablePublicDataTreeLeaf does not match read request")]
+    #[test(should_fail_with = "value in OverridablePublicDataTreeLeaf does not match read request")]
     unconstrained fn reading_uninitialized_public_data_non_zero_value_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
 
@@ -633,11 +634,11 @@ mod tests {
 
         let _res = builder.execute();
     }
-    // TODO(#7410) we need the tube vk to reinstate this
-    // #[test(should_fail_with="Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with = "Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        let _res = builder.execute();
+    }
 }

@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.56.0 # x-release-please-version
+    VERSION 0.59.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -54,21 +54,22 @@ if(CHECK_CIRCUIT_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES)
 endif()
 
-if(ENABLE_TRACY)
+if(ENABLE_TRACY OR ENABLE_TRACY_TIME_INSTRUMENTED)
     add_compile_options(-DTRACY_ENABLE)
     SET(TRACY_LIBS Tracy::TracyClient)
 else()
     SET(TRACY_LIBS)
 endif()
 
+
+if(ENABLE_TRACY_TIME_INSTRUMENTED)
+    add_compile_options(-DTRACY_INSTRUMENTED)
+endif()
+
 if(TRACY_PROFILE_MEMORY)
   add_compile_options(-DTRACY_MEMORY)
+  add_compile_options(-DTRACY_INSTRUMENTED)
 endif()
-
-if(TRACY_PROFILE_TIME)
-  add_compile_options(-DTRACY_TIME)
-endif()
-
 
 if(ENABLE_ASAN)
     add_compile_options(-fsanitize=address)

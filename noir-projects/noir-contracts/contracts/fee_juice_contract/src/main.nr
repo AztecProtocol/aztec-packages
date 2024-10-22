@@ -5,17 +5,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract FeeJuice {
     use dep::aztec::{
-        protocol_types::{
-        contract_class_id::ContractClassId, address::{AztecAddress, EthAddress},
-        constants::{DEPLOYER_CONTRACT_ADDRESS, REGISTERER_CONTRACT_ADDRESS, FEE_JUICE_INITIAL_MINT}
-    },
+        protocol_types::{address::{AztecAddress, EthAddress}, constants::FEE_JUICE_INITIAL_MINT},
         state_vars::{SharedImmutable, PublicMutable, Map},
-        oracle::get_contract_instance::get_contract_instance,
         macros::{storage::storage, functions::{private, public, view, internal}}
     };
-
-    use dep::deployer::ContractInstanceDeployer;
-    use dep::registerer::ContractClassRegisterer;
 
     use crate::lib::get_bridge_gas_msg_hash;
 
@@ -30,42 +23,14 @@ contract FeeJuice {
     // Not flagged as initializer to reduce cost of checking init nullifier in all functions.
     // This function should be called as entrypoint to initialize the contract by minting itself funds.
     #[private]
-    fn deploy(
-        artifact_hash: Field,
-        private_functions_root: Field,
-        public_bytecode_commitment: Field,
-        portal_address: EthAddress
-    ) {
+    fn initialize(portal_address: EthAddress) {
         // Validate contract class parameters are correct
         let self = context.this_address();
-        let instance = get_contract_instance(self);
-        let contract_class_id = ContractClassId::compute(
-            artifact_hash,
-            private_functions_root,
-            public_bytecode_commitment
-        );
-        assert(
-            instance.contract_class_id == contract_class_id, "Invalid contract class id computed for Fee Juice"
-        );
 
         // Increase self balance and set as fee payer, and end setup
         FeeJuice::at(self)._increase_public_balance(self, FEE_JUICE_INITIAL_MINT).enqueue(&mut context);
         context.set_as_fee_payer();
         context.end_setup();
-
-        // Register class and publicly deploy contract
-        let _register = ContractClassRegisterer::at(REGISTERER_CONTRACT_ADDRESS).register(
-            artifact_hash,
-            private_functions_root,
-            public_bytecode_commitment
-        ).call(&mut context);
-        let _deploy = ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).deploy(
-            instance.salt,
-            instance.contract_class_id,
-            instance.initialization_hash,
-            instance.public_keys_hash,
-            true
-        ).call(&mut context);
 
         // Enqueue call to set the portal address
         FeeJuice::at(self).set_portal(portal_address).enqueue(&mut context);

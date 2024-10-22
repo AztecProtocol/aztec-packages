@@ -299,7 +299,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_num_gates());
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
@@ -454,7 +454,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Check that the proofs are the same size and that the verifier circuits have the same number of gates
         EXPECT_EQ(proof_1.size(), proof_2.size());
-        EXPECT_EQ(verifier_circuit_1.get_num_gates(), verifier_circuit_2.get_num_gates());
+        EXPECT_EQ(verifier_circuit_1.get_estimated_num_finalized_gates(),
+                  verifier_circuit_2.get_estimated_num_finalized_gates());
 
         // The circuit blocks (selectors + wires) fully determine the circuit - check that they are identical
         if constexpr (!IsSimulator<OuterBuilder>) {

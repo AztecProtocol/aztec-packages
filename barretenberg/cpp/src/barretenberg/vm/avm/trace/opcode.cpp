@@ -120,8 +120,6 @@ std::string to_string(OpCode opcode)
         return "MOV_8";
     case OpCode::MOV_16:
         return "MOV_16";
-    case OpCode::CMOV:
-        return "CMOV";
     // World State
     case OpCode::SLOAD:
         return "SLOAD";

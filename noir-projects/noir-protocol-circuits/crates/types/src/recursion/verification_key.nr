@@ -1,49 +1,59 @@
-use crate::{traits::{Serialize, Deserialize, Empty}, constants::VERIFICATION_KEY_LENGTH_IN_FIELDS};
+use crate::{
+    traits::{Serialize, Deserialize, Empty},
+    constants::{HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS}
+};
 
-global SERIALIZED_VERIFICATION_KEY_LENGTH: u32 = VERIFICATION_KEY_LENGTH_IN_FIELDS + 1;
-
-pub struct VerificationKey {
-    key: [Field; VERIFICATION_KEY_LENGTH_IN_FIELDS],
+pub struct VerificationKey<let N: u32> {
+    key: [Field; N],
     hash: Field,
 }
 
-impl Serialize<SERIALIZED_VERIFICATION_KEY_LENGTH> for VerificationKey {
-    fn serialize(self) -> [Field; SERIALIZED_VERIFICATION_KEY_LENGTH] {
-        let mut fields = [0; SERIALIZED_VERIFICATION_KEY_LENGTH];
-        for i in 0..VERIFICATION_KEY_LENGTH_IN_FIELDS {
+impl<let N: u32> VerificationKey<N> {
+    pub fn check_hash(self) {
+        assert_eq(self.hash, crate::hash::verification_key_hash(self.key), "Invalid VK hash");
+    }
+}
+
+impl<let N: u32> Serialize<N + 1> for VerificationKey<N> {
+    fn serialize(self) -> [Field; N + 1] {
+        let mut fields = [0; N + 1];
+        for i in 0..N {
             fields[i] = self.key[i];
         }
-        fields[VERIFICATION_KEY_LENGTH_IN_FIELDS] = self.hash;
+        fields[N] = self.hash;
         fields
     }
 }
 
-impl Deserialize<SERIALIZED_VERIFICATION_KEY_LENGTH> for VerificationKey {
-    fn deserialize(fields: [Field; SERIALIZED_VERIFICATION_KEY_LENGTH]) -> Self {
+impl<let N: u32> Deserialize<N + 1> for VerificationKey<N> {
+    fn deserialize(fields: [Field; N+1]) -> Self {
         let mut key = VerificationKey::empty();
-        for i in 0..VERIFICATION_KEY_LENGTH_IN_FIELDS {
+        for i in 0..N {
             key.key[i] = fields[i];
         }
-        key.hash = fields[VERIFICATION_KEY_LENGTH_IN_FIELDS];
+        key.hash = fields[N];
         key
     }
 }
 
-impl Empty for VerificationKey {
+impl<let N: u32> Empty for VerificationKey<N> {
     fn empty() -> Self {
-        VerificationKey { hash: 0, key: [0; VERIFICATION_KEY_LENGTH_IN_FIELDS] }
+        VerificationKey { hash: 0, key: [0; N] }
     }
 }
 
-impl Eq for VerificationKey {
+impl<let N: u32> Eq for VerificationKey<N> {
     fn eq(self, other: Self) -> bool {
         (self.hash == other.hash) & (self.key == other.key)
     }
 }
 
+type HonkVerificationKey = VerificationKey<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+type ClientIVCVerificationKey = VerificationKey<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+
 #[test]
 fn serialization_of_empty() {
-    let key = VerificationKey::empty();
+    let key: VerificationKey<20> = VerificationKey::empty();
     let serialized = key.serialize();
     let deserialized = VerificationKey::deserialize(serialized);
     assert(key.eq(deserialized));

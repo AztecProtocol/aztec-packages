@@ -13,10 +13,10 @@ static std::tuple<std::vector<std::vector<bb::Polynomial<typename Curve::ScalarF
                   std::vector<bb::Polynomial<typename Curve::ScalarField>>,
                   std::vector<typename Curve::ScalarField>,
                   std::vector<std::vector<typename Curve::AffineElement>>>
-concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challenge,
-                     size_t NUM_CONCATENATED,
-                     size_t concatenation_index,
-                     std::shared_ptr<CommitmentKey<Curve>> ck)
+generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challenge,
+                              size_t NUM_CONCATENATED,
+                              size_t concatenation_index,
+                              std::shared_ptr<CommitmentKey<Curve>> ck)
 {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;

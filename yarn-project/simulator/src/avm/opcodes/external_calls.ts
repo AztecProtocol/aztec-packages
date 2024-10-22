@@ -15,15 +15,15 @@ abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16, // Indirect
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -52,23 +52,22 @@ abstract class ExternalCall extends Instruction {
       this.argsSizeOffset,
       this.retOffset,
       this.successOffset,
+      this.functionSelectorOffset,
     ];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [gasOffset, addrOffset, argsOffset, argsSizeOffset, retOffset, successOffset] = addressing.resolve(
-      operands,
-      memory,
-    );
+    const [gasOffset, addrOffset, argsOffset, argsSizeOffset, retOffset, successOffset, functionSelectorOffset] =
+      addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
     memory.checkTag(TypeTag.FIELD, addrOffset);
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
-    memory.checkTag(TypeTag.FIELD, this.functionSelectorOffset);
+    memory.checkTag(TypeTag.FIELD, functionSelectorOffset);
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.FIELD, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
-    const functionSelector = memory.getAs<Field>(this.functionSelectorOffset).toFr();
+    const functionSelector = memory.getAs<Field>(functionSelectorOffset).toFr();
     // If we are already in a static call, we propagate the environment.
     const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
@@ -165,8 +164,8 @@ export class Return extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(private indirect: number, private returnOffset: number, private copySize: number) {

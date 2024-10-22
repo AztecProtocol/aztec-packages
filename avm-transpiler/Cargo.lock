@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acir"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "acir_field",
  "base64 0.21.7",
@@ -18,7 +18,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -44,7 +44,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "acir",
  "blake2",
@@ -55,7 +55,6 @@ dependencies = [
  "num-bigint",
  "p256",
  "sha2",
- "sha3",
  "thiserror",
 ]
 
@@ -64,17 +63,6 @@ name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
-
-[[package]]
-name = "ahash"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
-dependencies = [
- "getrandom",
- "once_cell",
- "version_check",
-]
 
 [[package]]
 name = "ahash"
@@ -382,7 +370,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "acir_field",
  "serde",
@@ -390,7 +378,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -434,14 +422,6 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-targets",
-]
-
-[[package]]
-name = "chumsky"
-version = "0.8.0"
-source = "git+https://github.com/jfecher/chumsky?rev=ad9d312#ad9d312d9ffbc66c14514fa2b5752f4127b44f1e"
-dependencies = [
- "hashbrown 0.11.2",
 ]
 
 [[package]]
@@ -695,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
@@ -751,15 +731,6 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
-dependencies = [
- "ahash 0.7.8",
-]
-
-[[package]]
-name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
@@ -770,7 +741,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash 0.8.11",
+ "ahash",
 ]
 
 [[package]]
@@ -859,7 +830,7 @@ checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 
 [[package]]
 name = "iter-extended"
-version = "0.34.0"
+version = "0.35.0"
 
 [[package]]
 name = "itertools"
@@ -964,11 +935,10 @@ dependencies = [
 
 [[package]]
 name = "noirc_errors"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acvm",
  "base64 0.21.7",
- "chumsky",
  "codespan",
  "codespan-reporting",
  "flate2",
@@ -982,7 +952,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1279,16 +1249,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "sha3"
-version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
-dependencies = [
- "digest",
- "keccak",
 ]
 
 [[package]]

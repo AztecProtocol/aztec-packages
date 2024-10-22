@@ -36,26 +36,26 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // gasOffset
-        ...Buffer.from('a2345678', 'hex'), // addrOffset
-        ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSizeOffset
-        ...Buffer.from('d2345678', 'hex'), // retOffset
-        ...Buffer.from('e2345678', 'hex'), // retSize
-        ...Buffer.from('f2345678', 'hex'), // successOffset
-        ...Buffer.from('f3345678', 'hex'), // functionSelectorOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('a234', 'hex'), // addrOffset
+        ...Buffer.from('b234', 'hex'), // argsOffset
+        ...Buffer.from('c234', 'hex'), // argsSizeOffset
+        ...Buffer.from('d234', 'hex'), // retOffset
+        ...Buffer.from('e234', 'hex'), // retSize
+        ...Buffer.from('f234', 'hex'), // successOffset
+        ...Buffer.from('f334', 'hex'), // functionSelectorOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSizeOffset=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*indirect=*/ 0x1234,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSizeOffset=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       );
 
       expect(Call.deserialize(buf)).toEqual(inst);
@@ -185,26 +185,26 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // gasOffset
-        ...Buffer.from('a2345678', 'hex'), // addrOffset
-        ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSizeOffset
-        ...Buffer.from('d2345678', 'hex'), // retOffset
-        ...Buffer.from('e2345678', 'hex'), // retSize
-        ...Buffer.from('f2345678', 'hex'), // successOffset
-        ...Buffer.from('f3345678', 'hex'), // functionSelectorOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('a234', 'hex'), // addrOffset
+        ...Buffer.from('b234', 'hex'), // argsOffset
+        ...Buffer.from('c234', 'hex'), // argsSizeOffset
+        ...Buffer.from('d234', 'hex'), // retOffset
+        ...Buffer.from('e234', 'hex'), // retSize
+        ...Buffer.from('f234', 'hex'), // successOffset
+        ...Buffer.from('f334', 'hex'), // functionSelectorOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSizeOffset=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*indirect=*/ 0x1234,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSizeOffset=*/ 0xc234,
+        /*retOffset=*/ 0xd234,
+        /*retSize=*/ 0xe234,
+        /*successOffset=*/ 0xf234,
+        /*functionSelectorOffset=*/ 0xf334,
       );
 
       expect(StaticCall.deserialize(buf)).toEqual(inst);
@@ -259,10 +259,10 @@ describe('External Calls', () => {
       const buf = Buffer.from([
         Return.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // returnOffset
-        ...Buffer.from('a2345678', 'hex'), // copySize
+        ...Buffer.from('1234', 'hex'), // returnOffset
+        ...Buffer.from('a234', 'hex'), // copySize
       ]);
-      const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*copySize=*/ 0xa2345678);
+      const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*copySize=*/ 0xa234);
 
       expect(Return.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);

@@ -13,17 +13,17 @@
 #include <cstdint>
 #include <memory>
 
-WASM_EXPORT void acir_get_circuit_sizes(
-    uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
+WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec,
+                                        bool const* honk_recursion,
+                                        uint32_t* total,
+                                        uint32_t* subgroup)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
     auto builder = acir_format::create_circuit(constraint_system, 1 << 19, {}, *honk_recursion);
-    *exact = htonl((uint32_t)builder.get_num_gates());
-    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    auto total_with_extra_gates = builder.get_total_circuit_size() + num_extra_gates;
-    *total = htonl((uint32_t)total_with_extra_gates);
-    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
+    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size()));
 }
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
@@ -41,7 +41,7 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
-    acir_composer->create_circuit(constraint_system);
+    acir_composer->create_finalized_circuit(constraint_system);
 
     acir_composer->init_proving_key();
 }
@@ -56,7 +56,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    acir_composer->create_circuit(constraint_system, witness);
+    acir_composer->create_finalized_circuit(constraint_system, witness);
 
     acir_composer->init_proving_key();
     auto proof_data = acir_composer->create_proof();
@@ -79,6 +79,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     UltraVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
+    info("verified: ", *result);
 }
 
 WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
@@ -96,12 +97,16 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
+    bool is_kernel = false;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
+
+        builder.databus_propagation_data.is_kernel = is_kernel;
+        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
 
         ivc.accumulate(builder);
 
@@ -155,7 +160,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
-    acir_composer->create_circuit(constraint_system);
+    acir_composer->create_finalized_circuit(constraint_system);
     auto pk = acir_composer->init_proving_key();
     // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
     *out = to_heap_buffer(to_buffer(*pk));
@@ -239,8 +244,8 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
 
-    DeciderProvingKey prover_inst(builder);
-    VerificationKey vk(prover_inst.proving_key);
+    DeciderProvingKey proving_key(builder);
+    VerificationKey vk(proving_key.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
 }
 

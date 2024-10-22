@@ -23,7 +23,7 @@ contract Lending {
     use dep::token::Token;
     use dep::price_feed::PriceFeed;
 
-    use dep::aztec::macros::{storage::storage, functions::{private, public, initializer, internal}};
+    use dep::aztec::macros::{storage::storage, functions::{private, public, initializer, internal, view}};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
