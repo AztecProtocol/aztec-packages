@@ -1,4 +1,4 @@
-use dep::types::{abis::{accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataBuilder}}};
+use dep::types::abis::accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataBuilder};
 
 pub fn propagate_accumulated_data(
     data: &mut PublicAccumulatedDataBuilder,

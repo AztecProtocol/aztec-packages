@@ -51,7 +51,7 @@ pub struct ClassPrivateFunctionBroadcasted {
     private_function_tree_leaf_index: Field,
     artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
     artifact_function_tree_leaf_index: Field,
-    function: PrivateFunction
+    function: PrivateFunction,
 }
 
 impl Serialize<MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS> for ClassPrivateFunctionBroadcasted {
@@ -69,10 +69,12 @@ impl Serialize<MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS + REGISTE
         for i in 0..ARTIFACT_FUNCTION_TREE_MAX_HEIGHT {
             packed[i + 5 + FUNCTION_TREE_HEIGHT] = self.artifact_function_tree_sibling_path[i];
         }
-        packed[5 + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT + FUNCTION_TREE_HEIGHT] = self.artifact_function_tree_leaf_index;
+        packed[5 + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT + FUNCTION_TREE_HEIGHT] =
+            self.artifact_function_tree_leaf_index;
         let packed_function = self.function.serialize();
         for i in 0..MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS + 3 {
-            packed[i + 6 + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT + FUNCTION_TREE_HEIGHT] = packed_function[i];
+            packed[i + 6 + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT + FUNCTION_TREE_HEIGHT] =
+                packed_function[i];
         }
         packed
     }

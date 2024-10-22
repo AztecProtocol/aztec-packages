@@ -187,7 +187,11 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
-        builder.tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::empty() };
+        builder.tx_context = TxContext {
+            chain_id: fixtures::CHAIN_ID,
+            version: fixtures::VERSION,
+            gas_settings: GasSettings::empty(),
+        };
         builder.msg_sender = fixtures::contracts::parent_contract.address;
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
@@ -210,7 +214,7 @@ impl FixtureBuilder {
             fixtures::vk_tree::get_vk_merkle_tree()
         };
 
-        self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index) ;
+        self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
         self.client_ivc_vk = fixtures::vk_tree::generate_fake_client_ivc_vk_for_index(vk_index);
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
@@ -331,7 +335,13 @@ impl FixtureBuilder {
             private_call_requests: subarray(self.private_call_requests.storage),
             public_call_requests: subarray(self.public_call_requests.storage),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
+            l2_to_l1_msgs: subarray(
+                self.l2_to_l1_msgs.storage.map(
+                    |r: ScopedL2ToL1Message| {
+                r.message
+            }
+                )
+            ),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             note_encrypted_logs_hashes: subarray(self.note_encrypted_logs_hashes.storage),
@@ -380,12 +390,25 @@ impl FixtureBuilder {
     pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
         let nullifiers = BoundedVec { storage: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier), len: self.nullifiers.len() };
         let note_encrypted_logs_hashes = BoundedVec {
-            storage: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
+            storage: self.note_encrypted_logs_hashes.storage.map(
+                |l: NoteLogHash| {
+                LogHash { value: l.value, counter: l.counter, length: l.length }
+            }
+            ),
             len: self.note_encrypted_logs_hashes.len()
         };
         let encrypted_logs_hashes = BoundedVec {
             storage: self.encrypted_logs_hashes.storage.map(
-                |l: ScopedEncryptedLogHash| ScopedLogHash { log_hash: LogHash { value: l.log_hash.value, counter: l.log_hash.counter, length: l.log_hash.length}, contract_address: l.contract_address }
+                |l: ScopedEncryptedLogHash| {
+                ScopedLogHash {
+                    log_hash: LogHash {
+                        value: l.log_hash.value,
+                        counter: l.log_hash.counter,
+                        length: l.log_hash.length,
+                    },
+                    contract_address: l.contract_address,
+                }
+            }
             ),
             len: self.encrypted_logs_hashes.len()
         };
@@ -411,12 +434,24 @@ impl FixtureBuilder {
         PublicAccumulatedData {
             note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.expose_to_public()),
             nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.expose_to_public()),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.expose_to_public()),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(
+                |m: ScopedL2ToL1Message| {
+                m.expose_to_public()
+            }
+            ),
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(
+                |l: ScopedLogHash| {
+                l.expose_to_public()
+            }
+            ),
             public_data_update_requests: self.public_data_update_requests.storage,
-            public_call_stack: self.public_call_requests.storage.map(|cr: PublicCallRequest| cr.expose_to_public()),
+            public_call_stack: self.public_call_requests.storage.map(
+                |cr: PublicCallRequest| {
+                cr.expose_to_public()
+            }
+            ),
             gas_used: self.gas_used
         }
     }
@@ -425,10 +460,18 @@ impl FixtureBuilder {
         CombinedAccumulatedData {
             note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.expose_to_public()),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(
+                |m: ScopedL2ToL1Message| {
+                m.expose_to_public()
+            }
+            ),
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(
+                |l: ScopedLogHash| {
+                l.expose_to_public()
+            }
+            ),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
@@ -484,7 +527,13 @@ impl FixtureBuilder {
             public_call_requests: subarray(self.public_inner_call_requests.storage),
             note_hashes: subarray(self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash)),
             nullifiers: subarray(self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message)),
+            l2_to_l1_msgs: subarray(
+                self.l2_to_l1_msgs.storage.map(
+                    |m: ScopedL2ToL1Message| {
+                m.message
+            }
+                )
+            ),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash)),
@@ -921,7 +970,8 @@ impl FixtureBuilder {
 
     pub fn mask_encrypted_log_hashes(&mut self) {
         for i in 0..self.encrypted_logs_hashes.max_len() {
-            self.encrypted_logs_hashes.storage[i].contract_address = mask_encrypted_log_hash(self.encrypted_logs_hashes.storage[i]);
+            self.encrypted_logs_hashes.storage[i].contract_address =
+                mask_encrypted_log_hash(self.encrypted_logs_hashes.storage[i]);
         }
     }
 

@@ -8,7 +8,9 @@ use crate::{
 }
 };
 
-fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Ordered + Empty + Eq, {
     let length = unsafe {
         count_private_items(array)
     };
@@ -33,7 +35,10 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
     hints: [CombinedOrderHint; N]
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     let num_private_lt = get_num_private_items(original_array_lt);
     let num_private_gte = get_num_private_items(original_array_gte);
     let total_private = num_private_lt + num_private_gte;

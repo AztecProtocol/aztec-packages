@@ -1,12 +1,12 @@
 use dep::types::{
-    traits::Empty, abis::{validation_requests::ScopedKeyValidationRequestAndGenerator}, scalar::Scalar,
+    traits::Empty, abis::validation_requests::ScopedKeyValidationRequestAndGenerator, scalar::Scalar,
     hash::poseidon2_hash_with_separator
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
 pub struct KeyValidationHint {
-  sk_m: Scalar,
-  request_index: u32,
+    sk_m: Scalar,
+    request_index: u32,
 }
 
 impl Empty for KeyValidationHint {

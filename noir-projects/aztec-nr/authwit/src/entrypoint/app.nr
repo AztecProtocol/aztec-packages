@@ -16,8 +16,8 @@ global ACCOUNT_MAX_CALLS: u32 = 4;
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
 pub struct AppPayload {
-  function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
-  nonce: Field,
+    function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
+    nonce: Field,
 }
 // docs:end:app-payload-struct
 

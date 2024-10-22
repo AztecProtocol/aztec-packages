@@ -15,10 +15,7 @@ use dep::types::{
     constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX}
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    TUBE_INDEX,
-    PUBLIC_KERNEL_MERGE_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX];
 
 pub struct PublicKernelMergeCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -98,7 +95,7 @@ mod tests {
         previous_kernel: FixtureBuilder,
         previous_revertible: FixtureBuilder,
         enqueued_call: FixtureBuilder,
-        phase: u8
+        phase: u8,
     }
 
     impl PublicKernelMergeCircuitPrivateInputsBuilder {
@@ -125,17 +122,24 @@ mod tests {
             }
 
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
-            previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
+            previous_kernel.public_inputs.end =
+                self.previous_revertible.to_public_accumulated_data();
 
             let mut enqueued_call = self.enqueued_call.to_enqueued_call_data();
-            enqueued_call.data.previous_validation_request_array_lengths = PublicValidationRequestArrayLengths::new(previous_kernel.public_inputs.validation_requests);
-            enqueued_call.data.previous_accumulated_data_array_lengths = if self.phase == PublicKernelPhase.SETUP {
-                PublicAccumulatedDataArrayLengths::new(previous_kernel.public_inputs.end_non_revertible)
+            enqueued_call.data.previous_validation_request_array_lengths = PublicValidationRequestArrayLengths::new(
+                previous_kernel.public_inputs.validation_requests,
+            );
+            enqueued_call.data.previous_accumulated_data_array_lengths = if self.phase
+                == PublicKernelPhase.SETUP {
+                PublicAccumulatedDataArrayLengths::new(
+                    previous_kernel.public_inputs.end_non_revertible,
+                )
             } else {
                 PublicAccumulatedDataArrayLengths::new(previous_kernel.public_inputs.end)
             };
 
-            previous_kernel.public_inputs.end_side_effect_counter = enqueued_call.data.start_side_effect_counter - 1;
+            previous_kernel.public_inputs.end_side_effect_counter =
+                enqueued_call.data.start_side_effect_counter - 1;
 
             let kernel = PublicKernelMergeCircuitPrivateInputs { previous_kernel, enqueued_call };
             kernel.execute()
@@ -242,7 +246,8 @@ mod tests {
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.previous_kernel =
+                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
             builder.succeeded();
         }
     }

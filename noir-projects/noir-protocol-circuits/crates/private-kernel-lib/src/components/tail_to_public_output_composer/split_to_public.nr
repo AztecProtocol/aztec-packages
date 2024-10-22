@@ -1,9 +1,7 @@
-use dep::types::abis::{
-    accumulated_data::{
+use dep::types::abis::accumulated_data::{
     private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
     public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
-}
 };
 
 pub unconstrained fn split_to_public(

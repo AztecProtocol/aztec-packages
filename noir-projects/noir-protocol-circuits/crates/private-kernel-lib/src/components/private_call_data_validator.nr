@@ -31,7 +31,9 @@ fn validate_incrementing_counters_within_range<T, let N: u32>(
     counter_end: u32,
     items: [T; N],
     num_items: u32
-) where T: Ordered {
+)
+where
+    T: Ordered, {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {
@@ -52,7 +54,9 @@ fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(
     counter_end: u32,
     items: [T; N],
     num_items: u32
-) where T: RangeOrdered {
+)
+where
+    T: RangeOrdered, {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {

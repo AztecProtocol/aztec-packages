@@ -3,7 +3,9 @@ use dep::types::{abis::side_effect::Ordered, traits::Empty, utils::arrays::array
 pub unconstrained fn find_first_revertible_item_index<T, let N: u32>(
     min_revertible_side_effect_counter: u32,
     items: [T; N]
-) -> u32 where T: Ordered + Empty + Eq {
+) -> u32
+where
+    T: Ordered + Empty + Eq, {
     let mut index = N;
     for i in 0..N {
         let item = items[i];
@@ -22,7 +24,7 @@ mod tests {
     use dep::types::tests::fixture_builder::FixtureBuilder;
 
     struct TestBuilder {
-        private_call: FixtureBuilder
+        private_call: FixtureBuilder,
     }
 
     impl TestBuilder {

@@ -13,7 +13,7 @@ pub struct PrivateKernelCircuitPublicInputsBuilder {
     end: PrivateAccumulatedDataBuilder,
     constants: CombinedConstantData,
     public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress
+    fee_payer: AztecAddress,
 }
 
 impl PrivateKernelCircuitPublicInputsBuilder {

@@ -11,7 +11,7 @@ contract NFT {
     use dep::aztec::{
         oracle::random::random,
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log},
         hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize},
@@ -139,11 +139,7 @@ contract NFT {
     /// as an argument so that we can derive `transfer_preparer_storage_slot_commitment` off-chain and then pass it
     /// as an argument to the followup call to `finalize_transfer_to_private`.
     #[private]
-    fn prepare_transfer_to_private(
-        from: AztecAddress,
-        to: AztecAddress,
-        transient_storage_slot_randomness: Field
-    ) {
+    fn prepare_transfer_to_private(from: AztecAddress, to: AztecAddress, transient_storage_slot_randomness: Field) {
         let to_keys = get_public_keys(to);
         let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;

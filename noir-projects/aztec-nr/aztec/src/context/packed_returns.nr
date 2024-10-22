@@ -2,7 +2,7 @@ use crate::{hash::hash_args_array, oracle::returns::unpack_returns};
 use dep::protocol_types::traits::Deserialize;
 
 pub struct PackedReturns {
-  packed_returns: Field,
+    packed_returns: Field,
 }
 
 impl PackedReturns {
@@ -28,7 +28,9 @@ impl PackedReturns {
         unpacked
     }
 
-    pub fn unpack_into<T, let N: u32>(self) -> T where T: Deserialize<N> {
+    pub fn unpack_into<T, let N: u32>(self) -> T
+    where
+        T: Deserialize<N>, {
         let unpacked: [Field; N] = self.unpack();
         Deserialize::deserialize(unpacked)
     }

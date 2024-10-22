@@ -15,10 +15,7 @@ unconstrained fn get_public_data_witness_oracle(
     _public_data_tree_index: Field
 ) -> [Field; PUBLIC_DATA_WITNESS] {}
 
-pub unconstrained fn get_public_data_witness(
-    block_number: u32,
-    public_data_tree_index: Field
-) -> PublicDataWitness {
+pub unconstrained fn get_public_data_witness(block_number: u32, public_data_tree_index: Field) -> PublicDataWitness {
     let fields = get_public_data_witness_oracle(block_number, public_data_tree_index);
     PublicDataWitness {
         index: fields[0],

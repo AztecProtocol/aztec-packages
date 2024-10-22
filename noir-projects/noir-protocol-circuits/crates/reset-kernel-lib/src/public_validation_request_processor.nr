@@ -117,7 +117,8 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
-                read_requests[i].read_request.value = compute_siloed_nullifier(read_request.contract_address, read_request.value());
+                read_requests[i].read_request.value =
+                    compute_siloed_nullifier(read_request.contract_address, read_request.value());
             }
         }
 

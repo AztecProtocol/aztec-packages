@@ -11,11 +11,8 @@ use dep::types::{
     PrivateKernelCircuitPublicInputs
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_INIT_INDEX,
-    PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
@@ -160,8 +157,8 @@ mod tests {
         assert_eq(
             resulting_encrypted_logs, original_logs.map(
                 |mut log: ScopedLogHash| {
-               log.log_hash.counter = 0;
-               log
+                log.log_hash.counter = 0;
+                log
             }
             )
         );
@@ -272,7 +269,7 @@ mod tests {
 
         assert_eq(
             Gas::tx_overhead() + Gas::new(
-                (1 * DA_BYTES_PER_FIELD + 25) * DA_GAS_PER_BYTE ,
+                (1 * DA_BYTES_PER_FIELD + 25) * DA_GAS_PER_BYTE,
                 1 * L2_GAS_PER_NULLIFIER + 25 * L2_GAS_PER_LOG_BYTE
             ), public_inputs.end.gas_used
         );
@@ -305,7 +302,8 @@ mod tests {
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PrivateKernelTailInputsBuilder::new();
-            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.previous_kernel =
+                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
 
             let _res = builder.execute();
         }

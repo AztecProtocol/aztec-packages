@@ -21,31 +21,19 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     previous_rollup_data[0].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
     previous_rollup_data[1].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
 
-    previous_rollup_data[0].vk_witness = MembershipWitness {
-        leaf_index: vk_index as Field,
-        sibling_path: vk_path
-    };
-    previous_rollup_data[1].vk_witness =  MembershipWitness {
-        leaf_index: vk_index as Field,
-        sibling_path: vk_path
-    };
+    previous_rollup_data[0].vk_witness =
+        MembershipWitness { leaf_index: vk_index as Field, sibling_path: vk_path };
+    previous_rollup_data[1].vk_witness =
+        MembershipWitness { leaf_index: vk_index as Field, sibling_path: vk_path };
 
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.previous_archive = AppendOnlyTreeSnapshot {
-        root: 0,
-        next_available_leaf_index: 0
-    };
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.new_archive = AppendOnlyTreeSnapshot {
-        root: 1,
-        next_available_leaf_index: 1
-    };
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.previous_archive= AppendOnlyTreeSnapshot {
-        root: 1,
-        next_available_leaf_index: 1
-    };
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.new_archive = AppendOnlyTreeSnapshot {
-        root: 2,
-        next_available_leaf_index: 2
-    };
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.previous_archive =
+        AppendOnlyTreeSnapshot { root: 0, next_available_leaf_index: 0 };
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.new_archive =
+        AppendOnlyTreeSnapshot { root: 1, next_available_leaf_index: 1 };
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.previous_archive =
+        AppendOnlyTreeSnapshot { root: 1, next_available_leaf_index: 1 };
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.new_archive =
+        AppendOnlyTreeSnapshot { root: 2, next_available_leaf_index: 2 };
 
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.previous_block_hash = 1;
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_block_hash = 2;
@@ -53,10 +41,14 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_block_hash = 3;
 
     // previous_rollup_data is from one block_root circuit => ecompasses a single block (block 1)
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number = 1;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.block_number = 1;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.timestamp = 2;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.timestamp = 2;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
+        1;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
+        1;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.timestamp =
+        2;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.timestamp =
+        2;
 
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash = 1;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash = 2;

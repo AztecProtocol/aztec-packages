@@ -9,11 +9,11 @@ use dep::types::{
     utils::arrays::find_index_hint
 };
 
-pub struct PreviousRollupData{
-    base_or_merge_rollup_public_inputs : BaseOrMergeRollupPublicInputs,
-    proof : NestedRecursiveProof,
-    vk : HonkVerificationKey,
-    vk_witness : MembershipWitness<VK_TREE_HEIGHT>,
+pub struct PreviousRollupData {
+    base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs,
+    proof: NestedRecursiveProof,
+    vk: HonkVerificationKey,
+    vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupData {

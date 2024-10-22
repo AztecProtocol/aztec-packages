@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct NoteHashLeafPreimage {
-    value : Field,
+    value: Field,
 }
 
 impl Empty for NoteHashLeafPreimage {

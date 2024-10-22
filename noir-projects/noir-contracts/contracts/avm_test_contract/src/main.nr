@@ -25,7 +25,8 @@ contract AvmTest {
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
-    global big_field_254_bits: Field = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+    global big_field_254_bits: Field =
+        0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
     use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
@@ -390,7 +391,7 @@ contract AvmTest {
     fn emit_unencrypted_log() {
         context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
         context.emit_unencrypted_log(/*message=*/ "Hello, world!");
-        let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
+        let s: CompressedString<2, 44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
         context.emit_unencrypted_log(/*message=*/ s);
     }
 

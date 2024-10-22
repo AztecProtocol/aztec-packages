@@ -20,7 +20,9 @@ impl Eq for CombinedOrderHint {
     }
 }
 
-pub unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+pub unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Ordered + Empty + Eq, {
     let mut length = 0;
     for item in array {
         if !is_empty(item) & (item.counter() == 0) {
@@ -33,7 +35,9 @@ pub unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 wh
 pub unconstrained fn get_combined_order_hints_asc<T, let N: u32>(
     array_lt: [T; N],
     array_gte: [T; N]
-) -> [CombinedOrderHint; N] where T: Ordered + Eq + Empty {
+) -> [CombinedOrderHint; N]
+where
+    T: Ordered + Eq + Empty, {
     let mut hints = [CombinedOrderHint::empty(); N];
     let sorted_lt = get_sorted_tuple(array_lt, compare_by_counter_empty_padded_asc);
     let sorted_gte = get_sorted_tuple(array_gte, compare_by_counter_empty_padded_asc);
@@ -107,10 +111,7 @@ mod tests {
     #[test]
     fn get_combined_order_hints_asc_padded_empty() {
         let array_lt = pad_end(
-            [
-            TestValue { value: 500, counter: 6 },
-            TestValue { value: 400, counter: 3 }
-        ],
+            [TestValue { value: 500, counter: 6 }, TestValue { value: 400, counter: 3 }],
             TestValue::empty()
         );
         let array_gte = pad_end([TestValue { value: 100, counter: 19 }], TestValue::empty());
@@ -128,10 +129,7 @@ mod tests {
     fn get_combined_order_hints_asc_lt_empty() {
         let array_lt = [TestValue::empty(); 4];
         let array_gte = pad_end(
-            [
-            TestValue { value: 200, counter: 13 },
-            TestValue { value: 100, counter: 19 }
-        ],
+            [TestValue { value: 200, counter: 13 }, TestValue { value: 100, counter: 19 }],
             TestValue::empty()
         );
         let expected_hints = [
@@ -146,10 +144,7 @@ mod tests {
     #[test]
     fn get_combined_order_hints_asc_gte_empty() {
         let array_lt = pad_end(
-            [
-            TestValue { value: 400, counter: 3 },
-            TestValue { value: 500, counter: 6 }
-        ],
+            [TestValue { value: 400, counter: 3 }, TestValue { value: 500, counter: 6 }],
             TestValue::empty()
         );
         let array_gte = [TestValue::empty(); 4];

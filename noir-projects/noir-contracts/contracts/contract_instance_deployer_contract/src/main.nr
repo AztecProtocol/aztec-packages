@@ -84,7 +84,6 @@ contract ContractInstanceDeployer {
         universal_deploy: bool
     ) {
         // TODO(@spalladino): assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
-
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {

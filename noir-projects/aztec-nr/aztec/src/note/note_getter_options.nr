@@ -27,10 +27,7 @@ pub struct SortOrderEnum {
     ASC: u8,
 }
 
-global SortOrder = SortOrderEnum {
-    DESC: 1,
-    ASC: 2,
-};
+global SortOrder = SortOrderEnum { DESC: 1, ASC: 2 };
 
 pub struct Sort {
     property_selector: PropertySelector,
@@ -70,9 +67,9 @@ pub struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
     offset: u32,
     // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
     // unlike filter it is applied in an unconstrained context.
-    preprocessor: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     preprocessor_args: PREPROCESSOR_ARGS,
-    filter: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
     status: u8,
 }
@@ -94,7 +91,9 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
         property_selector: PropertySelector,
         comparator: u8,
         value: T
-    ) -> Self where T: ToField {
+    ) -> Self
+    where
+        T: ToField, {
         self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
         *self
     }
@@ -132,7 +131,9 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
     }
 }
 
-impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field> where Note: NoteInterface<N> {
+impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field>
+where
+    Note: NoteInterface<N>, {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
         Self {
@@ -149,7 +150,9 @@ impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field> where Note: Note
     }
 }
 
-impl<Note, let N: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, Field> where Note: NoteInterface<N> {
+impl<Note, let N: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, Field>
+where
+    Note: NoteInterface<N>, {
     // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
     // the database and preprocessor_args as its parameters.
     // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
@@ -171,7 +174,9 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, PREPROCESSO
     }
 }
 
-impl<Note, let N: u32, FILTER_ARGS> NoteGetterOptions<Note, N, Field, FILTER_ARGS> where Note: NoteInterface<N> {
+impl<Note, let N: u32, FILTER_ARGS> NoteGetterOptions<Note, N, Field, FILTER_ARGS>
+where
+    Note: NoteInterface<N>, {
     // This function initializes a NoteGetterOptions with a filter, which takes
     // the notes returned from the database and filter_args as its parameters.
     // `filter_args` allows you to provide additional data or context to the custom filter.

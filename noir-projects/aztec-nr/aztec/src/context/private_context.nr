@@ -52,10 +52,10 @@ pub struct PrivateContext {
     note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
 
-    private_call_requests : BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_requests : BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     public_teardown_call_request: PublicCallRequest,
-    l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
@@ -195,7 +195,8 @@ impl PrivateContext {
     // docs:start:max-block-number
     pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
         // docs:end:max-block-number
-        self.max_block_number = MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
+        self.max_block_number =
+            MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -352,12 +353,10 @@ impl PrivateContext {
         //     | (item.public_inputs.min_revertible_side_effect_counter
         //         > self.min_revertible_side_effect_counter)
         // );
-
         // if item.public_inputs.min_revertible_side_effect_counter
         //     > self.min_revertible_side_effect_counter {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
-
         let call_context = CallContext { msg_sender: self.this_address(), contract_address, function_selector, is_static_call };
 
         self.private_call_requests.push(
@@ -479,11 +478,7 @@ impl PrivateContext {
         };
         let call_context = CallContext { msg_sender: self.this_address(), contract_address, function_selector, is_static_call };
 
-        self.public_teardown_call_request = PublicCallRequest {
-            call_context,
-            args_hash,
-            counter,
-        };
+        self.public_teardown_call_request = PublicCallRequest { call_context, args_hash, counter };
     }
 
     fn next_counter(&mut self) -> u32 {

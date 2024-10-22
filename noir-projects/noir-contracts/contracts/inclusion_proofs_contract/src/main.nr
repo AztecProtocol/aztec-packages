@@ -55,7 +55,6 @@ contract InclusionProofs {
         }
         let note = private_values.get_notes(options).get(0);
         // docs:end:get_note_from_pxe
-
         // docs:start:prove_note_inclusion
         // 2) Prove the note inclusion
         let header = if (use_block_number) {

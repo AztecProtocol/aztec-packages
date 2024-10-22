@@ -5,8 +5,8 @@ use dep::types::{
 };
 
 pub struct FeeRecipient {
-  recipient: EthAddress,
-  value: Field,
+    recipient: EthAddress,
+    value: Field,
 }
 
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
@@ -37,17 +37,17 @@ impl Eq for FeeRecipient {
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
 // may be confusing as new_constant.last_archive would actually be the new_archive
 pub struct BlockRootOrBlockMergePublicInputs {
-  previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
-  new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
-  previous_block_hash: Field, // Identifier of the previous block before the range
-  end_block_hash: Field, // Identifier of the last block in the range
-  start_global_variables: GlobalVariables, // Global variables for the first block in the range
-  end_global_variables: GlobalVariables, // Global variables for the last block in the range
-  out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
-  fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
-  vk_tree_root: Field, // Root of allowed vk tree
-  protocol_contract_tree_root: Field, // Root of protocol contract tree
-  prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
+    new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
+    previous_block_hash: Field, // Identifier of the previous block before the range
+    end_block_hash: Field, // Identifier of the last block in the range
+    start_global_variables: GlobalVariables, // Global variables for the first block in the range
+    end_global_variables: GlobalVariables, // Global variables for the last block in the range
+    out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
+    fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
+    vk_tree_root: Field, // Root of allowed vk tree
+    protocol_contract_tree_root: Field, // Root of protocol contract tree
+    prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
 }
 
 impl BlockRootOrBlockMergePublicInputs {

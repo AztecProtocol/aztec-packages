@@ -7,7 +7,9 @@ pub fn assert_combined_transformed_array<T, S, let N: u32, Env>(
     original_array_gte: [T; N],
     combined_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool
-) where T: Empty + Eq {
+)
+where
+    T: Empty + Eq, {
     let num_lt = array_length(original_array_lt);
     let mut is_lt = true;
     for i in 0..N {
@@ -29,7 +31,9 @@ pub unconstrained fn combine_and_transform_arrays<T, S, let N: u32, Env>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],
     transform: fn[Env](T) -> S
-) -> [S; N] where T: Empty + Eq {
+) -> [S; N]
+where
+    T: Empty + Eq, {
     let mut combined = original_array_lt.map(transform);
 
     let num_lt = array_length(original_array_lt);

@@ -9,7 +9,6 @@ use std::test::OracleMock;
 unconstrained fn transfer_to_private_to_self() {
     // The transfer to private to self is done in `utils::setup_mint_and_transfer_to_private` and for this reason
     // in this test we just call it and check the outcome.
-
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, user, _, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 

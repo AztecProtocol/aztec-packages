@@ -20,7 +20,10 @@ fn assert_split_sorted_transformed_value_arrays<T, S, let N: u32>(
     sorted_counters_gte: [u32; N], // Counters of the values in sorted_transformed_value_array_gte.
     index_hints: [u32; N], // The index of the item in the correspinding sorted_transformed_value_array_(lt/gte) for each item in the original_array.
     ascending: bool // Whether the items in sorted_transformed_value_array_(lt/gte) is in ascending order.
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     // Can use array_length instead of validate_array for the original_array because it's taken from the previous kernel and guaranteed to be valid.
     let total_num = array_length(original_array);
 
@@ -78,7 +81,10 @@ pub fn assert_split_sorted_transformed_value_arrays_asc<T, S, let N: u32>(
     sorted_transformed_value_array_lt: [S; N],
     sorted_transformed_value_array_gte: [S; N],
     hints: SplitOrderHints<N>
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     assert_split_sorted_transformed_value_arrays(
         original_array,
         transformed_value_array,
@@ -99,7 +105,10 @@ pub fn assert_split_sorted_transformed_value_arrays_desc<T, S, let N: u32>(
     sorted_transformed_value_array_lt: [S; N],
     sorted_transformed_value_array_gte: [S; N],
     hints: SplitOrderHints<N>
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     assert_split_sorted_transformed_value_arrays(
         original_array,
         transformed_value_array,
@@ -116,23 +125,21 @@ pub fn assert_split_sorted_transformed_value_arrays_desc<T, S, let N: u32>(
 mod tests {
     use crate::{
         tests::types::{combine_two_values, TestCombinedValue, TestTwoValues},
-        utils::arrays::{
-        assert_split_sorted_transformed_value_arrays::{
+        utils::arrays::assert_split_sorted_transformed_value_arrays::{
         assert_split_sorted_transformed_value_arrays_asc,
         assert_split_sorted_transformed_value_arrays_desc, get_split_order_hints::SplitOrderHints
-    }
     }
     };
 
     global original_array = [
-        TestTwoValues {  value_1: 1, value_2: 0, counter: 33 },
-        TestTwoValues {  value_1: 10, value_2: 6, counter: 44 },
-        TestTwoValues {  value_1: 20, value_2: 7, counter: 11 },
-        TestTwoValues {  value_1: 30, value_2: 8, counter: 0 },
-        TestTwoValues {  value_1: 40, value_2: 9, counter: 22 },
+        TestTwoValues { value_1: 1, value_2: 0, counter: 33 },
+        TestTwoValues { value_1: 10, value_2: 6, counter: 44 },
+        TestTwoValues { value_1: 20, value_2: 7, counter: 11 },
+        TestTwoValues { value_1: 30, value_2: 8, counter: 0 },
+        TestTwoValues { value_1: 40, value_2: 9, counter: 22 },
         TestTwoValues::empty(),
         TestTwoValues::empty(),
-        TestTwoValues::empty()
+        TestTwoValues::empty(),
     ];
 
     struct TestDataBuilder<let N: u32> {
@@ -324,7 +331,8 @@ mod tests {
 
         // Swap two values in the sorted array.
         let tmp = builder.sorted_transformed_value_array_gte[0];
-        builder.sorted_transformed_value_array_gte[0] = builder.sorted_transformed_value_array_gte[1];
+        builder.sorted_transformed_value_array_gte[0] =
+            builder.sorted_transformed_value_array_gte[1];
         builder.sorted_transformed_value_array_gte[1] = tmp;
 
         builder.execute();
@@ -336,13 +344,13 @@ mod tests {
 
         // Swap two values in the sorted array, also update their hints.
         let tmp = builder.sorted_transformed_value_array_gte[0];
-        builder.sorted_transformed_value_array_gte[0] = builder.sorted_transformed_value_array_gte[1];
+        builder.sorted_transformed_value_array_gte[0] =
+            builder.sorted_transformed_value_array_gte[1];
         builder.sorted_transformed_value_array_gte[1] = tmp;
         builder.hints.sorted_counters_gte[0] = 33;
         builder.hints.sorted_counters_gte[1] = 22;
         builder.update_sorted_index(33, 0); // Item of counter 33 is now at index 0 of the sorted array.
         builder.update_sorted_index(22, 1); // Item of counter 22 is now at index 1 of the sorted array.
-
         builder.execute();
     }
 
@@ -352,11 +360,11 @@ mod tests {
 
         // Swap two values in the sorted array, but keep their counters in the correct order.
         let tmp = builder.sorted_transformed_value_array_gte[0];
-        builder.sorted_transformed_value_array_gte[0] = builder.sorted_transformed_value_array_gte[1];
+        builder.sorted_transformed_value_array_gte[0] =
+            builder.sorted_transformed_value_array_gte[1];
         builder.sorted_transformed_value_array_gte[1] = tmp;
         builder.update_sorted_index(33, 0); // Item of counter 33 is now at index 0 of the sorted array.
         builder.update_sorted_index(22, 1); // Item of counter 22 is now at index 1 of the sorted array.
-
         builder.execute();
     }
 
@@ -365,12 +373,12 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Move the item with counter 44 from _gte to _lt.
-        builder.sorted_transformed_value_array_lt[2] = builder.sorted_transformed_value_array_gte[2];
+        builder.sorted_transformed_value_array_lt[2] =
+            builder.sorted_transformed_value_array_gte[2];
         builder.hints.sorted_counters_lt[2] = 44;
         builder.sorted_transformed_value_array_gte[2] = TestCombinedValue::empty();
         builder.hints.sorted_counters_lt[2] = 0;
         builder.update_sorted_index(44, 2); // Item of counter 44 is now at index 2 of the sorted array.
-
         builder.execute();
     }
 
@@ -379,7 +387,8 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Copy the item with counter 44 to _lt.
-        builder.sorted_transformed_value_array_lt[2] = builder.sorted_transformed_value_array_gte[2];
+        builder.sorted_transformed_value_array_lt[2] =
+            builder.sorted_transformed_value_array_gte[2];
         builder.hints.sorted_counters_lt[2] = 44;
 
         builder.execute();
@@ -390,7 +399,8 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Duplicate the item with counter 44.
-        builder.sorted_transformed_value_array_gte[3] = builder.sorted_transformed_value_array_gte[2];
+        builder.sorted_transformed_value_array_gte[3] =
+            builder.sorted_transformed_value_array_gte[2];
         builder.hints.sorted_counters_gte[3] = 44;
 
         builder.execute();
@@ -427,7 +437,8 @@ mod tests {
         for i in 0..num_items {
             let from_index = num_items - 1 - i;
             let to_index = num_items - i;
-            builder.sorted_transformed_value_array_lt[to_index] = builder.sorted_transformed_value_array_lt[from_index];
+            builder.sorted_transformed_value_array_lt[to_index] =
+                builder.sorted_transformed_value_array_lt[from_index];
             let counter = builder.hints.sorted_counters_lt[from_index];
             builder.hints.sorted_counters_lt[to_index] = counter;
             builder.update_sorted_index(counter, to_index);
@@ -447,7 +458,8 @@ mod tests {
         for i in 0..num_items {
             let from_index = num_items - 1 - i;
             let to_index = num_items - i;
-            builder.sorted_transformed_value_array_gte[to_index] = builder.sorted_transformed_value_array_gte[from_index];
+            builder.sorted_transformed_value_array_gte[to_index] =
+                builder.sorted_transformed_value_array_gte[from_index];
             let counter = builder.hints.sorted_counters_gte[from_index];
             builder.hints.sorted_counters_gte[to_index] = counter;
             builder.update_sorted_index(counter, to_index);

@@ -57,7 +57,9 @@ impl UnconstrainedContext {
     unconstrained fn storage_read<T, let N: u32>(
         self,
         storage_slot: Field
-    ) -> T where T: Deserialize<N> {
+    ) -> T
+    where
+        T: Deserialize<N>, {
         T::deserialize(self.raw_storage_read(storage_slot))
     }
 }

@@ -74,7 +74,8 @@ pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
             // If it's the first write, update the override_counter of the data with the same slot.
             if (override_counter == 0) | (data.counter < override_counter) {
                 override_counter = data.counter;
-                data_with_unique_slot.storage[data_with_unique_slot.len() - 1].counter = override_counter;
+                data_with_unique_slot.storage[data_with_unique_slot.len() - 1].counter =
+                    override_counter;
             }
         }
     }
@@ -89,7 +90,10 @@ pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
         let hint = hints[i];
         let exists = hint.preimage.slot == sorted.slot;
         let value = if exists { hint.preimage.value } else { 0 };
-        leaves[i] = OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: sorted.slot, value  }, override_counter: sorted.counter };
+        leaves[i] = OverridablePublicDataTreeLeaf {
+            leaf: PublicDataTreeLeaf { slot: sorted.slot, value },
+            override_counter: sorted.counter,
+        };
     }
 
     (leaves, SortedResult {

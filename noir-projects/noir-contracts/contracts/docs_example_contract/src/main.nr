@@ -73,9 +73,7 @@ contract DocsExample {
                 profiles: Map::new(
                     context,
                     4,
-                    |context, slot| {
-                        PrivateMutable::new(context, slot)
-                    }
+                    |context, slot| { PrivateMutable::new(context, slot) }
                 ),
                 // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
@@ -87,9 +85,7 @@ contract DocsExample {
                 minters: Map::new(
                     context,
                     8,
-                    |context, slot| {
-                        PublicMutable::new(context, slot)
-                    }
+                    |context, slot| { PublicMutable::new(context, slot) }
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
@@ -260,7 +256,6 @@ contract DocsExample {
     fn increase_legendary_points() {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
-
         let msg_sender_keys = get_public_keys(context.msg_sender());
 
         // docs:start:state_vars-PrivateMutableGet

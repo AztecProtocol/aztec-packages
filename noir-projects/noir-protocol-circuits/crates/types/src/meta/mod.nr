@@ -10,7 +10,7 @@ pub comptime fn pack_from_fields<N>(
     let mut result = quote {};
     let mut consumed: u32 = 0;
 
-    let found_replacements = replacements.filter(| (to_omit, _): (Quoted, Quoted) | to_omit == name);
+    let found_replacements = replacements.filter(|(to_omit, _): (Quoted, Quoted)| to_omit == name);
 
     let replacement = if found_replacements.len() == 1 {
         replacements[0].1
@@ -36,7 +36,8 @@ pub comptime fn pack_from_fields<N>(
                     replacements
                 );
                 consumed += consumed_by_field;
-                deserialized_fields_list = deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
+                deserialized_fields_list =
+                    deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
             }
             let deserialized_fields = deserialized_fields_list.join(quote {,});
             result = quote {
@@ -93,7 +94,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
     let mut fields = &[];
     let mut aux_vars = &[];
 
-    if omit.all(| to_omit | to_omit != name) {
+    if omit.all(|to_omit| to_omit != name) {
         if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
             // For field, integer and bool we just cast to Field and add the value to fields
             fields = fields.push_back(quote { $name as Field });
@@ -102,26 +103,26 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
             let nested_struct = typ.as_struct().unwrap();
             let params = nested_struct.0.fields();
             let struct_flattened = params.map(
-                | (param_name, param_type): (Quoted, Type) | {
-                    let maybe_prefixed_name = if name == quote {} {
-                        // Triggered when the param name is of a value available in the current scope (e.g. a function
-                        // argument) --> then we don't prefix the name with anything.
-                        quote { $param_name }
-                    } else {
-                        // Triggered when we want to prefix the param name with the `name` from function input. This
-                        // can typically be `self` when implementing a method on a struct.
-                        quote { $name.$param_name }
-                    };
-                    flatten_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
-                }
+                |(param_name, param_type): (Quoted, Type)| {
+                let maybe_prefixed_name = if name == quote {} {
+                    // Triggered when the param name is of a value available in the current scope (e.g. a function
+                    // argument) --> then we don't prefix the name with anything.
+                    quote { $param_name }
+                } else {
+                    // Triggered when we want to prefix the param name with the `name` from function input. This
+                    // can typically be `self` when implementing a method on a struct.
+                    quote { $name.$param_name }
+                };
+                flatten_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
+            }
             );
             let struct_flattened_fields = struct_flattened.fold(
                 &[],
-                | acc: [Quoted], (fields, _): (_, [Quoted]) | acc.append(fields)
+                |acc: [Quoted], (fields, _): (_, [Quoted])| acc.append(fields)
             );
             let struct_flattened_aux_vars = struct_flattened.fold(
                 &[],
-                |acc: [Quoted], (_, aux_vars): ([Quoted], _) | acc.append(aux_vars)
+                |acc: [Quoted], (_, aux_vars): ([Quoted], _)| acc.append(aux_vars)
             );
             fields = fields.append(struct_flattened_fields);
             aux_vars = aux_vars.append(struct_flattened_aux_vars);
@@ -148,7 +149,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
             let as_bytes_name = f"{var_name}_as_bytes".quoted_contents();
             let as_bytes = quote { let $as_bytes_name = $name.as_bytes() };
             for i in 0..str_len {
-                fields = fields.push_back(quote { $as_bytes_name[$i] as Field } );
+                fields = fields.push_back(quote { $as_bytes_name[$i] as Field });
             }
             aux_vars = aux_vars.push_back(as_bytes);
         } else {
@@ -203,7 +204,7 @@ pub struct Smol {
 #[derive(Serialize, Deserialize, Eq)]
 pub struct HasArray {
     a: [Field; 2],
-    b: bool
+    b: bool,
 }
 
 #[derive(Serialize, Deserialize, Eq)]
@@ -242,7 +243,8 @@ fn fancier_test() {
     let serialized = fancier.serialize();
     assert(
         serialized == [
-            1, 2, 0, 1, 1, 2, 3, 0x6d, 0x65, 0x74, 0x61, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61, 0x6d, 0x6d, 0x69, 0x6e, 0x67, 0x21
+            1, 2, 0, 1, 1, 2, 3, 0x6d, 0x65, 0x74, 0x61, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61,
+            0x6d, 0x6d, 0x69, 0x6e, 0x67, 0x21
         ], serialized
     );
     let deserialized = Fancier::deserialize(serialized);

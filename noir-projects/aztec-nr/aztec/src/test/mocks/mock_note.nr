@@ -10,8 +10,8 @@ use crate::note::note_interface::NullifiableNote;
 global MOCK_NOTE_LENGTH: u32 = 1;
 
 pub(crate) struct MockNote {
-  header: NoteHeader,
-  value: Field,
+    header: NoteHeader,
+    value: Field,
 }
 
 impl NullifiableNote for MockNote {

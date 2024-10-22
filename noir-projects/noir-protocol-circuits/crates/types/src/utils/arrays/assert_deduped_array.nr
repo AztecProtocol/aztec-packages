@@ -4,7 +4,10 @@ use crate::{abis::side_effect::{Inner, Overridable}, traits::{Empty, is_empty}};
 pub fn assert_deduped_array<S, T, let N: u32>(
     original_array: [S; N],
     deduped_array: [T; N]
-) where S: Overridable + Inner<T>, T: Eq + Empty {
+)
+where
+    S: Overridable + Inner<T>,
+    T: Eq + Empty, {
     let mut num_added = 0;
     for i in 0..original_array.len() {
         let original = original_array[i];
@@ -22,7 +25,9 @@ pub fn assert_deduped_array<S, T, let N: u32>(
     }
 }
 
-pub unconstrained fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
+pub unconstrained fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N]
+where
+    S: Overridable + Inner<T>, {
     let mut deduped = BoundedVec::new();
     for i in 0..original_array.len() {
         let original = original_array[i];
@@ -99,12 +104,7 @@ mod tests {
             original_array[4].override_by = values[3];
 
             let deduped_array = pad_end(
-                [
-                values[0],
-                values[2],
-                values[3],
-                values[5]
-            ],
+                [values[0], values[2], values[3], values[5]],
                 TestValue::empty()
             );
 

@@ -79,8 +79,10 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
 
         let players = [player1, player2];
         let rounds_cards = [
-            Card::from_field(fields[6]), Card::from_field(fields[7]),
-            Card::from_field(fields[8]), Card::from_field(fields[9])
+            Card::from_field(fields[6]),
+            Card::from_field(fields[7]),
+            Card::from_field(fields[8]),
+            Card::from_field(fields[9])
         ];
         Game {
             players,
@@ -117,7 +119,11 @@ impl Game {
             let entry = self.players[i];
             assert(entry.is_initialized(), "Game not full");
         }
-        let sorted_by_deck_strength = self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| a.deck_strength < b.deck_strength);
+        let sorted_by_deck_strength = self.players.sort_via(
+            |a: PlayerEntry, b: PlayerEntry| {
+            a.deck_strength < b.deck_strength
+        }
+        );
         self.players = sorted_by_deck_strength;
         self.started = true;
     }

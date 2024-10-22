@@ -24,7 +24,9 @@ impl<K, V, Context> Map<K, V, Context> {
     // docs:end:new
 
     // docs:start:at
-    pub fn at(self, key: K) -> V where K: ToField {
+    pub fn at(self, key: K) -> V
+    where
+        K: ToField, {
         // TODO(#1204): use a generator index for the storage slot
         let derived_storage_slot = derive_storage_slot_in_map(self.storage_slot, key);
 

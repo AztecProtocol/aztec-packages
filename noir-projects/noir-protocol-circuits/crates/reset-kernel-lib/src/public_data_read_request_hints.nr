@@ -25,10 +25,15 @@ pub unconstrained fn build_public_data_read_request_hints<let NUM_READS: u32, le
         if read.counter != 0 {
             let write_index = find_index_hint(
                 writes,
-                |w: OverridablePublicDataWrite| (w.inner().leaf_slot == read.leaf_slot) & (read.counter > w.counter()) & ((read.counter < w.override_counter) | (w.override_counter == 0))
+                |w: OverridablePublicDataWrite| {
+                    (w.inner().leaf_slot == read.leaf_slot)
+                        & (read.counter > w.counter())
+                        & ((read.counter < w.override_counter) | (w.override_counter == 0))
+                }
             );
             if write_index != writes.len() {
-                pending_read_hints[num_pending_reads] = ReadIndexHint { read_request_index: i, value_index: write_index };
+                pending_read_hints[num_pending_reads] =
+                    ReadIndexHint { read_request_index: i, value_index: write_index };
                 read_request_statuses[i] = ReadRequestStatus::pending(num_pending_reads);
                 num_pending_reads += 1;
             } else {
@@ -39,7 +44,8 @@ pub unconstrained fn build_public_data_read_request_hints<let NUM_READS: u32, le
                 assert(
                     leaf_data_index != leaf_data.len(), "cannot find a public data leaf or a pending write for the read request"
                 );
-                leaf_data_read_hints[num_leaf_data_reads] = ReadIndexHint { read_request_index: i, value_index: leaf_data_index };
+                leaf_data_read_hints[num_leaf_data_reads] =
+                    ReadIndexHint { read_request_index: i, value_index: leaf_data_index };
                 read_request_statuses[i] = ReadRequestStatus::settled(num_leaf_data_reads);
                 num_leaf_data_reads += 1;
             }

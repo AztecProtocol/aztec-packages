@@ -26,7 +26,9 @@ impl Eq for OrderHint {
 pub unconstrained fn get_order_hints<T, let N: u32>(
     array: [T; N],
     ordering: fn(T, T) -> bool
-) -> [OrderHint; N] where T: Ordered {
+) -> [OrderHint; N]
+where
+    T: Ordered, {
     let sorted_tuples = get_sorted_tuple(array, ordering);
 
     let mut hints = [OrderHint::empty(); N];
@@ -40,11 +42,15 @@ pub unconstrained fn get_order_hints<T, let N: u32>(
     hints
 }
 
-pub unconstrained fn get_order_hints_asc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+pub unconstrained fn get_order_hints_asc<T, let N: u32>(array: [T; N]) -> [OrderHint; N]
+where
+    T: Ordered + Eq + Empty, {
     get_order_hints(array, compare_by_counter_empty_padded_asc)
 }
 
-pub unconstrained fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+pub unconstrained fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N]
+where
+    T: Ordered + Eq + Empty, {
     get_order_hints(array, compare_by_counter_empty_padded_desc)
 }
 

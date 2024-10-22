@@ -24,7 +24,6 @@ pub unconstrained fn sort_by<T, let N: u32, Env>(array: [T; N], ordering: fn[Env
     // for i in 0..N - 1 {
     //     assert(ordering(result[i], result[i + 1]));
     // }
-
     result
 }
 

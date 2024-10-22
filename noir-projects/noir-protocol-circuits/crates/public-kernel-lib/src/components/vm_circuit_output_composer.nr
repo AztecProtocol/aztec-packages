@@ -1,6 +1,6 @@
 mod propagate_accumulated_data;
 
-use crate::{components::vm_circuit_output_composer::propagate_accumulated_data::propagate_accumulated_data};
+use crate::components::vm_circuit_output_composer::propagate_accumulated_data::propagate_accumulated_data;
 use dep::types::{
     abis::{
     accumulated_data::{PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder},
@@ -90,7 +90,6 @@ impl VMCircuitOutputComposer {
 
     fn propagate_validation_requests(&mut self, public_call: PublicCircuitPublicInputs) {
         // Note that the public kernel cannot modify the max block number value - it simply forwards it to the rollup
-
         let contract_address = public_call.call_context.contract_address;
 
         let note_hash_read_requests = public_call.note_hash_read_requests;
@@ -141,7 +140,8 @@ impl VMCircuitOutputComposer {
         if self.reverted {
             self.accumulated_data = PublicAccumulatedDataBuilder::empty();
         } else {
-            self.accumulated_data = propagate_accumulated_data(&mut self.accumulated_data, public_call);
+            self.accumulated_data =
+                propagate_accumulated_data(&mut self.accumulated_data, public_call);
             self.propagate_call_requests(public_call);
         }
 

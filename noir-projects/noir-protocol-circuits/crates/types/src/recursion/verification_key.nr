@@ -26,7 +26,7 @@ impl<let N: u32> Serialize<N + 1> for VerificationKey<N> {
 }
 
 impl<let N: u32> Deserialize<N + 1> for VerificationKey<N> {
-    fn deserialize(fields: [Field; N+1]) -> Self {
+    fn deserialize(fields: [Field; N + 1]) -> Self {
         let mut key = VerificationKey::empty();
         for i in 0..N {
             key.key[i] = fields[i];

@@ -30,7 +30,9 @@ unconstrained fn get_split_order_hints<T, let N: u32>(
     array: [T; N],
     split_counter: u32,
     ascending: bool
-) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
+) -> SplitOrderHints<N>
+where
+    T: Ordered + Eq + Empty, {
     let ordering = if ascending {
         compare_by_counter_empty_padded_asc
     } else {
@@ -70,14 +72,18 @@ unconstrained fn get_split_order_hints<T, let N: u32>(
 pub unconstrained fn get_split_order_hints_asc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
-) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
+) -> SplitOrderHints<N>
+where
+    T: Ordered + Eq + Empty, {
     get_split_order_hints(array, split_counter, true)
 }
 
 pub unconstrained fn get_split_order_hints_desc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
-) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
+) -> SplitOrderHints<N>
+where
+    T: Ordered + Eq + Empty, {
     get_split_order_hints(array, split_counter, false)
 }
 
@@ -88,16 +94,16 @@ mod tests {
     };
 
     global full_array = [
-                TestValue { value: 100, counter: 11 },
-                TestValue { value: 200, counter: 17 },
-                TestValue { value: 300, counter: 7 },
-                TestValue { value: 400, counter: 5 },
-                TestValue { value: 500, counter: 13 }
-            ];
+        TestValue { value: 100, counter: 11 },
+        TestValue { value: 200, counter: 17 },
+        TestValue { value: 300, counter: 7 },
+        TestValue { value: 400, counter: 5 },
+        TestValue { value: 500, counter: 13 },
+    ];
 
     struct TestBuilder<let N: u32> {
         array: [TestValue; N],
-        split_counter: u32
+        split_counter: u32,
     }
 
     impl TestBuilder<5> {

@@ -38,8 +38,7 @@ contract Lending {
     // Constructs the contract.
     #[private]
     #[initializer]
-    fn constructor(
-    ) {}
+    fn constructor() {}
 
     #[public]
     fn init(

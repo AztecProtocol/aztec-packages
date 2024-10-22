@@ -5,9 +5,9 @@ use crate::{
 },
     components
 };
-use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
+use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
     AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
     L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX
@@ -18,10 +18,7 @@ use types::{
 };
 use types::debug_log::debug_log_format;
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    BASE_ROLLUP_INDEX,
-    MERGE_ROLLUP_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS = [BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX];
 
 pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
@@ -109,7 +106,6 @@ impl BlockRootRollupInputs {
         //     );
         //     debug_log_format("header.total_fees={0}", [total_fees]);
         // }
-
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
@@ -131,7 +127,8 @@ impl BlockRootRollupInputs {
         );
 
         let mut fee_arr = [FeeRecipient::empty(); AZTEC_EPOCH_DURATION];
-        fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
+        fee_arr[0] =
+            FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added

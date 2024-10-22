@@ -1,5 +1,5 @@
-use crate::reset::{read_request::{ReadRequestState, ReadRequestStatus}};
-use dep::types::{abis::side_effect::{Ordered, Overridable, Readable}};
+use crate::reset::read_request::{ReadRequestState, ReadRequestStatus};
+use dep::types::abis::side_effect::{Ordered, Overridable, Readable};
 
 pub struct ReadIndexHint {
     read_request_index: u32,
@@ -16,7 +16,10 @@ fn validate_pending_read_requests<R, let READ_REQUEST_LEN: u32, V, let PENDING_V
     read_requests: [R; READ_REQUEST_LEN],
     pending_values: [V; PENDING_VALUE_LEN],
     index_hints: [ReadIndexHint; NUM_HINTS]
-) where R: Ordered, V: Readable<R> + Ordered + Overridable {
+)
+where
+    R: Ordered,
+    V: Readable<R> + Ordered + Overridable, {
     for i in 0..index_hints.len() {
         let index_hint = index_hints[i];
         let read_request_index = index_hint.read_request_index;
@@ -39,7 +42,10 @@ fn validate_leaf_data_read_requests<R, let READ_REQUEST_LEN: u32, L, let LEAF_DA
     read_requests: [R; READ_REQUEST_LEN],
     leaf_data: [L; LEAF_DATA_LEN],
     index_hints: [ReadIndexHint; NUM_HINTS]
-) where R: Ordered, L: Readable<R> + Overridable {
+)
+where
+    R: Ordered,
+    L: Readable<R> + Overridable, {
     for i in 0..index_hints.len() {
         let index_hint = index_hints[i];
         let read_request_index = index_hint.read_request_index;
@@ -59,7 +65,9 @@ fn ensure_all_read_requests_are_verified<R, let READ_REQUEST_LEN: u32, let NUM_P
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_read_hints: [ReadIndexHint; NUM_PENDING_READS],
     leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS]
-) where R: Ordered {
+)
+where
+    R: Ordered, {
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
         if read_request.counter() != 0 {
@@ -93,7 +101,11 @@ pub fn reset_mutable_data_read_requests<
     leaf_data: [L; NUM_LEAF_DATA_HINTS],
     pending_read_hints: [ReadIndexHint; NUM_PENDING_READS],
     leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS]
-) where R: Ordered, V: Readable<R> + Ordered + Overridable, L: Readable<R> + Overridable {
+)
+where
+    R: Ordered,
+    V: Readable<R> + Ordered + Overridable,
+    L: Readable<R> + Overridable, {
     validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
 
     validate_leaf_data_read_requests(read_requests, leaf_data, leaf_data_read_hints);
@@ -212,10 +224,12 @@ mod tests {
             self.read_requests[read_request_index] = PublicDataRead {
                 leaf_slot: write.leaf_slot,
                 value: write.new_value,
-                counter: self.counter
+                counter: self.counter,
             };
-            self.pending_read_hints[self.num_pending_reads] = ReadIndexHint { read_request_index, value_index: data_write_index };
-            self.read_request_statuses[read_request_index] = ReadRequestStatus::pending(self.num_pending_reads);
+            self.pending_read_hints[self.num_pending_reads] =
+                ReadIndexHint { read_request_index, value_index: data_write_index };
+            self.read_request_statuses[read_request_index] =
+                ReadRequestStatus::pending(self.num_pending_reads);
             self.num_pending_reads += 1;
             self.counter += 1;
         }
@@ -226,10 +240,12 @@ mod tests {
             self.read_requests[read_request_index] = PublicDataRead {
                 leaf_slot: data_hint.leaf_index,
                 value: data_hint.value,
-                counter: self.counter
+                counter: self.counter,
             };
-            self.leaf_data_read_hints[self.num_leaf_data_reads] = ReadIndexHint { read_request_index, value_index: data_hint_index };
-            self.read_request_statuses[read_request_index] = ReadRequestStatus::settled(self.num_leaf_data_reads);
+            self.leaf_data_read_hints[self.num_leaf_data_reads] =
+                ReadIndexHint { read_request_index, value_index: data_hint_index };
+            self.read_request_statuses[read_request_index] =
+                ReadRequestStatus::settled(self.num_leaf_data_reads);
             self.num_leaf_data_reads += 1;
             self.counter += 1;
         }

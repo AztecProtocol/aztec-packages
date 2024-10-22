@@ -1,4 +1,4 @@
-use crate::{hash::accumulate_sha256};
+use crate::hash::accumulate_sha256;
 // N = maximum leaves
 // For now we only care about the root
 pub struct VariableMerkleTree {
@@ -58,26 +58,26 @@ impl VariableMerkleTree {
                 stop = true;
             }
             if (!stop) {
-                nodes[i] = accumulate_sha256([leaves[2*i], leaves[2*i+1]]);
+                nodes[i] = accumulate_sha256([leaves[2 * i], leaves[2 * i + 1]]);
             }
         }
 
         // hash the other layers
-        stop = if prev_power_2 == 1 {true} else {false};
+        stop = if prev_power_2 == 1 { true } else { false };
         let mut next_layer_end = prev_power_2 / 2;
         let mut next_layer_size = next_layer_end;
         let mut root = nodes[0];
         for i in 0..(N - 1 - N / 2) {
             if !stop {
-                nodes[prev_power_2+i] = accumulate_sha256([nodes[2*i], nodes[2*i+1]]);
+                nodes[prev_power_2 + i] = accumulate_sha256([nodes[2 * i], nodes[2 * i + 1]]);
                 if i == next_layer_end {
                     // Reached next layer => move up one layer
-                    next_layer_size = next_layer_size/2;
+                    next_layer_size = next_layer_size / 2;
                     next_layer_end += next_layer_size;
                 }
                 if (next_layer_size == 1) {
                     // Reached root
-                    root = nodes[prev_power_2+i];
+                    root = nodes[prev_power_2 + i];
                     stop = true;
                 }
             }
@@ -117,11 +117,11 @@ mod tests {
         let half_size = N / 2;
         // hash base layer
         for i in 0..half_size {
-            nodes[i] = accumulate_sha256([leaves[2*i], leaves[2*i+1]]);
+            nodes[i] = accumulate_sha256([leaves[2 * i], leaves[2 * i + 1]]);
         }
         // hash the other layers
         for i in 0..(total_nodes - half_size) {
-            nodes[half_size+i] = accumulate_sha256([nodes[2*i], nodes[2*i+1]]);
+            nodes[half_size + i] = accumulate_sha256([nodes[2 * i], nodes[2 * i + 1]]);
         }
         MerkleTree { leaves, nodes }
     }

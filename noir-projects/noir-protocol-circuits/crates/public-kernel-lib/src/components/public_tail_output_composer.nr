@@ -8,7 +8,7 @@ pub use generate_overridable_public_data_writes::LinkedIndexHint;
 
 use crate::components::public_tail_output_composer::{combine_data::combine_data, generate_output_hints::generate_output_hints};
 use dep::types::{
-    abis::{kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs}},
+    abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
 

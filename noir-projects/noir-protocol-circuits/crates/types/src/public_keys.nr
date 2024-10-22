@@ -20,7 +20,7 @@ pub trait ToPoint {
 }
 
 pub struct NpkM {
-    inner: Point
+    inner: Point,
 }
 
 impl ToPoint for NpkM {
@@ -43,7 +43,7 @@ impl Hash for NpkM {
 }
 
 pub struct IvpkM {
-    inner: Point
+    inner: Point,
 }
 
 impl ToPoint for IvpkM {
@@ -59,7 +59,7 @@ impl Serialize<POINT_LENGTH> for IvpkM {
 }
 
 pub struct OvpkM {
-    inner: Point
+    inner: Point,
 }
 
 impl Hash for OvpkM {
@@ -81,7 +81,7 @@ impl Serialize<POINT_LENGTH> for OvpkM {
 }
 
 pub struct TpkM {
-    inner: Point
+    inner: Point,
 }
 
 impl ToPoint for TpkM {

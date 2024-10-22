@@ -22,7 +22,7 @@ contract TokenBlacklist {
         keys::getters::get_public_keys
     };
 
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
+    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public};
 
     use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap, roles::UserFlags};
 
@@ -173,11 +173,10 @@ contract TokenBlacklist {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
-            TransparentNote::properties().secret_hash,
-            Comparator.EQ,
-            secret_hash
-        ).set_limit(1);
+        options = options
+            .select(TransparentNote::properties().amount, Comparator.EQ, amount)
+            .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
+            .set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
         assert(notes.len() == 1, "note not popped");

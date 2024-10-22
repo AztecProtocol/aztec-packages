@@ -46,7 +46,7 @@ mod tests {
     struct TestBuilder {
         public_data_writes: [OverridablePublicDataWrite; 8],
         public_data_leaves: [OverridablePublicDataTreeLeaf; 12],
-        hints: [LinkedIndexHint; 8]
+        hints: [LinkedIndexHint; 8],
     }
 
     impl TestBuilder {
@@ -148,7 +148,8 @@ mod tests {
         // Change from leaf -> write[3] -> write[1] -> write[4] to leaf -> write[1] -> write[3] -> write[4]
         let leaf_index = builder.hints[3].prev_index;
         // Link the leaf to the 1st write.
-        builder.public_data_leaves[leaf_index].override_counter = builder.public_data_writes[1].counter();
+        builder.public_data_leaves[leaf_index].override_counter =
+            builder.public_data_writes[1].counter();
         // Link the 1st write to the leaf and the 3rd write.
         builder.hints[1].is_first_write = true;
         builder.hints[1].prev_index = leaf_index;

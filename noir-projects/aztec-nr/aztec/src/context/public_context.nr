@@ -7,7 +7,7 @@ use crate::context::gas::GasOpts;
 
 pub struct PublicContext {
     args_hash: Option<Field>,
-    compute_args_hash: fn () -> Field,
+    compute_args_hash: fn() -> Field,
 }
 
 impl PublicContext {
@@ -15,7 +15,12 @@ impl PublicContext {
         PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
-    pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
+    pub fn emit_unencrypted_log<T, let N: u32>(
+        _self: &mut Self,
+        log: T
+    )
+    where
+        T: Serialize<N>, {
         emit_unencrypted_log(Serialize::serialize(log).as_slice());
     }
 
@@ -42,7 +47,8 @@ impl PublicContext {
         let message_hash = compute_message_hash(
             sender,
             self.chain_id(),
-            /*recipient=*/ self.this_address(),
+            /*recipient=*/
+            self.this_address(),
             self.version(),
             content,
             secret_hash
@@ -169,7 +175,12 @@ impl PublicContext {
         out
     }
 
-    fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+    fn storage_read<T, let N: u32>(
+        self,
+        storage_slot: Field
+    ) -> T
+    where
+        T: Deserialize<N>, {
         T::deserialize(self.raw_storage_read(storage_slot))
     }
 
@@ -179,7 +190,13 @@ impl PublicContext {
         }
     }
 
-    fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+    fn storage_write<T, let N: u32>(
+        self,
+        storage_slot: Field,
+        value: T
+    )
+    where
+        T: Serialize<N>, {
         self.raw_storage_write(storage_slot, value.serialize());
     }
 }
@@ -188,10 +205,7 @@ impl PublicContext {
 fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
     // It's ok to use the max possible gas here, because the gas will be
     // capped by the gas left in the (STATIC)CALL instruction.
-    [
-        user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE),
-        user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)
-    ]
+    [user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE), user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)]
 }
 
 // Unconstrained opcode wrappers (do not use directly).
@@ -396,7 +410,7 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
 pub struct FunctionReturns<let N: u32> {
-    values: [Field; N]
+    values: [Field; N],
 }
 
 impl<let N: u32> FunctionReturns<N> {
@@ -408,7 +422,9 @@ impl<let N: u32> FunctionReturns<N> {
         self.values
     }
 
-    pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
+    pub fn deserialize_into<T>(self) -> T
+    where
+        T: Deserialize<N>, {
         Deserialize::deserialize(self.raw())
     }
 }

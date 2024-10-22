@@ -1,6 +1,11 @@
 use crate::{traits::{Empty, is_empty}, utils::arrays::validate_array};
 
-pub fn assert_array_eq<T, let N: u32, let S: u32>(array: [T; N], expected: [T; S]) where T: Empty + Eq {
+pub fn assert_array_eq<T, let N: u32, let S: u32>(
+    array: [T; N],
+    expected: [T; S]
+)
+where
+    T: Empty + Eq, {
     assert(expected.all(|elem: T| !is_empty(elem)), "cannot expect empty element in the result");
     assert_eq(validate_array(array), S, "mismatch array lengths");
     for i in 0..S {

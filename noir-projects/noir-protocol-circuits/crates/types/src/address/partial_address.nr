@@ -8,7 +8,7 @@ global PARTIAL_ADDRESS_LENGTH: u32 = 1;
 
 // Partial address
 pub struct PartialAddress {
-    inner : Field
+    inner: Field,
 }
 
 impl ToField for PartialAddress {
@@ -52,10 +52,7 @@ impl PartialAddress {
     ) -> Self {
         PartialAddress::from_field(
             poseidon2_hash_with_separator(
-                [
-            contract_class_id.to_field(),
-            salted_initialization_hash.to_field()
-        ],
+                [contract_class_id.to_field(), salted_initialization_hash.to_field()],
                 GENERATOR_INDEX__PARTIAL_ADDRESS
             )
         )

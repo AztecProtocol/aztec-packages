@@ -7,14 +7,18 @@ use crate::{
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note) where Note: NoteInterface<N> + NullifiableNote;
+    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note)
+    where
+        Note: NoteInterface<N> + NullifiableNote;
 }
 
 impl ProveNoteInclusion for Header {
     fn prove_note_inclusion<Note, let N: u32>(
         self,
         note: Note
-    ) where Note: NoteInterface<N> + NullifiableNote {
+    )
+    where
+        Note: NoteInterface<N> + NullifiableNote, {
         let note_hash = compute_note_hash_for_nullify(note);
 
         let witness = unsafe {

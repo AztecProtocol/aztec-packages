@@ -1,7 +1,7 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use crate::reset::read_request::{PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint};
 use dep::types::{
-    abis::{note_hash_leaf_preimage::NoteHashLeafPreimage},
+    abis::note_hash_leaf_preimage::NoteHashLeafPreimage,
     constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT},
     merkle_tree::MembershipWitness
 };
@@ -81,7 +81,7 @@ mod tests {
                 ReadRequest { value: note_hashes[3], counter: 13 }.scope(contract_address),// pending
                 ReadRequest { value: note_hashes[2], counter: 39 }.scope(contract_address),// pending
                 ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address),// settled
-                ReadRequest { value: note_hashes[3], counter: 78 }.scope(contract_address)// pending
+                ReadRequest { value: note_hashes[3], counter: 78 }.scope(contract_address) // pending
             ];
 
             let read_request_statuses = [
@@ -228,7 +228,8 @@ mod tests {
         let hint = builder.pending_read_hints[0];
         let pending_read = builder.read_requests[hint.read_request_index];
         // Tweak the counter of the value to be greater than the read request.
-        builder.pending_values[hint.pending_value_index].note_hash.counter = pending_read.counter() + 1;
+        builder.pending_values[hint.pending_value_index].note_hash.counter =
+            pending_read.counter() + 1;
 
         builder.verify();
     }

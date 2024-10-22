@@ -5,14 +5,14 @@ use crate::{
 
 // docs:start:global-variables
 pub struct GlobalVariables {
-    chain_id : Field,
-    version : Field,
-    block_number : Field,
-    slot_number : Field,
-    timestamp : u64,
-    coinbase : EthAddress,
-    fee_recipient : AztecAddress,
-    gas_fees : GasFees
+    chain_id: Field,
+    version: Field,
+    block_number: Field,
+    slot_number: Field,
+    timestamp: u64,
+    coinbase: EthAddress,
+    fee_recipient: AztecAddress,
+    gas_fees: GasFees,
 }
 // docs:end:global-variables
 

@@ -435,7 +435,8 @@ contract Test {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
-        options = options.select(TestNote::properties().value, Comparator.EQ, secret_hash).set_limit(1);
+        options =
+            options.select(TestNote::properties().value, Comparator.EQ, secret_hash).set_limit(1);
         let notes = notes_set.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
     }
@@ -457,7 +458,7 @@ contract Test {
 
     pub struct DummyNote {
         amount: Field,
-        secret_hash: Field
+        secret_hash: Field,
     }
 
     impl DummyNote {

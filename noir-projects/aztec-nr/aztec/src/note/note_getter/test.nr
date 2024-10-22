@@ -23,7 +23,9 @@ unconstrained fn build_valid_note(value: Field) -> MockNote {
 unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(
     vec: BoundedVec<T, N>,
     arr: [Option<T>; N]
-) where T: Eq {
+)
+where
+    T: Eq, {
     let mut count = 0;
 
     for i in 0..N {
@@ -161,7 +163,6 @@ unconstrained fn rejects_mismatched_address() {
     let mut context = env.private();
 
     let note = MockNote::new(1).storage_slot(storage_slot).build(); // We're not setting the right contract address
-
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 
@@ -175,7 +176,6 @@ unconstrained fn rejects_mismatched_storage_slot() {
     let mut context = env.private();
 
     let note = MockNote::new(1).contract_address(get_contract_address()).build(); // We're not setting the right storage slot
-
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 
@@ -196,10 +196,10 @@ unconstrained fn rejects_mismatched_selector() {
 
     let mut options = NoteGetterOptions::new();
     options = options.select(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            Comparator.EQ,
-            value + 1
-        );
+        PropertySelector { index: 0, offset: 0, length: 32 },
+        Comparator.EQ,
+        value + 1,
+    );
 
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
@@ -215,10 +215,7 @@ unconstrained fn rejects_mismatched_desc_sort_order() {
     opt_notes[1] = Option::some(build_valid_note(2));
 
     let mut options = NoteGetterOptions::new();
-    options = options.sort(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            SortOrder.DESC
-        );
+    options = options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC);
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
@@ -233,9 +230,6 @@ unconstrained fn rejects_mismatched_asc_sort_order() {
     opt_notes[1] = Option::some(build_valid_note(1));
 
     let mut options = NoteGetterOptions::new();
-    options = options.sort(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            SortOrder.ASC
-        );
+    options = options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }

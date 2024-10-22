@@ -11,7 +11,8 @@ comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
 /// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
 /// whether the field is nullable or not.
-comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
+    UHashMap::default();
 
 /// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
 /// and returning it as a `Field`.
@@ -95,7 +96,11 @@ comptime fn generate_note_interface(
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
     let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
     // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
-    let prefixed_merged_fields = merged_fields.map(| (name, typ, index): (Quoted, Type, u32) | (quote { self.$name }, typ, index));
+    let prefixed_merged_fields = merged_fields.map(
+        |(name, typ, index): (Quoted, Type, u32)| {
+        (quote { self.$name }, typ, index)
+    }
+    );
     let (new_generators_list, new_scalars_list, _, new_aux_vars) = generate_multi_scalar_mul(prefixed_merged_fields);
 
     let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
@@ -186,19 +191,17 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
     let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields = s.fields().filter(| (_, typ): (Quoted, Type) | typ != note_header_type);
+    let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
-    let properties_types = non_header_fields.map(
-        | (name, _): (Quoted, Type) | {
-           quote { $name: $property_selector_type }
-        }
-    ).join(quote {,});
+    let properties_types = non_header_fields.map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } }).join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = &[];
     for i in 0..non_header_fields.len() {
         let (name, _) = non_header_fields[i];
-        properties_list = properties_list.push_back(quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } });
+        properties_list = properties_list.push_back(
+            quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
+        );
     }
 
     let properties = properties_list.join(quote {,});
@@ -259,7 +262,9 @@ pub(crate) comptime fn generate_note_export(
     for field in fields {
         let (name, index, nullable) = field;
         note_fields = note_fields.push_back(quote { $name: aztec::note::note_field::NoteField });
-        note_field_constructors = note_field_constructors.push_back(quote { $name: aztec::note::note_field::NoteField { index: $index, nullable: $nullable }});
+        note_field_constructors = note_field_constructors.push_back(
+            quote { $name: aztec::note::note_field::NoteField { index: $index, nullable: $nullable }},
+        );
     }
 
     let note_fields = note_fields.join(quote {,});
@@ -302,8 +307,10 @@ comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> 
         for j in 0..flattened_field.len() {
             let flattened_as_field = flattened_field[j];
             let generator_index = start_generator_index + j;
-            generators_list = generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
-            scalars_list = scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
+            generators_list = generators_list.push_back(f"aztec::generators::Ga{generator_index}"
+                .quoted_contents());
+            scalars_list =
+                scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
         }
         args_list = args_list.push_back(quote { $field_name: $typ });
         aux_vars_list = aux_vars_list.append(aux_vars);
@@ -429,7 +436,7 @@ comptime fn get_setup_log_plaintext_body(
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
     // to the flatten_to_fields function but we omit the NoteHeader and the nullable fields.
-    let to_omit = indexed_nullable_fields.map(| (name, _, _): (Quoted, Type, u32) | name).push_back(quote { header });
+    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(quote { header });
     let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
@@ -507,7 +514,7 @@ comptime fn generate_finalization_payload(
     // We compute serialization of the nullable fields which are to be emitted as an unencrypted log. We do that by
     // passing the whole note struct to the `flatten_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
-    let to_omit = indexed_fixed_fields.map(| (name, _, _): (Quoted, Type, u32) | name).push_back(quote { header });
+    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(quote { header });
     let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
@@ -626,7 +633,7 @@ comptime fn index_note_fields(
     for field in s.fields() {
         let (name, typ) = field;
         if (typ != NOTE_HEADER_TYPE) {
-            if nullable_fields.all(| field | field != name) {
+            if nullable_fields.all(|field| field != name) {
                 indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
             } else {
                 indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
@@ -634,14 +641,14 @@ comptime fn index_note_fields(
         }
         let (flattened, _) = flatten_to_fields(name, typ, &[]);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
-        counter+=flattened.len();
+        counter += flattened.len();
     }
     (indexed_fixed_fields, indexed_nullable_fields)
 }
 
 /// Injects `NoteHeader` to the note struct if not present.
 comptime fn inject_note_header(s: StructDefinition) {
-    let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == NOTE_HEADER_TYPE);
+    let filtered_header = s.fields().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
     if (filtered_header.len() == 0) {
         let new_fields = s.fields().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);

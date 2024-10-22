@@ -1,4 +1,4 @@
-use crate::{utils::arrays::{get_sorted_tuple::{get_sorted_tuple, SortedTuple}}};
+use crate::utils::arrays::get_sorted_tuple::{get_sorted_tuple, SortedTuple};
 
 pub struct SortedResult<T, let N: u32> {
     sorted_array: [T; N],

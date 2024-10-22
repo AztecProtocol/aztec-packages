@@ -15,7 +15,6 @@ pub fn compute_swap_public_content_hash(
     caller_on_L1: EthAddress
 ) -> Field {
     let mut hash_bytes = [0; 260]; // 8 fields of 32 bytes each + 4 bytes fn selector
-
     let input_token_portal_bytes: [u8; 32] = input_asset_bridge_portal_address.to_field().to_be_bytes();
     let in_amount_bytes: [u8; 32] = input_amount.to_be_bytes();
     let uniswap_fee_tier_bytes: [u8; 32] = uniswap_fee_tier.to_be_bytes();
@@ -61,7 +60,6 @@ pub fn compute_swap_private_content_hash(
     caller_on_L1: EthAddress
 ) -> Field {
     let mut hash_bytes = [0; 260]; // 8 fields of 32 bytes each + 4 bytes fn selector
-
     let input_token_portal_bytes: [u8; 32] = input_asset_bridge_portal_address.to_field().to_be_bytes();
     let in_amount_bytes: [u8; 32] = input_amount.to_be_bytes();
     let uniswap_fee_tier_bytes: [u8; 32] = uniswap_fee_tier.to_be_bytes();

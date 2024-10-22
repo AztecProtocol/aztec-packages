@@ -6,9 +6,9 @@ use crate::{
 };
 
 pub struct NullifierLeafPreimage {
-    nullifier : Field,
-    next_nullifier :Field,
-    next_index : u32,
+    nullifier: Field,
+    next_nullifier: Field,
+    next_index: u32,
 }
 
 impl Empty for NullifierLeafPreimage {

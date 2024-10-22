@@ -5,11 +5,11 @@ use crate::{
 };
 
 pub struct ContractInstance {
-    salt : Field,
+    salt: Field,
     deployer: AztecAddress,
-    contract_class_id : ContractClassId,
-    initialization_hash : Field,
-    public_keys : PublicKeys,
+    contract_class_id: ContractClassId,
+    initialization_hash: Field,
+    public_keys: PublicKeys,
 }
 
 impl Eq for ContractInstance {

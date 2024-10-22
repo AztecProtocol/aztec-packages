@@ -1,9 +1,7 @@
-use crate::{
-    components::{
+use crate::components::{
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
-}
 };
 use dep::types::{
     abis::{
@@ -77,7 +75,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
-        abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
+        abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
         transaction::tx_request::TxRequest
     };

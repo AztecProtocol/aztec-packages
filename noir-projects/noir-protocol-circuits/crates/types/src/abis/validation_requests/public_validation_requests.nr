@@ -2,7 +2,7 @@ use crate::{
     abis::{
     public_data_read::PublicDataRead, read_request::ScopedReadRequest,
     tree_leaf_read_request::TreeLeafReadRequest,
-    validation_requests::{rollup_validation_requests::RollupValidationRequests}
+    validation_requests::rollup_validation_requests::RollupValidationRequests
 },
     constants::{
     MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,

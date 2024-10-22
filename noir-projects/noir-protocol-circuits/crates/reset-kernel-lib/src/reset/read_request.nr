@@ -10,11 +10,7 @@ pub struct ReadRequestStateEnum {
     SETTLED: u8,
 }
 
-global ReadRequestState = ReadRequestStateEnum {
-    NADA: 0,
-    PENDING: 1,
-    SETTLED: 2,
-};
+global ReadRequestState = ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
 
 pub struct ReadRequestStatus {
     state: u8,
@@ -58,7 +54,10 @@ impl PendingReadHint {
     }
 }
 
-trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE> where LEAF_PREIMAGE: LeafPreimage {
+trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
+where
+    LEAF_PREIMAGE: LeafPreimage,
+{
     fn membership_witness(self) -> MembershipWitness<TREE_HEIGHT>;
     fn leaf_preimage(self) -> LEAF_PREIMAGE;
     fn nada(read_request_len: u32) -> Self;
@@ -72,7 +71,9 @@ fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALU
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     pending_values: [T; PENDING_VALUE_LEN],
     hints: [PendingReadHint; NUM_PENDING_READS]
-) where T: Readable<ScopedReadRequest> {
+)
+where
+    T: Readable<ScopedReadRequest>, {
     for i in 0..NUM_PENDING_READS {
         let hint = hints[i];
         let read_request_index = hint.read_request_index;
@@ -96,9 +97,10 @@ fn validate_settled_read_requests<
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     hints: [H; NUM_SETTLED_READS],
     tree_root: Field
-) where
+)
+where
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
-    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest> {
+    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest>, {
     for i in 0..NUM_SETTLED_READS {
         let hint = hints[i];
         let read_request_index = hint.read_request_index();
@@ -120,7 +122,10 @@ fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, T, let NUM_PENDING
     pending_read_hints: [T; NUM_PENDING_READS],
     settled_read_hints: [S; NUM_SETTLED_READS],
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN]
-) where T: ReadValueHint, S: ReadValueHint {
+)
+where
+    T: ReadValueHint,
+    S: ReadValueHint, {
     let mut num_propagated = 0;
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
@@ -159,10 +164,11 @@ pub fn verify_reset_read_requests<
     settled_read_hints: [H; NUM_SETTLED_READS],
     tree_root: Field,
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN]
-) where
+)
+where
     P: Readable<ScopedReadRequest>,
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
-    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest> {
+    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest>, {
     validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
 
     validate_settled_read_requests(read_requests, settled_read_hints, tree_root);
@@ -298,7 +304,7 @@ mod tests {
                 ReadRequest { value: values[1], counter: 11 }.scope(contract_address),// settled
                 ReadRequest { value: values[3], counter: 13 }.scope(contract_address),// pending
                 ReadRequest { value: values[2], counter: 39 }.scope(contract_address),// pending
-                ReadRequest { value: values[0], counter: 46 }.scope(contract_address)// settled
+                ReadRequest { value: values[0], counter: 46 }.scope(contract_address) // settled
             ];
 
             let pending_values = [

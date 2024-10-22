@@ -1,7 +1,7 @@
 pub struct AppendOnlyTreeSnapshot {
-    root : Field,
+    root: Field,
     // TODO(Alvaro) change this to a u64
-    next_available_leaf_index : u32
+    next_available_leaf_index: u32,
 }
 
 global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;

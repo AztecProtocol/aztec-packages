@@ -1,7 +1,7 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use crate::reset::read_request::{PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint};
 use dep::types::{
-    abis::{nullifier_leaf_preimage::NullifierLeafPreimage},
+    abis::nullifier_leaf_preimage::NullifierLeafPreimage,
     constants::{MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT},
     merkle_tree::MembershipWitness
 };
@@ -81,7 +81,7 @@ mod tests {
                 ReadRequest { value: inner_nullifiers[3], counter: 13 }.scope(contract_address),// pending
                 ReadRequest { value: inner_nullifiers[2], counter: 39 }.scope(contract_address),// pending
                 ReadRequest { value: inner_nullifiers[0], counter: 46 }.scope(contract_address),// settled
-                ReadRequest { value: inner_nullifiers[3], counter: 78 }.scope(contract_address)// pending
+                ReadRequest { value: inner_nullifiers[3], counter: 78 }.scope(contract_address) // pending
             ];
 
             let pending_values = [
@@ -220,7 +220,8 @@ mod tests {
         let hint = builder.pending_read_hints[0];
         let pending_read = builder.read_requests[hint.read_request_index];
         // Tweak the counter of the value to be greater than the read request.
-        builder.pending_values[hint.pending_value_index].nullifier.counter = pending_read.counter() + 1;
+        builder.pending_values[hint.pending_value_index].nullifier.counter =
+            pending_read.counter() + 1;
 
         builder.verify();
     }

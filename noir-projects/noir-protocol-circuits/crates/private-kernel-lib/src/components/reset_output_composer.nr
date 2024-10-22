@@ -2,7 +2,7 @@ mod reset_output_hints;
 
 pub use reset_output_hints::ResetOutputHints;
 
-use crate::components::reset_output_composer::{reset_output_hints::generate_reset_output_hints};
+use crate::components::reset_output_composer::reset_output_hints::generate_reset_output_hints;
 use dep::reset_kernel_lib::{TransientDataIndexHint, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
@@ -18,13 +18,7 @@ use dep::types::{
     hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, utils::arrays::sort_by_counter_asc
 };
 
-pub struct ResetOutputComposer<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32,
-> {
+pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
     previous_kernel: PrivateKernelCircuitPublicInputs,
     validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
     note_hash_siloing_amount: u32,
@@ -33,19 +27,7 @@ pub struct ResetOutputComposer<
     hints: ResetOutputHints,
 }
 
-impl<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32,
-> ResetOutputComposer<
-    NH_RR_PENDING,
-    NH_RR_SETTLED,
-    NLL_RR_PENDING,
-    NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
-> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     pub unconstrained fn new<let TRANSIENT_DATA_AMOUNT: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
@@ -101,11 +83,7 @@ impl<
         let mut note_hashes = sort_by_counter_asc(self.hints.kept_note_hashes);
         let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         for i in 0..note_hashes.len() {
-            note_hashes[i].note_hash.value = silo_note_hash(
-                note_hashes[i],
-                first_nullifier,
-                i
-            );
+            note_hashes[i].note_hash.value = silo_note_hash(note_hashes[i], first_nullifier, i);
             note_hashes[i].contract_address = AztecAddress::zero();
         }
         note_hashes

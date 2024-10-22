@@ -12,7 +12,10 @@ pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
     exposed_sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
     hints: [OrderHint; N]
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     let num_non_empty_items = array_length(original_array);
     let mut should_be_empty = false;
     for i in 0..N {
@@ -39,7 +42,7 @@ pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
 mod tests {
     use crate::{
         tests::types::{is_combined_from_two_values, TestCombinedValue, TestTwoValues},
-        utils::arrays::{assert_exposed_sorted_transformed_value_array::{assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint}}
+        utils::arrays::assert_exposed_sorted_transformed_value_array::{assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint}
     };
 
     struct TestDataBuilder<let N: u32> {
@@ -112,7 +115,8 @@ mod tests {
 
         // Swap the values at index 1 and 2.
         let tmp = builder.exposed_sorted_transformed_value_array[1];
-        builder.exposed_sorted_transformed_value_array[1] = builder.exposed_sorted_transformed_value_array[2];
+        builder.exposed_sorted_transformed_value_array[1] =
+            builder.exposed_sorted_transformed_value_array[2];
         builder.exposed_sorted_transformed_value_array[2] = tmp;
 
         // Update counters in hints.
@@ -137,7 +141,8 @@ mod tests {
 
         // Swap the values at index 1 and 2.
         let tmp = builder.exposed_sorted_transformed_value_array[1];
-        builder.exposed_sorted_transformed_value_array[1] = builder.exposed_sorted_transformed_value_array[2];
+        builder.exposed_sorted_transformed_value_array[1] =
+            builder.exposed_sorted_transformed_value_array[2];
         builder.exposed_sorted_transformed_value_array[2] = tmp;
 
         // Update sorted indexes.
@@ -156,7 +161,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue {  value: 10 };
+        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue { value: 10 };
 
         builder.execute();
     }
@@ -166,7 +171,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue {  value: 10 };
+        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue { value: 10 };
         // Change the hint to point to an empty item.
         builder.hints[4].sorted_index = 5;
 

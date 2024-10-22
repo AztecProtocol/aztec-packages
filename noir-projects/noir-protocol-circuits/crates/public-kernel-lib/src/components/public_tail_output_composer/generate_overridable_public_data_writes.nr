@@ -47,7 +47,10 @@ pub unconstrained fn generate_overridable_public_data_writes<let NUM_WRITES: u32
 
         if prev_counter == 0 {
             is_first_write = true;
-            prev_index = find_index_hint(public_data_leaves, |leaf: OverridablePublicDataTreeLeaf| leaf.leaf.slot == write.leaf_slot);
+            prev_index = find_index_hint(
+                public_data_leaves,
+                |leaf: OverridablePublicDataTreeLeaf| leaf.leaf.slot == write.leaf_slot,
+            );
         }
 
         overridable_public_data_writes[i] = OverridablePublicDataWrite { write, override_counter };

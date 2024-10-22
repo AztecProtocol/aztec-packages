@@ -7,7 +7,10 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32,
     num_non_revertibles: u32 // Hint. Should check in this function.
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     if num_non_revertibles != 0 {
         assert(
             sorted_array[num_non_revertibles - 1].counter() < split_counter, "counter of last non-revertible item is not less than the split counter"
@@ -48,7 +51,10 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq, {
     let num_non_revertibles = unsafe {
         find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
     };
@@ -79,7 +85,7 @@ mod tests {
         sorted_array: [TestValue; NUM_TEST_ITEMS],
         transformed_value_array_lt: [Field; NUM_TEST_ITEMS],
         transformed_value_array_gte: [Field; NUM_TEST_ITEMS],
-        split_counter: u32
+        split_counter: u32,
     }
 
     impl TestBuilder {

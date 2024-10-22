@@ -9,7 +9,7 @@ use crate::context::inputs::PrivateContextInputs;
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 
-use crate::oracle::{execution::{get_block_number, get_contract_address}};
+use crate::oracle::execution::{get_block_number, get_contract_address};
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
 pub unconstrained fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
@@ -32,14 +32,16 @@ pub unconstrained fn apply_side_effects_private(contract_address: AztecAddress, 
 pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
     name: str<M>,
-    public_keys_hash: Field
+    public_keys_hash: Field,
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
     pub unconstrained fn with_private_initializer<C, let P: u32, Env>(
         self,
         call_interface: C
-    ) -> ContractInstance where C: CallInterface<P, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
+    ) -> ContractInstance
+    where
+        C: CallInterface<P, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, {
         let instance = cheatcodes::deploy(
             self.path,
             self.name,
@@ -69,7 +71,9 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     pub unconstrained fn with_public_initializer<C, let P: u32, T, Env>(
         self,
         call_interface: C
-    ) -> ContractInstance where C: CallInterface<P, (), T, Env> {
+    ) -> ContractInstance
+    where
+        C: CallInterface<P, (), T, Env>, {
         let instance = cheatcodes::deploy(
             self.path,
             self.name,
@@ -112,7 +116,7 @@ global TEST_ACCOUNT_LENGTH = PUBLIC_KEYS_LENGTH + 1;
 
 pub struct TestAccount {
     address: AztecAddress,
-    keys: PublicKeys
+    keys: PublicKeys,
 }
 
 impl Serialize<TEST_ACCOUNT_LENGTH> for TestAccount {
@@ -122,7 +126,7 @@ impl Serialize<TEST_ACCOUNT_LENGTH> for TestAccount {
         output[0] = self.address.to_field();
 
         for i in 0..PUBLIC_KEYS_LENGTH {
-            output[i+1] = self.keys.serialize()[i];
+            output[i + 1] = self.keys.serialize()[i];
         }
         output
     }
@@ -133,7 +137,7 @@ impl Deserialize<TEST_ACCOUNT_LENGTH> for TestAccount {
         let address = AztecAddress::from_field(input[0]);
         let mut key_buffer = [0; PUBLIC_KEYS_LENGTH];
         for i in 0..PUBLIC_KEYS_LENGTH {
-            key_buffer[i] = input[i+1];
+            key_buffer[i] = input[i + 1];
         }
         let keys = PublicKeys::deserialize(key_buffer);
 

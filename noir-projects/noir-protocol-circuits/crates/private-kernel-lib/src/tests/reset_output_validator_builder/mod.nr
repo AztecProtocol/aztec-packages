@@ -2,7 +2,7 @@ mod validate_sorted_siloed_note_hashes;
 mod validate_sorted_siloed_nullifiers;
 
 use crate::components::{
-    reset_output_composer::{reset_output_hints::{generate_reset_output_hints, ResetOutputHints}},
+    reset_output_composer::reset_output_hints::{generate_reset_output_hints, ResetOutputHints},
     reset_output_validator::ResetOutputValidator
 };
 use dep::reset_kernel_lib::{

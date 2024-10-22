@@ -12,11 +12,8 @@ use dep::types::{
     PrivateKernelCircuitPublicInputs
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_INIT_INDEX,
-    PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
@@ -352,7 +349,7 @@ mod tests {
 
         assert_eq(
             Gas::tx_overhead() + Gas::new(
-                (1 * DA_BYTES_PER_FIELD + 12) * DA_GAS_PER_BYTE ,
+                (1 * DA_BYTES_PER_FIELD + 12) * DA_GAS_PER_BYTE,
                 FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER + 12 * L2_GAS_PER_LOG_BYTE
             ), public_inputs.end_non_revertible.gas_used
         );
@@ -385,7 +382,8 @@ mod tests {
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.previous_kernel =
+                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
 
             let _res = builder.execute();
         }

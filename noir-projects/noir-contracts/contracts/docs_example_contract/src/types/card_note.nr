@@ -1,6 +1,6 @@
 use dep::aztec::prelude::{NullifiableNote, PrivateContext, NoteHeader};
 use dep::aztec::{
-    note::{utils::compute_note_hash_for_nullify}, keys::getters::get_nsk_app,
+    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app,
     protocol_types::{traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
     macros::notes::note
 };
@@ -30,10 +30,7 @@ impl NullifiableNote for CardNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
+            [note_hash_for_nullify, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
@@ -42,10 +39,7 @@ impl NullifiableNote for CardNote {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
+            [note_hash_for_nullify, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }

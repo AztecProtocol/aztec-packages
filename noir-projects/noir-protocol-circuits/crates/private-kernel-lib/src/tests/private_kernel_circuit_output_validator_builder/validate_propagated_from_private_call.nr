@@ -74,7 +74,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_no
     builder.output.append_note_hash_read_requests(2);
     // Add a non-empty item to the end of the output.
     let len = builder.output.note_hash_read_requests.storage.len();
-    builder.output.note_hash_read_requests.storage[len - 1] = builder.output.note_hash_read_requests.storage[0];
+    builder.output.note_hash_read_requests.storage[len - 1] =
+        builder.output.note_hash_read_requests.storage[0];
 
     builder.validate_as_inner_call();
 }
@@ -159,7 +160,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.output.append_note_hash_read_requests(2);
     // Add a non-empty item to the end of the output.
     let len = builder.output.note_hash_read_requests.storage.len();
-    builder.output.note_hash_read_requests.storage[len - 1] = builder.output.note_hash_read_requests.storage[0];
+    builder.output.note_hash_read_requests.storage[len - 1] =
+        builder.output.note_hash_read_requests.storage[0];
 
     builder.validate_as_inner_call();
 }
@@ -408,7 +410,8 @@ fn validate_propagated_from_private_call_private_call_requests_not_reversed_fail
     builder.output.append_private_call_requests(2);
     // Swap the call requests.
     let first_call_request = builder.output.private_call_requests.storage[0];
-    builder.output.private_call_requests.storage[0] = builder.output.private_call_requests.storage[1];
+    builder.output.private_call_requests.storage[0] =
+        builder.output.private_call_requests.storage[1];
     builder.output.private_call_requests.storage[1] = first_call_request;
 
     builder.validate_as_inner_call();
@@ -421,7 +424,6 @@ fn validate_propagated_from_private_call_private_call_requests_with_previous_out
     builder.output.append_private_call_requests(5);
     let requests = builder.output.private_call_requests.storage;
     // The private_call_stack in the output will be: [requests[4], requests[3], requests[2], requests[1], requests[0]].
-
     // First 2 are propagated from the previous kernel.
     builder.previous_kernel.private_call_requests.push(requests[3]);
     builder.previous_kernel.private_call_requests.push(requests[4]);

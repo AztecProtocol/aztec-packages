@@ -14,7 +14,6 @@ unconstrained fn transfer_private() {
     let transfer_private_call_interface = Token::at(token_contract_address).transfer(recipient, transfer_amount);
     env.call_private_void(transfer_private_call_interface);
     // docs:end:txe_test_transfer_private
-
     // Check balances
     utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
     utils::check_private_balance(token_contract_address, recipient, transfer_amount);

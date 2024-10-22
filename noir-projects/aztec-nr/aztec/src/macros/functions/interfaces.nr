@@ -4,15 +4,12 @@ use std::{
 };
 use crate::macros::utils::{get_fn_visibility, is_fn_view, is_fn_private, add_to_field_slice, compute_fn_selector, is_fn_public};
 
-comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
+    UHashMap::default();
 
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
-    let mut parameters = f.parameters().map(
-        | (name, typ): (Quoted, Type) | {
-        quote { $name: $typ }
-    }
-    ).join(quote{,});
+    let mut parameters = f.parameters().map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
@@ -94,11 +91,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         args_acc
     };
 
-    let fn_parameters_list = fn_parameters.map(
-        | (name, typ): (Quoted, Type) | {
-            quote { $name: $typ }
-        }
-    ).join(quote{,});
+    let fn_parameters_list = fn_parameters.map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
 
     let fn_name_str = fn_name.as_str_quote();
 
@@ -142,7 +135,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
 
     let mut parameter_names_list = fn_parameters.map(|(name, _): (Quoted, _)| name);
     let parameter_names = if is_fn_private(f) {
-        &[quote {inputs}].append(parameter_names_list).join(quote{,})
+        &[quote {inputs}].append(parameter_names_list).join(quote {,})
     } else {
         parameter_names_list.join(quote {,})
     };

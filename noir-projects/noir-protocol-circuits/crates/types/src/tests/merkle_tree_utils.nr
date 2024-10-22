@@ -1,10 +1,10 @@
 use crate::{merkle_tree::{merkle_tree, MerkleTree, calculate_empty_tree_root}, traits::Empty, hash::merkle_hash};
 
 pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
-    hashes[0] = merkle_hash(0,  0);
+    hashes[0] = merkle_hash(0, 0);
 
     for i in 1..N {
-        hashes[i] = merkle_hash(hashes[i-1],  hashes[i-1]);
+        hashes[i] = merkle_hash(hashes[i - 1], hashes[i - 1]);
     }
 
     hashes
@@ -25,7 +25,7 @@ impl<let N: u32> MerkleTree<N> {
         let mut layer_offset: u32 = 0;
         let mut node_index: u32 = index / 2 + layer_offset;
         for _ in 0..K {
-            self.nodes[node_index] = merkle_hash(left_node,  right_node);
+            self.nodes[node_index] = merkle_hash(left_node, right_node);
             sibling_index = merkle_tree::sibling_index(node_index);
             let nodes = if node_index % 2 == 0 {
                 (self.nodes[node_index], self.nodes[sibling_index])
@@ -105,10 +105,13 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
         let zero_hashes = compute_zero_hashes(_tree_height);
 
         let mut left_supertree_branch = [0; SUPERTREE_HEIGHT];
-        left_supertree_branch[0] = merkle_hash(subtree.get_root(),  zero_hashes[SUBTREE_HEIGHT-1]);
+        left_supertree_branch[0] = merkle_hash(subtree.get_root(), zero_hashes[SUBTREE_HEIGHT - 1]);
         for i in 1..left_supertree_branch.len() {
             // TODO(md): far right of this yuck
-            left_supertree_branch[i] = merkle_hash(left_supertree_branch[i-1], zero_hashes[(SUBTREE_HEIGHT as u8) -1 + (i as u8)]);
+            left_supertree_branch[i] = merkle_hash(
+                left_supertree_branch[i - 1],
+                zero_hashes[(SUBTREE_HEIGHT as u8) - 1 + (i as u8)],
+            );
         }
 
         NonEmptyMerkleTree { subtree, zero_hashes, left_supertree_branch, _phantom_subtree_height: _subtree_height }
@@ -138,9 +141,9 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
             if sibling_index < subtree_width {
                 path[i] = self.subtree.nodes[subtree_offset + sibling_index];
             } else if sibling_index == 0 {
-                path[i] = self.left_supertree_branch[i-1-SUBTREE_HEIGHT];
+                path[i] = self.left_supertree_branch[i - 1 - SUBTREE_HEIGHT];
             } else {
-                path[i] = self.zero_hashes[i-1];
+                path[i] = self.zero_hashes[i - 1];
             }
 
             subtree_offset += subtree_width;
@@ -154,9 +157,15 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
 
         self.subtree.update_leaf(index, value, [0; SUBTREE_HEIGHT]);
 
-        self.left_supertree_branch[0] = merkle_hash(self.subtree.get_root(),  self.zero_hashes[SUBTREE_HEIGHT-1]);
+        self.left_supertree_branch[0] = merkle_hash(
+            self.subtree.get_root(),
+            self.zero_hashes[SUBTREE_HEIGHT - 1],
+        );
         for i in 1..self.left_supertree_branch.len() {
-            self.left_supertree_branch[i] = merkle_hash(self.left_supertree_branch[i-1], self.zero_hashes[(SUBTREE_HEIGHT as u8) -1 + (i as u8)]);
+            self.left_supertree_branch[i] = merkle_hash(
+                self.left_supertree_branch[i - 1],
+                self.zero_hashes[(SUBTREE_HEIGHT as u8) - 1 + (i as u8)],
+            );
         }
     }
 

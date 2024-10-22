@@ -10,9 +10,9 @@ contract AuthRegistry {
 
     #[storage]
     struct Storage<Context> {
-      reject_all: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-      // on_behalf_of => authwit hash => authorized
-      approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
+        reject_all: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        // on_behalf_of => authwit hash => authorized
+        approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
     }
 
     /**

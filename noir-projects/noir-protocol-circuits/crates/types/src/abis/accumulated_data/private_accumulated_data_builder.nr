@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    accumulated_data::{private_accumulated_data::PrivateAccumulatedData}, note_hash::ScopedNoteHash,
+    accumulated_data::private_accumulated_data::PrivateAccumulatedData, note_hash::ScopedNoteHash,
     nullifier::ScopedNullifier, private_call_request::PrivateCallRequest,
     public_call_request::PublicCallRequest,
     log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
@@ -24,7 +24,6 @@ pub struct PrivateAccumulatedDataBuilder {
 
     public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     private_call_stack: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-
 }
 
 impl PrivateAccumulatedDataBuilder {

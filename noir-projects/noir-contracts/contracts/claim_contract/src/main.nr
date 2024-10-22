@@ -12,10 +12,10 @@ contract Claim {
 
     #[storage]
     struct Storage<Context> {
-      // Address of a contract based on whose notes we distribute the rewards
-      target_contract: SharedImmutable<AztecAddress, Context>,
-      // Token to be distributed as a reward when claiming
-      reward_token: SharedImmutable<AztecAddress, Context>,
+        // Address of a contract based on whose notes we distribute the rewards
+        target_contract: SharedImmutable<AztecAddress, Context>,
+        // Token to be distributed as a reward when claiming
+        reward_token: SharedImmutable<AztecAddress, Context>,
     }
 
     #[public]

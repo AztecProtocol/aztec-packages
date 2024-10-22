@@ -164,19 +164,12 @@ pub fn get_pack_cards(
     for i in 0..PACK_CARDS {
         let strength = (random_bytes[i] as u32) + (random_bytes[i + 1] as u32) * 256;
         let points = (random_bytes[i + 2] as u32) + (random_bytes[i + 3] as u32) * 256;
-        cards[i] = Card {
-            strength, points
-        };
+        cards[i] = Card { strength, points };
     }
 
     cards
 }
 
 pub fn compute_deck_strength<let N: u32>(cards: [Card; N]) -> Field {
-    cards.fold(
-        0,
-        |acc, card: Card| {
-        acc + card.strength as Field
-    }
-    )
+    cards.fold(0, |acc, card: Card| { acc + card.strength as Field })
 }

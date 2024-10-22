@@ -1,4 +1,3 @@
-
 // A contract used along with `Child` contract to test nested calls.
 use dep::aztec::macros::aztec;
 
@@ -235,7 +234,7 @@ contract Parent {
         // Call the target private function
         context.static_call_public_function(target_contract, target_selector, args);
     }
-    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;

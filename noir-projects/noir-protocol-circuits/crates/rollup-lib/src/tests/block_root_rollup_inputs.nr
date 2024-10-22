@@ -28,7 +28,7 @@ pub fn compute_archive_snapshot() -> (AppendOnlyTreeSnapshot, [Field; ARCHIVE_HE
     let zero_hashes = compute_zero_hashes([0; ARCHIVE_HEIGHT]);
     let mut sibling_path = [0; ARCHIVE_HEIGHT];
     for i in 1..ARCHIVE_HEIGHT {
-        sibling_path[i] = zero_hashes[i-1];
+        sibling_path[i] = zero_hashes[i - 1];
     }
     (
         AppendOnlyTreeSnapshot { root: zero_hashes[zero_hashes.len() - 1], next_available_leaf_index: 0 }, sibling_path

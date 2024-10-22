@@ -15,7 +15,9 @@ pub struct NoteViewerOptions<Note, let N: u32> {
 // docs:end:NoteViewerOptions
 
 impl<Note, let N: u32> NoteViewerOptions<Note, N> {
-    pub fn new() -> NoteViewerOptions<Note, N> where Note: NoteInterface<N> {
+    pub fn new() -> NoteViewerOptions<Note, N>
+    where
+        Note: NoteInterface<N>, {
         NoteViewerOptions {
             selects: BoundedVec::new(),
             sorts: BoundedVec::new(),
@@ -34,7 +36,9 @@ impl<Note, let N: u32> NoteViewerOptions<Note, N> {
         property_selector: PropertySelector,
         comparator: u8,
         value: T
-    ) -> Self where T: ToField {
+    ) -> Self
+    where
+        T: ToField, {
         self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
         *self
     }

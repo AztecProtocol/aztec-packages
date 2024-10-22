@@ -45,7 +45,7 @@ pub struct ClassUnconstrainedFunctionBroadcasted {
     private_functions_artifact_tree_root: Field,
     artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
     artifact_function_tree_leaf_index: Field,
-    function: UnconstrainedFunction
+    function: UnconstrainedFunction,
 }
 
 impl Serialize<MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS + REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS> for ClassUnconstrainedFunctionBroadcasted {

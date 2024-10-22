@@ -1,4 +1,4 @@
-use dep::protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress};
+use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
 #[oracle(enqueuePublicFunctionCall)]
 unconstrained fn enqueue_public_function_call_oracle(

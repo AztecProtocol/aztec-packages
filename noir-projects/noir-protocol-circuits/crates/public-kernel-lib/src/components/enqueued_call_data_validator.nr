@@ -53,7 +53,8 @@ impl EnqueuedCallDataValidator {
 
     fn validate_global_variables(self, previous_kernel: PublicKernelCircuitPublicInputs) {
         let prev_global_variables = previous_kernel.constants.global_variables;
-        if !prev_global_variables.is_empty() { // It's empty when the previous kernel is from private_kernel_tail_to_pubic.
+        if !prev_global_variables.is_empty() {
+            // It's empty when the previous kernel is from private_kernel_tail_to_pubic.
             let enqueued_call_globals = self.enqueued_call.data.constants.global_variables;
             assert_eq(
                 enqueued_call_globals, prev_global_variables, "Global variables injected into the public call do not match constants"
@@ -96,14 +97,16 @@ impl EnqueuedCallDataValidator {
             let tx_gas_limits = previous_kernel.constants.tx_context.gas_settings.gas_limits;
             let mut computed_start_gas = tx_gas_limits.sub(previous_kernel.end.gas_used).sub(previous_kernel.end_non_revertible.gas_used);
             // Keep L2 gas below max
-            computed_start_gas.l2_gas = std::cmp::min(computed_start_gas.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
+            computed_start_gas.l2_gas =
+                std::cmp::min(computed_start_gas.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
             assert_eq(
                 enqueued_call_start_gas, computed_start_gas, "Start gas for enqueued call does not match transaction gas left (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)"
             );
         } else {
             let mut teardown_gas_limit = previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
             // Keep L2 gas below max
-            teardown_gas_limit.l2_gas = std::cmp::min(teardown_gas_limit.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
+            teardown_gas_limit.l2_gas =
+                std::cmp::min(teardown_gas_limit.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
             assert_eq(
                 enqueued_call_start_gas, teardown_gas_limit, "Start gas for enqueued call does not match teardown gas allocation (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)"
             );

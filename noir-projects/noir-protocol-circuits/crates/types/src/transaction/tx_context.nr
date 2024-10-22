@@ -5,8 +5,8 @@ use crate::{
 
 // docs:start:tx-context
 pub struct TxContext {
-    chain_id : Field,
-    version : Field,
+    chain_id: Field,
+    version: Field,
     gas_settings: GasSettings,
 }
 // docs:end:tx-context

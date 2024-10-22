@@ -1,4 +1,4 @@
-use crate::components::{reset_output_composer::ResetOutputHints};
+use crate::components::reset_output_composer::ResetOutputHints;
 use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataIndexHint, verify_squashed_transient_data};
 use dep::types::{
     abis::{
@@ -10,14 +10,7 @@ use dep::types::{
     utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
 };
 
-pub struct ResetOutputValidator<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32,
-    let NUM_TRANSIENT_DATA_INDEX_HINTS: u32
-> {
+pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
     output: PrivateKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
@@ -28,14 +21,7 @@ pub struct ResetOutputValidator<
     hints: ResetOutputHints,
 }
 
-impl<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32,
-    let NUM_TRANSIENT_DATA_INDEX_HINTS: u32
-> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
     pub fn new(
         output: PrivateKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
@@ -171,7 +157,9 @@ impl<
         assert_sorted_transformed_value_array_capped_size(
             kept_note_hashes,
             siloed_note_hashes,
-            |prev: ScopedNoteHash, out: ScopedNoteHash| out.contract_address.is_zero() & (out.counter() == prev.counter()),
+            |prev: ScopedNoteHash, out: ScopedNoteHash| {
+                out.contract_address.is_zero() & (out.counter() == prev.counter())
+            },
             sorted_indexes,
             self.note_hash_siloing_amount
         );
@@ -183,11 +171,12 @@ impl<
         assert_sorted_transformed_value_array_capped_size(
             self.hints.kept_nullifiers,
             self.output.end.nullifiers,
-            |prev: ScopedNullifier, out: ScopedNullifier|
-                (out.value() == silo_nullifier(prev)) &
-                (out.counter() == prev.counter()) &
-                (out.nullifier.note_hash == prev.nullifier.note_hash) &
-                out.contract_address.is_zero(),
+            |prev: ScopedNullifier, out: ScopedNullifier| {
+                (out.value() == silo_nullifier(prev))
+                    & (out.counter() == prev.counter())
+                    & (out.nullifier.note_hash == prev.nullifier.note_hash)
+                    & out.contract_address.is_zero()
+            },
             self.hints.sorted_nullifier_indexes,
             self.nullifier_siloing_amount
         );
@@ -199,21 +188,20 @@ impl<
         // This is fine because we don't allow emitting logs for notes emitted in another function at the moment.
         // All the note logs emitted in a function call must link to note hashes emitted in the same call.
         // This is checked in PrivateCallDataValidator > validate_note_logs.
-
         // note_hash_counter was used when squashing the note log along with its corresponding note hash.
         // It won't be used later on, so we can set it to 0 here.
         // It serves as a clue for the tail circuit to check that all the note logs are sorted in a reset circuit.
-
         // This is not capped because we don't know how many logs there are. There can be any number of logs for each note hash.
         // Consider adding a constant for it only when this becomes too costly.
         assert_sorted_transformed_value_array(
             self.hints.kept_note_encrypted_log_hashes,
             self.output.end.note_encrypted_logs_hashes,
-            |prev: NoteLogHash, out: NoteLogHash|
-                (out.value == prev.value) &
-                (out.length == prev.length) &
-                (out.counter == prev.counter) &
-                (out.note_hash_counter == 0),
+            |prev: NoteLogHash, out: NoteLogHash| {
+                (out.value == prev.value)
+                    & (out.length == prev.length)
+                    & (out.counter == prev.counter)
+                    & (out.note_hash_counter == 0)
+            },
             self.hints.sorted_note_encrypted_log_hash_indexes
         );
     }
@@ -224,12 +212,13 @@ impl<
         assert_sorted_transformed_value_array_capped_size(
             self.previous_kernel.end.encrypted_logs_hashes,
             self.output.end.encrypted_logs_hashes,
-            |prev: ScopedEncryptedLogHash, out: ScopedEncryptedLogHash|
-                (out.contract_address == mask_encrypted_log_hash(prev)) &
-                (out.log_hash.value == prev.log_hash.value) &
-                (out.log_hash.length == prev.log_hash.length) &
-                (out.log_hash.counter == prev.log_hash.counter) &
-                (out.log_hash.randomness == 0),
+            |prev: ScopedEncryptedLogHash, out: ScopedEncryptedLogHash| {
+                (out.contract_address == mask_encrypted_log_hash(prev))
+                    & (out.log_hash.value == prev.log_hash.value)
+                    & (out.log_hash.length == prev.log_hash.length)
+                    & (out.log_hash.counter == prev.log_hash.counter)
+                    & (out.log_hash.randomness == 0)
+            },
             self.hints.sorted_encrypted_log_hash_indexes,
             self.encrypted_log_siloing_amount
         );

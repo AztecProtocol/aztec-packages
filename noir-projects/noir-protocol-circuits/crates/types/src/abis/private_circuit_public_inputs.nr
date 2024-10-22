@@ -71,8 +71,8 @@ pub struct PrivateCircuitPublicInputs {
     public_teardown_call_request: PublicCallRequest,
     l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
 
-    start_side_effect_counter : u32,
-    end_side_effect_counter : u32,
+    start_side_effect_counter: u32,
+    end_side_effect_counter: u32,
     note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
     encrypted_logs_hashes: [EncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
     unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],

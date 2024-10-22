@@ -38,10 +38,7 @@ pub fn private_functions_root_from_siblings(
 fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     // Hashing tx hash with note index in tx is guaranteed to be unique
     poseidon2_hash_with_separator(
-        [
-        tx_hash,
-        note_index_in_tx as Field
-    ],
+        [tx_hash, note_index_in_tx as Field],
         GENERATOR_INDEX__NOTE_HASH_NONCE
     )
 }
@@ -53,10 +50,7 @@ pub fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
 
 pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
     poseidon2_hash_with_separator(
-        [
-        app.to_field(),
-        unique_note_hash
-    ],
+        [app.to_field(), unique_note_hash],
         GENERATOR_INDEX__SILOED_NOTE_HASH
     )
 }
@@ -74,13 +68,7 @@ pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_t
 }
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
-    poseidon2_hash_with_separator(
-        [
-        app.to_field(),
-        nullifier
-    ],
-        GENERATOR_INDEX__OUTER_NULLIFIER
-    )
+    poseidon2_hash_with_separator([app.to_field(), nullifier], GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
 pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
@@ -191,7 +179,6 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-
     // Concatentate two fields into 32x2 = 64 bytes
     // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 64];
@@ -269,11 +256,13 @@ pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
 pub fn poseidon2_hash_with_separator<let N: u32, T>(
     inputs: [Field; N],
     separator: T
-) -> Field where T: ToField {
+) -> Field
+where
+    T: ToField, {
     // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
     let in_len = N + 1;
     let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * two_pow_64;
     let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
     sponge.absorb(separator.to_field());
 
@@ -284,10 +273,12 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
     sponge.squeeze()
 }
 
-pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field where T: ToField {
+pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
+where
+    T: ToField, {
     let in_len = inputs.len() + 1;
     let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * two_pow_64;
     let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
     sponge.absorb(separator.to_field());
 
@@ -309,7 +300,7 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     }
 
     let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * two_pow_64;
     let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
 
     let mut current_field = [0; 31];
@@ -331,14 +322,14 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
 #[test]
 fn smoke_sha256_to_field() {
     let full_buffer = [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-        40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-        60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
-        80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99,
-        100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119,
-        120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139,
-        140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+        71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93,
+        94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
+        113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130,
+        131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148,
+        149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
     ];
     let result = sha256_to_field(full_buffer);
 

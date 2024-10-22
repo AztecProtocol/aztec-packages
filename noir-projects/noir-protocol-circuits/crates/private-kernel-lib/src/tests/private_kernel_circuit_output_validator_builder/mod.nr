@@ -3,11 +3,9 @@ mod validate_initial_values;
 mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
 
-use crate::{
-    components::{
+use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::create_first_nullifier
-}
 };
 use dep::types::{
     abis::{
@@ -15,7 +13,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
     private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths
 },
-    tests::{fixture_builder::FixtureBuilder}, transaction::tx_request::TxRequest,
+    tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
     constants::PRIVATE_KERNEL_INIT_INDEX
 };
 
@@ -69,7 +67,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         // Append one private call request for the current call.
         let num_private_call_requests = self.previous_kernel.private_call_requests.len();
-        previous_kernel.end.private_call_stack[num_private_call_requests] = PrivateCallRequest::empty();
+        previous_kernel.end.private_call_stack[num_private_call_requests] =
+            PrivateCallRequest::empty();
         previous_kernel.end.private_call_stack[num_private_call_requests].args_hash = 98765432;
 
         let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(previous_kernel);

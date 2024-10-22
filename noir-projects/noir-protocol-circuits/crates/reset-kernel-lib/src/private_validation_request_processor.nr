@@ -21,13 +21,7 @@ pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_S
     validation_requests_split_counter: u32,
 }
 
-impl<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32
-> PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     pub unconstrained fn compose(self) -> PrivateValidationRequests {
         let note_hash_read_requests = get_unverified_read_requests(
             self.validation_requests.note_hash_read_requests,

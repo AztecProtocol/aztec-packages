@@ -4,7 +4,7 @@ use dep::types::{
 };
 
 pub struct TreeLeafReadRequestHint<let N: u32> {
-    sibling_path: [Field; N]
+    sibling_path: [Field; N],
 }
 
 pub fn validate_tree_leaf_read_requests<let READ_REQUEST_LEN: u32, let TREE_HEIGHT: u32>(

@@ -7,11 +7,8 @@ use types::{
     constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX}
 };
 // TODO(#7346): Currently unused! Will be used when batch rollup circuits are integrated.
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    BLOCK_ROOT_ROLLUP_INDEX,
-    BLOCK_MERGE_ROLLUP_INDEX,
-    BLOCK_ROOT_ROLLUP_EMPTY_INDEX
-];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX];
 
 pub struct RootRollupInputs {
     previous_rollup_data: [PreviousRollupBlockData; 2],
@@ -45,7 +42,6 @@ impl RootRollupInputs {
         //  assert(left.num_blocks == right.num_blocks)
         //  if (num_blocks == 1) { assert(vk_witness.index == BLOCK_ROOT_ROLLUP_INDEX) } else { assert(vk_witness.index == BLOCK_MERGE_ROLLUP_INDEX)}
         // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
-
         components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
 
         let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);

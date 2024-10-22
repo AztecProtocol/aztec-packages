@@ -1,10 +1,8 @@
-use crate::{
-    components::{
+use crate::components::{
     previous_kernel_validator::PreviousKernelValidator,
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
-}
 };
 use dep::types::{
     abis::{
@@ -16,11 +14,8 @@ use dep::types::{
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX}
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_INIT_INDEX,
-    PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
@@ -81,7 +76,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::{
-        abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
+        abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         constants::{PRIVATE_KERNEL_INIT_INDEX, BASE_ROLLUP_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
@@ -133,12 +128,18 @@ mod tests {
         assert_array_eq(
             public_inputs.validation_requests.note_hash_read_requests,
             [
-            prev_note_hash_read_requests[0], curr_note_hash_read_requests[0], curr_note_hash_read_requests[1]
+            prev_note_hash_read_requests[0],
+            curr_note_hash_read_requests[0],
+            curr_note_hash_read_requests[1]
         ]
         );
         assert_array_eq(
             public_inputs.end.encrypted_logs_hashes,
-            [prev_encrypted_log_hashes[0], prev_encrypted_log_hashes[1], curr_encrypted_log_hashes[0]]
+            [
+            prev_encrypted_log_hashes[0],
+            prev_encrypted_log_hashes[1],
+            curr_encrypted_log_hashes[0]
+        ]
         );
     }
 
@@ -146,7 +147,8 @@ mod tests {
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PrivateKernelInnerInputsBuilder::new();
-            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.previous_kernel =
+                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
 
             let _res = builder.execute();
         }

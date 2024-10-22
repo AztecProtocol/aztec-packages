@@ -15,9 +15,9 @@ global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
 // docs:start:fee-payload-struct
 pub struct FeePayload {
-  function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
-  nonce: Field,
-  is_fee_payer: bool,
+    function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
+    nonce: Field,
+    is_fee_payer: bool,
 }
 // docs:end:fee-payload-struct
 

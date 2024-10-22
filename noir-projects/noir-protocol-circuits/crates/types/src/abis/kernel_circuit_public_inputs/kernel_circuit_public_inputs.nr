@@ -14,7 +14,7 @@ pub struct KernelCircuitPublicInputs {
     constants: CombinedConstantData,
     start_state: PartialStateReference,
     revert_code: u8,
-    fee_payer: AztecAddress
+    fee_payer: AztecAddress,
 }
 
 impl KernelCircuitPublicInputs {
@@ -108,10 +108,7 @@ mod tests {
             fee_payer: AztecAddress::empty()
         };
 
-        inputs.end.gas_used = Gas {
-            da_gas: 10,
-            l2_gas: 20
-        };
+        inputs.end.gas_used = Gas { da_gas: 10, l2_gas: 20 };
 
         inputs.constants.tx_context.gas_settings.inclusion_fee = 42;
 

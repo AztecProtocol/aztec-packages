@@ -5,7 +5,10 @@ pub fn assert_sorted_transformed_value_array<T, S, let N: u32, Env>(
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
     sorted_indexes: [u32; N]
-) where T: Eq + Empty, S: Ordered + Eq + Empty {
+)
+where
+    T: Eq + Empty,
+    S: Ordered + Eq + Empty, {
     assert_sorted_transformed_value_array_capped_size(
         original_array,
         sorted_transformed_value_array,
@@ -23,7 +26,10 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
     is_transformed: fn[Env](T, S) -> bool,
     sorted_indexes: [u32; N],
     capped_size: u32
-) where T: Eq + Empty, S: Ordered + Eq + Empty {
+)
+where
+    T: Eq + Empty,
+    S: Ordered + Eq + Empty, {
     let num_non_empty_items = array_length(original_array);
     let mut should_be_empty = false;
     for i in 0..N {
@@ -54,7 +60,7 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
 mod tests {
     use crate::{
         tests::types::{is_summed_from_two_values, TestTwoValues, TestValue},
-        utils::arrays::{assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}}
+        utils::arrays::assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
     };
 
     struct TestDataBuilder<let N: u32> {
@@ -149,7 +155,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue { value: 10, counter: 55 };
 
         builder.execute();
     }
@@ -159,7 +165,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue { value: 10, counter: 55 };
         // Change the hint to point to an empty item.
         builder.sorted_indexes[4] = 5;
 
@@ -193,7 +199,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item outside of capped_size.
-        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue { value: 10, counter: 55 };
 
         builder.execute_capped(4);
     }

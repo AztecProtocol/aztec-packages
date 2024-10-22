@@ -20,7 +20,9 @@ pub unconstrained fn storage_read<T, let N: u32>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32
-) -> T where T: Deserialize<N> {
+) -> T
+where
+    T: Deserialize<N>, {
     T::deserialize(raw_storage_read(address, storage_slot, block_number))
 }
 

@@ -1,7 +1,7 @@
 use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Serialize, Empty}};
 
 pub struct MaxBlockNumber {
-    _opt: Option<u32>
+    _opt: Option<u32>,
 }
 
 impl Empty for MaxBlockNumber {

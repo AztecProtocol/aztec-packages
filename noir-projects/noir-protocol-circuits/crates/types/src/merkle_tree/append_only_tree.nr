@@ -1,5 +1,5 @@
 use crate::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     merkle_tree::{membership::assert_check_membership, root::root_from_sibling_path}
 };
 

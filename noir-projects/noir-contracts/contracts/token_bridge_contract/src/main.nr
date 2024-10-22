@@ -127,7 +127,6 @@ contract TokenBridge {
         // Assert that user provided token address is same as seen in storage.
         TokenBridge::at(context.this_address())._assert_token_is_same(token).enqueue(&mut context);
         // docs:end:call_assert_token_is_same
-
         // Burn tokens
         Token::at(token).burn(context.msg_sender(), amount, nonce).call(&mut context);
     }

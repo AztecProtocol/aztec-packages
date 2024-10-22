@@ -6,17 +6,21 @@ global FUNCTION_CALL_SIZE: u32 = 5;
 global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
 
 pub struct FunctionCall {
-  args_hash: Field,
-  function_selector: FunctionSelector,
-  target_address: AztecAddress,
-  is_public: bool,
-  is_static: bool,
+    args_hash: Field,
+    function_selector: FunctionSelector,
+    target_address: AztecAddress,
+    is_public: bool,
+    is_static: bool,
 }
 
 impl Serialize<FUNCTION_CALL_SIZE> for FunctionCall {
     fn serialize(self) -> [Field; FUNCTION_CALL_SIZE] {
         [
-            self.args_hash, self.function_selector.to_field(), self.target_address.to_field(), self.is_public as Field, self.is_static as Field
+            self.args_hash,
+            self.function_selector.to_field(),
+            self.target_address.to_field(),
+            self.is_public as Field,
+            self.is_static as Field
         ]
     }
 }

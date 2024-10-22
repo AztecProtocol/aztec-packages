@@ -35,11 +35,9 @@ contract ContractClassRegisterer {
     fn register(artifact_hash: Field, private_functions_root: Field, public_bytecode_commitment: Field) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: Validate packed_public_bytecode is legit public bytecode
-
         // docs:start:pop_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = pop_capsule();
         // docs:end:pop_capsule
-
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(
             artifact_hash,

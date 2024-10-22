@@ -122,9 +122,11 @@ fn tail_to_public_output_composer_succeeds() {
 
     // Gas: non-revertible
     let total_num_side_effects = 4 + 3 + 1;
-    let total_log_length = 12 + 8 // note_encrypted_log_hash
+    let total_log_length = 12
+        + 8 // note_encrypted_log_hash
         + 2 // encrypted_log_hash
-        + 51 + 9; // unencrypted_log_hash
+        + 51
+        + 9; // unencrypted_log_hash
     let computed_da_gas = (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
         + 3 * L2_GAS_PER_NULLIFIER
@@ -137,7 +139,8 @@ fn tail_to_public_output_composer_succeeds() {
     // Gas: revertible
     let total_num_side_effects = 2 + 1 + 1;
     let total_log_length = 20 // note_encrypted_log_hash
-        + 6 + 24 // encrypted_log_hash
+    + 6
+        + 24 // encrypted_log_hash
         + 4; // unencrypted_log_hash
     let computed_da_gas = (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 2 * L2_GAS_PER_NOTE_HASH

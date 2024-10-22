@@ -27,7 +27,9 @@ impl<Note, Context> PrivateSet<Note, Context> {
     // docs:end:new
 }
 
-impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInterface<N> + NullifiableNote {
+impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext>
+where
+    Note: NoteInterface<N> + NullifiableNote, {
     // docs:start:insert_from_public
     pub fn insert_from_public(self, note: &mut Note) {
         create_note_hash_from_public(self.context, self.storage_slot, note);
@@ -35,7 +37,9 @@ impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInte
     // docs:end:insert_from_public
 }
 
-impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInterface<N> + NullifiableNote + Eq {
+impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote + Eq, {
     // docs:start:insert
     pub fn insert(self, note: &mut Note) -> NoteEmission<Note> {
         create_note(self.context, self.storage_slot, note)
@@ -83,12 +87,11 @@ impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInt
     }
 }
 
-impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote {
+impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext>
+where
+    Note: NoteInterface<N> + NullifiableNote, {
     // docs:start:view_notes
-    pub unconstrained fn view_notes(
-        self,
-        options: NoteViewerOptions<Note, N>
-    ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> {
+    pub unconstrained fn view_notes(self, options: NoteViewerOptions<Note, N>) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> {
         view_notes(self.storage_slot, options)
     }
     // docs:end:view_notes

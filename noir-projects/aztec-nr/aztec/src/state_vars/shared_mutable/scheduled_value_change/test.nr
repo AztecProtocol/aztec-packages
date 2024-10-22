@@ -54,7 +54,6 @@ unconstrained fn assert_block_horizon_invariants(
     // The earliest a new change could be scheduled in would be the immediate next block to the historical one. This
     // should result in the new block of change landing *after* the block horizon, and the current value still not
     // changing at the previously determined block_horizon.
-
     let new = value_change.pre + value_change.post; // Make sure it's different to both pre and post
     value_change.schedule_change(
         new,
@@ -164,7 +163,7 @@ unconstrained fn test_schedule_change_after_change() {
     let post = 2;
     let block_of_change = 500;
 
-    let mut value_change: ScheduledValueChange<Field>  = ScheduledValueChange::new(pre, post, block_of_change);
+    let mut value_change: ScheduledValueChange<Field> = ScheduledValueChange::new(pre, post, block_of_change);
 
     let new = 42;
     let current_block_number = block_of_change + 50;
@@ -186,7 +185,7 @@ unconstrained fn test_schedule_change_no_delay() {
     let post = 2;
     let block_of_change = 500;
 
-    let mut value_change: ScheduledValueChange<Field>  = ScheduledValueChange::new(pre, post, block_of_change);
+    let mut value_change: ScheduledValueChange<Field> = ScheduledValueChange::new(pre, post, block_of_change);
 
     let new = 42;
     let current_block_number = block_of_change + 50;

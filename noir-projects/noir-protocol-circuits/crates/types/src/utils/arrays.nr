@@ -40,7 +40,9 @@ pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
 
-pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N> where T: Empty + Eq {
+pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
+where
+    T: Empty + Eq, {
     let mut len = 0;
     for elem in array {
         if !is_empty(elem) {
@@ -64,7 +66,9 @@ pub unconstrained fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
-pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
+pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq, {
     let mut seen_empty = false;
     let mut length = 0;
     for i in 0..N {
@@ -80,7 +84,9 @@ pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
 
 // Helper function to count the number of non-empty elements in a validated array.
 // Important: Only use it for validated arrays: validate_array(array) should be true.
-pub fn array_length<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
+pub fn array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq, {
     let length = unsafe {
         find_index_hint(array, |elem: T| is_empty(elem))
     };
@@ -104,7 +110,9 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     result
 }
 
-pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empty + Eq {
+pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty + Eq, {
     let mut result: [T; N] = [T::empty(); N];
     let mut i = 0;
     for elem in array1 {
@@ -126,7 +134,9 @@ pub fn check_permutation<T, let N: u32>(
     original_array: [T; N],
     permuted_array: [T; N],
     original_indexes: [u32; N]
-) where T: Eq + Empty {
+)
+where
+    T: Eq + Empty, {
     let mut seen_value = [false; N];
     for i in 0..N {
         let index = original_indexes[i];

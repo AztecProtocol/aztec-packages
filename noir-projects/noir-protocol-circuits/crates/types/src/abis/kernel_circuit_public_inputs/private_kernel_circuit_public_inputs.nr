@@ -79,7 +79,7 @@ pub struct PrivateKernelCircuitPublicInputs {
     end: PrivateAccumulatedData,
     constants: CombinedConstantData,
     public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress
+    fee_payer: AztecAddress,
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {

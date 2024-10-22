@@ -75,7 +75,6 @@ impl PublicKernelOutputComposer {
     fn propagate_validation_requests(&mut self, enqueued_call: VMCircuitPublicInputs) {
         let data = enqueued_call.validation_requests;
         // Note that the public kernel cannot modify the max block number value - it simply forwards it to the rollup
-
         let note_hash_read_requests = data.note_hash_read_requests;
         for i in 0..note_hash_read_requests.len() {
             let request = note_hash_read_requests[i];
@@ -119,10 +118,16 @@ impl PublicKernelOutputComposer {
 
     fn propagate_accumulated_data(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) {
         if phase == PublicKernelPhase.SETUP {
-            self.output_builder.end_non_revertible = propagate_accumulated_data(&mut self.output_builder.end_non_revertible, enqueued_call.accumulated_data);
+            self.output_builder.end_non_revertible = propagate_accumulated_data(
+                &mut self.output_builder.end_non_revertible,
+                enqueued_call.accumulated_data,
+            );
         }
         if (phase == PublicKernelPhase.APP_LOGIC) | (phase == PublicKernelPhase.TEARDOWN) {
-            self.output_builder.end = propagate_accumulated_data(&mut self.output_builder.end, enqueued_call.accumulated_data);
+            self.output_builder.end = propagate_accumulated_data(
+                &mut self.output_builder.end,
+                enqueued_call.accumulated_data,
+            );
         }
 
         // TODO: Should keep the data even when reverts.

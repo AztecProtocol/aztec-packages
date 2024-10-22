@@ -24,7 +24,9 @@ impl<T, Context> PublicMutable<T, Context> {
     // docs:end:public_mutable_struct_new
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, &mut PublicContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
+impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, &mut PublicContext>
+where
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>, {
     // docs:start:public_mutable_struct_read
     pub fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
@@ -38,7 +40,9 @@ impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, &mut PublicContext> where T:
     // docs:end:public_mutable_struct_write
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, UnconstrainedContext> where T: Deserialize<T_SERIALIZED_LEN> {
+impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, UnconstrainedContext>
+where
+    T: Deserialize<T_SERIALIZED_LEN>, {
     pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }

@@ -39,7 +39,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
         // https://github.com/AztecProtocol/aztec-packages/issues/660
-
         PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
@@ -47,24 +46,31 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         public_inputs.constants = previous_kernel_public_inputs.constants;
-        public_inputs.min_revertible_side_effect_counter = previous_kernel_public_inputs.min_revertible_side_effect_counter;
+        public_inputs.min_revertible_side_effect_counter =
+            previous_kernel_public_inputs.min_revertible_side_effect_counter;
         public_inputs.fee_payer = previous_kernel_public_inputs.fee_payer;
-        public_inputs.public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
+        public_inputs.public_teardown_call_request =
+            previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
         public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
-        public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
-        public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
-        public_inputs.validation_requests.scoped_key_validation_requests_and_generators = array_to_bounded_vec(start.scoped_key_validation_requests_and_generators);
+        public_inputs.validation_requests.note_hash_read_requests =
+            array_to_bounded_vec(start.note_hash_read_requests);
+        public_inputs.validation_requests.nullifier_read_requests =
+            array_to_bounded_vec(start.nullifier_read_requests);
+        public_inputs.validation_requests.scoped_key_validation_requests_and_generators =
+            array_to_bounded_vec(start.scoped_key_validation_requests_and_generators);
         public_inputs.validation_requests.split_counter = start.split_counter;
 
         let start = previous_kernel_public_inputs.end;
         public_inputs.end.note_hashes = array_to_bounded_vec(start.note_hashes);
         public_inputs.end.nullifiers = array_to_bounded_vec(start.nullifiers);
         public_inputs.end.l2_to_l1_msgs = array_to_bounded_vec(start.l2_to_l1_msgs);
-        public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
+        public_inputs.end.note_encrypted_logs_hashes =
+            array_to_bounded_vec(start.note_encrypted_logs_hashes);
         public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
-        public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
+        public_inputs.end.unencrypted_logs_hashes =
+            array_to_bounded_vec(start.unencrypted_logs_hashes);
         public_inputs.end.public_call_requests = array_to_bounded_vec(start.public_call_requests);
         public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
 
@@ -84,9 +90,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
     pub unconstrained fn sort_ordered_values(&mut self) {
         // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
-        self.public_inputs.end.l2_to_l1_msgs.storage = sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
-        self.public_inputs.end.unencrypted_logs_hashes.storage = sort_by_counter_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);
-        self.public_inputs.end.public_call_requests.storage = sort_by_counter_desc(self.public_inputs.end.public_call_requests.storage);
+        self.public_inputs.end.l2_to_l1_msgs.storage =
+            sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
+        self.public_inputs.end.unencrypted_logs_hashes.storage =
+            sort_by_counter_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);
+        self.public_inputs.end.public_call_requests.storage =
+            sort_by_counter_desc(self.public_inputs.end.public_call_requests.storage);
     }
 
     pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
@@ -115,13 +124,17 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 private_call.min_revertible_side_effect_counter == 0, "cannot overwrite non-zero min_revertible_side_effect_counter"
             );
         } else {
-            self.public_inputs.min_revertible_side_effect_counter = private_call.min_revertible_side_effect_counter;
+            self.public_inputs.min_revertible_side_effect_counter =
+                private_call.min_revertible_side_effect_counter;
         };
     }
 
     fn propagate_max_block_number(&mut self, private_call: PrivateCircuitPublicInputs) {
         // Update the max block number if the private call requested a lower one.
-        self.public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(self.public_inputs.validation_requests.max_block_number, private_call.max_block_number);
+        self.public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(
+            self.public_inputs.validation_requests.max_block_number,
+            private_call.max_block_number,
+        );
     }
 
     fn propagate_note_hash_read_requests(&mut self, private_call: PrivateCircuitPublicInputs) {

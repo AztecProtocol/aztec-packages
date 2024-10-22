@@ -1,7 +1,7 @@
 mod check_valid_low_leaf;
 
 use crate::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     merkle_tree::{
     membership::{assert_check_membership, MembershipWitness},
     root::{calculate_subtree_root, calculate_empty_tree_root, root_from_sibling_path}
@@ -29,7 +29,10 @@ pub fn batch_insert<
     build_insertion_leaf: fn(Value, Leaf) -> Leaf,
     _subtree_height: [Field; SubtreeHeight],
     _tree_height: [Field; TreeHeight]
-) -> AppendOnlyTreeSnapshot where Value: Eq + Empty, Leaf: Hash + Empty {
+) -> AppendOnlyTreeSnapshot
+where
+    Value: Eq + Empty,
+    Leaf: Hash + Empty, {
     // A permutation to the values is provided to make the insertion use only one insertion strategy
     check_permutation(values_to_insert, sorted_values, sorted_values_indexes);
 
@@ -64,7 +67,10 @@ pub fn batch_insert<
             );
 
             current_tree_root = root_from_sibling_path(
-                updated_low_leaf.hash(), witness.leaf_index, witness.sibling_path);
+                updated_low_leaf.hash(),
+                witness.leaf_index,
+                witness.sibling_path,
+            );
 
             insertion_subtree[value_index] = build_insertion_leaf(value, low_leaf_preimage);
         }

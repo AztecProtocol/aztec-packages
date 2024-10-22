@@ -5,8 +5,8 @@ use dep::types::{
     MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
     NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT
 },
-    merkle_tree::MembershipWitness, tests::{merkle_tree_utils::NonEmptyMerkleTree},
-    utils::{arrays::{find_index_hint, get_sorted_result}}
+    merkle_tree::MembershipWitness, tests::merkle_tree_utils::NonEmptyMerkleTree,
+    utils::arrays::{find_index_hint, get_sorted_result}
 };
 
 pub struct NullifierNonExistentReadRequestHintsBuilder {
@@ -61,7 +61,8 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX {
             if i < self.read_values.len() {
                 let value = self.read_values.get_unchecked(i);
-                next_pending_value_indices[i] = find_index_hint(sorted_pending_values, |v: Nullifier| !v.value.lt(value));
+                next_pending_value_indices[i] =
+                    find_index_hint(sorted_pending_values, |v: Nullifier| !v.value.lt(value));
             }
         }
 

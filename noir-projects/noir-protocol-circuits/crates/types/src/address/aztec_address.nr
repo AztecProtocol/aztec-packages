@@ -13,7 +13,7 @@ use crate::{
 
 // Aztec address
 pub struct AztecAddress {
-    inner : Field
+    inner: Field,
 }
 
 impl Eq for AztecAddress {

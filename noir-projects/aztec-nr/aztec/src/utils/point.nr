@@ -2,7 +2,8 @@ use dep::protocol_types::point::Point;
 
 // I am storing the modulus divided by 2 plus 1 here because full modulus would throw "String literal too large" error
 // Full modulus is 21888242871839275222246405745257275088548364400416034343698204186575808495617
-global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
+global BN254_FR_MODULUS_DIV_2: Field =
+    10944121435919637611123202872628637544274182200208017171849102093287904247808;
 
 /// Converts a public key to a byte array.
 ///
@@ -45,7 +46,8 @@ mod test {
         let compressed_point = point_to_bytes(p);
 
         let expected_compressed_point_positive_sign = [
-            154, 244, 31, 93, 233, 100, 70, 220, 55, 118, 161, 235, 45, 152, 187, 149, 107, 122, 205, 153, 121, 166, 120, 84, 190, 198, 250, 124, 41, 115, 189, 115
+            154, 244, 31, 93, 233, 100, 70, 220, 55, 118, 161, 235, 45, 152, 187, 149, 107, 122,
+            205, 153, 121, 166, 120, 84, 190, 198, 250, 124, 41, 115, 189, 115
         ];
 
         assert_eq(expected_compressed_point_positive_sign.len(), compressed_point.len());
@@ -65,7 +67,8 @@ mod test {
         let compressed_point = point_to_bytes(p);
 
         let expected_compressed_point_negative_sign = [
-            36, 115, 113, 101, 46, 85, 221, 116, 201, 175, 141, 190, 159, 180, 73, 49, 186, 41, 169, 34, 153, 148, 56, 75, 215, 7, 119, 150, 193, 78, 226, 181
+            36, 115, 113, 101, 46, 85, 221, 116, 201, 175, 141, 190, 159, 180, 73, 49, 186, 41, 169,
+            34, 153, 148, 56, 75, 215, 7, 119, 150, 193, 78, 226, 181
         ];
 
         assert_eq(expected_compressed_point_negative_sign.len(), compressed_point.len());

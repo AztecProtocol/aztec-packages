@@ -20,7 +20,9 @@ use dispatch::generate_public_dispatch;
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
     let unconstrained_functions = m.functions().filter(
-        | f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
+        |f: FunctionDefinition| {
+        f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
+    }
     );
     for f in unconstrained_functions {
         transform_unconstrained(f);
@@ -108,9 +110,12 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
     let notes = NOTES.entries();
     let body = if notes.len() > 0 {
-        max_note_length = notes.fold(0, | acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)])) | {
-            acc + len
-        });
+        max_note_length = notes.fold(
+            0,
+            |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
+                acc + len
+            },
+        );
 
         let mut if_statements_list = &[];
 
@@ -121,11 +126,13 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             } else {
                 quote { else if }
             };
-            if_statements_list = if_statements_list.push_back(quote {
+            if_statements_list = if_statements_list.push_back(
+                quote {
                 $if_or_else_if note_type_id == $typ::get_note_type_id() {
                     aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, compute_nullifier, serialized_note)
                 }
-            });
+            },
+            );
         }
 
         let if_statements = if_statements_list.join(quote {});
@@ -162,7 +169,7 @@ comptime fn generate_note_exports() -> Quoted {
     // Second value in each tuple is `note_serialized_len` and that is ignored here because it's only used when
     // generating the `compute_note_hash_and_optionally_a_nullifier` function.
     notes.map(
-        | (s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)]) | {
+        |(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
             generate_note_export(s, note_type_id, fields)
         }
     ).join(quote {})

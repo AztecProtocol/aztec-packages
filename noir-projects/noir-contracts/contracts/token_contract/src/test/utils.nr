@@ -60,7 +60,6 @@ pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
         token_contract_address
     );
     // docs:end:txe_test_add_note
-
     // Redeem our shielded tokens
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
     env.call_private_void(redeem_shield_call_interface);

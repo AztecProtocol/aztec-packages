@@ -15,8 +15,8 @@ global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
 pub struct DAppPayload {
-  function_calls: [FunctionCall; DAPP_MAX_CALLS],
-  nonce: Field,
+    function_calls: [FunctionCall; DAPP_MAX_CALLS],
+    nonce: Field,
 }
 // docs:end:app-payload-struct
 

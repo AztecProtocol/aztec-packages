@@ -8,7 +8,7 @@ contract Spam {
 
     use dep::aztec::{
         prelude::{Map, AztecAddress, PublicMutable},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_unconstrained},
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
         keys::getters::get_public_keys,
         protocol_types::{
         hash::poseidon2_hash_with_separator,

@@ -100,7 +100,6 @@ impl PreviousKernelValidator {
     fn verify_sorted_siloed_values(self) {
         // Check that the data are already siloed and/or sorted in the reset circuit.
         // Any unprocessed data added after the last reset with siloing was called should be caught here.
-
         let num_note_hashes = array_length(self.previous_kernel.public_inputs.end.note_hashes);
         if num_note_hashes != 0 {
             let note_hash = self.previous_kernel.public_inputs.end.note_hashes[num_note_hashes - 1];

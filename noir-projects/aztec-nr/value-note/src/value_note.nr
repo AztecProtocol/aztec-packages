@@ -14,7 +14,7 @@ global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 #[derive(Serialize)]
 pub struct ValueNote {
     value: Field,
-   // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
     randomness: Field,
 }
@@ -26,10 +26,7 @@ impl NullifiableNote for ValueNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
+            [note_hash_for_nullify, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
@@ -40,10 +37,7 @@ impl NullifiableNote for ValueNote {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
+            [note_hash_for_nullify, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }

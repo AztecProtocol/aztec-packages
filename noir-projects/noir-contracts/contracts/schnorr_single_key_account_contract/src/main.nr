@@ -11,7 +11,7 @@ contract SchnorrSingleKeyAccount {
 
     use crate::{util::recover_address, auth_oracle::get_auth_witness};
 
-    use dep::aztec::macros::{functions::{private, view}};
+    use dep::aztec::macros::functions::{private, view};
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]

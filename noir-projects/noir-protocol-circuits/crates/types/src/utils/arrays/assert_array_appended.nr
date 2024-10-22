@@ -5,12 +5,15 @@ pub fn assert_array_appended<T, let N: u32, let M: u32>(
     source: [T; M],
     num_source_items: u32,
     num_prepended_items: u32
-) where T: Empty + Eq {
+)
+where
+    T: Empty + Eq, {
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
     let mut should_check = false;
     let mut is_non_empty_item = true;
-    for i in 0..dest.len() { // Loop through dest instead of source because we also need to check that dest is appended with empty items.
+    for i in 0..dest.len() {
+        // Loop through dest instead of source because we also need to check that dest is appended with empty items.
         should_check |= i == num_prepended_items; // Prepended items have been checked in validate_array_prepended() and can be skipped here.
         is_non_empty_item &= i != items_propagated;
         if should_check {
@@ -29,7 +32,9 @@ pub fn assert_array_appended_reversed<T, let N: u32, let M: u32>(
     source: [T; M],
     num_source_items: u32,
     num_prepended_items: u32
-) where T: Empty + Eq {
+)
+where
+    T: Empty + Eq, {
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
     let mut should_check = false;
@@ -56,7 +61,10 @@ pub fn assert_array_appended_scoped<ST, T, let N: u32, let M: u32>(
     num_source_items: u32,
     num_prepended_items: u32,
     contract_address: AztecAddress
-) where ST: Scoped<T> + Empty + Eq, T: Eq {
+)
+where
+    ST: Scoped<T> + Empty + Eq,
+    T: Eq, {
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
     let mut should_check = false;

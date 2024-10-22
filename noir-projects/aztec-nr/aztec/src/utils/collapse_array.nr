@@ -3,7 +3,9 @@
 //   input: [some(3), none(), some(1)]
 // this returns
 //   collapsed: [3, 1]
-pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N> where T: Eq {
+pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N>
+where
+    T: Eq, {
     // Computing the collpased BoundedVec would result in a very large number of constraints, since we'd need to loop
     // over the input array and conditionally write to a dynamic vec index, which is a very unfriendly pattern to the
     // proving backend.
@@ -20,10 +22,11 @@ pub(crate) fn verify_collapse_hints<T, let N: u32>(
     input: [Option<T>; N],
     collapsed: BoundedVec<T, N>,
     collapsed_to_input_index_mapping: BoundedVec<u32, N>
-) where T: Eq {
+)
+where
+    T: Eq, {
     // collapsed should be a BoundedVec with all the non-none elements in input, in the same order. We need to lay down
     // multiple constraints to guarantee this.
-
     // First we check that the number of elements is correct
     let mut count = 0;
     for i in 0..N {

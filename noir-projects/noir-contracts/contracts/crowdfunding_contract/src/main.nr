@@ -67,13 +67,11 @@ contract Crowdfunding {
         let deadline = storage.deadline.read_private();
         privately_check_timestamp(Comparator.LT, deadline, &mut context);
         // docs:end:call-check-deadline
-
         // docs:start:do-transfer
         // 2) Transfer the donation tokens from donor to this contract
         let donor = context.msg_sender();
         Token::at(storage.donation_token.read_private()).transfer_from(donor, context.this_address(), amount as Field, 0).call(&mut context);
         // docs:end:do-transfer
-
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
         let donor_keys = get_public_keys(donor);

@@ -36,8 +36,11 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
     let gas = meter_gas_used_non_revertible(data);
 
     let total_num_side_effects = 4 + 3 + 1;
-    let total_log_length = 12 + 8 + 20 // note_encrypted_log_hash
-        + 2 + 6 // encrypted_log_hash
+    let total_log_length = 12
+        + 8
+        + 20 // note_encrypted_log_hash
+        + 2
+        + 6 // encrypted_log_hash
         + 51; // unencrypted_log_hash
     let computed_da_gas = (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
@@ -78,8 +81,11 @@ fn meter_gas_used_revertible_everything_succeeds() {
     let gas = meter_gas_used_revertible(data, teardown_gas);
 
     let total_num_side_effects = 4 + 3 + 1;
-    let total_log_length = 12 + 8 + 20 // note_encrypted_log_hash
-        + 2 + 6 // encrypted_log_hash
+    let total_log_length = 12
+        + 8
+        + 20 // note_encrypted_log_hash
+        + 2
+        + 6 // encrypted_log_hash
         + 51; // unencrypted_log_hash
     let computed_da_gas = (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH

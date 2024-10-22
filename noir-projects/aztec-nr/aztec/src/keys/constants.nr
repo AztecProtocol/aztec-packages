@@ -15,5 +15,5 @@ global sk_generators = [
     GENERATOR_INDEX__NSK_M as Field,
     GENERATOR_INDEX__IVSK_M as Field,
     GENERATOR_INDEX__OVSK_M as Field,
-    GENERATOR_INDEX__TSK_M as Field
+    GENERATOR_INDEX__TSK_M as Field,
 ];

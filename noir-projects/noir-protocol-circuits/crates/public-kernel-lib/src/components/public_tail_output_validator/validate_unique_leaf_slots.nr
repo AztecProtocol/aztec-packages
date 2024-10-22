@@ -19,7 +19,6 @@ pub fn validate_unique_leaf_slots<let N: u32>(
         let hinted_leaf_slot = sorted_leaf_slots[sorted_index];
         assert_eq(hinted_leaf_slot, leaf.slot, "mismatch hinted slot");
         assert_eq(original_leaf_indexes[sorted_index], i, "sorted value does not link to leaf"); // This ensures that each sorted_leaf_slot can only be refered to once.
-
         let curr_leaf_alot = sorted_leaf_slots[i];
         if leaf.slot != 0 {
             assert(prev_slot.lt(curr_leaf_alot), "hinted slots are not sorted"); // This ensures that all non-zero slots are unique.
@@ -58,7 +57,12 @@ mod tests {
 
         pub fn update_leaves<let N: u32>(&mut self, slots: [Field; N]) {
             let leaves = slots.map(
-                |slot: Field| OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot, value: 1 }, override_counter: 0 }
+                |slot: Field| {
+                OverridablePublicDataTreeLeaf {
+                    leaf: PublicDataTreeLeaf { slot, value: 1 },
+                    override_counter: 0,
+                }
+            }
             );
             self.leaves = pad_end(leaves, OverridablePublicDataTreeLeaf::empty());
         }

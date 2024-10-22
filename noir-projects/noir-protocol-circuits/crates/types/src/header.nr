@@ -18,7 +18,7 @@ pub struct Header {
     content_commitment: ContentCommitment,
     state: StateReference,
     global_variables: GlobalVariables,
-    total_fees: Field
+    total_fees: Field,
 }
 // docs:end:header
 

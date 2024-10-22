@@ -5,7 +5,9 @@ pub fn validate_split_ranges<T, let N: u32>(
     first_revertible_item_index: u32,
     items: [T; N],
     num_items: u32
-) where T: RangeOrdered {
+)
+where
+    T: RangeOrdered, {
     if first_revertible_item_index != 0 {
         let last_non_revertible_item_index = first_revertible_item_index - 1;
         let item = items[last_non_revertible_item_index];
@@ -38,14 +40,17 @@ mod tests {
 
         pub fn split_calls(&mut self, counter: u32) {
             self.private_call.min_revertible_side_effect_counter = counter;
-            self.first_revertible_private_call_request_index = self.private_call.private_call_requests.len();
+            self.first_revertible_private_call_request_index =
+                self.private_call.private_call_requests.len();
         }
 
         pub fn add_private_call_request(&mut self, counter_start: u32, counter_end: u32) {
             let index = self.private_call.private_call_requests.len();
             self.private_call.append_private_call_requests(1);
-            self.private_call.private_call_requests.storage[index].start_side_effect_counter = counter_start;
-            self.private_call.private_call_requests.storage[index].end_side_effect_counter = counter_end;
+            self.private_call.private_call_requests.storage[index].start_side_effect_counter =
+                counter_start;
+            self.private_call.private_call_requests.storage[index].end_side_effect_counter =
+                counter_end;
             self.private_call.counter = counter_end + 1;
         }
 

@@ -275,11 +275,10 @@ contract Token {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
-            TransparentNote::properties().secret_hash,
-            Comparator.EQ,
-            secret_hash
-        ).set_limit(1);
+        options = options
+            .select(TransparentNote::properties().amount, Comparator.EQ, amount)
+            .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
+            .set_limit(1);
         let notes = storage.pending_shields.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
         // Add the token note to user's balances set
@@ -408,7 +407,6 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         // docs:end:assert_current_call_valid_authwit
-
         let from_keys = get_public_keys(from);
         let to_keys = get_public_keys(to);
 
@@ -530,7 +528,13 @@ contract Token {
             FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)")
         },
             [
-            fee_payer_point.x, fee_payer_point.y, fee_payer_point.is_infinite as Field, user_point.x, user_point.y, user_point.is_infinite as Field, funded_amount
+            fee_payer_point.x,
+            fee_payer_point.y,
+            fee_payer_point.is_infinite as Field,
+            user_point.x,
+            user_point.y,
+            user_point.is_infinite as Field,
+            funded_amount
         ]
         );
     }

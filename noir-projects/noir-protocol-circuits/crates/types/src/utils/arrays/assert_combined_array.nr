@@ -9,7 +9,9 @@ pub fn assert_combined_array<T, let N: u32>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],
     combined_array: [T; N]
-) where T: Empty + Eq {
+)
+where
+    T: Empty + Eq, {
     assert_combined_transformed_array(
         original_array_lt,
         original_array_gte,
@@ -21,7 +23,9 @@ pub fn assert_combined_array<T, let N: u32>(
 pub unconstrained fn combine_arrays<T, let N: u32>(
     original_array_lt: [T; N],
     original_array_gte: [T; N]
-) -> [T; N] where T: Empty + Eq {
+) -> [T; N]
+where
+    T: Empty + Eq, {
     combine_and_transform_arrays(original_array_lt, original_array_gte, |from: T| from)
 }
 
@@ -56,10 +60,7 @@ mod tests {
             );
 
             let original_array_gte = pad_end(
-                [
-                TestValue { value: 44, counter: 1 },
-                TestValue { value: 55, counter: 4 }
-            ],
+                [TestValue { value: 44, counter: 1 }, TestValue { value: 55, counter: 4 }],
                 TestValue::empty()
             );
 

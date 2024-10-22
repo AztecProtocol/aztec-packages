@@ -1,4 +1,4 @@
-use crate::{public_kernel_phase::PublicKernelPhase};
+use crate::public_kernel_phase::PublicKernelPhase;
 use dep::types::{
     abis::{
     accumulated_data::public_accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
@@ -16,7 +16,7 @@ pub struct PublicKernelOutputValidator {
     revertible: bool,
     previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
     previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-    previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+    previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
 }
 
 impl PublicKernelOutputValidator {
@@ -131,7 +131,6 @@ impl PublicKernelOutputValidator {
         let prev_lengths = self.previous_validation_request_array_lengths;
 
         // Note that the enqueued call cannot modify the max block number value - it simply forwards it to the rollup.
-
         assert_array_appended(
             out.note_hash_read_requests,
             curr.note_hash_read_requests,
@@ -172,7 +171,6 @@ impl PublicKernelOutputValidator {
         // TODO: Should keep the data even when reverts.
         let revert_in_phase = (self.output.revert_code != 0)
             & ((self.phase != PublicKernelPhase.TEARDOWN) | (self.output.revert_code != 1)); // Revert in APP_LOGIC
-
         self.validate_accumulated_data_from_private(revert_in_phase);
         self.validate_combined_accumulated_data(revert_in_phase);
         self.validate_gas_used();

@@ -12,7 +12,8 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
     for i in 0..transient_data_index_hints.len() {
         let hint = transient_data_index_hints[i];
         if hint.note_hash_index != M {
-            transient_nullifier_indexes_for_note_hashes[hint.note_hash_index] = hint.nullifier_index;
+            transient_nullifier_indexes_for_note_hashes[hint.note_hash_index] =
+                hint.nullifier_index;
             transient_note_hash_indexes_for_nullifiers[hint.nullifier_index] = hint.note_hash_index;
         }
     }
@@ -34,7 +35,11 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
     let mut propagated_logs = BoundedVec::new();
     for i in 0..logs.len() {
         let log = logs[i];
-        let linked_note_hash_propagated = propagated_note_hashes.storage.any(|n: ScopedNoteHash| (n.counter() == log.note_hash_counter));
+        let linked_note_hash_propagated = propagated_note_hashes.storage.any(
+            |n: ScopedNoteHash| {
+            (n.counter() == log.note_hash_counter)
+        }
+        );
         if linked_note_hash_propagated {
             propagated_logs.push(log);
         }

@@ -4,7 +4,10 @@ use dep::types::{
     traits::is_empty
 };
 
-trait NonMembershipHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE> where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
+trait NonMembershipHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
+where
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
+{
     fn low_leaf_preimage(self) -> LEAF_PREIMAGE;
     fn membership_witness(self) -> MembershipWitness<TREE_HEIGHT>;
 }
@@ -13,7 +16,9 @@ fn check_no_matching_pending_value<T, let N: u32>(
     read_request: ScopedReadRequest,
     sorted_pending_values: BoundedVec<T, N>,
     next_value_index: u32
-) -> bool where T: OrderedValue<Field> {
+) -> bool
+where
+    T: OrderedValue<Field>, {
     if next_value_index == sorted_pending_values.len() {
         let highest_value = sorted_pending_values.get_unchecked(sorted_pending_values.len() - 1).value();
         highest_value.lt(read_request.value())
@@ -34,7 +39,9 @@ fn check_is_read_before_pending_value<T, let N: u32>(
     read_request: ScopedReadRequest,
     sorted_pending_values: BoundedVec<T, N>,
     next_value_index: u32
-) -> bool where T: OrderedValue<Field> {
+) -> bool
+where
+    T: OrderedValue<Field>, {
     if next_value_index == sorted_pending_values.len() {
         false
     } else {
@@ -57,10 +64,11 @@ pub fn reset_non_existent_read_requests<T, let N: u32, let M: u32, NON_MEMBERSHI
     tree_root: Field,
     sorted_pending_values: BoundedVec<T, M>,
     next_pending_value_indices: [u32; N]
-) where
+)
+where
     T: OrderedValue<Field>,
     NON_MEMBERSHIP_HINT: NonMembershipHint<TREE_HEIGHT, LEAF_PREIMAGE>,
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage {
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage, {
     for i in 0..siloed_read_requests.len() {
         let read_request = siloed_read_requests[i];
         if !is_empty(read_request) {
@@ -150,13 +158,13 @@ mod tests {
 
     global sorted_pending_values = BoundedVec {
         storage: [
-        TestValue { value: 5, counter: 17 },
-        TestValue { value: 15, counter: 8 },
-        TestValue { value: 25, counter: 11 },
-        TestValue::empty(),
-        TestValue::empty(),
-    ],
-    len: 3,
+            TestValue { value: 5, counter: 17 },
+            TestValue { value: 15, counter: 8 },
+            TestValue { value: 25, counter: 11 },
+            TestValue::empty(),
+            TestValue::empty(),
+        ],
+        len: 3,
     };
 
     global leaf_preimages = [
@@ -178,10 +186,15 @@ mod tests {
     fn get_non_membership_hints<let N: u32>(leaf_indices: [Field; N]) -> ([TestNonMembershipHint; N], Field) {
         let tree = build_tree();
         let hints = leaf_indices.map(
-            |leaf_index| TestNonMembershipHint {
+            |leaf_index| {
+            TestNonMembershipHint {
                 low_leaf_preimage: leaf_preimages[leaf_index],
-                membership_witness: MembershipWitness { leaf_index, sibling_path: tree.get_sibling_path(leaf_index as u32) }
+                membership_witness: MembershipWitness {
+                    leaf_index,
+                    sibling_path: tree.get_sibling_path(leaf_index as u32),
+                },
             }
+        }
         );
         let tree_root = tree.get_root();
         (hints, tree_root)

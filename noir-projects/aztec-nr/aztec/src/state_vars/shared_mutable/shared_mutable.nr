@@ -43,7 +43,9 @@ impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL
 // future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
 // The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
 // `schedule_delay_change`.
-impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context>
+where
+    T: ToField + FromField + Eq, {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -70,7 +72,9 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext>
+where
+    T: ToField + FromField + Eq, {
 
     pub fn schedule_value_change(self, new_value: T) {
         let mut value_change = self.read_value_change();
@@ -143,13 +147,14 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext>
+where
+    T: ToField + FromField + Eq, {
     pub fn get_current_value_in_private(self) -> T {
         // When reading the current value in private we construct a historical state proof for the public value.
         // However, since this value might change, we must constrain the maximum transaction block number as this proof
         // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
-
         let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage();
 
         // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
@@ -214,7 +219,9 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext>
+where
+    T: ToField + FromField + Eq, {
     pub unconstrained fn get_current_value_in_unconstrained(self) -> T {
         let block_number = self.context.block_number() as u32;
         self.read_value_change().get_current_at(block_number)
@@ -229,7 +236,9 @@ unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32
-) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>) where T: ToField + FromField + Eq {
+) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>)
+where
+    T: ToField + FromField + Eq, {
     // This function cannot be part of the &mut PrivateContext impl because that'd mean that by passing `self` we'd also
     // be passing a mutable reference to an unconstrained function, which is not allowed. We therefore create a dummy
     // state variable here so that we can access the methods to compute storage slots. This will all be removed in the

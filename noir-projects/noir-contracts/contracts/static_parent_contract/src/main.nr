@@ -1,4 +1,3 @@
-
 // A contract used along with `StaticChild` contract to test static calls.
 use dep::aztec::macros::aztec;
 

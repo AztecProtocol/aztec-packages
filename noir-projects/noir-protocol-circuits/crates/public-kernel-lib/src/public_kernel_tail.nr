@@ -21,9 +21,7 @@ use dep::types::{
     data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PUBLIC_KERNEL_MERGE_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS = [PUBLIC_KERNEL_MERGE_INDEX];
 
 pub struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -86,7 +84,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::{public_kernel_tail::PublicKernelTailCircuitPrivateInputs};
+    use crate::public_kernel_tail::PublicKernelTailCircuitPrivateInputs;
     use dep::reset_kernel_lib::{
         tests::{
         nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
@@ -132,8 +130,10 @@ mod tests {
 
     fn build_nullifier_tree() -> NonEmptyMerkleTree<MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT> {
         let mut pre_existing_nullifiers = [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
-        pre_existing_nullifiers[0] = NullifierLeafPreimage { nullifier: 0, next_nullifier: 100, next_index: 1 };
-        pre_existing_nullifiers[1] = NullifierLeafPreimage { nullifier: 100, next_nullifier: 0, next_index: 0 };
+        pre_existing_nullifiers[0] =
+            NullifierLeafPreimage { nullifier: 0, next_nullifier: 100, next_index: 1 };
+        pre_existing_nullifiers[1] =
+            NullifierLeafPreimage { nullifier: 100, next_nullifier: 0, next_index: 0 };
         NonEmptyMerkleTree::new(
             pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
             [0; NULLIFIER_TREE_HEIGHT],
@@ -212,7 +212,10 @@ mod tests {
                 PublicDataTreeLeafPreimage { slot: 1111, value: 100, next_slot: 2222, next_index: 1 }
             ];
             let public_data_tree = build_public_data_tree(public_data_leaf_preimages);
-            self.public_data_leaf_preimages = pad_end(public_data_leaf_preimages, PublicDataTreeLeafPreimage::empty());
+            self.public_data_leaf_preimages = pad_end(
+                public_data_leaf_preimages,
+                PublicDataTreeLeafPreimage::empty(),
+            );
             self.public_data_tree = public_data_tree;
             self.start_state.public_data_tree.root = public_data_tree.get_root();
             *self
@@ -260,7 +263,8 @@ mod tests {
             let pending_value_index = nullifier_index + self.previous_kernel.nullifiers.len();
             let hint = PendingReadHint { read_request_index, pending_value_index };
             self.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
-            self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+            self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] =
+                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
         }
 
         pub fn add_pending_non_revertible_nullifier_read_request(&mut self, nullifier_index: u32) {
@@ -269,7 +273,8 @@ mod tests {
             let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
             let hint = PendingReadHint { read_request_index, pending_value_index: nullifier_index };
             self.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
-            self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+            self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] =
+                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
         }
 
         pub fn read_non_existent_nullifier(&mut self, unsiloed_nullifier: Field) {
@@ -283,7 +288,9 @@ mod tests {
             let low_leaf_index = unsafe {
                 find_index_hint(
                     self.public_data_leaf_preimages,
-                    |p: PublicDataTreeLeafPreimage| !leaf_slot.lt(p.slot) & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot))
+                    |p: PublicDataTreeLeafPreimage| {
+                        !leaf_slot.lt(p.slot) & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot))
+                    }
                 )
             };
 
@@ -331,7 +338,8 @@ mod tests {
 
         pub fn execute(&mut self) -> KernelCircuitPublicInputs {
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
-            previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
+            previous_kernel.public_inputs.end =
+                self.previous_revertible.to_public_accumulated_data();
 
             self.set_nullifiers_for_non_existent_read_request_hints();
             let public_data_hints = self.generate_public_data_leaf_hints();

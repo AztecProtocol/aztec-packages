@@ -10,9 +10,9 @@ global MERGE_ROLLUP_TYPE = 1;
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
-    rollup_type : u32,
-    num_txs : u32,
-    constants : ConstantRollupData,
+    rollup_type: u32,
+    num_txs: u32,
+    constants: ConstantRollupData,
 
     start: PartialStateReference,
     end: PartialStateReference,
@@ -22,10 +22,10 @@ pub struct BaseOrMergeRollupPublicInputs {
     // So we want to constrain it when casting these fields to U128
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    txs_effects_hash : Field,
-    out_hash : Field,
+    txs_effects_hash: Field,
+    out_hash: Field,
 
-    accumulated_fees: Field
+    accumulated_fees: Field,
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {

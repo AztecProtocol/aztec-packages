@@ -27,7 +27,6 @@ unconstrained fn public_transfer_to_self() {
     let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, owner, transfer_amount, 0);
     env.call_public(public_transfer_call_interface);
     // docs:end:call_public
-
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
 }

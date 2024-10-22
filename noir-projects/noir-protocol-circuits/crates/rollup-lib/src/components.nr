@@ -13,7 +13,7 @@ use dep::types::{
     AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{arrays::{array_length, array_merge}},
+    utils::arrays::{array_length, array_merge},
     abis::{
     accumulated_data::CombinedAccumulatedData, public_data_update_request::PublicDataUpdateRequest,
     log_hash::{LogHash, ScopedLogHash}
@@ -188,7 +188,7 @@ fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_U
         LogHash {
             value: silo_unencrypted_log_hash(log),
             counter: log.log_hash.counter,
-            length: log.log_hash.length
+            length: log.log_hash.length,
         }
     }
     );
@@ -201,7 +201,7 @@ fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_UNENC
         LogHash {
             value: silo_encrypted_log_hash(log),
             counter: log.log_hash.counter,
-            length: log.log_hash.length
+            length: log.log_hash.length,
         }
     }
     );
@@ -223,7 +223,14 @@ fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_UNENC
 // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + 1 + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 1
+    + 1
+    + MAX_NOTE_HASHES_PER_TX
+    + MAX_NULLIFIERS_PER_TX
+    + 1
+    + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
+    + 3
+    + 3;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 pub fn compute_tx_effects_hash(
@@ -263,13 +270,13 @@ pub fn compute_tx_effects_hash(
     for j in 0..MAX_NOTE_HASHES_PER_TX {
         tx_effects_hash_input[offset + j] = note_hashes[j];
     }
-    offset += MAX_NOTE_HASHES_PER_TX ;
+    offset += MAX_NOTE_HASHES_PER_TX;
 
     // NULLIFIERS
     for j in 0..MAX_NULLIFIERS_PER_TX {
         tx_effects_hash_input[offset + j] = nullifiers[j];
     }
-    offset += MAX_NULLIFIERS_PER_TX ;
+    offset += MAX_NULLIFIERS_PER_TX;
 
     // L2 TO L1 MESSAGES
     tx_effects_hash_input[offset] = out_hash;
@@ -277,10 +284,8 @@ pub fn compute_tx_effects_hash(
 
     // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        tx_effects_hash_input[offset + j * 2] =
-                public_data_update_requests[j].leaf_slot;
-        tx_effects_hash_input[offset + j * 2 + 1] =
-                public_data_update_requests[j].new_value;
+        tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
+        tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
     }
     offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
@@ -309,7 +314,6 @@ pub fn compute_tx_effects_hash(
     offset += 1;
 
     assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
-
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
     for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
         // TODO: This is not checking that the decomposition is smaller than P
@@ -336,7 +340,7 @@ fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [Publ
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     let expected_size = 1 // revert code
-        + 1 // transaction fee
+    + 1 // transaction fee
         + MAX_NOTE_HASHES_PER_TX
         + MAX_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2

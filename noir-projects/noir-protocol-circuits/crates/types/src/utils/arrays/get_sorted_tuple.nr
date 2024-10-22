@@ -8,10 +8,7 @@ pub struct SortedTuple<T> {
 pub unconstrained fn get_sorted_tuple<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [SortedTuple<T>; N] {
     let mut tuples = [SortedTuple { elem: array[0], original_index: 0 }; N];
     for i in 0..N {
-        tuples[i] = SortedTuple {
-            elem: array[i],
-            original_index: i,
-        };
+        tuples[i] = SortedTuple { elem: array[i], original_index: i };
     }
     sort_by(
         tuples,
