@@ -43,6 +43,12 @@
       "path": "../types"
     },
     {
+      "path": "../p2p"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../world-state"
     }
   ],
