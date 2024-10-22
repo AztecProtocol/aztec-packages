@@ -869,6 +869,7 @@ __metadata:
     "@multiformats/multiaddr": 12.1.14
     "@types/jest": ^29.5.0
     "@types/node": ^18.14.6
+    get-port: ^7.1.0
     interface-datastore: ^8.2.11
     interface-store: ^5.1.8
     it-drain: ^3.0.5

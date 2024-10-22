@@ -14,6 +14,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type PeerId } from '@libp2p/interface';
 import { tcp } from '@libp2p/tcp';
+import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
@@ -43,10 +44,11 @@ import { type PubSubLibp2p } from '../util.js';
 export async function createLibp2pNode(
   boostrapAddrs: string[] = [],
   peerId?: PeerId,
-  port: number = 0,
+  port?: number,
   enableGossipSub: boolean = false,
   start: boolean = true,
 ): Promise<Libp2p> {
+  port = port ?? (await getPort());
   const options: Libp2pOptions = {
     start,
     addresses: {
@@ -172,10 +174,12 @@ export const startNodes = async (
 };
 
 export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
+  const stopPromises = [];
   for (const node of nodes) {
-    await node.req.stop();
-    await node.p2p.stop();
+    stopPromises.push(node.req.stop());
+    stopPromises.push(node.p2p.stop());
   }
+  await Promise.all(stopPromises);
 };
 
 // Create a req resp node, exposing the underlying p2p node
