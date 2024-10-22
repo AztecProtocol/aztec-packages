@@ -1,6 +1,6 @@
-#[outer_attribute]
+#['outer_attribute]
 mod foo {
-    #![some_attribute]
+    #!['some_attribute]
     pub fn x() {}
     pub fn y() {}
     pub fn z() {}
@@ -12,7 +12,7 @@ mod foo {
 
 contract bar {}
 
-#[some_attribute]
+#['some_attribute]
 mod another_module {}
 
 #[outer_attribute_func]
@@ -47,7 +47,7 @@ comptime fn outer_attribute_separate_module(m: Module) {
     increment_counter();
 }
 
-struct Foo {}
+pub struct Foo {}
 
 #[add_function]
 mod add_to_me {

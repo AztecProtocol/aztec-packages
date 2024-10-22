@@ -5,6 +5,7 @@
 
 use abi_gen::{abi_type_from_hir_type, value_from_hir_expression};
 use acvm::acir::circuit::ExpressionWidth;
+use acvm::compiler::MIN_EXPRESSION_WIDTH;
 use clap::Args;
 use fm::{FileId, FileManager};
 use iter_extended::vecmap;
@@ -134,7 +135,11 @@ pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::E
 
     match width {
         0 => Ok(ExpressionWidth::Unbounded),
-        _ => Ok(ExpressionWidth::Bounded { width }),
+        w if w >= MIN_EXPRESSION_WIDTH => Ok(ExpressionWidth::Bounded { width }),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("has to be 0 or at least {MIN_EXPRESSION_WIDTH}"),
+        )),
     }
 }
 
@@ -445,7 +450,7 @@ fn compile_contract_inner(
             .secondary
             .iter()
             .filter_map(|attr| {
-                if let SecondaryAttribute::Custom(attribute) = attr {
+                if let SecondaryAttribute::Tag(attribute) = attr {
                     Some(&attribute.contents)
                 } else {
                     None
