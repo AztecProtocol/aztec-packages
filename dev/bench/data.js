@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729616623496,
+  "lastUpdate": 1729618029464,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9c9c385b2d8d3d8284d981a7393500a04fd78d38",
-          "message": "chore(ci): finally isolate bb-native-tests (#9039)\n\nThis has been spilling over too often, let's make sure it only affects\r\nan isolated runner",
-          "timestamp": "2024-10-07T11:10:57Z",
-          "tree_id": "e53ee880ff5239d7c33c9ab7dffab27ad91875c0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9c9c385b2d8d3d8284d981a7393500a04fd78d38"
-        },
-        "date": 1728300552065,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31485.173594000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29325.629146 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5551.114627999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5214.800816 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92740.762223,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92740765000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15727.797608,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15727797000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8279679011,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8279679011 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152106973,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152106973 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6764292153,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6764292153 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126175319,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126175319 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3404,6 +3332,66 @@ window.BENCHMARK_DATA = {
             "value": 129922436,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129922436 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e6db535b69e6769fa3f2c85a0685640c92ac147b",
+          "message": "feat!: remove hash opcodes from AVM (#9209)\n\nResolves #9208",
+          "timestamp": "2024-10-22T16:43:02Z",
+          "tree_id": "46e09f3b8ff4df9ecb50bd78a98dc4bff4245ae0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e6db535b69e6769fa3f2c85a0685640c92ac147b"
+        },
+        "date": 1729618021699,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29478.750808,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27826.209185 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5341.426827000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4968.409257 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87413.57943499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87413581000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15183.024077,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15183025000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2730711344,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2730711344 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126629136,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126629136 ns\nthreads: 1"
           }
         ]
       }
