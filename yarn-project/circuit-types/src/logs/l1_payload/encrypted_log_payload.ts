@@ -16,11 +16,11 @@ import { derivePoseidonAESSecret } from './shared_secret_derivation.js';
 
 // Both the incoming and the outgoing header are 48 bytes../shared_secret_derivation.js
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
-const HEADER_SIZE = 48;
+export const HEADER_SIZE = 48;
 
 // The outgoing body is constant size of 144 bytes.
 // 128 bytes for the secret key, address and public key, and 16 bytes padding to follow PKCS#7
-const OUTGOING_BODY_SIZE = 144;
+export const OUTGOING_BODY_SIZE = 144;
 
 /**
  * Encrypted log payload with a tag used for retrieval by clients.
@@ -83,7 +83,6 @@ export class EncryptedLogPayload {
     return serializeToBuffer(
       this.incomingTag,
       this.outgoingTag,
-      this.publicValuesAppended,
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
