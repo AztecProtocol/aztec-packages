@@ -13,7 +13,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
-  PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedDataBuilder,
   ScopedLogHash,
@@ -68,26 +68,20 @@ export const mockPrivateExecutionResult = (
       const request = publicCallRequests.shift()!;
       const args = publicFunctionArgs.shift()!;
       publicTeardownFunctionCall = new PublicExecutionRequest(
-        request.contractAddress,
         CallContext.fromFields(request.callContext.toFields()),
         args,
       );
     }
 
     enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) =>
-        new PublicExecutionRequest(
-          r.contractAddress,
-          CallContext.fromFields(r.callContext.toFields()),
-          publicFunctionArgs[i],
-        ),
+      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.callContext.toFields()), publicFunctionArgs[i]),
     );
   }
   return new PrivateExecutionResult(
     Buffer.from(''),
     Buffer.from(''),
     new Map(),
-    PrivateCallStackItem.empty(),
+    PrivateCircuitPublicInputs.empty(),
     new Map(),
     [],
     new Map(),
@@ -156,19 +150,13 @@ export const mockTx = (
       data.forPublic.publicTeardownCallRequest = request;
       const args = publicFunctionArgs.shift()!;
       publicTeardownFunctionCall = new PublicExecutionRequest(
-        request.contractAddress,
         CallContext.fromFields(request.callContext.toFields()),
         args,
       );
     }
 
     enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) =>
-        new PublicExecutionRequest(
-          r.contractAddress,
-          CallContext.fromFields(r.callContext.toFields()),
-          publicFunctionArgs[i],
-        ),
+      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.callContext.toFields()), publicFunctionArgs[i]),
     );
 
     const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);

@@ -800,7 +800,6 @@ fn handle_getter_instruction(
 ) {
     enum EnvironmentVariable {
         ADDRESS,
-        STORAGEADDRESS,
         SENDER,
         FUNCTIONSELECTOR,
         TRANSACTIONFEE,
@@ -827,7 +826,6 @@ fn handle_getter_instruction(
 
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
-        "avmOpcodeStorageAddress" => EnvironmentVariable::STORAGEADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
         "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
         "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,

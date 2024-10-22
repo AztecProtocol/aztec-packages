@@ -1403,57 +1403,53 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
         "0001"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::STORAGEADDRESS)) +   // envvar STORAGEADDRESS
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) +           // envvar SENDER
         "0002"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) +           // envvar SENDER
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)) + // envvar FUNCTIONSELECTOR
         "0003"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)) + // envvar FUNCTIONSELECTOR
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)) +   // envvar TRANSACTIONFEE
         "0004"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)) +   // envvar TRANSACTIONFEE
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::CHAINID)) +          // envvar CHAINID
         "0005"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::CHAINID)) +          // envvar CHAINID
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::VERSION)) +          // envvar VERSION
         "0006"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::VERSION)) +          // envvar VERSION
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)) +      // envvar BLOCKNUMBER
         "0007"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)) +      // envvar BLOCKNUMBER
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)) +        // envvar TIMESTAMP
         "0008"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)) +        // envvar TIMESTAMP
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)) +      // envvar FEEPERL2GAS
         "0009"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)) +      // envvar FEEPERL2GAS
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)) +      // envvar FEEPERDAGAS
         "000A"                                                                  // dst_offset
         + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
         "00"                                                                    // Indirect flag
-        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)) +      // envvar FEEPERDAGAS
-        "000B"                                                                  // dst_offset
-        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode GETENVVAR_16
-        "00"                                                                    // Indirect flag
         + to_hex(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)) +     // envvar ISSTATICCALL
-        "000C"                                                                  // dst_offset
+        "000B"                                                                  // dst_offset
         + to_hex(OpCode::RETURN) +                                              // opcode RETURN
         "00"                                                                    // Indirect flag
         "0001"                                                                  // ret offset 1
-        "000C";                                                                 // ret size 12
+        "000B";                                                                 // ret size 12
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(13));
+    ASSERT_THAT(instructions, SizeIs(12));
 
     // ADDRESS
     EXPECT_THAT(instructions.at(0),
@@ -1463,126 +1459,114 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ADDRESS)),
                                         VariantWith<uint16_t>(1)))));
 
-    // STORAGEADDRESS
+    // SENDER
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::STORAGEADDRESS)),
-                                        VariantWith<uint16_t>(2)))));
-
-    // SENDER
-    EXPECT_THAT(instructions.at(2),
-                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
-                      Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::SENDER)),
-                                        VariantWith<uint16_t>(3)))));
+                                        VariantWith<uint16_t>(2)))));
 
     // FUNCTIONSELECTOR
     EXPECT_THAT(
-        instructions.at(3),
+        instructions.at(2),
         AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(0),
                                 VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)),
-                                VariantWith<uint16_t>(4)))));
+                                VariantWith<uint16_t>(3)))));
 
     // TRANSACTIONFEE
-    EXPECT_THAT(instructions.at(4),
+    EXPECT_THAT(instructions.at(3),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)),
-                                        VariantWith<uint16_t>(5)))));
+                                        VariantWith<uint16_t>(4)))));
 
     // CHAINID
-    EXPECT_THAT(instructions.at(5),
+    EXPECT_THAT(instructions.at(4),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::CHAINID)),
-                                        VariantWith<uint16_t>(6)))));
+                                        VariantWith<uint16_t>(5)))));
 
     // VERSION
-    EXPECT_THAT(instructions.at(6),
+    EXPECT_THAT(instructions.at(5),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::VERSION)),
-                                        VariantWith<uint16_t>(7)))));
+                                        VariantWith<uint16_t>(6)))));
 
     // BLOCKNUMBER
-    EXPECT_THAT(instructions.at(7),
+    EXPECT_THAT(instructions.at(6),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)),
-                                        VariantWith<uint16_t>(8)))));
+                                        VariantWith<uint16_t>(7)))));
 
     // TIMESTAMP
-    EXPECT_THAT(instructions.at(8),
+    EXPECT_THAT(instructions.at(7),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)),
-                                        VariantWith<uint16_t>(9)))));
+                                        VariantWith<uint16_t>(8)))));
 
     // FEEPERL2GAS
-    EXPECT_THAT(instructions.at(9),
+    EXPECT_THAT(instructions.at(8),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)),
-                                        VariantWith<uint16_t>(10)))));
+                                        VariantWith<uint16_t>(9)))));
 
     // FEEPERDAGAS
-    EXPECT_THAT(instructions.at(10),
+    EXPECT_THAT(instructions.at(9),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)),
-                                        VariantWith<uint16_t>(11)))));
+                                        VariantWith<uint16_t>(10)))));
 
     // ISSTATICCALL
-    EXPECT_THAT(instructions.at(11),
+    EXPECT_THAT(instructions.at(10),
                 AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)),
-                                        VariantWith<uint16_t>(12)))));
+                                        VariantWith<uint16_t>(11)))));
 
     // Public inputs for the circuit
     std::vector<FF> calldata;
 
     FF sender = 1;
     FF address = 2;
-    // NOTE: address doesn't actually exist in public circuit public inputs,
-    // so storage address is just an alias of address for now
-    FF storage_address = address;
-    FF function_selector = 4;
-    FF transaction_fee = 5;
-    FF chainid = 6;
-    FF version = 7;
-    FF blocknumber = 8;
-    FF timestamp = 9;
-    FF feeperl2gas = 10;
-    FF feeperdagas = 11;
-    FF is_static_call = 12;
+    FF function_selector = 3;
+    FF transaction_fee = 4;
+    FF chainid = 5;
+    FF version = 6;
+    FF blocknumber = 7;
+    FF timestamp = 8;
+    FF feeperl2gas = 9;
+    FF feeperdagas = 10;
+    FF is_static_call = 11;
 
     // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
     // this array The returndata call above will then return this array
     std::vector<FF> const expected_returndata = {
-        address, storage_address, sender,    function_selector, transaction_fee, chainid,
-        version, blocknumber,     timestamp, feeperl2gas,       feeperdagas,     is_static_call,
+        address,     sender,    function_selector, transaction_fee, chainid,        version,
+        blocknumber, timestamp, feeperl2gas,       feeperdagas,     is_static_call,
     };
 
     // Set up public inputs to contain the above values
     // TODO: maybe have a javascript like object construction so that this is readable
     // Reduce the amount of times we have similar code to this
     //
-    public_inputs_vec[STORAGE_ADDRESS_PCPI_OFFSET] = address;
-    public_inputs_vec[STORAGE_ADDRESS_PCPI_OFFSET] = storage_address;
+    public_inputs_vec[ADDRESS_PCPI_OFFSET] = address;
     public_inputs_vec[SENDER_PCPI_OFFSET] = sender;
     public_inputs_vec[FUNCTION_SELECTOR_PCPI_OFFSET] = function_selector;
     public_inputs_vec[TRANSACTION_FEE_PCPI_OFFSET] = transaction_fee;
@@ -1608,11 +1592,6 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     auto address_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_address == 1; });
     EXPECT_EQ(address_row->main_ia, address);
-
-    // Check storage address
-    auto storage_addr_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_storage_address == 1; });
-    EXPECT_EQ(storage_addr_row->main_ia, storage_address);
 
     // Check sender
     auto sender_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sender == 1; });

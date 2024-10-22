@@ -90,7 +90,6 @@ enum class OpCode : uint8_t {
     // Control Flow - Contract Calls
     CALL,
     STATICCALL,
-    DELEGATECALL,
     RETURN,
     REVERT_8,
     REVERT_16,
@@ -116,7 +115,6 @@ enum class OpCode : uint8_t {
 
 enum class EnvironmentVariable {
     ADDRESS,
-    STORAGEADDRESS,
     SENDER,
     FUNCTIONSELECTOR,
     TRANSACTIONFEE,

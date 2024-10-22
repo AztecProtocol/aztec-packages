@@ -83,7 +83,6 @@ import {
   PrivateAccumulatedData,
   type PrivateCallData,
   PrivateCallRequest,
-  type PrivateCallStackItem,
   type PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   type PrivateKernelData,
@@ -95,7 +94,6 @@ import {
   PublicAccumulatedDataArrayLengths,
   type PublicCallData,
   PublicCallRequest,
-  type PublicCallStackItem,
   PublicCallStackItemCompressed,
   type PublicCircuitPublicInputs,
   type PublicDataHint,
@@ -208,7 +206,6 @@ import type {
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
   PrivateCallDataWithoutPublicInputs as PrivateCallDataWithoutPublicInputsNoir,
   PrivateCallRequest as PrivateCallRequestNoir,
-  PrivateCallStackItemWithoutPublicInputs as PrivateCallStackItemWithoutPublicInputsNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelCircuitPublicInputs as PrivateKernelCircuitPublicInputsNoir,
   PrivateKernelDataWithoutPublicInputs as PrivateKernelDataWithoutPublicInputsNoir,
@@ -220,7 +217,6 @@ import type {
   PublicCallData as PublicCallDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicCallStackItemCompressed as PublicCallStackItemCompressedNoir,
-  PublicCallStackItem as PublicCallStackItemNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicDataLeafHint as PublicDataLeafHintNoir,
@@ -492,9 +488,8 @@ export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
 export function mapCallContextFromNoir(callContext: CallContextNoir): CallContext {
   return new CallContext(
     mapAztecAddressFromNoir(callContext.msg_sender),
-    mapAztecAddressFromNoir(callContext.storage_contract_address),
+    mapAztecAddressFromNoir(callContext.contract_address),
     mapFunctionSelectorFromNoir(callContext.function_selector),
-    callContext.is_delegate_call,
     callContext.is_static_call,
   );
 }
@@ -507,9 +502,8 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
 export function mapCallContextToNoir(callContext: CallContext): CallContextNoir {
   return {
     msg_sender: mapAztecAddressToNoir(callContext.msgSender),
-    storage_contract_address: mapAztecAddressToNoir(callContext.storageContractAddress),
+    contract_address: mapAztecAddressToNoir(callContext.contractAddress),
     function_selector: mapFunctionSelectorToNoir(callContext.functionSelector),
-    is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
   };
 }
@@ -534,7 +528,6 @@ export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir 
 
 function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
   return new PrivateCallRequest(
-    mapAztecAddressFromNoir(callRequest.contract_address),
     mapCallContextFromNoir(callRequest.call_context),
     mapFieldFromNoir(callRequest.args_hash),
     mapFieldFromNoir(callRequest.returns_hash),
@@ -545,7 +538,6 @@ function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
 
 function mapPrivateCallRequestToNoir(callRequest: PrivateCallRequest): PrivateCallRequestNoir {
   return {
-    contract_address: mapAztecAddressToNoir(callRequest.contractAddress),
     call_context: mapCallContextToNoir(callRequest.callContext),
     args_hash: mapFieldToNoir(callRequest.argsHash),
     returns_hash: mapFieldToNoir(callRequest.returnsHash),
@@ -580,28 +572,16 @@ function mapPublicCallStackItemCompressedToNoir(
   };
 }
 
-/**
- * Maps a noir call request to a call request.
- * @param callRequest - The noir call request.
- * @returns The call request.
- */
 function mapPublicCallRequestFromNoir(request: PublicCallRequestNoir) {
   return new PublicCallRequest(
-    mapAztecAddressFromNoir(request.contract_address),
     mapCallContextFromNoir(request.call_context),
     mapFieldFromNoir(request.args_hash),
     mapNumberFromNoir(request.counter),
   );
 }
 
-/**
- * Maps a call request to a noir call request.
- * @param privateCallStackItem - The call stack item.
- * @returns The noir call stack item.
- */
 function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCallRequestNoir {
   return {
-    contract_address: mapAztecAddressToNoir(request.contractAddress),
     call_context: mapCallContextToNoir(request.callContext),
     args_hash: mapFieldToNoir(request.argsHash),
     counter: mapNumberToNoir(request.counter),
@@ -988,27 +968,12 @@ export function mapPrivateCircuitPublicInputsToNoir(
 }
 
 /**
- * Maps a private call stack item to a noir private call stack item.
- * @param privateCallStackItem - The private call stack item.
- * @returns The noir private call stack item.
- */
-export function mapPrivateCallStackItemToNoir(
-  privateCallStackItem: PrivateCallStackItem,
-): PrivateCallStackItemWithoutPublicInputsNoir {
-  return {
-    contract_address: mapAztecAddressToNoir(privateCallStackItem.contractAddress),
-    function_data: mapFunctionDataToNoir(privateCallStackItem.functionData),
-  };
-}
-
-/**
  * Maps a private call data to a noir private call data.
  * @param privateCallData - The private call data.
  * @returns The noir private call data.
  */
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
-    call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
     vk: mapVerificationKeyToNoir(privateCallData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
@@ -2067,26 +2032,13 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
 }
 
 /**
- * Maps a public call stack item to noir.
- * @param publicCallStackItem - The public call stack item.
- * @returns The noir public call stack item.
- */
-function mapPublicCallStackItemToNoir(publicCallStackItem: PublicCallStackItem): PublicCallStackItemNoir {
-  return {
-    contract_address: mapAztecAddressToNoir(publicCallStackItem.contractAddress),
-    public_inputs: mapPublicCircuitPublicInputsToNoir(publicCallStackItem.publicInputs),
-    function_data: mapFunctionDataToNoir(publicCallStackItem.functionData),
-  };
-}
-
-/**
  * Maps a public call data to noir.
  * @param publicCall - The public call data.
  * @returns The noir public call data.
  */
 function mapPublicCallDataToNoir(publicCall: PublicCallData): PublicCallDataNoir {
   return {
-    call_stack_item: mapPublicCallStackItemToNoir(publicCall.callStackItem),
+    public_inputs: mapPublicCircuitPublicInputsToNoir(publicCall.publicInputs),
     proof: {},
     bytecode_hash: mapFieldToNoir(publicCall.bytecodeHash),
   };
