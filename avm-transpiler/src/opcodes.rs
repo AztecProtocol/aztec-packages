@@ -77,7 +77,7 @@ pub enum AvmOpcode {
     ECADD,
     MSM,
     // Conversions
-    TORADIXLE,
+    TORADIXBE,
 }
 
 impl AvmOpcode {
@@ -171,7 +171,7 @@ impl AvmOpcode {
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
             // Conversions
-            AvmOpcode::TORADIXLE => "TORADIXLE",
+            AvmOpcode::TORADIXBE => "TORADIXBE",
         }
     }
 }

@@ -168,8 +168,8 @@ std::string to_string(OpCode opcode)
     case OpCode::MSM:
         return "MSM";
     // Conversions
-    case OpCode::TORADIXLE:
-        return "TORADIXLE";
+    case OpCode::TORADIXBE:
+        return "TORADIXBE";
     // Sentinel
     case OpCode::LAST_OPCODE_SENTINEL:
         return "LAST_OPCODE_SENTINEL";
