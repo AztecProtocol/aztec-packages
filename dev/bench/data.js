@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729535920662,
+  "lastUpdate": 1729581252494,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4f1af9a0baf9e342d0de41ebd58fed24a0c4f615",
-          "message": "feat: Connect the public inputs but not the proof in ivc recursion constraints (#8973)\n\nThe inputs to an ACIR ivc recursion constraint include the VK, the\r\npublic inputs, and the proof (without public inputs). The VK and public\r\ninputs are expected to be used in aztec-y logic directly in the noir\r\nprotocol programs, but the proof is not. Previously, we connected the\r\nwitnesses for all three of these components to the counterpart used in\r\nthe backend recursive verifier. This requires knowledge of the proof\r\nsize, could be misleading and is unnecessary. With this PR, we only\r\ncreate and connect witnesses for the VK and public inputs and not the\r\nproof when constructing an ivc recursion constraint.",
-          "timestamp": "2024-10-04T06:14:42-07:00",
-          "tree_id": "4c913fbc511d4ce4b40393e08ad234682e1b142a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4f1af9a0baf9e342d0de41ebd58fed24a0c4f615"
-        },
-        "date": 1728049829761,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30970.01555700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28572.233294 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5279.562808999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4918.253441999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92781.62136500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92781623000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15126.09295,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15126092000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8283827805,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8283827805 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 150734572,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 150734572 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6704496235,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6704496235 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127632281,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127632281 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3440,6 +3368,66 @@ window.BENCHMARK_DATA = {
             "value": 128532386,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128532386 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d75dd4a6730c1af27b23bc786ed9db8eb199e6f",
+          "message": "chore: Copying world state binary to yarn project is on generate (#9194)\n\nCopy native build artifacts in a separate \"generate\" step.\r\n\r\n---------\r\n\r\nCo-authored-by: Alex Gherghisan <alexghr@users.noreply.github.com>\r\nCo-authored-by: Alex Gherghisan <alexg@aztecprotocol.com>",
+          "timestamp": "2024-10-22T07:49:26+01:00",
+          "tree_id": "25941015c728282c475f49a7970ae30757d1e74b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8d75dd4a6730c1af27b23bc786ed9db8eb199e6f"
+        },
+        "date": 1729581245374,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29582.404536000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27901.889957000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5454.81932300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5112.049809 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87331.435856,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87331438000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15156.12526,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15156126000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2743106061,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2743106061 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130181963,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130181963 ns\nthreads: 1"
           }
         ]
       }
