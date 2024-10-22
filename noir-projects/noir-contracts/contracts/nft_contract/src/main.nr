@@ -14,7 +14,7 @@ contract NFT {
         NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
         AztecAddress, PublicContext
     },
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log, encrypt_partial_log}},
+        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log, encrypt_and_emit_partial_log_and_return, encrypt_partial_log}},
         keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize}, utils::bytes::fields_to_bytes,
@@ -178,11 +178,14 @@ contract NFT {
         let note_setup_payload = NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
         // We encrypt and emit the partial note log
-        encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
+        // encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
         // setup payload plaintext is 2*32+64 = 128
         // the full log is 128 + 353 = 481
         // each field can contain 31 bytes so we need 16 fields
-        let partial_log: [Field; 16] = encrypt_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
+        // let partial_log: [Field; 16] = encrypt_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
+        let partial_log: [Field; 16] = encrypt_and_emit_partial_log_and_return(&mut context, note_setup_payload.log_plaintext, to_keys, to);
+
+        // dep::aztec::protocol_types::debug_log::debug_log_format("before transient {}", partial_log);
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones

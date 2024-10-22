@@ -175,6 +175,40 @@ pub fn encrypt_and_emit_partial_log<let P: u32>(
     context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
 }
 
+// Temporary hack function TODO: remove
+pub fn encrypt_and_emit_partial_log_and_return<let P: u32, let N: u32>(
+    context: &mut PrivateContext,
+    log_plaintext: [u8; P],
+    recipient_keys: PublicKeys,
+    recipient: AztecAddress
+) -> [Field; N] {
+    let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
+
+    let encrypted_log: [u8; 353 + P] = compute_encrypted_log(
+        context.this_address(),
+        ovsk_app,
+        recipient_keys.ovpk_m,
+        recipient_keys.ivpk_m,
+        recipient,
+        log_plaintext,
+        true
+    );
+    let log_hash = sha256_to_field(encrypted_log);
+
+    // for i in 0..encrypted_log.len() {
+    //     crate::protocol_types::debug_log::debug_log_format("e {0}", [encrypted_log[i].to_field()]);
+    // }
+
+    // Unfortunately we need to push a dummy note hash to the context here because a note log requires having
+    // a counter that corresponds to a note hash in the same call.
+    let note_hash_counter = context.side_effect_counter;
+    context.push_note_hash(5);
+
+    context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
+
+    bytes_to_fields(encrypted_log)
+}
+
 pub fn encrypt_partial_log<let P: u32, let N: u32>(
     context: &mut PrivateContext,
     log_plaintext: [u8; P],

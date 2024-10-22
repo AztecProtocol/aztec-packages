@@ -153,6 +153,10 @@ export class NoteProcessor {
               const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, ivskM);
               const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
 
+              if (incomingNotePayload) {
+                console.log("decrypted incoming", incomingNotePayload);
+              }
+
               if (incomingNotePayload || outgoingNotePayload) {
                 if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
                   throw new Error(
@@ -366,12 +370,13 @@ export class NoteProcessor {
 /**
  * When a log is emitted via the unencrypted log channel each field contains only 1 byte. OTOH when a log is emitted
  * via the encrypted log channel there are no empty bytes. This function removes the padding bytes.
- * @param unprocessedLog
+ * @param unprocessedLog - Log to be processed.
  * @returns Log with padding bytes removed.
+ * TODO(benesjan): Nuke this once the logs are all refactored.
  */
 function removePaddingBytes(unprocessedLog: Buffer) {
   if (unprocessedLog.length === 640160) {
-    // I have no idea what this log is.
+    // TODO(benejsan): I have no why this monster log appears here and would bother with that only after we have the log refactor.
     return unprocessedLog;
   }
 
