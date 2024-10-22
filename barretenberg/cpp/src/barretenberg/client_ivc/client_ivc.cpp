@@ -93,6 +93,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
         break;
     }
+    default: {
+        info("Invalid QUEUE_TYPE in ClientIvc!");
+    }
     }
 }
 
@@ -135,6 +138,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Perform recursive merge verification for every merge proof in the queue
     process_recursive_merge_verification_queue(circuit);
+
+    // For consistent behavior across different kernels, ensure that the number of public inputs associated with return
+    // data commitment propagation is always a consistent value.
+    bus_depot.populate_unused_return_data_propagation_public_inputs(circuit);
 }
 
 /**

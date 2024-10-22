@@ -76,6 +76,8 @@ template <class Builder> class DataBusDepot {
 
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
     static constexpr size_t NUM_FR_LIMBS_PER_COMMITMENT = NUM_FR_LIMBS_PER_FQ * 2;
+    // We assume all kernels have space for two return data commitments on their public inputs
+    static constexpr size_t DATABUS_PROPAGATION_DATA_SIZE = NUM_FR_LIMBS_PER_COMMITMENT * 2;
 
     /**
      * @brief Execute circuit logic to establish proper transfer of databus data between circuits
@@ -170,6 +172,34 @@ template <class Builder> class DataBusDepot {
             public_inputs.data() + return_data_commitment_limbs_start_idx, NUM_FR_LIMBS_PER_COMMITMENT
         };
         return reconstruct_commitment_from_fr_limbs(return_data_commitment_limbs);
+    }
+
+    /**
+     * @brief Add NUM_FR_LIMBS_PER_COMMITMENT many public inputs per unused return data commitment slot
+     * @details For consistent behavior across different kernels, all kernels are assumed to have
+     * (2 x NUM_FR_LIMBS_PER_COMMITMENT) public inputs associated with propagated databus return data commitments (one
+     * for an app return data commitment, one for a kernel). If either/both of these is unused by a particular kernel
+     * circuit, we compensate by adding NUM_FR_LIMBS_PER_COMMITMENT arbitrary public inputs for each unused "slot".
+     * These values will not be used in any checks.
+     *
+     * @param builder
+     */
+    void populate_unused_return_data_propagation_public_inputs(Builder& builder)
+    {
+        // info("POPULATE UNUSED:");
+        auto add_commitment_size_many_public_inputs = [](Builder& builder) {
+            for (size_t i = 0; i < NUM_FR_LIMBS_PER_COMMITMENT; ++i) {
+                builder.add_public_variable(0);
+            }
+        };
+        if (!builder.databus_propagation_data.contains_app_return_data_commitment) {
+            add_commitment_size_many_public_inputs(builder);
+            // info("POPULATE APP SLOT:");
+        }
+        if (!builder.databus_propagation_data.contains_kernel_return_data_commitment) {
+            add_commitment_size_many_public_inputs(builder);
+            // info("POPULATE KERNEL SLOT:");
+        }
     }
 
   private:
