@@ -555,9 +555,9 @@ namespace main(256);
     // Mem_addr_a points to the start of the input array of length 4
     // Mem_addr_b points to the start of the output array of length 4
     #[PERM_MAIN_POS2_PERM]
-    sel_op_poseidon2 {clk, mem_addr_a, mem_addr_b}
+    sel_op_poseidon2 {clk, space_id, mem_addr_a, mem_addr_b}
     is
-    poseidon2.sel_poseidon_perm {poseidon2.clk, poseidon2.input_addr, poseidon2.output_addr};
+    poseidon2.sel_poseidon_perm {poseidon2.clk, poseidon2.space_id, poseidon2.input_addr, poseidon2.output_addr};
 
     // This will be enabled when we migrate just to keccakf1600, as getting keccak to work with it is tricky.
     // #[PERM_MAIN_KECCAK]
