@@ -44,7 +44,7 @@ const readBytecodeFile = (path: string): string => {
 
 const readWitnessFile = (path: string): Uint8Array => {
   const buffer = fs.readFileSync(path);
-  return gunzipSync(buffer);
+  return buffer;
 };
 
 // Set up the command-line interface
