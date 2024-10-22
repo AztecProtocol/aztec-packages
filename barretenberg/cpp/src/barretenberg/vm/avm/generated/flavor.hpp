@@ -298,6 +298,7 @@ class AvmFlavor {
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         auto get_wires() { return WireEntities<DataType>::get_all(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
+        auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
 
     template <typename DataType>
@@ -311,6 +312,12 @@ class AvmFlavor {
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         }
+
+        auto get_unshifted_labels()
+        {
+            return concatenate(PrecomputedEntities<DataType>::get_labels(), WitnessEntities<DataType>::get_labels());
+        }
+
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
