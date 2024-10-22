@@ -81,7 +81,7 @@ export enum Opcode {
   ECADD,
   MSM,
   // Conversion
-  TORADIXLE,
+  TORADIXBE,
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.

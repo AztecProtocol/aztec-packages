@@ -104,7 +104,7 @@ enum class OpCode : uint8_t {
     ECADD,
     MSM,
     // Conversions
-    TORADIXLE,
+    TORADIXBE,
 
     // Sentinel
     LAST_OPCODE_SENTINEL,
