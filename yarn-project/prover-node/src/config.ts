@@ -5,6 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, getProverEnvVars, proverClientConfigMappings } from '@aztec/prover-client';
 import {
   type PublisherConfig,
@@ -22,7 +23,6 @@ import {
   getTxProviderConfigFromEnv,
   proverCoordinationConfigMappings,
 } from './prover-coordination/config.js';
-import { getP2PConfigFromEnv, P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &

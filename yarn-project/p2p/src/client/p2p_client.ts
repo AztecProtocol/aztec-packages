@@ -262,6 +262,7 @@ export class P2PClient extends WithTracer implements P2P {
 
   broadcastEpochProofQuote(quote: EpochProofQuote): void {
     this.#assertIsReady();
+    this.log.info('Broadcasting epoch proof quote', quote.toViemArgs());
     return this.p2pService.propagate(quote);
   }
 
@@ -434,7 +435,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns A single tx or undefined.
    */
   getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    let tx = this.txPool.getTxByHash(txHash);
+    const tx = this.txPool.getTxByHash(txHash);
     if (tx) {
       return Promise.resolve(tx);
     }

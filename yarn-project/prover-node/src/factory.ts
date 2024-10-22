@@ -1,9 +1,12 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
+import { TestCircuitVerifier } from '@aztec/bb-prover/test';
+import { BBCircuitVerifier } from '@aztec/bb-prover/verifier';
 import { type AztecNode } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
+import { type P2PClient, createP2PClient } from '@aztec/p2p';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { createSimulationProvider } from '@aztec/simulator';
@@ -22,9 +25,6 @@ import { ProverNode } from './prover-node.js';
 import { HttpQuoteProvider } from './quote-provider/http.js';
 import { SimpleQuoteProvider } from './quote-provider/simple.js';
 import { QuoteSigner } from './quote-signer.js';
-import { createP2PClient, P2PClient } from '@aztec/p2p';
-import { BBCircuitVerifier } from '@aztec/bb-prover/verifier';
-import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
@@ -103,7 +103,8 @@ export async function createProverNode(
 }
 
 // WORKTODO: will there need to be a quote provider that works via p2p?
-function createQuoteProvider(config: QuoteProviderConfig
+function createQuoteProvider(
+  config: QuoteProviderConfig,
   // ,p2pClient?: P2PClient
 ) {
   // if (p2pClient) {
