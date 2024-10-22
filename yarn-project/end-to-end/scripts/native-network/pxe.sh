@@ -18,8 +18,6 @@ echo "Waiting for Aztec Node..."
 until curl -s http://127.0.0.1:8080/status >/dev/null ; do
   sleep 1
 done
-echo "Done waiting."
-
 # We need to also wait for the validator, as the initial node cannot
 # Produce blocks on it's own
 echo "Waiting for Validator 0..."
