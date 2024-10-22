@@ -221,10 +221,7 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
   }
 }
 
-// WORKTODO: copied from end-to-end/src/e2e_p2p/p2p_network.ts
-// Deduplicate
 // Bootnodes
-
 export function createBootstrapNodeConfig(privateKey: string, port: number): BootnodeConfig {
   return {
     udpListenAddress: `0.0.0.0:${port}`,

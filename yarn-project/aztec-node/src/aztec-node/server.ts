@@ -397,7 +397,7 @@ export class AztecNodeService implements AztecNode {
    * @returns - The tx if it exists.
    */
   public getTxByHash(txHash: TxHash) {
-    return Promise.resolve(this.p2pClient!.getTxByHash(txHash));
+    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
   }
 
   /**
