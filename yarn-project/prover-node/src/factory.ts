@@ -88,14 +88,7 @@ export async function createProverNode(
   );
 }
 
-// WORKTODO: will there need to be a quote provider that works via p2p?
-function createQuoteProvider(
-  config: QuoteProviderConfig,
-  // ,p2pClient?: P2PClient
-) {
-  // if (p2pClient) {
-  //   return new P2PQuoteProvider(p2pClient);
-  // }
+function createQuoteProvider(config: QuoteProviderConfig) {
   return config.quoteProviderUrl
     ? new HttpQuoteProvider(config.quoteProviderUrl)
     : new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);
