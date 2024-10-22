@@ -158,7 +158,7 @@ class AvmTraceBuilder {
                          uint32_t output_offset,
                          uint32_t point_length_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect,
+    void op_to_radix_be(uint8_t indirect,
                         uint32_t src_offset,
                         uint32_t dst_offset,
                         uint32_t radix_offset,

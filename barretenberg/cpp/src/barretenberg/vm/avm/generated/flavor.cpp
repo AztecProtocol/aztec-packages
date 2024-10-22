@@ -127,7 +127,7 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , conversion_num_limbs(il[119])
     , conversion_output_bits(il[120])
     , conversion_radix(il[121])
-    , conversion_sel_to_radix_le(il[122])
+    , conversion_sel_to_radix_be(il[122])
     , keccakf1600_clk(il[123])
     , keccakf1600_input(il[124])
     , keccakf1600_output(il[125])
@@ -235,7 +235,7 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , main_sel_op_nullifier_exists(il[227])
     , main_sel_op_or(il[228])
     , main_sel_op_poseidon2(il[229])
-    , main_sel_op_radix_le(il[230])
+    , main_sel_op_radix_be(il[230])
     , main_sel_op_sender(il[231])
     , main_sel_op_set(il[232])
     , main_sel_op_sha256(il[233])
@@ -931,7 +931,7 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      conversion_num_limbs[row_idx],
                      conversion_output_bits[row_idx],
                      conversion_radix[row_idx],
-                     conversion_sel_to_radix_le[row_idx],
+                     conversion_sel_to_radix_be[row_idx],
                      keccakf1600_clk[row_idx],
                      keccakf1600_input[row_idx],
                      keccakf1600_output[row_idx],
@@ -1039,7 +1039,7 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      main_sel_op_nullifier_exists[row_idx],
                      main_sel_op_or[row_idx],
                      main_sel_op_poseidon2[row_idx],
-                     main_sel_op_radix_le[row_idx],
+                     main_sel_op_radix_be[row_idx],
                      main_sel_op_sender[row_idx],
                      main_sel_op_set[row_idx],
                      main_sel_op_sha256[row_idx],
@@ -1723,7 +1723,7 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::conversion_num_limbs = "CONVERSION_NUM_LIMBS";
     Base::conversion_output_bits = "CONVERSION_OUTPUT_BITS";
     Base::conversion_radix = "CONVERSION_RADIX";
-    Base::conversion_sel_to_radix_le = "CONVERSION_SEL_TO_RADIX_LE";
+    Base::conversion_sel_to_radix_be = "CONVERSION_SEL_TO_RADIX_BE";
     Base::keccakf1600_clk = "KECCAKF1600_CLK";
     Base::keccakf1600_input = "KECCAKF1600_INPUT";
     Base::keccakf1600_output = "KECCAKF1600_OUTPUT";
@@ -1831,7 +1831,7 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::main_sel_op_nullifier_exists = "MAIN_SEL_OP_NULLIFIER_EXISTS";
     Base::main_sel_op_or = "MAIN_SEL_OP_OR";
     Base::main_sel_op_poseidon2 = "MAIN_SEL_OP_POSEIDON2";
-    Base::main_sel_op_radix_le = "MAIN_SEL_OP_RADIX_LE";
+    Base::main_sel_op_radix_be = "MAIN_SEL_OP_RADIX_BE";
     Base::main_sel_op_sender = "MAIN_SEL_OP_SENDER";
     Base::main_sel_op_set = "MAIN_SEL_OP_SET";
     Base::main_sel_op_sha256 = "MAIN_SEL_OP_SHA256";

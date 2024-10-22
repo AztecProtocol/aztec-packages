@@ -85,7 +85,7 @@ namespace main(256);
     pol commit opcode_val;
 
     //===== Gadget Selectors ======================================================
-    pol commit sel_op_radix_le;
+    pol commit sel_op_radix_be;
     pol commit sel_op_sha256;
     pol commit sel_op_poseidon2;
     pol commit sel_op_keccak;
@@ -243,7 +243,7 @@ namespace main(256);
     sel_op_sload * (1 - sel_op_sload) = 0;
     sel_op_sstore * (1 - sel_op_sstore) = 0;
 
-    sel_op_radix_le * (1 - sel_op_radix_le) = 0;
+    sel_op_radix_be * (1 - sel_op_radix_be) = 0;
     sel_op_sha256 * (1 - sel_op_sha256) = 0;
     sel_op_poseidon2 * (1 - sel_op_poseidon2) = 0;
     sel_op_keccak * (1 - sel_op_keccak) = 0;
@@ -416,7 +416,7 @@ namespace main(256);
     pol SEL_ALL_ALU = SEL_ALU_R_TAG + SEL_ALU_W_TAG;
     pol SEL_ALL_LEFTGAS = sel_op_dagasleft + sel_op_l2gasleft;
     pol SEL_ALL_BINARY = sel_op_and + sel_op_or + sel_op_xor;
-    pol SEL_ALL_GADGET = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak
+    pol SEL_ALL_GADGET = sel_op_radix_be + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak
                        + sel_op_ecadd + sel_op_msm;
     pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol OPCODE_SELECTORS = sel_op_fdiv + sel_op_calldata_copy + sel_op_get_contract_instance
@@ -537,9 +537,9 @@ namespace main(256);
     binary.start {binary.clk, binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id, binary.in_tag};
 
     #[PERM_MAIN_CONV]
-    sel_op_radix_le {clk, ia, ib, ic, id}
+    sel_op_radix_be {clk, ia, ib, ic, id}
     is
-    conversion.sel_to_radix_le {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs, conversion.output_bits};
+    conversion.sel_to_radix_be {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs, conversion.output_bits};
 
     #[PERM_MAIN_SHA256]
     sel_op_sha256 {clk, ia, ib, ic}

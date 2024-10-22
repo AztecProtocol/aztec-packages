@@ -1042,7 +1042,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let radix_offset = radix.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::TORADIXLE,
+                opcode: AvmOpcode::TORADIXBE,
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)

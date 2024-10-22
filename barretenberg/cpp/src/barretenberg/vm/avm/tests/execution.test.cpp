@@ -734,8 +734,8 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
     validate_trace(std::move(trace), public_inputs);
 }
 
-// Positive test with TO_RADIX_LE.
-TEST_F(AvmExecutionTests, toRadixLeOpcode)
+// Positive test with TO_RADIX_BE.
+TEST_F(AvmExecutionTests, toRadixBeOpcodeBytes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
                                "00"                    // Indirect flag
@@ -767,7 +767,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
                                + to_hex(AvmMemoryTag::U32) +
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
                                "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXLE) + // opcode TO_RADIX_LE
+                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
                                "0015"                        // dst_offset 21 (indirect)
@@ -788,21 +788,23 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
     auto trace =
         gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, execution_hints);
 
-    // Find the first row enabling the TORADIXLE selector
+    // Find the first row enabling the TORADIXBE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    std::vector<FF> expected_output;
+    size_t num_limbs = 256;
+    std::vector<FF> expected_output(num_limbs);
     // Extract each bit.
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < num_limbs; i++) {
+        auto byte_index = num_limbs - i - 1;
         FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output.emplace_back(expected_limb);
+        expected_output[byte_index] = expected_limb;
     }
     EXPECT_EQ(returndata, expected_output);
 
     validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) }, returndata);
 }
 
-// Positive test with TO_RADIX_LE.
-TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
+// Positive test with TO_RADIX_BE.
+TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
                                "00"                    // Indirect flag
@@ -834,7 +836,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
                                + to_hex(AvmMemoryTag::U32) +
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
                                "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXLE) + // opcode TO_RADIX_LE
+                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
                                "0015"                        // dst_offset 21 (indirect)
@@ -855,13 +857,15 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
     auto trace =
         gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, execution_hints);
 
-    // Find the first row enabling the TORADIXLE selector
+    // Find the first row enabling the TORADIXBE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    std::vector<FF> expected_output;
+    size_t num_limbs = 256;
+    std::vector<FF> expected_output(num_limbs);
     // Extract each bit.
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < num_limbs; i++) {
+        auto byte_index = num_limbs - i - 1;
         FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output.emplace_back(expected_limb);
+        expected_output[byte_index] = expected_limb;
     }
     EXPECT_EQ(returndata, expected_output);
 

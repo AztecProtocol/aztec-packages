@@ -3203,17 +3203,17 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
  **************************************************************************************************/
 
 /**
- * @brief To_Radix_LE with direct or indirect memory access.
+ * @brief To_Radix_BE with direct or indirect memory access.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
+ * @param src_offset An index in memory pointing to the input of the To_Radix_BE conversion.
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb <
  * radix.
  * @param num_limbs The number of limbs to the value into.
  * @param output_bits Should the output be U1s instead of U8s?
  */
-void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
+void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
                                      uint32_t src_offset,
                                      uint32_t dst_offset,
                                      uint32_t radix_offset,
@@ -3249,12 +3249,12 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
     // Therefore, we do not create any entry in gadget table and we return a vector of 0.
     std::vector<uint8_t> res = error
                                    ? std::vector<uint8_t>(num_limbs, 0)
-                                   : conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, output_bits, clk);
+                                   : conversion_trace_builder.op_to_radix_be(input, radix, num_limbs, output_bits, clk);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXLE, num_limbs);
+    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
 
-    // This is the row that contains the selector to trigger the sel_op_radix_le
+    // This is the row that contains the selector to trigger the sel_op_radix_be
     // In this row, we read the input value and the destination address into register A and B respectively
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3276,7 +3276,7 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
         .main_sel_mem_op_a = FF(1),
         // TODO:(8603): uncomment
         //.main_sel_mem_op_b = FF(1),
-        .main_sel_op_radix_le = FF(1),
+        .main_sel_op_radix_be = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_src.is_indirect)),
         // TODO:(8603): uncomment
         //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_radix.is_indirect)),
@@ -3487,7 +3487,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (size_t i = 0; i < conv_trace_size; i++) {
         auto const& src = conv_trace.at(i);
         auto& dest = main_trace.at(i);
-        dest.conversion_sel_to_radix_le = FF(static_cast<uint8_t>(src.to_radix_le_sel));
+        dest.conversion_sel_to_radix_be = FF(static_cast<uint8_t>(src.to_radix_be_sel));
         dest.conversion_clk = FF(src.conversion_clk);
         dest.conversion_input = src.input;
         dest.conversion_radix = FF(src.radix);

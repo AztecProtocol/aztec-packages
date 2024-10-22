@@ -65,7 +65,7 @@ template <typename FF_> class mainImpl {
         const auto main_SEL_ALL_BINARY =
             ((new_term.main_sel_op_and + new_term.main_sel_op_or) + new_term.main_sel_op_xor);
         const auto main_SEL_ALL_GADGET =
-            (((((new_term.main_sel_op_radix_le + new_term.main_sel_op_sha256) + new_term.main_sel_op_poseidon2) +
+            (((((new_term.main_sel_op_radix_be + new_term.main_sel_op_sha256) + new_term.main_sel_op_poseidon2) +
                new_term.main_sel_op_keccak) +
               new_term.main_sel_op_ecadd) +
              new_term.main_sel_op_msm);
@@ -245,7 +245,7 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_radix_le * (FF(1) - new_term.main_sel_op_radix_le));
+            auto tmp = (new_term.main_sel_op_radix_be * (FF(1) - new_term.main_sel_op_radix_be));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }

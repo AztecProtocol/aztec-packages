@@ -170,7 +170,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.conversion_num_limbs.set_if_valid_index(i, rows[i].conversion_num_limbs);
                 polys.conversion_output_bits.set_if_valid_index(i, rows[i].conversion_output_bits);
                 polys.conversion_radix.set_if_valid_index(i, rows[i].conversion_radix);
-                polys.conversion_sel_to_radix_le.set_if_valid_index(i, rows[i].conversion_sel_to_radix_le);
+                polys.conversion_sel_to_radix_be.set_if_valid_index(i, rows[i].conversion_sel_to_radix_be);
                 polys.keccakf1600_clk.set_if_valid_index(i, rows[i].keccakf1600_clk);
                 polys.keccakf1600_input.set_if_valid_index(i, rows[i].keccakf1600_input);
                 polys.keccakf1600_output.set_if_valid_index(i, rows[i].keccakf1600_output);
@@ -285,7 +285,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_nullifier_exists.set_if_valid_index(i, rows[i].main_sel_op_nullifier_exists);
                 polys.main_sel_op_or.set_if_valid_index(i, rows[i].main_sel_op_or);
                 polys.main_sel_op_poseidon2.set_if_valid_index(i, rows[i].main_sel_op_poseidon2);
-                polys.main_sel_op_radix_le.set_if_valid_index(i, rows[i].main_sel_op_radix_le);
+                polys.main_sel_op_radix_be.set_if_valid_index(i, rows[i].main_sel_op_radix_be);
                 polys.main_sel_op_sender.set_if_valid_index(i, rows[i].main_sel_op_sender);
                 polys.main_sel_op_set.set_if_valid_index(i, rows[i].main_sel_op_set);
                 polys.main_sel_op_sha256.set_if_valid_index(i, rows[i].main_sel_op_sha256);

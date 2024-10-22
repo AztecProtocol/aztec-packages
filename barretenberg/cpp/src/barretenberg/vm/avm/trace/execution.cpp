@@ -726,8 +726,8 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             break;
 
             // Conversions
-        case OpCode::TORADIXLE:
-            trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
+        case OpCode::TORADIXBE:
+            trace_builder.op_to_radix_be(std::get<uint8_t>(inst.operands.at(0)),
                                          std::get<uint16_t>(inst.operands.at(1)),
                                          std::get<uint16_t>(inst.operands.at(2)),
                                          std::get<uint16_t>(inst.operands.at(3)),
