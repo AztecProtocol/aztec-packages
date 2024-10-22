@@ -1,42 +1,12 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::getters::get_ovsk_app, encrypted_logs::payload::compute_encrypted_log,
+    keys::getters::get_ovsk_app, encrypted_logs::payload::compute_note_log,
     utils::bytes::bytes_to_fields
 };
 use dep::protocol_types::{
     address::AztecAddress, public_keys::{PublicKeys, OvpkM, IvpkM}, hash::sha256_to_field,
     abis::note_hash::NoteHash
 };
-
-// Note: the following function is an ugly hack but it's very isolated so it seemed like the best way to do it for now.
-// Having `compute_encrypted_log` insert the flag would require a much larger refactor as that function is used
-// for events as well (it would also require a change in EncryptedLogPayload in TS which is just too much work
-// given that all that code is most likely going to die).
-// TODO(benesjan): Refactor this when working on the large PXE refactor.
-pub fn compute_note_log<let P: u32, let M: u32>(
-    contract_address: AztecAddress,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress,
-    plaintext: [u8; P],
-    public_values_appended: bool // Indicates whether there are values to be appended to the log in public (used in partial note flow).
-) -> [u8; M] {
-    let encrypted_log_without_public_values_flag: [u8; M - 1] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
-
-    // Note: the following is an ugly hack but it's very isolated so it seemed like the best way to do it for now.
-    // Having `compute_encrypted_log` insert the flag would require a much larger refactor as that function is used
-    // for events as well (it would also require a change in EncryptedLogPayload in TS which is just too much work
-    // given that all that code is most likely going to die).
-    // TODO(benesjan): Refactor this when working on the large PXE refactor.
-    let mut encrypted_log = [0 as u8; M];
-    encrypted_log[0] = public_values_appended as u8;
-    for i in 1..M {
-        encrypted_log[i] = encrypted_log_without_public_values_flag[i];
-    }
-
-    encrypted_log
-}
 
 fn compute_values_to_emit<Note, let N: u32>(
     context: PrivateContext,

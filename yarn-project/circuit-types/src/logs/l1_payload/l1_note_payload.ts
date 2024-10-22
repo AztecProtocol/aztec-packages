@@ -63,7 +63,7 @@ export class L1NotePayload {
     sk: Fq,
     // I am aware that having the getter here as quite a trash code but this will be refactored with the big PXE refactor and all
     // the alternatives are bad so I am learning to live with it.
-    numPublicValuesGetter: (contractAddress: AztecAddress) => Promise<number>,
+    numPublicValuesGetter: (contractAddress: AztecAddress, noteTypeId: NoteSelector) => Promise<number>,
   ): Promise<L1NotePayload | undefined> {
     const reader = BufferReader.asReader(log);
 
@@ -118,7 +118,7 @@ export class L1NotePayload {
     log: Buffer,
     sk: Fq, // I am aware that having the getter here as quite a trash code but this will be refactored with the big PXE refactor and all
     // the alternatives are bad so I am learning to live with it.
-    numPublicValuesGetter: (contractAddress: AztecAddress) => Promise<number>,
+    numPublicValuesGetter: (contractAddress: AztecAddress, noteTypeId: NoteSelector) => Promise<number>,
   ): Promise<L1NotePayload | undefined> {
     const reader = BufferReader.asReader(log);
 

@@ -1,6 +1,6 @@
 import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { type CompleteAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, type CompleteAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -13,6 +13,8 @@ import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { produceNoteDaos } from './utils/produce_note_daos.js';
+import { NoteSelector } from '@aztec/foundation/abi';
+import { getSortedNullableFields } from './utils/get_sorted_nullable_fields.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -150,8 +152,8 @@ export class NoteProcessor {
             for (const unprocessedLog of functionLogs.logs) {
               const log = removePaddingBytes(unprocessedLog.data);
               this.stats.seen++;
-              const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, ivskM);
-              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
+              const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, ivskM, this.#numPublicValuesGetter);
+              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM, this.#numPublicValuesGetter);
 
               if (incomingNotePayload) {
                 console.log("decrypted incoming", incomingNotePayload);
@@ -323,7 +325,7 @@ export class NoteProcessor {
         dataStartIndexForTx,
         unencryptedLogs,
       } = deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId, []);
 
       const isIncoming = publicKey.equals(this.ivpkM);
       const isOutgoing = publicKey.equals(this.ovpkM);
@@ -364,6 +366,11 @@ export class NoteProcessor {
     }
 
     return { incomingNotes, outgoingNotes };
+  }
+
+  async #numPublicValuesGetter(contractAddress: AztecAddress, noteTypeId: NoteSelector): Promise<number> {
+    const noteFields = await getSortedNullableFields(this.db, contractAddress, noteTypeId);
+    return noteFields.length;
   }
 }
 

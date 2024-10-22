@@ -62,6 +62,60 @@ pub fn compute_encrypted_log<let P: u32, let M: u32>(
     encrypted_bytes
 }
 
+pub fn compute_note_log<let P: u32, let M: u32>(
+    contract_address: AztecAddress,
+    ovsk_app: Field,
+    ovpk: OvpkM,
+    ivpk: IvpkM,
+    recipient: AztecAddress,
+    plaintext: [u8; P],
+    public_values_appended: bool // Indicates whether there are values to be appended to the log in public (used in partial note flow).
+) -> [u8; M] {
+    let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
+
+    let header = EncryptedLogHeader::new(contract_address);
+
+    let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
+    let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
+    let incoming_body_ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, ivpk);
+    let outgoing_body_ciphertext: [u8; 144] = compute_outgoing_body_ciphertext(recipient, ivpk, fr_to_fq(ovsk_app), eph_sk, eph_pk);
+
+    let mut encrypted_bytes: [u8; M] = [0; M];
+    // @todo We ignore the tags for now
+
+    encrypted_bytes[65] = public_values_appended as u8;
+
+    let eph_pk_bytes = point_to_bytes(eph_pk);
+    for i in 0..32 {
+        encrypted_bytes[65 + i] = eph_pk_bytes[i];
+    }
+    for i in 0..48 {
+        encrypted_bytes[97 + i] = incoming_header_ciphertext[i];
+        encrypted_bytes[145 + i] = outgoing_header_ciphertext[i];
+    }
+    for i in 0..144 {
+        encrypted_bytes[193 + i] = outgoing_body_ciphertext[i];
+    }
+    // Then we fill in the rest as the incoming body ciphertext
+    let size = M - 337;
+    assert_eq(size, incoming_body_ciphertext.len(), "ciphertext length mismatch");
+    for i in 0..size {
+        encrypted_bytes[337 + i] = incoming_body_ciphertext[i];
+    }
+
+    // Current unoptimized size of the encrypted log
+    // incoming_tag (32 bytes)
+    // outgoing_tag (32 bytes)
+    // public_values_appended (1 byte) TODO: can be reduced to 1 bit
+    // eph_pk (32 bytes)
+    // incoming_header (48 bytes)
+    // outgoing_header (48 bytes)
+    // outgoing_body (144 bytes)
+    // incoming_body_fixed (64 bytes)
+    // incoming_body_variable (P + 16 bytes padding)
+    encrypted_bytes
+}
+
 /// Converts a base field element to scalar field element.
 /// This is fine because modulus of the base field is smaller than the modulus of the scalar field.
 fn fr_to_fq(r: Field) -> Scalar {

@@ -1,8 +1,8 @@
 import { L1NotePayload, Note } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/foundation/fields';
-import { ContractNotFoundError } from '@aztec/simulator';
 
 import { type PxeDatabase } from '../../database/pxe_database.js';
+import { getSortedNullableFields } from './get_sorted_nullable_fields.js';
 
 /**
  * Inserts publicly delivered nullable fields into the note payload.
@@ -16,28 +16,7 @@ export async function addNullableFieldsToPayload(
   payload: L1NotePayload,
   nullableFields: Fr[],
 ): Promise<L1NotePayload> {
-  const instance = await db.getContractInstance(payload.contractAddress);
-  if (!instance) {
-    throw new ContractNotFoundError(
-      `Could not find instance for ${payload.contractAddress.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
-    );
-  }
-
-  const artifact = await db.getContractArtifact(instance.contractClassId);
-  if (!artifact) {
-    throw new Error(
-      `Could not find artifact for contract class ${instance.contractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
-    );
-  }
-
-  const noteFields = Object.values(artifact.notes).find(note => note.id.equals(payload.noteTypeId))?.fields;
-
-  if (!noteFields) {
-    throw new Error(`Could not find note fields for note type ${payload.noteTypeId.toString()}.`);
-  }
-
-  // We sort note fields by index so that we can iterate over them in order.
-  noteFields.sort((a, b) => a.index - b.index);
+  const noteFields = await getSortedNullableFields(db, payload.contractAddress, payload.noteTypeId);
 
   // Now we insert the nullable fields into the note based on its indices defined in the ABI.
   const modifiedNoteItems = [...payload.note.items];
@@ -63,5 +42,6 @@ export async function addNullableFieldsToPayload(
     payload.contractAddress,
     payload.storageSlot,
     payload.noteTypeId,
+    []
   );
 }
