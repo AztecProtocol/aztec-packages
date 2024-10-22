@@ -64,6 +64,8 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@aztec/p2p": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",

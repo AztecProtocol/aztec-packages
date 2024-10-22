@@ -22,9 +22,11 @@ import {
   getTxProviderConfigFromEnv,
   proverCoordinationConfigMappings,
 } from './prover-coordination/config.js';
+import { P2PConfig } from '@aztec/p2p';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
+  P2PConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &

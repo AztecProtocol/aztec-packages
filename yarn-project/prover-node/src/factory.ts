@@ -22,6 +22,9 @@ import { ProverNode } from './prover-node.js';
 import { HttpQuoteProvider } from './quote-provider/http.js';
 import { SimpleQuoteProvider } from './quote-provider/simple.js';
 import { QuoteSigner } from './quote-signer.js';
+import { createP2PClient, P2PClient } from '@aztec/p2p';
+import { BBCircuitVerifier } from '@aztec/bb-prover/verifier';
+import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
@@ -49,7 +52,16 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = new L1Publisher(config, telemetry);
 
-  const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config);
+  // WORKTODO: if prover node p2p is configured, then we can createProverCoordination via p2p in the createProverCoordination function
+  // WORKTODO: it is not clear how the proof verifier will go in here - but it is required to validate the p2p requests.
+  // WORKTODO: describe how this is set up - and create tests
+  let p2pClient: P2PClient | undefined = undefined;
+  if (config.p2pEnabled) {
+    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
+  }
+
+  const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config, p2pClient);
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
