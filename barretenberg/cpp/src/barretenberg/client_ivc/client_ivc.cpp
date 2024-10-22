@@ -54,6 +54,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     const std::shared_ptr<RecursiveVerificationKey>& vkey,
     const QUEUE_TYPE type)
 {
+    // std::shared_ptr<RecursiveDecidersVerificationKey> vk;
+
     switch (type) {
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
@@ -66,10 +68,20 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
+        // vk = verifier.keys_to_fold[1];
+
+        bus_depot.set_return_data_to_propagate(
+            verifier.keys_to_fold[1]->witness_commitments.return_data,
+            verifier.keys_to_fold[1]->verification_key->databus_propagation_data.is_kernel);
+
         // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier.keys_to_fold[1]->witness_commitments,
-                          verifier.keys_to_fold[1]->public_inputs,
-                          verifier.keys_to_fold[1]->verification_key->databus_propagation_data);
+        if (verifier.keys_to_fold[1]->verification_key->databus_propagation_data.is_kernel) {
+            bus_depot.perform_consistency_checks(verifier.keys_to_fold[1]->witness_commitments.calldata,
+                                                 verifier.keys_to_fold[1]->witness_commitments.secondary_calldata,
+                                                 verifier.keys_to_fold[1]->public_inputs,
+                                                 verifier.keys_to_fold[1]->verification_key->databus_propagation_data);
+        }
+
         break;
     }
     case QUEUE_TYPE::OINK: {
@@ -86,10 +98,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Initialize the gate challenges to zero for use in first round of folding
         verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier_accum->witness_commitments,
-                          verifier_accum->public_inputs,
-                          verifier_accum->verification_key->databus_propagation_data);
+        // Propagate return data commitments via public inputs
+        bus_depot.set_return_data_to_propagate(verifier_accum->witness_commitments.return_data,
+                                               verifier_accum->verification_key->databus_propagation_data.is_kernel);
 
         break;
     }
@@ -136,12 +147,11 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
     stdlib_verification_queue.clear();
 
+    // Propagate return data commitments for databus consistency checks
+    bus_depot.propagate_return_data_commitments(circuit);
+
     // Perform recursive merge verification for every merge proof in the queue
     process_recursive_merge_verification_queue(circuit);
-
-    // For consistent behavior across different kernels, ensure that the number of public inputs associated with return
-    // data commitment propagation is always a consistent value.
-    bus_depot.populate_unused_return_data_propagation_public_inputs(circuit);
 }
 
 /**

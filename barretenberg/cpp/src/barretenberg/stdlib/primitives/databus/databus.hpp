@@ -68,6 +68,8 @@ template <class Builder> class DataBusDepot {
     using Commitment = typename Curve::Group;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
+    using CommitmentNative = typename Curve::AffineElementNative;
+    using FrNative = typename Curve::ScalarFieldNative;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
     using RecursiveDeciderVerificationKeys =
@@ -78,6 +80,22 @@ template <class Builder> class DataBusDepot {
     static constexpr size_t NUM_FR_LIMBS_PER_COMMITMENT = NUM_FR_LIMBS_PER_FQ * 2;
     // We assume all kernels have space for two return data commitments on their public inputs
     static constexpr size_t DATABUS_PROPAGATION_DATA_SIZE = NUM_FR_LIMBS_PER_COMMITMENT * 2;
+
+    Commitment app_return_data_commitment;
+    Commitment kernel_return_data_commitment;
+    bool app_return_data_commitment_exists = false;
+    bool kernel_return_data_commitment_exists = false;
+
+    void set_return_data_to_propagate(const Commitment& commitment, bool is_kernel)
+    {
+        if (is_kernel) {
+            kernel_return_data_commitment = commitment;
+            kernel_return_data_commitment_exists = true;
+        } else {
+            app_return_data_commitment = commitment;
+            app_return_data_commitment_exists = true;
+        }
+    }
 
     /**
      * @brief Execute circuit logic to establish proper transfer of databus data between circuits
@@ -127,6 +145,46 @@ template <class Builder> class DataBusDepot {
         // Propagate the return data commitment via the public inputs mechanism
         propagate_commitment_via_public_inputs(commitments.return_data, is_kernel_data);
     };
+
+    // WORKTODO: make static?
+    void perform_consistency_checks(const Commitment& calldata,
+                                    const Commitment& secondary_calldata,
+                                    const std::vector<Fr>& public_inputs,
+                                    const DatabusPropagationData& propagation_data)
+    {
+        ASSERT(propagation_data.is_kernel); // Only kernels should contain databus commitments in their public inputs
+
+        // Reconstruct the kernel and app return data commitments stored in the public inputs of the kernel proof
+        size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
+        Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+        start_idx = propagation_data.app_return_data_public_input_idx;
+        Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+
+        // Assert equality between the corresponding calldata and return data commitments
+        assert_equality_of_commitments(kernel_return_data, calldata);
+        assert_equality_of_commitments(app_return_data, secondary_calldata);
+    };
+
+    void propagate_return_data_commitments(Builder& builder)
+    {
+        CommitmentNative default_commitment_val = CommitmentNative::one() * FrNative(25);
+        if (kernel_return_data_commitment_exists) {
+            propagate_commitment_via_public_inputs(kernel_return_data_commitment, /*is_kernel=*/true);
+        } else {
+            Commitment default_commitment = Commitment::from_witness(&builder, default_commitment_val);
+            propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/true);
+        }
+
+        if (app_return_data_commitment_exists) {
+            propagate_commitment_via_public_inputs(app_return_data_commitment, /*is_kernel=*/false);
+        } else {
+            Commitment default_commitment = Commitment::from_witness(&builder, default_commitment_val);
+            propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/false);
+        }
+        // Reset flags
+        kernel_return_data_commitment_exists = false;
+        app_return_data_commitment_exists = false;
+    }
 
     /**
      * @brief Set the witness indices for a commitment to public
