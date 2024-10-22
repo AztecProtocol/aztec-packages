@@ -113,7 +113,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
 
-    auto opening_claim =
+    const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
                                                commitments.get_to_be_shifted(),
@@ -124,7 +124,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                transcript,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 

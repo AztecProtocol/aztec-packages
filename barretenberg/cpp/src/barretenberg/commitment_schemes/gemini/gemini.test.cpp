@@ -280,7 +280,7 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
     std::vector<Commitment> multilinear_commitments_to_be_shifted = { commitment2 };
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-        generate_concatenation_inputs<TypeParam>(u, 3, 2, this->ck());
+        generate_concatenation_inputs<TypeParam>(u, /*mun_concatenated=*/3, /*concatenation_index=*/2, this->ck());
 
     this->execute_gemini_and_verify_claims_with_concatenation(
         u,

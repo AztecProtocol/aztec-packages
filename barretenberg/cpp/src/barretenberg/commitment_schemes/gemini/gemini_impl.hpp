@@ -177,8 +177,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // size of the previous polynomial/2
         const size_t n_l = 1 << (num_variables - l - 1);
 
-        // Use as many threads as it is useful so that 1 thread doesn't process 1 element, but make sure that there
-        // is at least 1
+        // Use as many threads as it is useful so that 1 thread doesn't process 1 element, but make sure that there is
+        // at least 1
         size_t num_used_threads = std::min(n_l / efficient_operations_per_thread, num_threads);
         num_used_threads = num_used_threads ? num_used_threads : 1;
         size_t chunk_size = n_l / num_used_threads;
@@ -230,8 +230,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     std::vector<Polynomial>&& batched_groups_to_be_concatenated)
 {
 
-    Fr r_inv = r_challenge.invert();
-
     Polynomial& batched_F = fold_polynomials[0]; // F(X) = ∑ⱼ ρʲ   fⱼ(X)
 
     Polynomial& batched_G = fold_polynomials[1]; // G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
@@ -240,11 +238,12 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r_challenge, num_variables);
 
     // Compute G/r
+    Fr r_inv = r_challenge.invert();
     batched_G *= r_inv;
 
     // Construct A₀₊ = F + G/r and A₀₋ = F - G/r in place in fold_polynomials
     Polynomial tmp = batched_F;
-    Polynomial& A_0_pos = fold_polynomials[0]; // already modified to only be the unshifted stuff
+    Polynomial& A_0_pos = fold_polynomials[0];
 
     // A₀₊(X) = F(X) + G(X)/r, s.t. A₀₊(r) = A₀(r)
     A_0_pos += batched_G;
@@ -256,13 +255,14 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     // A₀₋(X) = F(X) - G(X)/r, s.t. A₀₋(-r) = A₀(-r)
     A_0_neg -= tmp;
 
-    // Reconstruct the concatenated polynomials from its corresponding groups, partially evaluated at r and -r and add
-    // the result to A₀₊(X) an  A₀₋(X). Assume P is the concatenated polynomial formed from group G = {p₀, p₁, p₂, p₃}
-    // then P(x) = p₀(x)+ xˢ p₁(x) + x²ˢ p₂(x) + x³ˢp₃(x) where s is the mini_circuit_size i.e. the number of non-zero
-    // values in polynomials part of the concatenation groups Then P_r(x) will be the partial evaluation of P(x) = p₀(x)
-    // + rˢ p₁(x) + r²ˢ p₂(x) + r³ˢp₃(x)  is the partial evaluation of P(x) at a value r. We follow this technique
-    // rather than simply adding the contribution of the batched concatenated polynomial because, on the verifier side,
-    // this enables us reconstruct [P_r] from [p₀], [p₁], [p₂], [p₃] hence removing the need for the prover to commit to
+    // Reconstruct the batched concatenated polynomial from the batched groups, partially evaluated at r and -r and add
+    // the result to A₀₊(X) and  A₀₋(X). Explanation (for simplification assume a single concatenated polynomial):
+    // Let P be the concatenated polynomial formed from group G = {p₀, p₁, p₂, p₃} then
+    // P(x) = p₀(x)+ xˢ p₁(x) + x²ˢ p₂(x) + x³ˢp₃(x) where s is the mini_circuit_size i.e. the number of non-zero values
+    // in the polynomials part of G. Then P_r(x) = p₀(x) + rˢ p₁(x) + r²ˢ p₂(x) + r³ˢp₃(x) is the
+    // partial evaluation of P(x) at a value r. We follow this technique rather than simply adding the contribution of P
+    // to A₀₊(X) an  A₀₋(X) because, on the verifier side, when constructing the commitments [A₀₊] an  [A₀₋], this
+    // enables us to reconstruct [P_r] from [p₀], [p₁], [p₂], [p₃], hence removing the need for the prover to commit to
     // P
     if (!batched_groups_to_be_concatenated.empty()) {
         // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)

@@ -5,8 +5,7 @@
 
 namespace bb {
 /**
- * @brief Generate the tuple of concatenation inputs used to test the opening protocol special functionality that avoids
- * high degrees in the Goblin Translator.
+ * @brief Generate the tuple of concatenation inputs used for testing the opening protocol when used for Translator VM.
  */
 template <typename Curve>
 static std::tuple<std::vector<std::vector<bb::Polynomial<typename Curve::ScalarField>>>,
@@ -14,9 +13,9 @@ static std::tuple<std::vector<std::vector<bb::Polynomial<typename Curve::ScalarF
                   std::vector<typename Curve::ScalarField>,
                   std::vector<std::vector<typename Curve::AffineElement>>>
 generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challenge,
-                              size_t NUM_CONCATENATED,
-                              size_t concatenation_index,
-                              std::shared_ptr<CommitmentKey<Curve>> ck)
+                              const size_t num_concatenated,
+                              const size_t concatenation_index,
+                              const std::shared_ptr<CommitmentKey<Curve>> ck)
 {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -35,7 +34,7 @@ generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challe
     std::vector<Fr> c_evaluations;
 
     // For each polynomial to be concatenated
-    for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
+    for (size_t i = 0; i < num_concatenated; ++i) {
         std::vector<Polynomial> concatenation_group;
         Polynomial concatenated_polynomial(N);
         // For each chunk
@@ -64,7 +63,7 @@ generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challe
 
     // Compute commitments of all polynomial chunks
     std::vector<std::vector<Commitment>> concatenation_groups_commitments;
-    for (size_t i = 0; i < NUM_CONCATENATED; ++i) {
+    for (size_t i = 0; i < num_concatenated; ++i) {
         std::vector<Commitment> concatenation_group_commitment;
         for (size_t j = 0; j < concatenation_index; j++) {
             concatenation_group_commitment.emplace_back(ck->commit(concatenation_groups[i][j]));

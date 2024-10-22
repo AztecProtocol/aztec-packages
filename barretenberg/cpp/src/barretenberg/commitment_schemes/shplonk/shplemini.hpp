@@ -116,19 +116,16 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
-        [[maybe_unused]] const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-        [[maybe_unused]] RefSpan<Fr> concatenated_evaluations = {})
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        RefSpan<Fr> concatenated_evaluations = {})
 
     {
 
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
-        size_t circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
-            circuit_size = static_cast<uint32_t>(N.get_value());
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
-            circuit_size = static_cast<uint32_t>(N);
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
@@ -144,8 +141,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
         const std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(log_circuit_size, transcript);
-        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size, I think this should be
-        // CONST_PROOF_SIZE
+        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         const std::vector<Fr> gemini_eval_challenge_powers =
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);
 
@@ -195,7 +191,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         if (!concatenation_group_commitments.empty()) {
             const size_t concatenation_group_size = concatenation_group_commitments[0].size();
             // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
-            const size_t mini_circuit_size = circuit_size / concatenation_group_size;
+            const size_t mini_circuit_size = (1 << log_circuit_size) / concatenation_group_size;
             Fr r_shift_pos = Fr(1);
             Fr r_shift_neg = Fr(1);
             const Fr r_pow_minicircuit = gemini_evaluation_challenge.pow(mini_circuit_size);

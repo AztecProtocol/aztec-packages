@@ -172,6 +172,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         auto commitment = this->ck()->commit(fold_polynomials[l + 2]);
         prover_commitments.emplace_back(commitment);
     }
+
     const auto opening_claims =
         GeminiProver::compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), gemini_eval_challenge);
 
