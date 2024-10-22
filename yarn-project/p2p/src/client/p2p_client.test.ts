@@ -194,7 +194,7 @@ describe('In-Memory P2P Client', () => {
     ];
 
     for (const quote of proofQuotes) {
-      client.broadcastEpochProofQuote(quote);
+      client.addEpochProofQuote(quote);
     }
     expect(epochProofQuotePool.addQuote).toBeCalledTimes(proofQuotes.length);
 
