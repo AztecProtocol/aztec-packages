@@ -482,6 +482,8 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         ASSERT(false);
     }
 
+    // WORKTODO: construct stdlib keys here only is !witness.empty()
+
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
     std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
     stdlib_verification_keys.reserve(constraint_system.ivc_recursion_constraints.size());
