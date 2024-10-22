@@ -213,6 +213,9 @@ export class L1Publisher {
    * @return blockNumber - The L2 block number of the next L2 block
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
+    // FIXME: This should not throw if unable to propose but return a falsey value, so
+    // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
+    // which may require a retry, vs actually not being the turn for proposing.
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
