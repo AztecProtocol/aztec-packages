@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729618029464,
+  "lastUpdate": 1729621672722,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "isennovskiy@gmail.com",
-            "name": "Innokentii Sennovskii",
-            "username": "Rumata888"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77c05f5469bad85e1394c05e1878791bac084559",
-          "message": "feat: Origin Tags Part 2 (#8936)\n\nThis PR extends the Origin Tags ( a taint mechanism for stdlib\r\nprimitives) to:\r\n1) bigfield\r\n2) byte_array\r\n3) safe_uint\r\n\r\nAnd extends tests with checks that the tags are preserved or merged\r\ncorrectly",
-          "timestamp": "2024-10-07T12:23:50Z",
-          "tree_id": "4485a23b7695ab303133bf69e61a89d36399727f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/77c05f5469bad85e1394c05e1878791bac084559"
-        },
-        "date": 1728304889141,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31389.185714000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29118.732181 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5499.343877000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5211.185672 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93480.270636,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93480273000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15623.004671000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15623004000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8202521167,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8202521167 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152825139,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152825139 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6694137785,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6694137785 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 124890961,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 124890961 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3392,6 +3320,66 @@ window.BENCHMARK_DATA = {
             "value": 126629136,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126629136 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d4dea162322eab233ed733aa318040e681cf5c70",
+          "message": "feat: Handle reorgs on sequencer (#9201)\n\nTweaks the archiver so it can detect when a prune _will_ happen and can\r\nstart unwinding blocks then. This is then leveraged by the sequencer, so\r\nit builds the next block accounting for a reorg to happen. This also\r\nrequired tweaks on the L1 rollup contract so validations and checks\r\naccount for pruning.\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
+          "timestamp": "2024-10-21T21:03:34+01:00",
+          "tree_id": "af7f04d456631f296d89be53da8559fec4bb3cd3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d4dea162322eab233ed733aa318040e681cf5c70"
+        },
+        "date": 1729621665166,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29427.816224,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27878.38883 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5323.348326000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4986.687327000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87900.35084099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87900353000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15168.970961,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15168971000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2714667506,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2714667506 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128287349,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128287349 ns\nthreads: 1"
           }
         ]
       }
