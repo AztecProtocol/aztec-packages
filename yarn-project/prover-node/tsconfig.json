@@ -10,6 +10,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -28,6 +31,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../p2p"
+    },
+    {
       "path": "../prover-client"
     },
     {
@@ -41,12 +47,6 @@
     },
     {
       "path": "../types"
-    },
-    {
-      "path": "../p2p"
-    },
-    {
-      "path": "../bb-prover"
     },
     {
       "path": "../world-state"

@@ -28,7 +28,10 @@ import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
-
+import { MemoryEpochProofQuotePool, InMemoryAttestationPool, InMemoryTxPool, P2PClient, BootstrapNode } from '@aztec/p2p';
+import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { AztecKVStore } from '@aztec/kv-store';
 describe('prover-node', () => {
   // Prover node dependencies
   let prover: MockProxy<EpochProverManager>;
@@ -37,13 +40,14 @@ describe('prover-node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let coordination: MockProxy<ProverCoordination>;
+  let coordination: MockProxy<ProverCoordination> | ProverCoordination;
   let simulator: MockProxy<SimulationProvider>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
   let bondManager: MockProxy<BondManager>;
   let telemetryClient: NoopTelemetryClient;
   let config: ProverNodeOptions;
+  let p2pClient: P2PClient | undefined = undefined;
 
   // Subject under test
   let proverNode: TestProverNode;
@@ -93,6 +97,7 @@ describe('prover-node', () => {
       claimsMonitor,
       epochMonitor,
       bondManager,
+      p2pClient,
       telemetryClient,
       config,
     );
@@ -276,6 +281,88 @@ describe('prover-node', () => {
       expect(jobs[0].epochNumber).toEqual(10n);
     });
   });
+
+  // Things to test
+  // - Another aztec node receives the proof quote via p2p
+  // - The prover node can get the trasnactions it is missing via p2p, or it has them in it's mempool
+  describe("Using a p2p coordination", () => {
+    let bootnode: BootstrapNode;
+    let p2pClient: P2PClient;
+    let otherP2PClient: P2PClient;
+    let kvStore: AztecKVStore;
+
+    beforeEach(async () => {
+      bootnode = await createBootstrapNode(40400);
+      await sleep(1000);
+
+      const bootnodeAddr = bootnode.getENR().encodeTxt();
+      const mempools = {
+        txPool: new InMemoryTxPool(telemetryClient),
+        attestationPool: new InMemoryAttestationPool(telemetryClient),
+        epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
+      }
+      const libp2pService = await createTestLibP2PService(
+        [bootnodeAddr],
+        l2BlockSource,
+        worldState,
+        mempools,
+        telemetryClient
+      );
+
+
+      kvStore = openTmpStore();
+      p2pClient = new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0, telemetryClient);
+      coordination = p2pClient;
+
+      await p2pClient.start();
+
+      const mempool2 = {...mempools};
+      const libp2pService2 = await createTestLibP2PService(
+        [bootnodeAddr],
+        l2BlockSource,
+        worldState,
+        mempool2,
+        telemetryClient
+      );
+
+      otherP2PClient = new P2PClient(kvStore, l2BlockSource, mempool2, libp2pService2, 1, telemetryClient);
+      await otherP2PClient.start();
+
+      await sleep(2000);
+    })
+
+    describe('with mocked monitors', () => {
+      let claimsMonitor: MockProxy<ClaimsMonitor>;
+      let epochMonitor: MockProxy<EpochMonitor>;
+
+      beforeEach(() => {
+        claimsMonitor = mock<ClaimsMonitor>();
+        epochMonitor = mock<EpochMonitor>();
+
+        proverNode = createProverNode(claimsMonitor, epochMonitor);
+      });
+
+      // WORKTODO: maybe make an integration test instead of
+      // WORKTODO: being in this little unit test file
+      // WORKTODO: Also use other ports??? so if tests are running in parallel?
+      it("Should send a proof quote via p2p to another node", async () => {
+        const firstQuotes = await otherP2PClient.getEpochProofQuotes(10n);
+        expect(firstQuotes.length).toEqual(0);
+
+        await proverNode.handleEpochCompleted(10n);
+
+        const quotes = await otherP2PClient.getEpochProofQuotes(10n);
+
+        expect(quotes[0]).toEqual(toExpectedQuote(10n));
+      });
+
+
+      it("Should request missing transactions from the other node via reqresp", async () => {
+        // const txs = await p2pClient.getTxsForEpoch(10n);
+        // expect(txs.length).toEqual(0);
+      })
+    })
+  })
 
   class TestProverNode extends ProverNode {
     protected override doCreateEpochProvingJob(
