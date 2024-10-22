@@ -31,6 +31,7 @@ use crate::{
 }
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
+    public_keys::PublicKeys,
     constants::{
     FUNCTION_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
     MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -47,10 +48,19 @@ use crate::{
     compute_l2_to_l1_hash, compute_tx_logs_hash, compute_siloed_nullifier, silo_note_hash,
     silo_unencrypted_log_hash, mask_encrypted_log_hash
 },
-    header::Header, merkle_tree::membership::MembershipWitness,
+    header::Header, merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
-    tests::{fixtures, fixtures::{contracts::ContractData, contract_functions::ContractFunction}},
+    tests::{
+    fixtures,
+    fixtures::{
+    contracts::ContractData, contract_functions::ContractFunction,
+    vk_tree::{
+    generate_fake_honk_vk_for_index, generate_fake_client_ivc_vk_for_index, get_vk_merkle_tree,
+    VK_TREE_WIDTH
+}
+}
+},
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
     recursion::{
     verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
@@ -139,7 +149,7 @@ pub struct FixtureBuilder {
 
     // Private call.
     salted_initialization_hash: SaltedInitializationHash,
-    public_keys_hash: PublicKeysHash,
+    public_keys: PublicKeys,
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
@@ -201,11 +211,12 @@ impl FixtureBuilder {
 
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
         self.vk_index = vk_index;
-        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
+            fixtures::vk_tree::get_vk_merkle_tree()
+        };
 
-        let vk_hash = vk_tree.leaves[vk_index];
-        self.honk_vk.hash = vk_hash;
-        self.client_ivc_vk.hash = vk_hash;
+        self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index) ;
+        self.client_ivc_vk = fixtures::vk_tree::generate_fake_client_ivc_vk_for_index(vk_index);
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
 
@@ -240,7 +251,7 @@ impl FixtureBuilder {
         self.contract_address = contract_data.address;
         self.storage_contract_address = self.contract_address;
         self.salted_initialization_hash = contract_data.salted_initialization_hash;
-        self.public_keys_hash = contract_data.public_keys_hash;
+        self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
         self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
 
@@ -361,7 +372,7 @@ impl FixtureBuilder {
             vk: self.client_ivc_vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
-            public_keys_hash: self.public_keys_hash,
+            public_keys: self.public_keys,
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
             protocol_contract_sibling_path: self.protocol_contract_sibling_path,
@@ -1263,7 +1274,7 @@ impl Empty for FixtureBuilder {
             returns_hash: 0,
             function_leaf_membership_witness: MembershipWitness::empty(),
             salted_initialization_hash: SaltedInitializationHash::from_field(0),
-            public_keys_hash: PublicKeysHash::from_field(0),
+            public_keys: PublicKeys::empty(),
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
             acir_hash: 0,
