@@ -25,9 +25,8 @@ impl PublicKernelData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         self.vk.check_hash();
 
-        let index_hint = unsafe {
-            find_index_hint(allowed_indices, |index: u32| index == self.vk_index)
-        };
+        let index_hint =
+            unsafe { find_index_hint(allowed_indices, |index: u32| index == self.vk_index) };
         assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], self.vk_index, "Invalid vk index");
 

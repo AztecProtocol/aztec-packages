@@ -1,36 +1,33 @@
 use crate::{
     abis::{
-    gas::Gas, gas_settings::GasSettings, call_context::CallContext,
-    accumulated_data::{
-    CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-    PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder
-},
-    function_data::FunctionData, global_variables::GlobalVariables,
-    combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
-    kernel_circuit_public_inputs::{
-    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    VMCircuitPublicInputs
-},
-    kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
-    private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
-    nullifier::{Nullifier, ScopedNullifier}, private_call_request::PrivateCallRequest,
-    private_call_stack_item::PrivateCallStackItem,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData,
-    public_call_data::{Proof as PublicCallDataProof, PublicCallData},
-    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
-    public_data_update_request::PublicDataUpdateRequest,
-    public_inner_call_request::PublicInnerCallRequest, read_request::{ReadRequest, ScopedReadRequest},
-    tree_leaf_read_request::TreeLeafReadRequest,
-    log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
-    validation_requests::{
-    KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-    PublicValidationRequests, PublicValidationRequestArrayLengths, RollupValidationRequests,
-    ScopedKeyValidationRequestAndGenerator
-}
-},
-    address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
+        gas::Gas, gas_settings::GasSettings, call_context::CallContext,
+        accumulated_data::{
+            CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
+            PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder,
+        }, function_data::FunctionData, global_variables::GlobalVariables,
+        combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
+        kernel_circuit_public_inputs::{
+            KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
+            PublicKernelCircuitPublicInputs, VMCircuitPublicInputs,
+        }, kernel_data::KernelData, public_kernel_data::PublicKernelData,
+        max_block_number::MaxBlockNumber, private_kernel_data::PrivateKernelData,
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        private_call_request::PrivateCallRequest, private_call_stack_item::PrivateCallStackItem,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        private_kernel::private_call_data::PrivateCallData,
+        public_call_data::{Proof as PublicCallDataProof, PublicCallData},
+        public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
+        public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest,
+        public_inner_call_request::PublicInnerCallRequest,
+        read_request::{ReadRequest, ScopedReadRequest}, tree_leaf_read_request::TreeLeafReadRequest,
+        log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
+        validation_requests::{
+            KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
+            PublicValidationRequests, PublicValidationRequestArrayLengths, RollupValidationRequests,
+            ScopedKeyValidationRequestAndGenerator,
+        },
+    }, address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     public_keys::PublicKeys,
     constants::{
         FUNCTION_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
@@ -45,23 +42,21 @@ use crate::{
         PUBLIC_CALL_REQUEST_LENGTH,
     }, contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
-    compute_l2_to_l1_hash, compute_tx_logs_hash, compute_siloed_nullifier, silo_note_hash,
-    silo_unencrypted_log_hash, mask_encrypted_log_hash
-},
-    header::Header, merkle_tree::{membership::MembershipWitness, MerkleTree},
+        compute_l2_to_l1_hash, compute_tx_logs_hash, compute_siloed_nullifier, silo_note_hash,
+        silo_unencrypted_log_hash, mask_encrypted_log_hash,
+    }, header::Header, merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
     tests::{
-    fixtures,
-    fixtures::{
-    contracts::ContractData, contract_functions::ContractFunction,
-    vk_tree::{
-    generate_fake_honk_vk_for_index, generate_fake_client_ivc_vk_for_index, get_vk_merkle_tree,
-    VK_TREE_WIDTH
-}
-}
-},
-    transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
+        fixtures,
+        fixtures::{
+            contracts::ContractData, contract_functions::ContractFunction,
+            vk_tree::{
+                generate_fake_honk_vk_for_index, generate_fake_client_ivc_vk_for_index,
+                get_vk_merkle_tree, VK_TREE_WIDTH,
+            },
+        },
+    }, transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
     recursion::{
         verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
         proof::NestedRecursiveProof,
@@ -214,11 +209,10 @@ impl FixtureBuilder {
 
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
         self.vk_index = vk_index;
-        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
-            fixtures::vk_tree::get_vk_merkle_tree()
-        };
+        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
+            comptime { fixtures::vk_tree::get_vk_merkle_tree() };
 
-        self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index) ;
+        self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
         self.client_ivc_vk = fixtures::vk_tree::generate_fake_client_ivc_vk_for_index(vk_index);
 
         self.vk_path = vk_tree.get_sibling_path(vk_index);
