@@ -298,7 +298,7 @@ describe('Archiver', () => {
     expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from ${1n} to ${50n}`);
   }, 10_000);
 
-  it('Handle L2 reorg', async () => {
+  it('handles L2 reorg', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'verbose');
 
     let latestBlockNum = await archiver.getBlockNumber();
@@ -377,6 +377,9 @@ describe('Archiver', () => {
 
     // The random blocks don't include contract instances nor classes we we cannot look for those here.
   }, 10_000);
+
+  // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
+  xit('handles an upcoming L2 prune', () => {});
 
   // logs should be created in order of how archiver syncs.
   const mockGetLogs = (logs: {

@@ -16,8 +16,8 @@ session_name=$1
 # Kill any existing tmux session with the same name
 tmux kill-session -t "$session_name" 2>/dev/null || true
 
-# Start a new tmux session
-tmux new-session -d -s "$session_name"
+# Start a new tmux session with log level set
+tmux new-session -d -s "$session_name" -e LOG_LEVEL=${LOG_LEVEL:-"debug"}
 
 shift 1
 commands=("$@")

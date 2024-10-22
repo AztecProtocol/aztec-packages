@@ -36,6 +36,8 @@ impl Empty for PreviousRollupData {
 
 impl PreviousRollupData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let leaf_index = self.vk_witness.leaf_index as u32;
         let index_hint =
             unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };

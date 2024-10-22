@@ -20,12 +20,8 @@ cd sample-dapp
 yarn init -yp
 ```
 
-3. Add the `aztec.js` and `accounts` libraries as a dependency:
+3. Add the `aztec.js` and `accounts` libraries as dependencies. Also add `noir-contracts.js` for quick use of example contracts:
 
 ```sh
-yarn add @aztec/aztec.js @aztec/accounts
+yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js
 ```
-
-## Next steps
-
-With your project already set up, let's [connect to the Private eXecution Environment (PXE) running inside Sandbox and grab an account to interact with it](./1_pxe_service.md).

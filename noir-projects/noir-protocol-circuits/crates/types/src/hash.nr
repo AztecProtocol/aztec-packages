@@ -252,6 +252,10 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     hash
 }
 
+pub fn verification_key_hash<let N: u32>(key: [Field; N]) -> Field {
+    crate::hash::poseidon2_hash(key)
+}
+
 #[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)

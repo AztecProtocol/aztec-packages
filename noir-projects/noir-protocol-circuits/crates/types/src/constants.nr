@@ -105,25 +105,25 @@ global MAX_PUBLIC_DATA_HINTS: u32 = 128;
 global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
 
 // VK TREE CONSTANTS
-global EMPTY_NESTED_INDEX: u32 = 0;
-global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
-global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
-global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
-global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
-global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
-global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
-global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
-global BASE_PARITY_INDEX: u32 = 10;
-global ROOT_PARITY_INDEX: u32 = 11;
-global BASE_ROLLUP_INDEX: u32 = 12;
-global MERGE_ROLLUP_INDEX: u32 = 13;
-global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
-global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
-global ROOT_ROLLUP_INDEX: u32 = 16;
-global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
-global TUBE_INDEX: u32 = 18;
-global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
+comptime global EMPTY_NESTED_INDEX: u32 = 0;
+comptime global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
+comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
+comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
+comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
+comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
+comptime global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
+comptime global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
+comptime global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
+comptime global BASE_PARITY_INDEX: u32 = 10;
+comptime global ROOT_PARITY_INDEX: u32 = 11;
+comptime global BASE_ROLLUP_INDEX: u32 = 12;
+comptime global MERGE_ROLLUP_INDEX: u32 = 13;
+comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
+comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
+comptime global ROOT_ROLLUP_INDEX: u32 = 16;
+comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
+comptime global TUBE_INDEX: u32 = 18;
+comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
 // MISC CONSTANTS

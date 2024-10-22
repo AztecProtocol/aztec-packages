@@ -225,7 +225,7 @@ export class KernelProver {
     return PrivateCallData.from({
       callStackItem,
       vk,
-      publicKeysHash: publicKeys.hash(),
+      publicKeys,
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
