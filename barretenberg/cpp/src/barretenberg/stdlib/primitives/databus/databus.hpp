@@ -97,6 +97,7 @@ template <class Builder> class DataBusDepot {
         }
     }
 
+    // WORKTODO: reuse these comments
     /**
      * @brief Execute circuit logic to establish proper transfer of databus data between circuits
      * @details The databus mechanism establishes the transfer of data between two circuits (i-1 and i) in a third
@@ -115,36 +116,6 @@ template <class Builder> class DataBusDepot {
      * @param public_inputs The public inputs of that key
      * @param propagation_data Data about the presence of databus commitments on the public inputs of the key.
      */
-    void execute(const WitnessCommitments& commitments,
-                 const std::vector<Fr>& public_inputs,
-                 const DatabusPropagationData& propagation_data)
-    {
-        // Flag indicating whether the input data corresponds to a kernel decider proving key (else, an app decider
-        // proving key). This is used to indicate whether the return data commitment being propagated belongs to a
-        // kernel or an app so that it can be checked against the appropriate calldata commitment in a subsequent round.
-        bool is_kernel_data = propagation_data.is_kernel;
-
-        // Assert equality between return data commitments propagated via the public inputs and the corresponding
-        // calldata commitment
-        if (propagation_data.contains_app_return_data_commitment) { // public inputs contain [R]_app
-            ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
-            size_t start_idx = propagation_data.app_return_data_public_input_idx;
-            Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-            // App return data should correspond to the secondary calldata of the subsequent kernel
-            assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
-        }
-
-        if (propagation_data.contains_kernel_return_data_commitment) { // pub inputs contain [R]_kernel
-            ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
-            size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
-            Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-            // Previous kernel return data should correspond to the calldata of the subsequent kernel
-            assert_equality_of_commitments(kernel_return_data, commitments.calldata);
-        }
-
-        // Propagate the return data commitment via the public inputs mechanism
-        propagate_commitment_via_public_inputs(commitments.return_data, is_kernel_data);
-    };
 
     // WORKTODO: make static?
     void perform_consistency_checks(const Commitment& calldata,
@@ -230,34 +201,6 @@ template <class Builder> class DataBusDepot {
             public_inputs.data() + return_data_commitment_limbs_start_idx, NUM_FR_LIMBS_PER_COMMITMENT
         };
         return reconstruct_commitment_from_fr_limbs(return_data_commitment_limbs);
-    }
-
-    /**
-     * @brief Add NUM_FR_LIMBS_PER_COMMITMENT many public inputs per unused return data commitment slot
-     * @details For consistent behavior across different kernels, all kernels are assumed to have
-     * (2 x NUM_FR_LIMBS_PER_COMMITMENT) public inputs associated with propagated databus return data commitments (one
-     * for an app return data commitment, one for a kernel). If either/both of these is unused by a particular kernel
-     * circuit, we compensate by adding NUM_FR_LIMBS_PER_COMMITMENT arbitrary public inputs for each unused "slot".
-     * These values will not be used in any checks.
-     *
-     * @param builder
-     */
-    void populate_unused_return_data_propagation_public_inputs(Builder& builder)
-    {
-        // info("POPULATE UNUSED:");
-        auto add_commitment_size_many_public_inputs = [](Builder& builder) {
-            for (size_t i = 0; i < NUM_FR_LIMBS_PER_COMMITMENT; ++i) {
-                builder.add_public_variable(0);
-            }
-        };
-        if (!builder.databus_propagation_data.contains_app_return_data_commitment) {
-            add_commitment_size_many_public_inputs(builder);
-            // info("POPULATE APP SLOT:");
-        }
-        if (!builder.databus_propagation_data.contains_kernel_return_data_commitment) {
-            add_commitment_size_many_public_inputs(builder);
-            // info("POPULATE KERNEL SLOT:");
-        }
     }
 
   private:

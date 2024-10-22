@@ -54,7 +54,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     const std::shared_ptr<RecursiveVerificationKey>& vkey,
     const QUEUE_TYPE type)
 {
-    // std::shared_ptr<RecursiveDecidersVerificationKey> vk;
+    std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
 
     switch (type) {
     case QUEUE_TYPE::PG: {
@@ -68,19 +68,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
-        // vk = verifier.keys_to_fold[1];
-
-        bus_depot.set_return_data_to_propagate(
-            verifier.keys_to_fold[1]->witness_commitments.return_data,
-            verifier.keys_to_fold[1]->verification_key->databus_propagation_data.is_kernel);
-
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        if (verifier.keys_to_fold[1]->verification_key->databus_propagation_data.is_kernel) {
-            bus_depot.perform_consistency_checks(verifier.keys_to_fold[1]->witness_commitments.calldata,
-                                                 verifier.keys_to_fold[1]->witness_commitments.secondary_calldata,
-                                                 verifier.keys_to_fold[1]->public_inputs,
-                                                 verifier.keys_to_fold[1]->verification_key->databus_propagation_data);
-        }
+        decider_vk = verifier.keys_to_fold[1];
 
         break;
     }
@@ -98,15 +86,25 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Initialize the gate challenges to zero for use in first round of folding
         verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        // Propagate return data commitments via public inputs
-        bus_depot.set_return_data_to_propagate(verifier_accum->witness_commitments.return_data,
-                                               verifier_accum->verification_key->databus_propagation_data.is_kernel);
+        decider_vk = verifier_accum;
 
         break;
     }
     default: {
         info("Invalid QUEUE_TYPE in ClientIvc!");
     }
+    }
+
+    // WORKTODO: make both of these handled by one method
+    bus_depot.set_return_data_to_propagate(decider_vk->witness_commitments.return_data,
+                                           decider_vk->verification_key->databus_propagation_data.is_kernel);
+
+    // Perform databus commitment consistency checks and propagate return data commitments via public inputs
+    if (decider_vk->verification_key->databus_propagation_data.is_kernel) {
+        bus_depot.perform_consistency_checks(decider_vk->witness_commitments.calldata,
+                                             decider_vk->witness_commitments.secondary_calldata,
+                                             decider_vk->public_inputs,
+                                             decider_vk->verification_key->databus_propagation_data);
     }
 }
 
