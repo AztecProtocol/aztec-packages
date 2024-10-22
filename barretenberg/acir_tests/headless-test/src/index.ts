@@ -91,9 +91,9 @@ program
       await page.goto("http://localhost:8080");
 
       const result: boolean = await page.evaluate(
-        ([acir, witnessData, threads]) => {
+        ([acir, witnessData, threads]: [string, number[], number]) => {
           // Convert the input data to Uint8Arrays within the browser context
-          const witnessUint8Array = new Uint8Array(witnessData as number[]);
+          const witnessUint8Array = new Uint8Array(witnessData);
 
           // Call the desired function and return the result
           return (window as any).runTest(
@@ -102,7 +102,7 @@ program
             threads
           );
         },
-        [Array.from(acir), Array.from(witness), threads]
+        [acir, Array.from(witness), threads]
       );
 
       await browser.close();
