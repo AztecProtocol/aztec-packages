@@ -54,7 +54,6 @@ describe('prover-node', () => {
   let bondManager: MockProxy<BondManager>;
   let telemetryClient: NoopTelemetryClient;
   let config: ProverNodeOptions;
-  const p2pClient: P2PClient | undefined = undefined;
 
   // Subject under test
   let proverNode: TestProverNode;
