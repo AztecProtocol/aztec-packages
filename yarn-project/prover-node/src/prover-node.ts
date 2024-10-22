@@ -58,6 +58,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     private readonly claimsMonitor: ClaimsMonitor,
     private readonly epochsMonitor: EpochMonitor,
     private readonly bondManager: BondManager,
+    // private readonly p2pClient: P2PClient,
     private readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {

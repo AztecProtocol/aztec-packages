@@ -77,11 +77,11 @@ export interface P2P {
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 
   /**
-   * Broadcasts an EpochProofQuote to other peers.
+   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
    *
    * @param quote - the quote to broadcast
    */
-  broadcastEpochProofQuote(quote: EpochProofQuote): void;
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -130,7 +130,14 @@ export interface P2P {
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined;
+  getTxByHashFromPool(txHash: TxHash): Tx | undefined;
+
+  /**
+   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.
@@ -239,13 +246,22 @@ export class P2PClient extends WithTracer implements P2P {
     }
   }
 
+  /**
+   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
+   * @param quote - the quote to broadcast
+   */
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    this.epochProofQuotePool.addQuote(quote);
+    this.broadcastEpochProofQuote(quote);
+    return Promise.resolve();
+  }
+
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
     return Promise.resolve(this.epochProofQuotePool.getQuotes(epoch));
   }
 
   broadcastEpochProofQuote(quote: EpochProofQuote): void {
     this.#assertIsReady();
-    this.epochProofQuotePool.addQuote(quote);
     return this.p2pService.propagate(quote);
   }
 
@@ -406,8 +422,23 @@ export class P2PClient extends WithTracer implements P2P {
    * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined {
+  getTxByHashFromPool(txHash: TxHash): Tx | undefined {
     return this.txPool.getTxByHash(txHash);
+  }
+
+  // WORKTODO: clean up other interfaces the use this
+  /**
+   * Returns a transaction in the transaction pool by its hash.
+   * If the transaction is not in the pool, it will be requested from the network.
+   * @param txHash - Hash of the transaction to look for in the pool.
+   * @returns A single tx or undefined.
+   */
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    let tx = this.txPool.getTxByHash(txHash);
+    if (tx) {
+      return Promise.resolve(tx);
+    }
+    return this.requestTxByHash(txHash);
   }
 
   /**
