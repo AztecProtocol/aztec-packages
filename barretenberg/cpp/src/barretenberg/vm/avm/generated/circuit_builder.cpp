@@ -635,6 +635,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.poseidon2_mem_addr_write_d.set_if_valid_index(i, rows[i].poseidon2_mem_addr_write_d);
                 polys.poseidon2_output_addr.set_if_valid_index(i, rows[i].poseidon2_output_addr);
                 polys.poseidon2_sel_poseidon_perm.set_if_valid_index(i, rows[i].poseidon2_sel_poseidon_perm);
+                polys.poseidon2_space_id.set_if_valid_index(i, rows[i].poseidon2_space_id);
                 polys.range_check_alu_rng_chk.set_if_valid_index(i, rows[i].range_check_alu_rng_chk);
                 polys.range_check_clk.set_if_valid_index(i, rows[i].range_check_clk);
                 polys.range_check_cmp_hi_bits_rng_chk.set_if_valid_index(i, rows[i].range_check_cmp_hi_bits_rng_chk);

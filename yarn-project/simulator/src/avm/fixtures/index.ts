@@ -149,3 +149,10 @@ export function resolveAvmTestContractAssertionMessage(
 
   return resolveAssertionMessage(revertReason.noirCallStack, debugMetadata);
 }
+
+export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
+  const params = artifact.parameters;
+  return FunctionSelector.fromNameAndParameters(artifact.name, params);
+}

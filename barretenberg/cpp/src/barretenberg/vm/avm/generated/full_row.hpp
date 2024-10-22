@@ -590,6 +590,7 @@ template <typename FF> struct AvmFullRow {
     FF poseidon2_mem_addr_write_d{};
     FF poseidon2_output_addr{};
     FF poseidon2_sel_poseidon_perm{};
+    FF poseidon2_space_id{};
     FF range_check_alu_rng_chk{};
     FF range_check_clk{};
     FF range_check_cmp_hi_bits_rng_chk{};
@@ -722,7 +723,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 708;
+    static constexpr size_t SIZE = 709;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

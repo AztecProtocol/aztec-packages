@@ -2889,8 +2889,8 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                                AvmMemTraceBuilder::POSEIDON2);
 
     std::array<FF, 4> input = { read_a.val, read_b.val, read_c.val, read_d.val };
-    std::array<FF, 4> result =
-        poseidon2_trace_builder.poseidon2_permutation(input, clk, resolved_input_offset, resolved_output_offset);
+    std::array<FF, 4> result = poseidon2_trace_builder.poseidon2_permutation(
+        input, call_ptr, clk, resolved_input_offset, resolved_output_offset);
 
     std::vector<FF> ff_result;
     for (uint32_t i = 0; i < 4; i++) {
@@ -3368,8 +3368,9 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
 {
     // What happens if the input_size_offset is > 25 when the state is more that that?
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ output_offset, input_offset }, mem_trace_builder);
+    auto [resolved_output_offset, resolved_input_offset, _] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ output_offset, input_offset, input_size_offset }, mem_trace_builder);
     auto input_read = constrained_read_from_memory(
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
     auto output_read = constrained_read_from_memory(
