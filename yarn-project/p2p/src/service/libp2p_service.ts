@@ -130,10 +130,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   public async start() {
     // Check if service is already started
     if (this.node.status === 'started') {
-      this.logger.warn('P2P service already started');
-      return;
-      // WORKTODO: decide if this error should remain
-      // throw new Error('P2P service already started');
+      throw new Error('P2P service already started');
     }
 
     // Log listen & announce addresses

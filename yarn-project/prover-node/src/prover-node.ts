@@ -13,6 +13,7 @@ import {
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type P2PClient } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -24,7 +25,6 @@ import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims
 import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
-import { P2PClient } from '@aztec/p2p';
 
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
