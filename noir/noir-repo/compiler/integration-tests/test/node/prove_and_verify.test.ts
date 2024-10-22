@@ -49,7 +49,7 @@ it('end-to-end proof creation and verification (outer) -- Verifier API', async (
 
   // Proof verification
   const verifier = new BarretenbergVerifier();
-  const isValid = await verifier.verifyUltraplonkProof(proof, verificationKey);
+  const isValid = await verifier.verifyUltraPlonkProof(proof, verificationKey);
   expect(isValid).to.be.true;
 });
 
