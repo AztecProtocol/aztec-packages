@@ -6,7 +6,9 @@ contract Delegator {
     use dep::aztec::prelude::{AztecAddress, PublicMutable, PrivateSet, Map, NoteGetterOptions};
     use dep::value_note::value_note::ValueNote;
     use dep::delegated_on::DelegatedOn;
-    use dep::aztec::{utils::comparison::Comparator, macros::{storage::storage, functions::{private, public}}};
+    use dep::aztec::{
+        utils::comparison::Comparator, macros::{storage::storage, functions::{private, public}},
+    };
 
     #[storage]
     struct Storage<Context> {
@@ -17,7 +19,7 @@ contract Delegator {
     fn private_delegate_set_value(
         target_contract: AztecAddress,
         value: Field,
-        owner: AztecAddress
+        owner: AztecAddress,
     ) -> Field {
         // Call the target private function
         DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
