@@ -41,7 +41,7 @@ import {
   Shr,
   StaticCall,
   Sub,
-  ToRadixLE,
+  ToRadixBE,
   Xor,
 } from '../opcodes/index.js';
 import { MultiScalarMul } from '../opcodes/multi_scalar_mul.js';
@@ -141,7 +141,7 @@ const INSTRUCTION_SET = () =>
     [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
     [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
     // Conversions
-    [ToRadixLE.opcode, Instruction.deserialize.bind(ToRadixLE)],
+    [ToRadixBE.opcode, Instruction.deserialize.bind(ToRadixBE)],
     // Future Gadgets -- pending changes in noir
     // SHA256COMPRESSION,
     [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
