@@ -28,7 +28,7 @@ export class BarretenbergVerifier {
   }
 
   /** @description Verifies a proof */
-  async verifyUltraplonkProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
+  async verifyUltraPlonkProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
     await this.instantiate();
     // The verifier can be used for a variety of ACIR programs so we should not assume that it
     // is preloaded with the correct verification key.
@@ -39,7 +39,7 @@ export class BarretenbergVerifier {
   }
 
   /** @description Verifies a proof */
-  async verifyUltrahonkProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
+  async verifyUltraHonkProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
     await this.instantiate();
 
     const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
