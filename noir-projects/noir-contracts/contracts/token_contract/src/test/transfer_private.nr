@@ -12,9 +12,7 @@ unconstrained fn transfer_private() {
     // docs:start:txe_test_transfer_private
     // Transfer tokens
     let transfer_amount = 1000;
-    let transfer_private_call_interface =
-        Token::at(token_contract_address).transfer(recipient, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(recipient, transfer_amount).call(&mut env.private());
     // docs:end:txe_test_transfer_private
     // Check balances
     utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
@@ -28,9 +26,7 @@ unconstrained fn transfer_private_to_self() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = 1000;
-    let transfer_private_call_interface =
-        Token::at(token_contract_address).transfer(owner, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(owner, transfer_amount).call(&mut env.private());
 
     // Check balances
     utils::check_private_balance(token_contract_address, owner, mint_amount);
@@ -44,9 +40,7 @@ unconstrained fn transfer_private_to_non_deployed_account() {
     let not_deployed = cheatcodes::create_account();
     // Transfer tokens
     let transfer_amount = 1000;
-    let transfer_private_call_interface =
-        Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount).call(&mut env.private());
 
     // Check balances
     utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
@@ -75,7 +69,7 @@ unconstrained fn transfer_private_on_behalf_of_other() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
     // docs:end:private_authwit
     // Check balances
     utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
@@ -89,9 +83,7 @@ unconstrained fn transfer_private_failure_more_than_balance() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + 1;
-    let transfer_private_call_interface =
-        Token::at(token_contract_address).transfer(recipient, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(recipient, transfer_amount).call(&mut env.private());
 }
 
 // docs:start:fail_with_message
@@ -102,10 +94,10 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Add authwit
     let transfer_amount = 1000;
-    let transfer_private_from_call_interface =
-        Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
+    let transfer_private_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
+    authwit_cheatcodes::add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
 }
 // docs:end:fail_with_message
 
@@ -126,7 +118,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
 }
 
 #[test(should_fail_with = "Authorization not found for message hash")]
@@ -141,7 +133,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() 
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
 }
 
 #[test(should_fail_with = "Authorization not found for message hash")]
@@ -161,5 +153,5 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
 }

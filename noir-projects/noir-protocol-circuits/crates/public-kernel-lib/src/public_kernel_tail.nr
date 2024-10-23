@@ -305,10 +305,7 @@ mod tests {
         pub fn read_non_existent_nullifier(&mut self, unsiloed_nullifier: Field) {
             self.previous_kernel.add_non_existent_read_request_for_nullifier(unsiloed_nullifier);
             self.sync_counters();
-            let siloed_nullifier = compute_siloed_nullifier(
-                self.previous_kernel.storage_contract_address,
-                unsiloed_nullifier,
-            );
+            let siloed_nullifier = compute_siloed_nullifier(self.previous_kernel.contract_address, unsiloed_nullifier);
             self.nullifier_non_existent_read_request_hints_builder.add_value_read(siloed_nullifier);
         }
 

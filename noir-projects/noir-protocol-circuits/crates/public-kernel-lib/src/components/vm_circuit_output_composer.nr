@@ -94,7 +94,8 @@ impl VMCircuitOutputComposer {
 
     fn propagate_validation_requests(&mut self, public_call: PublicCircuitPublicInputs) {
         // Note that the public kernel cannot modify the max block number value - it simply forwards it to the rollup
-        let storage_contract_address = public_call.call_context.storage_contract_address;
+
+        let contract_address = public_call.call_context.contract_address;
 
         let note_hash_read_requests = public_call.note_hash_read_requests;
         for i in 0..note_hash_read_requests.len() {
@@ -108,9 +109,7 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_read_requests.push(request.scope(
-                    storage_contract_address,
-                ));
+                self.validation_requests.nullifier_read_requests.push(request.scope(contract_address));
             }
         }
 
@@ -118,9 +117,7 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_non_existent_read_requests.push(request.scope(
-                    storage_contract_address,
-                ));
+                self.validation_requests.nullifier_non_existent_read_requests.push(request.scope(contract_address));
             }
         }
 
@@ -136,12 +133,7 @@ impl VMCircuitOutputComposer {
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
-                self.validation_requests.public_data_reads.push(
-                    PublicDataRead::from_contract_storage_read(
-                        storage_contract_address,
-                        read_request,
-                    ),
-                );
+                self.validation_requests.public_data_reads.push(PublicDataRead::from_contract_storage_read(contract_address, read_request));
             }
         }
     }

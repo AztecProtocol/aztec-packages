@@ -6,8 +6,7 @@ unconstrained fn enqueue_public_function_call_oracle(
     _function_selector: FunctionSelector,
     _args_hash: Field,
     _side_effect_counter: u32,
-    _is_static_call: bool,
-    _is_delegate_call: bool,
+    _is_static_call: bool
 ) -> Field {}
 
 pub unconstrained fn enqueue_public_function_call_internal(
@@ -15,16 +14,14 @@ pub unconstrained fn enqueue_public_function_call_internal(
     function_selector: FunctionSelector,
     args_hash: Field,
     side_effect_counter: u32,
-    is_static_call: bool,
-    is_delegate_call: bool,
+    is_static_call: bool
 ) -> Field {
     enqueue_public_function_call_oracle(
         contract_address,
         function_selector,
         args_hash,
         side_effect_counter,
-        is_static_call,
-        is_delegate_call,
+        is_static_call
     )
 }
 
@@ -34,8 +31,7 @@ unconstrained fn set_public_teardown_function_call_oracle(
     _function_selector: FunctionSelector,
     _args_hash: Field,
     _side_effect_counter: u32,
-    _is_static_call: bool,
-    _is_delegate_call: bool,
+    _is_static_call: bool
 ) -> Field {}
 
 pub unconstrained fn set_public_teardown_function_call_internal(
@@ -43,16 +39,14 @@ pub unconstrained fn set_public_teardown_function_call_internal(
     function_selector: FunctionSelector,
     args_hash: Field,
     side_effect_counter: u32,
-    is_static_call: bool,
-    is_delegate_call: bool,
+    is_static_call: bool
 ) -> Field {
     set_public_teardown_function_call_oracle(
         contract_address,
         function_selector,
         args_hash,
         side_effect_counter,
-        is_static_call,
-        is_delegate_call,
+        is_static_call
     )
 }
 

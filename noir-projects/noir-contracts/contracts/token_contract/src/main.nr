@@ -406,8 +406,8 @@ contract Token {
     fn compute_recurse_subtract_balance_call(
         context: PrivateContext,
         account: AztecAddress,
-        remaining: U128,
-    ) -> PrivateCallInterface<25, U128, (AztecAddress, Field)> {
+        remaining: U128
+    ) -> PrivateCallInterface<25, U128> {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining.to_field())
     }
     // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to

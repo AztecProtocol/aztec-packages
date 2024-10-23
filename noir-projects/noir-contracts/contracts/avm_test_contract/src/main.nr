@@ -327,11 +327,6 @@ contract AvmTest {
     }
 
     #[public]
-    fn get_storage_address() -> AztecAddress {
-        context.storage_address()
-    }
-
-    #[public]
     fn get_sender() -> AztecAddress {
         context.msg_sender()
     }
@@ -434,22 +429,19 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[public]
     fn nullifier_exists(nullifier: Field) -> bool {
-        context.nullifier_exists(nullifier, context.storage_address())
+        context.nullifier_exists(nullifier, context.this_address())
     }
 
     #[public]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(
-            context.nullifier_exists(nullifier, context.storage_address()),
-            "Nullifier doesn't exist!",
-        );
+        assert(context.nullifier_exists(nullifier, context.this_address()), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier
     #[public]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_nullifier(nullifier);
-        let exists = context.nullifier_exists(nullifier, context.storage_address());
+        let exists = context.nullifier_exists(nullifier, context.this_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 
@@ -563,8 +555,6 @@ contract AvmTest {
         test_get_contract_instance();
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
-        dep::aztec::oracle::debug_log::debug_log("get_storage_address");
-        let _ = get_storage_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
         let _ = get_sender();
         dep::aztec::oracle::debug_log::debug_log("get_function_selector");

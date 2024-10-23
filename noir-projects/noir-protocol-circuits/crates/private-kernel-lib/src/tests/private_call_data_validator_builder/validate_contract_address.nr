@@ -16,12 +16,11 @@ impl PrivateCallDataValidatorBuilder {
 }
 
 #[test(should_fail_with = "contract address cannot be zero")]
-fn validate_contract_address_zero_storage_contract_address_fails() {
+fn validate_contract_address_zero_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    // Set (storage) contract_address to 0
+    // Set the contract_address to 0.
     builder.private_call.contract_address = AztecAddress::zero();
-    builder.private_call.storage_contract_address = AztecAddress::zero();
 
     builder.validate();
 }

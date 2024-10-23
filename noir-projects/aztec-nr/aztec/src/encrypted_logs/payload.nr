@@ -325,9 +325,6 @@ mod test {
             30, 168, 177, 26, 144, 5, 124, 128, 6,
         ];
 
-        for i in 0..outgoing_body_ciphertext_from_typescript.len() {
-            assert_eq(ciphertext[i], outgoing_body_ciphertext_from_typescript[i]);
-        }
-        assert_eq(outgoing_body_ciphertext_from_typescript.len(), ciphertext.len());
+        assert_eq(outgoing_body_ciphertext_from_typescript, ciphertext);
     }
 }

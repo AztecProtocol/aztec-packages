@@ -1,15 +1,13 @@
 use crate::{
-    abis::{
-        private_call_stack_item::{PrivateCallStackItemWithoutPublicInputs, PrivateCallStackItem},
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    }, address::{SaltedInitializationHash, PublicKeysHash}, public_keys::PublicKeys,
+    abis::{private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    address::SaltedInitializationHash, public_keys::PublicKeys,
     constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
     merkle_tree::membership::MembershipWitness,
     recursion::verification_key::ClientIVCVerificationKey,
 };
 
 pub struct PrivateCallData {
-    call_stack_item: PrivateCallStackItem,
+    public_inputs: PrivateCircuitPublicInputs,
 
     vk: ClientIVCVerificationKey,
 
@@ -24,8 +22,6 @@ pub struct PrivateCallData {
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {
-    call_stack_item: PrivateCallStackItemWithoutPublicInputs,
-
     vk: ClientIVCVerificationKey,
 
     salted_initialization_hash: SaltedInitializationHash,
@@ -44,7 +40,7 @@ impl PrivateCallDataWithoutPublicInputs {
         public_inputs: PrivateCircuitPublicInputs,
     ) -> PrivateCallData {
         PrivateCallData {
-            call_stack_item: self.call_stack_item.to_private_call_stack_item(public_inputs),
+            public_inputs,
             vk: self.vk,
             salted_initialization_hash: self.salted_initialization_hash,
             public_keys: self.public_keys,

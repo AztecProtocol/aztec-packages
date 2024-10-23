@@ -66,14 +66,12 @@ export class AcirSimulator {
       msgSender,
       contractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
-      false,
       entryPointArtifact.isStatic,
     );
 
     const txHash = request.toTxRequest().hash();
 
     const context = new ClientExecutionContext(
-      contractAddress,
       request.firstCallArgsHash,
       request.txContext,
       callContext,

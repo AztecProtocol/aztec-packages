@@ -34,7 +34,7 @@ unconstrained fn setup_refund_success() {
 
     env.impersonate(fee_payer);
 
-    env.call_private_void(setup_refund_from_call_interface);
+    setup_refund_from_call_interface.call(&mut env.private());
     let user_npk_m_hash = get_public_keys(user).npk_m.hash();
     let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
 
@@ -72,12 +72,12 @@ unconstrained fn setup_refund_success() {
     utils::check_private_balance(token_contract_address, fee_payer, 1)
 }
 
-// TODO(#7694): Ideally we would check the error message here but it's currently not supported by TXE. Once this
-// is supported, check the message here and delete try deleting the corresponding e2e test.
-// #[test(should_fail_with = "funded amount not enough to cover tx fee")]
-#[test(should_fail)]
+// This test should be reworked when final support for partial notes is in
+// Once that happens, the expected error message is commented out below
+//#[test(should_fail_with="funded amount not enough to cover tx fee")]
+#[test(should_fail_with = "Balance too low")]
 unconstrained fn setup_refund_insufficient_funded_amount() {
-    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(true);
+    let (env, token_contract_address, owner, recipient, _mint_amount) = utils::setup_and_mint(true);
 
     // Renaming owner and recipient to match naming in Token
     let user = owner;
@@ -98,5 +98,5 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
     env.impersonate(fee_payer);
 
     // The following should fail with "funded amount not enough to cover tx fee" because funded amount is 0
-    env.call_private_void(setup_refund_from_call_interface);
+    setup_refund_from_call_interface.call(&mut env.private())
 }
