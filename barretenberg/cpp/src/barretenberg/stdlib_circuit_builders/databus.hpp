@@ -4,6 +4,8 @@
 #include <cstdint>
 namespace bb {
 
+constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = 16;
+
 /**
  * @brief A DataBus column
  *
