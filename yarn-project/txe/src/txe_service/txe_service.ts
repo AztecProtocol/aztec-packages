@@ -219,7 +219,7 @@ export class TXEService {
   ) {
     const parsedAddress = fromSingle(address);
     const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, parsedSelector, fromArray(args));
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, parsedSelector, fromArray(args), false);
     if (!result.reverted) {
       throw new ExpectedFailureError('Public call did not revert');
     }
@@ -696,7 +696,6 @@ export class TXEService {
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ false,
-      /* isDelegateCall */ false,
     );
 
     // Poor man's revert handling
@@ -729,7 +728,6 @@ export class TXEService {
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ true,
-      /* isDelegateCall */ false,
     );
 
     // Poor man's revert handling
