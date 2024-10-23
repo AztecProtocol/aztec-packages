@@ -23,7 +23,7 @@ import { areArraysEqual, compactArray, times } from '@aztec/foundation/collectio
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -221,8 +221,23 @@ export class L1Publisher {
     return [slot, blockNumber];
   }
 
-  public async nextEpochToClaim(): Promise<bigint> {
-    return await this.rollupContract.read.nextEpochToClaim();
+  public async getClaimableEpoch(): Promise<bigint | undefined> {
+    try {
+      return await this.rollupContract.read.getClaimableEpoch();
+    } catch (err: any) {
+      const errorName = tryGetCustomErrorName(err);
+      // getting the error name from the abi is redundant,
+      // but it enforces that the error name is correct.
+      // That is, if the error name is not found, this will not compile.
+      const acceptedErrors = (['Rollup__NoEpochToProve', 'Rollup__ProofRightAlreadyClaimed'] as const).map(
+        name => getAbiItem({ abi: RollupAbi, name }).name,
+      );
+
+      if (errorName && acceptedErrors.includes(errorName as any)) {
+        return undefined;
+      }
+      throw err;
+    }
   }
 
   public async getEpochForSlotNumber(slotNumber: bigint): Promise<bigint> {
@@ -268,7 +283,6 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
-      this.log.verbose(toFriendlyJSON(err as object));
       const errorName = tryGetCustomErrorName(err);
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
@@ -767,7 +781,7 @@ function getCalldataGasUsage(data: Uint8Array) {
 function tryGetCustomErrorName(err: any) {
   try {
     // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
-    if (err.name === 'ViemError') {
+    if (err.name === 'ViemError' || err.name === 'ContractFunctionExecutionError') {
       const baseError = err as BaseError;
       const revertError = baseError.walk(err => (err as Error).name === 'ContractFunctionRevertedError');
       if (revertError) {

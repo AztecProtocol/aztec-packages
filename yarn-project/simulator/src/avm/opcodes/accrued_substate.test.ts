@@ -27,7 +27,6 @@ describe('Accrued Substate', () => {
   let context: AvmContext;
 
   const address = new Fr(1);
-  const storageAddress = new Fr(2);
   const sender = new Fr(42);
   const value0 = new Fr(69); // noteHash or nullifier...
   const value0Offset = 100;
@@ -41,7 +40,7 @@ describe('Accrued Substate', () => {
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
-    context = initContext({ persistableState, env: initExecutionEnvironment({ address, storageAddress, sender }) });
+    context = initContext({ persistableState, env: initExecutionEnvironment({ address, sender }) });
   });
 
   describe('NoteHashExists', () => {
@@ -96,7 +95,7 @@ describe('Accrued Substate', () => {
         const expectedValue = gotExists.toNumber() === 1 ? value0 : Fr.ZERO;
         expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
-          storageAddress,
+          address,
           /*noteHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
@@ -122,10 +121,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(
-        expect.objectContaining(storageAddress),
-        /*noteHash=*/ value0,
-      );
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ value0);
     });
   });
 
@@ -152,18 +148,18 @@ describe('Accrued Substate', () => {
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
       const existsStr = exists ? 'DOES exist' : 'does NOT exist';
       it(`Should return ${exists} (and be traced) when noteHash ${existsStr}`, async () => {
-        const storageAddressOffset = 1;
+        const addressOffset = 1;
 
         if (exists) {
           mockNullifierExists(worldStateDB, leafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
-        context.machineState.memory.set(storageAddressOffset, new Field(storageAddress));
+        context.machineState.memory.set(addressOffset, new Field(address));
         await new NullifierExists(
           /*indirect=*/ 0,
           /*nullifierOffset=*/ value0Offset,
-          storageAddressOffset,
+          addressOffset,
           existsOffset,
         ).execute(context);
 
@@ -175,7 +171,7 @@ describe('Accrued Substate', () => {
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
         const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
         expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          storageAddress,
+          address,
           /*nullifier=*/ value0,
           tracedLeafIndex,
           exists,
@@ -202,10 +198,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(
-        expect.objectContaining(storageAddress),
-        /*nullifier=*/ value0,
-      );
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {
@@ -213,14 +206,11 @@ describe('Accrued Substate', () => {
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
-          `Attempted to emit duplicate nullifier ${value0} (storage address: ${storageAddress}).`,
+          `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
       );
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(
-        expect.objectContaining(storageAddress),
-        /*nullifier=*/ value0,
-      );
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
@@ -228,7 +218,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
-          `Attempted to emit duplicate nullifier ${value0} (storage address: ${storageAddress}).`,
+          `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
       );
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(0); // the only attempt should fail before tracing

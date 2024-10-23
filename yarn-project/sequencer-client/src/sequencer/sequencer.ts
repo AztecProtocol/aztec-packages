@@ -548,20 +548,12 @@ export class Sequencer {
   protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
     try {
       // Find out which epoch we are currently in
-      const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
-      if (epochForBlock < 1n) {
-        // It's the 0th epoch, nothing to be proven yet
-        this.log.verbose(`First epoch has no claim`);
+      const epochToProve = await this.publisher.getClaimableEpoch();
+      if (epochToProve === undefined) {
+        this.log.verbose(`No epoch to prove`);
         return undefined;
       }
-      const epochToProve = epochForBlock - 1n;
-      // Find out the next epoch that can be claimed
-      const canClaim = await this.publisher.nextEpochToClaim();
-      if (canClaim != epochToProve) {
-        // It's not the one we are looking to claim
-        this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
-        return undefined;
-      }
+
       // Get quotes for the epoch to be proven
       const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
       this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);

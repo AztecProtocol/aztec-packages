@@ -319,6 +319,20 @@ export class RollupCheatCodes {
     return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
+  /**
+   * Returns the pending and proven chain tips
+   * @returns The pending and proven chain tips
+   */
+  public async getTips(): Promise<{
+    /** The pending chain tip */
+    pending: bigint;
+    /** The proven chain tip */
+    proven: bigint;
+  }> {
+    const [pending, proven] = await this.rollup.read.tips();
+    return { pending, proven };
+  }
+
   /** Warps time in L1 until the next epoch */
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();
@@ -373,8 +387,7 @@ export class RollupCheatCodes {
       : await this.rollup.read.tips().then(([pending]) => pending);
 
     await this.asOwner(async account => {
-      // TODO: Figure out proper typing for viem
-      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account } as any);
+      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
       this.logger.verbose(`Marked ${blockNumber} as proven`);
     });
   }

@@ -36,8 +36,8 @@ impl PublicKernelMergeCircuitPrivateInputs {
 
     fn get_phase(self) -> u8 {
         let public_inputs = self.previous_kernel.public_inputs;
-        let needs_setup = !public_inputs.end_non_revertible.public_call_stack[0].contract_address.is_zero();
-        let needs_app_logic = !public_inputs.end.public_call_stack[0].contract_address.is_zero();
+        let needs_setup = !public_inputs.end_non_revertible.public_call_stack[0].call_context.contract_address.is_zero();
+        let needs_app_logic = !public_inputs.end.public_call_stack[0].call_context.contract_address.is_zero();
         if needs_setup {
             PublicKernelPhase.SETUP
         } else if needs_app_logic {

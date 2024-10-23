@@ -7,7 +7,7 @@ use dep::protocol_types::{address::{AztecAddress, EthAddress}, merkle_tree::root
 
 pub fn process_l1_to_l2_message(
     l1_to_l2_root: Field,
-    storage_contract_address: AztecAddress,
+    contract_address: AztecAddress,
     portal_contract_address: EthAddress,
     chain_id: Field,
     version: Field,
@@ -18,7 +18,7 @@ pub fn process_l1_to_l2_message(
     let message_hash = compute_message_hash(
         portal_contract_address,
         chain_id,
-        storage_contract_address,
+        contract_address,
         version,
         content,
         secret_hash
@@ -27,7 +27,7 @@ pub fn process_l1_to_l2_message(
     // We prove that `message_hash` is in the tree by showing the derivation of the tree root, using a merkle path we
     // get from an oracle.
     let (leaf_index, sibling_path) = unsafe {
-        get_l1_to_l2_membership_witness(storage_contract_address, message_hash, secret)
+        get_l1_to_l2_membership_witness(contract_address, message_hash, secret)
     };
 
     let root = root_from_sibling_path(message_hash, leaf_index, sibling_path);
