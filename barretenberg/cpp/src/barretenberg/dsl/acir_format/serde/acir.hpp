@@ -286,7 +286,7 @@ struct BlackBoxOp {
     };
 
     struct Keccakf1600 {
-        Program::HeapVector input;
+        Program::HeapArray input;
         Program::HeapArray output;
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
