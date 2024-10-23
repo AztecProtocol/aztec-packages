@@ -100,7 +100,10 @@ export class Bot {
       provenTimeout: txMinedWaitSeconds,
       proven: followChain === 'PROVEN',
     });
-    this.log.info(`Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`, logCtx);
+    this.log.info(
+      `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
+      logCtx,
+    );
     this.successes++;
   }
 
