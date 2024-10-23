@@ -625,7 +625,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [test-transfer.sh, test-4epochs.ts]
+        test: [./test-transfer.sh, ./test-4epochs.ts]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
