@@ -12,7 +12,8 @@ import { type ContractDataOracle, type PxeDatabase } from '../index.js';
  */
 export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: DebugLogger) {
   // Maps contract addresses to the set of functions selectors that were in error.
-  // Using strings because map and set don't use .equals()
+  // Map and Set do reference equality for their keys instead of value equality, so we store the string
+  // representation to get e.g. different contract address objects with the same address value to match.
   const mentionedFunctions: Map<string, Set<string>> = new Map();
 
   err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
