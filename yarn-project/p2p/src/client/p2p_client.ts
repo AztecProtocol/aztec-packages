@@ -241,6 +241,7 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   #assertIsReady() {
+    // this.log.info('Checking if p2p client is ready, current state: ', this.currentState);
     if (!this.isReady()) {
       throw new Error('P2P client not ready');
     }

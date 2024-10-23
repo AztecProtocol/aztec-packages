@@ -51,9 +51,13 @@ export async function createProverNode(
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
-  const proverCoordination = deps.aztecNodeTxProvider
-    ? deps.aztecNodeTxProvider
-    : await createProverCoordination(config, worldStateSynchronizer, archiver, telemetry);
+  const [proverCoordination, p2pClient] = await createProverCoordination(config, {
+    aztecNodeTxProvider: deps.aztecNodeTxProvider,
+    worldStateSynchronizer,
+    archiver,
+    telemetry,
+  });
+
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
@@ -83,6 +87,7 @@ export async function createProverNode(
     claimsMonitor,
     epochMonitor,
     bondManager,
+    p2pClient,
     telemetry,
     proverNodeConfig,
   );
