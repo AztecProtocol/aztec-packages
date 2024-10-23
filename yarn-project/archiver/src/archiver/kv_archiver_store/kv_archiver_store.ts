@@ -1,6 +1,5 @@
 import {
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
+  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,

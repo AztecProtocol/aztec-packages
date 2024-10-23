@@ -403,11 +403,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(l);
   }
 
-  async getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
-    return tags.map(tag => {
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    const noteLogs = tags.map(tag => {
       const noteLogs = this.taggedNoteEncryptedLogs.get(tag.toString());
       return noteLogs ? noteLogs : [];
     });
+    return Promise.resolve(noteLogs);
   }
 
   /**

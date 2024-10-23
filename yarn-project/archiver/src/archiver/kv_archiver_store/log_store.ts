@@ -16,7 +16,7 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, AztecMultiMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
 
 import { type BlockStore } from './block_store.js';
 
@@ -142,7 +142,7 @@ export class LogStore {
     }
   }
 
-  async getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
     return this.db.transaction(() => {
       return tags.map(tag => {
         const logHashes = Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag.toString()));
