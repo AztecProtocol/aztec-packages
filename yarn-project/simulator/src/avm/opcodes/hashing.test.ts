@@ -75,11 +75,7 @@ describe('Hashing Opcodes', () => {
         ...Buffer.from('1234', 'hex'), // dstOffset
         ...Buffer.from('2345', 'hex'), // inputOffset
       ]);
-      const inst = new KeccakF1600(
-        /*indirect=*/ 1,
-        /*dstOffset=*/ 0x1234,
-        /*inputOffset=*/ 0x2345,
-      );
+      const inst = new KeccakF1600(/*indirect=*/ 1, /*dstOffset=*/ 0x1234, /*inputOffset=*/ 0x2345);
 
       expect(KeccakF1600.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
