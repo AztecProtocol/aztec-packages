@@ -4,6 +4,7 @@
 #include <cstdint>
 namespace bb {
 
+// We assume all kernels have space for two return data commitments on their public inputs
 constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = 16;
 
 /**

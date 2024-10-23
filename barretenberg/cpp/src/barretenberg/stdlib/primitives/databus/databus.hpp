@@ -78,8 +78,6 @@ template <class Builder> class DataBusDepot {
 
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
     static constexpr size_t NUM_FR_LIMBS_PER_COMMITMENT = NUM_FR_LIMBS_PER_FQ * 2;
-    // We assume all kernels have space for two return data commitments on their public inputs
-    static constexpr size_t DATABUS_PROPAGATION_DATA_SIZE = NUM_FR_LIMBS_PER_COMMITMENT * 2;
 
     Commitment app_return_data_commitment;
     Commitment kernel_return_data_commitment;
@@ -121,7 +119,7 @@ template <class Builder> class DataBusDepot {
         }
 
         // If the input data corresponds to a kernel, perform consistency checks between the provided calldata
-        // commitments and the return data commitments (which are stored in the provided public inputs)
+        // commitments and the return data commitments stored in the provided kernel proof public inputs
         if (propagation_data.is_kernel) {
             // Reconstruct the kernel and app return data commitments stored in the public inputs of the kernel proof
             size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
