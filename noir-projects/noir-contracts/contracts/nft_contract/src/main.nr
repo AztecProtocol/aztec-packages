@@ -11,8 +11,8 @@ contract NFT {
     use dep::aztec::{
         oracle::random::random,
         prelude::{
-        NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
-        AztecAddress, PublicContext
+        NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateContext,
+        PrivateSet, AztecAddress, PublicContext
     },
         encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
         keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
@@ -143,7 +143,7 @@ contract NFT {
         let nft = NFT::at(context.this_address());
 
         // We prepare the transfer.
-        let hiding_point_slot = nft._prepare_transfer_to_private(to).call(&mut context);
+        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
 
         // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
@@ -154,7 +154,7 @@ contract NFT {
     /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
     #[private]
     fn prepare_transfer_to_private(to: AztecAddress) -> Field {
-        NFT::at(context.this_address())._prepare_transfer_to_private(to).call(&mut context)
+        _prepare_transfer_to_private(to, &mut context, storage)
     }
 
     /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
@@ -162,9 +162,12 @@ contract NFT {
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
-    #[private]
-    #[internal]
-    fn _prepare_transfer_to_private(to: AztecAddress) -> Field {
+    #[contract_library_method]
+    fn _prepare_transfer_to_private(
+        to: AztecAddress,
+        context: &mut PrivateContext,
+        storage: Storage<&mut PrivateContext>
+    ) -> Field {
         let to_keys = get_public_keys(to);
         let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
@@ -178,7 +181,7 @@ contract NFT {
         let note_setup_payload = NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
         // We encrypt and emit the partial note log
-        encrypt_and_emit_partial_log(&mut context, note_setup_payload.log_plaintext, to_keys, to);
+        encrypt_and_emit_partial_log(context, note_setup_payload.log_plaintext, to_keys, to);
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -196,7 +199,7 @@ contract NFT {
         // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
         // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
         // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
-        NFT::at(context.this_address())._store_point_in_transient_storage_unsafe(hiding_point_slot, note_setup_payload.hiding_point).enqueue(&mut context);
+        NFT::at(context.this_address())._store_point_in_transient_storage_unsafe(hiding_point_slot, note_setup_payload.hiding_point).enqueue(context);
 
         hiding_point_slot
     }
