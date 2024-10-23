@@ -1,5 +1,5 @@
 import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
-import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
+import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
@@ -23,7 +23,7 @@ describe('token transfer test', () => {
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
   const MINT_AMOUNT = 2000000n;
   const TEST_EPOCHS = 4;
-  const ROUNDS = BigInt(AZTEC_SLOT_DURATION * TEST_EPOCHS);
+  const ROUNDS = BigInt(AZTEC_EPOCH_DURATION * TEST_EPOCHS);
 
   let testWallets: TestWallets;
 
