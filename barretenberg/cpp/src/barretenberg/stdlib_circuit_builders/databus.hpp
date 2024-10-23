@@ -10,7 +10,8 @@ namespace bb {
  */
 struct BusVector {
 
-    // WORKTODO: issue?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): A default value added to every databus column to
+    // avoid the point at infinity commitment and to ensure the validity of the databus commitment consistency checks.
     static constexpr bb::fr DEFAULT_VALUE = 25;
 
     /**
@@ -74,10 +75,6 @@ enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
 struct DatabusPropagationData {
     bool operator==(const DatabusPropagationData&) const = default;
 
-    // Flags indicating whether the public inputs contain commitment(s) to app/kernel return data
-    bool contains_app_return_data_commitment = false;
-    bool contains_kernel_return_data_commitment = false;
-
     // The start index of the return data commitments (if present) in the public inputs. Note: a start index is all
     // that's needed here since the commitents are represented by a fixed number of witnesses and are contiguous in the
     // public inputs by construction.
@@ -89,19 +86,13 @@ struct DatabusPropagationData {
 
     friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
     {
-        os << data.contains_app_return_data_commitment << ",\n"
-           << data.contains_kernel_return_data_commitment << ",\n"
-           << data.app_return_data_public_input_idx << ",\n"
+        os << data.app_return_data_public_input_idx << ",\n"
            << data.kernel_return_data_public_input_idx << ",\n"
            << data.is_kernel << "\n";
         return os;
     };
 
-    MSGPACK_FIELDS(contains_app_return_data_commitment,
-                   contains_kernel_return_data_commitment,
-                   app_return_data_public_input_idx,
-                   kernel_return_data_public_input_idx,
-                   is_kernel);
+    MSGPACK_FIELDS(app_return_data_public_input_idx, kernel_return_data_public_input_idx, is_kernel);
 };
 
 } // namespace bb

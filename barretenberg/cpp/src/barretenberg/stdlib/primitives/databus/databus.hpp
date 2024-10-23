@@ -142,12 +142,16 @@ template <class Builder> class DataBusDepot {
      * value that will satisfy the consistency check on the next cycle. For example, the first kernel has no previous
      * kernel to verify and thus neither receives a previous kernel return data commitment nor a calldata input
      * corresponding to a previous kernel. The commitment to the "empty" calldata will take a default value and thus we
-     * set the same value for the missing return data so that the consistency check will be satisfied.
+     * set the same value for the missing return data so that the consistency check will be satisfied. See issue
+     * https://github.com/AztecProtocol/barretenberg/issues/1138 for more discussion.
+     * @note The ordering of the kernel/app return data commitments within the public inputs is arbitrary but must be
+     * consistent across all kernels in order for the corresponding conistency check constraints to be consistent.
      *
      * @param builder
      */
     void propagate_return_data_commitments(Builder& builder)
     {
+        // Set default commitment value to be used in the absence of one or the other return_data commitment
         CommitmentNative default_commitment_val = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
         if (kernel_return_data_commitment_exists) {
             propagate_commitment_via_public_inputs(kernel_return_data_commitment, /*is_kernel=*/true);
@@ -162,7 +166,7 @@ template <class Builder> class DataBusDepot {
             Commitment default_commitment = Commitment::from_witness(&builder, default_commitment_val);
             propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/false);
         }
-        // Reset flags
+        // Reset flags indicating existence of return data commitments
         kernel_return_data_commitment_exists = false;
         app_return_data_commitment_exists = false;
     }
@@ -183,10 +187,8 @@ template <class Builder> class DataBusDepot {
         // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
         auto start_idx = static_cast<uint32_t>(context->public_inputs.size());
         if (is_kernel) {
-            context->databus_propagation_data.contains_kernel_return_data_commitment = true;
             context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
         } else {
-            context->databus_propagation_data.contains_app_return_data_commitment = true;
             context->databus_propagation_data.app_return_data_public_input_idx = start_idx;
         }
 
