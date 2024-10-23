@@ -657,23 +657,6 @@ jobs:
         if: contains(matrix.test, 'transfer.test.ts') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
         run: earthly-ci --no-output ./yarn-project/+network-test-fake-proofs --test=${{ matrix.test }}
 
-
-kind-network-smoke:
-  ARG values_file
-  LOCALLY
-  RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
-
-kind-network-transfer:
-  ARG values_file
-  LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
-
-kind-network-4epochs:
-  ARG values_file
-  LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true
-
-
   l1-contracts-test:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
