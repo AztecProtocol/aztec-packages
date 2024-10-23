@@ -33,7 +33,7 @@ fi
 if kind get clusters | grep -q "^kind$"; then
   echo "Cluster 'kind' already exists. Skipping creation."
 else
-  kind create cluster
+  flock kind.lock kind create cluster
 fi
 
 kubectl config use-context kind-kind

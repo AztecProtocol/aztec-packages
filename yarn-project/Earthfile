@@ -281,7 +281,7 @@ prover-client-test:
 
 # NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
 # Running this inside the main builder as the point is not to run this through dockerization.
-network-test-fake-proofs:
+network-test:
     ARG test=src/spartan/transfer.test.ts
     FROM +build
     WORKDIR /usr/src/

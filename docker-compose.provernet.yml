@@ -10,13 +10,13 @@ services:
     command: >
       'anvil --block-time 12 --host 0.0.0.0 --chain-id 31337 --port 8545 --silent'
     ports:
-      - 8545:8545
+      - 10545:8545
 
   # Single Aztec node with a sequencer for building and publishing unproven blocks to L1
   aztec-node:
     image: "aztecprotocol/${IMAGE:-aztec:master}"
     ports:
-      - "8080:80"
+      - "10080:80"
     environment:
       LOG_LEVEL: info
       ETHEREUM_HOST: http://ethereum:8545
@@ -56,7 +56,7 @@ services:
   aztec-prover:
     image: "aztecprotocol/${IMAGE:-aztec:master}"
     ports:
-      - "8083:80"
+      - "10083:80"
     environment:
       LOG_LEVEL: verbose
       ETHEREUM_HOST: http://ethereum:8545
@@ -90,7 +90,7 @@ services:
   aztec-prover-agent:
     image: "aztecprotocol/${IMAGE:-aztec:master}"
     ports:
-      - "8090:80"
+      - "10090:80"
     environment:
       LOG_LEVEL: verbose
       ETHEREUM_HOST: http://ethereum:8545
@@ -123,7 +123,7 @@ services:
   aztec-bot:
     image: "aztecprotocol/${IMAGE:-aztec:master}"
     ports:
-      - "8082:80"
+      - "10082:80"
     environment:
       LOG_LEVEL: info
       ETHEREUM_HOST: http://ethereum:8545
