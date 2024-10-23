@@ -92,17 +92,14 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // WORKTODO: make both of these handled by one method?
-    bool is_kernel_data = decider_vk->verification_key->databus_propagation_data.is_kernel;
-    bus_depot.set_commitment_to_be_propagated(decider_vk->witness_commitments.return_data, is_kernel_data);
-
-    // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-    if (is_kernel_data) {
-        bus_depot.perform_consistency_checks(decider_vk->witness_commitments.calldata,
-                                             decider_vk->witness_commitments.secondary_calldata,
-                                             decider_vk->public_inputs,
-                                             decider_vk->verification_key->databus_propagation_data);
-    }
+    // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
+    // checks on the databus commitments stored in the proof being recursively verified
+    bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
+        decider_vk->witness_commitments.return_data,
+        decider_vk->witness_commitments.calldata,
+        decider_vk->witness_commitments.secondary_calldata,
+        decider_vk->public_inputs,
+        decider_vk->verification_key->databus_propagation_data);
 }
 
 /**

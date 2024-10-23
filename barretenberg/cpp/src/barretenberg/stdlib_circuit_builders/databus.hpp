@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <cstdint>
 namespace bb {
 
@@ -8,6 +9,9 @@ namespace bb {
  *
  */
 struct BusVector {
+
+    // WORKTODO: issue?
+    static constexpr bb::fr DEFAULT_VALUE = 25;
 
     /**
      * @brief Add an element to the data defining this bus column
