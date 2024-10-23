@@ -71,12 +71,6 @@ preset-release-assert:
     --command="cmake --preset clang16-assert -Bbuild && cmake --build build --target bb crypto_merkle_tree_tests"
   SAVE ARTIFACT build/bin
 
-preset-asan:
-  FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-asan \
-    --command="cmake --preset asan -Bbuild && cmake --build build --target bb"
-  SAVE ARTIFACT build/bin
-
 preset-debug:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-debug \
