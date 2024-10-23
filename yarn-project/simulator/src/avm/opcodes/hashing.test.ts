@@ -73,14 +73,12 @@ describe('Hashing Opcodes', () => {
         KeccakF1600.opcode, // opcode
         1, // indirect
         ...Buffer.from('1234', 'hex'), // dstOffset
-        ...Buffer.from('2345', 'hex'), // messageOffset
-        ...Buffer.from('3456', 'hex'), // messageSizeOffset
+        ...Buffer.from('2345', 'hex'), // inputOffset
       ]);
       const inst = new KeccakF1600(
         /*indirect=*/ 1,
         /*dstOffset=*/ 0x1234,
-        /*messageOffset=*/ 0x2345,
-        /*messageSizeOffset=*/ 0x3456,
+        /*inputOffset=*/ 0x2345,
       );
 
       expect(KeccakF1600.deserialize(buf)).toEqual(inst);
@@ -92,12 +90,10 @@ describe('Hashing Opcodes', () => {
       const args = rawArgs.map(a => new Uint64(a));
       const indirect = 0;
       const messageOffset = 0;
-      const messageSizeOffset = 50;
       const dstOffset = 100;
-      context.machineState.memory.set(messageSizeOffset, new Uint32(args.length));
       context.machineState.memory.setSlice(messageOffset, args);
 
-      await new KeccakF1600(indirect, dstOffset, messageOffset, messageSizeOffset).execute(context);
+      await new KeccakF1600(indirect, dstOffset, messageOffset).execute(context);
 
       const result = context.machineState.memory.getSliceAs<Uint64>(dstOffset, 25);
       expect(result).toEqual(keccakf1600(rawArgs).map(a => new Uint64(a)));

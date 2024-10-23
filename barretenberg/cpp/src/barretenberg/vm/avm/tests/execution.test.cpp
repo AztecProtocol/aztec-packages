@@ -1000,7 +1000,7 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
 
     std::string bytecode_preamble;
     // Set operations for keccak state
-    for (uint8_t i = 0; i < 25; i++) {
+    for (uint8_t i = 0; i < KECCAKF1600_INPUT_SIZE; i++) {
         bytecode_preamble += to_hex(OpCode::SET_64) +                                   // opcode SET
                              "00"                                                       // Indirect flag
                              + to_hex(AvmMemoryTag::U64) + to_hex<uint64_t>(state[i]) + // val i
@@ -1012,13 +1012,8 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
                                to_hex(OpCode::SET_8) + // opcode SET for indirect src (input)
                                "00"                    // Indirect flag
                                + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the src will be read from)
-                               "24"                      // input_offset 36
-                               + to_hex(OpCode::SET_8) + //
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "19"                       // value 25 (i.e. where the length parameter is stored)
-                               "25"                       // input_offset 37
+                               "01"                       // value 1 (i.e. where the src will be read from)
+                               "24"                       // input_offset 36
                                + to_hex(OpCode::SET_16) + // opcode SET for indirect dst (output)
                                "00"                       // Indirect flag
                                + to_hex(AvmMemoryTag::U32) +
@@ -1028,7 +1023,6 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
                                "03"                            // Indirect flag (first 2 operands indirect)
                                "0023"                          // output offset (indirect 35)
                                "0024"                          // input offset (indirect 36)
-                               "0025"                          // length offset 37
                                + to_hex(OpCode::RETURN) +      // opcode RETURN
                                "00"                            // Indirect flag
                                "0100"                          // ret offset 256
