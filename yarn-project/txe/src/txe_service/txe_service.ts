@@ -745,6 +745,6 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
+    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
   }
 }

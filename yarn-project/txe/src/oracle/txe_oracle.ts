@@ -763,10 +763,12 @@ export class TXE implements TypedOracle {
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
 
-    const callContext = CallContext.empty();
-    callContext.msgSender = this.msgSender;
-    callContext.functionSelector = this.functionSelector;
-    callContext.isStaticCall = isStaticCall;
+    const callContext = new CallContext(
+      /* msgSender */ currentContractAddress,
+      targetContractAddress,
+      functionSelector,
+      isStaticCall,
+    );
 
     const executionResult = await this.executePublicFunction(args, callContext, this.sideEffectsCounter);
 
