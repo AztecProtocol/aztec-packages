@@ -3,12 +3,10 @@ use dep::types::{
     constants::VK_TREE_HEIGHT,
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     recursion::{
-        proof::NestedRecursiveProof,
+        proof::NestedRecursiveProof, verification_key::{VerificationKey, HonkVerificationKey},
         traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
-    },
-    traits::Empty,
-    utils::arrays::find_index_hint,
+    }, traits::Empty, merkle_tree::MembershipWitness,
+    merkle_tree::membership::assert_check_membership, utils::arrays::find_index_hint,
 };
 
 pub struct PreviousRollupData {
@@ -39,6 +37,8 @@ impl Empty for PreviousRollupData {
 
 impl PreviousRollupData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let leaf_index = self.vk_witness.leaf_index as u32;
         let index_hint =
             unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };

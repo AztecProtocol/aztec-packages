@@ -8,10 +8,9 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
-        },
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        }, private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
         private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
 };
@@ -42,10 +41,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             self.previous_kernel.public_inputs,
         )
             .pop_top_call_request()
-            .with_private_call(
-                self.private_call.call_stack_item.public_inputs,
-                self.private_call.call_stack_item.contract_address,
-            )
+            .with_private_call(self.private_call.public_inputs)
             .finish()
     }
 
@@ -77,7 +73,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
-                self.private_call.call_stack_item.public_inputs,
+                self.private_call.public_inputs,
                 private_call_data_validator.array_lengths,
             );
         }
@@ -87,11 +83,11 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_inner::{
-        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelInnerCircuitPrivateInputs,
+        PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
     };
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INIT_INDEX},
+        constants::{PRIVATE_KERNEL_INIT_INDEX, BASE_ROLLUP_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
@@ -115,8 +111,7 @@ mod tests {
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
             let private_call = self.private_call.to_private_call_data();
-            // Update the previous_kernel's private_call_stack with the current call_stack_item.
-            self.previous_kernel.add_private_call_from_call_stack_item(private_call.call_stack_item);
+            self.previous_kernel.add_private_call_request_for_private_call(private_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };

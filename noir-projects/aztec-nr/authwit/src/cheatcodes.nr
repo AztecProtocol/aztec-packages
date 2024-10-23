@@ -3,18 +3,20 @@ use dep::aztec::{
     hash::hash_args,
     oracle::execution::{get_block_number, get_contract_address},
     protocol_types::address::AztecAddress,
-    test::helpers::cheatcodes,
+    context::{public_context::PublicContext, call_interfaces::CallInterface},
+    test::helpers::cheatcodes, oracle::execution::{get_block_number, get_contract_address},
+    hash::hash_args,
 };
 
 use crate::auth::{compute_authwit_message_hash, compute_inner_authwit_hash, set_authorized};
 
-pub fn add_private_authwit_from_call_interface<C, let M: u32, T, P, Env>(
+pub fn add_private_authwit_from_call_interface<C, let M: u32>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
 )
 where
-    C: CallInterface<M, T, P, Env>,
+    C: CallInterface<M>,
 {
     let target = call_interface.get_contract_address();
     let inputs = cheatcodes::get_private_context_inputs(get_block_number());
@@ -28,13 +30,13 @@ where
     cheatcodes::add_authwit(on_behalf_of, message_hash);
 }
 
-pub fn add_public_authwit_from_call_interface<C, let M: u32, T, P, Env>(
+pub fn add_public_authwit_from_call_interface<C, let M: u32>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
 )
 where
-    C: CallInterface<M, T, P, Env>,
+    C: CallInterface<M>,
 {
     let current_contract = get_contract_address();
     cheatcodes::set_contract_address(on_behalf_of);

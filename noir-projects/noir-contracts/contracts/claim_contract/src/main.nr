@@ -7,6 +7,7 @@ contract Claim {
         note::utils::compute_note_hash_for_nullify,
         protocol_types::address::AztecAddress,
         state_vars::SharedImmutable,
+        macros::{storage::storage, functions::{private, public, initializer}},
     };
     use dep::value_note::value_note::ValueNote;
     use token::Token;

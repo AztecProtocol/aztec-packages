@@ -1,7 +1,6 @@
 use crate::{
+    constants::{GAS_LENGTH, FIXED_DA_GAS, FIXED_L2_GAS}, traits::{Deserialize, Serialize, Empty},
     abis::gas_fees::GasFees,
-    constants::{FIXED_DA_GAS, FIXED_L2_GAS, GAS_LENGTH},
-    traits::{Deserialize, Empty, Serialize},
 };
 use std::ops::{Add, Sub};
 

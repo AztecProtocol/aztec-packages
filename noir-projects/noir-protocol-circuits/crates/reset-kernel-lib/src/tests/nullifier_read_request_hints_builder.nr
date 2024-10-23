@@ -1,5 +1,5 @@
 use crate::{
-    nullifier_read_request_reset::{NullifierReadRequestHints, NullifierSettledReadHint},
+    nullifier_read_request_reset::{NullifierSettledReadHint, NullifierReadRequestHints},
     reset::read_request::{PendingReadHint, ReadRequestStatus},
 };
 use dep::types::constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX;

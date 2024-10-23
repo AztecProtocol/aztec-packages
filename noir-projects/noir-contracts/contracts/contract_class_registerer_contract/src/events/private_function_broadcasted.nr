@@ -1,13 +1,11 @@
 use dep::aztec::prelude::FunctionSelector;
 use dep::aztec::protocol_types::{
     constants::{
-        ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
+        FUNCTION_TREE_HEIGHT, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
         MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-        REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
         REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-    },
-    contract_class_id::ContractClassId,
-    traits::Serialize,
+        REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
+    }, traits::Serialize,
 };
 
 pub struct InnerPrivateFunction {

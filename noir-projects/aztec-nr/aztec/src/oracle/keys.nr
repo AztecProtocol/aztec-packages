@@ -1,7 +1,6 @@
 use dep::protocol_types::{
-    address::{AztecAddress, PartialAddress},
+    address::{AztecAddress, PartialAddress}, public_keys::{PublicKeys, NpkM, IvpkM, OvpkM, TpkM},
     point::Point,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
 };
 
 #[oracle(getPublicKeysAndPartialAddress)]

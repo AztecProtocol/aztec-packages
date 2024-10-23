@@ -4,7 +4,7 @@ use crate::{
 };
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
-    tests::utils::assert_array_eq, traits::is_empty,
+    traits::is_empty, tests::utils::assert_array_eq,
 };
 
 #[test]

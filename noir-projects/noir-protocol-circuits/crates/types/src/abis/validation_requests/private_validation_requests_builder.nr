@@ -1,7 +1,6 @@
 use crate::{
     abis::{
-        max_block_number::MaxBlockNumber,
-        read_request::ScopedReadRequest,
+        max_block_number::MaxBlockNumber, read_request::ScopedReadRequest,
         validation_requests::{
             private_validation_requests::PrivateValidationRequests,
             rollup_validation_requests::RollupValidationRequests,
@@ -9,10 +8,9 @@ use crate::{
         },
     },
     constants::{
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    },
-    traits::Empty,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+    }, traits::Empty,
 };
 
 pub struct PrivateValidationRequestsBuilder {

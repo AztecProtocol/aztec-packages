@@ -3,10 +3,9 @@ use dep::aztec::protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{
-        CANONICAL_AUTH_REGISTRY_ADDRESS, GENERATOR_INDEX__AUTHWIT_INNER,
-        GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
-    },
-    hash::poseidon2_hash_with_separator,
+        GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER,
+        GENERATOR_INDEX__AUTHWIT_NULLIFIER, CANONICAL_AUTH_REGISTRY_ADDRESS,
+    }, hash::poseidon2_hash_with_separator,
 };
 
 /**

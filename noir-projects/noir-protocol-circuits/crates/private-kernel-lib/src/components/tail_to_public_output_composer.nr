@@ -11,8 +11,7 @@ use crate::components::{
 use dep::types::abis::{
     kernel_circuit_public_inputs::{
         PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    },
-    validation_requests::PublicValidationRequests,
+    }, validation_requests::PublicValidationRequests,
 };
 
 pub struct TailToPublicOutputComposer {

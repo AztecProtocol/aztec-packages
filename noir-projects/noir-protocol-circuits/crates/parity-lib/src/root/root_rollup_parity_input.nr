@@ -1,3 +1,11 @@
+use dep::types::{
+    traits::Empty,
+    recursion::{
+        verification_key::{VerificationKey, HonkVerificationKey}, proof::NestedRecursiveProof,
+        traits::Verifiable,
+    }, constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
+    merkle_tree::membership::assert_check_membership,
+};
 use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
     constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
@@ -42,6 +50,7 @@ impl Verifiable for RootRollupParityInput {
 
 impl RootRollupParityInput {
     fn validate_in_vk_tree(self) {
+        self.verification_key.check_hash();
         assert_check_membership(
             self.verification_key.hash,
             ROOT_PARITY_INDEX as Field,

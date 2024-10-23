@@ -4,16 +4,14 @@ use crate::{
         previous_kernel_validator::PreviousKernelValidator,
         public_kernel_output_composer::PublicKernelOutputComposer,
         public_kernel_output_validator::PublicKernelOutputValidator,
-    },
-    public_kernel_phase::PublicKernelPhase,
+    }, public_kernel_phase::PublicKernelPhase,
 };
 use dep::types::{
     abis::{
         enqueued_call_data::EnqueuedCallData,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
         public_kernel_data::PublicKernelData,
-    },
-    constants::{PUBLIC_KERNEL_MERGE_INDEX, TUBE_INDEX},
+    }, constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX];
@@ -34,9 +32,12 @@ impl PublicKernelMergeCircuitPrivateInputs {
 
     fn get_phase(self) -> u8 {
         let public_inputs = self.previous_kernel.public_inputs;
-        let needs_setup =
-            !public_inputs.end_non_revertible.public_call_stack[0].contract_address.is_zero();
-        let needs_app_logic = !public_inputs.end.public_call_stack[0].contract_address.is_zero();
+        let needs_setup = !public_inputs.end_non_revertible.public_call_stack[0]
+            .call_context
+            .contract_address
+            .is_zero();
+        let needs_app_logic =
+            !public_inputs.end.public_call_stack[0].call_context.contract_address.is_zero();
         if needs_setup {
             PublicKernelPhase.SETUP
         } else if needs_app_logic {
@@ -81,6 +82,7 @@ mod tests {
     use crate::{
         public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs},
         public_kernel_phase::PublicKernelPhase,
+        public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs},
     };
     use dep::types::{
         abis::{
@@ -88,8 +90,7 @@ mod tests {
             kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
             validation_requests::PublicValidationRequestArrayLengths,
-        },
-        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX},
+        }, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 

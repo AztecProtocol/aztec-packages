@@ -1,14 +1,10 @@
 use crate::{
-    context::PrivateContext,
-    encrypted_logs::payload::compute_encrypted_log,
-    keys::getters::get_ovsk_app,
-    note::{note_emission::NoteEmission, note_interface::NoteInterface},
+    context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
+    keys::getters::get_ovsk_app, encrypted_logs::payload::compute_encrypted_log,
 };
 use dep::protocol_types::{
+    address::AztecAddress, public_keys::{PublicKeys, OvpkM, IvpkM}, hash::sha256_to_field,
     abis::note_hash::NoteHash,
-    address::AztecAddress,
-    hash::sha256_to_field,
-    public_keys::{IvpkM, OvpkM, PublicKeys},
 };
 
 fn compute_raw_note_log<Note, let N: u32>(

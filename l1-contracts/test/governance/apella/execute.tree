@@ -1,0 +1,27 @@
+ExecuteTest
+├── given state is not executable
+│   ├── given state is pending
+│   │   └── it revert
+│   ├── given state is active
+│   │   └── it revert
+│   ├── given state is queued
+│   │   └── it revert
+│   ├── given state is rejected
+│   │   └── it revert
+│   ├── given state is dropped
+│   │   └── it revert
+│   ├── given state is executed
+│   │   └── it revert
+│   └── given state is expired
+│       └── it revert
+└── given state is executable
+    ├── given payload call asset
+    │   └── it revert
+    └── given payload don't call asset
+        ├── given a payload call fails
+        │   └── it revert
+        └── given all payload call succeeds
+            ├── it updates state to Executed
+            ├── it executes the calls
+            ├── it emits {ProposalExecuted} event
+            └── it return true

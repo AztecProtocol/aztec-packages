@@ -247,6 +247,8 @@ contract Parent {
         // Call the target private function
         context.static_call_public_function(target_contract, target_selector, args);
     }
+    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
@@ -254,22 +256,26 @@ contract Parent {
     use dep::child_contract::Child;
     use dep::value_note::value_note::ValueNote;
     #[test]
-    fn test_private_call() {
+    unconstrained fn test_private_call() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account();
+        // Deploy parent contract
+        let parent_contract = env.deploy_self("Parent").without_initializer();
+        let parent_contract_address = parent_contract.to_address();
         // Deploy child contract
         let child_contract = env.deploy("./@child_contract", "Child").without_initializer();
         let child_contract_address = child_contract.to_address();
         cheatcodes::advance_blocks_by(1);
         // Set value in child through parent
         let value_to_set = 7;
-        let parent_private_set_call_interface = Parent::interface().private_call(
-            child_contract_address,
-            comptime { FunctionSelector::from_signature("private_set_value(Field,(Field))") },
-            [value_to_set, owner.to_field()],
-        );
-        let result: Field = env.call_private(parent_private_set_call_interface);
+        let result = Parent::at(parent_contract_address)
+            .private_call(
+                child_contract_address,
+                comptime { FunctionSelector::from_signature("private_set_value(Field,(Field))") },
+                [value_to_set, owner.to_field()],
+            )
+            .call(&mut env.private());
         assert(result == value_to_set);
         // Read the stored value in the note. We have to change the contract address to the child contract in order to read its notes
         env.impersonate(child_contract_address);
@@ -281,12 +287,13 @@ contract Parent {
         assert(note_value == value_to_set);
         assert(note_value == result);
         // Get value from child through parent
-        let parent_private_get_call_interface = Parent::interface().private_call(
-            child_contract_address,
-            comptime { FunctionSelector::from_signature("private_get_value(Field,(Field))") },
-            [7, owner.to_field()],
-        );
-        let read_result: Field = env.call_private(parent_private_get_call_interface);
+        let read_result = Parent::at(parent_contract_address)
+            .private_call(
+                child_contract_address,
+                comptime { FunctionSelector::from_signature("private_get_value(Field,(Field))") },
+                [7, owner.to_field()],
+            )
+            .call(&mut env.private());
         assert(note_value == read_result);
     }
 }

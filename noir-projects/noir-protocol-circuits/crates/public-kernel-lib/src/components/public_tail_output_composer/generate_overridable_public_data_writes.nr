@@ -2,9 +2,7 @@ use dep::types::{
     abis::{
         public_data_update_request::PublicDataUpdateRequest,
         public_data_write::OverridablePublicDataWrite,
-    },
-    data::OverridablePublicDataTreeLeaf,
-    traits::Empty,
+    }, data::OverridablePublicDataTreeLeaf, traits::Empty,
     utils::arrays::{array_length, find_index_hint},
 };
 

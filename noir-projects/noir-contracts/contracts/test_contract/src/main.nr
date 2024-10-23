@@ -14,8 +14,8 @@ contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, point::Point, public_keys::IvpkM,
-        traits::Serialize,
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point,
+        public_keys::IvpkM,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
@@ -26,12 +26,11 @@ contract Test {
         hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
         macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
-            lifecycle::{create_note, destroy_note_unsafe},
-            note_getter::{get_notes, view_notes},
+            lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
-        },
-        oracle::random::random,
+        }, deploy::deploy_contract as aztec_deploy_contract, oracle::random::random,
         utils::comparison::Comparator,
+        macros::{storage::storage, events::event, functions::{private, public, internal}},
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_private_content_hash, get_mint_public_content_hash,

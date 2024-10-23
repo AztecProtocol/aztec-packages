@@ -7,6 +7,13 @@ use dep::aztec::macros::aztec;
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
+    use aztec::{
+        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
+        keys::getters::get_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
+        utils::comparison::Comparator,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        macros::{storage::storage, functions::{public, initializer, private}},
+    };
     use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,

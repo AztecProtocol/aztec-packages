@@ -12,23 +12,22 @@ contract ContractClassRegisterer {
             MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-        },
-        contract_class_id::ContractClassId,
+        }, abis::log_hash::LogHash,
     };
 
     use dep::aztec::{
-        context::PrivateContext, macros::functions::private,
-        oracle::logs::emit_contract_class_unencrypted_log_private,
+        context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private,
+        macros::functions::private,
     };
 
     use crate::events::{
         class_registered::ContractClassRegistered,
         private_function_broadcasted::{
-            ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
+            ClassPrivateFunctionBroadcasted, PrivateFunction, InnerPrivateFunction,
         },
         unconstrained_function_broadcasted::{
-            ClassUnconstrainedFunctionBroadcasted, InnerUnconstrainedFunction,
-            UnconstrainedFunction,
+            ClassUnconstrainedFunctionBroadcasted, UnconstrainedFunction,
+            InnerUnconstrainedFunction,
         },
     };
 

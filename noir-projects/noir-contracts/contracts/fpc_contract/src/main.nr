@@ -9,6 +9,7 @@ contract FPC {
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable,
+        macros::{storage::storage, functions::{private, public, initializer, internal}},
     };
     use dep::token::Token;
 

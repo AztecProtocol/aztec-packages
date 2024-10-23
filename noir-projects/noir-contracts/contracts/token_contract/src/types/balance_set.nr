@@ -6,6 +6,9 @@ use dep::aztec::{
         note_emission::OuterNoteEmission, note_getter::view_notes, note_interface::NullifiableNote,
     },
     protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
+    note::{
+        note_interface::NullifiableNote, note_getter::view_notes, note_emission::OuterNoteEmission,
+    }, keys::getters::get_public_keys,
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteInterface, NoteViewerOptions, PrivateSet};
 

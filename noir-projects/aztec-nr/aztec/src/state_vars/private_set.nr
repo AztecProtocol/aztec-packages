@@ -1,13 +1,13 @@
+use dep::protocol_types::{
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis::read_request::ReadRequest,
+};
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE,
     lifecycle::{create_note, create_note_hash_from_public, destroy_note_unsafe},
-    note_emission::NoteEmission,
-    note_getter::{get_notes, view_notes},
-    note_getter_options::NoteGetterOptions,
-    note_interface::{NoteInterface, NullifiableNote},
-    note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_request,
+    note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
+    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
+    utils::compute_note_hash_for_read_request, note_emission::NoteEmission,
 };
 use crate::state_vars::storage::Storage;
 use dep::protocol_types::{

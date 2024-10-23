@@ -98,19 +98,16 @@ where
 
 mod tests {
     use crate::{
-        tests::{
-            types::{
-                combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues,
-            },
-            utils::pad_end,
+        tests::utils::pad_end,
+        tests::types::{
+            combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues,
         },
         utils::arrays::{
             array_merge,
             assert_combined_sorted_transformed_value_array::{
                 assert_combined_sorted_transformed_value_array_asc,
                 get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
-            },
-            sort_by_counter::sort_by_counter_asc,
+            }, sort_by_counter::sort_by_counter_asc,
         },
     };
 

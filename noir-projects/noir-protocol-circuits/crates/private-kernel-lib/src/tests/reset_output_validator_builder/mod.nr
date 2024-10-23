@@ -6,8 +6,7 @@ use crate::components::{
     reset_output_validator::ResetOutputValidator,
 };
 use dep::reset_kernel_lib::{
-    KeyValidationHint,
-    PrivateValidationRequestProcessor,
+    KeyValidationHint, PrivateValidationRequestProcessor,
     tests::{NoteHashReadRequestHintsBuilder, NullifierReadRequestHintsBuilder},
     TransientDataIndexHint,
 };

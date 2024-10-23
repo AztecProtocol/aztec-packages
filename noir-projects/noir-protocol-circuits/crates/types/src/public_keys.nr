@@ -1,9 +1,7 @@
 use crate::{
-    address::public_keys_hash::PublicKeysHash,
-    constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-    hash::poseidon2_hash_with_separator,
-    point::POINT_LENGTH,
-    traits::{Deserialize, Empty, Hash, is_empty, Serialize},
+    address::public_keys_hash::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
+    hash::poseidon2_hash_with_separator, point::POINT_LENGTH,
+    traits::{Deserialize, Serialize, Empty, is_empty, Hash},
 };
 
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;

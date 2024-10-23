@@ -1,14 +1,10 @@
 use dep::aztec::{
-    keys::getters::get_nsk_app,
-    macros::notes::partial_note,
-    note::utils::compute_note_hash_for_nullify,
-    oracle::random::random,
-    prelude::{NoteHeader, NullifiableNote, PrivateContext},
+    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app, oracle::random::random,
+    prelude::{NullifiableNote, NoteHeader, PrivateContext},
     protocol_types::{
-        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
         traits::{Empty, Eq},
-    },
+    }, macros::notes::partial_note,
 };
 
 #[partial_note(quote { token_id})]

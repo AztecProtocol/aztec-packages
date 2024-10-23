@@ -6,11 +6,10 @@ contract Child {
     use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
-        macros::{functions::{internal, private, public}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
-        utils::comparison::Comparator,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        keys::getters::get_public_keys, utils::comparison::Comparator,
+        macros::{storage::storage, functions::{private, public, internal}},
     };
     use dep::value_note::value_note::ValueNote;
 

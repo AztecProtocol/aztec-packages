@@ -3,15 +3,16 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract InclusionProofs {
+    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, Map, PrivateSet, PublicMutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
     };
-    use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
 
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
         note::note_getter_options::NoteStatus,
+        macros::{storage::storage, functions::{private, public, initializer}},
     };
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;

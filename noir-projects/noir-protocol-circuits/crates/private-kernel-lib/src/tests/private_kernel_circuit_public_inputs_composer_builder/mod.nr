@@ -7,9 +7,7 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-    },
-    tests::fixture_builder::FixtureBuilder,
-    transaction::tx_request::TxRequest,
+    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitPublicInputsComposerBuilder {
@@ -51,13 +49,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
     pub fn compose_from_tx_request(self) -> PrivateKernelCircuitPublicInputs {
         let private_call = self.private_call.to_private_call_data();
-        self
-            .new_from_tx_request()
-            .with_private_call(
-                private_call.call_stack_item.public_inputs,
-                private_call.call_stack_item.contract_address,
-            )
-            .finish()
+        self.new_from_tx_request().with_private_call(private_call.public_inputs).finish()
     }
 
     pub fn compose_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
@@ -72,10 +64,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
             .pop_top_call_request()
-            .with_private_call(
-                private_call.call_stack_item.public_inputs,
-                private_call.call_stack_item.contract_address,
-            )
+            .with_private_call(private_call.public_inputs)
             .finish()
     }
 }

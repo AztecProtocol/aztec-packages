@@ -1,5 +1,12 @@
 {
+<<<<<<<< HEAD:noir/noir-repo/docs/versioned_docs/version-v0.36.0/how_to/_category_.json
     "position": 1,
+|||||||| ab0c80d749:noir/noir-repo/docs/docs/getting_started/hello_noir/_category_.json
+    "position": 2,
+========
+    "label": "Modules, Packages and Crates",
+    "position": 2,
+>>>>>>>> master:noir/noir-repo/docs/versioned_docs/version-v0.36.0/noir/modules_packages_crates/_category_.json
     "collapsible": true,
     "collapsed": true
 }

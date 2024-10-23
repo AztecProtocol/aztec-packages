@@ -1,11 +1,9 @@
 use crate::{
     abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    constants::{TUBE_INDEX, VK_TREE_HEIGHT},
-    merkle_tree::membership::check_membership,
+    constants::{VK_TREE_HEIGHT, TUBE_INDEX}, merkle_tree::membership::check_membership,
     recursion::{
-        proof::NestedRecursiveProof, traits::Verifiable, verification_key::HonkVerificationKey,
-    },
-    utils::arrays::find_index_hint,
+        proof::NestedRecursiveProof, verification_key::HonkVerificationKey, traits::Verifiable,
+    }, utils::arrays::find_index_hint,
 };
 
 pub struct KernelData {
@@ -25,6 +23,8 @@ impl Verifiable for KernelData {
 
 impl KernelData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let index_hint =
             unsafe { find_index_hint(allowed_indices, |index: u32| index == self.vk_index) };
         assert(index_hint < N, "Invalid vk index");

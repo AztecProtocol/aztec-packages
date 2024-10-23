@@ -1,20 +1,16 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY,
-    hash::poseidon2_hash_with_separator,
-    point::Point,
-    public_keys::{IvpkM, OvpkM},
-    scalar::Scalar,
+    address::AztecAddress, scalar::Scalar, point::Point, public_keys::{OvpkM, IvpkM},
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash_with_separator,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
-    field::bn254::decompose, hash::from_field_unsafe as fr_to_fq_unsafe,
+    hash::from_field_unsafe as fr_to_fq_unsafe, field::bn254::decompose,
 };
 
 use crate::{
+    oracle::random::random, utils::point::point_to_bytes,
     encrypted_logs::header::EncryptedLogHeader,
-    keys::point_to_symmetric_key::point_to_symmetric_key, oracle::random::random,
-    utils::point::point_to_bytes,
+    keys::point_to_symmetric_key::point_to_symmetric_key,
 };
 
 pub fn compute_encrypted_log<let P: u32, let M: u32>(
@@ -156,13 +152,10 @@ mod test {
     use crate::encrypted_logs::payload::{
         compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext,
     };
-    use dep::protocol_types::{
-        address::AztecAddress,
-        point::Point,
-        public_keys::{IvpkM, OvpkM},
-        scalar::Scalar,
-    };
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+    use dep::protocol_types::{
+        address::AztecAddress, public_keys::{OvpkM, IvpkM}, point::Point, scalar::Scalar,
+    };
     use std::test::OracleMock;
 
     #[test]
@@ -332,9 +325,6 @@ mod test {
             30, 168, 177, 26, 144, 5, 124, 128, 6,
         ];
 
-        for i in 0..outgoing_body_ciphertext_from_typescript.len() {
-            assert_eq(ciphertext[i], outgoing_body_ciphertext_from_typescript[i]);
-        }
-        assert_eq(outgoing_body_ciphertext_from_typescript.len(), ciphertext.len());
+        assert_eq(outgoing_body_ciphertext_from_typescript, ciphertext);
     }
 }

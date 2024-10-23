@@ -6,6 +6,7 @@ pub mod sha256;
 pub mod sha512;
 
 use crate::default::Default;
+use crate::uint128::U128;
 use crate::embedded_curve_ops::{
     EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul, multi_scalar_mul_array_return,
 };

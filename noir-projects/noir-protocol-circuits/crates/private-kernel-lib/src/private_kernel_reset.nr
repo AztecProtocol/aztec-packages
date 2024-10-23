@@ -125,37 +125,30 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
 mod tests {
     use crate::private_kernel_reset::{
-        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints,
+        PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, ALLOWED_PREVIOUS_CIRCUITS,
     };
     use dep::reset_kernel_lib::{
-        reset::{
-            key_validation_hint::KeyValidationHint,
-            read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
-        },
         tests::{
             note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
             nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
+        }, TransientDataIndexHint,
+        reset::{
+            read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+            key_validation_hint::KeyValidationHint,
         },
-        TransientDataIndexHint,
+    };
+    use dep::types::constants::{
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX,
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+            max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
             log_hash::{NoteLogHash, ScopedEncryptedLogHash},
-            max_block_number::MaxBlockNumber,
-            note_hash::ScopedNoteHash,
-            nullifier::ScopedNullifier,
-        },
-        address::AztecAddress,
-        hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
-        point::Point,
+        }, address::AztecAddress, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
-        traits::is_empty_array,
-        utils::arrays::find_index_hint,
-    };
-    use dep::types::constants::{
-        BASE_ROLLUP_INDEX, GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
+        utils::arrays::find_index_hint, traits::is_empty_array, point::Point,
     };
 
     struct PrivateKernelResetInputsBuilder<let NUM_INDEX_HINTS: u32> {

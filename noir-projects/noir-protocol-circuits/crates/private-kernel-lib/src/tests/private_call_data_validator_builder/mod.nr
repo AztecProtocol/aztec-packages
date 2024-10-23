@@ -15,9 +15,7 @@ use dep::types::{
     abis::{
         note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData,
-    },
-    tests::fixture_builder::FixtureBuilder,
-    transaction::tx_request::TxRequest,
+    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateCallDataValidatorBuilder {
@@ -35,11 +33,6 @@ impl PrivateCallDataValidatorBuilder {
         let private_call = FixtureBuilder::new_from_counter(counter);
         let previous_note_hashes = BoundedVec::new();
         PrivateCallDataValidatorBuilder { private_call, previous_note_hashes }
-    }
-
-    pub fn is_delegate_call(&mut self) -> Self {
-        let _ = self.private_call.is_delegate_call();
-        *self
     }
 
     pub fn is_static_call(&mut self) -> Self {

@@ -1,4 +1,7 @@
-use crate::note::{note_getter_options::PropertySelector, note_header::NoteHeader};
+use std::{
+    meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+};
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
 use std::{
     collections::umap::UHashMap,

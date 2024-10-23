@@ -57,11 +57,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            public_data_update_request::PublicDataUpdateRequest,
             public_data_write::OverridablePublicDataWrite,
-        },
-        data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf},
-        tests::utils::pad_end,
+            public_data_update_request::PublicDataUpdateRequest,
+        }, data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf}, tests::utils::pad_end,
     };
 
     struct TestBuilder {

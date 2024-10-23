@@ -1,6 +1,5 @@
 import {
   AvmCircuitInputs,
-  FunctionSelector,
   Gas,
   GlobalVariables,
   PublicKeys,
@@ -12,6 +11,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initPersistableStateManager,
@@ -59,7 +59,8 @@ const proveAndVerifyAvmTestContract = async (
   assertionErrString?: string,
 ) => {
   const startSideEffectCounter = 0;
-  const functionSelector = FunctionSelector.random();
+  const functionSelector = getAvmTestContractFunctionSelector(functionName);
+  calldata = [functionSelector.toField(), ...calldata];
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
@@ -86,7 +87,7 @@ const proveAndVerifyAvmTestContract = async (
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
+  const nestedCallBytecode = getAvmTestContractBytecode('public_dispatch');
   jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
@@ -95,7 +96,7 @@ const proveAndVerifyAvmTestContract = async (
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
   // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode(functionName);
+  const bytecode = getAvmTestContractBytecode('public_dispatch');
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));

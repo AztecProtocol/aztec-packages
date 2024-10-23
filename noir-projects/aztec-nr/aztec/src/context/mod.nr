@@ -10,9 +10,9 @@ mod call_interfaces;
 mod gas;
 
 pub use call_interfaces::{
-    PrivateCallInterface, PrivateStaticCallInterface, PrivateStaticVoidCallInterface,
-    PrivateVoidCallInterface, PublicCallInterface, PublicStaticCallInterface,
-    PublicStaticVoidCallInterface, PublicVoidCallInterface,
+    PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface,
+    PublicStaticCallInterface, PrivateVoidCallInterface, PrivateStaticVoidCallInterface,
+    PublicVoidCallInterface, PublicStaticVoidCallInterface,
 };
 pub use packed_returns::PackedReturns;
 pub use private_context::PrivateContext;

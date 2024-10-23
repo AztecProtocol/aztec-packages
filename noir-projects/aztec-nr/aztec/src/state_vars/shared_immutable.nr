@@ -1,10 +1,8 @@
 use crate::{
-    context::{PrivateContext, PublicContext, UnconstrainedContext},
-    state_vars::storage::Storage,
+    context::{PrivateContext, PublicContext, UnconstrainedContext}, state_vars::storage::Storage,
 };
 use dep::protocol_types::{
-    constants::INITIALIZATION_SLOT_SEPARATOR,
-    traits::{Deserialize, Serialize},
+    constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize},
 };
 
 // Just like PublicImmutable but with the ability to read from private functions.

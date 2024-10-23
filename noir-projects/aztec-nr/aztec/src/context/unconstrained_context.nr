@@ -3,6 +3,10 @@ use crate::oracle::{
     storage::storage_read,
 };
 use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
+use crate::oracle::{
+    execution::{get_chain_id, get_version, get_contract_address, get_block_number},
+    storage::storage_read,
+};
 
 pub struct UnconstrainedContext {
     block_number: u32,

@@ -7,13 +7,11 @@ import {
 } from '@aztec/circuit-types';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  FunctionData,
   FunctionSelector,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
   MembershipWitness,
   NoteHash,
-  PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
@@ -62,13 +60,12 @@ describe('Kernel Prover', () => {
           : NoteHash.empty(),
       0,
     );
-    const functionData = FunctionData.empty();
-    functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
+    publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
     return new PrivateExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),
       new Map(),
-      new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
+      publicInputs,
       new Map(),
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
@@ -124,10 +121,10 @@ describe('Kernel Prover', () => {
 
   const expectExecution = (fns: string[]) => {
     const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
-      String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
+      String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
     const callStackItemsInner = proofCreator.simulateProofInner.mock.calls.map(args =>
-      String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
+      String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
 
     expect(proofCreator.simulateProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));

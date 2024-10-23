@@ -9,13 +9,11 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
         private_call_request::PrivateCallRequest,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
-    },
+    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
     constants::PRIVATE_KERNEL_INIT_INDEX,
-    tests::fixture_builder::FixtureBuilder,
-    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitOutputValidatorBuilder {
@@ -58,12 +56,11 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
     pub fn validate_as_first_call(self) {
         let private_call = self.private_call.to_private_call_data();
-        let array_lengths =
-            PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
+        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
-            private_call.call_stack_item.public_inputs,
+            private_call.public_inputs,
             array_lengths,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
@@ -82,12 +79,12 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             PrivateKernelCircuitPublicInputsArrayLengths::new(previous_kernel);
         let private_call = self.private_call.to_private_call_data();
         let private_call_array_lengths =
-            PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
+            PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             previous_kernel_array_lengths,
-            private_call.call_stack_item.public_inputs,
+            private_call.public_inputs,
             private_call_array_lengths,
         );
     }

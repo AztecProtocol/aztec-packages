@@ -1,11 +1,8 @@
 use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    address::EthAddress,
     constants::{
         AZTEC_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH,
-    },
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    }, traits::{Empty, Serialize, Deserialize}, utils::reader::Reader, address::EthAddress,
 };
 
 pub struct FeeRecipient {

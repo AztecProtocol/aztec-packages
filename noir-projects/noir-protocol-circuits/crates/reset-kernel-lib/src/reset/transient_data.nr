@@ -1,5 +1,5 @@
 use dep::types::{
-    abis::{log_hash::NoteLogHash, note_hash::ScopedNoteHash, nullifier::ScopedNullifier},
+    abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash},
     traits::is_empty,
 };
 
@@ -198,11 +198,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
+            note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
             log_hash::NoteLogHash,
-            note_hash::{NoteHash, ScopedNoteHash},
-            nullifier::{Nullifier, ScopedNullifier},
-        },
-        address::AztecAddress,
+        }, address::AztecAddress,
     };
 
     global contract_address = AztecAddress::from_field(987654);

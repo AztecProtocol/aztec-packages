@@ -1,3 +1,7 @@
+use dep::aztec::{
+    context::UnconstrainedContext, state_vars::PrivateSet,
+    note::note_viewer_options::NoteViewerOptions,
+};
 use crate::value_note::ValueNote;
 use dep::aztec::{
     context::UnconstrainedContext, note::note_viewer_options::NoteViewerOptions,

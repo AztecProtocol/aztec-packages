@@ -1,11 +1,15 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    traits::{FromField, ToField},
-    utils::arrays::array_concat,
+    hash::{poseidon2_hash, poseidon2_hash_with_separator}, address::AztecAddress,
+    traits::{FromField, ToField}, utils::arrays::array_concat,
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
+use crate::state_vars::{
+    storage::Storage,
+    shared_mutable::{
+        scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange,
+    },
+};
 use crate::oracle::storage::storage_read;
 use crate::state_vars::{
     shared_mutable::{

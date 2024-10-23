@@ -1,8 +1,6 @@
 use crate::{
+    constants::TX_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
     abis::gas_settings::GasSettings,
-    constants::TX_CONTEXT_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 
 // docs:start:tx-context

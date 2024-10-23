@@ -3,8 +3,8 @@ use crate::{
     address::AztecAddress,
     constants::PUBLIC_DATA_READ_LENGTH,
     contrakt::storage_read::StorageRead,
-    data::hash::{compute_public_data_tree_index, compute_public_data_tree_value},
-    traits::{Deserialize, Empty, Serialize},
+    data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
+    traits::{Empty, Serialize, Deserialize},
 };
 
 pub struct PublicDataRead {

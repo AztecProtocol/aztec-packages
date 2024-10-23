@@ -1,8 +1,6 @@
 use crate::{
-    abis::side_effect::{Ordered, Scoped},
-    address::AztecAddress,
-    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
-    traits::{Deserialize, Empty, Serialize},
+    abis::side_effect::{Ordered, Scoped}, traits::{Empty, Serialize, Deserialize},
+    address::AztecAddress, constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
     utils::{arrays::array_concat, reader::Reader},
 };
 

@@ -1,7 +1,6 @@
 use dep::aztec::prelude::PrivateContext;
 use dep::aztec::protocol_types::{
-    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
-    hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},
 };
 
@@ -64,7 +63,6 @@ impl AppPayload {
                         call.function_selector,
                         call.args_hash,
                         call.is_static,
-                        false,
                     );
                 } else {
                     let _result = context.call_private_function_with_packed_args(
@@ -72,7 +70,6 @@ impl AppPayload {
                         call.function_selector,
                         call.args_hash,
                         call.is_static,
-                        false,
                     );
                 }
             }

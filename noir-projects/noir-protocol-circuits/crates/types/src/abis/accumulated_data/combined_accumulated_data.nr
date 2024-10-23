@@ -1,17 +1,13 @@
 use crate::{
     abis::{
+        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
         gas::Gas,
-        log_hash::{LogHash, ScopedLogHash},
-        public_data_update_request::PublicDataUpdateRequest,
-    },
+    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
-        COMBINED_ACCUMULATED_DATA_LENGTH, MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
+        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+    }, utils::reader::Reader, traits::{Empty, Serialize, Deserialize},
 };
 
 pub struct CombinedAccumulatedData {

@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
+    address::AztecAddress, contract_instance::ContractInstance, constants::CONTRACT_INSTANCE_LENGTH,
     utils::reader::Reader,
 };
 

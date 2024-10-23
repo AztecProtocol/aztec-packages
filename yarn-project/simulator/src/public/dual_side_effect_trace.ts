@@ -32,35 +32,35 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     return this.innerCallTrace.getCounter();
   }
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
-    this.innerCallTrace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
-    this.enqueuedCallTrace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
+  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
+    this.innerCallTrace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
+    this.enqueuedCallTrace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
   }
 
-  public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr) {
-    this.innerCallTrace.tracePublicStorageWrite(storageAddress, slot, value);
-    this.enqueuedCallTrace.tracePublicStorageWrite(storageAddress, slot, value);
+  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
+    this.innerCallTrace.tracePublicStorageWrite(contractAddress, slot, value);
+    this.enqueuedCallTrace.tracePublicStorageWrite(contractAddress, slot, value);
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
-    this.innerCallTrace.traceNoteHashCheck(_storageAddress, noteHash, leafIndex, exists);
-    this.enqueuedCallTrace.traceNoteHashCheck(_storageAddress, noteHash, leafIndex, exists);
+  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+    this.innerCallTrace.traceNoteHashCheck(_contractAddress, noteHash, leafIndex, exists);
+    this.enqueuedCallTrace.traceNoteHashCheck(_contractAddress, noteHash, leafIndex, exists);
   }
 
-  public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {
-    this.innerCallTrace.traceNewNoteHash(_storageAddress, noteHash);
-    this.enqueuedCallTrace.traceNewNoteHash(_storageAddress, noteHash);
+  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr) {
+    this.innerCallTrace.traceNewNoteHash(_contractAddress, noteHash);
+    this.enqueuedCallTrace.traceNewNoteHash(_contractAddress, noteHash);
   }
 
-  public traceNullifierCheck(storageAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean) {
-    this.innerCallTrace.traceNullifierCheck(storageAddress, nullifier, leafIndex, exists, isPending);
-    this.enqueuedCallTrace.traceNullifierCheck(storageAddress, nullifier, leafIndex, exists, isPending);
+  public traceNullifierCheck(contractAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean) {
+    this.innerCallTrace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
+    this.enqueuedCallTrace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
   }
 
-  public traceNewNullifier(storageAddress: Fr, nullifier: Fr) {
-    this.innerCallTrace.traceNewNullifier(storageAddress, nullifier);
-    this.enqueuedCallTrace.traceNewNullifier(storageAddress, nullifier);
+  public traceNewNullifier(contractAddress: Fr, nullifier: Fr) {
+    this.innerCallTrace.traceNewNullifier(contractAddress, nullifier);
+    this.enqueuedCallTrace.traceNewNullifier(contractAddress, nullifier);
   }
 
   public traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {

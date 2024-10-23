@@ -1,11 +1,10 @@
 use crate::{
-    context::PrivateContext, encrypted_logs::payload::compute_encrypted_log,
-    event::event_interface::EventInterface, keys::getters::get_ovsk_app, oracle::random::random,
+    context::PrivateContext, event::event_interface::EventInterface,
+    encrypted_logs::payload::compute_encrypted_log, keys::getters::get_ovsk_app,
+    oracle::random::random,
 };
 use dep::protocol_types::{
-    address::AztecAddress,
-    hash::sha256_to_field,
-    public_keys::{IvpkM, OvpkM},
+    address::AztecAddress, public_keys::{OvpkM, IvpkM}, hash::sha256_to_field,
 };
 
 fn compute_raw_event_log<Event, let N: u32>(

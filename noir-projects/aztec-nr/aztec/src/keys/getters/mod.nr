@@ -1,9 +1,8 @@
 use crate::{
-    keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX},
     oracle::{
-        key_validation_request::get_key_validation_request,
         keys::get_public_keys_and_partial_address,
-    },
+        key_validation_request::get_key_validation_request,
+    }, keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX},
 };
 use dep::protocol_types::{address::AztecAddress, public_keys::PublicKeys};
 

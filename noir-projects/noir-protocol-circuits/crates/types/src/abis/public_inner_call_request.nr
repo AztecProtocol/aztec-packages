@@ -1,7 +1,6 @@
 use crate::{
     abis::{public_call_stack_item_compressed::PublicCallStackItemCompressed, side_effect::Ordered},
-    constants::PUBLIC_INNER_CALL_REQUEST_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    constants::PUBLIC_INNER_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
     utils::reader::Reader,
 };
 

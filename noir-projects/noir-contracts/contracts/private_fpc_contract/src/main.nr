@@ -9,6 +9,7 @@ contract PrivateFPC {
         macros::{functions::{initializer, private, public}, storage::storage},
         protocol_types::{address::AztecAddress, hash::compute_siloed_nullifier},
         state_vars::SharedImmutable,
+        macros::{storage::storage, functions::{private, initializer, public}},
     };
     use token::Token;
 

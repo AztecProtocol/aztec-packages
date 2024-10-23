@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::DEPLOYER_CONTRACT_ADDRESS, hash::compute_siloed_nullifier,
-    header::Header,
+    header::Header, address::AztecAddress, hash::compute_siloed_nullifier,
+    constants::DEPLOYER_CONTRACT_ADDRESS,
 };
 
 trait ProveContractDeployment {

@@ -2,10 +2,9 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-    },
-    tests::utils::{assert_array_eq, swap_items},
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE,
+    }, tests::utils::{assert_array_eq, swap_items},
 };
 
 #[test]

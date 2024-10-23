@@ -6,7 +6,7 @@ contract Escrow {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{functions::{initializer, private}, storage::storage},
+        macros::{storage::storage, functions::{private, initializer}},
     };
     use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
 

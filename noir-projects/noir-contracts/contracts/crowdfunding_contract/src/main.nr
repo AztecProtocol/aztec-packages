@@ -8,16 +8,11 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
+        keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public},
-            storage::storage,
-        },
-        prelude::{AztecAddress, PrivateSet, SharedImmutable},
-        protocol_types::traits::Serialize,
-        unencrypted_logs::unencrypted_event_emission::encode_event,
-        utils::comparison::Comparator,
+            storage::storage, events::event, functions::{public, initializer, private, internal},
+        }, protocol_types::traits::Serialize,
     };
     use std::meta::derive;
     // docs:start:import_valuenote

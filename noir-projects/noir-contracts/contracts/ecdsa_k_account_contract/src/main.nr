@@ -7,14 +7,13 @@ contract EcdsaKAccount {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
+        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}},
     };
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
 
     use dep::authwit::{
-        account::AccountActions,
+        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness,
-        entrypoint::{app::AppPayload, fee::FeePayload},
     };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;

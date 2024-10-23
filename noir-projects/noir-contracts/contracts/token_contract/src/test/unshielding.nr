@@ -10,9 +10,9 @@ unconstrained fn unshield_on_behalf_of_self() {
         utils::setup_and_mint( /* with_account_contracts */ false);
 
     let unshield_amount = mint_amount / 10;
-    let unshield_call_interface =
-        Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0);
-    env.call_private_void(unshield_call_interface);
+    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(
+        &mut env.private(),
+    );
     utils::check_private_balance(token_contract_address, owner, mint_amount - unshield_amount);
     utils::check_public_balance(token_contract_address, owner, mint_amount + unshield_amount);
 }
@@ -33,7 +33,7 @@ unconstrained fn unshield_on_behalf_of_other() {
     // Impersonate recipient
     env.impersonate(recipient);
     // Unshield tokens
-    env.call_private_void(unshield_call_interface);
+    unshield_call_interface.call(&mut env.private());
     utils::check_private_balance(token_contract_address, owner, mint_amount - unshield_amount);
     utils::check_public_balance(token_contract_address, recipient, unshield_amount);
 }
@@ -45,9 +45,9 @@ unconstrained fn unshield_failure_more_than_balance() {
         utils::setup_and_mint( /* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
-    let unshield_call_interface =
-        Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0);
-    env.call_private_void(unshield_call_interface);
+    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(
+        &mut env.private(),
+    );
 }
 
 #[test(should_fail_with = "invalid nonce")]
@@ -57,9 +57,9 @@ unconstrained fn unshield_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint( /* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
-    let unshield_call_interface =
-        Token::at(token_contract_address).unshield(owner, owner, unshield_amount, random());
-    env.call_private_void(unshield_call_interface);
+    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, random()).call(
+        &mut env.private(),
+    );
 }
 
 #[test(should_fail_with = "Balance too low")]
@@ -78,7 +78,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_more_than_balance() {
     // Impersonate recipient
     env.impersonate(recipient);
     // Unshield tokens
-    env.call_private_void(unshield_call_interface);
+    unshield_call_interface.call(&mut env.private());
 }
 
 #[test(should_fail_with = "Authorization not found for message hash")]
@@ -97,7 +97,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller()
     // Impersonate recipient
     env.impersonate(recipient);
     // Unshield tokens
-    env.call_private_void(unshield_call_interface);
+    unshield_call_interface.call(&mut env.private());
 }
 
 #[test(should_fail_with = "Authorization not found for message hash")]
@@ -111,5 +111,5 @@ unconstrained fn unshield_failure_on_behalf_of_other_no_approval() {
     // Impersonate recipient
     env.impersonate(recipient);
     // Unshield tokens
-    env.call_private_void(unshield_call_interface);
+    unshield_call_interface.call(&mut env.private());
 }

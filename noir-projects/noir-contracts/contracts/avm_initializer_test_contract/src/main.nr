@@ -4,8 +4,7 @@ use dep::aztec::macros::aztec;
 contract AvmInitializerTest {
     // Libs
     use dep::aztec::{
-        macros::{functions::{initializer, public}, storage::storage},
-        state_vars::PublicImmutable,
+        state_vars::PublicImmutable, macros::{storage::storage, functions::{initializer, public}},
     };
 
     #[storage]

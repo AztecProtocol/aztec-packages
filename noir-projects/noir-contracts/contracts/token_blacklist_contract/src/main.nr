@@ -21,7 +21,11 @@ contract TokenBlacklist {
         keys::getters::get_public_keys,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        utils::comparison::Comparator,
+        encrypted_logs::encrypted_note_emission::{
+            encode_and_encrypt_note_unconstrained, encode_and_encrypt_note,
+        }, utils::comparison::Comparator,
+        macros::{storage::storage, functions::{private, public, initializer, view, internal}},
+        keys::getters::get_public_keys,
     };
 
     use dep::authwit::auth::{
@@ -29,8 +33,8 @@ contract TokenBlacklist {
     };
 
     use crate::types::{
-        balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
-        transparent_note::TransparentNote,
+        transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap,
+        roles::UserFlags,
     };
 
     // Changing an address' roles has a certain block delay before it goes into effect.

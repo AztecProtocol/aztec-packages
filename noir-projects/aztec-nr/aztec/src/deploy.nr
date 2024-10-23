@@ -1,7 +1,7 @@
 use crate::{context::PrivateContext, oracle::get_contract_instance::get_contract_instance};
 
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
+    address::AztecAddress, abis::function_selector::FunctionSelector,
     constants::DEPLOYER_CONTRACT_ADDRESS,
 };
 

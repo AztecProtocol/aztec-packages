@@ -22,6 +22,10 @@ contract Uniswap {
     };
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;
+    use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
+    use dep::aztec::macros::{
+        storage::storage, functions::{public, initializer, view, internal, private},
+    };
 
     #[storage]
     struct Storage<Context> {

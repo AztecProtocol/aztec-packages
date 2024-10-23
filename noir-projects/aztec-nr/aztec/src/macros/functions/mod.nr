@@ -1,8 +1,8 @@
 mod interfaces;
 
 use super::utils::{
-    add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
-    is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+    modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
+    fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer,
 };
 use protocol_types::meta::flatten_to_fields;
 use std::meta::type_of;
@@ -101,7 +101,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
     let mut body = f.body().as_block().unwrap();
 
-    // The original params are hashed and passed to the `context` object, so that the kernel can verify we're received
+    // The original params are hashed and passed to the `context` object, so that the kernel can verify we've received
     // the correct values.
     // TODO: Optimize args_hasher for small number of arguments
     let args_hasher_name = quote { args_hasher };

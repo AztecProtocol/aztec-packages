@@ -5,9 +5,7 @@ use crate::{
         kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         public_call_request::PublicCallRequest,
         validation_requests::PrivateValidationRequestsBuilder,
-    },
-    address::AztecAddress,
-    traits::Empty,
+    }, address::AztecAddress, traits::Empty,
 };
 
 pub struct PrivateKernelCircuitPublicInputsBuilder {

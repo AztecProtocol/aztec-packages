@@ -1,14 +1,17 @@
 use crate::{
-    context::PrivateContext, oracle::execution::get_contract_address,
-    state_vars::private_mutable::PrivateMutable,
+    context::PrivateContext, state_vars::private_mutable::PrivateMutable,
+    oracle::execution::get_contract_address,
 };
-use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
+use crate::test::{mocks::mock_note::MockNote, helpers::test_environment::TestEnvironment};
 use std::test::OracleMock;
 
 global storage_slot = 17;
 
 unconstrained fn setup() -> TestEnvironment {
-    TestEnvironment::new()
+    let mut env = TestEnvironment::new();
+    // Advance 1 block so we can read historic state from private
+    env.advance_block_by(1);
+    env
 }
 
 unconstrained fn in_private(

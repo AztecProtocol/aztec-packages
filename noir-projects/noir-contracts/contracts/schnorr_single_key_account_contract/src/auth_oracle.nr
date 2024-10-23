@@ -1,8 +1,6 @@
 use dep::authwit::auth_witness;
 use dep::aztec::protocol_types::{
-    address::PartialAddress,
-    public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
-    utils::arr_copy_slice,
+    address::PartialAddress, utils::arr_copy_slice, public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH},
 };
 
 pub struct AuthWitness {

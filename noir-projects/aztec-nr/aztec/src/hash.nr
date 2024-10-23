@@ -2,12 +2,10 @@ use crate::utils::to_bytes::{arr_to_be_bytes_arr, str_to_be_bytes_arr};
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
-        GENERATOR_INDEX__FUNCTION_ARGS, GENERATOR_INDEX__MESSAGE_NULLIFIER,
-        GENERATOR_INDEX__SECRET_HASH,
-    },
-    hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice, sha256_to_field},
-    point::Point,
-    traits::Hash,
+        GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER,
+        GENERATOR_INDEX__FUNCTION_ARGS,
+    }, point::Point, traits::Hash,
+    hash::{sha256_to_field, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice},
 };
 
 pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};

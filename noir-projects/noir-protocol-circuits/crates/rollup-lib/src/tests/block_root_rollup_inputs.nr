@@ -4,10 +4,9 @@ use crate::tests::previous_rollup_data::default_previous_rollup_data;
 use dep::types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-        L1_TO_L2_MSG_TREE_HEIGHT,
-    },
-    tests::merkle_tree_utils::compute_zero_hashes,
+        L1_TO_L2_MSG_TREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT, ARCHIVE_HEIGHT,
+    }, tests::merkle_tree_utils::compute_zero_hashes,
 };
 
 pub fn compute_l1_l2_empty_snapshot() -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH]) {

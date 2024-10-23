@@ -1,13 +1,12 @@
 use dep::private_kernel_lib::private_kernel_reset::{
-    PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints,
+    PrivateKernelResetHints, PrivateKernelResetCircuitPrivateInputs,
 };
 use dep::types::{
     constants::{
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX,
     },
-    PrivateKernelCircuitPublicInputs,
 };
 use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 

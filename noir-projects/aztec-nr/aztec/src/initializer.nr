@@ -1,11 +1,11 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::GENERATOR_INDEX__CONSTRUCTOR, hash::poseidon2_hash_with_separator,
+    address::AztecAddress, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__CONSTRUCTOR, abis::function_selector::FunctionSelector,
 };
 
 use crate::{
-    context::{PrivateContext, PublicContext},
-    oracle::get_contract_instance::{get_contract_instance, get_contract_instance_avm},
+    context::{PrivateContext, PublicContext}, oracle::get_contract_instance::get_contract_instance,
+    oracle::get_contract_instance::get_contract_instance_avm,
 };
 
 pub fn mark_as_initialized_public(context: &mut PublicContext) {

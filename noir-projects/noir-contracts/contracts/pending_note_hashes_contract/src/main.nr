@@ -7,6 +7,13 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract PendingNoteHashes {
     // Libs
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteGetterOptions, PrivateContext, Map, PrivateSet,
+    };
+    use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
+    use dep::aztec::protocol_types::constants::{
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+    };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::keys::getters::get_public_keys;
     use dep::aztec::macros::{functions::private, storage::storage};
@@ -198,13 +205,13 @@ contract PendingNoteHashes {
     ) {
         // nested call to create/insert note
         let _res = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
             [amount, owner.to_field(), outgoing_viewer.to_field()],
         );
         // nested call to read and nullify that note
         let _res = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
             [amount, owner.to_field()],
         );
@@ -225,29 +232,29 @@ contract PendingNoteHashes {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
             insertArgs,
         );
         let _callStackItem2 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
             insertArgs,
         );
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
             getNullifyArgs,
         );
         let _callStackItem4 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
             getNullifyArgs,
         );
         // nested call to confirm that balance is zero
         // TODO(dbanks12): once > 4 nested calls is supported, can confirm 0 balance:
-        //let _callStackItem5 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+        //let _callStackItem5 = context.call_private_function(inputs.call_context.contract_address, get_note_zero_fn_selector, [owner]);
     }
 
     // same test as above, but insert 2, get 1, nullify 1
@@ -265,18 +272,18 @@ contract PendingNoteHashes {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
             insertArgs,
         );
         let _callStackItem2 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
             insertArgs,
         );
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
             getNullifyArgs,
         );
@@ -299,18 +306,18 @@ contract PendingNoteHashes {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
             insertArgs,
         );
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
             getNullifyArgs,
         );
         let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
             getNullifyArgs,
         );

@@ -1,7 +1,9 @@
+// docs:start:setup
 use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Counter {
+    // docs:end:setup
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
@@ -47,6 +49,8 @@ contract Counter {
 
     // docs:end:get_counter
     // docs:start:test_imports
+    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
@@ -80,9 +84,7 @@ contract Counter {
         );
         // docs:end:txe_test_read_notes
         // Increment the counter
-        let increment_call_interface =
-            Counter::at(contract_address).increment(owner, outgoing_viewer);
-        env.call_private_void(increment_call_interface);
+        Counter::at(contract_address).increment(owner, outgoing_viewer).call(&mut env.private());
         // get_counter is an unconstrained function, so we call it directly (we're in the same module)
         let current_value_for_owner = get_counter(owner);
         let expected_current_value = initial_value + 1;

@@ -5,7 +5,7 @@ use dep::aztec::{
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
         constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
-    },
+    }, macros::notes::note,
 };
 
 use dep::std::mem::zeroed;

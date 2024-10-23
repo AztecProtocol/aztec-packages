@@ -4,8 +4,8 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
@@ -52,21 +52,18 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_tail::{
-        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelTailCircuitPrivateInputs,
+        PrivateKernelTailCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
+    };
+    use dep::types::constants::{
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX,
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            log_hash::ScopedLogHash, max_block_number::MaxBlockNumber,
-        },
-        address::{AztecAddress, EthAddress},
-        point::Point,
-        tests::fixture_builder::FixtureBuilder,
-        traits::is_empty,
-    };
-    use dep::types::constants::{
-        BASE_ROLLUP_INDEX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX,
+            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            max_block_number::MaxBlockNumber, gas::Gas, log_hash::ScopedLogHash,
+        }, address::{AztecAddress, EthAddress}, tests::fixture_builder::FixtureBuilder,
+        traits::is_empty, point::Point,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.

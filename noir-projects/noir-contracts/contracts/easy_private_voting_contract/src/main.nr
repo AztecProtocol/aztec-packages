@@ -5,7 +5,7 @@ contract EasyPrivateVoting {
     // docs:start:imports
     use dep::aztec::{
         keys::getters::get_public_keys,
-        macros::{functions::{initializer, internal, private, public}, storage::storage},
+        macros::{storage::storage, functions::{public, initializer, private, internal}},
     };
     use dep::aztec::prelude::{AztecAddress, Map, PublicMutable, SharedImmutable};
     // docs:end:imports

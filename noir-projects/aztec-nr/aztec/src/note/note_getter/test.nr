@@ -1,9 +1,8 @@
 use crate::{
     note::{
+        note_getter_options::{NoteGetterOptions, SortOrder, PropertySelector},
         note_getter::constrain_get_notes_internal,
-        note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
-    },
-    oracle::execution::get_contract_address,
+    }, oracle::execution::get_contract_address,
 };
 use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
@@ -13,7 +12,10 @@ use crate::utils::comparison::Comparator;
 global storage_slot: Field = 42;
 
 unconstrained fn setup() -> TestEnvironment {
-    TestEnvironment::new()
+    let mut env = TestEnvironment::new();
+    // Advance 1 block so we can read historic state from private
+    env.advance_block_by(1);
+    env
 }
 
 unconstrained fn build_valid_note(value: Field) -> MockNote {

@@ -19,28 +19,22 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        context::{PrivateCallInterface, PrivateContext},
+        context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
+        oracle::random::random,
+        prelude::{
+            NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress,
+            FunctionSelector,
+        },
         encrypted_logs::{
-            encrypted_event_emission::encode_and_encrypt_event_unconstrained,
             encrypted_note_emission::{
                 encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
                 encrypt_and_emit_partial_log,
-            },
-        },
-        hash::compute_secret_hash,
-        keys::getters::get_public_keys,
+            }, encrypted_event_emission::encode_and_encrypt_event_unconstrained,
+        }, keys::getters::get_public_keys,
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public, view},
-            storage::storage,
-        },
-        oracle::random::random,
-        prelude::{
-            AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable,
-            SharedImmutable,
-        },
-        protocol_types::{point::Point, traits::Serialize},
-        utils::comparison::Comparator,
+            storage::storage, events::event,
+            functions::{initializer, private, view, public, internal},
+        }, utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize},
     };
 
     // docs:start:import_authwit
@@ -51,7 +45,7 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        balance_set::BalanceSet, token_note::TokenNote, transparent_note::TransparentNote,
+        transparent_note::TransparentNote, token_note::TokenNote, balance_set::BalanceSet,
     };
 
     // docs:end::imports
@@ -413,7 +407,7 @@ contract Token {
         context: PrivateContext,
         account: AztecAddress,
         remaining: U128,
-    ) -> PrivateCallInterface<25, U128, (AztecAddress, Field)> {
+    ) -> PrivateCallInterface<25, U128> {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining.to_field())
     }
     // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to

@@ -1,9 +1,8 @@
 use crate::{
-    abis::side_effect::Ordered,
-    traits::{Empty, is_empty},
+    abis::side_effect::Ordered, traits::{Empty, is_empty},
     utils::arrays::{
-        array_length, get_sorted_tuple::get_sorted_tuple,
-        sort_by_counter::compare_by_counter_empty_padded_asc,
+        array_length, sort_by_counter::compare_by_counter_empty_padded_asc,
+        get_sorted_tuple::get_sorted_tuple,
     },
 };
 

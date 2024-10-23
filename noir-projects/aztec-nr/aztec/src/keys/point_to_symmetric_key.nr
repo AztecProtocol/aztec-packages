@@ -1,3 +1,6 @@
+use dep::protocol_types::{
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, scalar::Scalar, point::Point, utils::arr_copy_slice,
+};
 use crate::utils::point::point_to_bytes;
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__SYMMETRIC_KEY, point::Point, scalar::Scalar, utils::arr_copy_slice,
