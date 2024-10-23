@@ -33,4 +33,4 @@ echo "Done waiting."
 export DEBUG="aztec:*"
 export LOG_LEVEL=${LOG_LEVEL:-"debug"}
 cd $(git rev-parse --show-toplevel)/yarn-project/end-to-end
-yarn test src/spartan/transfer.test.ts
+DEBUG=aztec:* yarn test src/spartan/transfer.test.ts
