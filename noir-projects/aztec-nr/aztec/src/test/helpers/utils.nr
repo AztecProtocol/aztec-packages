@@ -43,8 +43,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             instance.to_address(),
             call_interface.get_selector(),
             args_hash,
-            call_interface.get_is_static(),
-            false
+            call_interface.get_is_static()
         );
 
         instance
