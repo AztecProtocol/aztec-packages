@@ -119,8 +119,7 @@ impl TestEnvironment {
             call_interface.get_selector(),
             hash_args(call_interface.get_args()),
             cheatcodes::get_side_effects_counter() as Field,
-            call_interface.get_is_static(),
-            false
+            call_interface.get_is_static()
         );
     }
 

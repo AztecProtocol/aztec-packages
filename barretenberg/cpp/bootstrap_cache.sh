@@ -29,6 +29,3 @@ cp -r $TMP/barretenberg-preset-wasm-threads/build build-wasm-threads/
 mkdir -p build
 cp -r $TMP/barretenberg-preset-release/build/* build/
 cp -r $TMP/barretenberg-preset-release-world-state/build/* build/
-
-mkdir -p ../../yarn-project/world-state/build/
-cp $TMP/barretenberg-preset-release-world-state/build/bin/world_state_napi.node ../../yarn-project/world-state/build/

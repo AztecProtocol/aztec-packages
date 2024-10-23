@@ -65,16 +65,14 @@ pub unconstrained fn assert_private_call_fails(
     function_selector: FunctionSelector,
     argsHash: Field,
     sideEffectsCounter: Field,
-    isStaticCall: bool,
-    isDelegateCall: bool
+    isStaticCall: bool
 ) {
     oracle_assert_private_call_fails(
         target_address,
         function_selector,
         argsHash,
         sideEffectsCounter,
-        isStaticCall,
-        isDelegateCall
+        isStaticCall
     )
 }
 
@@ -134,6 +132,5 @@ unconstrained fn oracle_assert_private_call_fails(
     function_selector: FunctionSelector,
     argsHash: Field,
     sideEffectsCounter: Field,
-    isStaticCall: bool,
-    isDelegateCall: bool
+    isStaticCall: bool
 ) {}

@@ -12,6 +12,7 @@ namespace bb::avm_trace {
 class AvmPoseidon2TraceBuilder {
   public:
     struct Poseidon2TraceEntry {
+        uint32_t space_id = 0;
         uint32_t clk = 0;
         std::array<FF, 4> input;
         std::array<FF, 4> output;
@@ -26,10 +27,8 @@ class AvmPoseidon2TraceBuilder {
     // Finalize the trace
     std::vector<Poseidon2TraceEntry> finalize();
 
-    std::array<FF, 4> poseidon2_permutation(std::array<FF, 4> const& input,
-                                            uint32_t clk,
-                                            uint32_t input_addr,
-                                            uint32_t output_addr);
+    std::array<FF, 4> poseidon2_permutation(
+        std::array<FF, 4> const& input, uint32_t space_id, uint32_t clk, uint32_t input_addr, uint32_t output_addr);
 
   private:
     std::vector<Poseidon2TraceEntry> poseidon2_trace;
@@ -56,6 +55,7 @@ template <typename DestRow> void merge_into(DestRow& dest, const AvmPoseidon2Tra
     dest.poseidon2_mem_addr_write_b = src.output_addr + 1;
     dest.poseidon2_mem_addr_write_c = src.output_addr + 2;
     dest.poseidon2_mem_addr_write_d = src.output_addr + 3;
+    dest.poseidon2_space_id = src.space_id;
     dest.poseidon2_sel_poseidon_perm = FF(1);
     // First Ext Round
     dest.poseidon2_EXT_LAYER_6 = src.first_ext[0];

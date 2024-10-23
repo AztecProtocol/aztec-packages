@@ -76,7 +76,6 @@ contract ContractInstanceDeployer {
     }
 
     #[private]
-    #['private]
     fn deploy(
         salt: Field,
         contract_class_id: ContractClassId,

@@ -65,6 +65,8 @@ unconstrained fn setup_refund_success() {
     utils::check_private_balance(token_contract_address, fee_payer, 1)
 }
 
+// This test should be reworked when final support for partial notes is in
+// Once that happens, the expected error message is commented out below
 //#[test(should_fail_with="funded amount not enough to cover tx fee")]
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn setup_refund_insufficient_funded_amount() {
