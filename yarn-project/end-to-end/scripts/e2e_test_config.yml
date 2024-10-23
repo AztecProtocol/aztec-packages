@@ -1,0 +1,108 @@
+tests:
+  base: {}
+  bench_prover:
+    env:
+      HARDWARE_CONCURRENCY: "32"
+      COMPOSE_FILE: "scripts/docker-compose-no-sandbox.yml"
+      DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+    command: "./scripts/e2e_compose_test.sh bench_prover"
+  bench_publish_rollup:
+    env:
+      HARDWARE_CONCURRENCY: "32"
+      COMPOSE_FILE: "scripts/docker-compose-no-sandbox.yml"
+      DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+    command: "./scripts/e2e_compose_test.sh bench_publish_rollup"
+  bench_tx_size:
+    env:
+      HARDWARE_CONCURRENCY: "32"
+      COMPOSE_FILE: "scripts/docker-compose-no-sandbox.yml"
+      DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+    command: "./scripts/e2e_compose_test.sh bench_tx_size"
+  e2e_2_pxes: {}
+  e2e_account_contracts: {}
+  e2e_authwit: {}
+  e2e_avm_simulator: {}
+  e2e_blacklist_token_contract: {}
+  e2e_block_building: {}
+  e2e_bot: {}
+  e2e_browser:
+    use_compose: true
+  e2e_card_game: {}
+  e2e_cheat_codes: {}
+  e2e_cli_wallet: {}
+  e2e_cross_chain_messaging: {}
+  e2e_crowdfunding_and_claim: {}
+  e2e_deploy_contract: {}
+  e2e_devnet_smoke: {}
+  e2e_docs_examples:
+    use_compose: true
+  e2e_escrow_contract: {}
+  e2e_fees_account_init: {}
+  e2e_fees_dapp_subscription: {}
+  e2e_fees_failures: {}
+  e2e_fees_fee_juice_payments: {}
+  e2e_fees_gas_estimation: {}
+  e2e_fees_private_payments: {}
+  e2e_fees_private_refunds: {}
+  e2e_keys: {}
+  e2e_l1_with_wall_time: {}
+  e2e_lending_contract: {}
+  e2e_logs: {}
+  e2e_max_block_number: {}
+  e2e_multiple_accounts_1_enc_key: {}
+  e2e_nested_contract: {}
+  e2e_nft: {}
+  e2e_non_contract_account: {}
+  e2e_note_getter: {}
+  e2e_ordering: {}
+  e2e_outbox: {}
+  e2e_pending_note_hashes_contract: {}
+  e2e_private_voting_contract: {}
+  e2e_prover_fake_proofs:
+    env:
+      FAKE_PROOFS: "1"
+  e2e_prover_full:
+    env:
+      HARDWARE_CONCURRENCY: "32"
+  e2e_public_testnet: {}
+  e2e_sandbox_example:
+    use_compose: true
+  e2e_state_vars: {}
+  e2e_static_calls: {}
+  e2e_synching: {}
+  e2e_token_contract: {}
+  flakey_e2e_tests: {}
+  guides_dapp_testing:
+    use_compose: true
+  guides_sample_dapp:
+    use_compose: true
+  guides_sample_dapp_ci:
+    use_compose: true
+  guides_up_quick_start:
+    use_compose: true
+  guides_writing_an_account_contract:
+    use_compose: true
+  integration_l1_publisher:
+    use_compose: true
+  kind_network_4epochs:
+    env:
+      NAMESPACE: "smoke"
+      FRESH_INSTALL: "true"
+      VALUES_FILE: "$-default.yaml"
+    command: "./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true"
+  kind_network_smoke:
+    env:
+      NAMESPACE: "smoke"
+      FRESH_INSTALL: "true"
+      VALUES_FILE: "$-default.yaml"
+    command: "./scripts/network_test.sh ./src/spartan/smoke.test.ts"
+  kind_network_transfer:
+    env:
+      NAMESPACE: "transfer"
+      FRESH_INSTALL: "true"
+      VALUES_FILE: "$-default.yaml"
+    command: "./scripts/network_test.sh ./src/spartan/smoke.test.ts"
+  pxe:
+    use_compose: true
+  uniswap_trade_on_l1_from_l2:
+    use_compose: true

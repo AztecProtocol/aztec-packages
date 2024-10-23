@@ -7,8 +7,15 @@ cd "$(dirname "$0")"/../..
 BRANCH=$1
 LABELS=$2
 
-# Read the full list from the file
-full_list=$(cat yarn-project/end-to-end/scripts/full_e2e_test_list)
+# Function to parse YAML and extract test names
+get_test_names() {
+  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml
+}
+
+# Read the full list from the YAML file
+full_list=$(get_test_names)
+
+echo "Full list: $full_list"
 
 # Define the jobs that will run on every PR
 allow_list=(

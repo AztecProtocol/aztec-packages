@@ -214,34 +214,7 @@ jobs:
             set -eux
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
-
-            # Handle env vars for certain tests
-            if [[ "$matrix.test" == *"fake_proofs"* ]]; then
-              export FAKE_PROOFS=1
-            fi
-            if [[ "$matrix.test" == *"prover_full"* ]]; then
-              export HARDWARE_CONCURRENCY=32
-            fi
-
-            # Handle special cases for network tests
-            if [[ "$matrix.test" == *"kind_network"* ]]; then
-              if [[ "$matrix.test" == *"smoke"* ]]; then
-                NAMESPACE=smoke
-              elif [[ "$matrix.test" == *"transfer"* ]]; then
-                NAMESPACE=transfer
-              fi
-              if [[ "$matrix.test" == *"4epochs"* ]]; then
-                RUN NAMESPACE=$NAMESPACE FRESH_INSTALL=true VALUES_FILE=$-default.yaml ./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true
-              else
-                RUN NAMESPACE=$NAMESPACE FRESH_INSTALL=true VALUES_FILE=$-default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
-              fi
-            # Handle tests that need to be run with e2e_compose_test script
-            elif grep -qF "$matrix.test" yarn-project/end-to-end/scripts/compose_e2e_test_list; then
-              ./scripts/e2e_compose_test.sh ${{ matrix.test }}
-            else
-              # Default case
-              ./scripts/e2e_test.sh ${{ matrix.test }}
-            fi
+            ./scripts/e2e_test.sh ${{ matrix.test }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -275,12 +248,8 @@ jobs:
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            export COMPOSE_FILE=scripts/docker-compose-no-sandbox.yml
-            export DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
-            export HARDWARE_CONCURRENCY=32
-            ./scripts/e2e_compose_test.sh ${{ matrix.test }}
+            ./scripts/e2e_test.sh ${{ matrix.test }}
 
-            # redundant, but just to be explicit:
             earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
   acir-bench:
