@@ -62,7 +62,7 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
-    sysstia = new Sysstia(testERC20, registry);
+    sysstia = new Sysstia(testERC20, registry, address(this));
     rollup = new Rollup(
       new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
     );
