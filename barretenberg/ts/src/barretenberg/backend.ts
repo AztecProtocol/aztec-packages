@@ -1,5 +1,13 @@
 import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
+import { decompressSync as gunzip } from 'fflate';
+import {
+  deflattenFields,
+  flattenFieldsAsArray,
+  ProofData,
+  reconstructHonkProof,
+  reconstructUltraPlonkProof,
+} from '../proof/index.js';
 
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't
@@ -11,7 +19,11 @@ export class UltraPlonkBackend {
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   protected acirComposer: any;
 
-  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
+  protected acirUncompressedBytecode: Uint8Array;
+
+  constructor(acirBytecode: string, protected options: BackendOptions = { threads: 1 }) {
+    this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
+  }
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -30,9 +42,25 @@ export class UltraPlonkBackend {
   }
 
   /** @description Generates a proof */
-  async generateProof(uncompressedWitness: Uint8Array): Promise<Uint8Array> {
+  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
     await this.instantiate();
-    return this.api.acirCreateProof(this.acirComposer, this.acirUncompressedBytecode, uncompressedWitness);
+    const proofWithPublicInputs = await this.api.acirCreateProof(
+      this.acirComposer,
+      this.acirUncompressedBytecode,
+      gunzip(compressedWitness),
+    );
+
+    // This is the number of bytes in a UltraPlonk proof
+    // minus the public inputs.
+    const numBytesInProofWithoutPublicInputs = 2144;
+
+    const splitIndex = proofWithPublicInputs.length - numBytesInProofWithoutPublicInputs;
+
+    const publicInputsConcatenated = proofWithPublicInputs.slice(0, splitIndex);
+    const proof = proofWithPublicInputs.slice(splitIndex);
+    const publicInputs = deflattenFields(publicInputsConcatenated);
+
+    return { proof, publicInputs };
   }
 
   /**
@@ -52,7 +80,7 @@ export class UltraPlonkBackend {
    * ```
    */
   async generateRecursiveProofArtifacts(
-    proof: Uint8Array,
+    proofData: ProofData,
     numOfPublicInputs = 0,
   ): Promise<{
     proofAsFields: string[];
@@ -60,6 +88,8 @@ export class UltraPlonkBackend {
     vkHash: string;
   }> {
     await this.instantiate();
+
+    const proof = reconstructUltraPlonkProof(proofData);
     const proofAsFields = (
       await this.api.acirSerializeProofIntoFields(this.acirComposer, proof, numOfPublicInputs)
     ).slice(numOfPublicInputs);
@@ -79,9 +109,10 @@ export class UltraPlonkBackend {
   }
 
   /** @description Verifies a proof */
-  async verifyProof(proof: Uint8Array): Promise<boolean> {
+  async verifyProof(proofData: ProofData): Promise<boolean> {
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);
+    const proof = reconstructUltraPlonkProof(proofData);
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
 
@@ -99,6 +130,12 @@ export class UltraPlonkBackend {
   }
 }
 
+// Buffers are prepended with their size. The size takes 4 bytes.
+const serializedBufferSize = 4;
+const fieldByteSize = 32;
+const publicInputOffset = 3;
+const publicInputsOffsetBytes = publicInputOffset * fieldByteSize;
+
 export class UltraHonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -106,9 +143,11 @@ export class UltraHonkBackend {
   // constructors cannot be asynchronous which is why we do this.
 
   protected api!: Barretenberg;
+  protected acirUncompressedBytecode: Uint8Array;
 
-  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
-
+  constructor(acirBytecode: string, protected options: BackendOptions = { threads: 1 }) {
+    this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
+  }
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
@@ -122,13 +161,39 @@ export class UltraHonkBackend {
     }
   }
 
-  async generateProof(uncompressedWitness: Uint8Array): Promise<Uint8Array> {
+  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
     await this.instantiate();
-    return this.api.acirProveUltraHonk(this.acirUncompressedBytecode, uncompressedWitness);
+    const proofWithPublicInputs = await this.api.acirProveUltraHonk(
+      this.acirUncompressedBytecode,
+      gunzip(compressedWitness),
+    );
+
+    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
+
+    const numPublicInputs = Number(proofAsStrings[1]);
+
+    // Account for the serialized buffer size at start
+    const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
+    // Get the part before and after the public inputs
+    const proofStart = proofWithPublicInputs.slice(0, publicInputsOffset);
+    const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
+    const proofEnd = proofWithPublicInputs.slice(publicInputsOffset + publicInputsSplitIndex);
+    // Construct the proof without the public inputs
+    const proof = new Uint8Array([...proofStart, ...proofEnd]);
+
+    // Fetch the number of public inputs out of the proof string
+    const publicInputsConcatenated = proofWithPublicInputs.slice(
+      publicInputsOffset,
+      publicInputsOffset + publicInputsSplitIndex,
+    );
+    const publicInputs = deflattenFields(publicInputsConcatenated);
+
+    return { proof, publicInputs };
   }
 
-  async verifyProof(proof: Uint8Array): Promise<boolean> {
+  async verifyProof(proofData: ProofData): Promise<boolean> {
     await this.instantiate();
+    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
     const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
 
     return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(vkBuf));
@@ -176,5 +241,26 @@ export class UltraHonkBackend {
       return;
     }
     await this.api.destroy();
+  }
+}
+
+// Converts bytecode from a base64 string to a Uint8Array
+function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
+  const compressedByteCode = base64Decode(base64EncodedBytecode);
+  return gunzip(compressedByteCode);
+}
+
+// Since this is a simple function, we can use feature detection to
+// see if we are in the nodeJs environment or the browser environment.
+function base64Decode(input: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    // Node.js environment
+    const b = Buffer.from(input, 'base64');
+    return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+  } else if (typeof atob === 'function') {
+    // Browser environment
+    return Uint8Array.from(atob(input), c => c.charCodeAt(0));
+  } else {
+    throw new Error('No implementation found for base64 decoding.');
   }
 }

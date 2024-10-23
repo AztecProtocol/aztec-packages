@@ -102,7 +102,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
     let mut body = f.body().as_block().unwrap();
 
-    // The original params are hashed and passed to the `context` object, so that the kernel can verify we're received
+    // The original params are hashed and passed to the `context` object, so that the kernel can verify we've received
     // the correct values.
 
     // TODO: Optimize args_hasher for small number of arguments

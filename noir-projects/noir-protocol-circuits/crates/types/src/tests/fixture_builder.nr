@@ -5,7 +5,7 @@ use crate::{
     CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
     PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder
 },
-    function_data::FunctionData, global_variables::GlobalVariables,
+    function_data::FunctionData, function_selector::FunctionSelector, global_variables::GlobalVariables,
     combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
     kernel_circuit_public_inputs::{
     KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
@@ -14,13 +14,11 @@ use crate::{
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier}, private_call_request::PrivateCallRequest,
-    private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData,
     public_call_data::{Proof as PublicCallDataProof, PublicCallData},
-    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
-    public_data_update_request::PublicDataUpdateRequest,
+    public_call_request::PublicCallRequest, public_circuit_public_inputs::PublicCircuitPublicInputs,
+    public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     public_inner_call_request::PublicInnerCallRequest, read_request::{ReadRequest, ScopedReadRequest},
     tree_leaf_read_request::TreeLeafReadRequest,
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
@@ -31,6 +29,7 @@ use crate::{
 }
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
+    public_keys::PublicKeys,
     constants::{
     FUNCTION_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
     MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -90,9 +89,7 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
 
 pub struct FixtureBuilder {
     contract_address: AztecAddress,
-    storage_contract_address: AztecAddress,
     msg_sender: AztecAddress,
-    is_delegate_call: bool,
     is_static_call: bool,
 
     // Fees.
@@ -148,7 +145,7 @@ pub struct FixtureBuilder {
 
     // Private call.
     salted_initialization_hash: SaltedInitializationHash,
-    public_keys_hash: PublicKeysHash,
+    public_keys: PublicKeys,
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
@@ -203,7 +200,6 @@ impl FixtureBuilder {
 
     pub fn as_parent_contract(&mut self) -> Self {
         self.contract_address = fixtures::contracts::parent_contract.address;
-        self.storage_contract_address = fixtures::contracts::parent_contract.address;
         self.msg_sender = fixtures::MSG_SENDER;
         *self
     }
@@ -241,16 +237,14 @@ impl FixtureBuilder {
 
         let _ = self.use_contract(contract_data);
         self.contract_address = AztecAddress::from_field(contract_index as Field);
-        self.storage_contract_address = self.contract_address;
 
         self.use_function(function_data)
     }
 
     pub fn use_contract(&mut self, contract_data: ContractData) -> Self {
         self.contract_address = contract_data.address;
-        self.storage_contract_address = self.contract_address;
         self.salted_initialization_hash = contract_data.salted_initialization_hash;
-        self.public_keys_hash = contract_data.public_keys_hash;
+        self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
         self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
 
@@ -268,13 +262,6 @@ impl FixtureBuilder {
         let contract_function = fixtures::contract_functions::default_public_function;
         self.function_data = contract_function.data;
         self.bytecode_hash = contract_function.acir_hash;
-        *self
-    }
-
-    pub fn is_delegate_call(&mut self) -> Self {
-        self.is_delegate_call = true;
-        self.storage_contract_address = fixtures::contracts::parent_contract.address;
-        self.msg_sender = fixtures::MSG_SENDER;
         *self
     }
 
@@ -310,16 +297,14 @@ impl FixtureBuilder {
     pub fn build_call_context(self) -> CallContext {
         CallContext {
             msg_sender: self.msg_sender,
-            storage_contract_address: self.storage_contract_address,
+            contract_address: self.contract_address,
             function_selector: self.function_data.selector,
-            is_delegate_call: self.is_delegate_call,
             is_static_call: self.is_static_call
         }
     }
 
     pub fn build_private_call_request(self) -> PrivateCallRequest {
         PrivateCallRequest {
-            contract_address: self.contract_address,
             call_context: self.build_call_context(),
             args_hash: self.args_hash,
             returns_hash: self.returns_hash,
@@ -357,21 +342,13 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_call_stack_item(self) -> PrivateCallStackItem {
-        PrivateCallStackItem {
-            contract_address: self.contract_address,
-            function_data: self.function_data,
-            public_inputs: self.to_private_circuit_public_inputs()
-        }
-    }
-
     pub fn to_private_call_data(self) -> PrivateCallData {
         PrivateCallData {
-            call_stack_item: self.to_private_call_stack_item(),
+            public_inputs: self.to_private_circuit_public_inputs(),
             vk: self.client_ivc_vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
-            public_keys_hash: self.public_keys_hash,
+            public_keys: self.public_keys,
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
             protocol_contract_sibling_path: self.protocol_contract_sibling_path,
@@ -397,12 +374,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_public_call_request(self) -> PublicCallRequest {
-        PublicCallRequest {
-            contract_address: self.contract_address,
-            call_context: self.build_call_context(),
-            args_hash: self.args_hash,
-            counter: 0
-        }
+        PublicCallRequest { call_context: self.build_call_context(), args_hash: self.args_hash, counter: 0 }
     }
 
     pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
@@ -526,17 +498,9 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_public_call_stack_item(self) -> PublicCallStackItem {
-        PublicCallStackItem {
-            contract_address: self.contract_address,
-            function_data: self.function_data,
-            public_inputs: self.to_public_circuit_public_inputs()
-        }
-    }
-
     pub fn to_public_call_data(self) -> PublicCallData {
         PublicCallData {
-            call_stack_item: self.to_public_call_stack_item(),
+            public_inputs: self.to_public_circuit_public_inputs(),
             proof: PublicCallDataProof {},
             bytecode_hash: self.bytecode_hash
         }
@@ -636,14 +600,14 @@ impl FixtureBuilder {
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
-        self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(self.storage_contract_address));
+        self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(self.contract_address));
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
         // First nullifier is tx hash.
         let tx_hash = self.nullifiers.get(0).value();
         let index = self.note_hashes.len();
-        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.storage_contract_address);
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
         let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(AztecAddress::zero()));
     }
@@ -693,9 +657,7 @@ impl FixtureBuilder {
     }
 
     pub fn add_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
-        self.nullifiers.push(
-            Nullifier { value, counter: self.next_counter(), note_hash }.scope(self.storage_contract_address)
-        );
+        self.nullifiers.push(Nullifier { value, counter: self.next_counter(), note_hash }.scope(self.contract_address));
     }
 
     pub fn add_siloed_nullifier(&mut self, value: Field) {
@@ -704,7 +666,7 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
-        let siloed_value = compute_siloed_nullifier(self.storage_contract_address, value);
+        let siloed_value = compute_siloed_nullifier(self.contract_address, value);
         self.nullifiers.push(
             Nullifier { value: siloed_value, counter: self.next_counter(), note_hash }.scope(AztecAddress::zero())
         );
@@ -732,17 +694,17 @@ impl FixtureBuilder {
 
     pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
         self.l2_to_l1_msgs.push(
-            L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(self.storage_contract_address)
+            L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(self.contract_address)
         );
     }
 
     pub fn add_exposed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
-        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(self.storage_contract_address));
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(self.contract_address));
     }
 
     pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
         let siloed_content = compute_l2_to_l1_hash(
-            self.storage_contract_address,
+            self.contract_address,
             recipient,
             content,
             self.tx_context.version,
@@ -832,7 +794,7 @@ impl FixtureBuilder {
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
         let value = self.mock_note_hash_value(note_hash_index);
-        let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
+        let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }
@@ -842,7 +804,7 @@ impl FixtureBuilder {
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_note_hash_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
+                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
                 self.note_hash_read_requests.push(read_request);
             }
         }
@@ -866,13 +828,13 @@ impl FixtureBuilder {
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
         let nullifier = self.mock_nullifier_value(nullifier_index);
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
     pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.contract_address);
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 
@@ -881,7 +843,7 @@ impl FixtureBuilder {
         for i in 0..self.nullifier_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_nullifier_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
+                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
                 self.nullifier_read_requests.push(read_request);
             }
         }
@@ -901,7 +863,7 @@ impl FixtureBuilder {
         let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
-        let scoped_key_validation_request_and_generator = request_and_generator.scope(self.storage_contract_address);
+        let scoped_key_validation_request_and_generator = request_and_generator.scope(self.contract_address);
         self.scoped_key_validation_requests_and_generators.push(scoped_key_validation_request_and_generator);
 
         new_request_index
@@ -912,7 +874,7 @@ impl FixtureBuilder {
         for i in 0..self.scoped_key_validation_requests_and_generators.max_len() {
             if i < num_requests {
                 let request = self.mock_key_validation_request(index_offset + i);
-                self.scoped_key_validation_requests_and_generators.push(request.scope(self.storage_contract_address));
+                self.scoped_key_validation_requests_and_generators.push(request.scope(self.contract_address));
             }
         }
     }
@@ -935,12 +897,12 @@ impl FixtureBuilder {
 
     pub fn add_encrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 };
-        self.encrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
+        self.encrypted_logs_hashes.push(log_hash.scope(self.contract_address));
         self.encrypted_log_preimages_length += length;
     }
 
     pub fn add_masked_encrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let mut log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 }.scope(self.storage_contract_address);
+        let mut log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 }.scope(self.contract_address);
         log_hash.contract_address = mask_encrypted_log_hash(log_hash);
         log_hash.log_hash.randomness = 0;
         self.encrypted_logs_hashes.push(log_hash);
@@ -965,7 +927,7 @@ impl FixtureBuilder {
 
     pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
-        self.unencrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
+        self.unencrypted_logs_hashes.push(log_hash.scope(self.contract_address));
         self.unencrypted_log_preimages_length += length;
     }
 
@@ -1000,33 +962,32 @@ impl FixtureBuilder {
         self.unencrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn add_private_call_from_call_stack_item(&mut self, item: PrivateCallStackItem) {
-        let start_counter = item.public_inputs.start_side_effect_counter;
-        let end_counter = item.public_inputs.end_side_effect_counter;
+    pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
+        let public_inputs = private_call.public_inputs;
+        let start_counter = public_inputs.start_side_effect_counter;
+        let end_counter = public_inputs.end_side_effect_counter;
         self.counter = end_counter + 1;
 
         self.private_call_requests.push(
             PrivateCallRequest {
-            contract_address: item.contract_address,
-            call_context: item.public_inputs.call_context,
-            args_hash: item.public_inputs.args_hash,
-            returns_hash: item.public_inputs.returns_hash,
+            call_context: public_inputs.call_context,
+            args_hash: public_inputs.args_hash,
+            returns_hash: public_inputs.returns_hash,
             start_side_effect_counter: start_counter,
             end_side_effect_counter: end_counter
         }
         );
     }
 
-    pub fn add_private_call_request(&mut self, is_delegate_call: bool) {
+    pub fn add_private_call_request(&mut self) {
         let index_offset = self.private_call_requests.len();
         let mut request = self.mock_private_call_request(index_offset);
-        request.call_context = self.generate_call_context(request.contract_address, is_delegate_call);
 
         let start_counter = self.next_counter();
         let end_counter = start_counter + 10;
-        self.counter = end_counter + 1;
         request.start_side_effect_counter = start_counter;
         request.end_side_effect_counter = end_counter;
+        self.counter = end_counter + 1;
 
         self.private_call_requests.push(request);
     }
@@ -1034,15 +995,7 @@ impl FixtureBuilder {
     pub fn append_private_call_requests(&mut self, num: u32) {
         for i in 0..self.private_call_requests.max_len() {
             if i < num {
-                self.add_private_call_request(false);
-            }
-        }
-    }
-
-    pub fn append_private_call_requests_delegate(&mut self, num: u32) {
-        for i in 0..self.private_call_requests.max_len() {
-            if i < num {
-                self.add_private_call_request(true);
+                self.add_private_call_request();
             }
         }
     }
@@ -1055,18 +1008,7 @@ impl FixtureBuilder {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
-                let mut request = self.mock_public_call_request(index_offset + i, false);
-                request.counter = self.next_counter();
-                self.add_public_call_request(request);
-            }
-        }
-    }
-
-    pub fn append_public_call_requests_delegate(&mut self, num: u32) {
-        let index_offset = self.public_call_requests.len();
-        for i in 0..self.public_call_requests.max_len() {
-            if i < num {
-                let mut request = self.mock_public_call_request(index_offset + i, true);
+                let mut request = self.mock_public_call_request(index_offset + i);
                 request.counter = self.next_counter();
                 self.add_public_call_request(request);
             }
@@ -1079,18 +1021,12 @@ impl FixtureBuilder {
 
     pub fn make_fee_payer(&mut self) -> AztecAddress {
         self.is_fee_payer = true;
-        self.set_fee_payer(self.storage_contract_address);
-        self.storage_contract_address
+        self.set_fee_payer(self.contract_address);
+        self.contract_address
     }
 
     pub fn set_public_teardown_call_request(&mut self) {
-        let mut request = self.mock_public_teardown_call_request(false);
-        request.counter = self.next_counter();
-        self.public_teardown_call_request = request;
-    }
-
-    pub fn set_public_teardown_call_request_delegate(&mut self) {
-        let mut request = self.mock_public_teardown_call_request(true);
+        let mut request = self.mock_public_teardown_call_request();
         request.counter = self.next_counter();
         self.public_teardown_call_request = request;
     }
@@ -1180,40 +1116,30 @@ impl FixtureBuilder {
         for i in 0..fields.len() {
             fields[i] = value_offset + i as Field;
         }
-        PrivateCallRequest::deserialize(fields)
+        let mut request = PrivateCallRequest::deserialize(fields);
+        request.call_context.msg_sender = self.contract_address;
+        request.call_context.is_static_call = self.is_static_call;
+        request
     }
 
-    fn mock_public_call_request(self, index: u32, is_delegate_call: bool) -> PublicCallRequest {
+    fn mock_public_call_request(self, index: u32) -> PublicCallRequest {
         let value_offset = 636363 + self.value_offset + index as Field;
         let mut fields = [0; PUBLIC_CALL_REQUEST_LENGTH];
         for i in 0..fields.len() {
             fields[i] = value_offset + i as Field;
         }
         let mut request = PublicCallRequest::deserialize(fields);
-        request.call_context = self.generate_call_context(request.contract_address, is_delegate_call);
+        request.call_context.msg_sender = self.contract_address;
+        request.call_context.is_static_call = self.is_static_call;
         request
     }
 
-    fn mock_public_teardown_call_request(self, is_delegate_call: bool) -> PublicCallRequest {
-        self.mock_public_call_request(54345, is_delegate_call)
+    fn mock_public_teardown_call_request(self) -> PublicCallRequest {
+        self.mock_public_call_request(54345)
     }
 
     fn mock_fee_payer(self) -> AztecAddress {
         AztecAddress::from_field(900900 + self.value_offset)
-    }
-
-    fn generate_call_context(self, target_contract_address: AztecAddress, is_delegate_call: bool) -> CallContext {
-        let mut call_context = CallContext::empty();
-        call_context.is_delegate_call = is_delegate_call;
-        call_context.is_static_call = self.is_static_call;
-        if is_delegate_call {
-            call_context.msg_sender = self.msg_sender;
-            call_context.storage_contract_address = self.storage_contract_address;
-        } else {
-            call_context.msg_sender = self.storage_contract_address;
-            call_context.storage_contract_address = target_contract_address;
-        }
-        call_context
     }
 
     fn next_counter(&mut self) -> u32 {
@@ -1231,9 +1157,7 @@ impl Empty for FixtureBuilder {
     fn empty() -> Self {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
-            storage_contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
-            is_delegate_call: false,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
@@ -1273,7 +1197,7 @@ impl Empty for FixtureBuilder {
             returns_hash: 0,
             function_leaf_membership_witness: MembershipWitness::empty(),
             salted_initialization_hash: SaltedInitializationHash::from_field(0),
-            public_keys_hash: PublicKeysHash::from_field(0),
+            public_keys: PublicKeys::empty(),
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
             acir_hash: 0,

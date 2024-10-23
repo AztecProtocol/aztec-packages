@@ -37,14 +37,10 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
-    env.call_private_void(
-        NFT::at(nft_contract_address).prepare_transfer_to_private(sender, recipient, transient_storage_slot_randomness)
-    );
+    NFT::at(nft_contract_address).prepare_transfer_to_private(sender, recipient, transient_storage_slot_randomness).call(&mut env.private());
 
     // Finalize the transfer of the NFT
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public());
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.
@@ -73,9 +69,8 @@ unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     let transfer_preparer_storage_slot_commitment = random();
 
     // Try finalizing the transfer without preparing it
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public())
 }
 
 #[test(should_fail_with = "transfer not prepared")]
@@ -93,17 +88,14 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
     );
 
     // We prepare the transfer
-    env.call_private_void(
-        NFT::at(nft_contract_address).prepare_transfer_to_private(correct_sender, recipient, transient_storage_slot_randomness)
-    );
+    NFT::at(nft_contract_address).prepare_transfer_to_private(correct_sender, recipient, transient_storage_slot_randomness).call(&mut env.private());
 
     // We impersonate incorrect sender and try to finalize the transfer of the NFT. The incorrect sender owns the NFT
     // but tries to consume a prepared transfer not belonging to him. For this reason the test should fail with
     // "transfer not prepared".
     env.impersonate(incorrect_sender);
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public());
 }
 
 #[test(should_fail_with = "invalid NFT owner")]
@@ -116,7 +108,6 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
 
     // Try transferring someone else's public NFT
     env.impersonate(not_owner);
-    env.call_public(
-        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
-    );
+
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public());
 }

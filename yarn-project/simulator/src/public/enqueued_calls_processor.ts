@@ -265,9 +265,7 @@ export class EnqueuedCallsProcessor {
 
       if (enqueuedCallResult.revertReason && !PhaseIsRevertible[phase]) {
         this.log.debug(
-          `Simulation error on ${executionRequest.contractAddress.toString()}:${
-            executionRequest.callContext.functionSelector
-          } with reason: ${enqueuedCallResult.revertReason}`,
+          `Simulation error on ${executionRequest.callContext.contractAddress}:${executionRequest.callContext.functionSelector} with reason: ${enqueuedCallResult.revertReason}`,
         );
         throw enqueuedCallResult.revertReason;
       }

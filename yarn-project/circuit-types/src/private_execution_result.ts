@@ -8,7 +8,7 @@ import {
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type IsEmpty, PrivateCallStackItem, sortByCounter } from '@aztec/circuits.js';
+import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -104,7 +104,7 @@ export class PrivateExecutionResult {
     public partialWitness: Map<number, string>,
     // Needed for the verifier (kernel)
     /** The call stack item. */
-    public callStackItem: PrivateCallStackItem,
+    public publicInputs: PrivateCircuitPublicInputs,
     /** Mapping of note hash to its index in the note hash tree. Used for building hints for note hash read requests. */
     public noteHashLeafIndexMap: Map<bigint, bigint>,
     /** The notes created in the executed function. */
@@ -141,7 +141,7 @@ export class PrivateExecutionResult {
       acir: this.acir.toString('hex'),
       vk: this.vk.toString('hex'),
       partialWitness: Array.from(this.partialWitness.entries()),
-      callStackItem: this.callStackItem.toJSON(),
+      publicInputs: this.publicInputs.toJSON(),
       noteHashLeafIndexMap: Array.from(this.noteHashLeafIndexMap.entries()).map(([key, value]) => [
         key.toString(),
         value.toString(),
@@ -171,7 +171,7 @@ export class PrivateExecutionResult {
       Array.isArray(json.partialWitness)
         ? new Map(json.partialWitness.map(([key, value]: any[]) => [Number(key), value as string]))
         : new Map(),
-      PrivateCallStackItem.fromJSON(json.callStackItem),
+      PrivateCircuitPublicInputs.fromJSON(json.publicInputs),
       Array.isArray(json.noteHashLeafIndexMap)
         ? new Map(json.noteHashLeafIndexMap.map(([key, value]: any[]) => [BigInt(key), BigInt(value)]))
         : new Map(),
@@ -340,7 +340,7 @@ export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecut
   return execResult.nestedExecutions.reduce((counter, exec) => {
     const nestedCounter = getFinalMinRevertibleSideEffectCounter(exec);
     return nestedCounter ? nestedCounter : counter;
-  }, execResult.callStackItem.publicInputs.minRevertibleSideEffectCounter.toNumber());
+  }, execResult.publicInputs.minRevertibleSideEffectCounter.toNumber());
 }
 
 export function collectNested<T>(

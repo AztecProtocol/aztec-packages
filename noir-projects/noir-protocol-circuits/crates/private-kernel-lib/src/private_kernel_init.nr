@@ -39,16 +39,13 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
-        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
+        let private_call_public_inputs = self.private_call.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
             self.tx_request,
             private_call_public_inputs,
             self.vk_tree_root,
             self.protocol_contract_tree_root
-        ).with_private_call(
-            private_call_public_inputs,
-            self.private_call.call_stack_item.contract_address
-        ).finish()
+        ).with_private_call(private_call_public_inputs).finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
@@ -67,7 +64,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         if dep::types::validate::should_validate_output() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
-                self.private_call.call_stack_item.public_inputs,
+                self.private_call.public_inputs,
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root
