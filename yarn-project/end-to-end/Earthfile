@@ -288,18 +288,3 @@ e2e-devnet-smoke:
 e2e-cli-wallet:
   LOCALLY
   RUN COMPOSE_FILE=scripts/docker-compose-wallet.yml ./scripts/e2e_compose_test.sh e2e_cli_wallet
-
-kind-network-smoke:
-  ARG values_file
-  LOCALLY
-  RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
-
-kind-network-transfer:
-  ARG values_file
-  LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
-
-kind-network-4epochs:
-  ARG values_file
-  LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true

@@ -618,9 +618,13 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
-  network-test-fake-proofs:
+  # proving disabled
+  network-test:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
+    strategy:
+      matrix:
+        test: [src/spartan/transfer.test.ts, src/spartan/4epochs.test.ts]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -629,7 +633,46 @@ jobs:
           concurrency_key: network-test-fake-proofs-x86
       - name: "Prover Client Tests"
         timeout-minutes: 40
-        run: earthly-ci --no-output ./yarn-project/+network-test-fake-proofs
+        working-directory: ./yarn-project
+        # Only allow transfer test to run on every (non-network-all) PR
+        if: contains(matrix.test, 'transfer.test.ts') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+        run: RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+
+  # proving disabled
+  kind-network-test:
+    needs: [build, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    strategy:
+      matrix:
+        test: [src/spartan/transfer.test.ts, src/spartan/4epochs.test.ts]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: network-test-fake-proofs-x86
+      - name: "Prover Client Tests"
+        timeout-minutes: 40
+        # Only allow transfer test to run on every (non-network-all) PR
+        if: contains(matrix.test, 'transfer.test.ts') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+        run: earthly-ci --no-output ./yarn-project/+network-test-fake-proofs --test=${{ matrix.test }}
+
+
+kind-network-smoke:
+  ARG values_file
+  LOCALLY
+  RUN NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+
+kind-network-transfer:
+  ARG values_file
+  LOCALLY
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
+
+kind-network-4epochs:
+  ARG values_file
+  LOCALLY
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true
+
 
   l1-contracts-test:
     needs: [build, configure]
