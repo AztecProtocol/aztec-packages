@@ -92,10 +92,20 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 
         To optimize, we generate challenges `c_i` for each commitment and evaluate the relation:
 
-        (\gamma * \sum c_i.[P_i - P_i']) + \sum c_i.[P_i' - P_i''] = 0
+        [A] = \sum c_i.[P_i]
+        [B] = \sum c_i.[P'_i]
+        [C] = \sum c_i.[P''_i]
+        and validate
+        (1 - gamma).[A] + gamma.[B] == [C]
 
-        This reduces the relation to 2 large MSMs where each commitment requires 2 size-128bit scalar multiplications
-        For a flavor with 53 instance/witness commitments, this is 53 * 16 rows
+
+        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar multiplications
+        For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
+
+        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of scalar
+       muls, however we must also consider the number of ECCVM operations being executed, as each operation incurs a
+       cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is approx.
+       equivalent to 9 ECCVM rows. Something to pay attention to
     */
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
@@ -123,14 +133,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         output_commitments.emplace_back(Commitment::from_witness(builder, output));
     }
 
-    std::vector<Commitment> Q_commitments;
-    std::vector<Commitment> P_commitments;
-
-    for (size_t i = 0; i < accumulator_commitments.size(); ++i) {
-        Q_commitments.emplace_back(accumulator_commitments[i] - output_commitments[i]);   // Q_i
-        P_commitments.emplace_back(instance_commitments[i] - accumulator_commitments[i]); // P_i
-    }
-
     std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
     for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
         args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
@@ -138,19 +140,28 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     std::array<FF, Flavor::NUM_FOLDED_ENTITIES> folding_challenges = transcript->template get_challenges<FF>(args);
     std::vector<FF> scalars(folding_challenges.begin(), folding_challenges.end());
 
-    Commitment X = Commitment::batch_mul(P_commitments,
-                                         scalars,
-                                         /*max_num_bits=*/0,
-                                         /*with_edgecases=*/IsUltraBuilder<Builder>);
-    Q_commitments.emplace_back(X);
-    scalars.emplace_back(lagranges[1]);
+    Commitment accumulator_sum = Commitment::batch_mul(accumulator_commitments,
+                                                       scalars,
+                                                       /*max_num_bits=*/0,
+                                                       /*handle_edge_cases=*/IsUltraBuilder<Builder>);
 
-    Commitment result = Commitment::batch_mul(Q_commitments,
-                                              scalars,
-                                              /*max_num_bits=*/0,
-                                              /*with_edgecases=*/IsUltraBuilder<Builder>);
+    Commitment instance_sum = Commitment::batch_mul(instance_commitments,
+                                                    scalars,
+                                                    /*max_num_bits=*/0,
+                                                    /*handle_edge_cases=*/IsUltraBuilder<Builder>);
 
-    result.is_point_at_infinity().assert_equal(true);
+    Commitment output_sum = Commitment::batch_mul(output_commitments,
+                                                  scalars,
+                                                  /*max_num_bits=*/0,
+                                                  /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment folded_sum = Commitment::batch_mul({ accumulator_sum, instance_sum },
+                                                  lagranges,
+                                                  /*max_num_bits=*/0,
+                                                  /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    output_sum.x.assert_equal(folded_sum.x);
+    output_sum.y.assert_equal(folded_sum.y);
 
     // Compute next folding parameters
     accumulator->is_accumulator = true;
