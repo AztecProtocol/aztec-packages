@@ -1,7 +1,5 @@
 import { keccakf1600, poseidon2Permutation, sha256Compression } from '@aztec/foundation/crypto';
 
-import { strict as assert } from 'assert';
-
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint32, Uint64 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
