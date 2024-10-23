@@ -625,7 +625,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [test-transfer.sh, test-4epochs.ts]
+        test: [test-transfer.sh, test-4epochs.sh]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -657,7 +657,7 @@ jobs:
         working-directory: yarn-project/end-to-end
         # Only allow transfer test to run on every (non-network-all) PR
         if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run: NAMESPACE="${{ matrix.test }}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}
+        run: NAMESPACE="${${{ matrix.test }}%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}
 
   l1-contracts-test:
     needs: [build, configure]
