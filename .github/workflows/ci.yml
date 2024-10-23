@@ -289,7 +289,7 @@ jobs:
           ref: "${{ github.event.pull_request.head.sha }}"
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-x86
+          concurrency_key: bench-summary-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
         run: |
@@ -630,7 +630,7 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: network-test-fake-proofs-x86
+          concurrency_key: network-test-${{ matrix.test }}
       - name: "Prover Client Tests"
         timeout-minutes: 40
         # Only allow transfer test to run on every (non-network-all) PR
@@ -649,7 +649,7 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: network-test-fake-proofs-x86
+          concurrency_key: kind-network-test-${{ matrix.test }}
       - name: "KIND Network Test"
         timeout-minutes: 40
         working-directory: yarn-project
