@@ -11,7 +11,7 @@ import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddres
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
-import { RollupAbi, TestERC20Abi, ProofCommitmentEscrowAbi } from '@aztec/l1-artifacts';
+import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
 
 import { beforeAll } from '@jest/globals';
@@ -27,6 +27,7 @@ import {
   getContract,
   http,
 } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import {
@@ -35,7 +36,6 @@ import {
   addAccounts,
   createSnapshotManager,
 } from '../fixtures/snapshot_manager.js';
-import { privateKeyToAccount } from 'viem/accounts';
 
 describe('e2e_prover_coordination', () => {
   let ctx: SubsystemsContext;
@@ -47,11 +47,13 @@ describe('e2e_prover_coordination', () => {
   let cc: EthCheatCodes;
   let publisherAddress: EthAddress;
   let feeJuiceContract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
-  let escrowContract: GetContractReturnType<typeof ProofCommitmentEscrowAbi, WalletClient<HttpTransport, Chain, Account>>;
+  let escrowContract: GetContractReturnType<
+    typeof ProofCommitmentEscrowAbi,
+    WalletClient<HttpTransport, Chain, Account>
+  >;
 
   let proverSigner: Secp256k1Signer;
   let proverWallet: WalletClient<HttpTransport, Chain, Account>;
-
 
   let logger: DebugLogger;
   let snapshotManager: ISnapshotManager;
@@ -153,7 +155,7 @@ describe('e2e_prover_coordination', () => {
     await escrowContract.write.deposit([amount], {
       account: proverWallet.account,
     });
-  }
+  };
 
   const getL1Timestamp = async () => {
     return BigInt((await publicClient.getBlock()).timestamp);
