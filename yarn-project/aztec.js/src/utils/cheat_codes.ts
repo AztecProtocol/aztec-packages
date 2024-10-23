@@ -319,7 +319,16 @@ export class RollupCheatCodes {
     return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
-  public async getTips(): Promise<{ pending: bigint; proven: bigint }> {
+  /**
+   * Returns the pending and proven chain tips
+   * @returns The pending and proven chain tips
+   */
+  public async getTips(): Promise<{
+    /** The pending chain tip */
+    pending: bigint;
+    /** The proven chain tip */
+    proven: bigint;
+  }> {
     const [pending, proven] = await this.rollup.read.tips();
     return { pending, proven };
   }
