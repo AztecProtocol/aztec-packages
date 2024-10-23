@@ -77,8 +77,8 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
             memory.write_slice(memory.read_ref(output.pointer), &to_value_vec(&bytes));
             Ok(())
         }
-        BlackBoxOp::Keccakf1600 { message, output } => {
-            let state_vec: Vec<u64> = read_heap_vector(memory, message)
+        BlackBoxOp::Keccakf1600 { input, output } => {
+            let state_vec: Vec<u64> = read_heap_array(memory, input)
                 .iter()
                 .map(|&memory_value| memory_value.try_into().unwrap())
                 .collect();

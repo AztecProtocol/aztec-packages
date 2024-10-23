@@ -1012,9 +1012,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::Keccakf1600 { message, output } => {
-            let message_offset = message.pointer.to_usize();
-            let message_size_offset = message.size.to_usize();
+        BlackBoxOp::Keccakf1600 { input, output } => {
+            let input_offset = input.pointer.to_usize();
+            assert_eq!(input.size, 25, "Keccakf1600 input size must be 25!");
             let dest_offset = output.pointer.to_usize();
             assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
 
@@ -1030,6 +1030,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 operands: vec![
                     AvmOperand::U16 { value: dest_offset as u16 },
                     AvmOperand::U16 { value: message_offset as u16 },
+                    // This is unnecessary as message size is always 25
                     AvmOperand::U16 { value: message_size_offset as u16 },
                 ],
                 ..Default::default()
