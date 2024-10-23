@@ -1,5 +1,6 @@
 import {
   type AztecNode,
+  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   EpochProofQuote,
   ExtendedUnencryptedL2Log,
@@ -49,6 +50,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
     },
     {
       EncryptedNoteL2BlockL2Logs,
+      EncryptedL2NoteLog,
       NoteSelector,
       NullifierMembershipWitness,
       PublicSimulationOutput,

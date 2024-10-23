@@ -3,6 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
+  EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -306,6 +307,10 @@ export class AztecNodeService implements AztecNode {
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
     return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  }
+
+  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
   /**

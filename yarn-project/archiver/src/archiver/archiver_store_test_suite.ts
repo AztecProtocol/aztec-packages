@@ -395,7 +395,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
         expect(logs.length).toEqual(expectedNumLogs);
 
-        logs.forEach(log => expect(log).not.toBeUndefined());
+        logs.forEach(log => expect(log).toHaveLength(1));
       });
 
       it('is possible to batch request all logs of different blocks via tags', async () => {
@@ -408,7 +408,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const expectedNumLogs = 2 * numPrivateFunctionCalls * numNoteEncryptedLogs;
         expect(logs.length).toEqual(expectedNumLogs);
 
-        logs.forEach(log => expect(log).not.toBeUndefined());
+        logs.forEach(log => expect(log).toHaveLength(1));
       });
 
       it('is possible to request logs for non-existing tags and determine their position', async () => {
@@ -421,9 +421,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
         expect(logs.length).toEqual(expectedNumLogs);
 
-        expect(logs[0]).toBeUndefined();
+        expect(logs[0]).toHaveLength(0);
 
-        logs.slice(1).forEach(log => expect(log).not.toBeUndefined());
+        logs.slice(1).forEach(log => expect(log).toHaveLength(1));
       });
     });
 

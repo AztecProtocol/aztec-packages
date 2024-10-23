@@ -137,7 +137,7 @@ export interface ArchiverDataStore {
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
 
-  getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]>;
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

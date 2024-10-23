@@ -50,7 +50,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
 
-  private taggedNoteEncryptedLogs: Map<string, EncryptedL2NoteLog> = new Map();
+  private taggedNoteEncryptedLogs: Map<string, EncryptedL2NoteLog[]> = new Map();
+
+  private noteEncryptedLogTagsPerBlock: Map<number, Fr[]> = new Map();
 
   private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
 
@@ -213,7 +215,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         const noteLogs = txLogs.unrollLogs();
         noteLogs.forEach(noteLog => {
           const tag = new Fr(noteLog.data.subarray(0, 32));
-          this.taggedNoteEncryptedLogs.set(tag.toString(), noteLog);
+          const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
+          this.taggedNoteEncryptedLogs.set(tag.toString(), [...currentNoteLogs, noteLog]);
+          const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
+          this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
         });
       });
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
@@ -223,10 +228,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    const noteTagsToDelete = blocks.flatMap(block => this.noteEncryptedLogTagsPerBlock.get(block.number));
+    noteTagsToDelete
+      .filter(tag => tag)
+      .forEach(tag => {
+        this.taggedNoteEncryptedLogs.delete(tag!.toString());
+      });
+
     blocks.forEach(block => {
       this.encryptedLogsPerBlock.delete(block.number);
       this.noteEncryptedLogsPerBlock.delete(block.number);
       this.unencryptedLogsPerBlock.delete(block.number);
+      this.noteEncryptedLogTagsPerBlock.delete(block.number);
     });
 
     return Promise.resolve(true);
@@ -390,10 +403,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(l);
   }
 
-  async getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]> {
+  async getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
     return tags.map(tag => {
-      const noteLog = this.taggedNoteEncryptedLogs.get(tag.toString());
-      return noteLog ? noteLog : undefined;
+      const noteLogs = this.taggedNoteEncryptedLogs.get(tag.toString());
+      return noteLogs ? noteLogs : [];
     });
   }
 

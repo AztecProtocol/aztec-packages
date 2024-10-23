@@ -1,3 +1,5 @@
+import { type Fr } from '@aztec/circuits.js';
+
 import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
 import { type GetUnencryptedLogsResponse } from './get_unencrypted_logs_response.js';
 import { type L2BlockL2Logs } from './l2_block_l2_logs.js';
@@ -21,7 +23,7 @@ export interface L2LogsSource {
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
 
-  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]>;
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
