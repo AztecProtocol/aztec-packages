@@ -10,7 +10,9 @@ unconstrained fn public_transfer() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
-    Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0).call(&mut env.public());
+    Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0).call(
+        &mut env.public(),
+    );
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount - transfer_amount);
@@ -25,7 +27,9 @@ unconstrained fn public_transfer_to_self() {
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
     // docs:start:call_public
-    Token::at(token_contract_address).transfer_public(owner, owner, transfer_amount, 0).call(&mut env.public());
+    Token::at(token_contract_address).transfer_public(owner, owner, transfer_amount, 0).call(
+        &mut env.public(),
+    );
     // docs:end:call_public
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
@@ -60,7 +64,8 @@ unconstrained fn public_transfer_failure_more_than_balance() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + 1;
-    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0);
+    let public_transfer_call_interface =
+        Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0);
     // Try to transfer tokens
     public_transfer_call_interface.call(&mut env.public());
 }
@@ -72,8 +77,17 @@ unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
-    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, random());
-    authwit_cheatcodes::add_public_authwit_from_call_interface(owner, recipient, public_transfer_call_interface);
+    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(
+        owner,
+        recipient,
+        transfer_amount,
+        random(),
+    );
+    authwit_cheatcodes::add_public_authwit_from_call_interface(
+        owner,
+        recipient,
+        public_transfer_call_interface,
+    );
     // Try to transfer tokens
     public_transfer_call_interface.call(&mut env.public());
 }

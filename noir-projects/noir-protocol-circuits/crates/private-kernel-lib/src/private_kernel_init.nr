@@ -41,8 +41,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
             self.tx_request,
             private_call_public_inputs,
             self.vk_tree_root,
-            self.protocol_contract_tree_root
-        ).with_private_call(private_call_public_inputs).finish()
+            self.protocol_contract_tree_root,
+        )
+            .with_private_call(private_call_public_inputs)
+            .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {

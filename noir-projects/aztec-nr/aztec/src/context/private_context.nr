@@ -319,7 +319,12 @@ impl PrivateContext {
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false)
+        self.call_private_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            false,
+        )
     }
 
     pub fn static_call_private_function<let ARGS_COUNT: u32>(
@@ -330,7 +335,12 @@ impl PrivateContext {
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true)
+        self.call_private_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            true,
+        )
     }
 
     pub fn call_private_function_no_args(
@@ -354,7 +364,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool
+        is_static_call: bool,
     ) -> PackedReturns {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
@@ -363,7 +373,7 @@ impl PrivateContext {
             function_selector,
             args_hash,
             start_side_effect_counter,
-            is_static_call
+            is_static_call,
         );
 
         self.side_effect_counter = end_side_effect_counter + 1;
@@ -379,11 +389,21 @@ impl PrivateContext {
         //     > self.min_revertible_side_effect_counter {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
-
-        let call_context = CallContext { msg_sender: self.this_address(), contract_address, function_selector, is_static_call };
+        let call_context = CallContext {
+            msg_sender: self.this_address(),
+            contract_address,
+            function_selector,
+            is_static_call,
+        };
 
         self.private_call_requests.push(
-            PrivateCallRequest { call_context, args_hash, returns_hash, start_side_effect_counter, end_side_effect_counter }
+            PrivateCallRequest {
+                call_context,
+                args_hash,
+                returns_hash,
+                start_side_effect_counter,
+                end_side_effect_counter,
+            },
         );
 
         PackedReturns::new(returns_hash)
@@ -397,7 +417,12 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false)
+        self.call_public_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            false,
+        )
     }
 
     pub fn static_call_public_function<let ARGS_COUNT: u32>(
@@ -408,7 +433,12 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true)
+        self.call_public_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            true,
+        )
     }
 
     pub fn call_public_function_no_args(
@@ -432,7 +462,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool
+        is_static_call: bool,
     ) {
         let counter = self.next_counter();
 
@@ -448,14 +478,17 @@ impl PrivateContext {
             function_selector,
             args_hash,
             counter,
-            is_static_call
+            is_static_call,
         );
 
         // Public calls are rerouted through the dispatch function.
-        let function_selector = comptime {
-            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
+        let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
+        let call_context = CallContext {
+            msg_sender: self.this_address(),
+            contract_address,
+            function_selector,
+            is_static_call,
         };
-        let call_context = CallContext { msg_sender: self.this_address(), contract_address, function_selector, is_static_call };
 
         let call_request = PublicCallRequest { call_context, args_hash, counter };
         self.public_call_requests.push(call_request);
@@ -469,7 +502,12 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false)
+        self.set_public_teardown_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            false,
+        )
     }
 
     pub fn set_public_teardown_function_with_packed_args(
@@ -477,7 +515,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool
+        is_static_call: bool,
     ) {
         let counter = self.next_counter();
 
@@ -493,19 +531,18 @@ impl PrivateContext {
             function_selector,
             args_hash,
             counter,
-            is_static_call
+            is_static_call,
         );
 
-        let function_selector = comptime {
-            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
+        let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
+        let call_context = CallContext {
+            msg_sender: self.this_address(),
+            contract_address,
+            function_selector,
+            is_static_call,
         };
-        let call_context = CallContext { msg_sender: self.this_address(), contract_address, function_selector, is_static_call };
 
-        self.public_teardown_call_request = PublicCallRequest {
-            call_context,
-            args_hash,
-            counter,
-        };
+        self.public_teardown_call_request = PublicCallRequest { call_context, args_hash, counter };
     }
 
     fn next_counter(&mut self) -> u32 {

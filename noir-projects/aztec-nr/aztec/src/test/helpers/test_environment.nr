@@ -1,4 +1,4 @@
-use dep::protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress};
+use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
 use crate::context::inputs::PrivateContextInputs;
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
@@ -47,7 +47,7 @@ impl TestEnvironment {
     }
 
     unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
-        let mut context = PublicContext::new(|| {panic(f"Provide args hash manually")});
+        let mut context = PublicContext::new(|| { panic(f"Provide args hash manually") });
         context.args_hash = Option::some(hash_args(args));
         context
     }
@@ -93,7 +93,7 @@ impl TestEnvironment {
     unconstrained fn deploy<let N: u32, let M: u32>(
         _self: Self,
         path: str<N>,
-        name: str<M>
+        name: str<M>,
     ) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0 }
     }
@@ -102,10 +102,10 @@ impl TestEnvironment {
         Deployer { path: "", name, public_keys_hash: 0 }
     }
 
-    unconstrained fn assert_public_call_fails<C, let M: u32>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M> {
+    unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    where
+        C: CallInterface<M>,
+    {
         // Public functions are routed through the dispatch function.
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
         let calldata =
@@ -117,16 +117,16 @@ impl TestEnvironment {
         );
     }
 
-    unconstrained fn assert_private_call_fails<C, let M: u32>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M> {
+    unconstrained fn assert_private_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    where
+        C: CallInterface<M>,
+    {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             hash_args(call_interface.get_args()),
             cheatcodes::get_side_effects_counter() as Field,
-            call_interface.get_is_static()
+            call_interface.get_is_static(),
         );
     }
 

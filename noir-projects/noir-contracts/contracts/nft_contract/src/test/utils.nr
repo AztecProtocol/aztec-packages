@@ -33,7 +33,8 @@ pub unconstrained fn setup(
         "TestNFT000000000000000000000000",
         "TN00000000000000000000000000000",
     );
-    let nft_contract = env.deploy_self("NFT").with_public_void_initializer(initializer_call_interface);
+    let nft_contract =
+        env.deploy_self("NFT").with_public_void_initializer(initializer_call_interface);
     let nft_contract_address = nft_contract.to_address();
     env.advance_block_by(1);
     (&mut env, nft_contract_address, owner, recipient)
@@ -68,10 +69,14 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer with user being both the sender and the recipient (classical "shield" flow)
-    NFT::at(nft_contract_address).prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness).call(&mut env.private());
+    NFT::at(nft_contract_address)
+        .prepare_transfer_to_private(owner, owner, transient_storage_slot_randomness)
+        .call(&mut env.private());
 
     // Finalize the transfer of the NFT
-    NFT::at(nft_contract_address).finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment).call(&mut env.public());
+    NFT::at(nft_contract_address)
+        .finalize_transfer_to_private(minted_token_id, transfer_preparer_storage_slot_commitment)
+        .call(&mut env.public());
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.

@@ -85,7 +85,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         *self
     }
 
-    pub fn with_private_call(&mut self, private_call_public_inputs: PrivateCircuitPublicInputs) -> Self {
+    pub fn with_private_call(
+        &mut self,
+        private_call_public_inputs: PrivateCircuitPublicInputs,
+    ) -> Self {
         self.propagate_from_private_call(private_call_public_inputs);
         *self
     }
@@ -120,19 +123,27 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_min_revertible_side_effect_counter(private_call);
     }
 
-    fn propagate_min_revertible_side_effect_counter(&mut self, private_call: PrivateCircuitPublicInputs) {
+    fn propagate_min_revertible_side_effect_counter(
+        &mut self,
+        private_call: PrivateCircuitPublicInputs,
+    ) {
         if self.public_inputs.min_revertible_side_effect_counter != 0 {
             assert(
-                private_call.min_revertible_side_effect_counter == 0, "cannot overwrite non-zero min_revertible_side_effect_counter"
+                private_call.min_revertible_side_effect_counter == 0,
+                "cannot overwrite non-zero min_revertible_side_effect_counter",
             );
         } else {
-            self.public_inputs.min_revertible_side_effect_counter = private_call.min_revertible_side_effect_counter;
+            self.public_inputs.min_revertible_side_effect_counter =
+                private_call.min_revertible_side_effect_counter;
         };
     }
 
     fn propagate_max_block_number(&mut self, private_call: PrivateCircuitPublicInputs) {
         // Update the max block number if the private call requested a lower one.
-        self.public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(self.public_inputs.validation_requests.max_block_number, private_call.max_block_number);
+        self.public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(
+            self.public_inputs.validation_requests.max_block_number,
+            private_call.max_block_number,
+        );
     }
 
     fn propagate_note_hash_read_requests(&mut self, private_call: PrivateCircuitPublicInputs) {
@@ -140,7 +151,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..read_requests.len() {
             let request = read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(private_call.call_context.contract_address));
+                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
     }
@@ -150,17 +163,24 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(private_call.call_context.contract_address));
+                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
     }
 
     fn propagate_key_validation_requests(&mut self, private_call: PrivateCircuitPublicInputs) {
-        let key_validation_requests_and_generators = private_call.key_validation_requests_and_generators;
+        let key_validation_requests_and_generators =
+            private_call.key_validation_requests_and_generators;
         for i in 0..key_validation_requests_and_generators.len() {
             let request = key_validation_requests_and_generators[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.scoped_key_validation_requests_and_generators.push(request.scope(private_call.call_context.contract_address));
+                self
+                    .public_inputs
+                    .validation_requests
+                    .scoped_key_validation_requests_and_generators
+                    .push(request.scope(private_call.call_context.contract_address));
             }
         }
     }
@@ -170,7 +190,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..note_hashes.len() {
             let note_hash = note_hashes[i];
             if note_hash.value != 0 {
-                self.public_inputs.end.note_hashes.push(note_hash.scope(private_call.call_context.contract_address));
+                self.public_inputs.end.note_hashes.push(note_hash.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
     }
@@ -180,7 +202,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifiers.len() {
             let nullifier = nullifiers[i];
             if nullifier.value != 0 {
-                self.public_inputs.end.nullifiers.push(nullifier.scope(private_call.call_context.contract_address));
+                self.public_inputs.end.nullifiers.push(nullifier.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
     }
@@ -190,7 +214,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs[i];
             if !is_empty(msg) {
-                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(private_call.call_context.contract_address));
+                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
     }
@@ -200,7 +226,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..encrypted_logs.len() {
             let log = encrypted_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.encrypted_logs_hashes.push(log.scope(private_call.call_context.contract_address));
+                self.public_inputs.end.encrypted_logs_hashes.push(log.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
 
@@ -208,7 +236,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..unencrypted_logs.len() {
             let log = unencrypted_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.unencrypted_logs_hashes.push(log.scope(private_call.call_context.contract_address));
+                self.public_inputs.end.unencrypted_logs_hashes.push(log.scope(
+                    private_call.call_context.contract_address,
+                ));
             }
         }
 

@@ -12,7 +12,9 @@ unconstrained fn shielding_on_behalf_of_self() {
     let secret_hash = compute_secret_hash(secret);
     // Shield tokens
     let shield_amount = mint_amount / 10;
-    Token::at(token_contract_address).shield(owner, shield_amount, secret_hash, 0).call(&mut env.public());
+    Token::at(token_contract_address).shield(owner, shield_amount, secret_hash, 0).call(
+        &mut env.public(),
+    );
 
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
     env.add_note(
@@ -22,7 +24,9 @@ unconstrained fn shielding_on_behalf_of_self() {
     );
 
     // Redeem our shielded tokens
-    Token::at(token_contract_address).redeem_shield(owner, shield_amount, secret).call(&mut env.private());
+    Token::at(token_contract_address).redeem_shield(owner, shield_amount, secret).call(
+        &mut env.private(),
+    );
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount - shield_amount);
@@ -60,7 +64,9 @@ unconstrained fn shielding_on_behalf_of_other() {
     );
 
     // Redeem our shielded tokens
-    Token::at(token_contract_address).redeem_shield(owner, shield_amount, secret).call(&mut env.private());
+    Token::at(token_contract_address).redeem_shield(owner, shield_amount, secret).call(
+        &mut env.private(),
+    );
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount - shield_amount);

@@ -4,7 +4,10 @@ use dep::types::{
     merkle_tree::root::root_from_sibling_path,
 };
 
-pub fn validate_contract_address(private_call_data: PrivateCallData, protocol_contract_tree_root: Field) {
+pub fn validate_contract_address(
+    private_call_data: PrivateCallData,
+    protocol_contract_tree_root: Field,
+) {
     let contract_address = private_call_data.public_inputs.call_context.contract_address;
     assert(!contract_address.is_zero(), "contract address cannot be zero");
 

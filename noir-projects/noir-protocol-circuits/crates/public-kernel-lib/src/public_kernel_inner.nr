@@ -12,6 +12,8 @@ pub struct PublicKernelInnerCircuitPrivateInputs {
 
 impl PublicKernelInnerCircuitPrivateInputs {
     fn execute(self) -> VMCircuitPublicInputs {
-        VMCircuitOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).propagate_from_public_call(self.public_call.public_inputs).finish()
+        VMCircuitOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
+            .propagate_from_public_call(self.public_call.public_inputs)
+            .finish()
     }
 }

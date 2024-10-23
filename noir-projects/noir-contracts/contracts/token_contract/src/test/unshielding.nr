@@ -10,7 +10,9 @@ unconstrained fn unshield_on_behalf_of_self() {
         utils::setup_and_mint( /* with_account_contracts */ false);
 
     let unshield_amount = mint_amount / 10;
-    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(&mut env.private());
+    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(
+        &mut env.private(),
+    );
     utils::check_private_balance(token_contract_address, owner, mint_amount - unshield_amount);
     utils::check_public_balance(token_contract_address, owner, mint_amount + unshield_amount);
 }
@@ -43,7 +45,9 @@ unconstrained fn unshield_failure_more_than_balance() {
         utils::setup_and_mint( /* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
-    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(&mut env.private());
+    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(
+        &mut env.private(),
+    );
 }
 
 #[test(should_fail_with = "invalid nonce")]
@@ -53,7 +57,9 @@ unconstrained fn unshield_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint( /* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
-    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, random()).call(&mut env.private());
+    Token::at(token_contract_address).unshield(owner, owner, unshield_amount, random()).call(
+        &mut env.private(),
+    );
 }
 
 #[test(should_fail_with = "Balance too low")]

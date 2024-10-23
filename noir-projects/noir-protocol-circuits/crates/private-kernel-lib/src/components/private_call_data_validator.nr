@@ -19,7 +19,9 @@ use dep::types::{
 
 fn validate_call_context(target_context: CallContext, this_context: CallContext) {
     assert_eq(
-        target_context.msg_sender, this_context.contract_address, "incorrect msg_sender for call request"
+        target_context.msg_sender,
+        this_context.contract_address,
+        "incorrect msg_sender for call request",
     );
     if !target_context.is_static_call {
         assert(this_context.is_static_call == false, "static call cannot make non-static calls");
@@ -122,32 +124,57 @@ impl PrivateCallDataValidator {
     pub fn validate_against_tx_request(self, tx_request: TxRequest) {
         let public_inputs = self.data.public_inputs;
         assert_eq(
-            tx_request.origin, public_inputs.call_context.contract_address, "contract address does not match origin"
+            tx_request.origin,
+            public_inputs.call_context.contract_address,
+            "contract address does not match origin",
         );
         assert_eq(
-            tx_request.function_data.selector, public_inputs.call_context.function_selector, "function_selector in call_context does not match the value in tx_request"
+            tx_request.function_data.selector,
+            public_inputs.call_context.function_selector,
+            "function_selector in call_context does not match the value in tx_request",
         );
         assert(
-            tx_request.function_data.is_private, "tx_request does not indicate the first function is private"
+            tx_request.function_data.is_private,
+            "tx_request does not indicate the first function is private",
         );
         assert_eq(
-            tx_request.args_hash, public_inputs.args_hash, "args_hash in private call does not match the value in tx_request"
+            tx_request.args_hash,
+            public_inputs.args_hash,
+            "args_hash in private call does not match the value in tx_request",
         );
         assert_eq(
-            tx_request.tx_context, public_inputs.tx_context, "tx_context in private call does not match the value in tx_request"
+            tx_request.tx_context,
+            public_inputs.tx_context,
+            "tx_context in private call does not match the value in tx_request",
         );
     }
 
     pub fn validate_against_call_request(self, request: PrivateCallRequest) {
         let public_inputs = self.data.public_inputs;
-        assert_eq(request.call_context, public_inputs.call_context, "call_context does not match call request");
-        assert_eq(request.args_hash, public_inputs.args_hash, "args_hash does not match call request");
-        assert_eq(request.returns_hash, public_inputs.returns_hash, "returns_hash does not match call request");
         assert_eq(
-            request.start_side_effect_counter, public_inputs.start_side_effect_counter, "start_side_effect_counter does not match call request"
+            request.call_context,
+            public_inputs.call_context,
+            "call_context does not match call request",
         );
         assert_eq(
-            request.end_side_effect_counter, public_inputs.end_side_effect_counter, "end_side_effect_counter does not match call request"
+            request.args_hash,
+            public_inputs.args_hash,
+            "args_hash does not match call request",
+        );
+        assert_eq(
+            request.returns_hash,
+            public_inputs.returns_hash,
+            "returns_hash does not match call request",
+        );
+        assert_eq(
+            request.start_side_effect_counter,
+            public_inputs.start_side_effect_counter,
+            "start_side_effect_counter does not match call request",
+        );
+        assert_eq(
+            request.end_side_effect_counter,
+            public_inputs.end_side_effect_counter,
+            "end_side_effect_counter does not match call request",
         );
     }
 
@@ -157,7 +184,11 @@ impl PrivateCallDataValidator {
     ) {
         let constants = previous_kernel.constants;
         let public_inputs = self.data.public_inputs;
-        assert_eq(public_inputs.historical_header, constants.historical_header, "mismatch historical header");
+        assert_eq(
+            public_inputs.historical_header,
+            constants.historical_header,
+            "mismatch historical header",
+        );
         assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
     }
@@ -357,7 +388,9 @@ impl PrivateCallDataValidator {
                 );
                 // If the note_index points to an empty note hash, the following check will fail.
                 assert_eq(
-                    accumulated_note_hashes[note_index].contract_address, contract_address, "could not link a note log to a note hash in another contract"
+                    accumulated_note_hashes[note_index].contract_address,
+                    contract_address,
+                    "could not link a note log to a note hash in another contract",
                 );
             }
         }

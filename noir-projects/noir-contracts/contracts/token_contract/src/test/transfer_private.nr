@@ -40,7 +40,9 @@ unconstrained fn transfer_private_to_non_deployed_account() {
     let not_deployed = cheatcodes::create_account();
     // Transfer tokens
     let transfer_amount = 1000;
-    Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount).call(
+        &mut env.private(),
+    );
 
     // Check balances
     utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
@@ -94,8 +96,13 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint( /* with_account_contracts */ false);
     // Add authwit
     let transfer_amount = 1000;
-    let transfer_private_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
+    let transfer_private_from_call_interface =
+        Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
+    authwit_cheatcodes::add_private_authwit_from_call_interface(
+        owner,
+        recipient,
+        transfer_private_from_call_interface,
+    );
     // Transfer tokens
     transfer_private_from_call_interface.call(&mut env.private());
 }

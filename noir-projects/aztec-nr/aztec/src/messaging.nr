@@ -28,9 +28,8 @@ pub fn process_l1_to_l2_message(
 
     // We prove that `message_hash` is in the tree by showing the derivation of the tree root, using a merkle path we
     // get from an oracle.
-    let (leaf_index, sibling_path) = unsafe {
-        get_l1_to_l2_membership_witness(contract_address, message_hash, secret)
-    };
+    let (leaf_index, sibling_path) =
+        unsafe { get_l1_to_l2_membership_witness(contract_address, message_hash, secret) };
 
     let root = root_from_sibling_path(message_hash, leaf_index, sibling_path);
     assert(root == l1_to_l2_root, "Message not in state");

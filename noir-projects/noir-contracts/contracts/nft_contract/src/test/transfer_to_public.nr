@@ -9,7 +9,9 @@ unconstrained fn transfer_to_public() {
     let (env, nft_contract_address, sender, recipient, token_id) =
         utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
 
-    NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0).call(&mut env.private());
+    NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0).call(
+        &mut env.private(),
+    );
 
     // Recipient should be the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
@@ -21,7 +23,9 @@ unconstrained fn transfer_to_public_to_self() {
     let (env, nft_contract_address, user, _, token_id) =
         utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
 
-    NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, 0).call(&mut env.private());
+    NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, 0).call(
+        &mut env.private(),
+    );
 
     // Check the user stayed the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, user, token_id);
@@ -55,7 +59,9 @@ unconstrained fn transfer_to_public_failure_not_an_owner() {
         utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
 
     env.impersonate(not_owner);
-    NFT::at(nft_contract_address).transfer_to_public(not_owner, not_owner, token_id, 0).call(&mut env.private());
+    NFT::at(nft_contract_address).transfer_to_public(not_owner, not_owner, token_id, 0).call(
+        &mut env.private(),
+    );
 }
 
 #[test(should_fail_with = "invalid nonce")]
@@ -64,7 +70,9 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, nft_contract_address, user, _, token_id) =
         utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
 
-    NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, random()).call(&mut env.private());
+    NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, random()).call(
+        &mut env.private(),
+    );
 }
 
 #[test(should_fail_with = "Authorization not found for message hash")]
@@ -93,5 +101,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
     // Impersonate recipient
     env.impersonate(recipient);
     // transfer_to_public the NFT
-    NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0).call(&mut env.private());
+    NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0).call(
+        &mut env.private(),
+    );
 }

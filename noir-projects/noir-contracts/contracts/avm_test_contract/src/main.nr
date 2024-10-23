@@ -434,7 +434,10 @@ contract AvmTest {
 
     #[public]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.this_address()), "Nullifier doesn't exist!");
+        assert(
+            context.nullifier_exists(nullifier, context.this_address()),
+            "Nullifier doesn't exist!",
+        );
     }
 
     // Use the standard context interface to emit a new nullifier
