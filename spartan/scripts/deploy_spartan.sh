@@ -38,7 +38,7 @@ helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
       --namespace $NAMESPACE \
       --create-namespace \
       --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
-      --set images.aztec.image="aztecprotocol/aztec:$TAG" \
+      --set images.aztec.image="aztecprotocol/aztec@sha256:5b6a419315169b7f9ff1d9d16b1ce208e5737067405fda3b924c5669934bac8e" \
       --set network.public=true \
       --wait \
       --wait-for-jobs=true \
