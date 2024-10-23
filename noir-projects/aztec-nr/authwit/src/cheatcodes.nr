@@ -6,11 +6,7 @@ use dep::aztec::{
 
 use crate::auth::{compute_inner_authwit_hash, compute_authwit_message_hash, set_authorized};
 
-pub fn add_private_authwit_from_call_interface<C, let M: u32, T, P, Env>(
-    on_behalf_of: AztecAddress,
-    caller: AztecAddress,
-    call_interface: C
-) where C: CallInterface<M, T, P, Env> {
+pub fn add_private_authwit_from_call_interface<C, let M: u32>(on_behalf_of: AztecAddress, caller: AztecAddress, call_interface: C) where C: CallInterface<M> {
     let target = call_interface.get_contract_address();
     let inputs = cheatcodes::get_private_context_inputs(get_block_number());
     let chain_id = inputs.tx_context.chain_id;
@@ -22,11 +18,11 @@ pub fn add_private_authwit_from_call_interface<C, let M: u32, T, P, Env>(
     cheatcodes::add_authwit(on_behalf_of, message_hash);
 }
 
-pub fn add_public_authwit_from_call_interface<C, let M: u32, T, P, Env>(
+pub fn add_public_authwit_from_call_interface<C, let M: u32>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C
-) where C: CallInterface<M, T, P, Env> {
+) where C: CallInterface<M> {
     let current_contract = get_contract_address();
     cheatcodes::set_contract_address(on_behalf_of);
     let target = call_interface.get_contract_address();
