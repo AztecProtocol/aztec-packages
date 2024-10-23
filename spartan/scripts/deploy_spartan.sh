@@ -12,12 +12,11 @@ fi
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) || true
+  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
 function show_status_until_pxe_ready() {
-  set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100} ; do
     if kubectl wait pod -l app==pxe --for=condition=Ready -n spartan --timeout=20s >/dev/null 2>/dev/null ; then
@@ -28,8 +27,12 @@ function show_status_until_pxe_ready() {
   done
 }
 show_status_until_pxe_ready &
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+function log_stern() {
+  stern spartan -n spartan 2>&1 >> "$SCRIPT_DIR/spartan-deploy.log"
+}
+log_stern &
 
 helm upgrade --install spartan $SCRIPT_DIR/../aztec-network \
       --namespace spartan \

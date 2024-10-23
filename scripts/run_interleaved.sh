@@ -33,7 +33,7 @@ shift
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) 2>/dev/null || true
+  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
