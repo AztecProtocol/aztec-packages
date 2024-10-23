@@ -54,4 +54,4 @@ else
   kind create cluster
 fi
 
-kubectl config use-context kind-kind
+kubectl config use-context kind-kind || true
