@@ -1,3 +1,3 @@
 pub trait Verifiable {
-  fn verify(self);
+    fn verify(self);
 }

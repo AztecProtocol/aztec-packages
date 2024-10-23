@@ -1,6 +1,6 @@
 use crate::{
     traits::{Serialize, Deserialize, Empty},
-    constants::{RECURSIVE_PROOF_LENGTH, NESTED_RECURSIVE_PROOF_LENGTH}
+    constants::{RECURSIVE_PROOF_LENGTH, NESTED_RECURSIVE_PROOF_LENGTH},
 };
 
 pub struct RecursiveProof {

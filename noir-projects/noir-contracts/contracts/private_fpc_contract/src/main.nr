@@ -7,7 +7,7 @@ contract PrivateFPC {
     use dep::aztec::{
         protocol_types::{address::AztecAddress, hash::compute_siloed_nullifier},
         state_vars::SharedImmutable,
-        macros::{storage::storage, functions::{private, initializer, public}}
+        macros::{storage::storage, functions::{private, initializer, public}},
     };
     use token::Token;
     use crate::settings::Settings;
@@ -31,7 +31,9 @@ contract PrivateFPC {
 
         assert(asset == settings.other_asset);
 
-        Token::at(asset).setup_refund(settings.admin, context.msg_sender(), amount).call(&mut context);
+        Token::at(asset).setup_refund(settings.admin, context.msg_sender(), amount).call(
+            &mut context,
+        );
         context.set_as_fee_payer();
     }
 }
