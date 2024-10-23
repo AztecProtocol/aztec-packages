@@ -652,14 +652,6 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: kind-network-test-${{ matrix.test }}
-      - name: "KIND Network Test"
-        timeout-minutes: 40
-        working-directory: yarn-project/end-to-end
-        env:
-          test: ${{ matrix.test }}
-        # Only allow transfer test to run on every (non-network-all) PR
-        if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run:
       - name: Setup and KIND Network Test
         timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
