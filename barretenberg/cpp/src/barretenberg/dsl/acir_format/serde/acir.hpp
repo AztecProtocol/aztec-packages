@@ -4104,7 +4104,7 @@ Program::BlackBoxOp::Keccakf1600 serde::Deserializable<Program::BlackBoxOp::Kecc
     Deserializer& deserializer)
 {
     Program::BlackBoxOp::Keccakf1600 obj;
-    obj.message = serde::Deserializable<decltype(obj.input)>::deserialize(deserializer);
+    obj.input = serde::Deserializable<decltype(obj.input)>::deserialize(deserializer);
     obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
     return obj;
 }
