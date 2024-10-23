@@ -3,18 +3,20 @@ use dep::protocol_types::header::Header;
 
 use crate::{
     note::{utils::compute_note_hash_for_nullify, note_interface::{NoteInterface, NullifiableNote}},
-    oracle::get_membership_witness::get_note_hash_membership_witness
+    oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note) where Note: NoteInterface<N> + NullifiableNote;
+    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note)
+    where
+        Note: NoteInterface<N> + NullifiableNote;
 }
 
 impl ProveNoteInclusion for Header {
-    fn prove_note_inclusion<Note, let N: u32>(
-        self,
-        note: Note
-    ) where Note: NoteInterface<N> + NullifiableNote {
+    fn prove_note_inclusion<Note, let N: u32>(self, note: Note)
+    where
+        Note: NoteInterface<N> + NullifiableNote,
+    {
         let note_hash = compute_note_hash_for_nullify(note);
 
         let witness = unsafe {
@@ -25,7 +27,9 @@ impl ProveNoteInclusion for Header {
         // we don't even care _where_ in the tree it is stored. This is because entries in the note hash tree are
         // unique.
         assert_eq(
-            self.state.partial.note_hash_tree.root, root_from_sibling_path(note_hash, witness.index, witness.path), "Proving note inclusion failed"
+            self.state.partial.note_hash_tree.root,
+            root_from_sibling_path(note_hash, witness.index, witness.path),
+            "Proving note inclusion failed",
         );
     }
 }

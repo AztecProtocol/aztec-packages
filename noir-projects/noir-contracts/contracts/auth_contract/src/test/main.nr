@@ -29,7 +29,8 @@ unconstrained fn main() {
         Auth::at(auth_contract_address).set_authorized(to_authorize).call(&mut env.public());
         env.advance_block_by(1);
 
-        let scheduled_authorized = Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
+        let scheduled_authorized =
+            Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
         assert_eq(scheduled_authorized, to_authorize);
     };
     admin_sets_authorized();
@@ -51,7 +52,8 @@ unconstrained fn main() {
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, to_authorize);
 
-        let authorized_in_private: AztecAddress = Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
+        let authorized_in_private: AztecAddress =
+            Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private, AztecAddress::zero());
 
         // We need to always advance the block one more time to get the current value in private, compared to the value in public.
@@ -73,7 +75,8 @@ unconstrained fn main() {
         //                                                                      ^
         //                                        get_authorized() (private) called here with block_number = 8
         env.advance_block_by(1);
-        let authorized_in_private_again = Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
+        let authorized_in_private_again =
+            Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private_again, to_authorize);
 
         Auth::at(auth_contract_address).do_private_authorized_thing().call(&mut env.private());
@@ -85,10 +88,12 @@ unconstrained fn main() {
         Auth::at(auth_contract_address).set_authorized(other).call(&mut env.public());
         env.advance_block_by(1);
 
-        let scheduled_authorized = Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
+        let scheduled_authorized =
+            Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
         assert_eq(scheduled_authorized, other);
 
-        let authorized: AztecAddress = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
+        let authorized: AztecAddress =
+            Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, to_authorize);
 
         env.impersonate(to_authorize);
@@ -107,11 +112,13 @@ unconstrained fn main() {
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, other);
 
-        let authorized_in_private = Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
+        let authorized_in_private =
+            Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private, to_authorize);
 
         env.advance_block_by(1);
-        let authorized_in_private_again = Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
+        let authorized_in_private_again =
+            Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private_again, other);
 
         env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());

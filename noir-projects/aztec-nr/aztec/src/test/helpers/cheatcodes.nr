@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress, public_keys::PublicKeys,
-    constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
+    constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
 };
 use crate::context::inputs::PrivateContextInputs;
 use crate::test::helpers::utils::TestAccount;
@@ -21,7 +21,9 @@ pub unconstrained fn advance_blocks_by(blocks: u32) {
     oracle_advance_blocks_by(blocks);
 }
 
-pub unconstrained fn get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {
+pub unconstrained fn get_private_context_inputs(
+    historical_block_number: u32,
+) -> PrivateContextInputs {
     oracle_get_private_context_inputs(historical_block_number)
 }
 
@@ -30,13 +32,17 @@ pub unconstrained fn deploy<let N: u32, let M: u32, let P: u32>(
     name: str<M>,
     initializer: str<P>,
     args: [Field],
-    public_keys_hash: Field
+    public_keys_hash: Field,
 ) -> ContractInstance {
     let instance_fields = oracle_deploy(path, name, initializer, args, public_keys_hash);
     ContractInstance::deserialize(instance_fields)
 }
 
-pub unconstrained fn direct_storage_write<let N: u32>(contract_address: AztecAddress, storage_slot: Field, fields: [Field; N]) {
+pub unconstrained fn direct_storage_write<let N: u32>(
+    contract_address: AztecAddress,
+    storage_slot: Field,
+    fields: [Field; N],
+) {
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
@@ -56,7 +62,11 @@ pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {
     orable_add_authwit(address, message_hash)
 }
 
-pub unconstrained fn assert_public_call_fails(target_address: AztecAddress, function_selector: FunctionSelector, args: [Field]) {
+pub unconstrained fn assert_public_call_fails(
+    target_address: AztecAddress,
+    function_selector: FunctionSelector,
+    args: [Field],
+) {
     oracle_assert_public_call_fails(target_address, function_selector, args)
 }
 
@@ -65,14 +75,14 @@ pub unconstrained fn assert_private_call_fails(
     function_selector: FunctionSelector,
     argsHash: Field,
     sideEffectsCounter: Field,
-    isStaticCall: bool
+    isStaticCall: bool,
 ) {
     oracle_assert_private_call_fails(
         target_address,
         function_selector,
         argsHash,
         sideEffectsCounter,
-        isStaticCall
+        isStaticCall,
     )
 }
 
@@ -89,7 +99,9 @@ unconstrained fn oracle_get_side_effects_counter() -> u32 {}
 unconstrained fn oracle_advance_blocks_by(blocks: u32) {}
 
 #[oracle(getPrivateContextInputs)]
-unconstrained fn oracle_get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {}
+unconstrained fn oracle_get_private_context_inputs(
+    historical_block_number: u32,
+) -> PrivateContextInputs {}
 
 #[oracle(deploy)]
 unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
@@ -97,14 +109,14 @@ unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
     name: str<M>,
     initializer: str<P>,
     args: [Field],
-    public_keys_hash: Field
+    public_keys_hash: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(directStorageWrite)]
 unconstrained fn direct_storage_write_oracle<let N: u32>(
     _contract_address: AztecAddress,
     _storage_slot: Field,
-    _values: [Field; N]
+    _values: [Field; N],
 ) -> [Field; N] {}
 
 #[oracle(createAccount)]
@@ -123,7 +135,7 @@ unconstrained fn orable_add_authwit(address: AztecAddress, message_hash: Field) 
 unconstrained fn oracle_assert_public_call_fails(
     target_address: AztecAddress,
     function_selector: FunctionSelector,
-    args: [Field]
+    args: [Field],
 ) {}
 
 #[oracle(assertPrivateCallFails)]
@@ -132,5 +144,5 @@ unconstrained fn oracle_assert_private_call_fails(
     function_selector: FunctionSelector,
     argsHash: Field,
     sideEffectsCounter: Field,
-    isStaticCall: bool
+    isStaticCall: bool,
 ) {}

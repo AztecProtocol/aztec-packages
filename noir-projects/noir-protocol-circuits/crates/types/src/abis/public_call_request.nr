@@ -1,7 +1,7 @@
 use crate::{
     abis::{call_context::CallContext, side_effect::Ordered}, address::AztecAddress,
     constants::PUBLIC_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    utils::reader::Reader,
 };
 
 pub struct PublicCallRequest {
@@ -57,7 +57,7 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
         let request = PublicCallRequest {
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
-            counter: reader.read_u32()
+            counter: reader.read_u32(),
         };
         reader.finish();
         request
