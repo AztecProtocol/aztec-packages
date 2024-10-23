@@ -48,9 +48,12 @@ if ! command -v stern &> /dev/null; then
   rm stern.tar.gz
 fi
 
-if kind get clusters | grep -q "^kind$"; then
+if kubectl config get-clusters | grep -q "^kind-kind$"; then
   echo "Cluster 'kind' already exists. Skipping creation."
 else
+  # Sometimes, kubectl does not have our kind context yet kind registers it as existing
+  # Ensure our context exists in kubectl
+  kind delete cluster || true
   kind create cluster
 fi
 

@@ -7,8 +7,8 @@ VALUES=$2
 NAMESPACE=${3:-spartan}
 
 if [ -z "$IMAGE" ]; then
-  echo "Usage: $0 <tag> <values>"
-  echo "Example: $0 latest 48-validators"
+  echo "Usage: $0 <fully qualified docker image> <values>"
+  echo "Example: $0 aztecprotocol/aztec@sha256:<exact image...> 48-validators"
   exit 1
 fi
 
