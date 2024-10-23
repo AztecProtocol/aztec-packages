@@ -358,12 +358,18 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     _validateHeader(header, _signatures, _digest, _currentTime, _txsEffectsHash, _flags);
   }
 
-  function nextEpochToClaim() external view override(IRollup) returns (Epoch) {
-    Epoch epochClaimed = proofClaim.epochToProve;
-    if (proofClaim.proposerClaimant == address(0) && epochClaimed == Epoch.wrap(0)) {
-      return Epoch.wrap(0);
-    }
-    return Epoch.wrap(1) + epochClaimed;
+  /**
+   * @notice  Get the next epoch that can be claimed
+   * @dev     Will revert if the epoch has already been claimed or if there is no epoch to prove
+   */
+  function getClaimableEpoch() external view override(IRollup) returns (Epoch) {
+    Epoch epochToProve = getEpochToProve();
+    require(
+      proofClaim.epochToProve != epochToProve
+        || (proofClaim.proposerClaimant == address(0) && proofClaim.epochToProve == Epoch.wrap(0)),
+      Errors.Rollup__ProofRightAlreadyClaimed()
+    );
+    return epochToProve;
   }
 
   function computeTxsEffectsHash(bytes calldata _body)
