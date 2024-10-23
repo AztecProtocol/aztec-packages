@@ -141,42 +141,6 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             }
         }
 
-        BlackBoxFunc::PedersenCommitment => {
-            if let (
-                [message, BrilligVariable::SingleAddr(domain_separator)],
-                [BrilligVariable::BrilligArray(result_array)],
-            ) = (function_arguments, function_results)
-            {
-                let inputs = convert_array_or_vector(brillig_context, *message, bb_func);
-                let output = brillig_context.codegen_brillig_array_to_heap_array(*result_array);
-                brillig_context.black_box_op_instruction(BlackBoxOp::PedersenCommitment {
-                    inputs,
-                    domain_separator: domain_separator.address,
-                    output,
-                });
-                brillig_context.deallocate_heap_vector(inputs);
-                brillig_context.deallocate_heap_array(output);
-            } else {
-                unreachable!("ICE: Pedersen expects one array argument, a register for the domain separator, and one array result")
-            }
-        }
-        BlackBoxFunc::PedersenHash => {
-            if let (
-                [message, BrilligVariable::SingleAddr(domain_separator)],
-                [BrilligVariable::SingleAddr(result)],
-            ) = (function_arguments, function_results)
-            {
-                let inputs = convert_array_or_vector(brillig_context, *message, bb_func);
-                brillig_context.black_box_op_instruction(BlackBoxOp::PedersenHash {
-                    inputs,
-                    domain_separator: domain_separator.address,
-                    output: result.address,
-                });
-                brillig_context.deallocate_heap_vector(inputs);
-            } else {
-                unreachable!("ICE: Pedersen hash expects one array argument, a register for the domain separator, and one register result")
-            }
-        }
         BlackBoxFunc::SchnorrVerify => {
             if let (
                 [BrilligVariable::SingleAddr(public_key_x), BrilligVariable::SingleAddr(public_key_y), signature, message],

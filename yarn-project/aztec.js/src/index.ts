@@ -52,9 +52,11 @@ export {
   computeInnerAuthWitHashFromAction,
   computeInnerAuthWitHash,
   generatePublicKey,
+  readFieldCompressedString,
   waitForAccountSynch,
   waitForPXE,
 } from './utils/index.js';
+
 export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createPXEClient, createCompatibleClient } from './rpc_clients/index.js';
@@ -71,6 +73,7 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 export {
   AztecAddress,
   EthAddress,
+  PublicKeys,
   Fq,
   Fr,
   GlobalVariables,

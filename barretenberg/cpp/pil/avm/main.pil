@@ -10,7 +10,6 @@ include "gadgets/conversion.pil";
 include "gadgets/sha256.pil";
 include "gadgets/poseidon2.pil";
 include "gadgets/keccakf1600.pil";
-include "gadgets/pedersen.pil";
 include "gadgets/mem_slice.pil";
 
 namespace main(256);
@@ -32,7 +31,7 @@ namespace main(256);
 
     pol commit sel_execution_end; // Toggle next row of last execution trace row.
                                   // Used as a LHS selector of the lookup to enforce final gas values which correspond to
-                                  // l2_gas_remaining and da_gas_remaining values located at the row after last execution row.  
+                                  // l2_gas_remaining and da_gas_remaining values located at the row after last execution row.
     sel_execution_end' = sel_execution_row * (1 - sel_execution_row') * (1 - sel_first);
 
     //===== PUBLIC COLUMNS=========================================================
@@ -47,7 +46,6 @@ namespace main(256);
 
     // CONTEXT - ENVIRONMENT
     pol commit sel_op_address;
-    pol commit sel_op_storage_address;
     pol commit sel_op_sender;
     pol commit sel_op_function_selector;
     pol commit sel_op_transaction_fee;
@@ -89,9 +87,7 @@ namespace main(256);
     pol commit sel_op_sha256;
     pol commit sel_op_poseidon2;
     pol commit sel_op_keccak;
-    pol commit sel_op_pedersen;
     pol commit sel_op_ecadd;
-    pol commit sel_op_pedersen_commit;
     pol commit sel_op_msm;
 
     //===== Memory Slice Gadget Selectors =========================================
@@ -152,7 +148,7 @@ namespace main(256);
     // Helper selector to characterize a Binary chiplet selector
     pol commit sel_bin;
 
-    // Instruction memory tags read/write (1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7: field)
+    // Instruction memory tags read/write (enum defined in constants)
     pol commit r_in_tag;
     pol commit w_in_tag;
     pol commit alu_in_tag; // Copy of r_in_tag or w_in_tag depending of the operation. It is sent to ALU trace.
@@ -218,7 +214,6 @@ namespace main(256);
     // TODO: Very likely, we can remove these constraints as the selectors should be derived during
     // opcode decomposition.
     sel_op_address * (1 - sel_op_address) = 0;
-    sel_op_storage_address * (1 - sel_op_storage_address) = 0;
     sel_op_sender * (1 - sel_op_sender) = 0;
     sel_op_function_selector * (1 - sel_op_function_selector) = 0;
     sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
@@ -250,9 +245,7 @@ namespace main(256);
     sel_op_sha256 * (1 - sel_op_sha256) = 0;
     sel_op_poseidon2 * (1 - sel_op_poseidon2) = 0;
     sel_op_keccak * (1 - sel_op_keccak) = 0;
-    sel_op_pedersen * (1 - sel_op_pedersen) = 0;
     sel_op_ecadd * (1 - sel_op_ecadd) = 0;
-    sel_op_pedersen_commit * (1 - sel_op_pedersen_commit) = 0;
     sel_op_msm * (1 - sel_op_msm) = 0;
 
     sel_op_add * (1 - sel_op_add) = 0;
@@ -421,8 +414,8 @@ namespace main(256);
     pol SEL_ALL_ALU = SEL_ALU_R_TAG + SEL_ALU_W_TAG;
     pol SEL_ALL_LEFTGAS = sel_op_dagasleft + sel_op_l2gasleft;
     pol SEL_ALL_BINARY = sel_op_and + sel_op_or + sel_op_xor;
-    pol SEL_ALL_GADGET = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak + sel_op_pedersen
-                       + sel_op_ecadd + sel_op_pedersen_commit + sel_op_msm;
+    pol SEL_ALL_GADGET = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak
+                       + sel_op_ecadd + sel_op_msm;
     pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol OPCODE_SELECTORS = sel_op_fdiv + sel_op_calldata_copy + sel_op_get_contract_instance
                          + SEL_ALL_ALU + SEL_ALL_BINARY + SEL_ALL_MEMORY + SEL_ALL_GADGET
@@ -546,29 +539,23 @@ namespace main(256);
     is
     conversion.sel_to_radix_le {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs, conversion.output_bits};
 
-    // This will be enabled when we migrate just to sha256Compression, as getting sha256 to work with it is tricky.
-    // #[PERM_MAIN_SHA256]
-    // sel_op_sha256 {clk, ia, ib, ic}
-    // is
-    // sha256.sel_sha256_compression {sha256.clk, sha256.state, sha256.input, sha256.output};
+    #[PERM_MAIN_SHA256]
+    sel_op_sha256 {clk, ia, ib, ic}
+    is
+    sha256.sel_sha256_compression {sha256.clk, sha256.state, sha256.input, sha256.output};
 
     // Mem_addr_a points to the start of the input array of length 4
     // Mem_addr_b points to the start of the output array of length 4
     #[PERM_MAIN_POS2_PERM]
-    sel_op_poseidon2 {clk, mem_addr_a, mem_addr_b}
+    sel_op_poseidon2 {clk, space_id, mem_addr_a, mem_addr_b}
     is
-    poseidon2.sel_poseidon_perm {poseidon2.clk, poseidon2.input_addr, poseidon2.output_addr};
+    poseidon2.sel_poseidon_perm {poseidon2.clk, poseidon2.space_id, poseidon2.input_addr, poseidon2.output_addr};
 
-    // This will be enabled when we migrate just to keccakf1600, as getting keccak to work with it is tricky.
-    // #[PERM_MAIN_KECCAK]
-    // sel_op_keccak {clk, ia, ic}
-    // is
-    // keccakf1600.sel_keccakf1600 {keccakf1600.clk, keccakf1600.input, keccakf1600.output};
-
-    #[PERM_MAIN_PEDERSEN]
-    sel_op_pedersen {clk, ia}
-    is
-    pedersen.sel_pedersen {pedersen.clk, pedersen.input};
+    // TODO: re-enable this. Should have worked when we migrated just to keccakf1600, but it didn't.
+    //#[PERM_MAIN_KECCAK]
+    //sel_op_keccak {clk, ia, ic}
+    //is
+    //keccakf1600.sel_keccakf1600 {keccakf1600.clk, keccakf1600.input, keccakf1600.output};
 
     #[PERM_MAIN_SLICE]
     sel_slice_gadget {clk, space_id, ia, ib, mem_addr_c, sel_op_calldata_copy, sel_op_external_return}

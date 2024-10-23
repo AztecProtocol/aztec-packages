@@ -33,13 +33,13 @@ describe('e2e_deploy_contract legacy', () => {
    */
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
-    const publicKeysHash = wallet.getCompleteAddress().publicKeys.hash();
+    const publicKeys = wallet.getCompleteAddress().publicKeys;
     const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, {
       salt,
-      publicKeysHash,
+      publicKeys,
       deployer: wallet.getAddress(),
     });
-    const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeysHash);
+    const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeys);
     const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
     expect(await pxe.getContractInstance(deploymentData.address)).toBeDefined();

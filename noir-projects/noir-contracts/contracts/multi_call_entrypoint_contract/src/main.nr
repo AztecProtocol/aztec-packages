@@ -8,7 +8,6 @@ contract MultiCallEntrypoint {
     use dep::aztec::macros::functions::private;
 
     #[private]
-    #['private]
     fn entrypoint(app_payload: AppPayload) {
         app_payload.execute_calls(&mut context);
     }

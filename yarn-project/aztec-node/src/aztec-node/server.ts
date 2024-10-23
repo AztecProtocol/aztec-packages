@@ -164,7 +164,7 @@ export class AztecNodeService implements AztecNode {
     const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
-    const sequencer = config.disableSequencer
+    const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(
           config,

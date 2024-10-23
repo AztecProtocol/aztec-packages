@@ -22,6 +22,8 @@ impl Verifiable for PublicKernelData {
 
 impl PublicKernelData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == self.vk_index)
         };

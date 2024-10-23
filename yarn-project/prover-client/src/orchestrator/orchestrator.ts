@@ -847,8 +847,14 @@ export class ProvingOrchestrator implements EpochProver {
       ),
       result => {
         logger.debug(`Completed tube proof for tx index: ${txIndex}`);
-        const nextKernelRequest = txProvingState.getNextPublicKernelFromTubeProof(result.tubeProof, result.tubeVK);
-        this.checkAndEnqueueNextTxCircuit(provingState, txIndex, result.tubeProof, result.tubeVK, nextKernelRequest);
+        const nextKernelRequest = txProvingState.getNextPublicKernelFromTubeProof(result.proof, result.verificationKey);
+        this.checkAndEnqueueNextTxCircuit(
+          provingState,
+          txIndex,
+          result.proof,
+          result.verificationKey,
+          nextKernelRequest,
+        );
       },
     );
   }
@@ -1220,7 +1226,7 @@ export class ProvingOrchestrator implements EpochProver {
             publicFunction.vmRequest!.functionName,
             publicFunction.vmRequest!.bytecode,
             publicFunction.vmRequest!.calldata,
-            publicFunction.vmRequest!.kernelRequest.inputs.publicCall.callStackItem.publicInputs,
+            publicFunction.vmRequest!.kernelRequest.inputs.publicCall.publicInputs,
             publicFunction.vmRequest!.avmHints,
           );
           try {

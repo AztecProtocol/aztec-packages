@@ -21,7 +21,7 @@ until curl -s -X POST -H 'content-type: application/json' \
   sleep 1
 done
 echo "Waiting for l2 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l2-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ] ; do
   sleep 1
 done
 echo "Done waiting."
@@ -30,13 +30,14 @@ echo "Done waiting."
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export LOG_JSON="1"
-export LOG_LEVEL="debug"
-export DEBUG="aztec:*"
+export LOG_LEVEL=${LOG_LEVEL:-"debug"}
+export DEBUG="aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"
 export BOT_PRIVATE_KEY="0xcafe"
 export BOT_TX_INTERVAL_SECONDS="5"
 export BOT_PRIVATE_TRANSFERS_PER_TX="1"
 export BOT_PUBLIC_TRANSFERS_PER_TX="0"
 export BOT_NO_WAIT_FOR_TRANSFERS="true"
+export BOT_FOLLOW_CHAIN="NONE"
 export BOT_NO_START="false"
 export PXE_PROVER_ENABLED="false"
 export PROVER_REAL_PROOFS="false"
