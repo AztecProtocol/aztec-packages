@@ -1,3 +1,4 @@
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -275,4 +276,57 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
 
     // The full IVC should of course also fail to verify since we've accumulated an invalid witness for the kernel
     EXPECT_FALSE(ivc.prove_and_verify());
+}
+
+TEST_F(IvcRecursionConstraintTest, GenerateVK)
+{
+    const TraceStructure trace_structure = TraceStructure::SMALL_TEST;
+
+    std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
+    size_t num_app_public_inputs = 0;
+    {
+        ClientIVC ivc;
+        ivc.trace_structure = trace_structure;
+
+        // Construct and accumulate mock app_circuit
+        Builder app_circuit = construct_mock_app_circuit(ivc);
+        ivc.accumulate(app_circuit);
+        num_app_public_inputs = app_circuit.public_inputs.size();
+
+        // Construct and accumulate kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc, program.witness);
+        ivc.accumulate(kernel);
+        kernel.blocks.summarize();
+        expected_kernel_vk = ivc.verification_queue.back().honk_verification_key;
+
+        // EXPECT_TRUE(ivc.prove_and_verify());
+    }
+
+    std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
+    {
+        ClientIVC ivc;
+        ivc.trace_structure = trace_structure;
+
+        ClientIVC::VerifierInputs oink_entry =
+            acir_format::create_dummy_vkey_and_proof_oink(num_app_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
+        ivc.verification_queue.emplace_back(oink_entry);
+        ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
+        // ivc.initialized = true;
+
+        // Construct kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc);
+        // WORKTODO: this would normally happen in accumulate()
+        kernel.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+
+        // ivc.accumulate(kernel);
+
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_structure);
+        kernel.blocks.summarize();
+        MegaProver prover(proving_key);
+        kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
+    }
+
+    EXPECT_EQ(kernel_vk, expected_kernel_vk);
 }
