@@ -1,3 +1,14 @@
+/**
+ * @description
+ * The representation of a proof
+ * */
+export type ProofData = {
+  /** @description Public inputs of a proof */
+  publicInputs: string[];
+  /** @description An byte array representing the proof */
+  proof: Uint8Array;
+};
+
 // Buffers are prepended with their size. The size takes 4 bytes.
 const serializedBufferSize = 4;
 const fieldByteSize = 32;
@@ -37,7 +48,17 @@ export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array
   return proofWithPublicInputs;
 }
 
-function deflattenFields(flattenedFields: Uint8Array): string[] {
+export function reconstructUltraPlonkProof(proofData: ProofData): Uint8Array {
+  // Flatten publicInputs
+  const publicInputsConcatenated = flattenFieldsAsArray(proofData.publicInputs);
+
+  // Concatenate publicInputs and proof
+  const proofWithPublicInputs = Uint8Array.from([...publicInputsConcatenated, ...proofData.proof]);
+
+  return proofWithPublicInputs;
+}
+
+export function deflattenFields(flattenedFields: Uint8Array): string[] {
   const publicInputSize = 32;
   const chunkedFlattenedPublicInputs: Uint8Array[] = [];
 
@@ -47,6 +68,24 @@ function deflattenFields(flattenedFields: Uint8Array): string[] {
   }
 
   return chunkedFlattenedPublicInputs.map(uint8ArrayToHex);
+}
+
+export function flattenFieldsAsArray(fields: string[]): Uint8Array {
+  const flattenedPublicInputs = fields.map(hexToUint8Array);
+  return flattenUint8Arrays(flattenedPublicInputs);
+}
+
+function flattenUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+  const totalLength = arrays.reduce((acc, val) => acc + val.length, 0);
+  const result = new Uint8Array(totalLength);
+
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+
+  return result;
 }
 
 function uint8ArrayToHex(buffer: Uint8Array): string {
@@ -61,4 +100,21 @@ function uint8ArrayToHex(buffer: Uint8Array): string {
   });
 
   return '0x' + hex.join('');
+}
+
+function hexToUint8Array(hex: string): Uint8Array {
+  const sanitisedHex = BigInt(hex).toString(16).padStart(64, '0');
+
+  const len = sanitisedHex.length / 2;
+  const u8 = new Uint8Array(len);
+
+  let i = 0;
+  let j = 0;
+  while (i < len) {
+    u8[i] = parseInt(sanitisedHex.slice(j, j + 2), 16);
+    i += 1;
+    j += 2;
+  }
+
+  return u8;
 }
