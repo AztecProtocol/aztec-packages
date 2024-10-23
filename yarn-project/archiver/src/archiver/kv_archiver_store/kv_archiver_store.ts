@@ -241,7 +241,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     }
   }
 
-  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+  getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]> {
     try {
       return this.#logStore.getLogsByTags(tags);
     } catch (err) {

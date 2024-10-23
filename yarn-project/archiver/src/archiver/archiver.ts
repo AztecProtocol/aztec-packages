@@ -628,7 +628,7 @@ export class Archiver implements ArchiveSource {
     return this.store.getLogs(from, limit, logType);
   }
 
-  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+  getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]> {
     return this.store.getLogsByTags(tags);
   }
 
@@ -929,7 +929,7 @@ class ArchiverStoreHelper
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
   }
-  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+  getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]> {
     return this.store.getLogsByTags(tags);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {

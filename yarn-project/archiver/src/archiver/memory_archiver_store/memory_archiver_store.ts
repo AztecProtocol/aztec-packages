@@ -212,7 +212,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
         const noteLogs = txLogs.unrollLogs();
         noteLogs.forEach(noteLog => {
-          this.taggedNoteEncryptedLogs.set(noteLog.data.subarray(0, 32).toString(), noteLog);
+          const tag = new Fr(noteLog.data.subarray(0, 32));
+          this.taggedNoteEncryptedLogs.set(tag.toString(), noteLog);
         });
       });
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
@@ -389,13 +390,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(l);
   }
 
-  async getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
-    return tags
-      .map(tag => {
-        const noteLog = this.taggedNoteEncryptedLogs.get(tag);
-        return noteLog ? noteLog : undefined;
-      })
-      .filter(log => log) as EncryptedL2NoteLog[];
+  async getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]> {
+    return tags.map(tag => {
+      const noteLog = this.taggedNoteEncryptedLogs.get(tag.toString());
+      return noteLog ? noteLog : undefined;
+    });
   }
 
   /**

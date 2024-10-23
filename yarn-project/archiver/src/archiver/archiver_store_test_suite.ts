@@ -354,7 +354,78 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    describe('getLogsByTags', () => {});
+    describe('getLogsByTags', () => {
+      const txsPerBlock = 4;
+      const numPrivateFunctionCalls = 3;
+      const numNoteEncryptedLogs = 2;
+      const numBlocks = 10;
+      let blocks: L1Published<L2Block>[];
+      let tags: { [i: number]: { [j: number]: Fr[] } } = {};
+
+      beforeEach(async () => {
+        blocks = times(numBlocks, (index: number) => ({
+          data: L2Block.random(index + 1, txsPerBlock, numPrivateFunctionCalls, 2, numNoteEncryptedLogs, 2),
+          l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+        }));
+
+        await store.addBlocks(blocks);
+        await store.addLogs(blocks.map(b => b.data));
+
+        tags = {};
+        blocks.forEach((b, blockIndex) => {
+          if (!tags[blockIndex]) {
+            tags[blockIndex] = {};
+          }
+          b.data.body.noteEncryptedLogs.txLogs.forEach((txLogs, txIndex) => {
+            if (!tags[blockIndex][txIndex]) {
+              tags[blockIndex][txIndex] = [];
+            }
+            tags[blockIndex][txIndex].push(...txLogs.unrollLogs().map(log => new Fr(log.data.subarray(0, 32))));
+          });
+        });
+      });
+
+      it('is possible to batch request all logs of a tx via tags', async () => {
+        // get random tx
+        const targetBlockIndex = randomInt(numBlocks);
+        const targetTxIndex = randomInt(txsPerBlock);
+
+        const logs = await store.getLogsByTags(tags[targetBlockIndex][targetTxIndex]);
+
+        const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
+        expect(logs.length).toEqual(expectedNumLogs);
+
+        logs.forEach(log => expect(log).not.toBeUndefined());
+      });
+
+      it('is possible to batch request all logs of different blocks via tags', async () => {
+        // get random tx
+        const targetBlockIndex = randomInt(numBlocks);
+        const targetTxIndex = randomInt(txsPerBlock);
+
+        const logs = await store.getLogsByTags([...tags[0][0], ...tags[targetBlockIndex][targetTxIndex]]);
+
+        const expectedNumLogs = 2 * numPrivateFunctionCalls * numNoteEncryptedLogs;
+        expect(logs.length).toEqual(expectedNumLogs);
+
+        logs.forEach(log => expect(log).not.toBeUndefined());
+      });
+
+      it('is possible to request logs for non-existing tags and determine their position', async () => {
+        // get random tx
+        const targetBlockIndex = randomInt(numBlocks);
+        const targetTxIndex = randomInt(txsPerBlock);
+
+        const logs = await store.getLogsByTags([Fr.random(), ...tags[targetBlockIndex][targetTxIndex].slice(1)]);
+
+        const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
+        expect(logs.length).toEqual(expectedNumLogs);
+
+        expect(logs[0]).toBeUndefined();
+
+        logs.slice(1).forEach(log => expect(log).not.toBeUndefined());
+      });
+    });
 
     describe('getUnencryptedLogs', () => {
       const txsPerBlock = 4;

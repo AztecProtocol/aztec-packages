@@ -13,6 +13,7 @@ import {
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
@@ -51,7 +52,8 @@ export class LogStore {
         block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
           const noteLogs = txLogs.unrollLogs();
           noteLogs.forEach(noteLog => {
-            void this.#taggedNoteEncryptedLogs.set(noteLog.data.subarray(0, 32).toString(), noteLog.toBuffer());
+            const tag = new Fr(noteLog.data.subarray(0, 32));
+            void this.#taggedNoteEncryptedLogs.set(tag.toString(), noteLog.toBuffer());
           });
         });
         void this.#encryptedLogs.set(block.number, block.body.encryptedLogs.toBuffer());
@@ -114,14 +116,12 @@ export class LogStore {
     }
   }
 
-  async getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+  async getLogsByTags(tags: Fr[]): Promise<(EncryptedL2NoteLog | undefined)[]> {
     return this.db.transaction(() => {
-      return tags
-        .map(tag => {
-          const buffer = this.#taggedNoteEncryptedLogs.get(tag);
-          return buffer ? EncryptedL2NoteLog.fromBuffer(buffer) : undefined;
-        })
-        .filter(log => log) as EncryptedL2NoteLog[];
+      return tags.map(tag => {
+        const buffer = this.#taggedNoteEncryptedLogs.get(tag.toString());
+        return buffer ? EncryptedL2NoteLog.fromBuffer(buffer) : undefined;
+      });
     });
   }
 
