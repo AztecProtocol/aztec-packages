@@ -186,8 +186,8 @@ template <typename Curve> class GeminiVerifier_ {
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
 
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
+        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to A₀₊
+        // C₀_r_neg = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to  A₀₋
         GroupElement C0_r_pos = batched_commitment_unshifted;
         GroupElement C0_r_neg = batched_commitment_unshifted;
 
@@ -199,7 +199,8 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // If verifying the opening for the translator VM, we reconstruct the commitment of the batched concatenated
-        // polynomials, partially evaluated in r and -r, using the commitments in the concatenation groups
+        // polynomials, partially evaluated in r and -r, using the commitments in the concatenation groups and add their
+        // contribution as well to to C₀_r_pos and C₀_r_neg
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
@@ -221,6 +222,10 @@ template <typename Curve> class GeminiVerifier_ {
             GroupElement batched_concatenated_pos = GroupElement::zero();
             GroupElement batched_concatenated_neg = GroupElement::zero();
             for (auto& concatenation_group_commitment : concatenation_group_commitments) {
+                // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ...}
+                // where s = mini_circuit_size as
+                // C₀_r_pos += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ rⁱˢ ⋅ Cᵢ
+                // C₀_r_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱˢ ⋅ Cᵢ
                 for (size_t i = 0; i < concatenation_group_size; ++i) {
                     batched_concatenated_pos += concatenation_group_commitment[i] * batching_scalar * r_shifts_pos[i];
                     batched_concatenated_neg += concatenation_group_commitment[i] * batching_scalar * r_shifts_neg[i];
