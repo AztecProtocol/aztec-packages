@@ -198,7 +198,7 @@ jobs:
       - name: Determine runner type
         id: runner_type
         run: |
-          runner=$(./scripts/select_runner.sh ${{ matrix.test }})
+          runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
         timeout-minutes: 40
