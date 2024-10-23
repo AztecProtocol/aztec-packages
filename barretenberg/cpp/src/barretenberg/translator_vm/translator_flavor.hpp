@@ -82,6 +82,18 @@ class TranslatorFlavor {
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 177;
 
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 2;
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 90;
+
+    static constexpr size_t SHIFTED_WITNESSES_START = 93;
+    static constexpr size_t SHIFTED_WITNESSES_END = 180;
+
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 0;
+    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 0;
+
+    static constexpr size_t SHIFTED_PRECOMPUTED_START = 0;
+    static constexpr size_t SHIFTED_PRECOMPUTED_END = 0;
+
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
