@@ -82,8 +82,8 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# Find two free ports between 8000 and 9000
-FREE_PORTS=$(comm -23 <(seq 8000 9000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 2)
+# Find two free ports between 9000 and 10000
+FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 2)
 
 # Extract the two free ports from the list
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
@@ -94,7 +94,7 @@ NAMESPACE=${NAMESPACE:-default}
 
 # Start port-forwarding with dynamically allocated free ports
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe $PXE_PORT:8080 2>/dev/null >/dev/null || true) &
-(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-anvil $ANVIL_PORT:8545 2>/dev/null >/dev/null || true) &
+(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-ethereum $ANVIL_PORT:8545 2>/dev/null >/dev/null || true) &
 
 docker run --rm --network=host \
   -e PXE_URL=http://127.0.0.1:9082 \
