@@ -1,4 +1,5 @@
 import {
+  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -135,6 +136,8 @@ export interface ArchiverDataStore {
     limit: number,
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+
+  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

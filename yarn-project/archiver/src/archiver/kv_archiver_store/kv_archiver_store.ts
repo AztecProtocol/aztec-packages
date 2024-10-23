@@ -1,4 +1,6 @@
 import {
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -234,6 +236,14 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     try {
       return Promise.resolve(Array.from(this.#logStore.getLogs(start, limit, logType)));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+    try {
+      return this.#logStore.getLogsByTags(tags);
     } catch (err) {
       return Promise.reject(err);
     }

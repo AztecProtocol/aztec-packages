@@ -1,5 +1,6 @@
 import {
   EncryptedL2BlockL2Logs,
+  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -23,6 +24,7 @@ import { type BlockStore } from './block_store.js';
  */
 export class LogStore {
   #noteEncryptedLogs: AztecMap<number, Buffer>;
+  #taggedNoteEncryptedLogs: AztecMap<string, Buffer>;
   #encryptedLogs: AztecMap<number, Buffer>;
   #unencryptedLogs: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
@@ -30,6 +32,7 @@ export class LogStore {
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#noteEncryptedLogs = db.openMap('archiver_note_encrypted_logs');
+    this.#taggedNoteEncryptedLogs = db.openMap('archiver_tagged_note_encrypted_logs');
     this.#encryptedLogs = db.openMap('archiver_encrypted_logs');
     this.#unencryptedLogs = db.openMap('archiver_unencrypted_logs');
 
@@ -45,6 +48,12 @@ export class LogStore {
     return this.db.transaction(() => {
       blocks.forEach(block => {
         void this.#noteEncryptedLogs.set(block.number, block.body.noteEncryptedLogs.toBuffer());
+        block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
+          const noteLogs = txLogs.unrollLogs();
+          noteLogs.forEach(noteLog => {
+            void this.#taggedNoteEncryptedLogs.set(noteLog.data.subarray(0, 32).toString(), noteLog.toBuffer());
+          });
+        });
         void this.#encryptedLogs.set(block.number, block.body.encryptedLogs.toBuffer());
         void this.#unencryptedLogs.set(block.number, block.body.unencryptedLogs.toBuffer());
       });
@@ -103,6 +112,17 @@ export class LogStore {
     for (const buffer of logMap.values({ start, limit })) {
       yield L2BlockL2Logs.fromBuffer(buffer) as L2BlockL2Logs<FromLogType<TLogType>>;
     }
+  }
+
+  async getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+    return this.db.transaction(() => {
+      return tags
+        .map(tag => {
+          const buffer = this.#taggedNoteEncryptedLogs.get(tag);
+          return buffer ? EncryptedL2NoteLog.fromBuffer(buffer) : undefined;
+        })
+        .filter(log => log) as EncryptedL2NoteLog[];
+    });
   }
 
   /**

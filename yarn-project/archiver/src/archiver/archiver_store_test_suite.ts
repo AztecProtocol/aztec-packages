@@ -354,6 +354,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
+    describe('getLogsByTags', () => {});
+
     describe('getUnencryptedLogs', () => {
       const txsPerBlock = 4;
       const numPublicFunctionCalls = 3;

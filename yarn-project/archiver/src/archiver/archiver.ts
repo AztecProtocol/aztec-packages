@@ -1,4 +1,5 @@
 import {
+  EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -585,6 +586,10 @@ export class Archiver implements ArchiveSource {
     return this.store.getLogs(from, limit, logType);
   }
 
+  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+    return this.store.getLogsByTags(tags);
+  }
+
   /**
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
@@ -881,6 +886,9 @@ class ArchiverStoreHelper
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
+  }
+  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+    return this.store.getLogsByTags(tags);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);

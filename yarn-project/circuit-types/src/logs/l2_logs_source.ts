@@ -1,3 +1,4 @@
+import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
 import { type GetUnencryptedLogsResponse } from './get_unencrypted_logs_response.js';
 import { type L2BlockL2Logs } from './l2_block_l2_logs.js';
 import { type LogFilter } from './log_filter.js';
@@ -19,6 +20,8 @@ export interface L2LogsSource {
     limit: number,
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+
+  getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

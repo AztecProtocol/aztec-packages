@@ -1,5 +1,6 @@
 import {
   type EncryptedL2BlockL2Logs,
+  type EncryptedL2NoteLog,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -48,6 +49,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private txEffects: TxEffect[] = [];
 
   private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
+
+  private taggedNoteEncryptedLogs: Map<string, EncryptedL2NoteLog> = new Map();
 
   private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
 
@@ -206,6 +209,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
       this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
+      block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
+        const noteLogs = txLogs.unrollLogs();
+        noteLogs.forEach(noteLog => {
+          this.taggedNoteEncryptedLogs.set(noteLog.data.subarray(0, 32).toString(), noteLog);
+        });
+      });
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
       this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
     });
@@ -378,6 +387,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     }
 
     return Promise.resolve(l);
+  }
+
+  async getLogsByTags(tags: Field[]): Promise<EncryptedL2NoteLog[]> {
+    return tags
+      .map(tag => {
+        const noteLog = this.taggedNoteEncryptedLogs.get(tag);
+        return noteLog ? noteLog : undefined;
+      })
+      .filter(log => log) as EncryptedL2NoteLog[];
   }
 
   /**
