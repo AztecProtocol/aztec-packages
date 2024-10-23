@@ -99,8 +99,9 @@ export async function createTestLibP2PService(
   mempools: MemPools,
   telemetry: TelemetryClient,
   port: number = 0,
+  peerId?: PeerId,
 ) {
-  const peerId = await createLibP2PPeerId();
+  peerId = peerId ?? (await createLibP2PPeerId());
   const config = {
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
