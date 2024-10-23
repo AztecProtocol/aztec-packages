@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729621672722,
+  "lastUpdate": 1729683882880,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "62f6b8aeb92bfb266a0df647a0dd33cfdb021f5f",
-          "message": "chore: prove_then_verify_ultra_honk on all  existing acir tests (#9042)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1124.\n\nEnsure all acir tests are configured to run with UH as a precursor to the full switch and add `double_verify_honk_proof` and `double_verify_honk_proof_recursive` Noir programs to be tested as part of the acir tests. In Plonk, we also have `double_verify_nested_proof`, which aggregates two recursive proof (produced with `double_verify_proof_recursive`). That is because those proofs will have 16  additional frs representing the public inputs' indices of the recursive proof. Unlike this, we don't have different proof sizes when we handle recursive proofs for Honk but instead parse an initial default aggregation object in case the proof isn't produced from recursively verifying another proof.",
-          "timestamp": "2024-10-07T15:34:46+01:00",
-          "tree_id": "42a8268d4928a6fd2bb02758179ef6c51abe3622",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/62f6b8aeb92bfb266a0df647a0dd33cfdb021f5f"
-        },
-        "date": 1728314389845,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31442.99158800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29064.737737 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5559.153756000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5234.710751 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93679.89475800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93679897000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15718.389173999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15718389000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8275903175,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8275903175 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151350961,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151350961 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6729221848,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6729221848 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127134992,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127134992 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3380,6 +3308,66 @@ window.BENCHMARK_DATA = {
             "value": 128287349,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128287349 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "21fa3cf054cf1a3652c8a27ddf042c1c48b47039",
+          "message": "feat: translator on Shplemini (#9329)\n\nIn this PR:\r\n* implement concatenation trick (to work for both Gemini and Shplemini),\r\ntry to document it and fix some other documentation in Shplemini\r\n* switch Translator to Shplemini\r\n\r\nThe Translator VM works on many many small polynomials (whose length is\r\ndetermined by a \"minicircuit size\"). To avoid the permutation relation\r\nhaving a very high degree, these small polynomials are split into\r\ngroups, and each group is concatenated into a single polynomial. We want\r\nthe prover to avoid having to commit to these extra concatenation\r\npolynomials (as they will likely not be sparse at all) but rather reuse\r\nthe commitments to the polynomials in its corresponding concatenation\r\ngroup, also showing they are correctly related in the opening protocol.\r\nBriefly, in Gemini, this is achieved by adding the contributibution to\r\nthe batched concatenated polynomials when computing the fold polynomials\r\n(A_0, A_1, ..., A_(logn -1)) but computing A_0- and A_0+ using the\r\npolyinomials in the batched concatenated groups. As the verifier only\r\nreceives commitments to A_1, .., A_(logn-1) and has to compute the\r\ncommitments to A_0- and A_0+ , it can then do this using the commitments\r\nof the polynomials in concatenation groups.",
+          "timestamp": "2024-10-23T11:22:47Z",
+          "tree_id": "4639acdc86297b1588f007e095b7030c66c14e85",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/21fa3cf054cf1a3652c8a27ddf042c1c48b47039"
+        },
+        "date": 1729683875837,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29591.349123000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27832.53973 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5362.287860999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5049.772502 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87483.151404,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87483154000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15087.907137000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15087907000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2717487451,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2717487451 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126614481,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126614481 ns\nthreads: 1"
           }
         ]
       }
