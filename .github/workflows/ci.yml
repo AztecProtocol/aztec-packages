@@ -643,7 +643,7 @@ jobs:
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       matrix:
-        test: [transfer.test.ts, 4epochs.test.ts]
+        test: [smoke.test.ts, transfer.test.ts, 4epochs.test.ts]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -654,7 +654,7 @@ jobs:
         timeout-minutes: 40
         working-directory: yarn-project
         # Only allow transfer test to run on every (non-network-all) PR
-        if: matrix.test == 'transfer.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
+        if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
         run: NAMESPACE="${{ matrix.test }}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}
 
   l1-contracts-test:
@@ -885,7 +885,8 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
-      - network-test-fake-proofs
+      - network-test
+      - kind-network-test
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
@@ -944,7 +945,8 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
-      - network-test-fake-proofs
+      - network-test
+      - kind-network-test
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
