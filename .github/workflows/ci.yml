@@ -659,7 +659,23 @@ jobs:
           test: ${{ matrix.test }}
         # Only allow transfer test to run on every (non-network-all) PR
         if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run: NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
+        run:
+      - name: Setup and KIND Network Test
+        timeout-minutes: 40
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: 8core-tester-x86
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          run: |
+            cd yarn-project/end-to-end
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
 
   l1-contracts-test:
     needs: [build, configure]

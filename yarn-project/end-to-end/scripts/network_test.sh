@@ -19,7 +19,7 @@ TEST="$1"
 REPO=$(git rev-parse --show-toplevel)
 if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
   # Use a lock so this can be ran in parallel
-  flock /var/lock/setup_local_k8s.lock "$REPO"/spartan/scripts/setup_local_k8s.sh
+  "$REPO"/spartan/scripts/setup_local_k8s.sh
 else
   echo "Not on x64 Linux, not installing k8s and helm."
 fi
@@ -86,7 +86,7 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 2)
 
 # Extract the two free ports from the list
-PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
+PXE_PORT=$(echo $FREE_POrRTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 
 # Namespace variable (assuming it's set)
