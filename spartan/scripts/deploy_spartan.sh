@@ -3,6 +3,7 @@ set -eu
 
 TAG=$1
 VALUES=$2
+NAMESPACE=${3:-spartan}
 
 if [ -z "$TAG" ]; then
   echo "Usage: $0 <tag> <values>"
@@ -18,24 +19,23 @@ trap cleanup SIGINT SIGTERM EXIT
 
 function show_status_until_pxe_ready() {
   sleep 15 # let helm upgrade start
-  for i in {1..100} ; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n spartan --timeout=20s >/dev/null 2>/dev/null ; then
-      break # we are up, stop showing status
-    fi
-    # show startup status
-    kubectl get pods -n spartan
+  kubectl get pods -n $NAMESPACE
+  for i in {1..20} ; do
+    # Show once a minute x 20 minutes
+    kubectl get pods -n $NAMESPACE
+    sleep 60
   done
 }
 show_status_until_pxe_ready &
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 function log_stern() {
-  stern spartan -n spartan 2>&1 >> "$SCRIPT_DIR/spartan-deploy.log"
+  stern $NAMESPACE -n $NAMESPACE 2>&1 >> "$SCRIPT_DIR/$NAMESPACE-deploy.log"
 }
 log_stern &
 
-helm upgrade --install spartan $SCRIPT_DIR/../aztec-network \
-      --namespace spartan \
+helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
+      --namespace $NAMESPACE \
       --create-namespace \
       --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
       --set images.aztec.image="aztecprotocol/aztec:$TAG" \
