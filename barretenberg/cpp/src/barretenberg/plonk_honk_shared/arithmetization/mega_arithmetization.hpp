@@ -72,10 +72,10 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 11;
             this->pub_inputs = 1 << 7;
-            this->arithmetic = 201000;
+            this->arithmetic = 198000;
             this->delta_range = 90000;
             this->elliptic = 9000;
-            this->aux = 137000;
+            this->aux = 136000;
             this->lookup = 72000;
             this->busread = 1 << 7;
             this->poseidon2_external = 2500;
