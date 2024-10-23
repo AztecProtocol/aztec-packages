@@ -86,7 +86,7 @@ template <class Builder> class DataBusDepot {
     bool app_return_data_commitment_exists = false;
     bool kernel_return_data_commitment_exists = false;
 
-    void set_return_data_to_propagate(const Commitment& commitment, bool is_kernel)
+    void set_commitment_to_be_propagated(const Commitment& commitment, bool is_kernel)
     {
         if (is_kernel) {
             kernel_return_data_commitment = commitment;

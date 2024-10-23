@@ -90,17 +90,14 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
         break;
     }
-    default: {
-        info("Invalid QUEUE_TYPE in ClientIvc!");
-    }
     }
 
-    // WORKTODO: make both of these handled by one method
-    bus_depot.set_return_data_to_propagate(decider_vk->witness_commitments.return_data,
-                                           decider_vk->verification_key->databus_propagation_data.is_kernel);
+    // WORKTODO: make both of these handled by one method?
+    bool is_kernel_data = decider_vk->verification_key->databus_propagation_data.is_kernel;
+    bus_depot.set_commitment_to_be_propagated(decider_vk->witness_commitments.return_data, is_kernel_data);
 
     // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-    if (decider_vk->verification_key->databus_propagation_data.is_kernel) {
+    if (is_kernel_data) {
         bus_depot.perform_consistency_checks(decider_vk->witness_commitments.calldata,
                                              decider_vk->witness_commitments.secondary_calldata,
                                              decider_vk->public_inputs,
