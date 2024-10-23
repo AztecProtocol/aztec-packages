@@ -1023,15 +1023,12 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
-                        .indirect_operand(&message.pointer)
-                        .direct_operand(&message.size)
+                        .indirect_operand(&input.pointer)
                         .build(),
                 ),
                 operands: vec![
                     AvmOperand::U16 { value: dest_offset as u16 },
-                    AvmOperand::U16 { value: message_offset as u16 },
-                    // This is unnecessary as message size is always 25
-                    AvmOperand::U16 { value: message_size_offset as u16 },
+                    AvmOperand::U16 { value: input_offset as u16 },
                 ],
                 ..Default::default()
             });
