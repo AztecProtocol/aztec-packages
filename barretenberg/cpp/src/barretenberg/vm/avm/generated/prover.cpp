@@ -148,7 +148,7 @@ HonkProof AvmProver::construct_proof()
     AVM_TRACK_TIME("prove/execute_relation_check_rounds", execute_relation_check_rounds());
 
     // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
+    // Execute Shplemini PCS
     AVM_TRACK_TIME("prove/execute_pcs_rounds", execute_pcs_rounds());
 
     return export_proof();

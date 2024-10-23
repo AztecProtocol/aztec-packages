@@ -48,7 +48,7 @@ namespace bb {
 
 // Note: current de-/serialization routines are not including the padded zero univariates which are added as part of
 // current sumcheck implementation. Namely, this algorithm is padding to reach CONST_PROOF_SIZE_LOG_N sumcheck rounds.
-// Similarly, zeromorph implementation performs same padding over some commitments (zm_cq_comms).
+// Similarly, Shplemini implementation performs same padding over some commitments (zm_cq_comms).
 // In code below, the loops are of size log(circuit_size) instead of CONST_PROOF_SIZE_LOG_N.
 void {{name}}Flavor::Transcript::deserialize_full_transcript() {
     size_t num_frs_read = 0;

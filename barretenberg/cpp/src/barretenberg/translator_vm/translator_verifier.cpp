@@ -110,9 +110,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
-    // unrolled protocol.
-
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),

@@ -109,7 +109,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    // now the zeromorph commitments
+    // now the shplemini commitments
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
