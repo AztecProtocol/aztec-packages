@@ -625,7 +625,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [./test-transfer.sh, ./test-4epochs.ts]
+        test: [test-transfer.sh, test-4epochs.ts]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -636,7 +636,7 @@ jobs:
         timeout-minutes: 40
         # Only allow transfer test to run on every (non-network-all) PR
         if: matrix.test == 'transfer.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run: earthly-ci --no-output ./yarn-project/+network-test --test=${{ matrix.test }}
+        run: earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
 
   # note: proving disabled
   kind-network-test:
