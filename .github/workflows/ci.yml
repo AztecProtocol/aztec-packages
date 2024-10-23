@@ -655,9 +655,11 @@ jobs:
       - name: "KIND Network Test"
         timeout-minutes: 40
         working-directory: yarn-project/end-to-end
+        env:
+          test: ${{ matrix.test }}
         # Only allow transfer test to run on every (non-network-all) PR
         if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run: NAMESPACE="${${{ matrix.test }}%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}
+        run: NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
 
   l1-contracts-test:
     needs: [build, configure]
