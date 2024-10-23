@@ -235,8 +235,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_note_hash_exists{};
     FF main_sel_op_nullifier_exists{};
     FF main_sel_op_or{};
-    FF main_sel_op_pedersen{};
-    FF main_sel_op_pedersen_commit{};
     FF main_sel_op_poseidon2{};
     FF main_sel_op_radix_le{};
     FF main_sel_op_sender{};
@@ -306,10 +304,6 @@ template <typename FF> struct AvmFullRow {
     FF mem_tsp{};
     FF mem_val{};
     FF mem_w_in_tag{};
-    FF pedersen_clk{};
-    FF pedersen_input{};
-    FF pedersen_output{};
-    FF pedersen_sel_pedersen{};
     FF poseidon2_B_10_0{};
     FF poseidon2_B_10_1{};
     FF poseidon2_B_10_2{};
@@ -590,6 +584,7 @@ template <typename FF> struct AvmFullRow {
     FF poseidon2_mem_addr_write_d{};
     FF poseidon2_output_addr{};
     FF poseidon2_sel_poseidon_perm{};
+    FF poseidon2_space_id{};
     FF range_check_alu_rng_chk{};
     FF range_check_clk{};
     FF range_check_cmp_hi_bits_rng_chk{};
@@ -665,8 +660,8 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_alu_inv{};
     FF perm_main_bin_inv{};
     FF perm_main_conv_inv{};
+    FF perm_main_sha256_inv{};
     FF perm_main_pos2_perm_inv{};
-    FF perm_main_pedersen_inv{};
     FF perm_main_slice_inv{};
     FF perm_main_mem_a_inv{};
     FF perm_main_mem_b_inv{};
@@ -722,7 +717,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 708;
+    static constexpr size_t SIZE = 703;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

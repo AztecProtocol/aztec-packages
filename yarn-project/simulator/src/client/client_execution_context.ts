@@ -68,7 +68,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
   constructor(
-    contractAddress: AztecAddress,
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
@@ -84,7 +83,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     log = createDebugLogger('aztec:simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
-    super(contractAddress, authWitnesses, db, node, log, scopes);
+    super(callContext.contractAddress, authWitnesses, db, node, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -240,10 +239,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     status: NoteStatus,
   ): Promise<NoteData[]> {
     // Nullified pending notes are already removed from the list.
-    const pendingNotes = this.noteCache.getNotes(this.callContext.storageContractAddress, storageSlot);
+    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, storageSlot);
 
-    const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.storageContractAddress);
-    const dbNotes = await this.db.getNotes(this.callContext.storageContractAddress, storageSlot, status, this.scopes);
+    const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
+    const dbNotes = await this.db.getNotes(this.callContext.contractAddress, storageSlot, status, this.scopes);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -261,7 +260,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     });
 
     this.log.debug(
-      `Returning ${notes.length} notes for ${this.callContext.storageContractAddress} at ${storageSlot}: ${notes
+      `Returning ${notes.length} notes for ${this.callContext.contractAddress} at ${storageSlot}: ${notes
         .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
@@ -297,7 +296,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
-        contractAddress: this.callContext.storageContractAddress,
+        contractAddress: this.callContext.contractAddress,
         storageSlot,
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
@@ -317,7 +316,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = this.noteCache.nullifyNote(
-      this.callContext.storageContractAddress,
+      this.callContext.contractAddress,
       innerNullifier,
       noteHash,
     );
@@ -391,11 +390,11 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
     if (
-      childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
@@ -408,7 +407,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param argsHash - The packed arguments to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @param isDelegateCall - Whether the call is a delegate call.
    * @returns The execution result.
    */
   override async callPrivateFunction(
@@ -417,10 +415,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     this.log.debug(
-      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
+      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
@@ -429,15 +426,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const derivedTxContext = this.txContext.clone();
 
-    const derivedCallContext = this.deriveCallContext(
-      targetContractAddress,
-      targetArtifact,
-      isDelegateCall,
-      isStaticCall,
-    );
+    const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
     const context = new ClientExecutionContext(
-      targetContractAddress,
       argsHash,
       derivedTxContext,
       derivedCallContext,
@@ -465,7 +456,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     this.nestedExecutions.push(childExecutionResult);
 
-    const publicInputs = childExecutionResult.callStackItem.publicInputs;
+    const publicInputs = childExecutionResult.publicInputs;
     return {
       endSideEffectCounter: publicInputs.endSideEffectCounter,
       returnsHash: publicInputs.returnsHash,
@@ -473,7 +464,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Creates a PublicCallStackItem object representing the request to call a public function.
+   * Creates a PublicExecutionRequest object representing the request to call a public function.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
@@ -488,15 +479,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const derivedCallContext = this.deriveCallContext(
-      targetContractAddress,
-      targetArtifact,
-      isDelegateCall,
-      isStaticCall,
-    );
+    const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
@@ -506,7 +491,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const request = PublicExecutionRequest.from({
       args,
       callContext: derivedCallContext,
-      contractAddress: targetContractAddress,
     });
 
     if (callType === 'enqueued') {
@@ -517,7 +501,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Creates and enqueues a PublicCallStackItem object representing the request to call a public function. No function
+   * Creates and enqueues a PublicExecutionRequest object representing the request to call a public function. No function
    * is actually called, since that must happen on the sequencer side. All the fields related to the result
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
@@ -533,7 +517,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ): Promise<Fr> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
     // WARNING: This is insecure and should be temporary!
@@ -552,13 +535,12 @@ export class ClientExecutionContext extends ViewDataOracle {
       newArgsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
     return newArgsHash;
   }
 
   /**
-   * Creates a PublicCallStackItem and sets it as the public teardown function. No function
+   * Creates a PublicExecutionRequest and sets it as the public teardown function. No function
    * is actually called, since that must happen on the sequencer side. All the fields related to the result
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
@@ -574,7 +556,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ): Promise<Fr> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
     // WARNING: This is insecure and should be temporary!
@@ -593,7 +574,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       newArgsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
     return newArgsHash;
   }
@@ -606,21 +586,18 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Derives the call context for a nested execution.
    * @param targetContractAddress - The address of the contract being called.
    * @param targetArtifact - The artifact of the function being called.
-   * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
   private deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
-    isDelegateCall = false,
     isStaticCall = false,
   ) {
     return new CallContext(
-      isDelegateCall ? this.callContext.msgSender : this.contractAddress,
-      isDelegateCall ? this.contractAddress : targetContractAddress,
+      this.contractAddress,
+      targetContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
-      isDelegateCall,
       isStaticCall,
     );
   }

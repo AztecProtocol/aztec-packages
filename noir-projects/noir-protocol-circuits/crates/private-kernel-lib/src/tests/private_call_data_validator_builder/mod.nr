@@ -36,11 +36,6 @@ impl PrivateCallDataValidatorBuilder {
         PrivateCallDataValidatorBuilder { private_call, previous_note_hashes }
     }
 
-    pub fn is_delegate_call(&mut self) -> Self {
-        let _ = self.private_call.is_delegate_call();
-        *self
-    }
-
     pub fn is_static_call(&mut self) -> Self {
         let _ = self.private_call.is_static_call();
         *self

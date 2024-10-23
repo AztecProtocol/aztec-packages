@@ -1,5 +1,5 @@
 #include "./translator_verifier.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -55,7 +55,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
 
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 
@@ -113,17 +113,18 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
 
-    auto opening_claim = ZeroMorph::verify(circuit_size,
-                                           commitments.get_unshifted_without_concatenated(),
-                                           commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted_without_concatenated(),
-                                           claimed_evaluations.get_shifted(),
-                                           multivariate_challenge,
-                                           Commitment::one(),
-                                           transcript,
-                                           commitments.get_groups_to_be_concatenated(),
-                                           claimed_evaluations.get_concatenated());
-    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    const BatchOpeningClaim<Curve> opening_claim =
+        Shplemini::compute_batch_opening_claim(circuit_size,
+                                               commitments.get_unshifted_without_concatenated(),
+                                               commitments.get_to_be_shifted(),
+                                               claimed_evaluations.get_unshifted_without_concatenated(),
+                                               claimed_evaluations.get_shifted(),
+                                               multivariate_challenge,
+                                               Commitment::one(),
+                                               transcript,
+                                               commitments.get_groups_to_be_concatenated(),
+                                               claimed_evaluations.get_concatenated());
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 

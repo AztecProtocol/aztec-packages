@@ -28,6 +28,16 @@ spec:
                 echo "Waiting for boot node..."
                 sleep 5
               done
+        - name: wait-for-validator-service
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl --head --silent {{ include "aztec-network.validatorUrl" . }}/status; do
+                echo "Waiting for validator service..."
+                sleep 5
+              done
       containers:
         - name: pxe
           image: "{{ .Values.images.aztec.image }}"

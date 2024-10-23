@@ -1,0 +1,32 @@
+VoteTabulationTest
+├── when minimum config eq 0
+│   └── it return (Invalid, MinimumEqZero)
+└── when minimum gt 0
+    ├── when total power lt minimum
+    │   └── it return (Rejected, TotalPowerLtMinimum)
+    └── when total power gte minimum
+        ├── when quorum config invalid
+        │   ├── when votes needed eq 0
+        │   │   └── it return (Invalid, VotesNeededEqZero)
+        │   ├── when votes needed gt total
+        │   │   └── it return (Invalid, VotesNeededGtTotalPower)
+        │   └── when votes needed gt uint256 max
+        │       └── it revert
+        └── when quorum config valid
+            ├── when votes cast lt votes needed
+            │   └── it return (Rejected, VotesCastLtVotesNeeded)
+            └── when votes cast gte votes needed
+                ├── when differential config invalid
+                │   ├── when yea limit eq 0
+                │   │   └── it return (Invalid, YeaLimitEqZero)
+                │   ├── when yea limit gt uint256 max
+                │   │   └── it revert
+                │   └── when yea limit gt votes cast
+                │       └── it return (Invalid, YeaLimitGtVotesCast)
+                └── when differential config valid
+                    ├── when yea votes eq votes cast
+                    │   └── it return (Accepted, YeaVotesEqVotesCast)
+                    ├── when yea votes lte yea limit
+                    │   └── it return (Rejected, YeaVotesLeYeaLimit)
+                    └── when yea votes gt yea limit
+                        └── it return (Accepted, YeaVotesGtYeaLimit)

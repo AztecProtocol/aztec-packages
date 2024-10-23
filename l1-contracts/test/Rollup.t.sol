@@ -106,6 +106,23 @@ contract RollupTest is DecoderBase {
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
   }
 
+  function testClaimableEpoch(uint256 epochForMixedBlock) public setUpFor("mixed_block_1") {
+    epochForMixedBlock = bound(epochForMixedBlock, 1, 10);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    assertEq(rollup.getClaimableEpoch(), 0, "Invalid claimable epoch");
+
+    quote.epochToProve = Epoch.wrap(epochForMixedBlock);
+    quote.validUntilSlot = Slot.wrap(epochForMixedBlock * Constants.AZTEC_EPOCH_DURATION + 1);
+    signedQuote = _quoteToSignedQuote(quote);
+
+    _testBlock("mixed_block_1", false, epochForMixedBlock * Constants.AZTEC_EPOCH_DURATION);
+    assertEq(rollup.getClaimableEpoch(), Epoch.wrap(epochForMixedBlock), "Invalid claimable epoch");
+
+    rollup.claimEpochProofRight(signedQuote);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.getClaimableEpoch();
+  }
+
   function testClaimWithNothingToProve() public setUpFor("mixed_block_1") {
     assertEq(rollup.getCurrentSlot(), 0, "genesis slot should be zero");
 

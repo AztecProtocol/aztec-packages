@@ -92,13 +92,13 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
   // TODO(dbanks12): checks against tx-wide limit need access to parent trace's length
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
+  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (this.contractStorageReads.length >= MAX_PUBLIC_DATA_READS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
     this.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(storageAddress)),
+      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(contractAddress)),
     );
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
@@ -107,20 +107,20 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
     if (this.contractStorageUpdateRequests.length >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage write', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
     }
     this.contractStorageUpdateRequests.push(
-      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, storageAddress),
+      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, contractAddress),
     );
     this.logger.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+    // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.noteHashReadRequests.length >= MAX_NOTE_HASH_READ_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('note hash read request', MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
     }
@@ -131,7 +131,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {
+  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr) {
     if (this.noteHashes.length >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
@@ -140,8 +140,14 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNullifierCheck(_storageAddress: Fr, nullifier: Fr, _leafIndex: Fr, exists: boolean, _isPending: boolean) {
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+  public traceNullifierCheck(
+    _contractAddress: Fr,
+    nullifier: Fr,
+    _leafIndex: Fr,
+    exists: boolean,
+    _isPending: boolean,
+  ) {
+    // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
 
     this.enforceLimitOnNullifierChecks();
@@ -159,8 +165,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(_storageAddress: Fr, nullifier: Fr) {
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+  public traceNewNullifier(_contractAddress: Fr, nullifier: Fr) {
+    // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.nullifiers.length >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
@@ -222,7 +228,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        instance.publicKeys,
       ),
     );
     this.logger.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
@@ -369,10 +375,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): PublicExecutionRequest {
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
-    storageContractAddress: avmEnvironment.storageAddress,
+    contractAddress: avmEnvironment.address,
     functionSelector: avmEnvironment.functionSelector,
-    isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
   });
-  return new PublicExecutionRequest(avmEnvironment.address, callContext, avmEnvironment.calldata);
+  return new PublicExecutionRequest(callContext, avmEnvironment.calldata);
 }

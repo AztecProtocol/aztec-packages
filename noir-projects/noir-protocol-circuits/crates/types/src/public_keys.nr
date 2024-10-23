@@ -90,6 +90,12 @@ impl ToPoint for TpkM {
     }
 }
 
+impl Serialize<POINT_LENGTH> for TpkM {
+    fn serialize(self) -> [Field; POINT_LENGTH] {
+        self.inner.serialize()
+    }
+}
+
 impl Empty for PublicKeys {
     fn empty() -> Self {
         PublicKeys {

@@ -15,10 +15,8 @@ void AvmPoseidon2TraceBuilder::reset()
     poseidon2_trace.shrink_to_fit(); // Reclaim memory.
 }
 
-std::array<FF, 4> AvmPoseidon2TraceBuilder::poseidon2_permutation(std::array<FF, 4> const& input,
-                                                                  uint32_t clk,
-                                                                  uint32_t input_addr,
-                                                                  uint32_t output_addr)
+std::array<FF, 4> AvmPoseidon2TraceBuilder::poseidon2_permutation(
+    std::array<FF, 4> const& input, uint32_t space_id, uint32_t clk, uint32_t input_addr, uint32_t output_addr)
 {
     // Currently we commit to intermediate round values, changes to codegen might reduce the number of committed polys
 
@@ -61,8 +59,8 @@ std::array<FF, 4> AvmPoseidon2TraceBuilder::poseidon2_permutation(std::array<FF,
     }
 
     // Current state is the output
-    poseidon2_trace.push_back(
-        Poseidon2TraceEntry{ clk, input, current_state, first_ext, interm_round_vals, input_addr, output_addr });
+    poseidon2_trace.push_back(Poseidon2TraceEntry{
+        space_id, clk, input, current_state, first_ext, interm_round_vals, input_addr, output_addr });
 
     return current_state;
 }
