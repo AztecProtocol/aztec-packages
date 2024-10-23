@@ -13,6 +13,7 @@ import {
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type P2PClient } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -58,6 +59,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     private readonly claimsMonitor: ClaimsMonitor,
     private readonly epochsMonitor: EpochMonitor,
     private readonly bondManager: BondManager,
+    private readonly p2pClient: P2PClient | undefined,
     private readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {
@@ -169,7 +171,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     this.publisher.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
-    await this.coordination.stop();
+    await this.p2pClient?.stop();
     this.log.info('Stopped ProverNode');
   }
 
