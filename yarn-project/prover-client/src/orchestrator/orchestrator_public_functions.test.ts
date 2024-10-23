@@ -1,5 +1,4 @@
 import { PublicExecutionRequest, mockTx } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -71,7 +70,7 @@ describe('prover/orchestrator/public-functions', () => {
       const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
       const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
       const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
-      const mockNestedRequest = () => new PublicExecutionRequest(AztecAddress.random(), makeCallContext(1), []);
+      const mockNestedRequest = () => new PublicExecutionRequest(makeCallContext(1), []);
 
       const simulatorResults: PublicExecutionResult[] = [
         // Setup

@@ -122,16 +122,10 @@ if [ "$CMD" = "clean" ]; then
   echo "Cleaning complete"
   exit 0
 elif [ "$CMD" = "full" ]; then
-  if can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-    echo
-  fi
+  echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
+  echo
 elif [ "$CMD" = "fast" ]; then
   export USE_CACHE=1
-  if ! can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: AWS credentials are missing. Note this is for internal aztec devs only.${RESET}"
-    exit 1
-  fi
 elif [ "$CMD" = "check" ]; then
   check_toolchains
   echo "Toolchains look good! 🎉"

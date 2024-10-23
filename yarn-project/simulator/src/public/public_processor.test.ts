@@ -221,7 +221,7 @@ describe('public_processor', () => {
         request,
         nestedExecutions: [
           PublicExecutionResultBuilder.fromFunctionCall({
-            from: request.contractAddress,
+            from: request.callContext.contractAddress,
             tx: makeFunctionCall(),
           }).build(),
         ],
@@ -318,7 +318,7 @@ describe('public_processor', () => {
           request: revertibleRequests[0],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: revertibleRequests[0].callContext.storageContractAddress,
+              from: revertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13),
@@ -327,7 +327,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: revertibleRequests[0].contractAddress,
+              from: revertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
@@ -339,7 +339,7 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 16),
@@ -383,7 +383,7 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       const expectedWrites = [
         new PublicDataWrite(
-          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
+          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
@@ -424,7 +424,7 @@ describe('public_processor', () => {
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
@@ -432,7 +432,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
@@ -449,7 +449,7 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
             }).build(),
@@ -514,7 +514,7 @@ describe('public_processor', () => {
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
@@ -538,12 +538,12 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
             }).build(teardownResultSettings),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 17)],
               revertReason: new SimulationError('Simulation Failed', []),
@@ -583,7 +583,7 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
         new PublicDataWrite(
-          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
+          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
@@ -627,7 +627,7 @@ describe('public_processor', () => {
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
@@ -652,12 +652,12 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
             }).build(teardownResultSettings),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
               revertReason: new SimulationError('Simulation Failed', []),
@@ -697,7 +697,7 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
         new PublicDataWrite(
-          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
+          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
@@ -744,7 +744,7 @@ describe('public_processor', () => {
         .withGasUsed(Gas.empty())
         .build();
 
-      const nestedContractAddress = revertibleRequests[0].callContext.storageContractAddress;
+      const nestedContractAddress = revertibleRequests[0].callContext.contractAddress;
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
       const contractSlotC = fr(0x200);
@@ -798,7 +798,7 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 16),
@@ -807,7 +807,7 @@ describe('public_processor', () => {
               contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x102), 15)],
             }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13),
