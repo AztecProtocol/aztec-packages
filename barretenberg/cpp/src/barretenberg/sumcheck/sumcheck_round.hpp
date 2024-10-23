@@ -104,12 +104,8 @@ template <typename Flavor> class SumcheckProverRound {
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
                       ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                      size_t edge_idx,
-                      std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt)
+                      size_t edge_idx)
     {
-        info("num extended edges", extended_edges.size());
-        info("has value? ", zk_sumcheck_data.has_value());
-        info("num multivar ", multivariates.size());
         if constexpr (!Flavor::HasZK) {
             for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
                 // if (edge_idx + 1 >= multivariate.size())
@@ -118,34 +114,31 @@ template <typename Flavor> class SumcheckProverRound {
                 bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
                 extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             }
-        } else {
-            info("info which flavor? ", Flavor::HasZK);
-            // extend edges of witness polynomials and add correcting terms
-            for (auto [extended_edge, multivariate, masking_univariate] :
-                 zip_view(extended_edges.get_all_witnesses(),
-                          multivariates.get_all_witnesses(),
-                          zk_sumcheck_data.value().masking_terms_evaluations)) {
-                if (edge_idx + 1 >= multivariate.size())
-                    info("WASMDBG Witness",
-                         multivariate.size(),
-                         "|",
-                         extended_edge.size(),
-                         " masking term size ",
-                         masking_univariate.size());
-                bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-                extended_edge += masking_univariate;
-            };
-            // extend edges of public polynomials
-            for (auto [extended_edge, multivariate] :
-                 zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
-                if (edge_idx + 1 >= multivariate.size())
-                    info("WASMDBG Non-Witness", multivariate.size(), "|", edge_idx);
-                bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-            };
-        };
+        }
     }
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    void extend_edges_with_masking(ExtendedEdges& extended_edges,
+                                   ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                                   size_t edge_idx,
+                                   const ZKSumcheckData<Flavor>& zk_sumcheck_data)
+    {
+        // extend edges of witness polynomials and add correcting terms
+        for (auto [extended_edge, multivariate, masking_univariate] :
+             zip_view(extended_edges.get_all_witnesses(),
+                      multivariates.get_all_witnesses(),
+                      zk_sumcheck_data.masking_terms_evaluations)) {
+            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            extended_edge += masking_univariate;
+        };
+        // extend edges of public polynomials
+        for (auto [extended_edge, multivariate] :
+             zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
+            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+        };
+    };
 
     /**
      * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$  at \f$ X_{i } =
@@ -176,7 +169,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
         const RelationSeparator alpha,
-        std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt) // only submitted when Flavor HasZK
+        ZKSumcheckData<Flavor> zk_sumcheck_data) // only submitted when Flavor HasZK
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -208,7 +201,7 @@ template <typename Flavor> class SumcheckProverRound {
                 if constexpr (!Flavor::HasZK) {
                     extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
                 } else {
-                    extend_edges(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
+                    extend_edges_with_masking(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
                 }
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
@@ -228,7 +221,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         if constexpr (Flavor::HasZK) {
-            auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data.value(), round_idx);
+            auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
             // Batch the univariate contributions from each sub-relation to obtain the round univariate
             auto round_univariate =
                 batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
