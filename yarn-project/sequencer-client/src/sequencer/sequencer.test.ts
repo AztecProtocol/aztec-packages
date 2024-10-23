@@ -577,7 +577,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
@@ -599,8 +599,7 @@ describe('sequencer', () => {
       publisher.proposeL2Block.mockResolvedValueOnce(true);
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
-      // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(0n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(undefined));
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
@@ -624,7 +623,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
@@ -646,8 +645,7 @@ describe('sequencer', () => {
       publisher.proposeL2Block.mockResolvedValueOnce(true);
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
-      // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockResolvedValue(currentEpoch);
+      publisher.getClaimableEpoch.mockResolvedValue(undefined);
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
@@ -672,7 +670,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation(_ => Promise.resolve(undefined));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
@@ -727,7 +725,7 @@ describe('sequencer', () => {
       );
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validProofQuote);
@@ -786,7 +784,7 @@ describe('sequencer', () => {
       );
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validQuotes[0]);

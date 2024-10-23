@@ -69,21 +69,17 @@ export enum Opcode {
   // External calls
   CALL,
   STATICCALL,
-  DELEGATECALL,
   RETURN,
   REVERT_8,
   REVERT_16,
   // Misc
   DEBUGLOG,
   // Gadgets
-  KECCAK,
   POSEIDON2,
   SHA256COMPRESSION,
   KECCAKF1600,
-  PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
-  PEDERSENCOMMITMENT,
   // Conversion
   TORADIXLE,
 }

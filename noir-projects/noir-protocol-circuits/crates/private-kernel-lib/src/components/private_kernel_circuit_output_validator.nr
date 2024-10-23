@@ -97,7 +97,7 @@ impl PrivateKernelCircuitOutputValidator {
             self.output.public_teardown_call_request, private_call.public_teardown_call_request, "incorrect initial public_teardown_call_request"
         );
         let initial_fee_payer = if private_call.is_fee_payer {
-            private_call.call_context.storage_contract_address
+            private_call.call_context.contract_address
         } else {
             AztecAddress::zero()
         };
@@ -149,7 +149,7 @@ impl PrivateKernelCircuitOutputValidator {
             assert(!private_call.is_fee_payer, "cannot overwrite fee_payer");
             previous_kernel.fee_payer
         } else if private_call.is_fee_payer {
-            private_call.call_context.storage_contract_address
+            private_call.call_context.contract_address
         } else {
             AztecAddress::zero()
         };
@@ -233,48 +233,48 @@ impl PrivateKernelCircuitOutputValidator {
         offsets: PrivateKernelCircuitPublicInputsArrayLengths,
         num_popped_call: u32
     ) {
-        let storage_contract_address = private_call.call_context.storage_contract_address;
+        let contract_address = private_call.call_context.contract_address;
         assert_array_appended_scoped(
             self.output.validation_requests.note_hash_read_requests,
             private_call.note_hash_read_requests,
             array_lengths.note_hash_read_requests,
             offsets.note_hash_read_requests,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended_scoped(
             self.output.validation_requests.nullifier_read_requests,
             private_call.nullifier_read_requests,
             array_lengths.nullifier_read_requests,
             offsets.nullifier_read_requests,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
             private_call.key_validation_requests_and_generators,
             array_lengths.key_validation_requests_and_generators,
             offsets.scoped_key_validation_requests_and_generators,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended_scoped(
             self.output.end.note_hashes,
             private_call.note_hashes,
             array_lengths.note_hashes,
             offsets.note_hashes,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended_scoped(
             self.output.end.nullifiers,
             private_call.nullifiers,
             array_lengths.nullifiers,
             offsets.nullifiers,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended_scoped(
             self.output.end.l2_to_l1_msgs,
             private_call.l2_to_l1_msgs,
             array_lengths.l2_to_l1_msgs,
             offsets.l2_to_l1_msgs,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended(
             self.output.end.note_encrypted_logs_hashes,
@@ -287,14 +287,14 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.encrypted_logs_hashes,
             array_lengths.encrypted_logs_hashes,
             offsets.encrypted_logs_hashes,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended_scoped(
             self.output.end.unencrypted_logs_hashes,
             private_call.unencrypted_logs_hashes,
             array_lengths.unencrypted_logs_hashes,
             offsets.unencrypted_logs_hashes,
-            storage_contract_address
+            contract_address
         );
         assert_array_appended(
             self.output.end.public_call_requests,

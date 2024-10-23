@@ -54,11 +54,11 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
     pub fn validate_as_first_call(self) {
         let private_call = self.private_call.to_private_call_data();
-        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
+        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
-            private_call.call_stack_item.public_inputs,
+            private_call.public_inputs,
             array_lengths,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root
@@ -74,12 +74,12 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
         let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(previous_kernel);
         let private_call = self.private_call.to_private_call_data();
-        let private_call_array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
+        let private_call_array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             previous_kernel_array_lengths,
-            private_call.call_stack_item.public_inputs,
+            private_call.public_inputs,
             private_call_array_lengths
         );
     }

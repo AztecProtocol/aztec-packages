@@ -44,7 +44,7 @@ export LOG_LEVEL=${LOG_LEVEL:-"debug"}
 export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
-export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator:*"}
+export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
@@ -56,7 +56,12 @@ export P2P_TCP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
 export P2P_UDP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
 
 # Add L1 validator
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS
+# this may fail, so try 3 times
+for i in {1..3}; do
+  node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
+  sleep 1
+done
+
 # Fast forward epochs
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
 # Start the Validator Node with the sequencer and archiver
