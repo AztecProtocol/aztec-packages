@@ -504,9 +504,16 @@ class ECCOpQueue {
         Fr z_1 = 0;
         Fr z_2 = 0;
         auto converted = scalar.from_montgomery_form();
-        Fr::split_into_endomorphism_scalars(converted, z_1, z_2);
-        ultra_op.z_1 = z_1.to_montgomery_form();
-        ultra_op.z_2 = z_2.to_montgomery_form();
+        uint256_t converted_u256(scalar);
+        if (converted_u256.get_msb() <= 128) {
+            ultra_op.z_1 = scalar;
+            ultra_op.z_2 = 0;
+
+        } else {
+            Fr::split_into_endomorphism_scalars(converted, z_1, z_2);
+            ultra_op.z_1 = z_1.to_montgomery_form();
+            ultra_op.z_2 = z_2.to_montgomery_form();
+        }
 
         append_to_ultra_ops(ultra_op);
 
