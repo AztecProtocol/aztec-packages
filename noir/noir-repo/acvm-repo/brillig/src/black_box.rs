@@ -102,8 +102,8 @@ pub enum BlackBoxOp {
         len: MemoryAddress,
     },
     Sha256Compression {
-        input: HeapVector,
-        hash_values: HeapVector,
+        input: HeapArray,
+        hash_values: HeapArray,
         output: HeapArray,
     },
     ToRadix {

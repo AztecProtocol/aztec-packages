@@ -351,21 +351,23 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             }
         }
         BlackBoxFunc::Sha256Compression => {
-            if let ([message, hash_values], [BrilligVariable::BrilligArray(result_array)]) =
-                (function_arguments, function_results)
+            if let (
+                [BrilligVariable::BrilligArray(input_array), BrilligVariable::BrilligArray(hash_values)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
-                let hash_values = convert_array_or_vector(brillig_context, *hash_values, bb_func);
+                let input = brillig_context.codegen_brillig_array_to_heap_array(*input_array);
+                let hash_values = brillig_context.codegen_brillig_array_to_heap_array(*hash_values);
                 let output = brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
                 brillig_context.black_box_op_instruction(BlackBoxOp::Sha256Compression {
-                    input: message_vector,
+                    input,
                     hash_values,
                     output,
                 });
 
-                brillig_context.deallocate_heap_vector(message_vector);
-                brillig_context.deallocate_heap_vector(hash_values);
+                brillig_context.deallocate_heap_array(input);
+                brillig_context.deallocate_heap_array(hash_values);
                 brillig_context.deallocate_heap_array(output);
             } else {
                 unreachable!("ICE: Sha256Compression expects two array argument, one array result")

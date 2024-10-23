@@ -292,7 +292,7 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
         }
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
             let mut message = [0; 16];
-            let inputs = read_heap_vector(memory, input);
+            let inputs = read_heap_array(memory, input);
             if inputs.len() != 16 {
                 return Err(BlackBoxResolutionError::Failed(
                     BlackBoxFunc::Sha256Compression,
@@ -303,7 +303,7 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
                 message[i] = input.try_into().unwrap();
             }
             let mut state = [0; 8];
-            let values = read_heap_vector(memory, hash_values);
+            let values = read_heap_array(memory, hash_values);
             if values.len() != 8 {
                 return Err(BlackBoxResolutionError::Failed(
                     BlackBoxFunc::Sha256Compression,
