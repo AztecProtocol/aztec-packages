@@ -6,14 +6,7 @@ import {
   getPublicInputs,
   verifyProof,
 } from '@aztec/bb-prover';
-import {
-  AvmCircuitInputs,
-  FunctionSelector,
-  Gas,
-  GlobalVariables,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
+import { AvmCircuitInputs, Gas, GlobalVariables, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_PUBLIC_COLUMN_MAX_SIZE,
@@ -28,6 +21,7 @@ import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initPersistableStateManager,
@@ -153,7 +147,8 @@ const proveAvmTestContract = async (
   assertionErrString?: string,
 ): Promise<BBSuccess> => {
   const startSideEffectCounter = 0;
-  const functionSelector = FunctionSelector.random();
+  const functionSelector = getAvmTestContractFunctionSelector(functionName);
+  calldata = [functionSelector.toField(), ...calldata];
   const globals = GlobalVariables.empty();
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
@@ -179,13 +174,13 @@ const proveAvmTestContract = async (
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
+  const nestedCallBytecode = getAvmTestContractBytecode('public_dispatch');
   jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
   // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode(functionName);
+  const bytecode = getAvmTestContractBytecode('public_dispatch');
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));

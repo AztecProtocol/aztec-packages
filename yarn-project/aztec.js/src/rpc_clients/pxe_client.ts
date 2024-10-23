@@ -33,7 +33,7 @@ import {
   FunctionSelector,
   GrumpkinScalar,
   Point,
-  PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
   PublicKeys,
 } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
@@ -80,8 +80,8 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       NullifierMembershipWitness,
       TxSimulationResult,
       TxProvingResult,
+      PrivateCircuitPublicInputs,
       PrivateExecutionResult,
-      PrivateCallStackItem,
       CountedPublicExecutionRequest,
       CountedNoteLog,
       Tx,

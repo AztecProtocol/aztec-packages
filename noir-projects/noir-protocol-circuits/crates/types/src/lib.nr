@@ -8,14 +8,14 @@ mod scalar;
 mod contrakt;
 mod transaction;
 mod abis;
-mod constants;
+pub mod constants;
 mod contract_class_id;
 mod merkle_tree;
 mod contract_instance;
 
 mod messaging;
-mod hash;
-mod traits;
+pub mod hash;
+pub mod traits;
 mod type_serialization;
 
 mod content_commitment;
@@ -34,5 +34,5 @@ mod meta;
 
 pub use abis::kernel_circuit_public_inputs::{
     KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    VMCircuitPublicInputs
+    VMCircuitPublicInputs,
 };

@@ -1,5 +1,5 @@
 mod fixture_builder;
-mod fixtures;
+pub mod fixtures;
 mod merkle_tree_utils;
 mod types;
 mod utils;

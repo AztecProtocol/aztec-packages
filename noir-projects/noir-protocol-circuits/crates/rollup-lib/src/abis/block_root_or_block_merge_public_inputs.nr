@@ -1,12 +1,13 @@
 use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    constants::{AZTEC_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH},
-    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader, address::EthAddress
+    constants::{
+        AZTEC_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH,
+    }, traits::{Empty, Serialize, Deserialize}, utils::reader::Reader, address::EthAddress,
 };
 
 pub struct FeeRecipient {
-  recipient: EthAddress,
-  value: Field,
+    recipient: EthAddress,
+    value: Field,
 }
 
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
@@ -37,17 +38,17 @@ impl Eq for FeeRecipient {
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
 // may be confusing as new_constant.last_archive would actually be the new_archive
 pub struct BlockRootOrBlockMergePublicInputs {
-  previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
-  new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
-  previous_block_hash: Field, // Identifier of the previous block before the range
-  end_block_hash: Field, // Identifier of the last block in the range
-  start_global_variables: GlobalVariables, // Global variables for the first block in the range
-  end_global_variables: GlobalVariables, // Global variables for the last block in the range
-  out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
-  fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
-  vk_tree_root: Field, // Root of allowed vk tree
-  protocol_contract_tree_root: Field, // Root of protocol contract tree
-  prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
+    new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
+    previous_block_hash: Field, // Identifier of the previous block before the range
+    end_block_hash: Field, // Identifier of the last block in the range
+    start_global_variables: GlobalVariables, // Global variables for the first block in the range
+    end_global_variables: GlobalVariables, // Global variables for the last block in the range
+    out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
+    fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
+    vk_tree_root: Field, // Root of allowed vk tree
+    protocol_contract_tree_root: Field, // Root of protocol contract tree
+    prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -69,7 +70,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             fees: [FeeRecipient::empty(); AZTEC_EPOCH_DURATION],
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
-            prover_id: 0
+            prover_id: 0,
         }
     }
 }
@@ -85,15 +86,15 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
             & (self.out_hash == other.out_hash)
             & (self.fees.eq(other.fees))
             & (self.vk_tree_root == other.vk_tree_root)
-            & (self.protocol_contract_tree_root
-                                                == other.protocol_contract_tree_root)
+            & (self.protocol_contract_tree_root == other.protocol_contract_tree_root)
             & (self.prover_id == other.prover_id)
     }
 }
 
 impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBlockMergePublicInputs {
     fn serialize(self) -> [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+        let mut fields: BoundedVec<Field, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> =
+            BoundedVec::new();
 
         fields.extend_from_array(self.previous_archive.serialize());
         fields.extend_from_array(self.new_archive.serialize());
@@ -115,7 +116,9 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
 }
 
 impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBlockMergePublicInputs {
-    fn deserialize(fields: [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH]) -> BlockRootOrBlockMergePublicInputs {
+    fn deserialize(
+        fields: [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH],
+    ) -> BlockRootOrBlockMergePublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
             previous_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
@@ -127,11 +130,11 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             out_hash: reader.read(),
             fees: reader.read_struct_array(
                 FeeRecipient::deserialize,
-                [FeeRecipient::empty(); AZTEC_EPOCH_DURATION]
+                [FeeRecipient::empty(); AZTEC_EPOCH_DURATION],
             ),
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),
-            prover_id: reader.read()
+            prover_id: reader.read(),
         };
 
         reader.finish();
