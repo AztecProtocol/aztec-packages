@@ -48,7 +48,7 @@ Consider installing the Prettier and ESLint extensions if using VSCode. Configur
 
 ## Package.json inheritance
 
-To simplify the management of all package.json files, we have a custom script that injects the contents of `package.common.json` into all packages that reference it via the `inherits` custom field. To run the script, just run:
+To simplify the management of all package.json files, we have a custom script that injects the contents of `package.common.json` into all packages that reference it via the `inherits` custom field. To run the script, just run
 
 ```
 yarn prepare
