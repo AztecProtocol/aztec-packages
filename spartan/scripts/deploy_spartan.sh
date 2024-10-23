@@ -6,7 +6,7 @@ TAG=$1
 VALUES=$2
 NAMESPACE=${3:-spartan}
 
-if [ -z "$IMAGE" ]; then
+if [ -z "$TAG" ]; then
   echo "Usage: $0 <docker image tag> <values>"
   echo "Example: $0 latest 48-validators"
   exit 1
