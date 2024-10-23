@@ -38,7 +38,7 @@ contract EasyPrivateToken {
         amount: u64,
         sender: AztecAddress,
         recipient: AztecAddress,
-        outgoing_viewer: AztecAddress
+        outgoing_viewer: AztecAddress,
     ) {
         let balances = storage.balances;
 

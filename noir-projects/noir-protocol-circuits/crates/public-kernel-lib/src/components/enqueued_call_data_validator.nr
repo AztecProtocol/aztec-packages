@@ -1,11 +1,11 @@
 use crate::public_kernel_phase::PublicKernelPhase;
 use dep::types::{
     abis::{
-    accumulated_data::PublicAccumulatedDataArrayLengths,
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, enqueued_call_data::EnqueuedCallData,
-    public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestArrayLengths
-},
-    constants::MAX_L2_GAS_PER_ENQUEUED_CALL, utils::arrays::array_length
+        accumulated_data::PublicAccumulatedDataArrayLengths,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        enqueued_call_data::EnqueuedCallData, public_call_request::PublicCallRequest,
+        validation_requests::PublicValidationRequestArrayLengths,
+    }, constants::MAX_L2_GAS_PER_ENQUEUED_CALL, utils::arrays::array_length,
 };
 
 pub struct EnqueuedCallDataValidator {
@@ -31,7 +31,7 @@ impl EnqueuedCallDataValidator {
         previous_kernel: PublicKernelCircuitPublicInputs,
         previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
         previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
     ) {
         self.validate_global_variables(previous_kernel);
         self.validate_against_call_request(previous_kernel);
@@ -41,7 +41,7 @@ impl EnqueuedCallDataValidator {
         self.validate_array_lengths(
             previous_validation_request_array_lengths,
             previous_non_revertible_data_array_lengths,
-            previous_revertible_data_array_lengths
+            previous_revertible_data_array_lengths,
         );
     }
 
@@ -53,10 +53,13 @@ impl EnqueuedCallDataValidator {
 
     fn validate_global_variables(self, previous_kernel: PublicKernelCircuitPublicInputs) {
         let prev_global_variables = previous_kernel.constants.global_variables;
-        if !prev_global_variables.is_empty() { // It's empty when the previous kernel is from private_kernel_tail_to_pubic.
+        if !prev_global_variables.is_empty() {
+            // It's empty when the previous kernel is from private_kernel_tail_to_pubic.
             let enqueued_call_globals = self.enqueued_call.data.constants.global_variables;
             assert_eq(
-                enqueued_call_globals, prev_global_variables, "Global variables injected into the public call do not match constants"
+                enqueued_call_globals,
+                prev_global_variables,
+                "Global variables injected into the public call do not match constants",
             );
         }
     }
@@ -76,13 +79,16 @@ impl EnqueuedCallDataValidator {
         };
 
         assert(
-            self.enqueued_call.data.call_request == call_request, "enqueued call does not match item at the top of the call stack"
+            self.enqueued_call.data.call_request == call_request,
+            "enqueued call does not match item at the top of the call stack",
         );
     }
 
     fn validate_counters(self, previous_kernel: PublicKernelCircuitPublicInputs) {
         assert_eq(
-            self.enqueued_call.data.start_side_effect_counter, previous_kernel.end_side_effect_counter + 1, "enqueued call must start from the end counter of the previous call"
+            self.enqueued_call.data.start_side_effect_counter,
+            previous_kernel.end_side_effect_counter + 1,
+            "enqueued call must start from the end counter of the previous call",
         );
     }
 
@@ -94,18 +100,27 @@ impl EnqueuedCallDataValidator {
         if self.phase != PublicKernelPhase.TEARDOWN {
             // An enqueued call's start gas is the remaining gas left in the transaction after the previous kernel.
             let tx_gas_limits = previous_kernel.constants.tx_context.gas_settings.gas_limits;
-            let mut computed_start_gas = tx_gas_limits.sub(previous_kernel.end.gas_used).sub(previous_kernel.end_non_revertible.gas_used);
+            let mut computed_start_gas = tx_gas_limits.sub(previous_kernel.end.gas_used).sub(
+                previous_kernel.end_non_revertible.gas_used,
+            );
             // Keep L2 gas below max
-            computed_start_gas.l2_gas = std::cmp::min(computed_start_gas.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
+            computed_start_gas.l2_gas =
+                std::cmp::min(computed_start_gas.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
             assert_eq(
-                enqueued_call_start_gas, computed_start_gas, "Start gas for enqueued call does not match transaction gas left (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)"
+                enqueued_call_start_gas,
+                computed_start_gas,
+                "Start gas for enqueued call does not match transaction gas left (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)",
             );
         } else {
-            let mut teardown_gas_limit = previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
+            let mut teardown_gas_limit =
+                previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
             // Keep L2 gas below max
-            teardown_gas_limit.l2_gas = std::cmp::min(teardown_gas_limit.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
+            teardown_gas_limit.l2_gas =
+                std::cmp::min(teardown_gas_limit.l2_gas, MAX_L2_GAS_PER_ENQUEUED_CALL);
             assert_eq(
-                enqueued_call_start_gas, teardown_gas_limit, "Start gas for enqueued call does not match teardown gas allocation (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)"
+                enqueued_call_start_gas,
+                teardown_gas_limit,
+                "Start gas for enqueued call does not match teardown gas allocation (with MAX_L2_GAS_PER_ENQUEUED_CALL applied)",
             );
         }
     }
@@ -116,12 +131,15 @@ impl EnqueuedCallDataValidator {
             assert_eq(transaction_fee, 0, "Transaction fee must be zero on setup and app phases");
         } else {
             // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
-            let total_gas_used = previous_kernel.end.gas_used + previous_kernel.end_non_revertible.gas_used;
+            let total_gas_used =
+                previous_kernel.end.gas_used + previous_kernel.end_non_revertible.gas_used;
             let block_gas_fees = self.enqueued_call.data.constants.global_variables.gas_fees;
             let inclusion_fee = previous_kernel.constants.tx_context.gas_settings.inclusion_fee;
-            let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
+            let computed_transaction_fee =
+                total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
             assert(
-                transaction_fee == computed_transaction_fee, "Transaction fee on teardown phase does not match expected value"
+                transaction_fee == computed_transaction_fee,
+                "Transaction fee on teardown phase does not match expected value",
             );
         }
     }
@@ -130,10 +148,12 @@ impl EnqueuedCallDataValidator {
         self,
         previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
         previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
     ) {
         assert_eq(
-            self.enqueued_call.data.previous_validation_request_array_lengths, previous_validation_request_array_lengths, "mismatch previous_validation_request_array_lengths"
+            self.enqueued_call.data.previous_validation_request_array_lengths,
+            previous_validation_request_array_lengths,
+            "mismatch previous_validation_request_array_lengths",
         );
         let prev_lengths = if self.phase == PublicKernelPhase.SETUP {
             previous_non_revertible_data_array_lengths
@@ -141,7 +161,9 @@ impl EnqueuedCallDataValidator {
             previous_revertible_data_array_lengths
         };
         assert_eq(
-            self.enqueued_call.data.previous_accumulated_data_array_lengths, prev_lengths, "mismatch previoius_accumulated_data_array_lengths"
+            self.enqueued_call.data.previous_accumulated_data_array_lengths,
+            prev_lengths,
+            "mismatch previoius_accumulated_data_array_lengths",
         );
     }
 }
