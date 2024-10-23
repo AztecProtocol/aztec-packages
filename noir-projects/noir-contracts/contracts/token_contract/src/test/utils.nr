@@ -30,7 +30,7 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
         "TT00000000000000000000000000000",
         18
     );
-    let token_contract = env.deploy_self("Token").with_public_initializer(initializer_call_interface);
+    let token_contract = env.deploy_self("Token").with_public_void_initializer(initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.advance_block_by(1);
     (&mut env, token_contract_address, owner, recipient)
@@ -43,11 +43,8 @@ pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
     // Mint some tokens
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
-    let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-    env.call_public(mint_private_call_interface);
-
-    let mint_public_call_interface = Token::at(token_contract_address).mint_public(owner, mint_amount);
-    env.call_public(mint_public_call_interface);
+    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
+    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
 
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
@@ -62,8 +59,7 @@ pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
     // docs:end:txe_test_add_note
 
     // Redeem our shielded tokens
-    let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
-    env.call_private_void(redeem_shield_call_interface);
+    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(&mut env.private());
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }

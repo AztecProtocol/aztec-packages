@@ -290,7 +290,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_sload.set_if_valid_index(i, rows[i].main_sel_op_sload);
                 polys.main_sel_op_sstore.set_if_valid_index(i, rows[i].main_sel_op_sstore);
                 polys.main_sel_op_static_call.set_if_valid_index(i, rows[i].main_sel_op_static_call);
-                polys.main_sel_op_storage_address.set_if_valid_index(i, rows[i].main_sel_op_storage_address);
                 polys.main_sel_op_sub.set_if_valid_index(i, rows[i].main_sel_op_sub);
                 polys.main_sel_op_timestamp.set_if_valid_index(i, rows[i].main_sel_op_timestamp);
                 polys.main_sel_op_transaction_fee.set_if_valid_index(i, rows[i].main_sel_op_transaction_fee);
@@ -618,6 +617,30 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.poseidon2_b_2.set_if_valid_index(i, rows[i].poseidon2_b_2);
                 polys.poseidon2_b_3.set_if_valid_index(i, rows[i].poseidon2_b_3);
                 polys.poseidon2_clk.set_if_valid_index(i, rows[i].poseidon2_clk);
+                polys.poseidon2_full_a_0.set_if_valid_index(i, rows[i].poseidon2_full_a_0);
+                polys.poseidon2_full_a_1.set_if_valid_index(i, rows[i].poseidon2_full_a_1);
+                polys.poseidon2_full_a_2.set_if_valid_index(i, rows[i].poseidon2_full_a_2);
+                polys.poseidon2_full_a_3.set_if_valid_index(i, rows[i].poseidon2_full_a_3);
+                polys.poseidon2_full_b_0.set_if_valid_index(i, rows[i].poseidon2_full_b_0);
+                polys.poseidon2_full_b_1.set_if_valid_index(i, rows[i].poseidon2_full_b_1);
+                polys.poseidon2_full_b_2.set_if_valid_index(i, rows[i].poseidon2_full_b_2);
+                polys.poseidon2_full_b_3.set_if_valid_index(i, rows[i].poseidon2_full_b_3);
+                polys.poseidon2_full_clk.set_if_valid_index(i, rows[i].poseidon2_full_clk);
+                polys.poseidon2_full_end_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_end_poseidon);
+                polys.poseidon2_full_execute_poseidon_perm.set_if_valid_index(
+                    i, rows[i].poseidon2_full_execute_poseidon_perm);
+                polys.poseidon2_full_input_0.set_if_valid_index(i, rows[i].poseidon2_full_input_0);
+                polys.poseidon2_full_input_1.set_if_valid_index(i, rows[i].poseidon2_full_input_1);
+                polys.poseidon2_full_input_2.set_if_valid_index(i, rows[i].poseidon2_full_input_2);
+                polys.poseidon2_full_input_len.set_if_valid_index(i, rows[i].poseidon2_full_input_len);
+                polys.poseidon2_full_num_perm_rounds_rem.set_if_valid_index(i,
+                                                                            rows[i].poseidon2_full_num_perm_rounds_rem);
+                polys.poseidon2_full_num_perm_rounds_rem_inv.set_if_valid_index(
+                    i, rows[i].poseidon2_full_num_perm_rounds_rem_inv);
+                polys.poseidon2_full_output.set_if_valid_index(i, rows[i].poseidon2_full_output);
+                polys.poseidon2_full_padding.set_if_valid_index(i, rows[i].poseidon2_full_padding);
+                polys.poseidon2_full_sel_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_sel_poseidon);
+                polys.poseidon2_full_start_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_start_poseidon);
                 polys.poseidon2_input_addr.set_if_valid_index(i, rows[i].poseidon2_input_addr);
                 polys.poseidon2_mem_addr_read_a.set_if_valid_index(i, rows[i].poseidon2_mem_addr_read_a);
                 polys.poseidon2_mem_addr_read_b.set_if_valid_index(i, rows[i].poseidon2_mem_addr_read_b);
@@ -629,6 +652,10 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.poseidon2_mem_addr_write_d.set_if_valid_index(i, rows[i].poseidon2_mem_addr_write_d);
                 polys.poseidon2_output_addr.set_if_valid_index(i, rows[i].poseidon2_output_addr);
                 polys.poseidon2_sel_poseidon_perm.set_if_valid_index(i, rows[i].poseidon2_sel_poseidon_perm);
+                polys.poseidon2_sel_poseidon_perm_immediate.set_if_valid_index(
+                    i, rows[i].poseidon2_sel_poseidon_perm_immediate);
+                polys.poseidon2_sel_poseidon_perm_mem_op.set_if_valid_index(i,
+                                                                            rows[i].poseidon2_sel_poseidon_perm_mem_op);
                 polys.poseidon2_space_id.set_if_valid_index(i, rows[i].poseidon2_space_id);
                 polys.range_check_alu_rng_chk.set_if_valid_index(i, rows[i].range_check_alu_rng_chk);
                 polys.range_check_clk.set_if_valid_index(i, rows[i].range_check_clk);
