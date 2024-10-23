@@ -1,5 +1,5 @@
-use crate::utils::field::field_from_bytes;
 use crate::meta::{derive_deserialize, derive_serialize};
+use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
 //
@@ -48,11 +48,17 @@ impl Empty for U128 {
     }
 }
 
-pub fn is_empty<T>(item: T) -> bool where T: Empty + Eq {
+pub fn is_empty<T>(item: T) -> bool
+where
+    T: Empty + Eq,
+{
     item.eq(T::empty())
 }
 
-pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool where T: Empty + Eq {
+pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
+where
+    T: Empty + Eq,
+{
     array.all(|elem| is_empty(elem))
 }
 
@@ -173,7 +179,7 @@ pub trait Deserialize<let N: u32> {
 }
 // docs:end:deserialize
 
-impl <let N: u32> Deserialize<N> for str<N> {
+impl<let N: u32> Deserialize<N> for str<N> {
     fn deserialize(fields: [Field; N]) -> Self {
         str<N>::from(fields.map(|value| value as u8))
     }

@@ -52,7 +52,8 @@ fn validate_contract_address_incorrect_function_leaf_sibling_path_fails() {
 fn validate_contract_address_incorrect_contract_class_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    builder.private_call.contract_class_artifact_hash = builder.private_call.contract_class_artifact_hash + 1;
+    builder.private_call.contract_class_artifact_hash =
+        builder.private_call.contract_class_artifact_hash + 1;
 
     builder.validate();
 }
@@ -61,7 +62,8 @@ fn validate_contract_address_incorrect_contract_class_preimage_fails() {
 fn validate_contract_address_incorrect_partial_address_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    builder.private_call.salted_initialization_hash.inner = builder.private_call.salted_initialization_hash.inner + 1;
+    builder.private_call.salted_initialization_hash.inner =
+        builder.private_call.salted_initialization_hash.inner + 1;
 
     builder.validate();
 }

@@ -3,12 +3,12 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract StatefulTest {
-    use dep::aztec::prelude::{Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
-    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
         initializer::assert_is_initialized_private,
-        macros::{storage::storage, functions::{private, public, initializer, noinitcheck, view}}
+        macros::{functions::{initializer, noinitcheck, private, public, view}, storage::storage},
     };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, Map, PrivateSet, PublicMutable};
+    use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};
 
     #[storage]
     struct Storage<Context> {
@@ -19,7 +19,9 @@ contract StatefulTest {
     #[private]
     #[initializer]
     fn constructor(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
-        StatefulTest::at(context.this_address()).create_note_no_init_check(owner, outgoing_viewer, value).call(&mut context);
+        StatefulTest::at(context.this_address())
+            .create_note_no_init_check(owner, outgoing_viewer, value)
+            .call(&mut context);
     }
 
     #[private]
@@ -34,7 +36,9 @@ contract StatefulTest {
     #[public]
     #[initializer]
     fn public_constructor(owner: AztecAddress, _ignored_arg: AztecAddress, value: Field) {
-        StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
+        StatefulTest::at(context.this_address())
+            .increment_public_value_no_init_check(owner, value)
+            .call(&mut context);
     }
 
     #[private]

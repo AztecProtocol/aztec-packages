@@ -1,10 +1,10 @@
 use crate::{constants::CONTENT_COMMITMENT_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct ContentCommitment {
-  num_txs: Field,
-  txs_effects_hash: Field,
-  in_hash: Field,
-  out_hash: Field,
+    num_txs: Field,
+    txs_effects_hash: Field,
+    in_hash: Field,
+    out_hash: Field,
 }
 
 impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {

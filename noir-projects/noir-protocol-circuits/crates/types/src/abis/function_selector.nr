@@ -1,5 +1,5 @@
+use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
 use crate::utils::field::field_from_bytes;
-use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
 
 global SELECTOR_SIZE: u32 = 4;
 
@@ -72,6 +72,7 @@ fn test_is_valid_selector() {
 
 #[test]
 fn test_long_selector() {
-    let selector = FunctionSelector::from_signature("foo_and_bar_and_baz_and_foo_bar_baz_and_bar_foo");
+    let selector =
+        FunctionSelector::from_signature("foo_and_bar_and_baz_and_foo_bar_baz_and_bar_foo");
     assert_eq(selector.to_field(), 0x7590a997);
 }

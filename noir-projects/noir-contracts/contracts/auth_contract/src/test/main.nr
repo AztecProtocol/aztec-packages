@@ -1,5 +1,5 @@
-use crate::test::utils;
 use crate::Auth;
+use crate::test::utils;
 
 use dep::aztec::prelude::AztecAddress;
 
@@ -29,14 +29,16 @@ unconstrained fn main() {
         env.call_public(Auth::at(auth_contract_address).set_authorized(to_authorize));
         env.advance_block_by(1);
 
-        let scheduled_authorized = env.call_public(Auth::at(auth_contract_address).get_scheduled_authorized());
+        let scheduled_authorized =
+            env.call_public(Auth::at(auth_contract_address).get_scheduled_authorized());
         assert_eq(scheduled_authorized, to_authorize);
     };
     admin_sets_authorized();
 
     let authorized_is_not_yet_effective = || {
         env.impersonate(to_authorize);
-        let authorized: AztecAddress = env.call_public(Auth::at(auth_contract_address).get_authorized());
+        let authorized: AztecAddress =
+            env.call_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, AztecAddress::zero());
 
         env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());
@@ -48,10 +50,12 @@ unconstrained fn main() {
 
         // We advance block by 4, because the delay is 5, and we initially advanced block by one after setting the value. See below comment for explanation.
         env.advance_block_by(CHANGE_AUTHORIZED_DELAY_BLOCKS - 1);
-        let authorized: AztecAddress = env.call_public(Auth::at(auth_contract_address).get_authorized());
+        let authorized: AztecAddress =
+            env.call_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, to_authorize);
 
-        let authorized_in_private: AztecAddress = env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
+        let authorized_in_private: AztecAddress =
+            env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
         assert_eq(authorized_in_private, AztecAddress::zero());
 
         // We need to always advance the block one more time to get the current value in private, compared to the value in public.
@@ -73,7 +77,8 @@ unconstrained fn main() {
         //                                                                      ^
         //                                        get_authorized() (private) called here with block_number = 8
         env.advance_block_by(1);
-        let authorized_in_private_again: AztecAddress = env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
+        let authorized_in_private_again: AztecAddress =
+            env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
         assert_eq(authorized_in_private_again, to_authorize);
 
         env.call_private_void(Auth::at(auth_contract_address).do_private_authorized_thing());
@@ -85,10 +90,12 @@ unconstrained fn main() {
         env.call_public(Auth::at(auth_contract_address).set_authorized(other));
         env.advance_block_by(1);
 
-        let scheduled_authorized = env.call_public(Auth::at(auth_contract_address).get_scheduled_authorized());
+        let scheduled_authorized =
+            env.call_public(Auth::at(auth_contract_address).get_scheduled_authorized());
         assert_eq(scheduled_authorized, other);
 
-        let authorized: AztecAddress = env.call_public(Auth::at(auth_contract_address).get_authorized());
+        let authorized: AztecAddress =
+            env.call_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, to_authorize);
 
         env.impersonate(to_authorize);
@@ -104,14 +111,17 @@ unconstrained fn main() {
 
         // We advance the block by 4 again like above
         env.advance_block_by(CHANGE_AUTHORIZED_DELAY_BLOCKS - 1);
-        let authorized: AztecAddress = env.call_public(Auth::at(auth_contract_address).get_authorized());
+        let authorized: AztecAddress =
+            env.call_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, other);
 
-        let authorized_in_private: AztecAddress = env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
+        let authorized_in_private: AztecAddress =
+            env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
         assert_eq(authorized_in_private, to_authorize);
 
         env.advance_block_by(1);
-        let authorized_in_private_again: AztecAddress = env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
+        let authorized_in_private_again: AztecAddress =
+            env.call_private(Auth::at(auth_contract_address).get_authorized_in_private());
         assert_eq(authorized_in_private_again, other);
 
         env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());

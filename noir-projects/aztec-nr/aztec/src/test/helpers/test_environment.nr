@@ -1,17 +1,24 @@
 use dep::protocol_types::{
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, traits::Deserialize
+    abis::{
+        function_selector::FunctionSelector,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    },
+    address::AztecAddress,
+    traits::Deserialize,
 };
 
+use crate::context::{call_interfaces::CallInterface, packed_returns::PackedReturns};
 use crate::context::inputs::PrivateContextInputs;
-use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
 use crate::hash::hash_args;
+use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
-use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
+use crate::oracle::{
+    execution::{get_block_number, get_contract_address},
+    notes::notify_created_note,
+};
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
 pub struct TestEnvironment {}
@@ -85,7 +92,11 @@ impl TestEnvironment {
         address
     }
 
-    unconstrained fn deploy<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+    unconstrained fn deploy<let N: u32, let M: u32>(
+        _self: Self,
+        path: str<N>,
+        name: str<M>,
+    ) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0 }
     }
 
@@ -95,8 +106,12 @@ impl TestEnvironment {
 
     unconstrained fn call_private<C, let M: u32, T, Env, let N: u32>(
         _self: Self,
-        call_interface: C
-    ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
+        call_interface: C,
+    ) -> T
+    where
+        C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>,
+        T: Deserialize<N>,
+    {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = get_contract_address();
@@ -115,10 +130,10 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 
-    unconstrained fn call_private_void<C, let M: u32, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
+    unconstrained fn call_private_void<C, let M: u32, Env>(_self: Self, call_interface: C)
+    where
+        C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>,
+    {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = get_contract_address();
@@ -137,7 +152,10 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    unconstrained fn call_public<C, let M: u32, T, Env>(_self: Self, call_interface: C) -> T where C: CallInterface<M, (), T, Env> {
+    unconstrained fn call_public<C, let M: u32, T, Env>(_self: Self, call_interface: C) -> T
+    where
+        C: CallInterface<M, (), T, Env>,
+    {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = get_contract_address();
@@ -164,27 +182,35 @@ impl TestEnvironment {
         result
     }
 
-    unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, (), T, Env> {
+    unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(_self: Self, call_interface: C)
+    where
+        C: CallInterface<M, (), T, Env>,
+    {
         // Public functions are routed through the dispatch function.
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
-        let calldata = &[call_interface.get_selector().to_field()].append(call_interface.get_args());
-        cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
+        let calldata =
+            &[call_interface.get_selector().to_field()].append(call_interface.get_args());
+        cheatcodes::assert_public_call_fails(
+            call_interface.get_contract_address(),
+            fn_selector,
+            calldata,
+        );
     }
 
     unconstrained fn assert_private_call_fails<C, let M: u32, T, Env>(
         _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
+        call_interface: C,
+    )
+    where
+        C: CallInterface<M, PrivateContextInputs, T, Env>,
+    {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             hash_args(call_interface.get_args()),
             cheatcodes::get_side_effects_counter() as Field,
             call_interface.get_is_static(),
-            false
+            false,
         );
     }
 
@@ -194,8 +220,11 @@ impl TestEnvironment {
         _self: Self,
         note: &mut Note,
         storage_slot: Field,
-        contract_address: AztecAddress
-    ) where Note: NoteInterface<N> + NullifiableNote {
+        contract_address: AztecAddress,
+    )
+    where
+        Note: NoteInterface<N> + NullifiableNote,
+    {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
@@ -209,7 +238,7 @@ impl TestEnvironment {
             Note::get_note_type_id(),
             serialized_note,
             note_hash,
-            note_hash_counter
+            note_hash_counter,
         );
         cheatcodes::set_contract_address(original_contract_address);
     }

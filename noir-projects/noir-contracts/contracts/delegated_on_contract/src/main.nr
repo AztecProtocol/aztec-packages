@@ -3,12 +3,13 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract DelegatedOn {
-    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PublicMutable, PrivateSet, Map};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys, utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public}}
+        keys::getters::get_public_keys,
+        macros::{functions::{private, public}, storage::storage},
+        utils::comparison::Comparator,
     };
+    use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
     use dep::value_note::value_note::ValueNote;
 
     #[storage]
@@ -23,7 +24,12 @@ contract DelegatedOn {
         let owner_keys = get_public_keys(owner);
 
         let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, owner_keys.ivpk_m, owner));
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            msg_sender_keys.ovpk_m,
+            owner_keys.ivpk_m,
+            owner,
+        ));
         new_value
     }
 

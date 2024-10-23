@@ -1,13 +1,13 @@
-use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
+use crate::context::gas::GasOpts;
+use crate::hash::{compute_message_hash, compute_message_nullifier, compute_secret_hash};
+use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::{MAX_FIELD_VALUE, PUBLIC_DISPATCH_SELECTOR};
-use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
-use dep::protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::gas::GasOpts;
+use dep::protocol_types::traits::{Deserialize, Empty, Serialize};
 
 pub struct PublicContext {
     args_hash: Option<Field>,
-    compute_args_hash: fn () -> Field,
+    compute_args_hash: fn() -> Field,
 }
 
 impl PublicContext {
@@ -15,7 +15,10 @@ impl PublicContext {
         PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
-    pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
+    pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T)
+    where
+        T: Serialize<N>,
+    {
         emit_unencrypted_log(Serialize::serialize(log).as_slice());
     }
 
@@ -36,24 +39,27 @@ impl PublicContext {
         content: Field,
         secret: Field,
         sender: EthAddress,
-        leaf_index: Field
+        leaf_index: Field,
     ) {
         let secret_hash = compute_secret_hash(secret);
         let message_hash = compute_message_hash(
             sender,
             self.chain_id(),
-            /*recipient=*/ self.this_address(),
+            /*recipient=*/
+            self.this_address(),
             self.version(),
             content,
-            secret_hash
+            secret_hash,
         );
         let nullifier = compute_message_nullifier(message_hash, secret, leaf_index);
 
         assert(
-            !self.nullifier_exists(nullifier, self.this_address()), "L1-to-L2 message is already nullified"
+            !self.nullifier_exists(nullifier, self.this_address()),
+            "L1-to-L2 message is already nullified",
         );
         assert(
-            self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message"
+            self.l1_to_l2_msg_exists(message_hash, leaf_index),
+            "Tried to consume nonexistent L1-to-L2 message",
         );
 
         self.push_nullifier(nullifier);
@@ -68,14 +74,14 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
-        gas_opts: GasOpts
+        gas_opts: GasOpts,
     ) -> FunctionReturns<RETURNS_COUNT> {
         let args = &[function_selector.to_field()].append(args);
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
             args,
-            PUBLIC_DISPATCH_SELECTOR
+            PUBLIC_DISPATCH_SELECTOR,
         );
         let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
@@ -89,14 +95,14 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
-        gas_opts: GasOpts
+        gas_opts: GasOpts,
     ) -> FunctionReturns<RETURNS_COUNT> {
         let args = &[function_selector.to_field()].append(args);
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
             args,
-            PUBLIC_DISPATCH_SELECTOR
+            PUBLIC_DISPATCH_SELECTOR,
         );
 
         assert(success == 1, "Nested static call failed!");
@@ -107,7 +113,7 @@ impl PublicContext {
         _self: &mut Self,
         _contract_address: AztecAddress,
         _function_selector: FunctionSelector,
-        _args: [Field]
+        _args: [Field],
     ) -> FunctionReturns<RETURNS_COUNT> {
         panic(f"'delegate_call_public_function' not implemented!")
     }
@@ -181,7 +187,10 @@ impl PublicContext {
         out
     }
 
-    fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+    fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    where
+        T: Deserialize<N>,
+    {
         T::deserialize(self.raw_storage_read(storage_slot))
     }
 
@@ -191,7 +200,10 @@ impl PublicContext {
         }
     }
 
-    fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+    fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
+    where
+        T: Serialize<N>,
+    {
         self.raw_storage_write(storage_slot, value.serialize());
     }
 }
@@ -200,10 +212,7 @@ impl PublicContext {
 fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
     // It's ok to use the max possible gas here, because the gas will be
     // capped by the gas left in the (STATIC)CALL instruction.
-    [
-        user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE),
-        user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)
-    ]
+    [user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE), user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)]
 }
 
 // Unconstrained opcode wrappers (do not use directly).
@@ -278,7 +287,7 @@ unconstrained fn call<let RET_SIZE: u32>(
     gas: [Field; 2],
     address: AztecAddress,
     args: [Field],
-    function_selector: Field
+    function_selector: Field,
 ) -> ([Field; RET_SIZE], u8) {
     call_opcode(gas, address, args, function_selector)
 }
@@ -286,7 +295,7 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     gas: [Field; 2],
     address: AztecAddress,
     args: [Field],
-    function_selector: Field
+    function_selector: Field,
 ) -> ([Field; RET_SIZE], u8) {
     call_static_opcode(gas, address, args, function_selector)
 }
@@ -393,7 +402,7 @@ unconstrained fn call_opcode<let RET_SIZE: u32>(
     address: AztecAddress,
     args: [Field],
     // TODO(5110): consider passing in calldata directly
-    function_selector: Field
+    function_selector: Field,
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
 
@@ -403,7 +412,7 @@ unconstrained fn call_static_opcode<let RET_SIZE: u32>(
     address: AztecAddress,
     args: [Field],
     // TODO(5110): consider passing in calldata directly
-    function_selector: Field
+    function_selector: Field,
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
 
@@ -414,7 +423,7 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
 pub struct FunctionReturns<let N: u32> {
-    values: [Field; N]
+    values: [Field; N],
 }
 
 impl<let N: u32> FunctionReturns<N> {
@@ -426,7 +435,10 @@ impl<let N: u32> FunctionReturns<N> {
         self.values
     }
 
-    pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
+    pub fn deserialize_into<T>(self) -> T
+    where
+        T: Deserialize<N>,
+    {
         Deserialize::deserialize(self.raw())
     }
 }

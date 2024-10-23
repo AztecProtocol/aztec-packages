@@ -1,6 +1,7 @@
 use dep::aztec::{
-    note::{note_header::NoteHeader, note_interface::NullifiableNote}, context::PrivateContext,
-    macros::notes::note
+    context::PrivateContext,
+    macros::notes::note,
+    note::{note_header::NoteHeader, note_interface::NullifiableNote},
 };
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
@@ -14,7 +15,11 @@ pub struct TestNote {
 
 impl NullifiableNote for TestNote {
 
-    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(
+        _self: Self,
+        _context: &mut PrivateContext,
+        _note_hash_for_nullify: Field,
+    ) -> Field {
         // This note is expected to be shared between users and fstructor this reason can't be nullified using a secret.
         0
     }

@@ -2,14 +2,19 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract ContractInstanceDeployer {
-    use dep::aztec::protocol_types::{
-        address::{AztecAddress, PublicKeysHash, PartialAddress}, public_keys::PublicKeys,
-        contract_class_id::ContractClassId, constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
-        abis::log_hash::LogHash, traits::Serialize
-    };
     use dep::aztec::{
-        hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private,
-        macros::{events::event, functions::private}, utils::to_bytes::arr_to_be_bytes_arr
+        hash::compute_unencrypted_log_hash,
+        macros::{events::event, functions::private},
+        oracle::logs::emit_unencrypted_log_private,
+        utils::to_bytes::arr_to_be_bytes_arr,
+    };
+    use dep::aztec::protocol_types::{
+        abis::log_hash::LogHash,
+        address::{AztecAddress, PartialAddress, PublicKeysHash},
+        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+        contract_class_id::ContractClassId,
+        public_keys::PublicKeys,
+        traits::Serialize,
     };
     use std::meta::derive;
 
@@ -70,7 +75,7 @@ contract ContractInstanceDeployer {
                 self.public_keys.ovpk_m.serialize()[1],
                 self.public_keys.tpk_m.serialize()[0],
                 self.public_keys.tpk_m.serialize()[1],
-                self.deployer.to_field()
+                self.deployer.to_field(),
             ]
         }
     }
@@ -81,17 +86,17 @@ contract ContractInstanceDeployer {
         contract_class_id: ContractClassId,
         initialization_hash: Field,
         public_keys: PublicKeys,
-        universal_deploy: bool
+        universal_deploy: bool,
     ) {
         // TODO(@spalladino): assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
-
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {
             context.msg_sender()
         };
 
-        let partial_address = PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
+        let partial_address =
+            PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
         let address = AztecAddress::compute(public_keys.hash(), partial_address);
 
@@ -107,7 +112,7 @@ contract ContractInstanceDeployer {
             initialization_hash,
             salt,
             deployer,
-            version: 1
+            version: 1,
         };
 
         let payload = event.serialize();

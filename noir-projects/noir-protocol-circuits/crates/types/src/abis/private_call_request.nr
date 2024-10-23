@@ -1,7 +1,9 @@
 use crate::{
-    abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}}, address::AztecAddress,
-    constants::PRIVATE_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}},
+    address::AztecAddress,
+    constants::PRIVATE_CALL_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct PrivateCallRequest {
@@ -47,7 +49,7 @@ impl Empty for PrivateCallRequest {
             args_hash: 0,
             returns_hash: 0,
             start_side_effect_counter: 0,
-            end_side_effect_counter: 0
+            end_side_effect_counter: 0,
         }
     }
 }
@@ -78,7 +80,7 @@ impl Deserialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
             args_hash: reader.read(),
             returns_hash: reader.read(),
             start_side_effect_counter: reader.read_u32(),
-            end_side_effect_counter: reader.read_u32()
+            end_side_effect_counter: reader.read_u32(),
         };
         reader.finish();
         item

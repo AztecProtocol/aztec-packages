@@ -1,4 +1,6 @@
-use crate::abis::{function_data::FunctionData, public_circuit_public_inputs::PublicCircuitPublicInputs};
+use crate::abis::{
+    function_data::FunctionData, public_circuit_public_inputs::PublicCircuitPublicInputs,
+};
 use crate::address::AztecAddress;
 
 // TODO(#7124): To be deprecated.

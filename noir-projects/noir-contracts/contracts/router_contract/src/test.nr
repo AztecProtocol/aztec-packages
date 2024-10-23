@@ -1,5 +1,5 @@
-use dep::aztec::test::helpers::test_environment::TestEnvironment;
 use crate::Router;
+use dep::aztec::test::helpers::test_environment::TestEnvironment;
 use aztec::utils::comparison::Comparator;
 
 #[test]

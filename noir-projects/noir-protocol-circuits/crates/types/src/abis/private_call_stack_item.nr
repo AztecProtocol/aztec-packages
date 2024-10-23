@@ -1,7 +1,9 @@
 use crate::{
     abis::{function_data::FunctionData, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, constants::PRIVATE_CALL_STACK_ITEM_LENGTH,
-    traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
+    address::AztecAddress,
+    constants::PRIVATE_CALL_STACK_ITEM_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct PrivateCallStackItem {
@@ -21,8 +23,15 @@ pub struct PrivateCallStackItemWithoutPublicInputs {
 }
 
 impl PrivateCallStackItemWithoutPublicInputs {
-    fn to_private_call_stack_item(self, public_inputs: PrivateCircuitPublicInputs) -> PrivateCallStackItem {
-        PrivateCallStackItem { contract_address: self.contract_address, function_data: self.function_data, public_inputs }
+    fn to_private_call_stack_item(
+        self,
+        public_inputs: PrivateCircuitPublicInputs,
+    ) -> PrivateCallStackItem {
+        PrivateCallStackItem {
+            contract_address: self.contract_address,
+            function_data: self.function_data,
+            public_inputs,
+        }
     }
 }
 
@@ -56,7 +65,7 @@ impl Deserialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
         let item = Self {
             contract_address: reader.read_struct(AztecAddress::deserialize),
             function_data: reader.read_struct(FunctionData::deserialize),
-            public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize)
+            public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize),
         };
 
         reader.finish();
@@ -69,7 +78,7 @@ impl Empty for PrivateCallStackItem {
         PrivateCallStackItem {
             contract_address: AztecAddress::empty(),
             function_data: FunctionData::empty(),
-            public_inputs: PrivateCircuitPublicInputs::empty()
+            public_inputs: PrivateCircuitPublicInputs::empty(),
         }
     }
 }

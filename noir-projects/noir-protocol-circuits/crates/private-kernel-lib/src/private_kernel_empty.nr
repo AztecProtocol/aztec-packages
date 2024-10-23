@@ -1,6 +1,12 @@
 use dep::types::{
-    header::Header, KernelCircuitPublicInputs, traits::Empty,
-    recursion::{verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof, traits::Verifiable}
+    header::Header,
+    KernelCircuitPublicInputs,
+    recursion::{
+        proof::RecursiveProof,
+        traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
 };
 
 pub struct EmptyNestedCircuitPublicInputs {
@@ -52,13 +58,15 @@ impl Empty for PrivateKernelEmptyPrivateInputs {
             chain_id: 0,
             version: 0,
             vk_tree_root: 0,
-            protocol_contract_tree_root: 0
+            protocol_contract_tree_root: 0,
         }
     }
 }
 
 mod tests {
-    use crate::private_kernel_empty::{PrivateKernelEmptyPrivateInputs, EmptyNestedCircuitPublicInputs};
+    use crate::private_kernel_empty::{
+        EmptyNestedCircuitPublicInputs, PrivateKernelEmptyPrivateInputs,
+    };
     use dep::types::header::Header;
 
     #[test]
@@ -69,7 +77,7 @@ mod tests {
             chain_id: 1,
             version: 2,
             vk_tree_root: 3,
-            protocol_contract_tree_root: 4
+            protocol_contract_tree_root: 4,
         };
         let public_inputs = private_inputs.execute();
         assert_eq(public_inputs.constants.tx_context.chain_id, 1);
