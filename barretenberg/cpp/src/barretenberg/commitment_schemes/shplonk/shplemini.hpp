@@ -322,11 +322,14 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
     {
+        info("commitments size before adding ", commitments.size());
         Fr current_batching_challenge = Fr(1);
+        info("get_unshifted_without_concatenated: ");
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(unshifted_commitment));
+            info(unshifted_commitment);
             // Compute −ρⁱ ⋅ (1/(z−r) + ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-unshifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
@@ -334,9 +337,13 @@ template <typename Curve> class ShpleminiVerifier_ {
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
+        info("get_to_be_shifted: ");
+
         for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
             // Move shifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(shifted_commitment));
+            info(shifted_commitment);
+
             // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-shifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
@@ -347,6 +354,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // If we are performing an opening verification for the translator, add the contributions from the concatenation
         // commitments and evaluations to the result
+        info("get_groups_to_be_concatenated: ");
+
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
@@ -354,6 +363,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             for (auto concatenation_group_commitment : concatenation_group_commitments) {
                 for (size_t i = 0; i < concatenation_group_size; ++i) {
                     commitments.emplace_back(std::move(concatenation_group_commitment[i]));
+                    info(concatenation_group_commitment[i]);
                     scalars.emplace_back(-current_batching_challenge * concatenated_scalars[i]);
                 }
                 // Accumulate the batched evaluations of concatenated polynomials
@@ -455,14 +465,14 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Get references to the scalars and commitments in the accumulator
         auto& commitments = accumulator.commitments;
         auto& scalars = accumulator.scalars;
-
+        // const size_t NUM_PRECOMPUTED_SHIFTS = TO_BE_SHIFTED_PRECOMPUTED_START - TO_BE_SHIFTED_PRECOMPUTED_END;
         // Step 1: Iterate over the to-be-shifted witness scalars and their shifted counterparts
         for (size_t i = TO_BE_SHIFTED_WITNESSES_START, j = SHIFTED_WITNESSES_START;
              i < TO_BE_SHIFTED_WITNESSES_END && j < SHIFTED_WITNESSES_END;
              ++i, ++j) {
-            info(i, "  ", j);
-            info(commitments[i]);
-            info(commitments[j]);
+            // info(i, "  ", j);
+            // info(commitments[i]);
+            // info(commitments[j]);
             // Update the to-be-shifted scalar: sum it with its corresponding shifted counterpart
             scalars[i] = scalars[i] + scalars[j];
         }
@@ -471,9 +481,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (size_t i = TO_BE_SHIFTED_PRECOMPUTED_START, j = SHIFTED_PRECOMPUTED_START;
              i <= TO_BE_SHIFTED_PRECOMPUTED_END && j < SHIFTED_PRECOMPUTED_END;
              ++i, ++j) {
-            info(i, "  ", j);
-            info(commitments[i]);
-            info(commitments[j]);
             // Update the to-be-shifted scalar with its corresponding shifted counterpart
             scalars[i] = scalars[i] + scalars[j];
         }
@@ -503,6 +510,58 @@ template <typename Curve> class ShpleminiVerifier_ {
             commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START));
         }
         info("commitments shpl: ", commitments.size());
+    }
+
+    static void remove_shifted_commitments_refactor(BatchOpeningClaim<Curve>& accumulator,
+                                                    const size_t TO_BE_SHIFTED_WITNESSES_START,
+                                                    const size_t SHIFTED_WITNESSES_START,
+                                                    const size_t NUM_SHIFTED_WITNESSES,
+                                                    const size_t TO_BE_SHIFTED_PRECOMPUTED_START = 0,
+                                                    const size_t SHIFTED_PRECOMPUTED_START = 0,
+                                                    const size_t NUM_SHIFTED_PRECOMPUTED = 0)
+    {
+        // Get references to the scalars and commitments in the accumulator
+        auto& commitments = accumulator.commitments;
+        auto& scalars = accumulator.scalars;
+
+        info("commitments size before removal", accumulator.commitments.size());
+        // Step 1: Iterate over the to-be-shifted witness scalars and their shifted counterparts
+        for (size_t i = TO_BE_SHIFTED_WITNESSES_START, j = SHIFTED_WITNESSES_START;
+             i < TO_BE_SHIFTED_WITNESSES_START + NUM_SHIFTED_WITNESSES &&
+             j < SHIFTED_WITNESSES_START + NUM_SHIFTED_WITNESSES;
+             ++i, ++j) {
+            info(i, "  ", j);
+            info(commitments[i]);
+            info(commitments[j]);
+            scalars[i] = scalars[i] + scalars[j];
+        }
+
+        // Step 2: Iterate over the to-be-shifted precomputed scalars and their shifted counterparts (if provided)
+        if (NUM_SHIFTED_PRECOMPUTED > 0) {
+            for (size_t i = TO_BE_SHIFTED_PRECOMPUTED_START, j = SHIFTED_PRECOMPUTED_START;
+                 i < TO_BE_SHIFTED_PRECOMPUTED_START + NUM_SHIFTED_PRECOMPUTED &&
+                 j < SHIFTED_PRECOMPUTED_START + NUM_SHIFTED_PRECOMPUTED;
+                 ++i, ++j) {
+                scalars[i] = scalars[i] + scalars[j];
+            }
+        }
+
+        // Step 4: Erase the shifted precomputed scalars and commitments (if provided)
+        if (NUM_SHIFTED_PRECOMPUTED > 0) {
+            for (size_t i = 0; i < NUM_SHIFTED_PRECOMPUTED; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START));
+                info(commitments[SHIFTED_PRECOMPUTED_START]);
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START));
+            }
+        }
+        info("===");
+        // Step 3: Erase the shifted scalars and commitments (after all updates)
+        for (size_t i = 0; i < NUM_SHIFTED_WITNESSES; ++i) {
+            scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START));
+            info(commitments[SHIFTED_WITNESSES_START]);
+            commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START));
+        }
+        info("commitments size: ", commitments.size());
     }
 };
 } // namespace bb

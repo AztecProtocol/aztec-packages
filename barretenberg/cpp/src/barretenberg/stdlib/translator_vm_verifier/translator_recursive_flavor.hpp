@@ -87,6 +87,14 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = TranslatorFlavor::TO_BE_SHIFTED_WITNESSES_START;
+    static constexpr size_t SHIFTED_WITNESSES_START = TranslatorFlavor::SHIFTED_WITNESSES_START;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = TranslatorFlavor::NUM_SHIFTED_WITNESSES;
+
+    static constexpr size_t TO_BE_CONCATENATED_START = TranslatorFlavor::TO_BE_CONCATENATED_START;
+    static constexpr size_t CONCATENATED_START = TranslatorFlavor::CONCATENATED_START;
+    static constexpr size_t NUM_CONCATENATED = TranslatorFlavor::NUM_CONCATENATED;
+
     using Relations = TranslatorFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();

@@ -82,17 +82,14 @@ class TranslatorFlavor {
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 177;
 
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 2;
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 90;
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 8;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
 
-    static constexpr size_t SHIFTED_WITNESSES_START = 93;
-    static constexpr size_t SHIFTED_WITNESSES_END = 180;
+    static constexpr size_t SHIFTED_WITNESSES_START = 94;
 
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 0;
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 0;
-
-    static constexpr size_t SHIFTED_PRECOMPUTED_START = 0;
-    static constexpr size_t SHIFTED_PRECOMPUTED_END = 0;
+    static constexpr size_t TO_BE_CONCATENATED_START = 24;
+    static constexpr size_t CONCATENATED_START = 180;
+    static constexpr size_t NUM_CONCATENATED = 64;
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -158,51 +155,54 @@ class TranslatorFlavor {
                               x_hi_z_1,                                     // column 1
                               y_lo_z_2,                                     // column 2
                               p_x_low_limbs,                                // column 3
+                              p_x_high_limbs,                               // column 10
+                              p_y_low_limbs,                                // column 17
+                              p_y_high_limbs,                               // column 24
+                              z_low_limbs,                                  // column 31
+                              z_high_limbs,                                 // column 38
+                              accumulators_binary_limbs_0,                  // column 45
+                              accumulators_binary_limbs_1,                  // column 46
+                              accumulators_binary_limbs_2,                  // column 47
+                              accumulators_binary_limbs_3,                  // column 48
+                              quotient_low_binary_limbs,                    // column 61
+                              quotient_high_binary_limbs,                   // column 62
+                              relation_wide_limbs,                          // column 75
                               p_x_low_limbs_range_constraint_0,             // column 4
                               p_x_low_limbs_range_constraint_1,             // column 5
                               p_x_low_limbs_range_constraint_2,             // column 6
                               p_x_low_limbs_range_constraint_3,             // column 7
                               p_x_low_limbs_range_constraint_4,             // column 8
                               p_x_low_limbs_range_constraint_tail,          // column 9
-                              p_x_high_limbs,                               // column 10
                               p_x_high_limbs_range_constraint_0,            // column 11
                               p_x_high_limbs_range_constraint_1,            // column 12
                               p_x_high_limbs_range_constraint_2,            // column 13
                               p_x_high_limbs_range_constraint_3,            // column 14
                               p_x_high_limbs_range_constraint_4,            // column 15
                               p_x_high_limbs_range_constraint_tail,         // column 16
-                              p_y_low_limbs,                                // column 17
                               p_y_low_limbs_range_constraint_0,             // column 18
                               p_y_low_limbs_range_constraint_1,             // column 19
                               p_y_low_limbs_range_constraint_2,             // column 20
                               p_y_low_limbs_range_constraint_3,             // column 21
                               p_y_low_limbs_range_constraint_4,             // column 22
                               p_y_low_limbs_range_constraint_tail,          // column 23
-                              p_y_high_limbs,                               // column 24
                               p_y_high_limbs_range_constraint_0,            // column 25
                               p_y_high_limbs_range_constraint_1,            // column 26
                               p_y_high_limbs_range_constraint_2,            // column 27
                               p_y_high_limbs_range_constraint_3,            // column 28
                               p_y_high_limbs_range_constraint_4,            // column 29
                               p_y_high_limbs_range_constraint_tail,         // column 30
-                              z_low_limbs,                                  // column 31
                               z_low_limbs_range_constraint_0,               // column 32
                               z_low_limbs_range_constraint_1,               // column 33
                               z_low_limbs_range_constraint_2,               // column 34
                               z_low_limbs_range_constraint_3,               // column 35
                               z_low_limbs_range_constraint_4,               // column 36
                               z_low_limbs_range_constraint_tail,            // column 37
-                              z_high_limbs,                                 // column 38
                               z_high_limbs_range_constraint_0,              // column 39
                               z_high_limbs_range_constraint_1,              // column 40
                               z_high_limbs_range_constraint_2,              // column 41
                               z_high_limbs_range_constraint_3,              // column 42
                               z_high_limbs_range_constraint_4,              // column 43
                               z_high_limbs_range_constraint_tail,           // column 44
-                              accumulators_binary_limbs_0,                  // column 45
-                              accumulators_binary_limbs_1,                  // column 46
-                              accumulators_binary_limbs_2,                  // column 47
-                              accumulators_binary_limbs_3,                  // column 48
                               accumulator_low_limbs_range_constraint_0,     // column 49
                               accumulator_low_limbs_range_constraint_1,     // column 50
                               accumulator_low_limbs_range_constraint_2,     // column 51
@@ -215,8 +215,6 @@ class TranslatorFlavor {
                               accumulator_high_limbs_range_constraint_3,    // column 58
                               accumulator_high_limbs_range_constraint_4,    // column 59
                               accumulator_high_limbs_range_constraint_tail, // column 60
-                              quotient_low_binary_limbs,                    // column 61
-                              quotient_high_binary_limbs,                   // column 62
                               quotient_low_limbs_range_constraint_0,        // column 63
                               quotient_low_limbs_range_constraint_1,        // column 64
                               quotient_low_limbs_range_constraint_2,        // column 65
@@ -229,7 +227,6 @@ class TranslatorFlavor {
                               quotient_high_limbs_range_constraint_3,       // column 72
                               quotient_high_limbs_range_constraint_4,       // column 73
                               quotient_high_limbs_range_constraint_tail,    // column 74
-                              relation_wide_limbs,                          // column 75
                               relation_wide_limbs_range_constraint_0,       // column 76
                               relation_wide_limbs_range_constraint_1,       // column 77
                               relation_wide_limbs_range_constraint_2,       // column 78
@@ -417,51 +414,54 @@ class TranslatorFlavor {
                               x_hi_z_1_shift,                                     // column 1
                               y_lo_z_2_shift,                                     // column 2
                               p_x_low_limbs_shift,                                // column 3
+                              p_x_high_limbs_shift,                               // column 10
+                              p_y_low_limbs_shift,                                // column 17
+                              p_y_high_limbs_shift,                               // column 24
+                              z_low_limbs_shift,                                  // column 31
+                              z_high_limbs_shift,                                 // column 38
+                              accumulators_binary_limbs_0_shift,                  // column 45
+                              accumulators_binary_limbs_1_shift,                  // column 46
+                              accumulators_binary_limbs_2_shift,                  // column 47
+                              accumulators_binary_limbs_3_shift,                  // column 48
+                              quotient_low_binary_limbs_shift,                    // column 61
+                              quotient_high_binary_limbs_shift,                   // column 62
+                              relation_wide_limbs_shift,                          // column 75
                               p_x_low_limbs_range_constraint_0_shift,             // column 4
                               p_x_low_limbs_range_constraint_1_shift,             // column 5
                               p_x_low_limbs_range_constraint_2_shift,             // column 6
                               p_x_low_limbs_range_constraint_3_shift,             // column 7
                               p_x_low_limbs_range_constraint_4_shift,             // column 8
                               p_x_low_limbs_range_constraint_tail_shift,          // column 9
-                              p_x_high_limbs_shift,                               // column 10
                               p_x_high_limbs_range_constraint_0_shift,            // column 11
                               p_x_high_limbs_range_constraint_1_shift,            // column 12
                               p_x_high_limbs_range_constraint_2_shift,            // column 13
                               p_x_high_limbs_range_constraint_3_shift,            // column 14
                               p_x_high_limbs_range_constraint_4_shift,            // column 15
                               p_x_high_limbs_range_constraint_tail_shift,         // column 16
-                              p_y_low_limbs_shift,                                // column 17
                               p_y_low_limbs_range_constraint_0_shift,             // column 18
                               p_y_low_limbs_range_constraint_1_shift,             // column 19
                               p_y_low_limbs_range_constraint_2_shift,             // column 20
                               p_y_low_limbs_range_constraint_3_shift,             // column 21
                               p_y_low_limbs_range_constraint_4_shift,             // column 22
                               p_y_low_limbs_range_constraint_tail_shift,          // column 23
-                              p_y_high_limbs_shift,                               // column 24
                               p_y_high_limbs_range_constraint_0_shift,            // column 25
                               p_y_high_limbs_range_constraint_1_shift,            // column 26
                               p_y_high_limbs_range_constraint_2_shift,            // column 27
                               p_y_high_limbs_range_constraint_3_shift,            // column 28
                               p_y_high_limbs_range_constraint_4_shift,            // column 29
                               p_y_high_limbs_range_constraint_tail_shift,         // column 30
-                              z_low_limbs_shift,                                  // column 31
                               z_low_limbs_range_constraint_0_shift,               // column 32
                               z_low_limbs_range_constraint_1_shift,               // column 33
                               z_low_limbs_range_constraint_2_shift,               // column 34
                               z_low_limbs_range_constraint_3_shift,               // column 35
                               z_low_limbs_range_constraint_4_shift,               // column 36
                               z_low_limbs_range_constraint_tail_shift,            // column 37
-                              z_high_limbs_shift,                                 // column 38
                               z_high_limbs_range_constraint_0_shift,              // column 39
                               z_high_limbs_range_constraint_1_shift,              // column 40
                               z_high_limbs_range_constraint_2_shift,              // column 41
                               z_high_limbs_range_constraint_3_shift,              // column 42
                               z_high_limbs_range_constraint_4_shift,              // column 43
                               z_high_limbs_range_constraint_tail_shift,           // column 44
-                              accumulators_binary_limbs_0_shift,                  // column 45
-                              accumulators_binary_limbs_1_shift,                  // column 46
-                              accumulators_binary_limbs_2_shift,                  // column 47
-                              accumulators_binary_limbs_3_shift,                  // column 48
                               accumulator_low_limbs_range_constraint_0_shift,     // column 49
                               accumulator_low_limbs_range_constraint_1_shift,     // column 50
                               accumulator_low_limbs_range_constraint_2_shift,     // column 51
@@ -474,8 +474,6 @@ class TranslatorFlavor {
                               accumulator_high_limbs_range_constraint_3_shift,    // column 58
                               accumulator_high_limbs_range_constraint_4_shift,    // column 59
                               accumulator_high_limbs_range_constraint_tail_shift, // column 60
-                              quotient_low_binary_limbs_shift,                    // column 61
-                              quotient_high_binary_limbs_shift,                   // column 62
                               quotient_low_limbs_range_constraint_0_shift,        // column 63
                               quotient_low_limbs_range_constraint_1_shift,        // column 64
                               quotient_low_limbs_range_constraint_2_shift,        // column 65
@@ -488,7 +486,6 @@ class TranslatorFlavor {
                               quotient_high_limbs_range_constraint_3_shift,       // column 72
                               quotient_high_limbs_range_constraint_4_shift,       // column 73
                               quotient_high_limbs_range_constraint_tail_shift,    // column 74
-                              relation_wide_limbs_shift,                          // column 75
                               relation_wide_limbs_range_constraint_0_shift,       // column 76
                               relation_wide_limbs_range_constraint_1_shift,       // column 77
                               relation_wide_limbs_range_constraint_2_shift,       // column 78
@@ -849,13 +846,13 @@ class TranslatorFlavor {
             this->x_hi_z_1 = "X_HI_Z_1";
             this->y_lo_z_2 = "Y_LO_Z_2";
             this->p_x_low_limbs = "P_X_LOW_LIMBS";
+            this->p_x_high_limbs = "P_X_HIGH_LIMBS";
             this->p_x_low_limbs_range_constraint_0 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_0";
             this->p_x_low_limbs_range_constraint_1 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_1";
             this->p_x_low_limbs_range_constraint_2 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_2";
             this->p_x_low_limbs_range_constraint_3 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_3";
             this->p_x_low_limbs_range_constraint_4 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_4";
             this->p_x_low_limbs_range_constraint_tail = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->p_x_high_limbs = "P_X_HIGH_LIMBS";
             this->p_x_high_limbs_range_constraint_0 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0";
             this->p_x_high_limbs_range_constraint_1 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1";
             this->p_x_high_limbs_range_constraint_2 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2";

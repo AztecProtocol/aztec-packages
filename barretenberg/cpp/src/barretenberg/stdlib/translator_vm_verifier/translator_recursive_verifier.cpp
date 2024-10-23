@@ -117,7 +117,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     // Execute ZeroMorph rounds followed by the univariate PCS. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a
     // complete description of the unrolled protocol.
 
-    const BatchOpeningClaim<Curve> opening_claim =
+    BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
                                                commitments.get_to_be_shifted(),
@@ -128,6 +128,15 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                transcript,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
+
+    Shplemini::remove_shifted_commitments_refactor(opening_claim,
+                                                   Flavor::TO_BE_SHIFTED_WITNESSES_START + 1,
+                                                   Flavor::SHIFTED_WITNESSES_START + 1,
+                                                   Flavor::NUM_SHIFTED_WITNESSES,
+                                                   Flavor::TO_BE_CONCATENATED_START + 1,
+                                                   Flavor::CONCATENATED_START + 1,
+                                                   Flavor::NUM_CONCATENATED);
+
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;
