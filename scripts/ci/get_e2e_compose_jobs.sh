@@ -10,26 +10,19 @@ LABELS=$2
 # Read the full list from the file
 full_list=$(cat yarn-project/end-to-end/scripts/full_e2e_test_list)
 
-# Define the jobs that will run on every PR
-allow_list=(
-  "e2e_2_pxes"
-  "e2e_authwit"
-  "e2e_avm_simulator"
-  "e2e_block_building"
-  "e2e_cross_chain_messaging"
-  "e2e_deploy_contract"
-  "e2e_fees"
-  "e2e_fees_gas_estimation"
-  "e2e_fees_private_payments"
-  "e2e_max_block_number"
-  "e2e_nested_contract"
-  "e2e_ordering"
-  "e2e_static_calls"
-  "integration_l1_publisher"
-  "e2e_cheat_codes"
-  "e2e_prover_fake_proofs"
-  "e2e_lending_contract"
-  "kind_network_smoke"
+# Define that need the compose_test script to run
+compose_list=(
+  e2e_sandbox_example
+  uniswap_trade_on_l1_from_l2
+  integration_l1_publisher
+  e2e_browser
+  pxe
+  e2e_docs_examples
+  guides/writing_an_account_contract
+  guides/dapp_testing
+  sample-dapp/ci/index.test.mjs
+  sample-dapp/index.test.mjs
+  guides/up_quick_start
 )
 
 # Add labels from input to the allow_list

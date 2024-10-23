@@ -4,7 +4,7 @@ on:
     branches:
       - master
       - provernet
-      - '*/ci-push*'
+      - "*/ci-push*"
   pull_request:
     types:
       - opened
@@ -170,6 +170,7 @@ jobs:
           fi
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+          echo "compose_list=$(./scripts/ci/get_e2e_compose_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: |
@@ -194,24 +195,53 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
+      - name: Determine runner type
+        id: runner_type
+        run: |
+          runner=$(./scripts/select_runner.sh ${{ matrix.test }})
+          echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
         timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
-          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '8core-tester-x86' }}
+          runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
-            ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
+
+            # Handle env vars for certain tests
+            if [[ "$matrix.test" == *"fake_proofs"* ]]; then
+              export FAKE_PROOFS=1
+            fi
+            if [[ "$matrix.test" == *"prover_full"* ]]; then
+              export HARDWARE_CONCURRENCY=32
+            fi
+
+            # Handle special cases for network tests
+            if [[ "$matrix.test" == *"kind_network"* ]]; then
+              if [[ "$matrix.test" == *"smoke"* ]]; then
+                NAMESPACE=smoke
+              elif [[ "$matrix.test" == *"transfer"* ]]; then
+                NAMESPACE=transfer
+              fi
+              if [[ "$matrix.test" == *"4epochs"* ]]; then
+                RUN NAMESPACE=$NAMESPACE FRESH_INSTALL=true VALUES_FILE=$-default.yaml ./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true
+              else
+                RUN NAMESPACE=$NAMESPACE FRESH_INSTALL=true VALUES_FILE=$-default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+              fi
+            # Handle tests that need to be run with e2e_compose_test script
+            elif grep -qF "$matrix.test" yarn-project/end-to-end/scripts/compose_e2e_test_list; then
+              ./scripts/e2e_compose_test.sh ${{ matrix.test }}
+            else
+              # Default case
+              ./scripts/e2e_test.sh ${{ matrix.test }}
+            fi
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -245,7 +275,13 @@ jobs:
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../../scripts/earthly-ci --exec-stats -P --no-output +${{ matrix.test }}
+            export COMPOSE_FILE=scripts/docker-compose-no-sandbox.yml
+            export DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+            export HARDWARE_CONCURRENCY=32
+            ./scripts/e2e_compose_test.sh ${{ matrix.test }}
+
+            # redundant, but just to be explicit:
+            earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
   acir-bench:
     runs-on: ubuntu-20.04
