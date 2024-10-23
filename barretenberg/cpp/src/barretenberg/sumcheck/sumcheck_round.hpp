@@ -106,14 +106,9 @@ template <typename Flavor> class SumcheckProverRound {
                       ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       size_t edge_idx)
     {
-        if constexpr (!Flavor::HasZK) {
-            for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
-                // if (edge_idx + 1 >= multivariate.size())
-                //     info("WASMDBG ", multivariate.size(), "|", edge_idx);
-
-                bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-            }
+        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
         }
     }
 
@@ -169,7 +164,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_sparators,
         const RelationSeparator alpha,
-        ZKSumcheckData<Flavor> zk_sumcheck_data) // only submitted when Flavor HasZK
+        ZKSumcheckData<Flavor> zk_sumcheck_data) // only populated when Flavor HasZK
     {
         PROFILE_THIS_NAME("compute_univariate");
 
