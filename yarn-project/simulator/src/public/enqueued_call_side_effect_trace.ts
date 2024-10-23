@@ -340,7 +340,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** How much gas was left after this public execution. */
     endGasLeft: Gas,
     /** Bytecode used for this execution. */
-    _bytecode: Buffer,
+    bytecode: Buffer,
     /** The call's results */
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
@@ -368,6 +368,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         avmCallResults.output,
         gasUsed,
         endSideEffectCounter,
+        bytecode,
       ),
     );
   }

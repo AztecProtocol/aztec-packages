@@ -98,6 +98,10 @@ template <typename FF> struct AvmFullRow {
     FF binary_op_id{};
     FF binary_sel_bin{};
     FF binary_start{};
+    FF bytecode_end_latch{};
+    FF bytecode_length_remaining{};
+    FF bytecode_packed{};
+    FF bytecode_running_hash{};
     FF cmp_a_hi{};
     FF cmp_a_lo{};
     FF cmp_b_hi{};
@@ -245,7 +249,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_sload{};
     FF main_sel_op_sstore{};
     FF main_sel_op_static_call{};
-    FF main_sel_op_storage_address{};
     FF main_sel_op_sub{};
     FF main_sel_op_timestamp{};
     FF main_sel_op_transaction_fee{};
@@ -717,7 +720,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 703;
+    static constexpr size_t SIZE = 706;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
