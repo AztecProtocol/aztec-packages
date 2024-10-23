@@ -227,6 +227,7 @@ bool ClientIVC::verify(const Proof& proof,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
     // Goblin verification (merge, eccvm, translator)
+    std::cout << "eccvm circuit size = " << eccvm_vk->circuit_size << std::endl;
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
 
