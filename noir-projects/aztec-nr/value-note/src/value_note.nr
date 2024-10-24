@@ -1,12 +1,16 @@
 use dep::aztec::{
-    protocol_types::{
-        traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
-    }, macros::notes::note,
+    context::PrivateContext,
+    keys::getters::get_nsk_app,
+    macros::notes::note,
     note::{
         note_header::NoteHeader, note_interface::NullifiableNote,
         utils::compute_note_hash_for_nullify,
-    }, oracle::random::random, keys::getters::get_nsk_app, context::PrivateContext,
+    },
+    oracle::random::random,
+    protocol_types::{
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+        traits::Serialize,
+    },
 };
 
 global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.

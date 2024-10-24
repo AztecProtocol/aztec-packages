@@ -1,8 +1,8 @@
-use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
-use dep::aztec::note::note_getter_options::SortOrder;
+use crate::{filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
 use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 use dep::aztec::keys::getters::get_public_keys;
-use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
+use dep::aztec::note::note_getter_options::SortOrder;
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.

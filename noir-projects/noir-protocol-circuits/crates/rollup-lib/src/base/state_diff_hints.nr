@@ -2,9 +2,10 @@ use dep::types::{
     abis::nullifier_leaf_preimage::NullifierLeafPreimage,
     constants::{
         MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-        NULLIFIER_TREE_HEIGHT,
-    }, merkle_tree::MembershipWitness,
+        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+    },
+    merkle_tree::MembershipWitness,
 };
 
 pub struct StateDiffHints {

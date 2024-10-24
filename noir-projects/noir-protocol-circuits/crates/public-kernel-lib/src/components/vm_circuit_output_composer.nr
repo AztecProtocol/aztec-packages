@@ -4,16 +4,20 @@ use crate::components::vm_circuit_output_composer::propagate_accumulated_data::p
 use dep::types::{
     abis::{
         accumulated_data::{PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder},
-        combined_constant_data::CombinedConstantData, gas::Gas,
+        combined_constant_data::CombinedConstantData,
+        gas::Gas,
         kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
         public_call_request::PublicCallRequest,
-        public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
+        public_circuit_public_inputs::PublicCircuitPublicInputs,
+        public_data_read::PublicDataRead,
         public_inner_call_request::PublicInnerCallRequest,
         validation_requests::{
-            PublicValidationRequestArrayLengths,
             public_validation_requests_builder::PublicValidationRequestsBuilder,
+            PublicValidationRequestArrayLengths,
         },
-    }, constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::is_empty,
+    },
+    constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    traits::is_empty,
     utils::arrays::array_to_bounded_vec,
 };
 

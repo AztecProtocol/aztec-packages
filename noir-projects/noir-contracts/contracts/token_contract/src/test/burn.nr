@@ -1,7 +1,7 @@
 use crate::test::utils;
-use dep::aztec::oracle::random::random;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
+use dep::authwit::cheatcodes as authwit_cheatcodes;
+use dep::aztec::oracle::random::random;
 
 #[test]
 unconstrained fn burn_public_success() {

@@ -36,8 +36,8 @@ mod tests {
     use crate::oracle::storage::{raw_storage_read, storage_read};
     use dep::protocol_types::address::AztecAddress;
 
-    use std::test::OracleMock;
     use crate::test::mocks::mock_struct::MockStruct;
+    use std::test::OracleMock;
 
     global address = AztecAddress::from_field(29);
     global slot = 7;

@@ -1,16 +1,18 @@
 use crate::{
     address::public_keys_hash::PublicKeysHash,
     constants::{
-        GENERATOR_INDEX__PUBLIC_KEYS_HASH, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_IVPK_M_X,
-        DEFAULT_IVPK_M_Y, DEFAULT_OVPK_M_X, DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y,
-    }, hash::poseidon2_hash_with_separator, point::POINT_LENGTH,
-    traits::{Deserialize, Serialize, Hash},
+        DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_X,
+        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, GENERATOR_INDEX__PUBLIC_KEYS_HASH,
+    },
+    hash::poseidon2_hash_with_separator,
+    point::POINT_LENGTH,
+    traits::{Deserialize, Hash, Serialize},
 };
 
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use dep::std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
-use std::embedded_curve_ops::EmbeddedCurveScalar;
 use std::default::Default;
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 pub global PUBLIC_KEYS_LENGTH: u32 = 12;
 

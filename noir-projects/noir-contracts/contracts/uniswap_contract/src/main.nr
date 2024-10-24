@@ -8,19 +8,20 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Uniswap {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, SharedImmutable};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
         set_authorized,
     };
 
-    use dep::token::Token;
-    use dep::token_bridge::TokenBridge;
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
     use dep::aztec::macros::{
-        storage::storage, functions::{public, initializer, view, internal, private},
+        functions::{initializer, internal, private, public, view},
+        storage::storage,
     };
+    use dep::token::Token;
+    use dep::token_bridge::TokenBridge;
 
     #[storage]
     struct Storage<Context> {

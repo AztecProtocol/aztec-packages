@@ -1,6 +1,6 @@
 use crate::abis::{function_data::FunctionData, function_selector::FunctionSelector};
-use crate::merkle_tree::membership::MembershipWitness;
 use crate::constants::FUNCTION_TREE_HEIGHT;
+use crate::merkle_tree::membership::MembershipWitness;
 
 pub struct ContractFunction {
     data: FunctionData,

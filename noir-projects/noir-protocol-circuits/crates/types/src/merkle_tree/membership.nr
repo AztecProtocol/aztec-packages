@@ -1,9 +1,9 @@
 use crate::{
     merkle_tree::{
-        leaf_preimage::IndexedTreeLeafPreimage,
         indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
-        root::root_from_sibling_path,
-    }, traits::Empty,
+        leaf_preimage::IndexedTreeLeafPreimage, root::root_from_sibling_path,
+    },
+    traits::Empty,
 };
 
 pub struct MembershipWitness<let N: u32> {
@@ -90,7 +90,8 @@ mod tests {
                 assert_check_membership, assert_check_non_membership, check_membership,
                 conditionally_assert_check_membership, MembershipWitness,
             },
-        }, tests::merkle_tree_utils::NonEmptyMerkleTree,
+        },
+        tests::merkle_tree_utils::NonEmptyMerkleTree,
     };
     use std::hash::pedersen_hash;
 

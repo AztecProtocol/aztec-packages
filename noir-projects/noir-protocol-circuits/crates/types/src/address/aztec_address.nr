@@ -8,7 +8,8 @@ use crate::{
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils,
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
+    utils,
 };
 
 // Aztec address

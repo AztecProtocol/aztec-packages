@@ -12,10 +12,14 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-        }, log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash},
-        note_hash::ScopedNoteHash, nullifier::{Nullifier, ScopedNullifier},
+        },
+        log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::{Nullifier, ScopedNullifier},
         public_call_request::PublicCallRequest,
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty_array,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::is_empty_array,
     utils::arrays::{
         assert_split_sorted_transformed_value_arrays_asc,
         assert_split_sorted_transformed_value_arrays_desc, assert_split_transformed_value_arrays,

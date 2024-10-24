@@ -1,6 +1,8 @@
-use crate::{test::utils, types::nft_note::NFTNote, NFT};
+use crate::{NFT, test::utils, types::nft_note::NFTNote};
 use dep::aztec::{
-    keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader}, oracle::random::random,
+    keys::getters::get_public_keys,
+    oracle::random::random,
+    prelude::{AztecAddress, NoteHeader},
     protocol_types::storage::map::derive_storage_slot_in_map,
 };
 use std::test::OracleMock;

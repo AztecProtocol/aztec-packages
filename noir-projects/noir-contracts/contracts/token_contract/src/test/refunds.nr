@@ -1,10 +1,10 @@
 use crate::{test::utils, Token, types::token_note::TokenNote};
 
-use dep::aztec::{
-    prelude::NoteHeader, protocol_types::storage::map::derive_storage_slot_in_map,
-    keys::getters::get_public_keys,
-};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
+use dep::aztec::{
+    keys::getters::get_public_keys, prelude::NoteHeader,
+    protocol_types::storage::map::derive_storage_slot_in_map,
+};
 use std::test::OracleMock;
 
 #[test]

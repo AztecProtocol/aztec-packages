@@ -10,8 +10,10 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder,
             VMCircuitPublicInputs,
-        }, public_call_request::PublicCallRequest,
-    }, traits::is_empty,
+        },
+        public_call_request::PublicCallRequest,
+    },
+    traits::is_empty,
 };
 
 pub struct PublicKernelOutputComposer {

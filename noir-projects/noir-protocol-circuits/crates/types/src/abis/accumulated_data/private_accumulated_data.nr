@@ -1,15 +1,20 @@
 use crate::{
     abis::{
-        note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-        private_call_request::PrivateCallRequest, public_call_request::PublicCallRequest,
-        log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash},
-    }, traits::{Serialize, Deserialize, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+        private_call_request::PrivateCallRequest,
+        public_call_request::PublicCallRequest,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 use crate::constants::{
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+    PRIVATE_ACCUMULATED_DATA_LENGTH,
 };
 
 pub struct PrivateAccumulatedData {

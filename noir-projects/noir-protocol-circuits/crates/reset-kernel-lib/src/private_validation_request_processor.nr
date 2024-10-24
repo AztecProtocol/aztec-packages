@@ -1,17 +1,20 @@
 use crate::{
     note_hash_read_request_reset::NoteHashReadRequestHints,
     nullifier_read_request_reset::NullifierReadRequestHints,
-    reset::read_request::{get_unverified_read_requests, verify_reset_read_requests},
-    reset::key_validation_hint::{
-        get_unverified_key_validation_requests, KeyValidationHint,
-        verify_reset_key_validation_requests,
+    reset::{
+        key_validation_hint::{
+            get_unverified_key_validation_requests, KeyValidationHint,
+            verify_reset_key_validation_requests,
+        },
+        read_request::{get_unverified_read_requests, verify_reset_read_requests},
     },
 };
 use dep::types::{
     abis::{
         note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
         validation_requests::PrivateValidationRequests,
-    }, constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
+    },
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
 };
 
 pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
