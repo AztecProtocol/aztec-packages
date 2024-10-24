@@ -34,6 +34,7 @@ pub trait BlackBoxFunctionSolver<F> {
         _inputs: &[F],
         _len: u32,
     ) -> Result<Vec<F>, BlackBoxResolutionError>;
+    fn field_less_than(&self, _input_x: &F, _input_y: &F) -> Result<bool, BlackBoxResolutionError>;
 }
 
 pub struct StubbedBlackBoxSolver;
@@ -82,5 +83,8 @@ impl<F> BlackBoxFunctionSolver<F> for StubbedBlackBoxSolver {
         _len: u32,
     ) -> Result<Vec<F>, BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::Poseidon2Permutation))
+    }
+    fn field_less_than(&self, _input_x: &F, _input_y: &F) -> Result<bool, BlackBoxResolutionError> {
+        Err(Self::fail(BlackBoxFunc::FieldLessThan))
     }
 }

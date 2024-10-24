@@ -74,4 +74,15 @@ impl BlackBoxFunctionSolver<FieldElement> for Bn254BlackBoxSolver {
     ) -> Result<Vec<FieldElement>, BlackBoxResolutionError> {
         poseidon2_permutation(inputs, len)
     }
+
+    fn field_less_than(
+        &self,
+        _input_x: &FieldElement,
+        _input_y: &FieldElement,
+    ) -> Result<bool, BlackBoxResolutionError> {
+        Err(BlackBoxResolutionError::Failed(
+            acir::BlackBoxFunc::FieldLessThan,
+            "field_less_than is not supported in acir, only in brillig/unconstrained".to_string(),
+        ))
+    }
 }

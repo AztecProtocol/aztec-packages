@@ -50,4 +50,12 @@ impl BlackBoxFunctionSolver<acvm::FieldElement> for WrapperSolver {
     ) -> Result<Vec<acvm::FieldElement>, acvm::BlackBoxResolutionError> {
         self.0.poseidon2_permutation(inputs, len)
     }
+
+    fn field_less_than(
+        &self,
+        _input_x: &acvm::FieldElement,
+        _input_y: &acvm::FieldElement,
+    ) -> Result<bool, acvm::BlackBoxResolutionError> {
+        self.0.field_less_than(_input_x, _input_y)
+    }
 }

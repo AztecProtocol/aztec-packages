@@ -1,4 +1,5 @@
 use crate::runtime::is_unconstrained;
+use crate::field::bn254::field_less_than;
 
 // The low and high decomposition of the field modulus
 global PLO: Field = 53438638232309528389504892708671455233;
@@ -25,23 +26,30 @@ pub(crate) unconstrained fn decompose_hint(x: Field) -> (Field, Field) {
     compute_decomposition(x)
 }
 
+#[foreign(field_less_than)]
+pub fn field_less_than(_x: Field, _y: Field) -> bool {}
+
 fn compute_lt(x: Field, y: Field, num_bytes: u32) -> bool {
-    let x_bytes: [u8; 32] = x.to_le_bytes();
-    let y_bytes: [u8; 32] = y.to_le_bytes();
-    let mut x_is_lt = false;
-    let mut done = false;
-    for i in 0..num_bytes {
-        if (!done) {
-            let x_byte = x_bytes[num_bytes - 1 - i];
-            let y_byte = y_bytes[num_bytes - 1 - i];
-            let bytes_match = x_byte == y_byte;
-            if !bytes_match {
-                x_is_lt = x_byte < y_byte;
-                done = true;
+    if is_unconstrained() {
+        field_less_than(x, y)
+    } else {
+        let x_bytes: [u8; 32] = x.to_le_bytes();
+        let y_bytes: [u8; 32] = y.to_le_bytes();
+        let mut x_is_lt = false;
+        let mut done = false;
+        for i in 0..num_bytes {
+            if (!done) {
+                let x_byte = x_bytes[num_bytes - 1 - i];
+                let y_byte = y_bytes[num_bytes - 1 - i];
+                let bytes_match = x_byte == y_byte;
+                if !bytes_match {
+                    x_is_lt = x_byte < y_byte;
+                    done = true;
+                }
             }
         }
+        x_is_lt
     }
-    x_is_lt
 }
 
 fn compute_lte(x: Field, y: Field, num_bytes: u32) -> bool {

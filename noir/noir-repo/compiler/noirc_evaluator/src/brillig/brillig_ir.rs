@@ -201,6 +201,14 @@ pub(crate) mod tests {
         ) -> Result<Vec<FieldElement>, BlackBoxResolutionError> {
             Ok(vec![0_u128.into(), 1_u128.into(), 2_u128.into(), 3_u128.into()])
         }
+
+        fn field_less_than(
+            &self,
+            _input_x: &FieldElement,
+            _input_y: &FieldElement,
+        ) -> Result<bool, BlackBoxResolutionError> {
+            Ok(true)
+        }
     }
 
     pub(crate) fn create_context(id: FunctionId) -> BrilligContext<FieldElement, Stack> {
