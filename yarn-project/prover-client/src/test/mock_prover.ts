@@ -12,12 +12,11 @@ import {
   type KernelCircuitPublicInputs,
   type PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   type VMCircuitPublicInputs,
   VerificationKeyData,
-  makeEmptyProof,
+  makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import {
@@ -36,7 +35,7 @@ export class MockProver implements ServerCircuitProver {
   getAvmProof() {
     return Promise.resolve(
       makeProofAndVerificationKey(
-        makeEmptyProof(),
+        makeEmptyRecursiveProof<number>(0),
         VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       ),
     );
@@ -160,7 +159,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getTubeProof(): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  getTubeProof(): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return Promise.resolve(
       makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFake()),
     );

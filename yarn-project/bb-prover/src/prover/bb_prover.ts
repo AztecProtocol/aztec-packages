@@ -208,9 +208,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
     [Attributes.APP_CIRCUIT_NAME]: inputs.functionName,
   }))
-  public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
+  public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<number>> {
     const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey);
     return proofAndVk;
   }
 
@@ -677,8 +677,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
-  private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
-    const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey<Proof>> => {
+  private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey<number>> {
+    const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey<number>> => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       const rawProof = await fs.readFile(provingResult.proofPath!);
@@ -709,14 +709,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         } satisfies CircuitProvingStats,
       );
 
-      return makeProofAndVerificationKey(proof, verificationKey);
+      return makeProofAndVerificationKey(makeRecursiveProofFromBinary<number>(proof, 0), verificationKey);
     };
     return await this.runInDirectory(operation);
   }
 
-  public async getTubeProof(
-    input: TubeInputs,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  public async getTubeProof(input: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);

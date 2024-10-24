@@ -48,7 +48,6 @@ import {
   type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
-  makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -1239,7 +1238,7 @@ export class ProvingOrchestrator implements EpochProver {
                 `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
               );
               return {
-                proof: makeEmptyProof(),
+                proof: makeEmptyRecursiveProof(0),
                 verificationKey: VerificationKeyData.makeFakeHonk(),
               };
             }
@@ -1248,7 +1247,7 @@ export class ProvingOrchestrator implements EpochProver {
       );
       this.deferredProving(provingState, doAvmProving, proofAndVk => {
         logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
-        this.checkAndEnqueuePublicKernelFromVMProof(provingState, txIndex, functionIndex, proofAndVk.proof);
+        this.checkAndEnqueuePublicKernelFromVMProof(provingState, txIndex, functionIndex, proofAndVk.proof.binaryProof);
       });
     }
   }
