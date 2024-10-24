@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
@@ -46,37 +46,27 @@ export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
 }
 
 export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr) {
+  // Given public keys and a partial address, we can compute our address in the following steps.
+  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+  // 2. addressPoint = (preaddress * G) + ivpk_m
+  // 3. address = addressPoint.x
   const preaddress = computePreaddress(publicKeys.hash(), partialAddress);
-  const address = computeAddressFromPreaddressAndIvpkM(preaddress, publicKeys.masterIncomingViewingPublicKey);
+  const address = new Grumpkin().add(
+    derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt())),
+    publicKeys.masterIncomingViewingPublicKey,
+  );
 
-  return address;
-}
-
-export function computeAddressFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Point) {
-  const addressPoint = computeAddressPointFromPreaddressAndIvpkM(preaddress, ivpkM);
-
-  return AztecAddress.fromField(addressPoint.x);
-}
-
-export function computeAddressPointFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Point) {
-  // Given h, our preaddress, and our ivpk_m, we can derive our address point.
-  // All we need to do is:
-  // First, take our preaddress, and multiply it by the generator G
-  const preaddressPoint = derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt()));
-  // Then we add our ivpk_m to it. Tada !
-  const addressPoint = new Grumpkin().add(preaddressPoint, ivpkM);
-
-  return addressPoint;
+  return address.x;
 }
 
 export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
-  // TLDR; (h + ivsk) * G = P1
+  // TLDR; P1 = (h + ivsk) * G
   // if P1.y is pos
   //   S = (h + ivsk)
   // else
   //   S = Fq.MODULUS - (h + ivsk)
   //
-  // Given h, our preaddress, and our ivsk, we have two different addressSecret candidates. One encodes to a point with a positive y-coordinate
+  // Given h (our preaddress) and our ivsk, we have two different addressSecret candidates. One encodes to a point with a positive y-coordinate
   // and the other encodes to a point with a negative y-coordinate. We take the addressSecret candidate that is a simple addition of the two Scalars.
   const addressSecretCandidate = ivsk.add(new Fq(preaddress.toBigInt()));
   // We then multiply this secretCandidate by the generator G to create an addressPoint candidate.
