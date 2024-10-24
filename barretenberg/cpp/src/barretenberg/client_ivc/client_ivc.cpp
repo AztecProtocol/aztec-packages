@@ -169,21 +169,27 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
             circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
     }
 
+    vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Set the verification key from precomputed if available, else compute it
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
     }
+    vinfo("set honk vk metadata");
 
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
+        vinfo("not initialized; computing oink prover");
         OinkProver<Flavor> oink_prover{ proving_key };
+        vinfo("computing oink proof...");
         oink_prover.prove();
+        vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
         proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
+        vinfo("initialized accumulator");
 
         // Add oink proof and corresponding verification key to the verification queue
         verification_queue.push_back(
@@ -192,7 +198,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, proving_key });
+        vinfo("constructed folding prover");
         fold_output = folding_prover.prove();
+        vinfo("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
@@ -259,8 +267,10 @@ bool ClientIVC::verify(const Proof& proof, const std::vector<std::shared_ptr<Dec
  */
 HonkProof ClientIVC::decider_prove() const
 {
+    info("prove decider...");
     MegaDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
+    info("finished decider proving.");
 }
 
 /**

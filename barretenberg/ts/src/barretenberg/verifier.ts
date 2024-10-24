@@ -46,6 +46,12 @@ export class BarretenbergVerifier {
     return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(verificationKey));
   }
 
+  async verifyAztecPrivateClientProof(proof: Uint8Array, verificationKey: Uint8Array): Promise<boolean> {
+    await this.instantiate();
+
+    return await this.api.acirVerifyAztecClientProof(proof, new RawBuffer(verificationKey));
+  }
+
   async destroy(): Promise<void> {
     if (!this.api) {
       return;

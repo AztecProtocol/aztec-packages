@@ -2,7 +2,9 @@
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
-set -eu
+set -eux
+
+echo "Calling run_acir_tests.sh"
 
 # Catch when running in parallel
 error_file="/tmp/error.$$"
@@ -15,12 +17,14 @@ FLOW=${FLOW:-prove_and_verify}
 HONK=${HONK:-false}
 CRS_PATH=~/.bb-crs
 BRANCH=master
-VERBOSE=${VERBOSE:-}
+VERBOSE=${VERBOSE:+-v}
 TEST_NAMES=("$@")
 # We get little performance benefit over 16 cores (in fact it can be worse).
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
+
+echo "FLOW_SCRIPT is ${FLOW_SCRIPT}"
 
 if [ -f $BIN ]; then
     BIN=$(realpath $BIN)

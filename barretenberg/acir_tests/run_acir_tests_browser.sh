@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -em
+set -emx
+
+echo "Calling run_acir_tests_browser.sh"
 
 cleanup() {
   lsof -i ":8080" | awk 'NR>1 {print $2}' | xargs kill -9
@@ -16,7 +18,7 @@ THREAD_MODEL=${THREAD_MODEL:-mt}
 
 # TODO: Currently webkit doesn't seem to have shared memory so is a single threaded test regardless of THREAD_MODEL!
 echo "Testing thread model: $THREAD_MODEL"
-(cd browser-test-app && yarn serve:dest:$THREAD_MODEL) > /dev/null 2>&1 &
+(cd browser-test-app && yarn serve:dest:$THREAD_MODEL) &
 sleep 1
 VERBOSE=1 BIN=./headless-test/bb.js.browser ./run_acir_tests.sh $@
 lsof -i ":8080" | awk 'NR>1 {print $2}' | xargs kill -9

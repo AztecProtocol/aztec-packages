@@ -277,6 +277,7 @@ template <typename T> T unpack_from_file(const std::string& filename)
 }
 
 // TODO(#7371) find a home for this
+// TODO: This is not in use?
 acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
     acir_format::WitnessVector wv;

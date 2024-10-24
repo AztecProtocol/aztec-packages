@@ -213,6 +213,8 @@ HonkProof TranslatorProver::construct_proof()
     // Execute Zeromorph multilinear PCS
     execute_pcs_rounds();
 
+    vinfo("computed opening proof");
+
     return export_proof();
 }
 
