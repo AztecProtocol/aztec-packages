@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729695882544,
+  "lastUpdate": 1729728398185,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ebb6a2da62c9d99f448b0da9cf1d14fd64a59b9f",
-          "message": "chore: Revert \"fix: assign one_idx in the same place as zero_idx in `UltraCircuitBuilder`\" (#9049)\n\nReverts AztecProtocol/aztec-packages#9029",
-          "timestamp": "2024-10-07T18:47:12+01:00",
-          "tree_id": "5d9f812d16d795fb10355fa8df7dd610e55c4886",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ebb6a2da62c9d99f448b0da9cf1d14fd64a59b9f"
-        },
-        "date": 1728325466720,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31426.800437000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29096.102687 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5566.447597000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5250.057188999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92912.80866200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92912811000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15831.179216999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15831179000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8289902320,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8289902320 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151126082,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151126082 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6745484693,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6745484693 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125731731,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125731731 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3356,6 +3284,66 @@ window.BENCHMARK_DATA = {
             "value": 126919086,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126919086 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb58490eed9cc46a7b2039d93645a9456ee9c834",
+          "message": "chore!: replace usage of vector in keccakf1600 input with array (#9350)\n\nWe're currently using a vector to represent the state array for\r\nkeccakf1600 opcodes in brillig. This is unnecessary as it's only defined\r\nfor inputs of size 25 so we should use an array.\r\n\r\n@dbanks12 This impacts AVM as you're also using a vector here. We should\r\nbe able to remove this extra operand from the AVM bytecode but I'm not\r\nsure how to propagate this through the rest of the AVM stack.\r\n\r\n---------\r\n\r\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
+          "timestamp": "2024-10-23T19:39:12-04:00",
+          "tree_id": "dc4514e5f732806049406587c599edea9c41689f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cb58490eed9cc46a7b2039d93645a9456ee9c834"
+        },
+        "date": 1729728391410,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29626.658018000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27963.268034999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5378.266448999966,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5056.678763999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87461.171806,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87461173000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15172.533287999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15172534000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2717145852,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2717145852 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126259638,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126259638 ns\nthreads: 1"
           }
         ]
       }
