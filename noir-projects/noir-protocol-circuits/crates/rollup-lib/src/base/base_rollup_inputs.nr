@@ -1,10 +1,9 @@
 use crate::{
     abis::{
-    constant_rollup_data::ConstantRollupData,
-    base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
-},
-    base::state_diff_hints::StateDiffHints,
-    components::{append_tx_effects_for_blob, compute_kernel_out_hash}
+        constant_rollup_data::ConstantRollupData,
+        base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE},
+    }, base::state_diff_hints::StateDiffHints,
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
 };
 use dep::types::{
     hash::silo_l2_to_l1_message,
@@ -13,11 +12,11 @@ use dep::types::{
         hash::{compute_public_data_tree_index, compute_public_data_tree_value},
     }, storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
-    append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
-    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
-    sponge_blob::SpongeBlob
-},
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
+        sponge_blob::SpongeBlob,
+    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
         PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NOTE_HASHES_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
@@ -150,7 +149,7 @@ impl BaseRollupInputs {
             transaction_fee,
             all_public_data_update_requests,
             out_hash,
-            self.start_sponge_blob
+            self.start_sponge_blob,
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -509,18 +508,17 @@ mod tests {
             base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         },
         base::{
-        state_diff_hints::StateDiffHints,
-        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot}
-    },
-        components::{TX_EFFECTS_BLOB_HASH_INPUT_FIELDS, append_tx_effects_for_blob}
+            state_diff_hints::StateDiffHints,
+            base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot},
+        }, components::{TX_EFFECTS_BLOB_HASH_INPUT_FIELDS, append_tx_effects_for_blob},
     };
     use dep::types::{
         abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
-        nullifier_leaf_preimage::NullifierLeafPreimage, sponge_blob::SpongeBlob,
-        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
-    },
-        messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
+            append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+            accumulated_data::CombinedAccumulatedData,
+            nullifier_leaf_preimage::NullifierLeafPreimage, sponge_blob::SpongeBlob,
+            public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
+        }, messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
         hash::silo_l2_to_l1_message, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
@@ -715,17 +713,22 @@ mod tests {
             )
         }
 
-        fn build_pre_existing_tx_effects(self) -> (CombinedAccumulatedData, [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
+        fn build_pre_existing_tx_effects(
+            self,
+        ) -> (CombinedAccumulatedData, [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
             let mut res = CombinedAccumulatedData::empty();
             res.note_hashes = self.pre_existing_notes;
-            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| nullifier.nullifier);
+            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
+                nullifier.nullifier
+            });
             let all_public_data_update_requests = self.pre_existing_public_data.map(
-                |leaf_preimage: PublicDataTreeLeafPreimage|
-            PublicDataUpdateRequest {
-                leaf_slot: leaf_preimage.slot,
-                new_value:leaf_preimage.value,
-                counter: 0
-            }
+                |leaf_preimage: PublicDataTreeLeafPreimage| {
+                    PublicDataUpdateRequest {
+                        leaf_slot: leaf_preimage.slot,
+                        new_value: leaf_preimage.value,
+                        counter: 0,
+                    }
+                },
             );
 
             (res, all_public_data_update_requests)
@@ -893,7 +896,8 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot,
             };
 
-            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) = self.build_pre_existing_tx_effects();
+            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) =
+                self.build_pre_existing_tx_effects();
 
             let start_sponge_blob = append_tx_effects_for_blob(
                 pre_existing_tx_effects,
@@ -901,7 +905,7 @@ mod tests {
                 0,
                 pre_existing_public_data_update_requests,
                 0,
-                SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS)
+                SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
             );
 
             let state_diff_hints = StateDiffHints {
@@ -1156,7 +1160,7 @@ mod tests {
         let mut tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
         // Indices 0 and 1 are used by revert code and fee resp.
         for i in 0..50 {
-            tx_effects[i+2] = builder.kernel_data.note_hashes.storage[i].value();
+            tx_effects[i + 2] = builder.kernel_data.note_hashes.storage[i].value();
         }
         let mut expected_sponge = outputs.start_sponge_blob;
 

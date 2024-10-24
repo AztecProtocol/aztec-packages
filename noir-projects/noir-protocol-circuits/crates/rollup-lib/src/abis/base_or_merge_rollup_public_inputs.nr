@@ -1,7 +1,7 @@
 use dep::types::{
     abis::sponge_blob::SpongeBlob, constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
     partial_state_reference::PartialStateReference, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    utils::reader::Reader,
 };
 use crate::abis::constant_rollup_data::ConstantRollupData;
 
@@ -27,7 +27,7 @@ pub struct BaseOrMergeRollupPublicInputs {
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to U128
 
-    out_hash : Field,
+    out_hash: Field,
 
     accumulated_fees: Field,
 }

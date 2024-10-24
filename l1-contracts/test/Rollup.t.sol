@@ -237,13 +237,15 @@ contract RollupTest is DecoderBase {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    rollup.propose(header, archive, blockHash, txHashes, signatures, body);
+    skipBlobCheck();
+
+    rollup.propose(header, archive, blockHash, txHashes, signatures, body, new bytes(144));
 
     quote.epochToProve = Epoch.wrap(1);
     quote.validUntilSlot = Epoch.wrap(2).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
     rollup.claimEpochProofRight(signedQuote);
-    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+    (bytes32 preArchive, bytes32 preBlockHash,,) = rollup.blocks(0);
 
     assertEq(
       proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 9, "Invalid escrow balance"

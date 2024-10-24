@@ -105,8 +105,10 @@ mod tests {
     #[test(should_fail_with = "input proofs have different blob data sponges")]
     fn previous_rollups_dont_follow_sponge() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_sponge_blob.sponge.state[0] = 0;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_sponge_blob.sponge.state[0] = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_sponge_blob.sponge.state[0] =
+            0;
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_sponge_blob.sponge.state[0] =
+            1;
         let _output = inputs.merge_rollup_circuit();
     }
 

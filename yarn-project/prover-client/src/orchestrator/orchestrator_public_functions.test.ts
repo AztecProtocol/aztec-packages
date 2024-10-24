@@ -1,5 +1,4 @@
 import { PublicExecutionRequest, mockTx, toNumTxsEffects } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';

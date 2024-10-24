@@ -1,4 +1,6 @@
-use crate::{traits::{Serialize, Deserialize, Empty}, constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH}};
+use crate::{
+    traits::{Serialize, Deserialize, Empty}, constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH},
+};
 use std::hash::poseidon2::Poseidon2;
 
 // A Poseidon2 sponge used to accumulate data that will be added to a blob
@@ -34,7 +36,7 @@ impl SpongeBlob {
         Self {
             sponge: Poseidon2::new((expected_fields_hint as Field) * 18446744073709551616),
             fields: 0,
-            expected_fields: expected_fields_hint
+            expected_fields: expected_fields_hint,
         }
     }
 
@@ -101,10 +103,10 @@ impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
                 cache: [fields[0], fields[1], fields[2]],
                 state: [fields[3], fields[4], fields[5], fields[6]],
                 cache_size: fields[7] as u32,
-                squeeze_mode: fields[8] as bool
+                squeeze_mode: fields[8] as bool,
             },
             fields: fields[9] as u32,
-            expected_fields: fields[10] as u32
+            expected_fields: fields[10] as u32,
         }
     }
 }

@@ -854,9 +854,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) internal view {
     uint256 pendingBlockNumber =
       _canPruneAt(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
-    _validateHeaderForSubmissionBase(
-      _header, _currentTime, pendingBlockNumber, _flags
-    );
+    _validateHeaderForSubmissionBase(_header, _currentTime, pendingBlockNumber, _flags);
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );

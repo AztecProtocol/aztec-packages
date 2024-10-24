@@ -39,18 +39,18 @@ impl Eq for FeeRecipient {
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
 // may be confusing as new_constant.last_archive would actually be the new_archive
 pub struct BlockRootOrBlockMergePublicInputs {
-  previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
-  new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
-  previous_block_hash: Field, // Identifier of the previous block before the range
-  end_block_hash: Field, // Identifier of the last block in the range
-  start_global_variables: GlobalVariables, // Global variables for the first block in the range
-  end_global_variables: GlobalVariables, // Global variables for the last block in the range
-  out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
-  fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
-  vk_tree_root: Field, // Root of allowed vk tree
-  protocol_contract_tree_root: Field, // Root of protocol contract tree
-  prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-  blob_public_inputs: [BlobPublicInputs; AZTEC_EPOCH_DURATION] // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
+    previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
+    new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
+    previous_block_hash: Field, // Identifier of the previous block before the range
+    end_block_hash: Field, // Identifier of the last block in the range
+    start_global_variables: GlobalVariables, // Global variables for the first block in the range
+    end_global_variables: GlobalVariables, // Global variables for the last block in the range
+    out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
+    fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
+    vk_tree_root: Field, // Root of allowed vk tree
+    protocol_contract_tree_root: Field, // Root of protocol contract tree
+    prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    blob_public_inputs: [BlobPublicInputs; AZTEC_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
 
 impl BlockRootOrBlockMergePublicInputs {
@@ -73,7 +73,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
             prover_id: 0,
-            blob_public_inputs: [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION]
+            blob_public_inputs: [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION],
         }
     }
 }
@@ -144,8 +144,8 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             prover_id: reader.read(),
             blob_public_inputs: reader.read_struct_array(
                 BlobPublicInputs::deserialize,
-                [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION]
-            )
+                [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION],
+            ),
         };
 
         reader.finish();

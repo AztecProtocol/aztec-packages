@@ -5,15 +5,14 @@ use crate::{
     }, components,
 };
 use blob::{blob::evaluate_blob, blob_public_inputs::BlobPublicInputs};
-use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
+use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-    AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-    FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX,
-    MERGE_ROLLUP_INDEX
-},
-    header::Header, content_commitment::ContentCommitment,
+        AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT,
+        BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX,
+    }, header::Header, content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
     traits::Empty,
 };
@@ -122,7 +121,8 @@ impl BlockRootRollupInputs {
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
         let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION];
-        blob_public_inputs[0] = evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
+        blob_public_inputs[0] =
+            evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
@@ -136,7 +136,7 @@ impl BlockRootRollupInputs {
             vk_tree_root: left.constants.vk_tree_root,
             protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: self.prover_id,
-            blob_public_inputs
+            blob_public_inputs,
         }
     }
 }
@@ -154,7 +154,7 @@ impl Empty for BlockRootRollupInputs {
             previous_block_hash: 0,
             prover_id: 0,
             tx_effects: [0; FIELDS_PER_BLOB],
-            blob_commitment: [0; 2]
+            blob_commitment: [0; 2],
         }
     }
 }

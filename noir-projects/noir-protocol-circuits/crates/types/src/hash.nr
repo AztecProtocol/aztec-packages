@@ -325,10 +325,10 @@ pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u3
 fn poseidon2_absorb_chunks<let N: u32>(
     input: [Field; N],
     in_len: u32,
-    variable: bool
+    variable: bool,
 ) -> std::hash::poseidon2::Poseidon2 {
     let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * two_pow_64;
     let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
     // cache_size = 0, init absorb
     sponge.cache[0] = input[0];
@@ -381,7 +381,10 @@ fn poseidon2_absorb_chunks<let N: u32>(
     sponge
 }
 
-pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field where T: ToField {
+pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
+where
+    T: ToField,
+{
     let in_len = inputs.len() + 1;
     let two_pow_64 = 18446744073709551616;
     let iv: Field = (in_len as Field) * two_pow_64;

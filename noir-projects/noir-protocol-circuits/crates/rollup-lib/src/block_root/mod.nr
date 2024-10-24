@@ -46,17 +46,18 @@ mod tests {
         let inputs = default_block_root_rollup_inputs();
         let outputs = inputs.block_root_rollup_circuit();
 
-        let mut expected_sponge = inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob;
+        let mut expected_sponge =
+            inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob;
         expected_sponge.absorb([1, 2], expected_sponge.expected_fields);
 
-        assert(
-            expected_sponge.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob)
-        );
+        assert(expected_sponge.eq(
+            inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob,
+        ));
 
         let hashed_tx_effects = expected_sponge.squeeze();
         let expected_z = Poseidon2::hash(
             [hashed_tx_effects, inputs.blob_commitment[0], inputs.blob_commitment[1]],
-            3
+            3,
         );
 
         assert(outputs.blob_public_inputs[0].z == expected_z);
@@ -65,7 +66,8 @@ mod tests {
     #[test(should_fail_with = "block's first blob sponge was not empty")]
     fn check_blob_empty() {
         let mut inputs = default_block_root_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob.fields = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob.fields =
+            1;
         let _ = inputs.block_root_rollup_circuit();
     }
 }
