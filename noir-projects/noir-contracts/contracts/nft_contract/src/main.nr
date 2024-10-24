@@ -13,10 +13,7 @@ contract NFT {
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::{
-            encode_and_encrypt_note, encrypt_and_emit_partial_log,
-        },
-        hash::pedersen_hash,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{
             events::event,
@@ -29,7 +26,7 @@ contract NFT {
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicMutable, SharedImmutable,
         },
-        protocol_types::{point::Point, traits::{is_empty, Serialize}},
+        protocol_types::{point::Point, traits::Serialize},
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;

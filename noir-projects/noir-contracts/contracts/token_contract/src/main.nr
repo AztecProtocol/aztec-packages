@@ -24,8 +24,10 @@ contract Token {
             encrypted_event_emission::encode_and_encrypt_event_unconstrained,
             encrypted_note_emission::{
                 encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
-            }, encrypted_event_emission::encode_and_encrypt_event_unconstrained,
-        }, keys::getters::get_public_keys,
+            },
+        },
+        hash::compute_secret_hash,
+        keys::getters::get_public_keys,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
