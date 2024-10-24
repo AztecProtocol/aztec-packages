@@ -26,13 +26,10 @@ import {
   getAddress,
   getContract,
   http,
-  publicActions,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { EscrowContract } from '../../../prover-node/src/bond/escrow-contract.js';
-import { TokenContract } from '../../../prover-node/src/bond/token-contract.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
@@ -248,31 +245,6 @@ describe('e2e_prover_coordination', () => {
       basisPointFee: 1,
       signer: proverSigner,
     });
-
-    // The prover deposits their bond (added as part of blob PR to avoid Rollup__InsufficientFundsInEscrow error)
-    const proverWalletClient = createWalletClient({
-      account: privateKeyToAccount(`0x${keccak256(Buffer.from('cow')).toString('hex')}`),
-      transport: http(ctx.aztecNodeConfig.l1RpcUrl),
-      chain: ctx.deployL1ContractsValues.walletClient.chain,
-    });
-
-    await cc.setBalance(EthAddress.fromString(proverWalletClient.account.address), 10000000000000000n);
-
-    const proofCommitmentEscrowContractAddress = EthAddress.fromString(
-      await rollupContract.read.PROOF_COMMITMENT_ESCROW(),
-    );
-
-    const escrowContract = new EscrowContract(
-      proverWalletClient.extend(publicActions),
-      proofCommitmentEscrowContractAddress,
-    );
-    const tokenContract = new TokenContract(
-      proverWalletClient.extend(publicActions),
-      await escrowContract.getTokenAddress(),
-    );
-    await tokenContract.ensureAllowance(proofCommitmentEscrowContractAddress);
-    await tokenContract.ensureBalance(quoteForEpoch0.payload.bondAmount * 2n);
-    await escrowContract.depositProverBond(quoteForEpoch0.payload.bondAmount * 2n);
 
     // Send in the quote
     await ctx.proverNode!.sendEpochProofQuote(quoteForEpoch0);
