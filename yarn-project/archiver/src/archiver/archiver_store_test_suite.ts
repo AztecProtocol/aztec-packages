@@ -423,7 +423,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         logs.forEach(log => expect(log).toHaveLength(1));
       });
 
-      it.only('is possible to batch request logs that have the same tag but different content', async () => {
+      it('is possible to batch request logs that have the same tag but different content', async () => {
         const logs = await store.getLogsByTags(tags[numBlocks - 1][0]);
 
         const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
