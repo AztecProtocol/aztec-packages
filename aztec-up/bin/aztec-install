@@ -27,7 +27,7 @@ function title() {
   print_colored "╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝ ╚═════╝"
   echo -e "${r}"
   echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
-  echo -e "The only pre-existing dependency is docker. The docker image works on any modern system (64-bit ARM64 or x64)."
+  echo -e "The only pre-existing dependency is docker. The docker image works on any modern system (64-bit ARM64 or x64, i.e. modern Windows, Mac or Linux)."
   echo -e "Please ensure it's installed for your platform: https://docs.docker.com/engine/install"
   echo
   if [ "$(uname -s)" == "Darwin" ]; then
