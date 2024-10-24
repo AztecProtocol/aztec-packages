@@ -117,7 +117,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
       const app = rpcServer.getApp(options.apiPrefix);
       // add status route
-      const statusRouter = createStatusRouter(options.apiPrefix);
+      const statusRouter = createStatusRouter(() => rpcServer.isHealthy(), options.apiPrefix);
       app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
       const httpServer = http.createServer(app.callback());

@@ -136,6 +136,7 @@ services:
       BOT_PUBLIC_TRANSFERS_PER_TX: 0
       BOT_NO_WAIT_FOR_TRANSFERS: true
       BOT_NO_START: false
+      BOT_MAX_CONSECUTIVE_ERRORS: 3
       PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging

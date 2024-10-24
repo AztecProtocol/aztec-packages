@@ -53,6 +53,8 @@ export type BotConfig = {
   daGasLimit: number | undefined;
   /** Token contract to use */
   contract: SupportedTokenContracts;
+  /** The maximum number of consecutive errors before the bot shuts down */
+  maxConsecutiveErrors: number;
 };
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
@@ -163,6 +165,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
       }
       return val as SupportedTokenContracts;
     },
+  },
+  maxConsecutiveErrors: {
+    env: 'BOT_MAX_CONSECUTIVE_ERRORS',
+    description: 'The maximum number of consecutive errors before the bot shuts down',
+    ...numberConfigHelper(0),
   },
 };
 
