@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.60.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.60.0...aztec-packages-v0.60.1) (2024-10-24)
+
+
+### Features
+
+* **avm:** Avm replace zeromorph pcs by shplemini ([#9389](https://github.com/AztecProtocol/aztec-packages/issues/9389)) ([07d6dc2](https://github.com/AztecProtocol/aztec-packages/commit/07d6dc29db2eb04154b8f0c66bd1efa74c0e8b9d))
+* Fee pricing to 0 for old instances ([#9296](https://github.com/AztecProtocol/aztec-packages/issues/9296)) ([7bc3a21](https://github.com/AztecProtocol/aztec-packages/commit/7bc3a2136a2d9b1818434a86ace28a05bba32efc))
+* Initial block reward + external libraries ([#9297](https://github.com/AztecProtocol/aztec-packages/issues/9297)) ([240e9b5](https://github.com/AztecProtocol/aztec-packages/commit/240e9b562ef18d9b98ccc407ac95ec92f5a9bd58))
+* Merge and sort imports (https://github.com/noir-lang/noir/pull/6322) ([b4db379](https://github.com/AztecProtocol/aztec-packages/commit/b4db37908d452ca86399baded392d5e3e86c7bc8))
+* Print finalized size and log dyadic size during Ultra proof construction ([#9411](https://github.com/AztecProtocol/aztec-packages/issues/9411)) ([84fdc52](https://github.com/AztecProtocol/aztec-packages/commit/84fdc526f73027a3450bcdcc78b826fc9da8df88))
+* Prover coordination test with a reorg ([#9405](https://github.com/AztecProtocol/aztec-packages/issues/9405)) ([9efe288](https://github.com/AztecProtocol/aztec-packages/commit/9efe288cae945cec1e025fd7cd0bde220aff4b8d))
+* Reject programs with unconditional recursion (https://github.com/noir-lang/noir/pull/6292) ([b4db379](https://github.com/AztecProtocol/aztec-packages/commit/b4db37908d452ca86399baded392d5e3e86c7bc8))
+
+
+### Bug Fixes
+
+* (formatter) indent after infix lhs (https://github.com/noir-lang/noir/pull/6331) ([b4db379](https://github.com/AztecProtocol/aztec-packages/commit/b4db37908d452ca86399baded392d5e3e86c7bc8))
+* Allow more resources for 4epochs tests ([#9418](https://github.com/AztecProtocol/aztec-packages/issues/9418)) ([74a8ad1](https://github.com/AztecProtocol/aztec-packages/commit/74a8ad196988dd1d880b6510c7947ee27e5f4abb))
+* Formatter didn't format `&gt;>=` well (https://github.com/noir-lang/noir/pull/6337) ([b4db379](https://github.com/AztecProtocol/aztec-packages/commit/b4db37908d452ca86399baded392d5e3e86c7bc8))
+* Mutable global pattern didn't have a span (https://github.com/noir-lang/noir/pull/6328) ([b4db379](https://github.com/AztecProtocol/aztec-packages/commit/b4db37908d452ca86399baded392d5e3e86c7bc8))
+
+
+### Miscellaneous
+
+* Have 'aztec' honour the 'DEBUG' env var ([#9413](https://github.com/AztecProtocol/aztec-packages/issues/9413)) ([771a2ac](https://github.com/AztecProtocol/aztec-packages/commit/771a2ac6c834509f7eee9f0ae485147f4a045773))
+* Node follow prune and extend chain ([#9328](https://github.com/AztecProtocol/aztec-packages/issues/9328)) ([a653fd3](https://github.com/AztecProtocol/aztec-packages/commit/a653fd3a11b47862b5f6cac646296bff3d2ac8f4))
+* Update title from feedback (https://github.com/noir-lang/noir/pull/6334) ([b4db379](https://github.com/AztecProtocol/aztec-packages/commit/b4db37908d452ca86399baded392d5e3e86c7bc8))
+
 ## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.59.0...aztec-packages-v0.60.0) (2024-10-24)
 
 
