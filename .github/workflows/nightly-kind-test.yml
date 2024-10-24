@@ -45,8 +45,15 @@ jobs:
       # override slot time to use prod 36s standard
       - name: "Set 32s slot time"
         run: |
-          sed -i 's/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* 2/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3/g' ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
-          cat ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+          sed -i 's/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* [0-9]\+/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3/g' ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+          if grep -q "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* 3" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr; then
+            echo "✅ Successfully updated AZTEC_SLOT_DURATION to 3x ETHEREUM_SLOT_DURATION"
+            grep "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+          else
+            echo "❌ Failed to update AZTEC_SLOT_DURATION"
+            grep "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+            exit 1
+          fi
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
