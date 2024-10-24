@@ -133,15 +133,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   /**
    * Sets the assumeProvenThroughBlockNumber. Only the contract deployer can set it.
-   * @param blockNumber - New value.
+   * @param _blockNumber - New value.
    */
-  function setAssumeProvenThroughBlockNumber(uint256 blockNumber)
+  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber)
     external
     override(ITestRollup)
     onlyOwner
   {
-    fakeBlockNumberAsProven(blockNumber);
-    assumeProvenThroughBlockNumber = blockNumber;
+    _fakeBlockNumberAsProven(_blockNumber);
+    assumeProvenThroughBlockNumber = _blockNumber;
   }
 
   /**
@@ -298,7 +298,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     emit L2ProofVerified(endBlockNumber, _args[6]);
   }
 
-  function status(uint256 myHeaderBlockNumber)
+  function status(uint256 _myHeaderBlockNumber)
     external
     view
     override(IRollup)
@@ -316,7 +316,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       blocks[tips.provenBlockNumber].archive,
       tips.pendingBlockNumber,
       blocks[tips.pendingBlockNumber].archive,
-      archiveAt(myHeaderBlockNumber),
+      archiveAt(_myHeaderBlockNumber),
       getEpochForBlock(tips.provenBlockNumber)
     );
   }
@@ -499,7 +499,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
-      fakeBlockNumberAsProven(blockNumber);
+      _fakeBlockNumberAsProven(blockNumber);
 
       bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
       bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
@@ -518,13 +518,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
   }
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
     public
     view
     override(IRollup)
     returns (bytes32)
   {
-    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
+    return _hashTypedDataV4(EpochProofQuoteLib.hash(_quote));
   }
 
   /**
@@ -739,12 +739,12 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return tips.pendingBlockNumber;
   }
 
-  function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (Epoch) {
+  function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
     require(
-      blockNumber <= tips.pendingBlockNumber,
-      Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, blockNumber)
+      _blockNumber <= tips.pendingBlockNumber,
+      Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, _blockNumber)
     );
-    return getEpochAt(getTimestampForSlot(blocks[blockNumber].slotNumber));
+    return getEpochAt(getTimestampForSlot(blocks[_blockNumber].slotNumber));
   }
 
   /**
@@ -968,13 +968,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
   }
 
-  function fakeBlockNumberAsProven(uint256 blockNumber) private {
-    if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
+  function _fakeBlockNumberAsProven(uint256 _blockNumber) private {
+    if (_blockNumber > tips.provenBlockNumber && _blockNumber <= tips.pendingBlockNumber) {
+      tips.provenBlockNumber = _blockNumber;
 
       // If this results on a new epoch, create a fake claim for it
       // Otherwise nextEpochToProve will report an old epoch
-      Epoch epoch = getEpochForBlock(blockNumber);
+      Epoch epoch = getEpochForBlock(_blockNumber);
       if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
         proofClaim = DataStructures.EpochProofClaim({
           epochToProve: epoch,

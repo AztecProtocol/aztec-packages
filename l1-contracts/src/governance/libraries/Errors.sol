@@ -48,8 +48,8 @@ library Errors {
   error Gerousia__FailedToPropose(IPayload proposal); // 0x6ca2a2ed
   error Gerousia__InstanceHaveNoCode(address instance); // 0x20a3b441
   error Gerousia__InsufficientVotes(); // 0xba1e05ef
-  error Gerousia__InvalidNAndMValues(uint256 N, uint256 M); // 0x520d9704
-  error Gerousia__NCannotBeLargerTHanM(uint256 N, uint256 M); // 0x2fdfc063
+  error Gerousia__InvalidNAndMValues(uint256 n, uint256 m); // 0x520d9704
+  error Gerousia__NCannotBeLargerTHanM(uint256 n, uint256 m); // 0x2fdfc063
   error Gerousia__OnlyProposerCanVote(address caller, address proposer); // 0xba27df38
   error Gerousia__ProposalAlreadyExecuted(uint256 roundNumber); // 0x7aeacb17
   error Gerousia__ProposalCannotBeAddressZero(); // 0xdb3e4b6e
