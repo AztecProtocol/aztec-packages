@@ -1,5 +1,5 @@
 #include "./translator_recursive_verifier.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
@@ -62,7 +62,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
@@ -117,17 +117,18 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     // Execute ZeroMorph rounds followed by the univariate PCS. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a
     // complete description of the unrolled protocol.
 
-    auto opening_claim = ZeroMorph::verify(circuit_size,
-                                           commitments.get_unshifted_without_concatenated(),
-                                           commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted_without_concatenated(),
-                                           claimed_evaluations.get_shifted(),
-                                           multivariate_challenge,
-                                           Commitment::one(builder),
-                                           transcript,
-                                           commitments.get_groups_to_be_concatenated(),
-                                           claimed_evaluations.get_concatenated());
-    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    const BatchOpeningClaim<Curve> opening_claim =
+        Shplemini::compute_batch_opening_claim(circuit_size,
+                                               commitments.get_unshifted_without_concatenated(),
+                                               commitments.get_to_be_shifted(),
+                                               claimed_evaluations.get_unshifted_without_concatenated(),
+                                               claimed_evaluations.get_shifted(),
+                                               multivariate_challenge,
+                                               Commitment::one(builder),
+                                               transcript,
+                                               commitments.get_groups_to_be_concatenated(),
+                                               claimed_evaluations.get_concatenated());
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;
 }

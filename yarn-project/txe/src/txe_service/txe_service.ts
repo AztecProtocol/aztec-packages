@@ -6,6 +6,7 @@ import {
   Header,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
+  PublicKeys,
   computePartialAddress,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
@@ -115,7 +116,8 @@ export class TXEService {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: publicKeysHashFr,
+      // TODO: Modify this to allow for passing public keys.
+      publicKeys: PublicKeys.empty(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -129,7 +131,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -173,13 +175,12 @@ export class TXEService {
   async addAccount(secret: ForeignCallSingle) {
     const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-    const hash = keys.publicKeys.hash();
     const artifact = SchnorrAccountContractArtifact;
     const instance = getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
-      publicKeysHash: hash,
+      publicKeys: keys.publicKeys,
       constructorArtifact: 'constructor',
       deployer: AztecAddress.ZERO,
     });
@@ -227,13 +228,7 @@ export class TXEService {
   ) {
     const parsedAddress = fromSingle(address);
     const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(
-      parsedAddress,
-      parsedSelector,
-      fromArray(args),
-      false,
-      false,
-    );
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, parsedSelector, fromArray(args), false);
     if (!result.reverted) {
       throw new ExpectedFailureError('Public call did not revert');
     }
@@ -247,7 +242,6 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
-    isDelegateCall: ForeignCallSingle,
   ) {
     try {
       await this.typedOracle.callPrivateFunction(
@@ -256,7 +250,6 @@ export class TXEService {
         fromSingle(argsHash),
         fromSingle(sideEffectCounter).toNumber(),
         fromSingle(isStaticCall).toBool(),
-        fromSingle(isDelegateCall).toBool(),
       );
       throw new ExpectedFailureError('Private call did not fail');
     } catch (e) {
@@ -508,7 +501,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -523,7 +516,7 @@ export class TXEService {
         instance.deployer,
         instance.contractClassId,
         instance.initializationHash,
-        instance.publicKeysHash,
+        ...instance.publicKeys.toFields(),
       ]),
     ]);
   }
@@ -563,7 +556,6 @@ export class TXEService {
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ false,
-      /* isDelegateCall */ false,
     );
 
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
@@ -581,7 +573,6 @@ export class TXEService {
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ true,
-      /* isDelegateCall */ false,
     );
 
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
@@ -649,7 +640,6 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
-    isDelegateCall: ForeignCallSingle,
   ) {
     const result = await this.typedOracle.callPrivateFunction(
       fromSingle(targetContractAddress),
@@ -657,7 +647,6 @@ export class TXEService {
       fromSingle(argsHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
-      fromSingle(isDelegateCall).toBool(),
     );
     return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash])]);
   }
@@ -686,7 +675,6 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
-    isDelegateCall: ForeignCallSingle,
   ) {
     const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
@@ -694,7 +682,6 @@ export class TXEService {
       fromSingle(argsHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
-      fromSingle(isDelegateCall).toBool(),
     );
     return toForeignCallResult([toSingle(newArgsHash)]);
   }
@@ -705,7 +692,6 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
-    isDelegateCall: ForeignCallSingle,
   ) {
     const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
@@ -713,7 +699,6 @@ export class TXEService {
       fromSingle(argsHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
-      fromSingle(isDelegateCall).toBool(),
     );
     return toForeignCallResult([toSingle(newArgsHash)]);
   }

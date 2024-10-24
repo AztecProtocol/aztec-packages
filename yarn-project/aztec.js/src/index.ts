@@ -73,6 +73,7 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 export {
   AztecAddress,
   EthAddress,
+  PublicKeys,
   Fq,
   Fr,
   GlobalVariables,

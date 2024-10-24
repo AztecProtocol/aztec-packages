@@ -1,10 +1,12 @@
 #pragma once
 
+#include "barretenberg/ecc/groups/affine_element.hpp"
 #include "barretenberg/vm/avm/generated/flavor_settings.hpp"
 
 namespace bb::avm_trace {
 
 using FF = AvmFlavorSettings::FF;
+using AffinePoint = grumpkin::g1::affine_element;
 
 struct ExternalCallHint {
     FF success;
@@ -26,6 +28,22 @@ inline void read(uint8_t const*& it, ExternalCallHint& hint)
     read(it, hint.end_side_effect_counter);
 }
 
+struct PublicKeysHint {
+    AffinePoint nullifier_key;
+    /** Incoming viewing public key */
+    AffinePoint incoming_viewing_key;
+    /** Outgoing viewing public key */
+    AffinePoint outgoing_viewing_key;
+    /** Tagging viewing public key */
+    AffinePoint tagging_key;
+
+    std::vector<FF> to_fields() const
+    {
+        return { nullifier_key.x,        nullifier_key.y,        incoming_viewing_key.x, incoming_viewing_key.y,
+                 outgoing_viewing_key.x, outgoing_viewing_key.y, tagging_key.x,          tagging_key.y };
+    }
+};
+
 struct ContractInstanceHint {
     FF address;
     FF instance_found_in_address;
@@ -33,9 +51,19 @@ struct ContractInstanceHint {
     FF deployer_addr;
     FF contract_class_id;
     FF initialisation_hash;
-    FF public_key_hash;
+    PublicKeysHint public_keys;
 };
 
+inline void read(uint8_t const*& it, PublicKeysHint& hint)
+{
+    using serialize::read;
+    // CAREFUL: We assume we never receive a point at infinity here
+    // TS does not serialize the infinity flag when converting to buffer
+    read(it, hint.nullifier_key);
+    read(it, hint.incoming_viewing_key);
+    read(it, hint.outgoing_viewing_key);
+    read(it, hint.tagging_key);
+}
 // Add support for deserialization of ContractInstanceHint.
 inline void read(uint8_t const*& it, ContractInstanceHint& hint)
 {
@@ -46,7 +74,7 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
     read(it, hint.deployer_addr);
     read(it, hint.contract_class_id);
     read(it, hint.initialisation_hash);
-    read(it, hint.public_key_hash);
+    read(it, hint.public_keys);
 }
 
 struct ExecutionHints {

@@ -274,7 +274,8 @@ fn validate_aggregated_values_fee_payer_from_private_call_mismatch_fails() {
 fn validate_aggregated_values_fee_payer_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_fee_payer(builder.private_call.storage_contract_address);
+    // Set the fee payer while the private call is not made the fee payer.
+    builder.output.set_fee_payer(builder.private_call.contract_address);
 
     builder.validate_as_inner_call();
 }

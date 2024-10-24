@@ -469,7 +469,7 @@ describe('e2e_synching', () => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
             const freshNode = await AztecNodeService.createAndSync(
-              { ...opts.config!, disableSequencer: true, disableValidator: true },
+              { ...opts.config!, disableValidator: true },
               new NoopTelemetryClient(),
             );
             const syncTime = timer.s();

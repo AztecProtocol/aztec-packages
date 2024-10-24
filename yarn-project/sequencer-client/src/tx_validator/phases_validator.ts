@@ -50,7 +50,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(
           `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
-            setupFn.contractAddress
+            setupFn.callContext.contractAddress
           }:${setupFn.callContext.functionSelector}`,
         );
 
@@ -66,10 +66,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const {
-      contractAddress,
-      callContext: { functionSelector },
-    } = publicCall;
+    const { contractAddress, functionSelector } = publicCall.callContext;
 
     // do these checks first since they don't require the contract class
     for (const entry of allowList) {
@@ -88,7 +85,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
 
       if (!contractClass) {
-        throw new Error(`Contract not found: ${publicCall.contractAddress.toString()}`);
+        throw new Error(`Contract not found: ${contractAddress}`);
       }
 
       if ('classId' in entry && !('selector' in entry)) {
