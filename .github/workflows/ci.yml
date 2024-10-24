@@ -667,6 +667,7 @@ jobs:
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
           run: |
             cd yarn-project/end-to-end
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.test }}
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
 
