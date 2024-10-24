@@ -7,12 +7,12 @@ contract EcdsaRAccount {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}}
+        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}},
     };
 
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
-        auth_witness::get_auth_witness
+        auth_witness::get_auth_witness,
     };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
@@ -31,9 +31,14 @@ contract EcdsaRAccount {
         // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
         // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
         // important.
-
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
-        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
+        let mut pub_key_note =
+            EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
+        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
+            &mut context,
+            this_keys.ovpk_m,
+            this_keys.ivpk_m,
+            this,
+        ));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
@@ -58,9 +63,7 @@ contract EcdsaRAccount {
         let public_key = storage.public_key.get_note();
 
         // Load auth witness
-        let witness: [Field; 64] = unsafe {
-            get_auth_witness(outer_hash)
-        };
+        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {
             signature[i] = witness[i] as u8;
@@ -70,6 +73,11 @@ contract EcdsaRAccount {
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let outer_hash_bytes: [u8; 32] = outer_hash.to_be_bytes();
         let hashed_message: [u8; 32] = std::hash::sha256(outer_hash_bytes);
-        std::ecdsa_secp256r1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
+        std::ecdsa_secp256r1::verify_signature(
+            public_key.x,
+            public_key.y,
+            signature,
+            hashed_message,
+        )
     }
 }

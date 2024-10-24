@@ -64,7 +64,7 @@ export const startNode = async (
   }
 
   if (!options.sequencer) {
-    nodeConfig.disableSequencer = true;
+    nodeConfig.disableValidator = true;
   } else {
     const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
     let account;

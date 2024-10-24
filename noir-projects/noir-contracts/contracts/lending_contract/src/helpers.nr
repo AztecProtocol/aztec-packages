@@ -18,7 +18,7 @@ pub fn covered_by_collateral(
     loan_to_value: U128,
     collateral: U128,
     increase: U128,
-    decrease: U128
+    decrease: U128,
 ) -> U128 {
     let price_precision = U128::from_integer(1000000000);
     let ltv_precision = U128::from_integer(10000);
@@ -49,7 +49,7 @@ pub fn debt_updates(
     interest_accumulator: U128,
     static_debt: U128,
     increase: U128,
-    decrease: U128
+    decrease: U128,
 ) -> DebtReturn {
     assert(interest_accumulator > U128::from_integer(0));
     let accumulator_precision = U128::from_integer(1000000000);

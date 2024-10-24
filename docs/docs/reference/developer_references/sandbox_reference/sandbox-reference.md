@@ -128,8 +128,6 @@ ContractClassRegistererContractArtifact
 ContractInstanceDeployerContractArtifact
 CounterContractArtifact
 CrowdfundingContractArtifact
-DelegatedOnContractArtifact
-DelegatorContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
@@ -166,7 +164,7 @@ You can see all of our example contracts in the monorepo [here (GitHub link)](ht
 If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
 
 ```bash
-aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
+aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] --p2p-bootstrap [p2pOptions]
 ```
 
 Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../../../guides/developer_guides/local_env/run_more_than_one_pxe_sandbox.md).

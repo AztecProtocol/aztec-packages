@@ -1,7 +1,7 @@
 use dep::aztec::prelude::{PrivateContext, AztecAddress};
 use dep::aztec::protocol_types::{
     constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
-    traits::{Hash, Serialize}
+    traits::{Hash, Serialize},
 };
 
 use dep::authwit::entrypoint::function_call::FunctionCall;
@@ -15,8 +15,8 @@ global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
 pub struct DAppPayload {
-  function_calls: [FunctionCall; DAPP_MAX_CALLS],
-  nonce: Field,
+    function_calls: [FunctionCall; DAPP_MAX_CALLS],
+    nonce: Field,
 }
 // docs:end:app-payload-struct
 
@@ -64,7 +64,6 @@ impl DAppPayload {
                     call.function_selector,
                     call.args_hash,
                     call.is_static,
-                    false
                 );
             } else {
                 let _result = context.call_private_function_with_packed_args(
@@ -72,7 +71,6 @@ impl DAppPayload {
                     call.function_selector,
                     call.args_hash,
                     call.is_static,
-                    false
                 );
             }
         }

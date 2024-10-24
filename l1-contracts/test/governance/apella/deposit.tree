@@ -1,0 +1,11 @@
+DepositTest
+├── when caller have insufficient allowance
+│   └── it revert
+└── when caller have sufficient allowance
+    ├── when caller have insufficient funds
+    │   └── it revert
+    └── when caller have sufficient funds
+        ├── it transfer funds from caller
+        ├── it add snapshot to user
+        ├── it add snapshot to the total
+        └── it emits a {Deposit} event

@@ -1,10 +1,11 @@
 use crate::{
     abis::{
-    accumulated_data::PrivateAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
-    kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequestsBuilder
-},
-    address::AztecAddress, traits::Empty
+        accumulated_data::PrivateAccumulatedDataBuilder,
+        combined_constant_data::CombinedConstantData,
+        kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        public_call_request::PublicCallRequest,
+        validation_requests::PrivateValidationRequestsBuilder,
+    }, address::AztecAddress, traits::Empty,
 };
 
 pub struct PrivateKernelCircuitPublicInputsBuilder {
@@ -13,7 +14,7 @@ pub struct PrivateKernelCircuitPublicInputsBuilder {
     end: PrivateAccumulatedDataBuilder,
     constants: CombinedConstantData,
     public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress
+    fee_payer: AztecAddress,
 }
 
 impl PrivateKernelCircuitPublicInputsBuilder {
@@ -24,7 +25,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             end: self.end.finish(),
             constants: self.constants,
             public_teardown_call_request: self.public_teardown_call_request,
-            fee_payer: self.fee_payer
+            fee_payer: self.fee_payer,
         }
     }
 }
@@ -37,7 +38,7 @@ impl Empty for PrivateKernelCircuitPublicInputsBuilder {
             end: PrivateAccumulatedDataBuilder::empty(),
             constants: CombinedConstantData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            fee_payer: AztecAddress::empty()
+            fee_payer: AztecAddress::empty(),
         }
     }
 }
