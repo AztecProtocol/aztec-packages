@@ -11,10 +11,14 @@ namespace bb::stdlib::recursion::honk {
 void GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
     // Run the ECCVM recursive verifier
+    info("num gates before eccvm: ", builder->num_gates);
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key };
     eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
+
+    info("num gates after eccvm: ", builder->num_gates);
+
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };

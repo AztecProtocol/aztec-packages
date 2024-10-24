@@ -39,6 +39,13 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
                                                                 multivariate_challenge,
                                                                 Commitment::one(builder),
                                                                 transcript);
+    Shplemini::remove_shifted_commitments(opening_claim,
+                                          Flavor::TO_BE_SHIFTED_WITNESSES_START,
+                                          Flavor::SHIFTED_WITNESSES_START,
+                                          Flavor::NUM_SHIFTED_WITNESSES,
+                                          Flavor::TO_BE_SHIFTED_PRECOMPUTED_START,
+                                          Flavor::SHIFTED_PRECOMPUTED_START,
+                                          Flavor::NUM_PRECOMPUTED_SHIFTS);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;
