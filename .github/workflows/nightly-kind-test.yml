@@ -45,12 +45,13 @@ jobs:
       # override slot time to use prod 36s standard
       - name: "Set 32s slot time"
         run: |
+          echo "Updating AZTEC_SLOT_DURATION..."
           sed -i 's/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* [0-9]\+/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3/g' ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
           if grep -q "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* 3" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr; then
-            echo "✅ Successfully updated AZTEC_SLOT_DURATION to 3x ETHEREUM_SLOT_DURATION"
+            echo "Successfully updated AZTEC_SLOT_DURATION:"
             grep "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
           else
-            echo "❌ Failed to update AZTEC_SLOT_DURATION"
+            echo "Failed to update AZTEC_SLOT_DURATION:"
             grep "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
             exit 1
           fi
